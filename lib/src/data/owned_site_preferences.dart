@@ -110,7 +110,7 @@ final class OwnedSitePreferences<T extends Object> {
           // Old dotted keys can have another owner. Copy without deleting them.
           try {
             await _save(preferences, key, oldValue);
-          } catch (error) {}
+          } catch (_) {}
           return _ownsPreference(identity.siteUrl, owner) ? oldValue : null;
         } catch (error) {
           return null;
@@ -131,7 +131,7 @@ final class OwnedSitePreferences<T extends Object> {
           final preferences = await SharedPreferences.getInstance();
           if (!_ownsPreference(identity.siteUrl, owner)) return;
           await _save(preferences, key, newValue);
-        } catch (error) {}
+        } catch (_) {}
       },
     );
   }

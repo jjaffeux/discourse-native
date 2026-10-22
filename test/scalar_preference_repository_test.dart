@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
-import 'package:discourse_native/src/data/sidebar_width_store.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -136,29 +135,6 @@ final class _MemoryScalarPersistence
       await firstWriteGate!.future;
     }
     if (acceptWrites) values[key] = value;
-    return acceptWrites;
-  }
-}
-
-final class _SidebarWidthPersistence implements SidebarWidthPersistence {
-  _SidebarWidthPersistence(this.value);
-
-  double? value;
-  Object? readError;
-  bool acceptWrites = true;
-  final List<double> attemptedWrites = [];
-
-  @override
-  Future<double?> readWidth() async {
-    final error = readError;
-    if (error != null) throw error;
-    return value;
-  }
-
-  @override
-  Future<bool> writeWidth(double width) async {
-    attemptedWrites.add(width);
-    if (acceptWrites) value = width;
     return acceptWrites;
   }
 }

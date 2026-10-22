@@ -1492,7 +1492,7 @@ class ChatController extends FrameSafeNotifier {
           channelId: channelId,
         ),
       );
-    } catch (error) {}
+    } catch (_) {}
   }
 
   /// Reads a linked message without replacing a channel/thread's visible window.

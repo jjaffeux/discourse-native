@@ -96,7 +96,7 @@ class _AvatarImageState extends State<AvatarImage> {
         fit: widget.fit,
         placeholderBuilder: (context) => widget.fallback,
         errorBuilder: (context, error, stackTrace) =>
-            _decodeFallback(loader, url, bytes, error, stackTrace),
+            _decodeFallback(loader, url, bytes),
       );
     }
 
@@ -111,17 +111,12 @@ class _AvatarImageState extends State<AvatarImage> {
       fit: widget.fit,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) =>
-          _decodeFallback(loader, url, bytes, error, stackTrace),
+          _decodeFallback(loader, url, bytes),
     );
   }
 
-  Widget _decodeFallback(
-    AvatarLoader? loader,
-    String url,
-    AvatarBytes image,
-    Object error,
-    StackTrace? stackTrace,
-  ) {
+  Widget _decodeFallback(AvatarLoader? loader, String url, AvatarBytes image) {
+    loader?.rejectAfterDecodeFailure(url, image);
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return widget.fallback;
   }

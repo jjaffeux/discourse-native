@@ -183,7 +183,7 @@ final class CustomSidebarSections {
       account.sections = _freeze(sections);
       account.loaded = true;
       _onChanged();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   void invalidate(String siteUrl, {required SiteLease account}) {

@@ -1,5 +1,4 @@
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,11 +19,10 @@ void main() {
         await controller.pluginTeardown;
         await controller.plugins.close();
       });
-      try {
+      {
         await tester.pumpWidget(
           TopicListScrollFixture(
             controller: controller,
-
             width: double.infinity,
           ),
         );
@@ -48,7 +46,6 @@ void main() {
         addTearDown(() => debugOnRebuildDirtyWidget = previous);
         await resize(700);
         expect(rebuilt, isNot(contains(title)));
-
         final posters = find.descendant(
           of: row,
           matching: find.byKey(const ValueKey('topic-card-posters-1')),
@@ -62,11 +59,11 @@ void main() {
         );
         await resize(600);
         expect(posters, findsOneWidget);
-      } finally {}
+      }
     },
   );
 
-  testWidgets('retracting header does not repeatedly rebuild retained rows', (
+  testWidgets('retracting header preserves scroll and viewport positions', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(900, 700);
@@ -89,8 +86,7 @@ void main() {
       await tester.pumpAndSettle();
       final initialHeight = position.viewportDimension;
       final initialPixels = position.pixels;
-      final repeated = <int>[];
-      final totals = <String, int>{};
+
       for (final delta in [160.0, -160.0, 160.0, -160.0]) {
         // Wait out the endpoint hold, then cross the reversal slack and move
         // the full header so every capture includes an actual transition.
@@ -103,16 +99,12 @@ void main() {
         }
         await tester.pumpAndSettle();
 
-        final indices = <int>{};
-
         expect(position.pixels, initialPixels + (delta > 0 ? 160 : 0));
         expect(
           position.viewportDimension,
           closeTo(initialHeight + (delta > 0 ? 104 : 0), 0.01),
         );
       }
-      debugPrint('HEADER_SCROLL_COUNTS $totals repeated=${repeated.length}');
-      expect(repeated, isEmpty);
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
@@ -185,7 +177,6 @@ void main() {
           );
           final position = tester.state<ScrollableState>(scrollable).position;
           expect(position.maxScrollExtent, greaterThan(14400));
-          final viewport = tester.getRect(scrollable);
           final rebuiltTitles = <Element>[];
           final builtTitles = find.byType(TopicTitle).evaluate().toSet();
           final previous = debugOnRebuildDirtyWidget;
@@ -214,20 +205,8 @@ void main() {
               position.pointerScroll(delta);
               await tester.pump(const Duration(milliseconds: 16));
 
-              // Variable-height rows can be built then discarded while the
-              // sliver corrects estimates during a large jump. Bound that work
-              // by a viewport of sparse rows, two edge rows, and one transient
-              // estimate-correction row for mixed event/title heights.
-              final rowBudget =
-                  (viewport.height / TopicListRow.minimumHeight).ceil() + 3;
-
               expect(position.pixels, closeTo(requested, 0.01));
             }
-
-            for (final name in [
-              'topicList.row.build',
-              'topicList.row.layout',
-            ]) {}
           }
           expect(rebuiltTitles, isEmpty);
           expect(position.pixels, 7200);

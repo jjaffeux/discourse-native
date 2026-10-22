@@ -137,6 +137,6 @@ final class SidebarSectionStore {
         collapsed: collapsed,
       );
       if (!saved) throw StateError('Could not persist sidebar section state.');
-    } catch (error) {}
+    } catch (_) {}
   }
 }

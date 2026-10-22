@@ -1864,17 +1864,17 @@ Future<bool> _testMicrophone(String? input) async {
     for (final track in stream.getTracks()) {
       try {
         await track.stop();
-      } catch (error, stackTrace) {
+      } catch (error) {
         available = false;
       }
     }
-  } catch (error, stackTrace) {
+  } catch (error) {
     available = false;
   } finally {
     if (stream != null) {
       try {
         await stream.dispose();
-      } catch (error, stackTrace) {
+      } catch (error) {
         available = false;
       }
     }

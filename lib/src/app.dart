@@ -365,7 +365,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
       );
       pluginsStarted = true;
-    } catch (error) {}
+    } catch (_) {}
     if (!mounted || !identical(_controller, controller)) return;
     try {
       await controller.load();
@@ -378,7 +378,7 @@ class _DiscourseAppState extends State<DiscourseApp>
           bindings: const PluginHostBindings.empty(),
         );
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   void _listenToNotificationOpens(Stream<String> urls) {
@@ -417,7 +417,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         final pending = _pendingNotificationUrls.first;
         try {
           await controller.openNotificationUrl(pending.url);
-        } catch (error) {}
+        } catch (_) {}
         if (!mounted || !identical(_controller, controller)) return;
         // A burst of taps can evict this entry while its navigation is in
         // flight. Remove only this delivery, even when a later tap has the
@@ -458,7 +458,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     if (sessionTeardown != null) {
       try {
         await sessionTeardown;
-      } on Object {
+      } on Object catch (_) {
         // ShellController already observes session teardown failures. App
         // lifecycle cleanup must still close the installed runtime.
       }
@@ -581,13 +581,13 @@ class _DiscourseAppState extends State<DiscourseApp>
   ) async {
     try {
       await plugins.observeAppState(state, foreground: _foreground);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> _flushPlugins(InstalledPlugins plugins) async {
     try {
       await plugins.flush();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Widget _materialApp({

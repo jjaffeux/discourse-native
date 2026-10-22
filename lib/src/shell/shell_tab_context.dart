@@ -792,7 +792,7 @@ final class ShellTabContext {
     try {
       await (shell._contentRefreshers[tabId]?.call() ??
           shell._refreshCurrentContent(this));
-    } catch (error) {
+    } catch (_) {
     } finally {
       shell._refreshingTabs.remove(key);
       if (!shell._tabContextDisposed) shell._notify();

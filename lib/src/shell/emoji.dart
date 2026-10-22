@@ -100,7 +100,7 @@ class _EmojiImageState extends State<EmojiImage> {
         placeholderBuilder: (context) =>
             SizedBox.square(dimension: widget.size),
         errorBuilder: (context, error, stackTrace) =>
-            _decodeFallback(cache, url, image, error, stackTrace),
+            _decodeFallback(cache, url, image),
       );
     }
 
@@ -115,17 +115,12 @@ class _EmojiImageState extends State<EmojiImage> {
       fit: BoxFit.contain,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) =>
-          _decodeFallback(cache, url, image, error, stackTrace),
+          _decodeFallback(cache, url, image),
     );
   }
 
-  Widget _decodeFallback(
-    EmojiCache? cache,
-    String url,
-    EmojiBytes image,
-    Object error,
-    StackTrace? stackTrace,
-  ) {
+  Widget _decodeFallback(EmojiCache? cache, String url, EmojiBytes image) {
+    cache?.rejectAfterDecodeFailure(url, image);
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return _fallback();
   }

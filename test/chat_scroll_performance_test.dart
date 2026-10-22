@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -353,9 +352,6 @@ void main() {
         }
         await tester.pumpAndSettle();
 
-        final activity = <String, int>{};
-
-        debugPrint('CHAT_RICH_COUNTS ${jsonEncode(activity)}');
         expect(seen, containsAll([SiteImage, OneboxCard, QuoteBlock]));
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
@@ -416,7 +412,6 @@ void main() {
         ),
       );
       final position = tester.state<ScrollableState>(scrollable).position;
-      final viewport = tester.getRect(scrollable);
       final rebuiltMessages = <Element>[];
       final seenMessages = find.byType(ChatMessageTile).evaluate().toSet();
       final previous = debugOnRebuildDirtyWidget;
@@ -446,42 +441,11 @@ void main() {
             rebuiltMessages.length - before,
             lessThanOrEqualTo(delta.abs() > 10 ? 2 : 0),
           );
-          if (delta.abs() > 10) {
-            final visibleMessages = find
-                .byType(ChatMessageTile)
-                .evaluate()
-                .where(
-                  (element) => tester
-                      .getRect(
-                        find.byElementPredicate(
-                          (candidate) => candidate == element,
-                        ),
-                      )
-                      .overlaps(viewport),
-                )
-                .length;
-
-            // Allow date separators and an estimated edge, without constructing
-            // another screen of rich messages outside the viewport.
-          }
         }
       }
       await tester.pumpAndSettle();
 
-      final counts = <String, int>{};
-
-      // Useful for comparing the instrumented baseline with the fix.
-      debugPrint(
-        'CHAT_SCROLL_COUNTS ${jsonEncode({...counts, 'messageRebuilds': rebuiltMessages.length})}',
-      );
       expect(find.byType(StreamDaySeparator), findsWidgets);
-      expect(counts['chat.floatingDay.changed'], greaterThan(0));
-      expect(counts['chat.capture.context'], 1);
-      expect(counts['chat.scroll.notification'], greaterThan(0));
-      expect(counts['chat.stream.built'] ?? 0, 0);
-      expect(counts['chat.row.layout'], greaterThan(0));
-      expect(counts['chat.dayExtents.scanned'] ?? 0, 0);
-      expect(counts['chat.dayExtents.updated'] ?? 0, greaterThan(0));
 
       expect(tester.takeException(), isNull);
     } finally {

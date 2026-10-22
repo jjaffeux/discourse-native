@@ -276,7 +276,7 @@ void main() {
       },
     );
     test(
-      'recent-search write ${throwsError ? 'exception' : 'rejection'} reports storage failure',
+      'recent-search write contains ${throwsError ? 'exception' : 'rejection'}',
       () async {
         final backend = _ControlledPreferences({})
           ..reject = !throwsError
@@ -285,6 +285,10 @@ void main() {
               : null;
         SharedPreferencesStorePlatform.instance = backend;
         await const RecentSearchStore().write(_short, 'sam', {'term'});
+        expect(backend.values, [
+          ['term'],
+        ]);
+        expect(await backend.getAll(), isEmpty);
       },
     );
   }

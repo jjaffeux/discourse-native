@@ -8,7 +8,6 @@ import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:message_bus_client/message_bus_client.dart';
 
 import 'support/bundled_plugins.dart';
 
@@ -860,7 +859,7 @@ void main() {
     });
 
     group('subscription and session cleanup', () {
-      test('reports a failed topic unsubscribe while active', () async {
+      test('contains a failed topic unsubscribe while active', () async {
         final bus = _FakeMessageBusSession()
           ..failingCancellationChannel = '/topic/12';
         final tracker = _tracker(bus);
@@ -868,6 +867,8 @@ void main() {
         tracker.watchTopic(12, ['/topic/12'], (_, _) {});
 
         tracker.unwatchTopic();
+        expect(bus.activeSubscriptionCount('/topic/12'), 0);
+        expect(bus.activeSubscriptionCount('/latest'), 1);
       });
 
       test('constructor failure closes the partial session', () {

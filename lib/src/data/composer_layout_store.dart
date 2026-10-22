@@ -114,7 +114,7 @@ final class ComposerLayoutStore {
         if (!await _persistence.writeLayout(jsonEncode(value.toJson()))) {
           throw StateError('Could not save composer layout.');
         }
-      } catch (error) {}
+      } catch (_) {}
     },
   );
 }

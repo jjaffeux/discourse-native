@@ -374,7 +374,7 @@ final class _ChatChannelDirectory {
           }
           liveSync.unmuteChannel(siteUrl, fresh);
         });
-      } catch (error) {
+      } catch (_) {
       } finally {
         if (identical(_channels[key]?.messageResume, run)) {
           _channels[key]?.messageResume = null;

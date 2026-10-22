@@ -240,7 +240,7 @@ final class AccountSessionCoordinator {
         return const AccountConnectionResult.stale();
       }
       return AccountConnectionResult.connected(applied, credentials.key);
-    } on UserApiAuthException catch (error, stackTrace) {
+    } on UserApiAuthException catch (error) {
       if (credentials != null) {
         final recovered = await _recoverConnection(
           siteUrl: siteUrl,
@@ -260,7 +260,7 @@ final class AccountSessionCoordinator {
       }
 
       return AccountConnectionResult.failed(error.message);
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (credentials == null) {
         if (!_isCurrent(siteUrl, operation)) {
           return const AccountConnectionResult.stale();
@@ -277,7 +277,7 @@ final class AccountSessionCoordinator {
         error: error,
       );
       return recovered;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (credentials == null || !pendingPublished) {
         if (credentials != null) {
           await _revokeIssued(siteUrl, credentials.key);
@@ -348,7 +348,7 @@ final class AccountSessionCoordinator {
         try {
           await authenticator.disconnect(siteUrl);
           refreshSignedOutPresentation = initial.loginRequired == false;
-        } catch (deleteError, deleteStackTrace) {}
+        } catch (_) {}
       }
     }
 
@@ -388,7 +388,7 @@ final class AccountSessionCoordinator {
           siteUrl,
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
         );
-      } catch (error, stackTrace) {
+      } catch (error) {
         // The opening rotation has already forgotten the account's session
         // state, so even this early abort must publish the restored phase.
         return await _restoreFailedDisconnect(
@@ -410,7 +410,7 @@ final class AccountSessionCoordinator {
       String? apiKey;
       try {
         apiKey = await authenticator.apiKeyFor(siteUrl);
-      } catch (error, stackTrace) {}
+      } catch (_) {}
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
       }
@@ -486,7 +486,7 @@ final class AccountSessionCoordinator {
       final String? stored;
       try {
         stored = await authenticator.apiKeyFor(siteUrl);
-      } catch (error, stackTrace) {
+      } catch (error) {
         return const AccountDisconnectionResult.failed();
       }
       final initial = host.accountSessionInstance(siteUrl);
@@ -556,7 +556,7 @@ final class AccountSessionCoordinator {
   ) async {
     try {
       await authenticator.disconnect(siteUrl);
-    } catch (error, stackTrace) {}
+    } catch (_) {}
     if (!_isCurrent(siteUrl, operation, lease)) {
       return AccountDisconnectionResult.stale(lease);
     }
@@ -615,7 +615,7 @@ final class AccountSessionCoordinator {
       try {
         await instances.save(List.of(host.accountSessionInstances));
         return true;
-      } catch (error, stackTrace) {}
+      } catch (_) {}
     }
     return false;
   }
@@ -630,7 +630,7 @@ final class AccountSessionCoordinator {
       try {
         await instances.save(List.of(host.accountSessionInstances));
         return;
-      } catch (error, stackTrace) {}
+      } catch (_) {}
     }
   }
 
@@ -648,7 +648,7 @@ final class AccountSessionCoordinator {
       await AccountRequestScope.withoutSession(
         () => api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey),
       );
-    } catch (error, stackTrace) {}
+    } catch (_) {}
   }
 
   Object _begin(String siteUrl) {

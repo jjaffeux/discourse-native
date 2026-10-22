@@ -153,7 +153,7 @@ class RecentDestinationsStore {
           _entries[_key(entry.siteUrl, entry.accountIdentity)] = entry;
         }
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> save() {
@@ -171,7 +171,7 @@ class RecentDestinationsStore {
       if (!await _persistence.write(encoded)) {
         throw StateError('Could not persist recent destinations.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }
 

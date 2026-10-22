@@ -2636,7 +2636,7 @@ class ShellController extends FrameSafeNotifier
         in _pluginSession.capabilities<PluginUserPreferenceMirror>()) {
       try {
         updated = mirror.mirrorUserPreference(updated, section, preferences);
-      } catch (error) {}
+      } catch (_) {}
     }
     if (updated == user) return;
     _replaceInstance(instance, instance.copyWith(user: updated));
@@ -2649,7 +2649,7 @@ class ShellController extends FrameSafeNotifier
   ) async {
     try {
       await instanceStore.save(instances);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   void _notifyPluginTotals(
@@ -7594,7 +7594,7 @@ class ShellController extends FrameSafeNotifier
             _taxonomy.mergeCategories(siteUrl, found);
             _notify();
           }
-        } catch (error) {}
+        } catch (_) {}
       }
     }
     if (!isCurrent()) return;
@@ -8387,7 +8387,7 @@ class ShellController extends FrameSafeNotifier
         _topicComposerCapabilities[siteUrl] = capabilities;
         _notify();
       });
-    } catch (error) {}
+    } catch (_) {}
   }
 
   ComposerSearch _composerSearch(ComposerTarget target) {
@@ -10853,7 +10853,7 @@ class ShellController extends FrameSafeNotifier
           composer.text.artworkArrived();
         }
       });
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
@@ -10902,7 +10902,7 @@ class ShellController extends FrameSafeNotifier
           composer.text.artworkArrived();
         }
       });
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }

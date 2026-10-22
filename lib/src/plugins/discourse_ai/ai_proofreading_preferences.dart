@@ -133,7 +133,7 @@ final class AiProofreadingPreferenceStore {
           'Could not remove the forum-wide AI proofreading preference.',
         );
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> write({
@@ -166,6 +166,6 @@ final class AiProofreadingPreferenceStore {
       if (!saved) {
         throw StateError('Could not persist the AI proofreading preference.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }

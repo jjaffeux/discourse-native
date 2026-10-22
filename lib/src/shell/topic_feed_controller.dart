@@ -1170,7 +1170,7 @@ final class TopicFeedController extends FrameSafeNotifier {
           );
         }
       });
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (identical(session.topicRequest, request)) {
         session.topicRequest = null;

@@ -381,21 +381,4 @@ final class MemoryDraftPersistence implements DraftPersistence {
   }
 }
 
-final class _ThrowingDraftPersistence implements DraftPersistence {
-  const _ThrowingDraftPersistence(this.error);
 
-  final Object error;
-
-  @override
-  Future<void> delete(String key) async {}
-
-  @override
-  Future<void> deletePrefix(String prefix) async {}
-
-  @override
-  Future<DraftPersistenceRead> read(String key) async =>
-      (value: null, allowPreferenceFallback: true);
-
-  @override
-  Future<void> write(String key, String value) async => throw error;
-}

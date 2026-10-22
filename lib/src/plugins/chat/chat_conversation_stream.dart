@@ -779,7 +779,7 @@ final class _ChatConversationStream {
             ),
           );
         }
-      } catch (error) {}
+      } catch (_) {}
     }
   }
 }

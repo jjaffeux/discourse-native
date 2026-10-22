@@ -3,11 +3,6 @@ import 'dart:async';
 enum VoiceMediaConnectionState { connected, reconnecting, failed }
 
 typedef VoiceReconnectAttempt = Future<void> Function();
-typedef VoiceReconnectAttemptStarted =
-    void Function(int attemptNumber, Duration delay);
-typedef VoiceReconnectAttemptFailed =
-    void Function(int attemptNumber, Object error, StackTrace stackTrace);
-typedef VoiceReconnectExhausted = void Function(int attemptCount);
 typedef VoiceReconnectTimerFactory =
     Timer Function(Duration delay, void Function() callback);
 
@@ -21,9 +16,6 @@ final class VoiceReconnectCoordinator {
   VoiceReconnectCoordinator({
     required this.attempt,
     required this.onStateChanged,
-    this.onAttemptStarted,
-    this.onAttemptFailed,
-    this.onExhausted,
     this.shouldRetry,
     List<Duration> schedule = const [
       Duration.zero,
@@ -47,9 +39,6 @@ final class VoiceReconnectCoordinator {
 
   final VoiceReconnectAttempt attempt;
   final void Function(VoiceMediaConnectionState state) onStateChanged;
-  final VoiceReconnectAttemptStarted? onAttemptStarted;
-  final VoiceReconnectAttemptFailed? onAttemptFailed;
-  final VoiceReconnectExhausted? onExhausted;
 
   /// Stops the ladder for a terminal refusal. Other errors use every rung.
   final bool Function(Object error)? shouldRetry;
@@ -107,15 +96,11 @@ final class VoiceReconnectCoordinator {
     _failure = null;
     _setConnectionState(VoiceMediaConnectionState.reconnecting);
     for (var index = 0; index < _schedule.length; index++) {
-      final attemptNumber = index + 1;
       final delay = _schedule[index];
       if (!await _wait(delay) || _cancelled) return;
-      _notifyAttemptStarted(attemptNumber, delay);
-      if (_cancelled) return;
       try {
         await attempt();
-      } catch (error, stackTrace) {
-        _notifyAttemptFailed(attemptNumber, error, stackTrace);
+      } catch (error) {
         if (_cancelled) return;
         _failure = error;
         if (shouldRetry?.call(error) == false) {
@@ -130,31 +115,8 @@ final class VoiceReconnectCoordinator {
       return;
     }
     if (!_cancelled) {
-      _notifyExhausted(_schedule.length);
       _setConnectionState(VoiceMediaConnectionState.failed);
     }
-  }
-
-  void _notifyAttemptStarted(int attemptNumber, Duration delay) {
-    try {
-      onAttemptStarted?.call(attemptNumber, delay);
-    } catch (_) {}
-  }
-
-  void _notifyAttemptFailed(
-    int attemptNumber,
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    try {
-      onAttemptFailed?.call(attemptNumber, error, stackTrace);
-    } catch (_) {}
-  }
-
-  void _notifyExhausted(int attemptCount) {
-    try {
-      onExhausted?.call(attemptCount);
-    } catch (_) {}
   }
 
   Future<bool> _wait(Duration delay) async {

@@ -647,8 +647,6 @@ void main() {
       });
     }
 
-    for (final lane in _lanes) {}
-
     test('transfers and ordinary requests hold separate slots', () async {
       final coordinator = DiscourseRequestCoordinator(
         maxConcurrentPerOrigin: 1,

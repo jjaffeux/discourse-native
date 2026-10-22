@@ -90,6 +90,6 @@ final class ScalarPreferenceRepository<T extends Object> {
     if (isCurrent?.call() == false) return;
     try {
       await persistence.write(key, value);
-    } catch (error) {}
+    } catch (_) {}
   }
 }

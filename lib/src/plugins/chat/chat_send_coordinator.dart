@@ -575,7 +575,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         return;
       }
       _subscriptions[key] = subscription;
-    } catch (error) {
+    } catch (_) {
       // POST marks the row sent; a later ordinary fetch supplies canonical data.
     }
   }
@@ -686,7 +686,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     if (subscription == null) return;
     try {
       subscription.cancel();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   @override

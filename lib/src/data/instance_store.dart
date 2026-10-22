@@ -78,7 +78,7 @@ class InstanceStore {
           'url': requireStoredForumBase(entry['url']),
         });
         if (seenUrls.add(instance.url)) instances.add(instance);
-      } catch (error) {
+      } catch (_) {
         // A stale or damaged entry must not erase the other connected sites.
       }
     }

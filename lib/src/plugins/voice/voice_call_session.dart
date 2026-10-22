@@ -126,7 +126,7 @@ final class _VoiceCallSession {
     _mediaDisposal = completion.future;
     try {
       media.removeListener(_mediaChanged);
-    } catch (error) {}
+    } catch (_) {}
     unawaited(
       controller._runHandled(media.dispose).then((_) {
         if (!completion.isCompleted) completion.complete();
@@ -482,7 +482,7 @@ final class _VoiceCallSession {
         await close(notifyServer: error.statusCode != HttpStatus.notFound);
         return;
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   VoiceIdleThresholds _activeIdleThresholds() {
@@ -922,7 +922,7 @@ final class _VoiceCallSession {
     }
     try {
       await system(current);
-    } catch (error) {
+    } catch (_) {
       // The local media operation already succeeded. A platform call-control
       // sync failure must not roll it back or claim that the device rejected
       // the setting.
@@ -1304,25 +1304,25 @@ final class _VoiceCallSession {
           if (credentials != null) {
             await _leaveMembership(apiKey: credentials.apiKey!);
           } else {}
-        } catch (error) {}
+        } catch (_) {}
       } else {}
 
       await mediaDisposal;
 
       await controller._runHandled(controller.systemCall.end);
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (identical(_call?.media, call.media)) {
         _call = null;
         try {
           controller._onCallSiteChanged();
-        } catch (error) {}
+        } catch (_) {}
       }
 
       if (!controller._disposed) {
         try {
           controller._notifyCallChanged();
-        } catch (error) {}
+        } catch (_) {}
       }
       if (!completion.isCompleted) completion.complete();
       manager.release(this);

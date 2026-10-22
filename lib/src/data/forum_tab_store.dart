@@ -158,7 +158,7 @@ class ForumTabStore {
         encode(snapshot.workspaces, selectedSiteUrl: snapshot.selectedSiteUrl),
       );
       if (!saved) throw StateError('Could not persist forum tabs.');
-    } catch (error) {}
+    } catch (_) {}
   }
 }
 

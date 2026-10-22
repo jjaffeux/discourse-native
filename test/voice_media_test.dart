@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 
@@ -8,7 +7,6 @@ import 'package:discourse_native/src/plugins/voice/voice_livekit_endpoint.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_reconnect.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -3582,48 +3580,6 @@ void main() {
         expect(
           coordinator.connectionState,
           VoiceMediaConnectionState.connected,
-        );
-      },
-    );
-
-    test(
-      'cancellation from the attempt observer prevents media work',
-      () async {
-        var attempts = 0;
-        final states = <VoiceMediaConnectionState>[];
-        late VoiceReconnectCoordinator coordinator;
-        coordinator = VoiceReconnectCoordinator(
-          attempt: () async => attempts++,
-          onStateChanged: states.add,
-          onAttemptStarted: (_, _) => coordinator.cancel(),
-          schedule: const [Duration.zero],
-        );
-
-        await coordinator.reconnect();
-
-        expect(attempts, 0);
-        expect(states, [VoiceMediaConnectionState.reconnecting]);
-      },
-    );
-
-    test(
-      'cancellation from the exhaustion observer prevents a failed state',
-      () async {
-        final states = <VoiceMediaConnectionState>[];
-        late VoiceReconnectCoordinator coordinator;
-        coordinator = VoiceReconnectCoordinator(
-          attempt: () async => throw StateError('offline'),
-          onStateChanged: states.add,
-          onExhausted: (_) => coordinator.cancel(),
-          schedule: const [Duration.zero],
-        );
-
-        await coordinator.reconnect();
-
-        expect(states, [VoiceMediaConnectionState.reconnecting]);
-        expect(
-          coordinator.connectionState,
-          VoiceMediaConnectionState.reconnecting,
         );
       },
     );

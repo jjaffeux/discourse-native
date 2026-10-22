@@ -235,7 +235,7 @@ class UpdateController extends FrameSafeNotifier {
 
         try {
           await store.writeChannel(channel);
-        } catch (error) {
+        } catch (_) {
           // Keep the session's selection useful even when preferences are
           // temporarily unavailable. A later channel change can persist it.
         }
@@ -254,7 +254,7 @@ class UpdateController extends FrameSafeNotifier {
   Future<void> _discardForChannelChange() async {
     try {
       await updater.discard();
-    } catch (error) {
+    } catch (_) {
       // Nothing staged, or it could not be removed. Neither is worth telling
       // the user about; the check which follows is the useful outcome.
     }
@@ -300,7 +300,7 @@ class UpdateController extends FrameSafeNotifier {
       unawaited(
         updater.discard().onError((Object error, StackTrace stackTrace) {}),
       );
-    } catch (error) {
+    } catch (_) {
       // Disposal must still finish if an adapter fails before returning its
       // Future. There is no live controller left to surface the failure on.
     }

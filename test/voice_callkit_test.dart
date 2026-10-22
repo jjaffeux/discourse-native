@@ -118,21 +118,25 @@ void main() {
     final oldSystemCall = NativeVoiceSystemCall(
       installMethodCallHandlerForTesting: true,
     );
-
+    final newSystemCall = NativeVoiceSystemCall(
+      installMethodCallHandlerForTesting: true,
+    );
     addTearDown(oldSystemCall.dispose);
-
+    addTearDown(newSystemCall.dispose);
+    final actions = <VoiceSystemCallAction>[];
+    final subscription = newSystemCall.actions.listen(actions.add);
+    addTearDown(subscription.cancel);
     await oldSystemCall.dispose();
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .handlePlatformMessage(
           'org.discourse.native/voice_callkit',
           const StandardMethodCodec().encodeMethodCall(
-            const MethodCall('diagnostic', {
-              'event': 'callkit.new_owner.event',
-              'data': {'owner': 'new'},
-            }),
+            const MethodCall('answer'),
           ),
           null,
         );
+    await pumpEventQueue();
+    expect(actions, [VoiceSystemCallAction.answer]);
   });
 
   test(

@@ -182,7 +182,7 @@ Future<void> forgetSitePreferences(
     if (results.contains(false)) {
       throw StateError('Could not remove a forgotten forum\'s preferences.');
     }
-  } catch (error) {}
+  } catch (_) {}
 }
 
 abstract class _PreferenceRetirementObserver {

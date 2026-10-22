@@ -356,7 +356,7 @@ class SecureStore {
     if (previous == null) return;
     try {
       await previous;
-    } catch (error) {
+    } catch (_) {
       // A newer credential operation must still get a chance to repair state.
     }
   }

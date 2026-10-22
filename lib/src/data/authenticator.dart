@@ -189,7 +189,7 @@ class Authenticator implements ApiCredentialReader {
     if (registration == null) return;
     try {
       await store.writePushClientId(registration.clientId);
-    } catch (error) {
+    } catch (_) {
       // The registration still works for this launch; only a relaunch that
       // cannot reach the platform loses it.
     }

@@ -238,7 +238,7 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
       if (!saved) {
         throw StateError('Could not persist emoji picker preferences.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   static List<String> _rankFavorites(

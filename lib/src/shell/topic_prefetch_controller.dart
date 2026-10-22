@@ -128,8 +128,9 @@ final class TopicPrefetchController {
     final entry = _candidate;
     if (entry != null) {
       if (entry.started && entry.completedAt == null) {
-      } else
+      } else {
         entry.discarded = true;
+      }
       entry.cancellation.cancel();
     }
     _candidate = null;

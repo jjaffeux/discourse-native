@@ -401,7 +401,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         current,
       );
       _notify();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   bool bookmarkWriteInFlight({

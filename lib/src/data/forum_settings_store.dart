@@ -147,7 +147,7 @@ final class ForumSettingsStore {
             ?.toAccentTint()
             .copyWith(strength: 0);
         if (background != null && !background.isPlain) effects ??= background;
-      } on FormatException {
+      } on FormatException catch (_) {
         // A damaged document still gave its font.
       }
     }
@@ -221,7 +221,7 @@ final class ForumSettingsStore {
         for (final site in sites) {
           try {
             migrated = await _migrateThemes(migrated, site);
-          } catch (error) {}
+          } catch (_) {}
         }
         if (!identical(library, migrated) ||
             _pendingThemeMigrations.isNotEmpty) {
@@ -348,7 +348,7 @@ final class ForumSettingsStore {
       if (!await _persistence.write(key, mode.name)) {
         throw StateError('Could not persist the forum theme mode.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }
 

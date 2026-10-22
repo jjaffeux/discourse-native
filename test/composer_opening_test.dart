@@ -205,7 +205,6 @@ void main({bool profile = false}) {
       for (var iteration = 0; iteration < 3; iteration++) {
         final elapsed = Stopwatch()..start();
         final marks = <String, double>{};
-        var builds = 0;
 
         final opening = shell.openNewTopicFromSidebar();
         await tester.pump();

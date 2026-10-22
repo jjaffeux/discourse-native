@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
@@ -246,7 +245,7 @@ class SiteTracker {
     if (position != null) _topicPositions.put(channel, position);
     try {
       subscription.cancel();
-    } catch (error) {
+    } catch (_) {
       // The bus close is the final cleanup boundary. One broken channel
       // handle must not retain every later subscription or prevent close.
     }

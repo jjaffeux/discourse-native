@@ -24,7 +24,7 @@ import 'src/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
-  runApp(ScrollAreaReviewApp());
+  runApp(const ScrollAreaReviewApp());
 }
 
 class ScrollAreaReviewApp extends StatefulWidget {

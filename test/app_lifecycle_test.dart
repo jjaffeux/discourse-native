@@ -428,7 +428,7 @@ void main() {
         final statesBeforeQuit = List.of(probe.states);
 
         AppExitResponse? response;
-        int? appendCallsAtAnswer;
+
         int? flushCallsAtAnswer;
         unawaited(
           tester.binding.handleRequestAppExit().then((value) {

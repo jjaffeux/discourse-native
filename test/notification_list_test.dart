@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';

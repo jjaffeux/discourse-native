@@ -236,7 +236,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool get _restored => _viewport.restored;
   bool get _restoring => _viewport.restoring;
 
-  int? get _savedAnchorPostNumber => _viewport.savedAnchorPostNumber;
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;

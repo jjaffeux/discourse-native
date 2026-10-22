@@ -61,7 +61,7 @@ final class ChatThreadPanelWidthStore {
           if (!await _persistence.writeWidth(width)) {
             throw StateError('Could not persist the thread panel width.');
           }
-        } catch (error) {}
+        } catch (_) {}
       },
     );
   }

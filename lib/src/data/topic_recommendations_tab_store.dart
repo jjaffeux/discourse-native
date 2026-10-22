@@ -130,7 +130,7 @@ final class TopicRecommendationsTabStore {
       if (!saved) {
         throw StateError('Could not persist the more topics tab.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }
 

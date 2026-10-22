@@ -440,7 +440,7 @@ class AssignmentController extends FrameSafeNotifier
   Future<void> _reconcileUnavailable(String siteUrl, int topicId) async {
     try {
       await _reloadTopic(siteUrl, topicId);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<PluginRequestCredentials> _session(

@@ -401,7 +401,7 @@ void main() {
     test('queued paging is deduplicated, stale-checked, and retryable', () {
       final frames = _FrameQueue();
       final geometry = _Geometry();
-      final diagnostics = <String>[];
+
       final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final first = _snapshot(topicId: 1, postIds: const [10], hasMore: true);
@@ -462,7 +462,7 @@ void main() {
       final geometry = _Geometry()
         ..offsets[11] = 40
         ..position = (pixels: 100, minScrollExtent: 0, maxScrollExtent: 500);
-      final diagnostics = <String>[];
+
       final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
@@ -488,7 +488,7 @@ void main() {
       final geometry = _Geometry()
         ..offsets[11] = 300
         ..position = (pixels: 1000, minScrollExtent: 0, maxScrollExtent: 1000);
-      final diagnostics = <String>[];
+
       final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
@@ -561,7 +561,6 @@ TopicViewportCoordinator _coordinator({
   required _Geometry geometry,
   _ManualClock? clock,
   TopicViewportControllersDisposer? controllersDisposer,
-  List<String>? diagnostics,
 }) => TopicViewportCoordinator(
   postFrame: frames.schedule,
   geometry: geometry,

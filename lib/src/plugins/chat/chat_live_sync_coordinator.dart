@@ -1179,7 +1179,7 @@ final class ChatLiveSyncCoordinator {
         }
         _host.notifyCanonicalChange();
       });
-    } catch (error) {
+    } catch (_) {
     } finally {
       final notify = isCurrent();
       _host.endChannelFollow(site.siteUrl, incoming.id, token);
@@ -1543,7 +1543,7 @@ final class ChatLiveSyncCoordinator {
         if (!_accepts(site, owned)) return;
         try {
           onMessage(data, messageId);
-        } catch (error) {
+        } catch (_) {
         } finally {
           if (_accepts(site, owned)) onDelivered?.call(messageId);
         }
@@ -1744,7 +1744,7 @@ final class _OwnedLiveSubscription {
     _active = false;
     try {
       _cancelUnderlying();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   void _cancelUnderlying() {

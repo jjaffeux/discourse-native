@@ -2378,16 +2378,6 @@ void main() {
       'DQuestionnaireSavedState',
       // The diagram renderer's own reply, posted by the page this app loads.
       '_MermaidImage',
-      // The diagnostics store reading back what it wrote.
-      'DiagnosticEvent',
-      'DiagnosticLogEvent',
-      'DiagnosticRedirect',
-      'DiagnosticSessionEvent',
-      'ErrorDiagnosticEvent',
-      'HttpDiagnosticEvent',
-      '_CommonFields',
-      // Scrubs a diagnostics map on its way out; it reads no payload.
-      'VoiceDiagnosticsRedactor',
     };
 
     // A parser is a factory or static member of a class that is named

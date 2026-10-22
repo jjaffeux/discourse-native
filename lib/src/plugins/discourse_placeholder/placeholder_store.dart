@@ -91,7 +91,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         }
         return PrivateFileResult.done;
       });
-    } catch (error) {}
+    } catch (_) {}
   }
 
   @override
@@ -101,7 +101,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         values.removeWhere((key, _) => _identity(key)?.post.siteUrl == siteUrl);
         return PrivateFileResult.done;
       });
-    } catch (error) {}
+    } catch (_) {}
   }
 
   static void _prune(Map<String, _SavedValue> values, DateTime now) {

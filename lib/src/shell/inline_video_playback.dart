@@ -191,7 +191,7 @@ abstract base class _InlineVideoPlaybackSessionBase extends ChangeNotifier
     _started = true;
     try {
       await initialize();
-    } on Object catch (error, stackTrace) {
+    } on Object catch (error) {
       if (_disposed) return;
       reportFailure(error);
     }
@@ -334,7 +334,7 @@ final class _NativeInlineVideoPlaybackSession
     try {
       await action(controller);
       _publishControllerState(controller);
-    } on Object catch (error, stackTrace) {
+    } on Object catch (error) {
       if (isDisposed || !identical(controller, _controller)) return;
       _releaseController();
       reportFailure(error);
@@ -385,12 +385,12 @@ final class _NativeControllerLease {
   Future<void> _dispose() async {
     try {
       await controller.pause();
-    } on Object {
+    } on Object catch (_) {
       // An errored platform controller may reject pause during teardown.
     }
     try {
       await controller.dispose();
-    } on Object {
+    } on Object catch (_) {
       // Disposal is best-effort after the platform reports playback failure.
     }
   }
@@ -521,7 +521,7 @@ final class _WebViewInlineVideoPlaybackSession
             ? "document.querySelector('audio')?.play().catch(() => DiscourseVideo.postMessage('error'));"
             : _playVideoScript,
       );
-    } on Object catch (error, stackTrace) {
+    } on Object catch (error) {
       _fail(error);
     }
   }
@@ -546,7 +546,7 @@ final class _WebViewInlineVideoPlaybackSession
       await controller.runJavaScript(
         "document.querySelector('audio').currentTime = $seconds;",
       );
-    } on Object catch (error, stackTrace) {
+    } on Object catch (error) {
       _fail(error);
     }
   }
@@ -573,7 +573,7 @@ final class _WebViewInlineVideoPlaybackSession
           duration: duration(data['duration']),
         ),
       );
-    } on FormatException {
+    } on FormatException catch (_) {
       /* Ignore non-state messages. */
     }
   }
@@ -590,7 +590,7 @@ final class _WebViewInlineVideoPlaybackSession
             ? "document.querySelector('audio')?.pause();"
             : _pauseVideoScript,
       );
-    } on Object {
+    } on Object catch (_) {
       // The owned document may not exist yet during replacement or teardown.
     }
   }
@@ -600,7 +600,7 @@ final class _WebViewInlineVideoPlaybackSession
     try {
       await controller.removeJavaScriptChannel(_videoBridgeName);
       await controller.loadHtmlString('<!doctype html><html></html>');
-    } on Object {
+    } on Object catch (_) {
       // The platform may already have retired this view.
     }
   }

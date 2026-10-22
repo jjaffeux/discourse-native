@@ -538,7 +538,7 @@ final class GroupsController extends FrameSafeNotifier {
           loaded: true,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         // The failure keeps whatever the list holds now, for the same reason
         // the commit does: a mutation may have changed it since the request.
@@ -634,7 +634,7 @@ final class GroupsController extends FrameSafeNotifier {
       _commit(token, () {
         _details[key] = GroupDetailState(detail: detail, loaded: true);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         _details[key] = GroupDetailState(
           detail: held.detail,
@@ -744,7 +744,7 @@ final class GroupsController extends FrameSafeNotifier {
         });
         return;
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         final current = _members[key];
         if (current == null) return;
@@ -845,7 +845,7 @@ final class GroupsController extends FrameSafeNotifier {
         });
         return;
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         final current = _requesters[key];
         if (current == null) return;
@@ -936,7 +936,7 @@ final class GroupsController extends FrameSafeNotifier {
           loaded: true,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         final current = _activities[key];
         if (current == null) return;
@@ -996,7 +996,7 @@ final class GroupsController extends FrameSafeNotifier {
           loaded: true,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         _permissions[key] = GroupPermissionsState._(
           permissions: held.permissions,
@@ -1063,7 +1063,7 @@ final class GroupsController extends FrameSafeNotifier {
           loaded: true,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       _fail(token, () {
         final current = _logs[key];
         if (current == null) return;

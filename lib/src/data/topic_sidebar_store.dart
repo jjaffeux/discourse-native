@@ -114,6 +114,6 @@ final class TopicSidebarStore {
       if (!saved) {
         throw StateError('Could not persist topic sidebar state.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }

@@ -1267,7 +1267,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   ) async {
     try {
       await _setTrackVolume(volume, track);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   @override
@@ -1493,7 +1493,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
             await sender.replaceTrack(replacement);
           }
           break;
-        } catch (error) {}
+        } catch (_) {}
       }
     }
   }

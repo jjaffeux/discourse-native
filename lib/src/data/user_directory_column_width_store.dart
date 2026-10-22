@@ -175,6 +175,6 @@ final class UserDirectoryColumnWidthStore {
       if (!saved) {
         throw StateError('Could not persist user directory column widths.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }

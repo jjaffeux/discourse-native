@@ -329,7 +329,7 @@ class DraftStore {
     try {
       await _persistence.write(key, legacy);
       await prefs?.remove(key);
-    } catch (error) {}
+    } catch (_) {}
     return (value: legacy, succeeded: true);
   }
 
@@ -360,7 +360,7 @@ class DraftStore {
     }
     try {
       await prefs?.remove(key);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> clear(
@@ -425,7 +425,7 @@ class DraftStore {
           for (final key in prefs.getKeys())
             if (key.startsWith(prefix)) prefs.remove(key),
         ]);
-      } catch (error) {}
+      } catch (_) {}
     }
   }
 
@@ -446,7 +446,7 @@ class DraftStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) {

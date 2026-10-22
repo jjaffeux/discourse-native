@@ -139,7 +139,7 @@ class ReactionsController extends FrameSafeNotifier {
         _catalogChanges.changed(siteUrl);
         notifySafely();
       }
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (_ownsCatalogRequest(siteUrl, request)) {
         _emojiCatalogRequests.remove(siteUrl);

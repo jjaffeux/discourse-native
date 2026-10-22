@@ -70,7 +70,7 @@ final class PlaceholderSession {
     await flush();
     try {
       await persistence.forget(siteUrl);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> close() async {

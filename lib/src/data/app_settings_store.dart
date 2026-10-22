@@ -303,36 +303,36 @@ final class AppSettingsStore {
       limitContentSize =
           await _persistence.readLimitContentSize() ??
           AppSettings.defaults.limitContentSize;
-    } catch (error) {}
+    } catch (_) {}
     try {
       disableGifAnimations =
           await _persistence.readDisableGifAnimations() ?? false;
-    } catch (error) {}
+    } catch (_) {}
     try {
       reduceMotion = await _persistence.readReduceMotion();
-    } catch (error) {}
+    } catch (_) {}
     try {
       rawMarkdownComposers =
           await _persistence.readRawMarkdownComposers() ?? false;
-    } catch (error) {}
+    } catch (_) {}
     try {
       final stored = await _persistence.readTextScale();
       textScale = _appTextScaleByName(stored);
-    } catch (error) {}
+    } catch (_) {}
     try {
       final stored = await _persistence.readThemeMode();
       themeMode = AppThemeMode.values.firstWhere(
         (mode) => mode.name == stored,
         orElse: () => AppThemeMode.system,
       );
-    } catch (error) {}
+    } catch (_) {}
     try {
       final stored = await _persistence.readTopicListMode();
       topicListMode = TopicListDisplayMode.values.firstWhere(
         (mode) => mode.name == stored,
         orElse: () => TopicListDisplayMode.card,
       );
-    } catch (error) {}
+    } catch (_) {}
     return AppSettings(
       limitContentSize: limitContentSize,
       disableGifAnimations: disableGifAnimations,
@@ -403,19 +403,19 @@ final class AppSettingsStore {
           !await _persistence.writeLimitContentSize(limitContentSize)) {
         throw StateError('Could not persist the content size limit.');
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (disableGifAnimations != null &&
           !await _persistence.writeDisableGifAnimations(disableGifAnimations)) {
         throw StateError('Could not persist the GIF animation preference.');
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (reduceMotion != null &&
           !await _persistence.writeReduceMotion(reduceMotion)) {
         throw StateError('Could not persist the reduced motion preference.');
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (rawMarkdownComposers != null &&
           !await _persistence.writeRawMarkdownComposers(rawMarkdownComposers)) {
@@ -423,25 +423,25 @@ final class AppSettingsStore {
           'Could not persist the raw Markdown composer preference.',
         );
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (textScale != null &&
           !await _persistence.writeTextScale(textScale.name)) {
         throw StateError('Could not persist the app text scale.');
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (themeMode != null &&
           !await _persistence.writeThemeMode(themeMode.name)) {
         throw StateError('Could not persist the app theme mode.');
       }
-    } catch (error) {}
+    } catch (_) {}
     try {
       if (topicListMode != null &&
           !await _persistence.writeTopicListMode(topicListMode.name)) {
         throw StateError('Could not persist the topic list mode.');
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 }
 

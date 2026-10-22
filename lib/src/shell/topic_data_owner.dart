@@ -590,7 +590,7 @@ final class TopicDataSession implements BookmarkTopicData {
           resumeNumber = received.resumePostNumber;
         }
       }
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
@@ -765,7 +765,7 @@ final class TopicDataSession implements BookmarkTopicData {
               : held,
         );
       }
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (isCurrent) {
         if (newer && identical(state.newerPage, reading)) {
@@ -830,7 +830,7 @@ final class TopicDataSession implements BookmarkTopicData {
           lastPostIdAtDispatch: detail.lastPostId,
         ),
       );
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (isCurrent) {
         if (newer && identical(state.newerPage, reading)) {
@@ -902,7 +902,7 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
       _changed();
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (isCurrent && identical(state.gaps[key], reading)) {
         state.gaps.remove(key);
@@ -1158,7 +1158,7 @@ final class TopicDataSession implements BookmarkTopicData {
         }
       }
       if (changed) _changed();
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (isCurrent) {
         final retry = <int>{};

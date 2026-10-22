@@ -143,7 +143,7 @@ final class _VoiceChatAssociation {
         await conversation.refresh(force: true);
       }
       if (ownsRequest()) _notifyChanged();
-    } catch (error) {
+    } catch (_) {
     } finally {
       if (identical(_request, request)) _request = null;
     }

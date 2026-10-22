@@ -359,7 +359,7 @@ final class VoiceController extends ChangeNotifier {
     notifyListeners();
     try {
       await _preferences.writeAutoStatusEnabled(enabled);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   /// Whether this device has accepted the peer-to-peer IP exposure warning.
@@ -375,7 +375,7 @@ final class VoiceController extends ChangeNotifier {
   Future<void> acknowledgeMeshPrivacy() async {
     try {
       await _preferences.writeMeshPrivacyAcknowledged(true);
-    } catch (error) {}
+    } catch (_) {}
   }
 
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
@@ -1497,7 +1497,7 @@ final class VoiceController extends ChangeNotifier {
       _devicePreferences.restoreDevices(preferences);
 
       notifyListeners();
-    } catch (error) {
+    } catch (_) {
       // Tests and early startup may not have a preferences channel yet. Device
       // defaults remain usable and the next explicit selection persists.
     }
@@ -1509,7 +1509,7 @@ final class VoiceController extends ChangeNotifier {
       if (_disposed || stored == null) return;
       _devicePreferences.autoStatus.restore(stored);
       notifyListeners();
-    } catch (error) {
+    } catch (_) {
       // Same contract as the device restore: the default stays usable and
       // the next explicit choice persists.
     }
@@ -2026,7 +2026,7 @@ final class VoiceController extends ChangeNotifier {
   Future<void> _runHandled(Future<void> Function() action) async {
     try {
       await action();
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<T> _runHandledValue<T>(
@@ -2101,7 +2101,7 @@ final class VoiceController extends ChangeNotifier {
       } else {
         subscription.cancel();
       }
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> _finishClose(

@@ -148,7 +148,7 @@ abstract class ByteCache<T extends Object> {
         key: url,
         operation: () => persistent.remove(url),
       );
-    } catch (error) {}
+    } catch (_) {}
   }
 
   Future<void> _persist(
@@ -177,7 +177,7 @@ abstract class ByteCache<T extends Object> {
           await persistent.write(url, bytes, expiresAt: expiresAt);
         },
       );
-    } catch (error) {
+    } catch (_) {
     } finally {
       _pendingStoreWrites--;
       _pendingStoreBytes -= byteSize;
@@ -336,7 +336,7 @@ abstract class ByteCache<T extends Object> {
               return decoded;
             }
           }
-        } catch (error) {
+        } catch (_) {
           // Cache corruption or an unavailable cache directory is a miss,
           // never a reason to leave a drawable image blank.
         }

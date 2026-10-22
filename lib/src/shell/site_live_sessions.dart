@@ -391,7 +391,7 @@ final class _SiteLiveSession {
               ),
               lastIds: initialLastIds,
             );
-          } catch (error) {}
+          } catch (_) {}
         }
         if (shouldLoadTopicTracking) {
           unawaited(
@@ -413,7 +413,7 @@ final class _SiteLiveSession {
                 bootstrap?.currentUser?.status?.messageBusLastId ??
                 _shell._instanceAt(siteUrl)?.user?.status?.messageBusLastId,
           );
-        } catch (error) {}
+        } catch (_) {}
         try {
           tracker.watchPluginChannel(
             '/refresh-sidebar-sections',
@@ -421,7 +421,7 @@ final class _SiteLiveSession {
               () => _shell._customSidebar.invalidate(siteUrl, account: lease),
             ),
           );
-        } catch (error) {}
+        } catch (_) {}
         if (userId != null) {
           try {
             tracker.watchPluginChannel(
@@ -429,7 +429,7 @@ final class _SiteLiveSession {
               (data) =>
                   commit(() => _shell._applyUserDraftsMessage(siteUrl, data)),
             );
-          } catch (error) {}
+          } catch (_) {}
           try {
             final user = _shell._instanceAt(siteUrl)?.user;
             tracker.watchPluginChannel(
@@ -440,7 +440,7 @@ final class _SiteLiveSession {
                   bootstrap?.currentUser?.doNotDisturbChannelPosition ??
                   user?.doNotDisturbChannelPosition,
             );
-          } catch (error) {}
+          } catch (_) {}
         }
       }
       if (!isCurrent) return;
@@ -455,7 +455,7 @@ final class _SiteLiveSession {
               _shell.plugins.liveChannelScopesFor(owned.owner),
             ),
           );
-        } catch (error) {}
+        } catch (_) {}
       }
       if (!isCurrent) return;
       if (demand.watchesVisibleTopics) _shell._syncTopicWatch(siteUrl, tracker);
