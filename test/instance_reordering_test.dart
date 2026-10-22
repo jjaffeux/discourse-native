@@ -330,6 +330,46 @@ void main() {
     expect(controller.currentInstance, same(replacement));
     expect(store.saved.last, same(replacement));
   });
+
+  for (final fails in [true, false]) {
+    test(
+      'disposal settles a pending reorder before its ${fails ? 'failed' : 'successful'} write',
+      () async {
+        final gate = Completer<void>();
+        final started = Completer<void>();
+        final store = _ControlledInstanceStore(
+          sites,
+          steps: [_SaveStep(gate: gate, started: started, fails: fails)],
+        );
+        final controller = _controller(store);
+        var disposed = false;
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+          if (!disposed) controller.dispose();
+        });
+        await controller.load();
+
+        final moving = controller.moveInstance(sites.first, 2);
+        await started.future;
+        controller.dispose();
+        disposed = true;
+
+        expect(await moving.timeout(const Duration(seconds: 1)), isFalse);
+        gate.complete();
+        await pumpEventQueue();
+        expect(_urls(controller.instances), [
+          sites[1].url,
+          sites[2].url,
+          sites[0].url,
+        ]);
+        expect(
+          store.saveCount,
+          1,
+          reason: 'retirement must not start a repair',
+        );
+      },
+    );
+  }
 }
 
 ShellController _controller(InstanceStore store, {FakeDiscourseApi? api}) =>
@@ -394,9 +434,10 @@ final class _FailingRemovalPersistence implements InstancePersistence {
 
   @override
   Future<void> write(String next) async {
-    final sites = jsonDecode(next) as List<dynamic>;
+    final sites = (jsonDecode(next) as List<dynamic>)
+        .cast<Map<String, dynamic>>();
     if (!started.isCompleted &&
-        !sites.any((dynamic site) => site['url'] == removingUrl)) {
+        !sites.any((site) => site['url'] == removingUrl)) {
       started.complete();
       await release.future;
       throw StateError('removal unavailable');

@@ -159,6 +159,7 @@ import 'user_summary_controller.dart';
 part 'account_new_topic_dismissals.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
+part 'instance_rail_transactions.dart';
 part 'notification_preference_transactions.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
@@ -1525,14 +1526,7 @@ class ShellController extends FrameSafeNotifier
   List<DiscourseInstance> get instances => List.unmodifiable(_instances);
   bool get hasInstances => _instances.isNotEmpty;
 
-  // Reorders are optimistic, just like adding and removing a site. This small
-  // drain owns their writes because InstanceStore coalesces queued snapshots:
-  // one failed older write must not roll a newer drag out of the rail.
-  int _instanceReorderRevision = 0;
-  bool _savingInstanceOrder = false;
-  List<String> _durableInstanceOrder = const [];
-  final List<({int revision, Completer<bool> result})>
-  _pendingInstanceReorders = [];
+  late final _instanceRail = _InstanceRailTransactions(this);
 
   InstanceLoadStatus _loadStatus = InstanceLoadStatus.loading;
 
@@ -2168,7 +2162,6 @@ class ShellController extends FrameSafeNotifier
       _forgetStoredPreferences(),
     ]);
     if (isDisposed) return;
-    _durableInstanceOrder = [for (final instance in stored) instance.url];
     final workspaces = await storedWorkspaces;
     if (isDisposed) return;
     final selectedIndex = _instances.indexWhere(
@@ -2253,156 +2246,39 @@ class ShellController extends FrameSafeNotifier
     _mobilePane = MobilePane.sidebar;
     _notify();
 
-    try {
-      await instanceStore.save(List.of(_instances));
-      return true;
-    } catch (_) {
-      if (isDisposed) return false;
+    return _instanceRail.settleAddition(
+      instance,
+      rollback: () {
+        final selectedSiteUrl = currentInstance?.url;
+        _forgetSiteState(instance.url);
+        _instances.remove(instance);
+        _rootMode = previousRootMode;
 
-      // A failed first save must not leave an in-memory-only site that the add
-      // sheet can neither persist nor retry because it now looks duplicated.
-      // Only undo the exact object added here; if it was replaced meanwhile,
-      // a newer operation owns its state and gets one repair save instead.
-      final held = _instanceAt(instance.url);
-      if (!identical(held, instance)) {
-        try {
-          await instanceStore.save(List.of(_instances));
-          return true;
-        } catch (_) {
-          return false;
-        }
-      }
-
-      final selectedSiteUrl = currentInstance?.url;
-      _forgetSiteState(instance.url);
-      _instances.remove(instance);
-      _rootMode = previousRootMode;
-
-      if (selectedSiteUrl == instance.url) {
-        final previousIndex = previousSiteUrl == null
-            ? -1
-            : _instances.indexWhere((item) => item.url == previousSiteUrl);
-        if (previousIndex >= 0) {
-          _instanceIndex = previousIndex;
-          _restoreInstanceWorkspace();
-          _mobilePane = previousPane;
+        if (selectedSiteUrl == instance.url) {
+          final previousIndex = previousSiteUrl == null
+              ? -1
+              : _instances.indexWhere((item) => item.url == previousSiteUrl);
+          if (previousIndex >= 0) {
+            _instanceIndex = previousIndex;
+            _restoreInstanceWorkspace();
+            _mobilePane = previousPane;
+          } else {
+            _instanceIndex = _instances.isEmpty ? 0 : _instances.length - 1;
+            _restoreInstanceWorkspace();
+          }
         } else {
-          _instanceIndex = _instances.isEmpty ? 0 : _instances.length - 1;
-          _restoreInstanceWorkspace();
+          final selectedIndex = selectedSiteUrl == null
+              ? -1
+              : _instances.indexWhere((item) => item.url == selectedSiteUrl);
+          _instanceIndex = selectedIndex >= 0 ? selectedIndex : 0;
         }
-      } else {
-        final selectedIndex = selectedSiteUrl == null
-            ? -1
-            : _instances.indexWhere((item) => item.url == selectedSiteUrl);
-        _instanceIndex = selectedIndex >= 0 ? selectedIndex : 0;
-      }
-      _notify();
-
-      // A newer save may have been queued while the failed write was active.
-      // Make this rollback the newest snapshot before reporting the failure.
-      try {
-        await instanceStore.save(List.of(_instances));
-      } catch (_) {}
-      return false;
-    }
-  }
-
-  Future<bool> moveInstance(DiscourseInstance instance, int newIndex) {
-    if (isDisposed || !loaded || _instances.length < 2) {
-      return Future.value(false);
-    }
-
-    final oldIndex = _instances.indexWhere((item) => item.url == instance.url);
-    if (oldIndex < 0) return Future.value(false);
-    final destination = newIndex.clamp(0, _instances.length - 1);
-    if (oldIndex == destination) return Future.value(true);
-
-    // When no reorder is outstanding, the live membership/order came from a
-    // completed load, add or removal and is the rollback boundary for this
-    // batch of drags.
-    if (!_savingInstanceOrder && _pendingInstanceReorders.isEmpty) {
-      _durableInstanceOrder = [for (final item in _instances) item.url];
-    }
-    final revision = ++_instanceReorderRevision;
-
-    final selectedSiteUrl = currentInstance?.url;
-    final moved = _instances.removeAt(oldIndex);
-    _instances.insert(destination, moved);
-    _followSelectedInstance(selectedSiteUrl);
-    _notify();
-
-    final result = Completer<bool>();
-    _pendingInstanceReorders.add((revision: revision, result: result));
-    if (!_savingInstanceOrder) {
-      _savingInstanceOrder = true;
-      unawaited(_drainInstanceOrderSaves());
-    }
-    return result.future;
-  }
-
-  Future<void> _drainInstanceOrderSaves() async {
-    try {
-      while (_pendingInstanceReorders.isNotEmpty) {
-        final savedRevision = _instanceReorderRevision;
-        final snapshot = List.of(_instances);
-        final savedOrder = [for (final item in snapshot) item.url];
-
-        try {
-          await instanceStore.save(snapshot);
-        } catch (_) {
-          if (isDisposed) {
-            _completeInstanceReordersThrough(savedRevision, false);
-            continue;
-          }
-
-          // A drag landed behind the write that failed. Its newest snapshot
-          // still contains the whole intended ordering, so let the next loop
-          // persist it rather than allowing the older failure to roll it back.
-          if (savedRevision != _instanceReorderRevision) continue;
-
-          final restored = _restoreDurableInstanceOrder();
-          _completeInstanceReordersThrough(savedRevision, false);
-
-          // Put the rollback (or, if membership changed concurrently, the
-          // untouched newest rail) behind the failed snapshot before accepting
-          // another batch. New drags can still update the live list while this
-          // repair is in flight; the next loop persists them afterward.
-          final repairSnapshot = List.of(_instances);
-          final repairOrder = [for (final item in repairSnapshot) item.url];
-          var repairPersisted = false;
-          try {
-            await instanceStore.save(repairSnapshot);
-            repairPersisted = true;
-          } catch (_) {}
-          if (restored && repairPersisted) {
-            _durableInstanceOrder = repairOrder;
-          }
-          continue;
-        }
-
-        _durableInstanceOrder = savedOrder;
-        _completeInstanceReordersThrough(savedRevision, true);
-      }
-    } finally {
-      _savingInstanceOrder = false;
-      if (_pendingInstanceReorders.isNotEmpty) {
-        _savingInstanceOrder = true;
-        unawaited(_drainInstanceOrderSaves());
-      }
-    }
-  }
-
-  void _completeInstanceReordersThrough(int revision, bool persisted) {
-    final completed = _pendingInstanceReorders
-        .where((request) => request.revision <= revision)
-        .toList();
-    _pendingInstanceReorders.removeWhere(
-      (request) => request.revision <= revision,
+        _notify();
+      },
     );
-    for (final request in completed) {
-      if (!request.result.isCompleted) request.result.complete(persisted);
-    }
   }
+
+  Future<bool> moveInstance(DiscourseInstance instance, int newIndex) =>
+      _instanceRail.move(instance, newIndex);
 
   void _followSelectedInstance(String? selectedSiteUrl) {
     if (selectedSiteUrl == null) {
@@ -2413,23 +2289,6 @@ class ShellController extends FrameSafeNotifier
       (item) => item.url == selectedSiteUrl,
     );
     if (selectedIndex >= 0) _instanceIndex = selectedIndex;
-  }
-
-  bool _restoreDurableInstanceOrder() {
-    if (_instances.length != _durableInstanceOrder.length) return false;
-    final byUrl = {for (final instance in _instances) instance.url: instance};
-    if (byUrl.length != _durableInstanceOrder.length ||
-        _durableInstanceOrder.any((url) => !byUrl.containsKey(url))) {
-      return false;
-    }
-
-    final selectedSiteUrl = currentInstance?.url;
-    _instances
-      ..clear()
-      ..addAll(_durableInstanceOrder.map((url) => byUrl[url]!));
-    _followSelectedInstance(selectedSiteUrl);
-    _notify();
-    return true;
   }
 
   Future<bool> removeInstance(DiscourseInstance instance) async {
@@ -2481,14 +2340,31 @@ class ShellController extends FrameSafeNotifier
     if (removingSelected) _restoreInstanceWorkspace();
     _notify();
 
-    try {
-      await instanceStore.save(List.of(_instances));
-      // Start page visits name private messages and direct chats, and stored
-      // preferences name the forum, its usernames and what was used there, so
-      // both leave with the forum for every account. Only a durable removal
-      // drops them: a rollback restores the forum with them, and a re-add that
-      // landed during the save owns the URL's again.
-      if (_instanceAt(held.url) == null) {
+    return _instanceRail.settleRemoval(
+      held.url,
+      stillOwnsRemoval: () => removal.isCurrent,
+      rollback: () {
+        final restoredIndex = index.clamp(0, _instances.length);
+        _instances.insert(restoredIndex, signedOut);
+        _taxonomy.bind(signedOut.url);
+        if (removingSelected) {
+          _instanceIndex = restoredIndex;
+          _mobilePane = MobilePane.sidebar;
+          _resetToInstanceDefault();
+        } else {
+          final selectedIndex = selected == null
+              ? -1
+              : _instances.indexWhere((item) => item.url == selected.url);
+          _instanceIndex = selectedIndex >= 0 ? selectedIndex : 0;
+        }
+        _notify();
+      },
+      forgetDurableRemoval: () {
+        // Start page visits name private messages and direct chats, and stored
+        // preferences name the forum, its usernames and what was used there, so
+        // both leave with the forum for every account. Only a durable removal
+        // drops them: a rollback restores the forum with them, and a re-add that
+        // landed during the save owns the URL's again.
         unawaited(
           destinationBookmarks
               .forgetSite(held.url)
@@ -2505,37 +2381,8 @@ class ShellController extends FrameSafeNotifier
           unawaited(recentDestinations.save());
         }
         unawaited(_forgetStoredPreferences(removed: held.url));
-      }
-      return true;
-    } catch (_) {
-      if (isDisposed ||
-          !removal.isCurrent ||
-          _instanceAt(instance.url) != null) {
-        return false;
-      }
-
-      final restoredIndex = index.clamp(0, _instances.length);
-      _instances.insert(restoredIndex, signedOut);
-      _taxonomy.bind(signedOut.url);
-      if (removingSelected) {
-        _instanceIndex = restoredIndex;
-        _mobilePane = MobilePane.sidebar;
-        _resetToInstanceDefault();
-      } else {
-        final selectedIndex = selected == null
-            ? -1
-            : _instances.indexWhere((item) => item.url == selected.url);
-        _instanceIndex = selectedIndex >= 0 ? selectedIndex : 0;
-      }
-      _notify();
-
-      // The failed write may have raced a newer queued snapshot. Make the
-      // signed-out rollback the latest value before handing control back.
-      try {
-        await instanceStore.save(List.of(_instances));
-      } catch (_) {}
-      return false;
-    }
+      },
+    );
   }
 
   /// Drops the preferences kept on this device for forums that left the rail
@@ -12866,6 +12713,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    _instanceRail.retire();
     _bookmarks.dispose();
     _topicData.dispose();
     // Queue the final local draft before lifecycle invalidation without
