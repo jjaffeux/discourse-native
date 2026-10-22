@@ -3,6 +3,7 @@ import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_live_sync_coordinator.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -209,6 +210,277 @@ void main() {
       expect(thread.cancelCalls, 1);
     });
 
+    for (final threadStream in [false, true]) {
+      final stream = threadStream ? '/chat/9/thread/22' : '/chat/9';
+      final target = threadStream ? _threadTarget : const ChatChannelTarget(9);
+      for (final type in ['sent', 'processed', 'edit', 'refresh', 'restore']) {
+        test('$stream applies $type with its staged reconciliation order', () {
+          final fixture = _Fixture();
+          final tracker = _viewStreams(fixture);
+          final event = _messageEvent(type, threadId: threadStream ? 22 : null)
+            ..['staged_id'] = 'draft-1';
+
+          tracker.deliver(stream, event, messageId: 100);
+
+          expect(fixture.effects, [
+            ['put', 101, true],
+            if (threadStream && type == 'restore') ['bump', 101],
+            if (type == 'sent') ['admit', target, 101],
+            ['reconcile', target, event],
+            if (!threadStream && type == 'restore') ...[
+              ['bump', 101],
+              ['originalDeleted', 9, 101, null, true],
+            ],
+          ]);
+          expect(fixture.liveMessages.single.channelId, 9);
+          expect(
+            fixture.liveMessages.single.threadId,
+            threadStream ? 22 : null,
+          );
+          expect(fixture.liveMessages.single.cooked, '<p>101</p>');
+          expect(
+            identical(
+              fixture.effects
+                  .firstWhere((effect) => effect.first == 'reconcile')
+                  .last,
+              event,
+            ),
+            isTrue,
+          );
+        });
+      }
+
+      test(
+        '$stream admits sent only when absent and ignores non-string staged ids',
+        () {
+          final fixture = _Fixture()..containsMessage = true;
+          final tracker = _viewStreams(fixture);
+          for (final type in [
+            'sent',
+            'processed',
+            'edit',
+            'refresh',
+            'restore',
+          ]) {
+            fixture.effects.clear();
+            tracker.deliver(
+              stream,
+              _messageEvent(type, threadId: threadStream ? 22 : null)
+                ..['staged_id'] = 123,
+              messageId: 100,
+            );
+            expect(fixture.effects, [
+              ['put', 101, true],
+              if (type == 'restore') ...[
+                ['bump', 101],
+                if (!threadStream) ['originalDeleted', 9, 101, null, true],
+              ],
+            ], reason: type);
+          }
+        },
+      );
+
+      test('$stream rejects malformed messages and unknown events', () {
+        final fixture = _Fixture();
+        final tracker = _viewStreams(fixture);
+        final invalid = <Object?>[
+          null,
+          [],
+          {'type': 'sent'},
+          {'type': 'sent', 'chat_message': []},
+          _messageEvent('sent', id: 0, threadId: threadStream ? 22 : null),
+          _messageEvent('sent', id: -1, threadId: threadStream ? 22 : null),
+          _messageEvent(
+            'sent',
+            channelId: 8,
+            threadId: threadStream ? 22 : null,
+          ),
+          _messageEvent('unknown', threadId: threadStream ? 22 : null),
+          if (threadStream) ...[
+            _messageEvent('sent'),
+            _messageEvent('sent', threadId: 23),
+          ],
+        ];
+        for (final event in invalid) {
+          tracker.deliver(stream, event, messageId: 100);
+          expect(fixture.effects, isEmpty, reason: '$event');
+        }
+      });
+    }
+
+    test(
+      'root replies require a matching preview while thread replies do not',
+      () {
+        final fixture = _Fixture();
+        final tracker = _viewStreams(fixture);
+        for (final preview in <Object?>[
+          null,
+          {'id': 23},
+          {'id': 22},
+        ]) {
+          final event = _messageEvent('edit', threadId: 22);
+          (event['chat_message'] as Map<String, dynamic>)['thread'] = preview;
+          fixture.effects.clear();
+          tracker.deliver('/chat/9', event, messageId: 100);
+          expect(
+            fixture.effects,
+            preview is Map<String, dynamic> && preview['id'] == 22
+                ? [
+                    ['put', 101, true],
+                  ]
+                : isEmpty,
+          );
+          fixture.effects.clear();
+          tracker.deliver('/chat/9/thread/22', event, messageId: 100);
+          expect(fixture.effects, [
+            ['put', 101, true],
+          ]);
+        }
+      },
+    );
+
+    test(
+      'only root handles thread creation and keeps its relaxed message id rule',
+      () {
+        final fixture = _Fixture();
+        final tracker = _viewStreams(fixture);
+        for (final id in [0, -1]) {
+          final event = _messageEvent('thread_created', id: id, threadId: 23);
+          (event['chat_message'] as Map<String, dynamic>)['thread'] = {
+            'id': 22,
+          };
+          fixture.effects.clear();
+          tracker.deliver('/chat/9', event, messageId: 100);
+          expect(fixture.effects, [
+            ['put', id, true],
+          ]);
+          fixture.effects.clear();
+          tracker.deliver('/chat/9/thread/22', event, messageId: 100);
+          expect(fixture.effects, isEmpty);
+        }
+        tracker.deliver(
+          '/chat/9',
+          _messageEvent('thread_created'),
+          messageId: 100,
+        );
+        final wrongChannel = _messageEvent('thread_created', channelId: 8);
+        (wrongChannel['chat_message'] as Map<String, dynamic>)['thread'] = {
+          'id': 22,
+        };
+        tracker.deliver('/chat/9', wrongChannel, messageId: 100);
+        expect(fixture.effects, isEmpty);
+      },
+    );
+
+    test('thread suppresses every message update for its loaded original', () {
+      final fixture = _Fixture();
+      final tracker = _viewStreams(fixture);
+      for (final type in ['sent', 'processed', 'edit', 'refresh', 'restore']) {
+        tracker.deliver(
+          '/chat/9/thread/22',
+          _messageEvent(type, id: 90)..['staged_id'] = 'original',
+          messageId: 100,
+        );
+      }
+      expect(fixture.effects, isEmpty);
+      tracker.deliver(
+        '/chat/9',
+        _messageEvent('restore', id: 90),
+        messageId: 100,
+      );
+      expect(fixture.effects, [
+        ['put', 90, true],
+        ['bump', 90],
+        ['originalDeleted', 9, 90, null, true],
+      ]);
+    });
+
+    test(
+      'root and thread retain mutation payloads, ownership and bulk skip ids',
+      () {
+        final fixture = _Fixture();
+        final tracker = _viewStreams(fixture);
+        for (final type in [
+          'delete',
+          'bulk_delete',
+          'reaction',
+          'pin',
+          'unpin',
+          'self_flagged',
+          'flag',
+        ]) {
+          final event = <String, dynamic>{
+            'type': type,
+            'deleted_id': '101',
+            'deleted_ids': [90, '101', 'invalid'],
+            'chat_message_id': '101',
+            'deleted_at': '2026-08-07T10:00:00.000Z',
+          };
+          final mutation = switch (type) {
+            'pin' || 'unpin' => 'pin',
+            _ => type,
+          };
+          for (final threadStream in [false, true]) {
+            fixture.effects.clear();
+            tracker.deliver(
+              threadStream ? '/chat/9/thread/22' : '/chat/9',
+              event,
+              messageId: 100,
+            );
+            expect(fixture.effects.first, [
+              mutation,
+              event,
+              if (['delete', 'bulk_delete', 'pin', 'unpin'].contains(type)) 9,
+              if (['delete', 'bulk_delete'].contains(type))
+                threadStream ? fixture.heldThread : null,
+              if (type == 'bulk_delete') threadStream ? 90 : null,
+            ]);
+            expect(identical(fixture.effects.first[1], event), isTrue);
+            expect(
+              fixture.effects.skip(1),
+              !threadStream && type == 'delete'
+                  ? [
+                      [
+                        'originalDeleted',
+                        9,
+                        101,
+                        DateTime.utc(2026, 8, 7, 10),
+                        false,
+                      ],
+                    ]
+                  : !threadStream && type == 'bulk_delete'
+                  ? [
+                      [
+                        'originalDeleted',
+                        9,
+                        90,
+                        DateTime.utc(2026, 8, 7, 10),
+                        false,
+                      ],
+                      [
+                        'originalDeleted',
+                        9,
+                        101,
+                        DateTime.utc(2026, 8, 7, 10),
+                        false,
+                      ],
+                    ]
+                  : isEmpty,
+            );
+          }
+          if (type != 'bulk_delete') {
+            fixture.effects.clear();
+            event['deleted_id'] = '90';
+            event['chat_message_id'] = '90';
+            tracker.deliver('/chat/9/thread/22', event, messageId: 100);
+            expect(fixture.effects, isEmpty, reason: type);
+            tracker.deliver('/chat/9', event, messageId: 100);
+            expect(fixture.effects.first.first, mutation, reason: type);
+          }
+        }
+      },
+    );
+
     test('contiguous presence ids apply their diffs', () {
       final fixture = _Fixture();
       addTearDown(fixture.coordinator.dispose);
@@ -280,6 +552,32 @@ void main() {
   });
 }
 
+const _threadTarget = ChatThreadTarget(channelId: 9, threadId: 22);
+
+_LiveChannels _viewStreams(_Fixture fixture) {
+  addTearDown(fixture.coordinator.dispose);
+  final tracker = _LiveChannels();
+  fixture.coordinator.replace(_site, _snapshot());
+  fixture.coordinator.attachTracker(_site, tracker);
+  fixture.coordinator.beginViewingThread(_site, _threadTarget);
+  return tracker;
+}
+
+Map<String, dynamic> _messageEvent(
+  String type, {
+  int id = 101,
+  int channelId = 9,
+  int? threadId,
+}) => {
+  'type': type,
+  'chat_message': {
+    'id': id,
+    'chat_channel_id': channelId,
+    'thread_id': threadId,
+    'cooked': '<p>$id</p>',
+  },
+};
+
 const _channel = ChatChannel(
   id: 9,
   title: 'Bugs',
@@ -339,14 +637,17 @@ final class _Fixture {
             const DiscourseUser(id: 7, username: 'reader', staff: false),
         channelFor: (_, channelId) => channelId == 9 ? _channel : null,
         messageFor: (_, _) => null,
-        threadFor: (_, threadId) => threadId == 22 ? _thread : null,
+        threadFor: (_, threadId) => threadId == 22 ? heldThread : null,
         hasThreads: (_) => hasThreads,
         putChannel: (_, _) {},
         didReceiveTrackingState: (_, _) {},
         didReceiveChannelEdit: (_, _) {},
         didReceiveChannelStatus: (_, _) {},
         putMessage: (_, _) {},
-        putLiveMessage: (_, _, _) {},
+        putLiveMessage: (_, message, preserve) {
+          liveMessages.add(message);
+          effects.add(['put', message.id, preserve]);
+        },
         putThread: (_, _) {},
         publishNotificationChange: (_, _, _) {},
         notifyCanonicalChange: () {},
@@ -364,19 +665,25 @@ final class _Fixture {
         admitActivityMessage: (_, _, message) {
           newMessages.add('${message.id}');
         },
-        streamContainsMessage: (_, _, _) => false,
-        admitLiveMessage: (_, _, _) {},
-        bumpStreamsHolding: (_, _) {},
-        setLoadedThreadOriginalDeleted: (_, _, _, _, _) {},
+        streamContainsMessage: (_, _, _) => containsMessage,
+        admitLiveMessage: (_, target, message) =>
+            effects.add(['admit', target, message.id]),
+        bumpStreamsHolding: (_, id) => effects.add(['bump', id]),
+        setLoadedThreadOriginalDeleted: (_, channelId, id, deletedAt, clear) =>
+            effects.add(['originalDeleted', channelId, id, deletedAt, clear]),
         scheduleThreadDetailRefresh: (_, _) {},
-        applyDeleteMutation: (_, _, _, _) {},
-        applyBulkDeleteMutation: (_, _, _, _, _) {},
-        applyReactionMutation: (_, _) {},
-        applyPinMutation: (_, _, _) {},
-        applySelfFlagMutation: (_, _) {},
-        applyFlagMutation: (_, _) {},
+        applyDeleteMutation: (_, data, channelId, thread) =>
+            effects.add(['delete', data, channelId, thread]),
+        applyBulkDeleteMutation: (_, data, channelId, thread, skip) =>
+            effects.add(['bulk_delete', data, channelId, thread, skip]),
+        applyReactionMutation: (_, data) => effects.add(['reaction', data]),
+        applyPinMutation: (_, data, channelId) =>
+            effects.add(['pin', data, channelId]),
+        applySelfFlagMutation: (_, data) => effects.add(['self_flagged', data]),
+        applyFlagMutation: (_, data) => effects.add(['flag', data]),
         showStreamNotice: (_, _, _) {},
-        reconcileSentEvent: (_, _, _) {},
+        reconcileSentEvent: (_, target, data) =>
+            effects.add(['reconcile', target, data]),
         attachReconciliationTracker: (_, _) {},
         cancelReconciliationChannel: (_, _) {},
         forgetReconciliation: (_) {},
@@ -391,6 +698,16 @@ final class _Fixture {
   final List<String> newMessages = [];
   final List<String> resyncs = [];
   bool hasThreads = false;
+  bool containsMessage = false;
+  final List<List<Object?>> effects = [];
+  final List<ChatMessage> liveMessages = [];
+  final heldThread = _thread.copyWith(
+    originalMessage: const ChatThreadOriginalMessage(
+      id: 90,
+      channelId: 9,
+      author: ChatMessageAuthor(id: 2, username: 'author'),
+    ),
+  );
 }
 
 final class _Requests implements PluginRequestHost {
