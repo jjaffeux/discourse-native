@@ -115,8 +115,6 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Future<void>> _likeNotificationTasks = {};
   final Map<String, Future<void>> _otherNotificationTasks = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
-  final Map<String, Future<void>> _bookmarkListTasks = {};
-  final Map<String, Future<void>> _userActivityTasks = {};
   final Map<String, ({DiscourseInstance instance, SiteLease lease})>
   _pendingBookmarks = {};
   final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
@@ -126,8 +124,8 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Object> _likeNotificationRequests = {};
   final Map<String, Object> _otherNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
-  final Map<String, Object> _bookmarkListRequests = {};
-  final Map<String, Object> _userActivityRequests = {};
+  late final _bookmarkListRequests = _PagedRequestSlot(lifecycle);
+  late final _userActivityRequests = _PagedRequestSlot(lifecycle);
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<(String, PluginNotificationFeedId), Future<void>>
   _pluginNotificationDismissTasks = {};
@@ -945,62 +943,27 @@ final class AccountActivityController extends FrameSafeNotifier {
       return Future<void>.value();
     }
 
-    final active = _bookmarkListTasks[siteUrl];
-    if (active != null && !refresh) return active;
-
     final replace = refresh || !held.loaded;
-    final request = Object();
-    final lease = lifecycle.capture(siteUrl);
     final page = replace
         ? 0
         : loadPrevious
         ? held.previousPage
         : held.nextPage;
-    final result = Completer<void>();
-    final task = result.future;
-    _bookmarkListRequests[siteUrl] = request;
-    _bookmarkListTasks[siteUrl] = task;
-    _bookmarkLists[siteUrl] = held.loadingPage(prepend: loadPrevious);
-
-    void finish([Object? error, StackTrace? stackTrace]) {
-      if (identical(_bookmarkListTasks[siteUrl], task)) {
-        final _ = _bookmarkListTasks.remove(siteUrl);
-      }
-      if (result.isCompleted) return;
-      if (error == null) {
-        result.complete();
-      } else {
-        result.completeError(error, stackTrace!);
-      }
-    }
-
-    _notifyBookmarkList();
-    // Publishing loading state can synchronously dispose this controller.
-    // Do not cross into credential storage for its replacement generation.
-    if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
-      finish();
-      return task;
-    }
-
-    try {
-      unawaited(
-        _loadBookmarkListPage(
-          instance,
-          lease: lease,
-          request: request,
-          page: page,
-          replace: replace,
-          prepend: loadPrevious,
-        ).then<void>(
-          (_) => finish(),
-          onError: (Object error, StackTrace stackTrace) =>
-              finish(error, stackTrace),
-        ),
-      );
-    } catch (error, stackTrace) {
-      finish(error, stackTrace);
-    }
-    return task;
+    return _bookmarkListRequests.run(
+      siteUrl,
+      refresh: refresh,
+      publishLoading: () {
+        _bookmarkLists[siteUrl] = held.loadingPage(prepend: loadPrevious);
+        _notifyBookmarkList();
+      },
+      load: (request) => _loadBookmarkListPage(
+        instance,
+        request: request,
+        page: page,
+        replace: replace,
+        prepend: loadPrevious,
+      ),
+    );
   }
 
   /// A bookmark write invalidates a list already on hand, which Back would
@@ -1013,8 +976,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   Future<void> _loadBookmarkListPage(
     DiscourseInstance instance, {
-    required SiteLease lease,
-    required Object request,
+    required _PagedRequest request,
     required int page,
     required bool replace,
     required bool prepend,
@@ -1034,15 +996,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     try {
       final auth = await AccountRequestSession(
         siteUrl,
-        lease,
+        request.lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       if (apiKey == null) {
-        _commit(lease, () {
-          if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+        request.commit(() {
           fail(
             appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
           );
@@ -1058,14 +1019,11 @@ final class AccountActivityController extends FrameSafeNotifier {
           page: page,
         ),
       );
-      if (prepend &&
-          !loaded.hasMore &&
-          _ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+      if (prepend && !loaded.hasMore && request.isCurrent) {
         await loadBookmarkList(instance, refresh: true);
         return;
       }
-      _commit(lease, () {
-        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+      request.commit(() {
         _bookmarkLists[siteUrl] = bookmarkListFor(siteUrl).withPage(
           loaded,
           replace: replace,
@@ -1075,12 +1033,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         _notifyBookmarkList();
       });
     } on SiteLookupException catch (error, stackTrace) {
-      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       _report(error, stackTrace, 'account.loadBookmarkList');
-      _commit(lease, () {
-        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+      request.commit(() {
         fail(
           error.failure == SiteLookupFailure.notDiscourse
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
@@ -1089,20 +1046,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         _notifyBookmarkList();
       });
     } catch (error, stackTrace) {
-      if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       _report(error, stackTrace, 'account.loadBookmarkList');
-      _commit(lease, () {
-        if (!identical(_bookmarkListRequests[siteUrl], request)) return;
+      request.commit(() {
         fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
         _notifyBookmarkList();
-      });
-    } finally {
-      _commit(lease, () {
-        if (identical(_bookmarkListRequests[siteUrl], request)) {
-          _bookmarkListRequests.remove(siteUrl);
-        }
       });
     }
   }
@@ -1131,12 +1081,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       return Future<void>.value();
     }
 
-    final active = _userActivityTasks[siteUrl];
-    if (active != null && !refresh) return active;
-
     final replace = refresh || !held.loaded;
-    final request = Object();
-    final lease = lifecycle.capture(siteUrl);
     final offset = replace
         ? 0
         : loadPrevious
@@ -1145,61 +1090,30 @@ final class AccountActivityController extends FrameSafeNotifier {
     final limit = loadPrevious
         ? held.firstOffset - offset
         : userActivityPageSize;
-    final result = Completer<void>();
-    final task = result.future;
-    _userActivityRequests[siteUrl] = request;
-    _userActivityTasks[siteUrl] = task;
-    _userActivity[siteUrl] = held.loadingPage(
-      replace: replace,
-      prepend: loadPrevious,
-    );
-
-    void finish([Object? error, StackTrace? stackTrace]) {
-      if (identical(_userActivityTasks[siteUrl], task)) {
-        final _ = _userActivityTasks.remove(siteUrl);
-      }
-      if (result.isCompleted) return;
-      if (error == null) {
-        result.complete();
-      } else {
-        result.completeError(error, stackTrace!);
-      }
-    }
-
-    _notifyUserActivity();
-    // Publishing loading state can synchronously dispose this controller.
-    // Do not cross into credential storage for its replacement generation.
-    if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
-      finish();
-      return task;
-    }
-
-    try {
-      unawaited(
-        _loadUserActivityPage(
-          instance,
-          lease: lease,
-          request: request,
-          offset: offset,
+    return _userActivityRequests.run(
+      siteUrl,
+      refresh: refresh,
+      publishLoading: () {
+        _userActivity[siteUrl] = held.loadingPage(
           replace: replace,
           prepend: loadPrevious,
-          limit: limit,
-        ).then<void>(
-          (_) => finish(),
-          onError: (Object error, StackTrace stackTrace) =>
-              finish(error, stackTrace),
-        ),
-      );
-    } catch (error, stackTrace) {
-      finish(error, stackTrace);
-    }
-    return task;
+        );
+        _notifyUserActivity();
+      },
+      load: (request) => _loadUserActivityPage(
+        instance,
+        request: request,
+        offset: offset,
+        replace: replace,
+        prepend: loadPrevious,
+        limit: limit,
+      ),
+    );
   }
 
   Future<void> _loadUserActivityPage(
     DiscourseInstance instance, {
-    required SiteLease lease,
-    required Object request,
+    required _PagedRequest request,
     required int offset,
     required bool replace,
     required bool prepend,
@@ -1217,15 +1131,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     try {
       final auth = await AccountRequestSession(
         siteUrl,
-        lease,
+        request.lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       if (apiKey == null) {
-        _commit(lease, () {
-          if (!identical(_userActivityRequests[siteUrl], request)) return;
+        request.commit(() {
           fail(
             appL10n.reconnectToToSeeYourActivity((instance.host).toString()),
           );
@@ -1242,14 +1155,11 @@ final class AccountActivityController extends FrameSafeNotifier {
           limit: limit,
         ),
       );
-      if (prepend &&
-          page.rawItemCount < limit &&
-          _ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+      if (prepend && page.rawItemCount < limit && request.isCurrent) {
         await loadUserActivity(instance, refresh: true);
         return;
       }
-      _commit(lease, () {
-        if (!identical(_userActivityRequests[siteUrl], request)) return;
+      request.commit(() {
         _userActivity[siteUrl] = userActivityFor(siteUrl).withPage(
           page,
           limit: limit,
@@ -1260,12 +1170,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         _notifyUserActivity();
       });
     } on SiteLookupException catch (error, stackTrace) {
-      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       _report(error, stackTrace, 'account.loadUserActivity');
-      _commit(lease, () {
-        if (!identical(_userActivityRequests[siteUrl], request)) return;
+      request.commit(() {
         fail(
           error.failure == SiteLookupFailure.notDiscourse
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
@@ -1274,20 +1183,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         _notifyUserActivity();
       });
     } catch (error, stackTrace) {
-      if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+      if (!request.isCurrent) {
         return;
       }
       _report(error, stackTrace, 'account.loadUserActivity');
-      _commit(lease, () {
-        if (!identical(_userActivityRequests[siteUrl], request)) return;
+      request.commit(() {
         fail(appL10n.couldnTLoadActivityFrom((instance.host).toString()));
         _notifyUserActivity();
-      });
-    } finally {
-      _commit(lease, () {
-        if (identical(_userActivityRequests[siteUrl], request)) {
-          _userActivityRequests.remove(siteUrl);
-        }
       });
     }
   }
@@ -1436,8 +1338,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationTasks.remove(siteUrl)?.ignore();
     _otherNotificationTasks.remove(siteUrl)?.ignore();
     _bookmarkTasks.remove(siteUrl)?.ignore();
-    _bookmarkListTasks.remove(siteUrl)?.ignore();
-    _userActivityTasks.remove(siteUrl)?.ignore();
     _pendingBookmarks.remove(siteUrl);
     _pendingBookmarkWaiters.remove(siteUrl)?.complete();
     final replayingBookmarkWaiter = _replayingBookmarkWaiters.remove(siteUrl);
@@ -1450,8 +1350,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationRequests.remove(siteUrl);
     _otherNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
-    _bookmarkListRequests.remove(siteUrl);
-    _userActivityRequests.remove(siteUrl);
+    _bookmarkListRequests.forget(siteUrl);
+    _userActivityRequests.forget(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pluginNotificationDismissTasks.removeWhere((key, task) {
       if (key.$1 != siteUrl) return false;
@@ -1517,8 +1417,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     _pluginNotifications.clear();
     _pluginNotificationSources.clear();
     _bookmarkTasks.clear();
-    _bookmarkListTasks.clear();
-    _userActivityTasks.clear();
     _totalsRequests.clear();
     _notificationRequests.clear();
     _replyNotificationRequests.clear();
@@ -1543,6 +1441,75 @@ final class AccountActivityController extends FrameSafeNotifier {
     _userActivityChanges.dispose();
     super.dispose();
   }
+}
+
+final class _PagedRequestSlot {
+  _PagedRequestSlot(this.lifecycle);
+
+  final SiteLifecycle lifecycle;
+  final Map<String, _PagedRequest> _requests = {};
+
+  Future<void> run(
+    String siteUrl, {
+    required bool refresh,
+    required void Function() publishLoading,
+    required Future<void> Function(_PagedRequest request) load,
+  }) {
+    final active = _requests[siteUrl];
+    if (active != null && !refresh) return active.future;
+
+    final request = _PagedRequest(this, siteUrl, lifecycle.capture(siteUrl));
+    _requests[siteUrl] = request;
+
+    void finish([Object? error, StackTrace? stackTrace]) {
+      if (identical(_requests[siteUrl], request)) {
+        _requests.remove(siteUrl);
+      }
+      if (error == null) {
+        request._result.complete();
+      } else {
+        request._result.completeError(error, stackTrace!);
+      }
+    }
+
+    publishLoading();
+    if (!request.isCurrent) {
+      finish();
+      return request.future;
+    }
+    try {
+      unawaited(
+        load(request).then<void>(
+          (_) => finish(),
+          onError: (Object error, StackTrace stackTrace) =>
+              finish(error, stackTrace),
+        ),
+      );
+    } catch (error, stackTrace) {
+      finish(error, stackTrace);
+    }
+    return request.future;
+  }
+
+  void forget(String siteUrl) => _requests.remove(siteUrl)?.future.ignore();
+
+  void clear() => _requests.clear();
+}
+
+final class _PagedRequest {
+  _PagedRequest(this._slot, this.siteUrl, this.lease);
+
+  final _PagedRequestSlot _slot;
+  final String siteUrl;
+  final SiteLease lease;
+  final _result = Completer<void>();
+
+  Future<void> get future => _result.future;
+
+  bool get isCurrent =>
+      lease.isCurrent && identical(_slot._requests[siteUrl], this);
+
+  bool commit(SiteMutation mutation) => isCurrent && lease.commit(mutation);
 }
 
 final class _ActivityAspect extends FrameSafeNotifier {

@@ -976,6 +976,179 @@ void main() {
       expect(api.activityRequests.map((request) => request.offset), [0, 30]);
     });
 
+    for (final bookmarks in [true, false]) {
+      final name = bookmarks ? 'bookmark list' : 'user activity';
+
+      test(
+        'a reentrant $name loading listener joins the pending future',
+        () async {
+          final api = _AccountApi();
+          final credentials = _GatedCredentialReader();
+          final controller = _controller(api, credentials);
+          addTearDown(controller.dispose);
+          Future<void> load() => bookmarks
+              ? controller.loadBookmarkList(_connectedInstance())
+              : controller.loadUserActivity(_connectedInstance());
+          final changes = bookmarks
+              ? controller.bookmarkListListenable
+              : controller.userActivityListenable;
+          Future<void>? joined;
+          void listener() {
+            joined ??= load();
+          }
+
+          changes.addListener(listener);
+
+          final first = load();
+          await credentials.started.future;
+          changes.removeListener(listener);
+          expect(joined, same(first));
+          credentials.result.complete('key');
+          await first;
+          expect(
+            bookmarks
+                ? api.bookmarkListRequests.length
+                : api.activityRequests.length,
+            1,
+          );
+        },
+      );
+
+      test('a reentrant $name refresh supersedes before dispatch', () async {
+        final api = _AccountApi();
+        final credentials = _GatedCredentialReader();
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        Future<void> load({bool refresh = false}) => bookmarks
+            ? controller.loadBookmarkList(
+                _connectedInstance(),
+                refresh: refresh,
+              )
+            : controller.loadUserActivity(
+                _connectedInstance(),
+                refresh: refresh,
+              );
+        final changes = bookmarks
+            ? controller.bookmarkListListenable
+            : controller.userActivityListenable;
+        late Future<void> fresh;
+        void listener() {
+          changes.removeListener(listener);
+          fresh = load(refresh: true);
+        }
+
+        changes.addListener(listener);
+
+        final superseded = load();
+        await superseded;
+        expect(credentials.started.isCompleted, isTrue);
+        expect(api.bookmarkListRequests, isEmpty);
+        expect(api.activityRequests, isEmpty);
+        expect(load(), same(fresh));
+
+        credentials.result.complete('key');
+        await fresh;
+        expect(
+          bookmarks
+              ? api.bookmarkListRequests.length
+              : api.activityRequests.length,
+          1,
+        );
+      });
+
+      test('retiring $name during loading skips credential storage', () async {
+        final credentials = _GatedCredentialReader();
+        final controller = _controller(_AccountApi(), credentials);
+        addTearDown(controller.dispose);
+        final changes = bookmarks
+            ? controller.bookmarkListListenable
+            : controller.userActivityListenable;
+        void listener() => controller.forget(_siteUrl);
+        changes.addListener(listener);
+
+        await (bookmarks
+            ? controller.loadBookmarkList(_connectedInstance())
+            : controller.loadUserActivity(_connectedInstance()));
+
+        changes.removeListener(listener);
+        expect(credentials.started.isCompleted, isFalse);
+        expect(
+          bookmarks
+              ? controller.bookmarkListFor(_siteUrl).loaded
+              : controller.userActivityFor(_siteUrl).loaded,
+          isFalse,
+        );
+      });
+
+      test(
+        'a superseded $name completion cannot detach refresh waiters',
+        () async {
+          final bookmarkApi = _SequencedBookmarkListApi(2);
+          final activityApi = _SequencedUserActivityApi(2);
+          final api = bookmarks ? bookmarkApi : activityApi;
+          final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+          final controller = _controller(api, credentials);
+          addTearDown(controller.dispose);
+          Future<void> load({bool refresh = false}) => bookmarks
+              ? controller.loadBookmarkList(
+                  _connectedInstance(),
+                  refresh: refresh,
+                )
+              : controller.loadUserActivity(
+                  _connectedInstance(),
+                  refresh: refresh,
+                );
+          final started = bookmarks ? bookmarkApi.started : activityApi.started;
+
+          final stale = load();
+          await started[0].future;
+          final fresh = load(refresh: true);
+          await started[1].future;
+          if (bookmarks) {
+            bookmarkApi.answers[0].complete(
+              const BookmarkListPage(bookmarks: [_bookmark]),
+            );
+          } else {
+            activityApi.answers[0].complete(
+              const UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+            );
+          }
+          await stale;
+
+          expect(load(), same(fresh));
+          expect(
+            bookmarks
+                ? controller.bookmarkListFor(_siteUrl).loaded
+                : controller.userActivityFor(_siteUrl).loaded,
+            isFalse,
+          );
+          expect(bookmarks ? bookmarkApi.calls : activityApi.calls, 2);
+          if (bookmarks) {
+            bookmarkApi.answers[1].complete(
+              const BookmarkListPage(
+                bookmarks: [Bookmark(id: 20, title: 'Fresh')],
+              ),
+            );
+          } else {
+            activityApi.answers[1].complete(
+              const UserActivityPage(items: [_activityReply], rawItemCount: 1),
+            );
+          }
+          await fresh;
+          if (bookmarks) {
+            expect(
+              controller.bookmarkListFor(_siteUrl).bookmarks.single.id,
+              20,
+            );
+          } else {
+            expect(controller.userActivityFor(_siteUrl).items, const [
+              _activityReply,
+            ]);
+          }
+        },
+      );
+    }
+
     test('ordinary overlapping activity loads share one request', () async {
       final api = _SequencedUserActivityApi(1);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
