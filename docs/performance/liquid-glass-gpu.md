@@ -146,11 +146,14 @@ header's joined bookmark and notification controls look in Flutter glass.
 
 UIKit draws above everything Flutter shows. A scope therefore draws Flutter
 glass while its route is covered, while a sheet covers it through its closing
-transition, and while any `NativeGlassOccluder` is mounted. Every overlay in
-the app mounts one: popovers, tooltips, hover cards, the composer's
-suggestions and selection toolbar, post actions, text selection, embeds and
-YouTube players. `native_glass_test` fails when a file opens an `OverlayPortal`
-or `OverlayEntry` without one. The mobile composer sheet covers the shell
+transition, and while a mounted `NativeGlassOccluder` overlaps it. An
+occluder covers its first render box, so one wrapped around a full-screen
+overlay covers every scope; a tooltip wraps only its bubble, so hovering a
+control no longer swaps every lens on screen between system and Flutter
+glass. Every overlay in the app mounts one: popovers, tooltips, hover cards,
+the composer's suggestions and selection toolbar, post actions, text
+selection, embeds and YouTube players. `native_glass_test` fails when a file
+opens an `OverlayPortal` or `OverlayEntry` without one. The mobile composer sheet covers the shell
 without a route or an overlay, so it mounts one too; `composer_docking_test`
 pins it. Hosts without iOS 26 keep the Flutter glass.
 

@@ -23,7 +23,7 @@ import 'material_theme.dart';
 ///
 /// The system draws above everything Flutter shows, so a [NativeGlassScope]
 /// hands its glass back to Flutter while its route is covered, while a sheet
-/// closes over it, and while any [NativeGlassOccluder] is mounted.
+/// closes over it, and while a mounted [NativeGlassOccluder] overlaps it.
 abstract final class NativeGlass {
   static const channel = MethodChannel('org.discourse.native/glass');
 
@@ -33,7 +33,9 @@ abstract final class NativeGlass {
   /// Keeps Flutter glass everywhere, for side-by-side measurement.
   static final ValueNotifier<bool> disabled = ValueNotifier(false);
 
-  static final ValueNotifier<int> _occluders = ValueNotifier(0);
+  static final _scopes = <NativeGlassGroup>{};
+  static final _occluders = <_NativeGlassOccluderState>{};
+  static bool _occluding = false;
   static final _groups = <NativeGlassGroup>{};
   static final _images = <_RenderNativeGlassContent, int>{};
   static bool _probed = false;
@@ -74,6 +76,30 @@ abstract final class NativeGlass {
 
   static void _deactivate(NativeGlassGroup group) {
     if (_groups.remove(group)) SchedulerBinding.instance.scheduleFrame();
+  }
+
+  static void _watchOcclusion() {
+    SchedulerBinding.instance.scheduleFrame();
+    if (_occluding) return;
+    _occluding = true;
+    SchedulerBinding.instance.addPostFrameCallback(_occlude);
+  }
+
+  // Runs after every frame while an occluder is open: either side can move
+  // without the other rebuilding. Only the scopes it overlaps hand back.
+  static void _occlude(Duration _) {
+    final rects = [
+      for (final occluder in _occluders)
+        if (occluder._rect() case final rect? when !rect.isEmpty) rect,
+    ];
+    for (final scope in _scopes) {
+      scope._occlude(rects.any(scope._overlaps));
+    }
+    if (_occluders.isEmpty) {
+      _occluding = false;
+      return;
+    }
+    SchedulerBinding.instance.addPostFrameCallback(_occlude);
   }
 
   // Runs after every frame while any group is active: transforms above the
@@ -193,6 +219,7 @@ class NativeGlassGroup extends State<NativeGlassScope> {
   final _nodes = <_NativeGlassNode>{};
   bool _dark = false;
   bool _shown = false;
+  bool _occluded = false;
 
   // The content last shown at each position in this group. A control that
   // remounts there, such as an action whose icon changed, keeps showing it
@@ -203,12 +230,27 @@ class NativeGlassGroup extends State<NativeGlassScope> {
   void initState() {
     super.initState();
     NativeGlass._probe();
+    NativeGlass._scopes.add(this);
   }
 
   @override
   void dispose() {
+    NativeGlass._scopes.remove(this);
     NativeGlass._deactivate(this);
     super.dispose();
+  }
+
+  void _occlude(bool occluded) {
+    if (occluded == _occluded || !mounted) return;
+    setState(() => _occluded = occluded);
+  }
+
+  bool _overlaps(Rect rect) {
+    final box = _box;
+    return box != null &&
+        box.attached &&
+        box.hasSize &&
+        NativeGlass._globalRect(box).overlaps(rect);
   }
 
   @override
@@ -216,7 +258,6 @@ class NativeGlassGroup extends State<NativeGlassScope> {
     listenable: Listenable.merge([
       NativeGlass.available,
       NativeGlass.disabled,
-      NativeGlass._occluders,
       // Sheets count as covering through their closing transition, after
       // their route has already stopped covering this one.
       DOverlayRoute.modalCoverCountOf(context),
@@ -225,7 +266,7 @@ class NativeGlassGroup extends State<NativeGlassScope> {
       final active =
           NativeGlass.available.value &&
           !NativeGlass.disabled.value &&
-          NativeGlass._occluders.value == 0 &&
+          !_occluded &&
           DOverlayRoute.modalCoverCountOf(context).value == 0 &&
           DMaterialTheme.glassOf(context) &&
           (ModalRoute.isCurrentOf(context) ?? true);
@@ -350,10 +391,13 @@ class _RenderNativeGlassScopeBox extends RenderProxyBox {
   }
 }
 
-/// Opens over native glass: every group draws Flutter glass while mounted.
+/// Opens over native glass: every group its first render box overlaps, grown
+/// by [outset], draws Flutter glass while mounted.
 class NativeGlassOccluder extends StatefulWidget {
-  const NativeGlassOccluder({super.key, required this.child});
+  const NativeGlassOccluder({super.key, this.outset = 0, required this.child});
 
+  /// How far the overlay paints beyond its box, such as a tooltip's arrow.
+  final double outset;
   final Widget child;
 
   @override
@@ -361,27 +405,28 @@ class NativeGlassOccluder extends StatefulWidget {
 }
 
 class _NativeGlassOccluderState extends State<NativeGlassOccluder> {
-  bool _counted = false;
-
-  // Overlays mount during a build, where their listeners cannot rebuild.
+  // Overlays mount during a build, where scopes cannot rebuild, so occlusion
+  // is decided after the frame.
   @override
   void initState() {
     super.initState();
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _counted = true;
-      NativeGlass._occluders.value++;
-    });
+    NativeGlass._occluders.add(this);
+    NativeGlass._watchOcclusion();
   }
 
   @override
   void dispose() {
-    if (_counted) {
-      SchedulerBinding.instance.addPostFrameCallback(
-        (_) => NativeGlass._occluders.value--,
-      );
-    }
+    NativeGlass._occluders.remove(this);
+    NativeGlass._watchOcclusion();
     super.dispose();
+  }
+
+  /// Null before layout. Anything other than a box covers the whole screen.
+  Rect? _rect() {
+    final object = context.findRenderObject();
+    if (object is! RenderBox) return object == null ? null : Rect.largest;
+    if (!object.attached || !object.hasSize) return null;
+    return NativeGlass._globalRect(object).inflate(widget.outset);
   }
 
   @override
