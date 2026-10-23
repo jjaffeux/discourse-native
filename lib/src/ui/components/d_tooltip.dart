@@ -676,22 +676,27 @@ class DTooltipState extends State<DTooltip>
                 .12,
               )!,
               radius: DTokens.of(context).radius * 0.8,
-              child: IgnorePointer(
-                ignoring: false,
-                child: MouseRegion(
-                  onEnter: (_) {
-                    _popupHovered = true;
-                    _pointerEngaged = true;
-                    _hideTimer?.cancel();
-                  },
-                  onExit: (event) {
-                    _popupHovered = false;
-                    _pointer = event.position;
-                    _scheduleHide();
-                  },
-                  child: SingleChildScrollView(
-                    key: _surfaceKey,
-                    child: widget.tooltipBuilder(overlayContext, _curve),
+              // Only the bubble covers glass: the arrow reaches 5px past it
+              // and the entrance slides it a further 8px.
+              child: NativeGlassOccluder(
+                outset: 13,
+                child: IgnorePointer(
+                  ignoring: false,
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      _popupHovered = true;
+                      _pointerEngaged = true;
+                      _hideTimer?.cancel();
+                    },
+                    onExit: (event) {
+                      _popupHovered = false;
+                      _pointer = event.position;
+                      _scheduleHide();
+                    },
+                    child: SingleChildScrollView(
+                      key: _surfaceKey,
+                      child: widget.tooltipBuilder(overlayContext, _curve),
+                    ),
                   ),
                 ),
               ),
@@ -717,8 +722,7 @@ class DTooltipState extends State<DTooltip>
     );
     child = OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
-      overlayChildBuilder: (context, info) =>
-          NativeGlassOccluder(child: _overlay(context, info)),
+      overlayChildBuilder: (context, info) => _overlay(context, info),
       child: _TooltipMouseRegion(
         onEnter: _enter,
         onExit: _exit,

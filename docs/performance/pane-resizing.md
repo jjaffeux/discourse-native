@@ -122,8 +122,8 @@ What this does not establish is how the system lenses look. They were checked
 only through the host's own record of the views it built. Known differences
 from Flutter glass: AppKit gives a lens one corner radius, so the largest
 corner applies to all four; a control that resizes shows its previous content
-image unscaled until the new one arrives; and any open overlay, tooltips
-included, hands every group back to Flutter glass while it is open.
+image unscaled until the new one arrives; and an open overlay hands the
+groups it overlaps back to Flutter glass while it is open.
 
 ## Options measured and not kept
 
