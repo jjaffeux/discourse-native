@@ -812,9 +812,9 @@ void _registerShellNavigationTests() {
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
         tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
-        44,
+        48,
       );
-      expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 44);
+      expect(tester.getCenter(add).dy - tester.getCenter(lastForum).dy, 48);
       expect(tester.getSize(add), const Size.square(34));
 
       final plus = tester.widget<DIcon>(
@@ -2374,14 +2374,14 @@ void _registerShellNavigationTests() {
 
         final indicator = find.byKey(dropIndicator);
         expect(indicator, findsOneWidget);
-        expect(tester.getSize(indicator), const Size(38, 8));
+        expect(tester.getSize(indicator), const Size(43, 8));
         expect(
           tester.getRect(indicator).center.dy,
           closeTo(targetRect.top, 0.1),
         );
         final line = find.byKey(dropIndicatorLine);
         final pin = find.byKey(dropIndicatorPin);
-        expect(tester.getSize(line), const Size(30, 2));
+        expect(tester.getSize(line), const Size(35, 2));
         expect(tester.getSize(pin), const Size.square(8));
         expect(
           tester.getRect(pin).left -
