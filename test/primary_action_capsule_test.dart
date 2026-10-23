@@ -319,6 +319,8 @@ void main() {
           final expected = [reference.r, reference.g, reference.b];
           for (var channel = 0; channel < 3; channel++) {
             expect(center[channel], closeTo(expected[channel] * 255, 2));
+            // Stock glass owns its specular rim; only the artwork paints one.
+            if (material == DAppearanceMaterial.liquidGlass) continue;
             expect(rgb(28, 5)[channel], greaterThan(center[channel]));
             expect(rgb(40, 0)[channel], greaterThan(center[channel]));
           }

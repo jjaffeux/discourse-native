@@ -213,7 +213,7 @@ class DItem extends StatefulWidget {
   State<DItem> createState() => _DItemState();
 }
 
-/// A rail destination with a visible 32px action inside its 44px layout slot.
+/// A rail destination with a visible 36px action inside its 48px layout slot.
 /// The marker is decorative. Hover changes its Native-owned height.
 class DItemRail extends StatefulWidget {
   const DItemRail({
@@ -250,7 +250,7 @@ class _DItemRailState extends State<DItemRail> {
       mouseCursor: widget.mouseCursor,
       onPressed: widget.onPressed,
       onHoverChanged: (hovered) => setState(() => _hovered = hovered),
-      children: [SizedBox.square(dimension: 32, child: widget.artwork)],
+      children: [SizedBox.square(dimension: 36, child: widget.artwork)],
     );
     final control = widget.controlWrapper?.call(context, action) ?? action;
     return Stack(
@@ -276,7 +276,7 @@ class _DItemRailState extends State<DItemRail> {
           ),
         ),
         Center(
-          child: SizedBox.square(dimension: 44, child: Center(child: control)),
+          child: SizedBox.square(dimension: 48, child: Center(child: control)),
         ),
       ],
     );

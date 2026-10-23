@@ -114,7 +114,7 @@ void main() {
     final controller = await _controller();
     await _pumpShell(tester, controller, const Size(1200, 800));
 
-    expect(tester.getSize(find.byType(InstanceRail)).width, 48);
+    expect(tester.getSize(find.byType(InstanceRail)).width, 53);
     expect(
       tester.getTopLeft(find.byType(InstanceSidebar)).dx,
       tester.getTopRight(find.byType(InstanceRail)).dx,

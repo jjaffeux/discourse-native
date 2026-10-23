@@ -272,6 +272,7 @@ void main() {
   });
 
   testWidgets('glass controls use the regular glass preset', (tester) async {
+    const fill = Color(0xff323543);
     for (final depth in [
       DSurfaceDepth.raised,
       DSurfaceDepth.primaryCapsule,
@@ -287,7 +288,7 @@ void main() {
             home: Center(
               child: DMaterialSurface(
                 depth: depth,
-                color: const Color(0xff323543),
+                color: fill,
                 radius: BorderRadius.circular(10),
                 child: const SizedBox(width: 216, height: 200),
               ),
@@ -295,7 +296,13 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expectStockGlass(tester, find.byType(LiquidGlass));
+        expectStockGlass(
+          tester,
+          find.byType(LiquidGlass),
+          tint: depth == DSurfaceDepth.primaryCapsule
+              ? DMaterialSurface.glassTintFor(fill)
+              : null,
+        );
         final shadows = tester
             .widgetList<DecoratedBox>(find.byType(DecoratedBox))
             .map((box) => box.decoration)

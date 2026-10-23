@@ -100,7 +100,8 @@ enum DButtonDensity {
 
   /// Compact header shortcuts: 28px high, 32px icon-only targets, 12.5px
   /// count labels, 8px content gaps and 10px horizontal label insets.
-  /// Geometry grows with text; popup, hover and focus use the chosen variant.
+  /// Geometry grows with text; popup, hover and focus use the chosen variant
+  /// as a flat fill, without a raised edge or glass lens in either material.
   header,
 
   /// A 36px circular profile trigger with a 2px border against its avatar.
@@ -1054,6 +1055,7 @@ class DButton extends StatelessWidget {
         !postAction &&
         !postReaction &&
         !chrome &&
+        !header &&
         !launcher &&
         !quiet &&
         variant != DButtonVariant.recessed &&
@@ -1272,6 +1274,7 @@ class DButton extends StatelessWidget {
                 (!(timeline ||
                         postReaction ||
                         chrome ||
+                        header ||
                         launcher ||
                         quiet ||
                         rail) &&
@@ -1294,7 +1297,8 @@ class DButton extends StatelessWidget {
           expanded: expanded,
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
-            // Launcher cells use a flat interaction tint in both materials.
+            // Launcher cells and desktop header shortcuts use a flat
+            // interaction tint in both materials, as in the mockups.
             color:
                 stockGlass ||
                     expandedChrome ||
@@ -1304,6 +1308,7 @@ class DButton extends StatelessWidget {
                       timeline ||
                       postReaction ||
                       chrome ||
+                      header ||
                       launcher ||
                       quiet
                 ? state.backgroundColor
@@ -1369,7 +1374,13 @@ class DButton extends StatelessWidget {
                   depth: DSurfaceDepth.chromeSelection,
                   child: surface,
                 )
-              : timeline || postReaction || chrome || launcher || quiet || rail
+              : timeline ||
+                    postReaction ||
+                    chrome ||
+                    header ||
+                    launcher ||
+                    quiet ||
+                    rail
               ? surface
               : DMaterialSurface(
                   radius: radius,

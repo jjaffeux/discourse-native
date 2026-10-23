@@ -425,7 +425,7 @@ class _ShortcutKeycapsState extends State<DShortcutKeycaps>
                       color: Color.lerp(
                         tokens.background,
                         tokens.foreground,
-                        .32,
+                        .5,
                       ),
                       letterSpacing: 0,
                     ),

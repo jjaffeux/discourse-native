@@ -508,6 +508,124 @@ void main() {
       });
     }
   }
+  for (final material in DAppearanceMaterial.values) {
+    for (final brightness in Brightness.values) {
+      testWidgets('desktop header states stay flat in $material $brightness', (
+        tester,
+      ) async {
+        const canvas = Color(0xff323642);
+        const capture = ValueKey('header-capture');
+        final shadowsDisabled = debugDisableShadows;
+        debugDisableShadows = false;
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        try {
+          for (final iconOnly in [false, true]) {
+            for (final expanded in [false, true]) {
+              final variant = expanded
+                  ? DButtonVariant.primary
+                  : DButtonVariant.ghost;
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: DMaterialTheme.apply(
+                    AppTheme.forBrightness(
+                      brightness,
+                    ).copyWith(platform: TargetPlatform.macOS),
+                    material,
+                  ),
+                  home: Center(
+                    child: RepaintBoundary(
+                      key: capture,
+                      child: ColoredBox(
+                        color: canvas,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: iconOnly
+                              ? DButton.iconOnly(
+                                  density: DButtonDensity.header,
+                                  variant: variant,
+                                  shape: DButtonShape.pill,
+                                  icon: const DIcon(DIcons.bell, size: 17),
+                                  tooltip: 'Notifications',
+                                  expanded: expanded,
+                                  onPressed: () {},
+                                )
+                              : DButton(
+                                  density: DButtonDensity.header,
+                                  variant: variant,
+                                  shape: DButtonShape.pill,
+                                  icon: const DIcon(DIcons.comment, size: 16),
+                                  label: const Text('42'),
+                                  expanded: expanded,
+                                  onPressed: () {},
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              final button = find.byType(DButton);
+              await mouse.moveTo(
+                expanded ? Offset.zero : tester.getCenter(button),
+              );
+              await tester.pumpAndSettle();
+              final buttons = DTokens.of(tester.element(button)).buttonTheme;
+              final fill = Color.alphaBlend(
+                expanded ? buttons.primary.hover : buttons.accent.hover,
+                canvas,
+              );
+              final bounds = tester.getRect(button);
+              final origin = tester.getTopLeft(find.byKey(capture));
+              final left = (bounds.left - origin.dx).round();
+              final top = (bounds.top - origin.dy).round();
+              final width = bounds.width.round();
+              final height = bounds.height.round();
+              await tester.runAsync(() async {
+                final image = await tester
+                    .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                    .toImage();
+                try {
+                  final pixels = (await image.toByteData(
+                    format: ui.ImageByteFormat.rawRgba,
+                  ))!;
+                  void expectPixel(int x, int y, Color color, String what) {
+                    final offset = (y * image.width + x) * 4;
+                    for (final (channel, value) in [
+                      (0, color.r),
+                      (1, color.g),
+                      (2, color.b),
+                    ]) {
+                      expect(
+                        pixels.getUint8(offset + channel),
+                        closeTo((value * 255).round(), 1),
+                        reason:
+                            '$what at ($x, $y), channel $channel, '
+                            'iconOnly=$iconOnly expanded=$expanded',
+                      );
+                    }
+                  }
+
+                  final corner = height ~/ 2;
+                  for (var x = left + corner; x < left + width - corner; x++) {
+                    expectPixel(x, top, fill, 'Top edge without a rim');
+                    expectPixel(x, top + 3, fill, 'Flat fill without a lens');
+                    expectPixel(x, top + height + 1, canvas, 'No shadow');
+                  }
+                } finally {
+                  image.dispose();
+                }
+              });
+              expect(tester.takeException(), isNull);
+            }
+          }
+        } finally {
+          debugDisableShadows = shadowsDisabled;
+        }
+      });
+    }
+  }
   for (final rtl in [false, true]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets(

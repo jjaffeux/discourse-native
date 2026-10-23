@@ -28,6 +28,7 @@ Future<void> _mount(
   TextDirection direction = TextDirection.ltr,
   FocusNode? controlFocus,
   Widget? controls,
+  Widget? firstRow,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -63,6 +64,7 @@ Future<void> _mount(
             padding: EdgeInsets.zero,
             children: [
               header.spacer,
+              ?firstRow,
               for (var i = 0; i < 100; i++)
                 ColoredBox(
                   color: _ink,
@@ -396,6 +398,32 @@ void main() {
       }
     }
   }
+
+  testWidgets('a raised first row paints into the controls band at the top', (
+    tester,
+  ) async {
+    const raised = Color(0xff44aa66);
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await _mount(
+      tester,
+      scroll,
+      firstRow: Transform.translate(
+        offset: const Offset(0, -20),
+        child: const ColoredBox(color: raised, child: SizedBox(height: 60)),
+      ),
+    );
+    final boundary = (tester.getBottomLeft(find.byKey(_controls)).dy + 14)
+        .ceil();
+    expect(await _pixel(tester, boundary - 7), raised);
+    expect(await _pixel(tester, boundary - 17), _ground);
+    scroll.jumpTo(40);
+    await tester.pumpAndSettle();
+    expect(await _pixel(tester, boundary - 7), _ground);
+    scroll.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(await _pixel(tester, boundary - 7), raised);
+  });
 
   testWidgets('adaptive body follows inherited theme and text scale changes', (
     tester,
