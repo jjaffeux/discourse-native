@@ -152,6 +152,15 @@ class DMaterialSurface extends StatelessWidget {
         : null;
     final solid = depth == DSurfaceDepth.swatch || depth == DSurfaceDepth.card;
     final lens = glass && color.a > 0 && !panel && !recessed && !solid;
+    // Desktop controls sit in chrome and panels with no shared row to group
+    // them, so on macOS each lens is its own system glass group, clipped by
+    // whatever clips it in Flutter.
+    if (lens &&
+        !kIsWeb &&
+        Theme.of(context).platform == TargetPlatform.macOS &&
+        !NativeGlass.scopedOf(context)) {
+      return NativeGlassScope(child: Builder(builder: build));
+    }
     final alpha = accented
         ? 1.0
         : menu

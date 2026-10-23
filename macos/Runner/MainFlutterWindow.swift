@@ -20,6 +20,7 @@ class MainFlutterWindow: NSWindow {
   private var vibrancyBackdropView: NSView?
   private var accessibilityObserver: NSObjectProtocol?
   private var materialAccessibilityChannel: FlutterMethodChannel?
+  private var glassRenderer: GlassRenderer?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -73,6 +74,10 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
+    glassRenderer = GlassRenderer(
+      messenger: flutterViewController.engine.binaryMessenger,
+      host: flutterViewController.view
+    )
     attachPasteboardChannel(to: flutterViewController.engine.binaryMessenger)
     observeWindowFrame(NSWindow.willStartLiveResizeNotification) { window in
       window.liveResize = true
