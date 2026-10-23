@@ -578,6 +578,32 @@ void main() {
       'chat_separate_sidebar_mode': 'always',
     });
   });
+  testWidgets('lays the Chat row out like a core preference row', (
+    tester,
+  ) async {
+    final fixture = await _fixture(site: _chatSite);
+    await _pumpPage(tester, fixture, width: 1000);
+    await _section(tester, PreferenceSection.interface);
+    final coreSelect = tester.getRect(
+      find.byType(DSelect<BookmarkAutoDeletePreference>),
+    );
+    final coreLabel = tester.getTopLeft(
+      find.text('Automatically delete bookmarks'),
+    );
+
+    await _section(tester, chatPreferenceSection);
+
+    expect(
+      tester.getRect(find.byType(DSelect<ChatSeparateSidebarPreference>)),
+      coreSelect,
+    );
+    expect(
+      tester.getTopLeft(
+        find.text('Show separate sidebar modes for forum and chat'),
+      ),
+      coreLabel,
+    );
+  });
   testWidgets('hides Chat when the site setting disables it', (tester) async {
     final site = _chatSite.copyWith(
       config: _chatSite.config.withPlugins(
