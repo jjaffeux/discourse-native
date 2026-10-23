@@ -96,6 +96,38 @@ void main() {
     );
   });
 
+  testWidgets('text and background picked too close still read', (
+    tester,
+  ) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await tapVisible(tester, find.byKey(const ValueKey('new-theme')));
+    final thumbnail = find.byKey(const ValueKey('theme-editor-thumbnail'));
+    double contrast() {
+      final theme = tester.widget<ThemeThumbnail>(thumbnail).theme;
+      final a = theme.shell.content.computeLuminance();
+      final b = theme.colorScheme.onSurface.computeLuminance();
+      return ((a > b ? a : b) + .05) / ((a < b ? a : b) + .05);
+    }
+
+    Future<void> pick(String field, String hex) async {
+      final input = find.descendant(
+        of: find.byKey(ValueKey('theme-color-$field')),
+        matching: find.byType(EditableText),
+      );
+      await tester.ensureVisible(input);
+      await tester.enterText(input, hex);
+      await tester.pumpAndSettle();
+    }
+
+    await pick('background', '#F4F4F4');
+    await pick('text', '#E8E8E8');
+    expect(contrast(), greaterThanOrEqualTo(4.5));
+    await pick('background', '#DDDDDD');
+    expect(contrast(), greaterThanOrEqualTo(4.5));
+  });
+
   testWidgets('new theme opens the editor and saves its own appearance', (
     tester,
   ) async {

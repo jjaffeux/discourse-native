@@ -39,11 +39,11 @@ void main() {
     expect(tester.widget<DInput>(_name).controller!.text, 'Replacement draft');
     expect(
       tester.widget<ThemeThumbnail>(_thumbnail).theme.shell.content,
-      const Color(0xff112233),
+      const Color(0xfff0e8d8),
     );
     final saved = await shell.forumSettings.store.loadThemes(_site);
     expect(saved.customThemes.single.name, 'Original saved theme');
-    expect(saved.customThemes.single.secondary, isNot(const Color(0xff112233)));
+    expect(saved.customThemes.single.secondary, isNot(const Color(0xfff0e8d8)));
     expect(tester.takeException(), isNull);
   });
 
@@ -57,16 +57,16 @@ void main() {
     expect(find.byType(ForumThemeEditor), findsOneWidget);
     expect(
       tester.widget<ThemeThumbnail>(_thumbnail).theme.shell.content,
-      const Color(0xff112233),
+      const Color(0xfff0e8d8),
     );
     final saved = await shell.forumSettings.store.loadThemes(_site);
-    expect(saved.customThemes.single.secondary, isNot(const Color(0xff112233)));
+    expect(saved.customThemes.single.secondary, isNot(const Color(0xfff0e8d8)));
 
     // The original save persists, and the subsequent draft remains savable.
     await _tap(tester, _save);
     expect(find.byType(ForumThemeEditor), findsNothing);
     final updated = await shell.forumSettings.store.loadThemes(_site);
-    expect(updated.customThemes.single.secondary, const Color(0xff112233));
+    expect(updated.customThemes.single.secondary, const Color(0xfff0e8d8));
     expect(tester.takeException(), isNull);
   });
 }
@@ -100,13 +100,13 @@ Future<void> _changeBackground(WidgetTester tester) async {
       of: find.byKey(const ValueKey('theme-color-background')),
       matching: find.byType(EditableText),
     ),
-    '#112233',
+    '#F0E8D8',
   );
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pump();
   expect(
     tester.widget<ThemeThumbnail>(_thumbnail).theme.shell.content,
-    const Color(0xff112233),
+    const Color(0xfff0e8d8),
   );
 }
 

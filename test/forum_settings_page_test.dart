@@ -559,7 +559,7 @@ void main() {
 
     for (final id in [
       'forum',
-      for (final preset in forumThemePresetsFor(Brightness.light)) preset.id,
+      for (final preset in forumThemePresets) preset.id,
     ]) {
       final pencil = find.byKey(ValueKey(('edit-theme', id)));
       expect(pencil, findsOneWidget);

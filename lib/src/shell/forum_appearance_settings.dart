@@ -117,8 +117,8 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   Brightness _brightness() => _shownBrightness ?? _activeBrightness();
 
-  /// The forum's own palette for each mode, or the neutral preset where the
-  /// forum has not published one.
+  /// The forum's own palette for each mode, or Discourse's own Light and Dark
+  /// where the forum has not published one.
   Map<Brightness, ForumTheme> _forumPalettes() {
     final forum = widget.siteUrl == ForumSettingsController.homeSite
         ? null

@@ -142,11 +142,9 @@ void main() {
         tester.widget<DButton>(feed).variant,
         DButtonVariant.quietSelected,
       );
-      final dark = theme.brightness == Brightness.dark;
-      final ink = dark ? Colors.white : Colors.black;
       expect(
         buttonSurface(tester, of: feed).color,
-        ink.withValues(alpha: dark ? .12 : .10),
+        DTokens.of(tester.element(feed)).raisedBackground,
       );
       expect(buttonSurface(tester, of: feed).borderColor.a, 0);
       expect(tester.getSize(feed).height, 30);
@@ -154,7 +152,7 @@ void main() {
       expect(tester.widget<DButton>(tag).variant, DButtonVariant.quiet);
       expect(
         buttonSurface(tester, of: tag).color,
-        ink.withValues(alpha: dark ? .055 : .045),
+        DTokens.of(tester.element(tag)).foreground.withValues(alpha: .05),
       );
       final group = find.byWidgetPredicate(
         (widget) => widget is DButtonGroup && widget.quiet,

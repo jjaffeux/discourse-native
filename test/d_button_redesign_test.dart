@@ -38,19 +38,18 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final dark = brightness == Brightness.dark;
-          final ink = dark ? Colors.white : Colors.black;
           final quiet = find.byKey(const ValueKey(DButtonVariant.quiet));
           final selected = find.byKey(
             const ValueKey(DButtonVariant.quietSelected),
           );
+          final tokens = DTokens.of(tester.element(quiet));
           expect(
             buttonSurface(tester, of: quiet).color,
-            ink.withValues(alpha: dark ? .055 : .045),
+            tokens.foreground.withValues(alpha: .05),
           );
           expect(
             buttonSurface(tester, of: selected).color,
-            ink.withValues(alpha: dark ? .12 : .10),
+            tokens.raisedBackground,
           );
           for (final control in [quiet, selected]) {
             expect(tester.getSize(control).height, 30);
@@ -76,13 +75,13 @@ void main() {
           await tester.pump();
           expect(
             buttonSurface(tester, of: quiet).color,
-            ink.withValues(alpha: dark ? .09 : .075),
+            tokens.foreground.withValues(alpha: .08),
           );
           await mouse.moveTo(tester.getCenter(selected));
           await tester.pump();
           expect(
             buttonSurface(tester, of: selected).color,
-            ink.withValues(alpha: dark ? .12 : .10),
+            tokens.raisedBackground,
           );
           await mouse.removePointer();
         },

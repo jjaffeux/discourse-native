@@ -4,12 +4,14 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import 'forum_theme.dart';
 
-// Raw palettes from the September 2026 HTML reference at localhost:5183.
+// Raw palettes from the HTML reference at localhost:5183. A palette
+// published for one mode only gets its other half from
+// [ForumTheme.forBrightness].
 List<ForumTheme> get forumThemePresets => <ForumTheme>[
   ForumTheme(
     alternate: ForumTheme(
-      id: 'neutral',
-      name: appL10n.dark,
+      id: 'discourse',
+      name: appL10n.discourse,
       brightness: Brightness.dark,
       primary: const Color(0xFFDDDDDD),
       secondary: const Color(0xFF222222),
@@ -19,6 +21,18 @@ List<ForumTheme> get forumThemePresets => <ForumTheme>[
       success: const Color(0xFF1CA551),
       love: const Color(0xFFFA6C8D),
     ),
+    id: 'discourse',
+    name: appL10n.discourse,
+    brightness: Brightness.light,
+    primary: const Color(0xFF222222),
+    secondary: const Color(0xFFFFFFFF),
+    tertiary: const Color(0xFF0088CC),
+    quaternary: const Color(0xFFE45735),
+    danger: const Color(0xFFE45735),
+    success: const Color(0xFF009900),
+    love: const Color(0xFFFA6C8D),
+  ),
+  ForumTheme(
     id: 'neutral',
     name: appL10n.neutral,
     brightness: Brightness.light,
@@ -115,6 +129,19 @@ List<ForumTheme> get forumThemePresets => <ForumTheme>[
     love: Color(0xFF9D256B),
   ),
   ForumTheme(
+    // Alucard, Dracula's own light theme, as its specification gives it.
+    alternate: ForumTheme(
+      id: 'dracula',
+      name: appL10n.dracula,
+      brightness: Brightness.light,
+      primary: const Color(0xFF1F1F1F),
+      secondary: const Color(0xFFFFFBEB),
+      tertiary: const Color(0xFF644AC9),
+      quaternary: const Color(0xFF036A96),
+      danger: const Color(0xFFCB3A2A),
+      success: const Color(0xFF14710A),
+      love: const Color(0xFFA3144D),
+    ),
     id: 'dracula',
     name: appL10n.dracula,
     brightness: Brightness.dark,
@@ -164,21 +191,13 @@ List<ForumTheme> get forumThemePresets => <ForumTheme>[
   ),
 ];
 
-/// Whether [theme] carries a palette authored for [mode].
-bool forumThemeHasMode(ForumTheme theme, Brightness mode) =>
-    theme.brightness == mode || theme.alternate?.brightness == mode;
-
-/// The presets authored for [mode], in reference order.
-Iterable<ForumTheme> forumThemePresetsFor(Brightness mode) =>
-    forumThemePresets.where((theme) => forumThemeHasMode(theme, mode));
-
-/// The preset named [id] when it has a palette authored for [mode].
-ForumTheme? forumThemePresetFor(String id, Brightness mode) =>
-    forumThemePresetsFor(mode).where((theme) => theme.id == id).firstOrNull;
+/// The preset named [id]. Every preset has a light half and a dark one.
+ForumTheme? forumThemePresetFor(String id) =>
+    forumThemePresets.where((theme) => theme.id == id).firstOrNull;
 
 /// Preserve selections saved before light and dark variants shared one entry.
 String? canonicalForumThemeId(String? id) => switch (id) {
-  'dark' => 'neutral',
+  'dark' => 'discourse',
   'wcag-dark' => 'wcag',
   'solarized-light' || 'solarized-dark' => 'solarized',
   _ => id,

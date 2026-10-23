@@ -497,7 +497,6 @@ class _DToggleState extends State<DToggle> {
     final surfaceColor = postReaction
         ? DPostReactionStyle.fill(
             tokens,
-            dark,
             selected: _current,
             interacting: interacting,
           )

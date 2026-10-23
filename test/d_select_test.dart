@@ -54,7 +54,10 @@ void main() {
       final surface =
           tester.widget<AnimatedContainer>(visual).decoration!
               as DControlDecoration;
-      expect(surface.color, Colors.white.withValues(alpha: .055));
+      expect(
+        surface.color,
+        DTokens.of(tester.element(visual)).foreground.withValues(alpha: .05),
+      );
       expect(surface.borderColor.a, 0);
       expect(surface.borderRadius, BorderRadius.circular(DRadius.pill));
       expect(tester.getRect(control), tester.getRect(visual));

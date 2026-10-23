@@ -141,7 +141,6 @@ void main() {
       settings.themesFor(_site).themeFor(Brightness.light)!.tertiary,
       forumThemePresetFor(
         'solarized',
-        Brightness.light,
       )!.forBrightness(Brightness.light).tertiary,
     );
   });
