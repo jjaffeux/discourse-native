@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_link_interaction.dart';
 
 enum DBubbleVariant {
   /// A pill with a continuous outlined caret pointing to its author's avatar.
@@ -416,15 +417,19 @@ class _DBubbleContentState extends State<DBubbleContent> {
     );
   }
 
-  void _activate() {
-    if (!_enabled) return;
-    _focus.requestFocus();
-    widget.onPressed!();
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.action == null) return _surface(context, interactive: false);
+
+    final linkActivation = DLinkInteractionBinding.capture(
+      context,
+      widget.onPressed,
+    );
+    void activate() {
+      if (!_enabled) return;
+      _focus.requestFocus();
+      linkActivation.onPressed!();
+    }
 
     final scope = _DBubbleScope.of(context);
     final tokens = DTokens.of(context);
@@ -438,63 +443,65 @@ class _DBubbleContentState extends State<DBubbleContent> {
     };
     const semanticValue = '';
 
-    return Semantics(
-      container: true,
-      button: widget.action == DBubbleContentAction.button,
-      link: widget.action == DBubbleContentAction.link,
-      enabled: _enabled,
-      selected: false,
-      label: widget.semanticLabel,
-      hint: null,
-      value: semanticValue.isEmpty ? null : semanticValue,
-      liveRegion: false,
-      onTap: _enabled ? _activate : null,
-      child: FocusableActionDetector(
-        focusNode: _focus,
-        autofocus: false,
-        enabled: true,
-        mouseCursor: _enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        shortcuts: shortcuts,
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              _activate();
-              return null;
-            },
-          ),
-          DoNothingIntent: DoNothingAction(),
-        },
-        onShowHoverHighlight: (value) => setState(() => _hovered = value),
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTap: _enabled ? _activate : null,
-          onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: () => setState(() => _pressed = false),
-          child: Align(
-            widthFactor: 1,
-            heightFactor: 1,
-            alignment: AlignmentDirectional.centerStart,
-            child: CustomPaint(
-              foregroundPainter: _BubbleFocusPainter(
-                visible: _focused,
-                color: tokens.focusRing,
-                radius: scope.variant == DBubbleVariant.ghost
-                    ? 0
-                    : scope.quote || scope.variant == DBubbleVariant.neutral
-                    ? 12
-                    : tokens.radius * 1.4,
-              ),
-              child: SelectionContainer.disabled(
-                child: ExcludeSemantics(
-                  excluding: widget.semanticLabel != null,
-                  child: Opacity(
-                    opacity: (_enabled) ? 1 : .5,
-                    child: _surface(context, interactive: true),
+    return linkActivation.wrap(
+      Semantics(
+        container: true,
+        button: widget.action == DBubbleContentAction.button,
+        link: widget.action == DBubbleContentAction.link,
+        enabled: _enabled,
+        selected: false,
+        label: widget.semanticLabel,
+        hint: null,
+        value: semanticValue.isEmpty ? null : semanticValue,
+        liveRegion: false,
+        onTap: _enabled ? activate : null,
+        child: FocusableActionDetector(
+          focusNode: _focus,
+          autofocus: false,
+          enabled: true,
+          mouseCursor: _enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          shortcuts: shortcuts,
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                activate();
+                return null;
+              },
+            ),
+            DoNothingIntent: DoNothingAction(),
+          },
+          onShowHoverHighlight: (value) => setState(() => _hovered = value),
+          onShowFocusHighlight: (value) => setState(() => _focused = value),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: _enabled ? activate : null,
+            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            child: Align(
+              widthFactor: 1,
+              heightFactor: 1,
+              alignment: AlignmentDirectional.centerStart,
+              child: CustomPaint(
+                foregroundPainter: _BubbleFocusPainter(
+                  visible: _focused,
+                  color: tokens.focusRing,
+                  radius: scope.variant == DBubbleVariant.ghost
+                      ? 0
+                      : scope.quote || scope.variant == DBubbleVariant.neutral
+                      ? 12
+                      : tokens.radius * 1.4,
+                ),
+                child: SelectionContainer.disabled(
+                  child: ExcludeSemantics(
+                    excluding: widget.semanticLabel != null,
+                    child: Opacity(
+                      opacity: (_enabled) ? 1 : .5,
+                      child: _surface(context, interactive: true),
+                    ),
                   ),
                 ),
               ),

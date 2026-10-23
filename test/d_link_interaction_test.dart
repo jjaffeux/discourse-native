@@ -49,6 +49,19 @@ void main() {
       (activate) =>
           DBadge.inline(onPressed: activate, child: const Text('Open link')),
     ),
+    (
+      'Bubble link',
+      (activate) => DBubble(
+        variant: DBubbleVariant.neutral,
+        children: [
+          DBubbleContent(
+            action: DBubbleContentAction.link,
+            onPressed: activate,
+            child: const Text('Open link'),
+          ),
+        ],
+      ),
+    ),
   ];
 
   for (final (name, build) in controls) {
