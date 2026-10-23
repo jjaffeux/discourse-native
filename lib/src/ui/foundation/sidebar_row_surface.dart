@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'material_surface.dart';
-import 'material_theme.dart';
 import 'tokens.dart';
 
 /// Sidebar artwork adds no layout or pointer targets.
@@ -30,13 +28,7 @@ class DSidebarRowSurface extends StatelessWidget {
       navigation: navigation,
       radius: radius,
     ),
-    child: DMaterialSurface(
-      radius: radius,
-      color: selected && DMaterialTheme.glassOf(context)
-          ? DTokens.of(context).surface
-          : Colors.transparent,
-      child: child,
-    ),
+    child: child,
   );
 
   static CustomPainter painterFor(
@@ -47,9 +39,7 @@ class DSidebarRowSurface extends StatelessWidget {
     bool navigation = false,
   }) {
     final tokens = DTokens.of(context);
-    final color = selected && DMaterialTheme.glassOf(context)
-        ? Colors.transparent
-        : selected
+    final color = selected
         ? navigation
               ? Color.lerp(tokens.background, tokens.foreground, .12)!
               : tokens.foreground.withValues(alpha: .13)
