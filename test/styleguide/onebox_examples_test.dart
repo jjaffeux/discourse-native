@@ -191,11 +191,12 @@ void main() {
       'Reddit post · r/FlutterDev',
     );
     final postController = platform.controllers.single;
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
     postController.channels['NativeEmbed']!.onMessageReceived(
       const JavaScriptMessage(message: 'loaded'),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('onebox-state-reddit-1')));
     await tester.pump(const Duration(milliseconds: 100));

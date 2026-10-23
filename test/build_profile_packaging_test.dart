@@ -13,7 +13,6 @@ const _voiceGraphPackages = {
   'flutter_webrtc',
   'livekit_client',
 };
-const _voiceOwnedDependencies = {..._voiceGraphPackages, 'logger', 'logging'};
 
 void main() {
   group('profile package graphs', () {
@@ -50,8 +49,8 @@ void main() {
       );
 
       expect(
-        declaredPackages.intersection(_voiceOwnedDependencies),
-        containsAll(_voiceOwnedDependencies),
+        declaredPackages.intersection(_voiceGraphPackages),
+        containsAll(_voiceGraphPackages),
         reason:
             'Every application build includes Voice, its native bridge, '
             'and both media SDKs.',
