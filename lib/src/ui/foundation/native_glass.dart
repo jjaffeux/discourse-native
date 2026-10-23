@@ -38,25 +38,33 @@ abstract final class NativeGlass {
   static bool _occluding = false;
   static final _groups = <NativeGlassGroup>{};
   static final _images = <_RenderNativeGlassContent, int>{};
-  static bool _probed = false;
+  static Future<void>? _probed;
   static bool _ticking = false;
   static Map<String, Object?>? _sent;
 
-  static void _probe() {
-    if (_probed ||
-        kIsWeb ||
-        (defaultTargetPlatform != TargetPlatform.iOS &&
-            defaultTargetPlatform != TargetPlatform.macOS)) {
-      return;
-    }
-    _probed = true;
-    unawaited(
-      channel
-          .invokeMethod<bool>('available')
-          .then((value) => available.value = value ?? false)
-          .catchError((Object _) => false),
-    );
+  static bool get _hostMayDraw =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+
+  static Future<void> _probe() => _probed ??= _hostMayDraw
+      ? channel
+            .invokeMethod<bool>('available')
+            .then((value) => available.value = value ?? false)
+            .catchError((Object _) => false)
+      : Future.value();
+
+  /// Holds the app's first frame until the host answers the probe. Otherwise
+  /// launch paints every lens with Flutter glass, each reading its backdrop,
+  /// and the system material replaces them a frame later.
+  static void probeBeforeFirstFrame() {
+    if (!_hostMayDraw) return;
+    final binding = WidgetsBinding.instance..deferFirstFrame();
+    unawaited(_probe().whenComplete(binding.allowFirstFrame));
   }
+
+  @visibleForTesting
+  static void resetProbeForTesting() => _probed = null;
 
   /// The active group drawing this context's glass, or null for Flutter glass.
   static NativeGlassGroup? of(BuildContext context) =>
@@ -229,7 +237,7 @@ class NativeGlassGroup extends State<NativeGlassScope> {
   @override
   void initState() {
     super.initState();
-    NativeGlass._probe();
+    unawaited(NativeGlass._probe());
     NativeGlass._scopes.add(this);
   }
 
