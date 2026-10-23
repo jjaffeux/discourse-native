@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/palette_contrast.dart';
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../theme/app_theme.dart';
@@ -136,12 +137,16 @@ class _ForumThemeEditorState extends State<ForumThemeEditor> {
               (
                 context.l10n.background,
                 palette.secondary,
-                (c) => _palette = palette.copyWith(secondary: c),
+                (c) => _palette = palette.copyWith(
+                  secondary: standOut(c, palette.primary),
+                ),
               ),
               (
                 context.l10n.text,
                 palette.primary,
-                (c) => _palette = palette.copyWith(primary: c),
+                (c) => _palette = palette.copyWith(
+                  primary: standOut(c, palette.secondary),
+                ),
               ),
               (
                 context.l10n.accent,

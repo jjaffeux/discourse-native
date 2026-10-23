@@ -64,7 +64,7 @@ void main() {
                 )
                 .decoration
             as BoxDecoration;
-    expect(well.color, Colors.white.withValues(alpha: .12));
+    expect(well.color, DTokens.of(tester.element(group)).raisedBackground);
     expect(well.border, isNull);
     for (final key in ['quiet-category', 'quiet-child']) {
       final button = find.byKey(Key(key));

@@ -1,7 +1,9 @@
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+import '../../foundation/palette_contrast.dart';
 import 'control_theme.dart';
 
 /// Semantic component tokens. The host maps its palette at the theme boundary.
@@ -67,15 +69,15 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get foreground => colors.onSurface;
 
   /// Flat page pickers, including selected paths, in both appearance materials.
+  /// Each step goes toward the palette's own text, so what is on it keeps the
+  /// contrast the palette keeps for it.
   DControlSurface quietControlSurface({bool selected = false}) {
-    final dark = colors.brightness == Brightness.dark;
-    final ink = dark ? Colors.white : Colors.black;
-    final fill = ink.withValues(
-      alpha: selected ? (dark ? .12 : .10) : (dark ? .055 : .045),
-    );
+    final fill = selected
+        ? raisedBackground
+        : foreground.withValues(alpha: .05);
     return DControlSurface(
       background: fill,
-      hover: selected ? fill : ink.withValues(alpha: dark ? .09 : .075),
+      hover: selected ? fill : foreground.withValues(alpha: .08),
       foreground: selected ? foreground : buttonTheme.outline.foreground,
     );
   }
@@ -87,6 +89,18 @@ class DTokens extends ThemeExtension<DTokens> {
     foreground: Color.lerp(foreground, category, .50)!,
     border: Color.lerp(buttonTheme.outline.border, category, .40)!,
   );
+
+  /// One step from the page toward its text, the reference's raised surface:
+  /// a tenth of the text, less where the text would no longer read on it.
+  Color get raisedBackground {
+    Color at(double share) => Color.lerp(background, foreground, share)!;
+    var share = .10;
+    while (share > 0 &&
+        contrastRatio(foreground, at(share)) < textContrast + contrastMargin) {
+      share = math.max(0, share - .005);
+    }
+    return at(share);
+  }
 
   /// Desktop footer surface and hairline from the HTML reference palette.
   Color get footerBackground => Color.lerp(background, foreground, .05)!;

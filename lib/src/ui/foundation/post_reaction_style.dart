@@ -18,13 +18,12 @@ abstract final class DPostReactionStyle {
       : Color.lerp(tokens.background, tokens.foreground, .62)!;
 
   static Color fill(
-    DTokens tokens,
-    bool dark, {
+    DTokens tokens, {
     bool selected = false,
     bool interacting = false,
   }) => selected
       ? tokens.primary.withValues(alpha: .24)
-      : (dark ? Colors.white : Colors.black).withValues(
-          alpha: interacting ? (dark ? .09 : .075) : (dark ? .055 : .045),
-        );
+      : interacting
+      ? tokens.quietControlSurface().hover
+      : tokens.quietControlSurface().background;
 }

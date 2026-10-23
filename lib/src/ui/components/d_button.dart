@@ -466,15 +466,11 @@ class DButton extends StatelessWidget {
       DButtonVariant.launcher => DButtonVariantStyle(
         enabled: state(Colors.transparent, tokens.foreground),
         interactive: state(
-          (dark ? Colors.white : Colors.black).withValues(
-            alpha: dark ? .055 : .045,
-          ),
+          tokens.quietControlSurface().background,
           tokens.foreground,
         ),
         focused: state(
-          (dark ? Colors.white : Colors.black).withValues(
-            alpha: dark ? .055 : .045,
-          ),
+          tokens.quietControlSurface().background,
           tokens.foreground,
         ),
       ),
@@ -986,7 +982,6 @@ class DButton extends StatelessWidget {
           iconColor: foreground,
           backgroundColor: DPostReactionStyle.fill(
             tokens,
-            dark,
             interacting: interactive,
           ),
           border: BorderSide.none,

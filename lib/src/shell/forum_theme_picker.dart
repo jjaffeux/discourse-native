@@ -89,7 +89,7 @@ class _ForumThemePickerState extends State<ForumThemePicker> {
               (widget.forum.name).toString(),
             ),
           ),
-          for (final option in forumThemePresetsFor(widget.brightness))
+          for (final option in forumThemePresets)
             _row(
               option,
               chosen:

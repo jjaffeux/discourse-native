@@ -125,11 +125,7 @@ void main() {
             tester.widget<AnimatedContainer>(artwork).decoration!
                 as BoxDecoration;
         final tokens = DTokens.of(tester.element(toggle));
-        final neutral = dark ? Colors.white : Colors.black;
-        expect(
-          decoration().color,
-          neutral.withValues(alpha: dark ? .055 : .045),
-        );
+        expect(decoration().color, tokens.foreground.withValues(alpha: .05));
         expect(decoration().borderRadius, BorderRadius.circular(999));
         expect(decoration().border!.top.color, Colors.transparent);
         expect(
@@ -159,10 +155,7 @@ void main() {
         await mouse.addPointer(location: Offset.zero);
         await mouse.moveTo(tester.getCenter(toggle));
         await tester.pump();
-        expect(
-          decoration().color,
-          neutral.withValues(alpha: dark ? .09 : .075),
-        );
+        expect(decoration().color, tokens.foreground.withValues(alpha: .08));
         await mouse.removePointer();
         await mount(selected: true);
         expect(decoration().color, tokens.primary.withValues(alpha: .24));
@@ -185,10 +178,7 @@ void main() {
         await tester.pump();
         expect(taps, 1);
         await mount(glass: true);
-        expect(
-          decoration().color,
-          neutral.withValues(alpha: dark ? .055 : .045),
-        );
+        expect(decoration().color, tokens.foreground.withValues(alpha: .05));
         expect(
           find.descendant(
             of: find.byType(DButton),

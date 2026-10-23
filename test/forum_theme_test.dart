@@ -19,8 +19,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const site = 'https://example.com/forum';
   final dracula = forumThemePresets.firstWhere((t) => t.id == 'dracula');
+  // What the app shows for Dracula at night: its accent as text, moved
+  // toward the text where it does not read on every surface.
+  final draculaAccent = dracula.resolve(Brightness.dark).tertiary;
   final custom = ForumTheme.fromJson({
-    ...dracula.toJson(),
+    ...dracula.forBrightness(Brightness.dark).toJson(),
     'name': 'My night',
   }, id: 'custom-night');
 
@@ -106,10 +109,11 @@ void main() {
           ...both.toJson(),
           'presets': const {'light': 'dracula', 'dark': 'unknown'},
         }).presets,
-        isEmpty,
-        reason: 'a preset only applies to a mode it has a palette for',
+        {Brightness.light: 'dracula'},
+        reason: 'an unknown preset is dropped',
       );
       expect(ForumThemePreferences.preset('dracula').presets, {
+        Brightness.light: 'dracula',
         Brightness.dark: 'dracula',
       });
       expect(ForumThemePreferences.preset('solarized').presets, {
@@ -138,7 +142,7 @@ void main() {
       );
       final appearance = settings.appearanceFor(site, forum)!;
       expect(appearance.base, same(forum.base));
-      expect(appearance.alternate!.tertiary, dracula.tertiary);
+      expect(appearance.alternate!.tertiary, draculaAccent);
     },
   );
 
@@ -181,7 +185,7 @@ void main() {
     expect(settings.previewBrightnessFor(site), Brightness.dark);
     expect(
       settings.appearanceFor(site, null)!.alternate!.tertiary,
-      dracula.tertiary,
+      draculaAccent,
     );
     settings.preview(site, page, brightness: Brightness.dark, draft: dracula);
     expect(notified, 1, reason: 'an unchanged preview does not notify');
@@ -249,7 +253,7 @@ void main() {
     expect(settings.themesFor(site), next);
     expect(
       settings.appearanceFor(site, null)!.alternate!.tertiary,
-      dracula.tertiary,
+      draculaAccent,
     );
     persistence.gate!.complete();
     await Future.wait([loading, saving]);
@@ -257,7 +261,7 @@ void main() {
   });
 
   test('paired appearances resolve and persist their own surface settings', () {
-    final source = forumThemePresets.first;
+    final source = forumThemePresets.firstWhere((t) => t.id == 'wcag');
     const lightBackground = ForumBackground(
       color: Color(0xff558844),
       strength: .3,
@@ -341,7 +345,7 @@ void main() {
     'surface options round trip and survive mode conversion and resolution',
     () {
       final themed = ForumTheme.fromJson({
-        ...dracula.toJson(),
+        ...dracula.forBrightness(Brightness.dark).toJson(),
         'windowGradient': true,
         'darkerSidebars': true,
       }, id: 'custom-effects');
@@ -621,7 +625,7 @@ void main() {
       );
       expect(
         settings.appearanceFor(site, forum)!.base,
-        forumThemePresetFor('solarized', Brightness.light)!
+        forumThemePresetFor('solarized')!
             .forBrightness(Brightness.light)
             .copyWith(background: effects)
             .resolve(Brightness.light, forumPalette: published),
@@ -721,6 +725,7 @@ void main() {
 
   test('contains all reference schemes with their original colors', () {
     expect(forumThemePresets.map((t) => t.id), [
+      'discourse',
       'neutral',
       'grey-amber',
       'shades-of-blue',
@@ -750,15 +755,15 @@ void main() {
         (t) => t.id == 'solarized',
       );
       expect(
-        solarized.resolve(Brightness.light).tertiary,
+        solarized.forBrightness(Brightness.light).tertiary,
         const Color(0xff0088cc),
       );
       expect(
-        solarized.resolve(Brightness.dark).tertiary,
+        solarized.forBrightness(Brightness.dark).tertiary,
         const Color(0xff1a97d5),
       );
       for (final (old, current) in [
-        ('dark', 'neutral'),
+        ('dark', 'discourse'),
         ('wcag-dark', 'wcag'),
         ('solarized-light', 'solarized'),
         ('solarized-dark', 'solarized'),
@@ -782,7 +787,7 @@ void main() {
           final thumbnail = theme.forBrightness(brightness);
           final resolved = theme.resolve(brightness);
           expect(thumbnail.secondary, resolved.secondary);
-          expect(thumbnail.tertiary, resolved.tertiary);
+          expect(thumbnail.primary, resolved.primary);
           expect(thumbnail.brightness, brightness);
         }
       }
@@ -797,13 +802,17 @@ void main() {
       'borderRadius': 9,
       'avatarBorderRadius': {'value': 12, 'unit': 'pixels'},
     });
-    final dark = dracula.resolve(Brightness.dark, forumPalette: geometry);
-    final light = dracula.resolve(Brightness.light, forumPalette: geometry);
-    expect(dark.primary, dracula.primary);
-    expect(dark.secondary, dracula.secondary);
-    expect(light.primary, dracula.secondary);
-    expect(light.secondary, dracula.primary);
-    expect(light.tertiary, dark.tertiary);
+    final latte = forumThemePresets.firstWhere((t) => t.id == 'latte');
+    final dark = latte.resolve(Brightness.dark, forumPalette: geometry);
+    final light = latte.resolve(Brightness.light, forumPalette: geometry);
+    expect(dark.primary, latte.primary);
+    expect(dark.secondary, latte.secondary);
+    expect(
+      light.secondary.computeLuminance(),
+      greaterThan(light.primary.computeLuminance()),
+    );
+    expect(light.secondary, isNot(latte.primary));
+    expect(light.primary, isNot(latte.secondary));
     expect(light.borderRadius, 9);
     expect(dark.avatarBorderRadius, const AvatarBorderRadius.pixels(12));
     expect(dark.primaryVeryLow, isNot(dark.secondary));
@@ -886,7 +895,7 @@ void main() {
     const source = SiteAppearance.unknown();
     expect(
       restored.appearanceFor(site, source)?.base?.tertiary,
-      custom.tertiary,
+      custom.resolve(Brightness.light).tertiary,
     );
     await restored.setThemes(
       site,

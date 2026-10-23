@@ -346,9 +346,7 @@ void main() {
       final surface = buttonSurface(tester, of: activity);
       expect(
         surface.color,
-        (mode == AppThemeMode.dark ? Colors.white : Colors.black).withValues(
-          alpha: mode == AppThemeMode.dark ? .055 : .045,
-        ),
+        DTokens.of(tester.element(activity)).foreground.withValues(alpha: .05),
       );
       expect(surface.borderColor.a, 0);
       expect(tester.getRect(activity), bounds);

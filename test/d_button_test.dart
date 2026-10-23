@@ -440,11 +440,9 @@ void main() {
           addTearDown(mouse.removePointer);
           await mouse.moveTo(tester.getCenter(find.byType(DButton)));
           await tester.pumpAndSettle();
-          final tint =
-              (brightness == Brightness.dark ? Colors.white : Colors.black)
-                  .withValues(
-                    alpha: brightness == Brightness.dark ? .055 : .045,
-                  );
+          final tint = DTokens.of(
+            tester.element(find.byType(DButton)),
+          ).foreground.withValues(alpha: .05);
           expect(buttonSurface(tester).borderColor.a, 0);
           final expected = Color.alphaBlend(tint, canvas);
           await tester.runAsync(() async {

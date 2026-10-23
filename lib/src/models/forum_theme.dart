@@ -1,9 +1,11 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show StringCharacters;
 
+import '../foundation/palette_contrast.dart';
 import 'forum_background.dart';
 import 'site_appearance.dart';
 
@@ -152,7 +154,8 @@ final class ForumTheme {
     danger: danger ?? this.danger,
     success: success ?? this.success,
     love: love ?? this.love,
-    alternate: alternate,
+    // The other half is read back under the theme's id.
+    alternate: id == null ? alternate : alternate?.copyWith(id: id),
     background: background ?? this.background,
     windowGradient: windowGradient,
     darkerSidebars: darkerSidebars ?? this.darkerSidebars,
@@ -201,9 +204,21 @@ final class ForumTheme {
             'alternate': alternate.toJson()..remove('background'),
         }, id: id);
 
-  /// A standalone palette for the requested mode, suitable for editing.
+  /// A standalone palette for the requested mode, suitable for editing: the
+  /// authored half for it, or else the other half made from this one, the
+  /// same hues the other way round.
   ForumTheme forBrightness(Brightness target) {
     final source = alternate?.brightness == target ? alternate! : this;
+    final authored = source.brightness == target;
+    final base = authored
+        ? (ground: source.secondary, text: source.primary)
+        : counterpartBase(
+            background: source.secondary,
+            text: source.primary,
+            target: target,
+          );
+    Color own(Color color) =>
+        authored ? color : readableIn(color, base.ground, target);
     return ForumTheme(
       id: id,
       name: source.name,
@@ -212,39 +227,90 @@ final class ForumTheme {
       darkerSidebars: source.darkerSidebars,
       tint: source.tint,
       brightness: target,
-      primary: source.brightness == target ? source.primary : source.secondary,
-      secondary: source.brightness == target
-          ? source.secondary
-          : source.primary,
-      tertiary: source.tertiary,
-      quaternary: source.quaternary,
-      danger: source.danger,
-      success: source.success,
-      love: source.love,
+      primary: base.text,
+      secondary: base.ground,
+      tertiary: own(source.tertiary),
+      quaternary: own(source.quaternary),
+      danger: own(source.danger),
+      success: own(source.success),
+      love: own(source.love),
     );
   }
 
-  /// Uses authored mode variants when available; otherwise swaps text/background.
+  /// Each derived colour takes as much of the palette as it would by
+  /// default, and more or less only where that falls short of WCAG AA for
+  /// what is set on it. The palette's own colours are never changed, only
+  /// how far they are mixed.
   ResolvedSitePalette resolve(
     Brightness target, {
     ResolvedSitePalette? forumPalette,
   }) {
-    if (alternate?.brightness == target) {
+    if (target != brightness || alternate != null) {
       return forBrightness(target).resolve(target, forumPalette: forumPalette);
     }
-    final originalForeground = target == brightness ? primary : secondary;
-    final originalBackground = target == brightness ? secondary : primary;
     // Tint the shared base before deriving panel and control surfaces. Applying
     // it only to the window canvas leaves opaque Native surfaces unchanged.
+    // Each leans toward the accent only as far as the text still reads.
     final effects = this.background;
     Color lean(Color color, double reach) =>
         Color.lerp(color, tertiary, (tint * reach * 100).round() / 100)!;
-    final background = lean(originalBackground, ForumBackground.maxTint);
-    final foreground = lean(originalForeground, ForumBackground.maxTextTint);
+    final tintedGround = lean(secondary, ForumBackground.maxTint);
+    final background =
+        contrastRatio(primary, tintedGround) >= textContrast + contrastMargin
+        ? tintedGround
+        : secondary;
+    final tintedText = lean(primary, ForumBackground.maxTextTint);
+    final foreground = contrastRatio(tintedText, background) >= textContrast
+        ? tintedText
+        : primary;
     Color mix(Color color, double amount) =>
         Color.lerp(background, color, amount)!;
-    final selected = mix(tertiary, .20);
-    final metadata = mix(foreground, effects == null ? .70 : .50);
+    // A surface text is set on, as much of [color] as it takes by default
+    // and less where the text would no longer read on it.
+    Color under(Color color, double most) {
+      var share = most;
+      while (share > 0 &&
+          contrastRatio(foreground, mix(color, share)) <
+              textContrast + contrastMargin) {
+        share = math.max(0, share - .005);
+      }
+      return mix(color, share);
+    }
+
+    final panel = mix(foreground, .03);
+    final header = mix(foreground, .05);
+    final hover = under(foreground, .08);
+    final floating = under(foreground, .10);
+    final raised = under(foreground, .12);
+    final selected = under(tertiary, .20);
+    final codeBlock = mix(foreground, .05);
+    final inlineCode = under(foreground, .08);
+    final surfaces = [
+      background,
+      panel,
+      header,
+      hover,
+      floating,
+      raised,
+      selected,
+      codeBlock,
+      inlineCode,
+    ];
+    // A level of text: as much of the text as it takes by default, more
+    // where that does not reach [need] on every surface.
+    Color level(double need, double from) => mix(
+      foreground,
+      shareFor(foreground, background, surfaces, need + contrastMargin, from),
+    );
+    // A colour as text: moved toward the text only as far as it takes to
+    // read on every surface.
+    Color ink(Color color) => mixInto(
+      color,
+      foreground,
+      shareFor(foreground, color, surfaces, textContrast + contrastMargin, 0),
+    );
+    final metadata = level(textContrast, effects == null ? .70 : .50);
+    final accent = ink(tertiary);
     return ResolvedSitePalette.fromJson({
       'brightness': target.name,
       if (this.background != null) 'background': this.background!.toJson(),
@@ -258,11 +324,11 @@ final class ForumTheme {
               .toJson(),
       'primary': foreground.toARGB32(),
       'secondary': background.toARGB32(),
-      'tertiary': tertiary.toARGB32(),
+      'tertiary': accent.toARGB32(),
       'quaternary': quaternary.toARGB32(),
-      'accentSubtle': tertiary.toARGB32(),
-      'notificationIndicator': tertiary.toARGB32(),
-      'headerBackground': mix(foreground, .05).toARGB32(),
+      'accentSubtle': accent.toARGB32(),
+      'notificationIndicator': accent.toARGB32(),
+      'headerBackground': header.toARGB32(),
       'headerPrimary': foreground.toARGB32(),
       'metadataColor': metadata.toARGB32(),
       'contentBorderColor': mix(foreground, .12).toARGB32(),
@@ -272,27 +338,27 @@ final class ForumTheme {
       'love': love.toARGB32(),
       'selected': selected.toARGB32(),
       'selectedForeground': foreground.toARGB32(),
-      'hover': mix(foreground, .08).toARGB32(),
-      'primaryVeryLow': mix(foreground, .03).toARGB32(),
-      'primaryLow': mix(foreground, .12).toARGB32(),
+      'hover': hover.toARGB32(),
+      'primaryVeryLow': panel.toARGB32(),
+      'primaryLow': raised.toARGB32(),
       'primaryLowMid': mix(foreground, .22).toARGB32(),
-      'primaryMedium': mix(foreground, .50).toARGB32(),
+      'primaryMedium': level(textContrast, .50).toARGB32(),
       'primaryHigh': metadata.toARGB32(),
-      'primaryVeryHigh': mix(foreground, .90).toARGB32(),
-      'secondaryVeryHigh': mix(foreground, .10).toARGB32(),
-      'tertiaryLow': mix(tertiary, .18).toARGB32(),
-      'quaternaryLow': mix(quaternary, .18).toARGB32(),
-      'highlightLow': mix(quaternary, .18).toARGB32(),
-      'dangerLow': mix(danger, .18).toARGB32(),
-      'mentionBackground': mix(quaternary, .15).toARGB32(),
-      'currentUserMentionBackground': mix(tertiary, .18).toARGB32(),
-      'codeBlockBackground': mix(foreground, .05).toARGB32(),
-      'inlineCodeBackground': mix(foreground, .08).toARGB32(),
-      'codeKeyword': tertiary.toARGB32(),
-      'codeString': success.toARGB32(),
-      'codeComment': mix(foreground, .62).toARGB32(),
-      'codeNumber': quaternary.toARGB32(),
-      'codeName': tertiary.toARGB32(),
+      'primaryVeryHigh': level(bodyContrast, .90).toARGB32(),
+      'secondaryVeryHigh': floating.toARGB32(),
+      'tertiaryLow': under(tertiary, .18).toARGB32(),
+      'quaternaryLow': under(quaternary, .18).toARGB32(),
+      'highlightLow': under(quaternary, .18).toARGB32(),
+      'dangerLow': under(danger, .18).toARGB32(),
+      'mentionBackground': under(quaternary, .15).toARGB32(),
+      'currentUserMentionBackground': under(tertiary, .18).toARGB32(),
+      'codeBlockBackground': codeBlock.toARGB32(),
+      'inlineCodeBackground': inlineCode.toARGB32(),
+      'codeKeyword': accent.toARGB32(),
+      'codeString': ink(success).toARGB32(),
+      'codeComment': level(textContrast, .62).toARGB32(),
+      'codeNumber': ink(quaternary).toARGB32(),
+      'codeName': accent.toARGB32(),
       'codeMeta': metadata.toARGB32(),
     });
   }

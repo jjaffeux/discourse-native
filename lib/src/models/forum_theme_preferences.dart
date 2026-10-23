@@ -21,12 +21,12 @@ final class ForumThemePreferences {
   }) : presets = Map.unmodifiable(presets),
        customThemes = List.unmodifiable(customThemes);
 
-  /// The preset [id] in every mode it has a palette for.
+  /// The preset [id] in both modes.
   factory ForumThemePreferences.preset(String id) => ForumThemePreferences(
     source: ForumThemeSource.preset,
     presets: {
-      for (final mode in Brightness.values)
-        if (forumThemePresetFor(id, mode) != null) mode: id,
+      if (forumThemePresetFor(id) != null)
+        for (final mode in Brightness.values) mode: id,
     },
   );
 
@@ -58,7 +58,7 @@ final class ForumThemePreferences {
       customThemes.where((theme) => theme.id == customId).firstOrNull;
 
   ForumTheme? presetFor(Brightness mode) => switch (presets[mode]) {
-    final id? => forumThemePresetFor(id, mode),
+    final id? => forumThemePresetFor(id),
     null => null,
   };
 
@@ -230,7 +230,7 @@ final class ForumThemePreferences {
           final String id => id,
           _ => null,
         });
-        if (id != null && forumThemePresetFor(id, mode) != null) {
+        if (id != null && forumThemePresetFor(id) != null) {
           presets[mode] = id;
         }
       }
@@ -332,11 +332,7 @@ final class ForumThemePreferences {
           .where((theme) => theme.id == palette.id)
           .firstOrNull;
       if (preset != null && _sameColors(preset.forBrightness(mode), palette)) {
-        // A preset without a palette for this mode used to be inverted into
-        // it. That mode keeps the forum's colours instead.
-        if (forumThemePresetFor(preset.id, mode) != null) {
-          presets[mode] = preset.id;
-        }
+        presets[mode] = preset.id;
         continue;
       }
       final theme = customs.where((held) => held.id == palette.id).firstOrNull;

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/palette_contrast.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
@@ -35,14 +36,22 @@ void main() {
               (tint * reach * 100).round() / 100,
             )!.toARGB32(),
           );
+          // Each leans only while the text still reads on the ground.
+          final ground = lerped(theme.secondary, ForumBackground.maxTint);
+          final groundReads =
+              contrastRatio(theme.primary, ground) >=
+              textContrast + contrastMargin;
           expect(
             tinted.secondary,
-            lerped(theme.secondary, ForumBackground.maxTint),
+            groundReads ? ground : theme.secondary,
             reason: reason,
           );
+          final ink = lerped(theme.primary, ForumBackground.maxTextTint);
           expect(
             tinted.primary,
-            lerped(theme.primary, ForumBackground.maxTextTint),
+            contrastRatio(ink, tinted.secondary) >= textContrast
+                ? ink
+                : theme.primary,
             reason: reason,
           );
         }

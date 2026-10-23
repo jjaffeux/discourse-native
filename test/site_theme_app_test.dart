@@ -123,6 +123,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Themes'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('new-theme')));
     await tester.tap(find.byKey(const ValueKey('new-theme')));
     await tester.pumpAndSettle();
 
@@ -604,19 +605,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        _activeTheme(tester).colorScheme.primary,
-        forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
-      );
+      expect(_activeTheme(tester).colorScheme.primary, _draculaAccent(tester));
       controller.selectInstance(1);
       await tester.pumpAndSettle();
       expect(
         _activeTheme(tester).colorScheme.primary,
-        isNot(
-          forumThemePresets
-              .firstWhere((theme) => theme.id == 'dracula')
-              .tertiary,
-        ),
+        isNot(_draculaAccent(tester)),
       );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -627,10 +621,7 @@ void main() {
         forumSettingsStore: forums,
       );
       controller = _controller(tester);
-      expect(
-        _activeTheme(tester).colorScheme.primary,
-        forumThemePresets.firstWhere((theme) => theme.id == 'dracula').tertiary,
-      );
+      expect(_activeTheme(tester).colorScheme.primary, _draculaAccent(tester));
       await controller.forumSettings.setThemes(
         siteA,
         ForumThemePreferences.defaults,
@@ -1599,3 +1590,9 @@ final class _MapPersistence implements ScalarPreferencePersistence<String> {
     return true;
   }
 }
+
+/// Dracula's accent as the app shows it in the active mode.
+Color _draculaAccent(WidgetTester tester) => forumThemePresets
+    .firstWhere((theme) => theme.id == 'dracula')
+    .resolve(_activeTheme(tester).brightness)
+    .tertiary;
