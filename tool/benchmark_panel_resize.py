@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import re
 import statistics
 import subprocess
 import threading
@@ -13,6 +14,19 @@ import time
 
 CASES = ("sidebar", "main-panel", "reader-scroll")
 MARKER = "PANEL_RESIZE_FRAMES "
+
+
+def gpu_utilization():
+    """System-wide GPU busy share, which includes the window server's work."""
+    try:
+        text = subprocess.run(
+            ["ioreg", "-r", "-d", "1", "-c", "IOAccelerator"],
+            capture_output=True, text=True, timeout=2,
+        ).stdout
+    except subprocess.TimeoutExpired:
+        return None
+    match = re.search(r'"Device Utilization %"=(\d+)', text)
+    return int(match.group(1)) if match else None
 
 
 def capture(app, output):
@@ -31,6 +45,19 @@ def capture(app, output):
             lines.put(line)
 
     threading.Thread(target=read_lines, daemon=True).start()
+    samples = []
+    sampling = threading.Event()
+
+    # System glass is composited outside the app, so its GPU time never
+    # reaches FrameTiming; the device's own counter sees both.
+    def sample_gpu():
+        while not sampling.is_set():
+            value = gpu_utilization()
+            if value is not None:
+                samples.append((time.time() * 1e6, value))
+            sampling.wait(0.1)
+
+    threading.Thread(target=sample_gpu, daemon=True).start()
     log = []
     reports = {}
     passed = False
@@ -51,6 +78,7 @@ def capture(app, output):
                 passed = True
                 break
     finally:
+        sampling.set()
         process.terminate()
         try:
             process.wait(timeout=5)
@@ -66,6 +94,12 @@ def capture(app, output):
     if any(abs(reports[case].get("grewPx", 0) - 120) > 1
            for case in ("sidebar", "main-panel")):
         raise RuntimeError("A drag did not resize its pane by 120 pixels")
+    for report in reports.values():
+        window = [
+            value for at, value in samples
+            if report["wallStartUs"] <= at <= report["wallEndUs"]
+        ]
+        report["gpuBusyPct"] = statistics.mean(window) if window else None
     output.write_text(json.dumps(reports, indent=2) + "\n")
     return reports
 
@@ -139,6 +173,14 @@ def main():
                     "min": min(values),
                     "max": max(values),
                 }
+            values = [run[case]["gpuBusyPct"] for run in runs
+                      if run[case].get("gpuBusyPct") is not None]
+            if values:
+                metrics["gpuBusyPct"] = {
+                    "median": statistics.median(values),
+                    "min": min(values),
+                    "max": max(values),
+                }
             summary[key][case] = metrics
     summary["failures"] = failures
     (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -154,8 +196,9 @@ def main():
                     f"[{row[metric]['min']:.2f}-{row[metric]['max']:.2f}]"
                     for metric in (
                         "build.meanMs", "build.p95Ms",
-                        "raster.meanMs", "raster.p95Ms",
+                        "raster.meanMs", "raster.p95Ms", "gpuBusyPct",
                     )
+                    if metric in row
                 )
             )
 
