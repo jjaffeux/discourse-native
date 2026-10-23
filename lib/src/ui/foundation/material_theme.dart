@@ -59,6 +59,28 @@ class DStandardMaterial extends StatelessWidget {
   }
 }
 
+/// Draws [child] in neither material: controls keep their flat kit fill and
+/// border, with no glass lens, raised edge or drop shadow, whatever the saved
+/// choice. Overlays opened from inside keep the window's material.
+class DFlatMaterial extends StatelessWidget {
+  const DFlatMaterial({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (theme.extension<DMaterialTheme>() == null) return child;
+    return Theme(
+      data: theme.copyWith(
+        extensions: [
+          for (final extension in theme.extensions.values)
+            if (extension is! DMaterialTheme) extension,
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
 /// Keeps the OS Reduce Transparency preference live without changing the saved
 /// material choice. Preview/test hosts can omit the platform channel.
 class DMaterialAccessibility extends StatefulWidget {
