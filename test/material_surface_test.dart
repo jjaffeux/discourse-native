@@ -1357,6 +1357,45 @@ void main() {
     },
   );
 
+  testWidgets('the macOS window canvas stays opaque under glass transparency', (
+    tester,
+  ) async {
+    Color? panel;
+    await tester.pumpWidget(
+      MaterialApp(
+        themeAnimationStyle: AnimationStyle.noAnimation,
+        theme: DMaterialTheme.apply(
+          AppTheme.forBrightness(
+            Brightness.dark,
+            background: const ForumBackground.appearance(
+              transparency: .3,
+              effect: ForumBackgroundEffect.hatch,
+            ),
+          ),
+          DAppearanceMaterial.liquidGlass,
+        ).copyWith(platform: TargetPlatform.macOS),
+        home: ForumWindowBackground(
+          child: Builder(
+            builder: (context) {
+              panel = ForumWindowBackground.panelColor(context);
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final canvas =
+        tester
+                .widget<DecoratedBox>(
+                  find.byKey(const ValueKey('forum-window-canvas')),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(canvas.color!.a, 1);
+    expect(panel!.a, closeTo(.6, .001));
+  });
+
   testWidgets(
     'glass fallback paints visible frost without tinting its foreground',
     (tester) async {

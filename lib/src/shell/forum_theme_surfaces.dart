@@ -1,9 +1,7 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
@@ -87,27 +85,6 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     _motion.setActive(animate);
   }
 
-  String? _nativeMaterial;
-  void _syncNativeMaterial(bool glass) {
-    if (Theme.of(context).platform != TargetPlatform.macOS) return;
-    final material = glass ? 'liquidGlass' : 'standard';
-    if (_nativeMaterial == material) return;
-    _nativeMaterial = material;
-    unawaited(_setNativeMaterial(material));
-  }
-
-  Future<void> _setNativeMaterial(String material) async {
-    try {
-      await const MethodChannel(
-        'org.discourse.native/window',
-      ).invokeMethod<void>('setMaterial', material);
-    } on MissingPluginException {
-      // Embedded/preview shells have no native window.
-    } on PlatformException {
-      // The readable Flutter material remains available without AppKit.
-    }
-  }
-
   @override
   void dispose() {
     _motion.dispose();
@@ -131,15 +108,17 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final transparency = DMaterialTheme.reducedOf(context)
         ? 0.0
         : background?.transparency ?? 0;
-    _syncNativeMaterial(glass);
     return _ForumCanvas(
       continuous: background != null || panelMaterial,
       transparency: transparency,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
+          // The macOS window is opaque, so nothing sits behind this canvas.
           color: _plainWindowColor(tokens).withValues(
-            alpha: glass ? 1 - (transparency / .3 * 65).round() / 100 : 1,
+            alpha: glass && theme.platform != TargetPlatform.macOS
+                ? 1 - (transparency / .3 * 65).round() / 100
+                : 1,
           ),
           gradient: background == null ? effects?.windowGradient : null,
         ),
