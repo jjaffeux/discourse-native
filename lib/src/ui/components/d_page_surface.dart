@@ -260,6 +260,9 @@ class _DPageSurfaceState extends State<DPageSurface>
   Widget? get _header =>
       _compact ? widget.compactHeader ?? widget.header : widget.header;
 
+  // Until the edge fade engages, the body is wholly below the header, so the
+  // first row's lift and shadow may paint into the controls' empty padding.
+  final _bodyAtTop = ValueNotifier(false);
   bool _headerHeldAtEnd = false;
   bool _userScrolling = false;
   ScrollDirection _direction = ScrollDirection.idle;
@@ -448,6 +451,19 @@ class _DPageSurfaceState extends State<DPageSurface>
     return !nestedVertical;
   }
 
+  void _updateBodyAtTop(
+    ScrollMetrics metrics,
+    int depth,
+    BuildContext? origin,
+  ) {
+    if (metrics.axis != Axis.vertical || !_isPageScroll(depth, origin)) return;
+    // Match the edge fade's 2px tolerance, so one of the two always hides
+    // content that has scrolled under the header.
+    _bodyAtTop.value =
+        metrics.axisDirection == AxisDirection.down &&
+        metrics.pixels - metrics.minScrollExtent <= 2;
+  }
+
   bool _keepHeaderVisibleForShortContent(ScrollMetrics metrics) {
     var viewport = metrics.viewportDimension;
     if ((widget.bodyBuilder == null)) {
@@ -475,6 +491,11 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    _updateBodyAtTop(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
     if (widget.measureCompactHeader) {
       _updateCompact(
         notification.metrics,
@@ -612,6 +633,11 @@ class _DPageSurfaceState extends State<DPageSurface>
         _isPageScroll(notification.depth, notification.context)) {
       _compactFollowsScroll = true;
     }
+    _updateBodyAtTop(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
     _revealStandardTitleAtTop(
       notification.metrics,
       notification.depth,
@@ -687,6 +713,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     widget.headerSuppressed?.removeListener(_syncSuppression);
     _suppression.dispose();
     _titleFold.dispose();
+    _bodyAtTop.dispose();
     _compactTimer?.cancel();
     _motion.dispose();
     _headerFocus.dispose();
@@ -916,7 +943,13 @@ class _DPageSurfaceState extends State<DPageSurface>
                         ? fixedContent(widget.footer!)
                         : null,
                     body: ClipRect(
-                      clipper: _HeaderBodyClipper(_headerGeometry),
+                      clipper: _HeaderBodyClipper(
+                        _headerGeometry,
+                        _bodyAtTop,
+                        widget.headerControls is _PageControls
+                            ? _PageControls.bottomPadding
+                            : 0,
+                      ),
                       child: _PageHeaderScope(
                         geometry: _headerGeometry,
                         child: body,
@@ -1129,9 +1162,11 @@ class _PageControls extends StatelessWidget {
   const _PageControls({this.child});
   final Widget? child;
 
+  static const bottomPadding = 14.0;
+
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
     child: child ?? const SizedBox.shrink(),
   );
 }
@@ -1654,16 +1689,27 @@ class _RenderPageOverlay extends RenderBox
 }
 
 class _HeaderBodyClipper extends CustomClipper<Rect> {
-  _HeaderBodyClipper(this.geometry) : super(reclip: geometry);
+  _HeaderBodyClipper(this.geometry, this.atTop, this.emptyBand)
+    : super(reclip: Listenable.merge([geometry, atTop]));
   final DPageHeaderGeometry geometry;
+  final ValueListenable<bool> atTop;
+
+  /// Height of the header's lowest band, which holds nothing of its own.
+  final double emptyBand;
 
   @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(0, geometry.visibleExtent, size.width, size.height);
+  Rect getClip(Size size) => Rect.fromLTRB(
+    0,
+    geometry.visibleExtent - (atTop.value ? emptyBand : 0),
+    size.width,
+    size.height,
+  );
 
   @override
   bool shouldReclip(_HeaderBodyClipper oldClipper) =>
-      oldClipper.geometry != geometry;
+      oldClipper.geometry != geometry ||
+      oldClipper.atTop != atTop ||
+      oldClipper.emptyBand != emptyBand;
 }
 
 /// Leading space for a lazy viewport beneath a floating page header. Only
