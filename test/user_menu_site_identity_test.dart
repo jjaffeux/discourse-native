@@ -251,7 +251,14 @@ void main() {
           expect(find.byType(UserMenuPanel), findsNothing);
           expect(find.text('Pause notifications for…'), findsOneWidget);
           final focused = FocusManager.instance.primaryFocus!.context!;
-          expect(ModalRoute.of(focused), isA<DialogRoute<void>>());
+          expect(
+            ModalRoute.of(focused),
+            same(
+              ModalRoute.of(
+                tester.element(find.text('Pause notifications for…')),
+              ),
+            ),
+          );
 
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();

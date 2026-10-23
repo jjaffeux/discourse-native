@@ -91,7 +91,14 @@ final class _ProfileWriteTransactions {
     _shell._notify();
   }
 
-  void currentUserAccepted(String siteUrl) {
+  /// A site whose current user carries no presence setting has answered, so
+  /// the setting is unavailable rather than still loading.
+  void currentUserAccepted(String siteUrl, DiscourseUser user) {
+    if (user.hidePresence == null && !presenceInFlight(siteUrl)) {
+      _stateFor(siteUrl).presenceError =
+          appL10n.couldnTLoadThePresenceSettingTryAgain;
+      return;
+    }
     _sites[siteUrl]?.presenceError = null;
   }
 
@@ -118,7 +125,7 @@ final class _ProfileWriteTransactions {
         });
         return;
       }
-      await _shell._sessionUser(siteUrl, apiKey, lease: lease);
+      await _shell._sessionUser(siteUrl, apiKey, lease: lease, force: true);
     } catch (error) {
       if (_shell.accountSessionDisposed || !lease.isCurrent) return;
 

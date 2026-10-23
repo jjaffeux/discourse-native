@@ -4258,7 +4258,7 @@ class ShellController extends FrameSafeNotifier
       final reconciledUser = reconciliation.user;
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
-      _profileWrites.currentUserAccepted(siteUrl);
+      _profileWrites.currentUserAccepted(siteUrl, reconciledUser);
       if (previousUser != committedUser || accountChanged) {
         changed = true;
         if (accountChanged) {
@@ -10611,6 +10611,7 @@ class ShellController extends FrameSafeNotifier
       applied = replacement.copyWith(user: user);
       _seedGroupedUnreadNotifications(replacement.url, user);
       _sessionUsersRefreshed.add(replacement.url);
+      _profileWrites.currentUserAccepted(replacement.url, user);
     } else if (phase == AccountSessionPhase.restored &&
         replacement.user != null) {
       if (replacement.notificationTotals case final totals?) {
