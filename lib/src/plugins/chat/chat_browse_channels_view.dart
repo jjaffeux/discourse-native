@@ -11,7 +11,6 @@ import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
-import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_plugin.dart';
 import 'chat_services.dart';
@@ -122,83 +121,9 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
             policy: WidgetOrderTraversalPolicy(),
             child: ContentReadingLaneBox(
               padding: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.md,
-                children: [
-                  ChatBrowseNavigation(
-                    siteUrl: widget.siteUrl,
-                    page: ChatBrowsePage.channels,
-                  ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final search = DInput(
-                        size: DControlSize.field,
-                        key: const ValueKey('chat-browse-filter'),
-                        controller: _filterController,
-                        onChanged: _browse.changeQuery,
-                        hintText: context.l10n.findAChannel,
-                        semanticLabel: context.l10n.findAChannel,
-                        prefix: const DIcon(DIcons.magnifyingGlass),
-                      );
-                      final filters = Wrap(
-                        spacing: DSpacing.controlGap,
-                        runSpacing: DSpacing.controlGap,
-                        children: [
-                          ChatBrowseFilter<ChatChannelBrowseStatus>(
-                            key: const ValueKey('chat-browse-status'),
-                            value: _browse.status,
-                            label: _browse.status == ChatChannelBrowseStatus.all
-                                ? context.l10n.status
-                                : _statusLabel(_browse.status),
-                            semanticLabel: context.l10n.status,
-                            emphasized:
-                                _browse.status != ChatChannelBrowseStatus.all,
-                            options: {
-                              for (final status
-                                  in ChatChannelBrowseStatus.values)
-                                status: _statusLabel(status),
-                            },
-                            onChanged: _browse.changeStatus,
-                          ),
-                          ChatBrowseFilter<ChatChannelJoinedFilter>(
-                            key: const ValueKey('chat-browse-joined'),
-                            value: _browse.membership,
-                            label:
-                                _browse.membership ==
-                                    ChatChannelJoinedFilter.all
-                                ? context.l10n.membership
-                                : _joinedLabel(_browse.membership),
-                            semanticLabel: context.l10n.membership,
-                            emphasized:
-                                _browse.membership !=
-                                ChatChannelJoinedFilter.all,
-                            options: {
-                              for (final joined
-                                  in ChatChannelJoinedFilter.values)
-                                joined: _joinedLabel(joined),
-                            },
-                            onChanged: _browse.changeMembership,
-                          ),
-                        ],
-                      );
-                      return constraints.maxWidth >=
-                              MediaQuery.textScalerOf(context).scale(600)
-                          ? Row(
-                              spacing: DSpacing.controlGap,
-                              children: [
-                                Expanded(child: search),
-                                filters,
-                              ],
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              spacing: DSpacing.controlGap,
-                              children: [search, filters],
-                            );
-                    },
-                  ),
-                ],
+              child: LayoutBuilder(
+                key: const ValueKey('chat-browse-controls'),
+                builder: _buildControls,
               ),
             ),
           ),
@@ -208,6 +133,91 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       ),
     ),
   );
+
+  Widget _buildControls(BuildContext context, BoxConstraints constraints) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final navigation = ChatBrowseNavigation(
+      siteUrl: widget.siteUrl,
+      page: ChatBrowsePage.channels,
+    );
+    final search = DInput(
+      size: DControlSize.field,
+      key: const ValueKey('chat-browse-filter'),
+      controller: _filterController,
+      onChanged: _browse.changeQuery,
+      hintText: context.l10n.findAChannel,
+      semanticLabel: context.l10n.findAChannel,
+      prefix: const DIcon(DIcons.magnifyingGlass),
+    );
+    final status = ChatBrowseFilter<ChatChannelBrowseStatus>(
+      key: const ValueKey('chat-browse-status'),
+      value: _browse.status,
+      label: _browse.status == ChatChannelBrowseStatus.all
+          ? context.l10n.status
+          : _statusLabel(_browse.status),
+      semanticLabel: context.l10n.status,
+      emphasized: _browse.status != ChatChannelBrowseStatus.all,
+      options: {
+        for (final status in ChatChannelBrowseStatus.values)
+          status: _statusLabel(status),
+      },
+      onChanged: _browse.changeStatus,
+    );
+    final membership = ChatBrowseFilter<ChatChannelJoinedFilter>(
+      key: const ValueKey('chat-browse-joined'),
+      value: _browse.membership,
+      label: _browse.membership == ChatChannelJoinedFilter.all
+          ? context.l10n.membership
+          : _joinedLabel(_browse.membership),
+      semanticLabel: context.l10n.membership,
+      emphasized: _browse.membership != ChatChannelJoinedFilter.all,
+      options: {
+        for (final joined in ChatChannelJoinedFilter.values)
+          joined: _joinedLabel(joined),
+      },
+      onChanged: _browse.changeMembership,
+    );
+    // A desktop lane holds the directory switch, search and both filters in
+    // the one bar the mockup draws; narrower lanes stack them.
+    if (constraints.maxWidth >= textScaler.scale(760)) {
+      return DControlWrap(
+        wrap: false,
+        spacing: DSpacing.controlGap,
+        children: [
+          navigation,
+          DControlExpanded(child: search),
+          status,
+          membership,
+        ],
+      );
+    }
+    final filters = Wrap(
+      spacing: DSpacing.controlGap,
+      runSpacing: DSpacing.controlGap,
+      children: [status, membership],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: DSpacing.md,
+      children: [
+        navigation,
+        if (constraints.maxWidth >= textScaler.scale(600))
+          Row(
+            spacing: DSpacing.controlGap,
+            children: [
+              Expanded(child: search),
+              filters,
+            ],
+          )
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: DSpacing.controlGap,
+            children: [search, filters],
+          ),
+      ],
+    );
+  }
 
   Widget _buildResults(BuildContext context, bool lazy) {
     if (_browse.loading) {
@@ -234,33 +244,11 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         onAction: () => unawaited(_browse.refresh()),
       );
     }
-    final resultCount = channels.isEmpty ? 1 : channels.length;
     final hasFooter =
         _browse.loadingMore || _browse.error != null || _browse.hasMore;
-    final itemCount = resultCount + (hasFooter ? 1 : 0);
-    Widget item(BuildContext context, int index) {
-      if (channels.isEmpty && index == 0) {
-        return _BrowseMessage(
-          icon: DIcons.magnifyingGlass,
-          message: _browse.hasMore
-              ? context.l10n.noMatchingChannelsLoadedYet
-              : context.l10n.noChannelsMatchTheseFilters,
-        );
-      }
-      if (index < channels.length) {
-        final channel = channels[index];
-        return ValueListenableBuilder<ChatChannel?>(
-          valueListenable: _chat.channelRef(widget.siteUrl, channel.id),
-          builder: (context, current, _) => _ChannelRow(
-            siteUrl: widget.siteUrl,
-            channel: current ?? channel,
-            chat: _chat,
-            onChanged: _browse.replaceChannel,
-          ),
-        );
-      }
+    Widget footer(BuildContext context) {
       if (_browse.loadingMore) {
-        return const ChatBrowseSkeleton(page: ChatBrowsePage.channels, rows: 2);
+        return const ChatBrowseSkeleton(page: ChatBrowsePage.channels, rows: 1);
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -290,27 +278,54 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         16,
         16 + DScrollChrome.bottomInsetOf(context),
       ),
-      builder: (context, lane) => lazy
-          ? ListView.builder(
-              key: const PageStorageKey('chat-browse-channels'),
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: lane.padding,
-              itemCount: itemCount,
-              itemBuilder: item,
-            )
-          // Scrolling with the filters cannot prefetch the next page, so its
-          // Load more row stays the way to reach it.
-          : Padding(
-              padding: lane.padding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var index = 0; index < itemCount; index++)
-                    item(context, index),
-                ],
-              ),
+      // Scrolling with the filters cannot prefetch the next page, so its
+      // Load more row stays the way to reach it.
+      builder: (context, lane) => CustomScrollView(
+        key: lazy ? const PageStorageKey('chat-browse-channels') : null,
+        controller: lazy ? _scrollController : null,
+        primary: false,
+        shrinkWrap: !lazy,
+        physics: lazy
+            ? const AlwaysScrollableScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: lane.padding,
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (channels.isEmpty)
+                  SliverToBoxAdapter(
+                    child: _BrowseMessage(
+                      icon: DIcons.magnifyingGlass,
+                      message: _browse.hasMore
+                          ? context.l10n.noMatchingChannelsLoadedYet
+                          : context.l10n.noChannelsMatchTheseFilters,
+                    ),
+                  )
+                else
+                  DPlaceCardGrid(
+                    itemCount: channels.length,
+                    itemBuilder: (context, index) =>
+                        ValueListenableBuilder<ChatChannel?>(
+                          valueListenable: _chat.channelRef(
+                            widget.siteUrl,
+                            channels[index].id,
+                          ),
+                          builder: (context, current, _) => _ChannelCard(
+                            siteUrl: widget.siteUrl,
+                            channel: current ?? channels[index],
+                            chat: _chat,
+                            onChanged: _browse.replaceChannel,
+                          ),
+                        ),
+                  ),
+                if (hasFooter)
+                  SliverToBoxAdapter(child: Builder(builder: footer)),
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -330,8 +345,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       };
 }
 
-class _ChannelRow extends StatelessWidget {
-  const _ChannelRow({
+class _ChannelCard extends StatelessWidget {
+  const _ChannelCard({
     required this.siteUrl,
     required this.channel,
     required this.chat,
@@ -344,9 +359,7 @@ class _ChannelRow extends StatelessWidget {
   final ValueChanged<ChatChannel> onChanged;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: _buildRow);
-
-  Widget _buildRow(BuildContext context, BoxConstraints constraints) {
+  Widget build(BuildContext context) {
     final following = channel.membership.following;
     final busy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
@@ -357,127 +370,117 @@ class _ChannelRow extends StatelessWidget {
       ChatChannelStatus.archived => context.l10n.archived,
     };
     final unread = channel.tracking.unreadCount;
-    final summary = context.l10n.unreadChatbrowsechannelsview(
-      (unread == 0).toString(),
-      unread,
-      (status == null).toString(),
-      ((unread == 0) ? (context.l10n.no) : '').toString(),
-      ((!(status == null)) ? (status) : '').toString(),
-      ((!(unread == 0)) ? (unread) : '').toString(),
-    );
-    final row = Column(
-      children: [
-        const DSeparator(),
-        ChatChannelMenu(
-          siteUrl: siteUrl,
-          channelId: channel.id,
-          channel: channel,
-          child: DItem(
-            key: ValueKey('chat-browse-channel-${channel.id}'),
-            shape: DItemShape.fullWidth,
-            padding: constraints.maxWidth < 600
-                ? const EdgeInsets.symmetric(vertical: DSpacing.md)
-                : null,
-            onPressed: () => unawaited(_open(context)),
-            children: [
-              DItemMedia(
-                variant: DItemMediaVariant.avatar,
-                child: ChatConversationAvatar(
-                  siteUrl: siteUrl,
-                  channel: channel,
-                  size: 32,
+    final description = channel.description?.trim();
+    final color = channel.categoryColor ?? DTokens.of(context).mutedForeground;
+    final card = DPlaceCard(
+      key: ValueKey('chat-browse-channel-${channel.id}'),
+      onPressed: () => unawaited(_open(context)),
+      strong: unread > 0,
+      muted: channel.membership.muted,
+      unreadCount: unread > 0 ? '$unread' : null,
+      semanticLabel: unread > 0
+          ? context.l10n.unreadChatbrowsechannelsview(
+              'false',
+              unread,
+              'true',
+              '',
+              '',
+              unread.toString(),
+            )
+          : null,
+      leading: DPlaceCardMark(
+        color: color,
+        child: switch (channel.emoji) {
+          final emoji? => EmojiImage(
+            url: PluginUiScope.require(
+              context,
+              chatEmojiHostService,
+            ).resolveUrl(siteUrl, emoji),
+            size: 13,
+            alt: ':$emoji:',
+          ),
+          null => DIcon(DIcons.hashtag, size: 13, color: color),
+        },
+      ),
+      title: Text(channel.title),
+      description: description == null || description.isEmpty
+          ? null
+          : Text(description),
+      footer: Text(
+        [
+          countLabel(channel.membershipsCount, CountNoun.member),
+          ?status,
+        ].join(' · '),
+      ),
+      trailing: following
+          ? ChatChannelMenu(
+              siteUrl: siteUrl,
+              channelId: channel.id,
+              channel: channel,
+            )
+          : DDropdownMenu(
+              content: DDropdownMenuContent(
+                children: [
+                  DDropdownMenuItem(
+                    onPressed: () => unawaited(_open(context)),
+                    child: Text(context.l10n.openChannel),
+                  ),
+                  if (canJoin)
+                    DDropdownMenuItem(
+                      onPressed: busy
+                          ? null
+                          : () => _changeFollowing(context, true),
+                      child: Text(context.l10n.joinChannel),
+                    ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, menu) => DButton.iconOnly(
+                  tooltip: context.l10n.openMenu(channel.title),
+                  icon: const DIcon(DIcons.ellipsisVertical),
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  focusNode: menu.focusNode,
+                  hasPopup: true,
+                  expanded: menu.open,
+                  onPressed: menu.toggle,
                 ),
               ),
-              DItemContent(
-                children: [
-                  DItemTitle(
-                    child: Text(
-                      channel.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  DItemDescription(child: Text(summary)),
-                ],
-              ),
-              DItemActions(
-                children: [
-                  DButton(
-                    key: ValueKey(
-                      following
-                          ? 'chat-unfollow-${channel.id}'
-                          : 'chat-join-${channel.id}',
-                    ),
-                    label: Text(
-                      following ? context.l10n.joined : context.l10n.join,
-                    ),
-                    semanticLabel: context.l10n.messageChatbrowsechannelsview(
-                      (following).toString(),
-                      ((following) ? (context.l10n.leave) : '').toString(),
-                      (channel.title).toString(),
-                      ((!(following)) ? (context.l10n.join) : '').toString(),
-                    ),
-                    shape: DButtonShape.pill,
-                    variant: following
-                        ? DButtonVariant.outline
-                        : DButtonVariant.primary,
-                    onPressed: !following && !canJoin
-                        ? null
-                        : () => _changeFollowing(context, !following),
-                    loading: busy,
-                    loadingLabel: Text(
-                      following ? context.l10n.leaving : context.l10n.joining,
-                    ),
-                  ),
-                  if (following)
-                    ChatChannelMenu(
-                      siteUrl: siteUrl,
-                      channelId: channel.id,
-                      channel: channel,
-                    )
-                  else
-                    DDropdownMenu(
-                      content: DDropdownMenuContent(
-                        children: [
-                          DDropdownMenuItem(
-                            onPressed: () => unawaited(_open(context)),
-                            child: Text(context.l10n.openChannel),
-                          ),
-                          if (canJoin)
-                            DDropdownMenuItem(
-                              onPressed: busy
-                                  ? null
-                                  : () => _changeFollowing(context, true),
-                              child: Text(context.l10n.joinChannel),
-                            ),
-                        ],
-                      ),
-                      child: DDropdownMenuTrigger(
-                        builder: (context, menu) => DButton.iconOnly(
-                          tooltip: context.l10n.openMenu(
-                            (channel.title).toString(),
-                          ),
-                          icon: const DIcon(DIcons.ellipsisVertical),
-                          variant: DButtonVariant.ghost,
-                          size: DButtonSize.small,
-                          focusNode: menu.focusNode,
-                          hasPopup: true,
-                          expanded: menu.open,
-                          onPressed: menu.toggle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
+            ),
+      action: DButton(
+        key: ValueKey(
+          following ? 'chat-unfollow-${channel.id}' : 'chat-join-${channel.id}',
         ),
-      ],
+        label: Text(following ? context.l10n.joined : context.l10n.join),
+        semanticLabel: context.l10n.messageChatbrowsechannelsview(
+          following.toString(),
+          following ? context.l10n.leave : '',
+          channel.title,
+          following ? '' : context.l10n.join,
+        ),
+        shape: DButtonShape.pill,
+        size: DButtonSize.small,
+        variant: following ? DButtonVariant.outline : DButtonVariant.primary,
+        onPressed: !following && !canJoin
+            ? null
+            : () => _changeFollowing(context, !following),
+        loading: busy,
+        loadingLabel: Text(
+          following ? context.l10n.leaving : context.l10n.joining,
+        ),
+      ),
     );
-    if (following) return row;
+    if (following) {
+      return ChatChannelMenu(
+        siteUrl: siteUrl,
+        channelId: channel.id,
+        channel: channel,
+        child: card,
+      );
+    }
     return DContextMenu(
       content: DContextMenuContent(
-        semanticLabel: context.l10n.menu((channel.title).toString()),
+        semanticLabel: context.l10n.menu(channel.title),
         children: [
           DDropdownMenuItem(
             onPressed: () => unawaited(_open(context)),
@@ -490,7 +493,7 @@ class _ChannelRow extends StatelessWidget {
             ),
         ],
       ),
-      child: DContextMenuTrigger(focusable: false, child: row),
+      child: DContextMenuTrigger(focusable: false, child: card),
     );
   }
 

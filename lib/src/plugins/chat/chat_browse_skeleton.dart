@@ -47,65 +47,78 @@ class ChatBrowseSkeleton extends StatelessWidget {
                 (contentConstraints.maxHeight / minimumRowHeight).ceil(),
               )
             : 6);
-    final placeholders = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var row = 0; row < rowCount; row++) ...[
-          const DSeparator(),
-          DItem(
-            shape: DItemShape.fullWidth,
-            padding: rowWidth < 600
-                ? const EdgeInsets.symmetric(vertical: DSpacing.md)
-                : null,
-            children: [
-              if (!threads)
-                DItemMedia(
-                  child: DSkeleton(
-                    width: channels ? 32 : 40,
-                    height: channels ? 32 : 40,
-                    borderRadius: BorderRadius.circular(DRadius.bubble),
+    final Widget placeholders;
+    if (channels) {
+      final columns = DPlaceCardGrid.columnsFor(context, rowWidth);
+      // A card is at least 100px tall and its grid row adds a 10px gap.
+      final cardRows =
+          rows ??
+          (fillViewport
+              ? math.max(1, (contentConstraints.maxHeight / 110).ceil())
+              : 3);
+      placeholders = CustomScrollView(
+        primary: false,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          DPlaceCardGrid(
+            itemCount: cardRows * columns,
+            itemBuilder: (context, index) =>
+                const DPlaceCardSkeleton(action: true),
+          ),
+        ],
+      );
+    } else {
+      placeholders = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var row = 0; row < rowCount; row++) ...[
+            const DSeparator(),
+            DItem(
+              shape: DItemShape.fullWidth,
+              padding: rowWidth < 600
+                  ? const EdgeInsets.symmetric(vertical: DSpacing.md)
+                  : null,
+              children: [
+                if (!threads)
+                  DItemMedia(
+                    child: DSkeleton(
+                      width: 40,
+                      height: 40,
+                      borderRadius: BorderRadius.circular(DRadius.bubble),
+                    ),
                   ),
-                ),
-              DItemContent(
-                spacing: DSpacing.sm,
-                children: [
-                  if (threads) const DSkeleton(width: 80, height: 12),
-                  FractionallySizedBox(
-                    widthFactor: row.isEven ? .6 : .45,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: const DSkeleton(height: 14),
-                  ),
-                  Row(
-                    spacing: DSpacing.sm,
-                    children: [
-                      if (threads) const DSkeleton.circle(diameter: 18),
-                      Expanded(
-                        child: FractionallySizedBox(
-                          widthFactor: row.isEven ? .8 : .65,
-                          alignment: AlignmentDirectional.centerStart,
-                          child: const DSkeleton(height: 12),
-                        ),
-                      ),
-                      if (threads) const DSkeleton(width: 44, height: 12),
-                    ],
-                  ),
-                ],
-              ),
-              if (channels)
-                DItemActions(
+                DItemContent(
+                  spacing: DSpacing.sm,
                   children: [
-                    DSkeleton(
-                      width: 64,
-                      height: 32,
-                      borderRadius: BorderRadius.circular(999),
+                    if (threads) const DSkeleton(width: 80, height: 12),
+                    FractionallySizedBox(
+                      widthFactor: row.isEven ? .6 : .45,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: const DSkeleton(height: 14),
+                    ),
+                    Row(
+                      spacing: DSpacing.sm,
+                      children: [
+                        if (threads) const DSkeleton.circle(diameter: 18),
+                        Expanded(
+                          child: FractionallySizedBox(
+                            widthFactor: row.isEven ? .8 : .65,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: const DSkeleton(height: 12),
+                          ),
+                        ),
+                        if (threads) const DSkeleton(width: 44, height: 12),
+                      ],
                     ),
                   ],
                 ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
-      ],
-    );
+      );
+    }
     final content = DSkeletonRegion(
       key: ValueKey('chat-browse-${page.name}-skeleton'),
       semanticsLabel: context.l10n.loadingChatbrowseskeleton(
