@@ -86,24 +86,33 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           },
           child: Focus(
             autofocus: sidebarOpen,
-            child: Row(
-              key: const ValueKey('mobile-navigation-page'),
-              children: [
-                const SizedBox(width: _mobileRailWidth, child: InstanceRail()),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: ForumMobileSurface.sidebar(
-                      key: const ValueKey('mobile-navigation-panel'),
-                      child: InstanceSidebar(
-                        key: ValueKey(('mobile-navigation', owner)),
-                        mobile: true,
-                        onNavigate: shell.closeMobileSidebar,
+            // The inset navigation panel floats above the home indicator.
+            child: SafeArea(
+              top: false,
+              left: false,
+              right: false,
+              child: Row(
+                key: const ValueKey('mobile-navigation-page'),
+                children: [
+                  const SizedBox(
+                    width: _mobileRailWidth,
+                    child: InstanceRail(),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: ForumMobileSurface.sidebar(
+                        key: const ValueKey('mobile-navigation-panel'),
+                        child: InstanceSidebar(
+                          key: ValueKey(('mobile-navigation', owner)),
+                          mobile: true,
+                          onNavigate: shell.closeMobileSidebar,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -402,45 +411,44 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
             Expanded(
-              child: SafeArea(
-                top: false,
-                left: false,
-                right: false,
-                child: ListenableBuilder(
-                  listenable: _footerAction,
-                  child: page,
-                  builder: (context, content) => MobileScrollDock(
-                    identity: (
-                      owner,
-                      selected,
-                      shell.mobileNavigation.entryId,
-                      widget.boundary,
-                    ),
-                    visible: !sidebarOpen,
-                    hideOnScroll: !keepDockVisible,
-                    keepActionVisible: _footerAction.action != null,
-                    body: content!,
-                    dockBuilder: (hidden) => ForumSidebarTheme(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          6,
-                          6,
-                          6,
-                          6 + ComposerDock.bottomOverlayInsetOf(context),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) => _buildBottomBar(
-                            context,
-                            constraints,
-                            destinations: dockDestinations,
-                            selected: selected,
-                            showReply: showReply,
-                            showNewMessage: showNewMessage,
-                            panelAction: panelAction,
-                            showNewTopic: showNewTopic,
-                            shell: shell,
-                            hideDestinations: hidden,
-                          ),
+              // The page runs under the home indicator; only the floating dock
+              // keeps clear of it, and pages pad their last row by its height.
+              child: ListenableBuilder(
+                listenable: _footerAction,
+                child: page,
+                builder: (context, content) => MobileScrollDock(
+                  identity: (
+                    owner,
+                    selected,
+                    shell.mobileNavigation.entryId,
+                    widget.boundary,
+                  ),
+                  visible: !sidebarOpen,
+                  hideOnScroll: !keepDockVisible,
+                  keepActionVisible: _footerAction.action != null,
+                  body: content!,
+                  dockBuilder: (hidden) => ForumSidebarTheme(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        6,
+                        6,
+                        6,
+                        6 +
+                            ComposerDock.bottomOverlayInsetOf(context) +
+                            MediaQuery.paddingOf(context).bottom,
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => _buildBottomBar(
+                          context,
+                          constraints,
+                          destinations: dockDestinations,
+                          selected: selected,
+                          showReply: showReply,
+                          showNewMessage: showNewMessage,
+                          panelAction: panelAction,
+                          showNewTopic: showNewTopic,
+                          shell: shell,
+                          hideDestinations: hidden,
                         ),
                       ),
                     ),

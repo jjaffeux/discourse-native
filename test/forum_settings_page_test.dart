@@ -769,58 +769,41 @@ void mobileSettingsPanelClipTests() {
                   );
                 }
               }
+              // The body ends at the screen edge, so each bottom corner is
+              // read just inside it, well outside the rounded clip.
               final outside = <int>[];
-              for (final (side, x, tolerance) in [
-                ('left', rect.left + 16, 2),
-                ('right dock glow', rect.right - 16, 6),
-              ]) {
-                for (var channel = 0; channel < 3; channel++) {
-                  final corner =
-                      ((rect.bottom.floor() - 1) * image.width + x.floor()) * 4;
-                  final window =
-                      (rect.bottom.floor() * image.width + x.floor()) * 4;
-                  outside.add(bytes[corner + channel]);
-                  if (!translucent) {
-                    expect(
-                      bytes[corner + channel],
-                      closeTo(bytes[window + channel], tolerance),
-                      reason:
-                          'The window background continues through the rounded '
-                          '$side body corner at ($x, ${rect.bottom - 1}), '
-                          'scroll offset $offset, channel $channel.',
-                    );
-                  }
+              for (final x in [rect.left + 2, rect.right - 3]) {
+                final corner =
+                    ((rect.bottom.floor() - 3) * image.width + x.floor()) * 4;
+                outside.addAll(bytes.sublist(corner, corner + 3));
+              }
+              final interior = <int>[];
+              for (var y = 450; y < 800; y += 4) {
+                for (var x = 24; x < 406; x += 4) {
+                  final pixel = (y * image.width + x) * 4;
+                  interior.addAll(bytes.sublist(pixel, pixel + 3));
                 }
               }
-              if (translucent) {
-                final interior = <int>[];
-                for (var y = 450; y < 800; y += 4) {
-                  for (var x = 24; x < 406; x += 4) {
-                    final pixel = (y * image.width + x) * 4;
-                    interior.addAll(bytes.sublist(pixel, pixel + 3));
-                  }
+              if (outsideBefore == null) {
+                outsideBefore = outside;
+                interiorBefore = interior;
+              } else {
+                expect(
+                  outside,
+                  outsideBefore,
+                  reason:
+                      'Moving font cards cannot change either outside corner.',
+                );
+                var changed = 0;
+                for (var i = 0; i < interior.length; i++) {
+                  if (interior[i] != interiorBefore![i]) changed++;
                 }
-                if (outsideBefore == null) {
-                  outsideBefore = outside;
-                  interiorBefore = interior;
-                } else {
-                  expect(
-                    outside,
-                    outsideBefore,
-                    reason:
-                        'Moving font cards cannot change either outside corner.',
-                  );
-                  var changed = 0;
-                  for (var i = 0; i < interior.length; i++) {
-                    if (interior[i] != interiorBefore![i]) changed++;
-                  }
-                  expect(
-                    changed,
-                    greaterThan(1000),
-                    reason:
-                        'The rendered content must actually move behind the fixed corners.',
-                  );
-                }
+                expect(
+                  changed,
+                  greaterThan(1000),
+                  reason:
+                      'The rendered content must actually move behind the fixed corners.',
+                );
               }
             } finally {
               image.dispose();
