@@ -285,7 +285,12 @@ class _SummaryLayout extends StatelessWidget {
             // Scroll motion can reuse the stacked cards and tables; their
             // own updates still repaint this layer normally.
             RepaintBoundary(
-              child: Padding(padding: lane.padding, child: content),
+              child: Padding(
+                padding: lane.padding.add(
+                  EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+                ),
+                child: content,
+              ),
             ),
           ],
         ),
