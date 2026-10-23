@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -161,6 +162,15 @@ Future<void> _selectNeverLikeNotifications(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Finder get _titleMark => find.descendant(
+  of: find
+      .ancestor(of: find.text('Preferences'), matching: find.byType(Row))
+      .first,
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DIcon && widget.icon == DNativeIcons.sliders,
+  ),
+);
+
 void main() {
   setUpAll(TimezoneEnvironment.instance.ensureDatabase);
   for (final width in [320.0, 680.0, 1000.0]) {
@@ -170,6 +180,7 @@ void main() {
       final fixture = await _fixture();
       await _pumpPage(tester, fixture, width: width);
       expect(find.text('Preferences'), findsOneWidget);
+      expect(_titleMark, findsOneWidget);
       expect(find.byType(DTabs<PreferenceSection>), findsOneWidget);
       expect(find.byKey(const ValueKey('preferences-save')), findsNothing);
       expect(
@@ -453,6 +464,7 @@ void main() {
             expect(find.byType(DSkeletonRegion), findsOneWidget);
             expect(find.byType(DSkeleton), findsWidgets);
             expect(find.text('Preferences'), findsOneWidget);
+            expect(_titleMark, findsOneWidget);
             expect(_timezoneMenu, findsNothing);
             expect(tester.takeException(), isNull);
 

@@ -10,6 +10,7 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preference_fields.dart';
@@ -176,6 +177,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         instance?.isConnected == true && editable && dirty && !state.saving;
 
     return DPageSurface.headed(
+      icon: DNativeIcons.sliders,
       title: Text(context.l10n.preferences),
       controls: SettingsSectionTabs<PreferenceSection>(
         value: selected,
@@ -937,6 +939,7 @@ class _LoadingPreferences extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DPageSurface.headed(
+    icon: DNativeIcons.sliders,
     title: Text(context.l10n.preferences),
     child: _SectionScroller(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
