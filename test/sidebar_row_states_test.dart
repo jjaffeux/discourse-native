@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -125,19 +124,11 @@ void main() {
               );
               await tester.pumpAndSettle();
               final tokens = DTokens.of(tester.element(find.byKey(_selected)));
-              final glass =
-                  material == DAppearanceMaterial.liquidGlass && !reduced;
-              final tint = glass
-                  ? Color.lerp(
-                      tokens.background,
-                      tokens.foreground,
-                      .1,
-                    )!.withValues(alpha: dark ? .42 : .5)
-                  : kind == 'navigation'
+              final tint = kind == 'navigation'
                   ? Color.lerp(tokens.background, tokens.foreground, .12)!
                   : tokens.foreground.withValues(alpha: .13);
               final selectedPixel = await _sample(tester, _selected);
-              final sheenPixel = await _sample(
+              final upperPixel = await _sample(
                 tester,
                 _selected,
                 fraction: const Offset(.7, .15),
@@ -184,20 +175,7 @@ void main() {
               final clearedPixel = await _sample(tester, _selected);
 
               _expectColor(selectedPixel, Color.alphaBlend(tint, _backdrop));
-              final distance = math.sqrt(
-                math.pow((.7 - .35) / 1.2, 2) + math.pow((.15 + .25) / 1.1, 2),
-              );
-              _expectColor(
-                sheenPixel,
-                glass
-                    ? Color.alphaBlend(
-                        Colors.white.withValues(
-                          alpha: (dark ? .12 : .55) * (1 - distance / .62),
-                        ),
-                        Color.alphaBlend(tint, _backdrop),
-                      )
-                    : Color.alphaBlend(tint, _backdrop),
-              );
+              _expectColor(upperPixel, Color.alphaBlend(tint, _backdrop));
               _expectColor(activeUnderHover, selectedPixel);
               _expectColor(
                 hoverPixel,

@@ -6,21 +6,18 @@ and `SidebarNav` in `src/App.tsx`.
 - Category, tag, conversation, and voice-room rows use a flat 8% foreground
   hover tint. Menu selection uses a 13% foreground tint.
 - Top-level Forum and Chat destinations use the navigation variant: the
-  resting and hovered row remain flat, and standard selection uses the
+  resting and hovered row remain flat, and selection uses the
   reference 12% foreground/background mix. Active labels use 600 weight;
   ordinary labels and icons use the reference text and secondary text colors.
-- Liquid-glass selection uses the raised surface at 50% opacity in light mode
-  and 42% in dark mode, the elliptical white sheen, a 1px rim and upper catch,
-  and the reference outer shadow at 2px offset with 8px blur. Hover stays flat.
-  These rows have no backdrop filter, matching the sidebar-specific CSS rule.
+- Selection uses these flat fills in every appearance, including liquid glass.
 - The UI kit owns the painting through `DSidebarMenuButton` and the shared
   `DItemSelectionStyle.sidebar` treatment. Compact inbox rows use 8px corners.
   Selection semantics, keyboard focus, text scaling, and visible hit bounds
   retain their existing owners. The focused document controls selection.
 - High contrast and Reduce Transparency use the standard row fills.
 
-`sidebar_row_states_test.dart` checks rendered pixels, including the glass
-sheen, hover exit, selection changes, and selection semantics in 18 cases.
+`sidebar_row_states_test.dart` checks rendered pixels, including uniform flat
+selection, hover exit, selection changes, and selection semantics in 18 cases.
 `chat_sidebar_parity_test.dart` checks General selection through directory
 navigation and tab focus in both panels; `sidebar_active_destination_test.dart`
 pins the top-level navigation variant and the focused Forum destination.
