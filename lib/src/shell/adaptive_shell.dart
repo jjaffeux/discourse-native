@@ -73,8 +73,8 @@ typedef _ForumBoundarySnapshot = ({
 class AdaptiveShell extends StatefulWidget {
   const AdaptiveShell({super.key});
 
-  static const double railWidth = 48;
-  static const double compactRailWidth = 48;
+  static const double railWidth = 53;
+  static const double compactRailWidth = 53;
   static const double sidebarWidth = 208 + workspacePanelGap;
   // ResizablePane includes the gutter in its width.
   static const double sidebarMinWidth = 200 + workspacePanelGap;
@@ -855,7 +855,10 @@ class _MobileShell extends StatelessWidget {
               builder: (context, state, _) {
                 Widget homeStatus(Widget child) => Row(
                   children: [
-                    const SizedBox(width: 48, child: InstanceRail()),
+                    const SizedBox(
+                      width: AdaptiveShell.railWidth,
+                      child: InstanceRail(),
+                    ),
                     Expanded(child: child),
                   ],
                 );

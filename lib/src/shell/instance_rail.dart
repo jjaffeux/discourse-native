@@ -143,8 +143,8 @@ Color _railSurface(BuildContext context) {
 }
 
 const double _railListPadding = 8;
-const double _railItemExtent = 44;
-const double _railVisualSize = 32;
+const double _railItemExtent = 48;
+const double _railVisualSize = 36;
 const double _railIconSize = 16;
 const double _railFooterIconSize = 24;
 const double _railAvatarSize = _railVisualSize;
@@ -1351,7 +1351,7 @@ class _InstanceIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(
-          selected ? 10 : _railVisualSize / 2,
+          selected ? 12 : _railVisualSize / 2,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1374,7 +1374,7 @@ class _InstanceIcon extends StatelessWidget {
       spacing: 0,
       border: false,
       backgroundColor: selected ? background : Colors.transparent,
-      borderRadius: BorderRadius.circular(selected ? 10 : _railVisualSize / 2),
+      borderRadius: BorderRadius.circular(selected ? 12 : _railVisualSize / 2),
       child: SizedBox.square(
         dimension: _railVisualSize,
         child: DAvatar.frame(

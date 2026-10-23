@@ -84,7 +84,7 @@ void main() {
         );
         expect(target, findsOneWidget);
         final bounds = tester.getRect(target);
-        expect(bounds.size, const Size.square(32));
+        expect(bounds.size, const Size.square(36));
         expect(tester.getSemantics(_railItem(_team)).rect.size, bounds.size);
         final gapDrag = await tester.startGesture(
           Offset(bounds.left - 3, bounds.center.dy),
