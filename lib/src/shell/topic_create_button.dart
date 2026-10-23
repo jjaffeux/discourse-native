@@ -31,6 +31,17 @@ class TopicCreateButton extends StatelessWidget {
   final Widget? primaryAction;
   final bool alwaysShowDrafts;
 
+  static final _headerDraftsMenus = Expando<DDropdownMenuController>();
+
+  /// Opens the title bar's drafts menu for [shell], answering false when the
+  /// title bar is not offering one.
+  static bool openHeaderDraftsMenu(ShellController shell) {
+    final menu = _headerDraftsMenus[shell];
+    if (menu == null) return false;
+    menu.open();
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
@@ -88,12 +99,13 @@ class _TopicCreateControl extends StatelessWidget {
     );
     if (instance == null) return header ? capsule(mainButton) : mainButton;
 
-    final drafts = DDropdownMenu(
+    Widget drafts([DDropdownMenuController? menu]) => DDropdownMenu(
       key: ValueKey((
         instance.url,
         instance.user?.id,
         controller.lifecycle.capture(instance.url).session,
       )),
+      controller: menu,
       onOpenChange: (open, _) {
         if (open) {
           unawaited(controller.draftList.load(instance, refresh: true));
@@ -138,7 +150,7 @@ class _TopicCreateControl extends StatelessWidget {
               length: 16,
               color: tokens.background.withValues(alpha: .3),
             ),
-            drafts,
+            _HeaderDraftsMenu(shell: controller, builder: drafts),
           ],
         ),
       );
@@ -150,7 +162,7 @@ class _TopicCreateControl extends StatelessWidget {
         children: [
           DButtonGroupExpanded(child: mainButton),
           DButtonGroupSeparator(color: tokens.buttonTheme.primary.background),
-          drafts,
+          drafts(),
         ],
       ),
     );
@@ -255,6 +267,52 @@ class _TopicCreateControl extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Owns the controller other surfaces use to open the title bar's drafts
+/// menu; only the newest mounted title bar answers for its shell.
+class _HeaderDraftsMenu extends StatefulWidget {
+  const _HeaderDraftsMenu({required this.shell, required this.builder});
+
+  final ShellController shell;
+  final Widget Function(DDropdownMenuController menu) builder;
+
+  @override
+  State<_HeaderDraftsMenu> createState() => _HeaderDraftsMenuState();
+}
+
+class _HeaderDraftsMenuState extends State<_HeaderDraftsMenu> {
+  final _menu = DDropdownMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    TopicCreateButton._headerDraftsMenus[widget.shell] = _menu;
+  }
+
+  @override
+  void didUpdateWidget(_HeaderDraftsMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.shell, widget.shell)) return;
+    _release(oldWidget.shell);
+    TopicCreateButton._headerDraftsMenus[widget.shell] = _menu;
+  }
+
+  @override
+  void dispose() {
+    _release(widget.shell);
+    _menu.dispose();
+    super.dispose();
+  }
+
+  void _release(ShellController shell) {
+    if (identical(TopicCreateButton._headerDraftsMenus[shell], _menu)) {
+      TopicCreateButton._headerDraftsMenus[shell] = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_menu);
 }
 
 /// Topic creation control without draft-loading state.

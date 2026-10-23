@@ -22,6 +22,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -73,6 +74,7 @@ Future<ShellController> _start(
   Size size, {
   FakeDiscourseApi? api,
   bool visitTopics = true,
+  DiscourseUser user = _reader,
 }) async {
   const notifications = MethodChannel(
     'org.discourse.native/notification_opens',
@@ -94,7 +96,7 @@ Future<ShellController> _start(
       instance(
         'meta.discourse.org',
         title: 'Discourse Meta',
-      ).copyWith(user: _reader),
+      ).copyWith(user: user),
     ],
     api: api ?? _api(),
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
@@ -143,6 +145,7 @@ FakeDiscourseApi _api({
   UserSummary? summary,
   List<UserActivityItem> activity = const [],
   Map<String, Map<String, dynamic>> responses = const {},
+  DiscourseUser user = _reader,
 }) => FakeDiscourseApi(
   summary: summary,
   userActivityItems: activity,
@@ -152,7 +155,7 @@ FakeDiscourseApi _api({
     for (final entry in threads.entries)
       FakeDiscourseApi.chatChannelThreadPageKey(entry.key, 0): entry.value,
   },
-  user: _reader,
+  user: user,
   totals: chatNotificationTotals(available: true),
   categoryList: const [
     TopicCategory(
@@ -461,33 +464,64 @@ void main() {
     },
   );
 
+  FakeDiscourseApi draftsApi({DiscourseUser user = _reader}) => _api(
+    user: user,
+    drafts: [
+      const UserDraft(
+        key: 'new_topic',
+        sequence: 1,
+        title: 'Unfinished topic',
+        data: ComposerDraft(
+          reply: 'A reply',
+          action: 'createTopic',
+          title: 'Unfinished topic',
+        ),
+      ),
+    ],
+  );
+
   _test('Drafts appears only when there is a resumable cached draft', (
     tester,
   ) async {
-    final api = _api(
-      drafts: [
-        const UserDraft(
-          key: 'new_topic',
-          sequence: 1,
-          title: 'Unfinished topic',
-          data: ComposerDraft(
-            reply: 'A reply',
-            action: 'createTopic',
-            title: 'Unfinished topic',
-          ),
-        ),
-      ],
-    );
-    final shell = await _start(tester, desktop, api: api);
+    final shell = await _start(tester, desktop, api: draftsApi());
     expect(shortcut('Drafts'), findsNothing);
     await shell.draftList.load(shell.currentInstance!);
     await tester.pumpAndSettle();
     expect(shortcut('Drafts'), findsOneWidget);
     expect(_onPage(find.text('Unfinished topic')), findsNothing);
+  });
+
+  _test('desktop Drafts opens the title bar drafts menu in place', (
+    tester,
+  ) async {
+    const author = DiscourseUser(username: 'reader', canCreateTopic: true);
+    final shell = await _start(
+      tester,
+      desktop,
+      api: draftsApi(user: author),
+      user: author,
+    );
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
+    final menu = find.byKey(const ValueKey('recent-draft-new_topic'));
+    expect(find.byKey(TopicCreateButton.draftsButtonKey), findsOneWidget);
+    expect(menu, findsNothing);
+
+    await tester.tap(shortcut('Drafts'));
+    await tester.pumpAndSettle();
+
+    expect(menu, findsOneWidget);
+    expect(shell.currentContent?.isNewTab, isTrue);
+  });
+
+  _test('touch Drafts opens the drafts page', (tester) async {
+    final shell = await _start(tester, phone, api: draftsApi());
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
     await tester.tap(shortcut('Drafts'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'drafts');
-  });
+  }, platform: TargetPlatform.iOS);
 
   _test('anonymous Start exposes only permitted destinations', (tester) async {
     await pumpShell(
