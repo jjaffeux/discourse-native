@@ -7,6 +7,7 @@ The title uses 22 px type, a weight of 700, and a line height of 1.25.
 Its top space is 12 px on touch platforms and 20 px on desktop platforms.
 The controls use 16 px of top space and 14 px of bottom space.
 The page heading has no divider or second background fill.
+Settings and Preferences lead their titles with the gear and sliders marks their navigation entries use: 16 px, muted foreground, 9 px before the title. No other route has a title mark in the reference.
 The soft edge is a 14 px Native content fade, active more than 2 px from the top.
 Pages with less than 120 px of scroll overflow keep their title.
 

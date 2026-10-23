@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/d_icons.dart';
 import 'forum_appearance_settings.dart';
 import 'forum_display_settings.dart';
 import 'forum_settings_controller.dart';
@@ -49,6 +50,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
     final forumSettings = shell.forumSettings;
     return DPageSurface.headed(
       identity: widget.siteUrl,
+      icon: DIcons.gear,
       title: Text(context.l10n.settings),
       controls: SettingsSectionTabs<String>(
         value: _section,

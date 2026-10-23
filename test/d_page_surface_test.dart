@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/page_surface_examples.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -289,6 +290,39 @@ void main() {
     expect(tester.getRect(find.byKey(_viewport)), rect);
     expect(tester.takeException(), isNull);
   });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('headed title leads with its icon in the muted foreground '
+        '(${direction.name})', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Directionality(
+            textDirection: direction,
+            child: DPageSurface.headed(
+              icon: DIcons.gear,
+              title: const Text('Settings'),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      final icon = find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.gear,
+      );
+      expect(icon, findsOneWidget);
+      final glyph = tester.widget<DIcon>(icon);
+      expect(glyph.size, 16);
+      expect(glyph.color, DTokens.of(tester.element(icon)).mutedForeground);
+      final mark = tester.getRect(icon);
+      final title = tester.getRect(find.text('Settings'));
+      expect(mark.center.dy, closeTo(title.center.dy, 1));
+      if (direction == TextDirection.ltr) {
+        expect(title.left - mark.right, closeTo(9, .01));
+      } else {
+        expect(mark.left - title.right, closeTo(9, .01));
+      }
+    });
+  }
 
   testWidgets('persistent header controls move while the body stays anchored', (
     tester,
