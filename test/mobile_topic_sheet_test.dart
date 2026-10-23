@@ -129,7 +129,7 @@ void main() {
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 810);
+        expect(bounds.bottom, 844);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -375,14 +375,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_handle, findsOneWidget);
-    expect(tester.getRect(_sheet).bottom, 810);
+    expect(tester.getRect(_sheet).bottom, 844);
     await tester.drag(_handle, const Offset(0, 180));
     await tester.pumpAndSettle();
     expect(shell.currentContent, origin);
     expect(_sheet, findsNothing);
     expect(
       tester.getRect(find.byKey(const ValueKey('mobile-content-panel'))).bottom,
-      810,
+      844,
     );
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
@@ -399,7 +399,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
-        expect(tester.getRect(_sheet).bottom, 810);
+        expect(tester.getRect(_sheet).bottom, 844);
         expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));

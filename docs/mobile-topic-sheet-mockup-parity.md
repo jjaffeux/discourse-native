@@ -8,12 +8,12 @@ Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. All four corners use the standard 22px page radius, as the mockup's
 `pushedCard` does at `5e4e72a`; the bottom corners no longer follow the tab
-bar. The shared mobile body stops above the bottom safe-area inset for Start, topic
+bar. The shared mobile body runs to the bottom screen edge for Start, topic
 lists, ordinary pages, plugin roots, topic sheets, and chat channel and thread
 sheets. Page sheets add no menu margins or reserved handle row. The outer mobile
 surface stays mounted with a transparent fill, so the corners show the window
-ground without another panel beneath them. The dock and chat composer share the
-body's consumed safe area and keep their existing screen positions.
+ground without another panel beneath them. The dock and chat composer keep
+clear of the bottom safe area and their existing screen positions.
 
 The inbox topic source list stays mounted but unpainted, unfocusable, and
 absent from semantics at rest. Pulling the sheet reveals that same list without

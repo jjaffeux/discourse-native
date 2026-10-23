@@ -192,7 +192,7 @@ void main() {
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 810);
+        expect(bounds.bottom, 844);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -322,7 +322,7 @@ void main() {
           tester
               .getRect(find.byKey(const ValueKey('mobile-content-panel')))
               .bottom,
-          810,
+          844,
         );
         expect(
           find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
@@ -384,7 +384,7 @@ void main() {
         shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
         await tester.pumpAndSettle();
         expect(find.byType(ChatThreadView), findsOneWidget);
-        expect(tester.getRect(_sheet).bottom, 810);
+        expect(tester.getRect(_sheet).bottom, 844);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         if (origin == 'channel' || origin == 'direct') {
           await _capture(
@@ -533,9 +533,9 @@ void main() {
       await tester.pumpAndSettle();
       final composer = find.byKey(const ValueKey('chat-composer'));
       final dock = find.byKey(const ValueKey('mobile-dock-surface'));
-      final bodyBottom = 844 - safeBottom;
-      expect(tester.getRect(_sheet).bottom, bodyBottom);
-      expect(tester.getRect(dock).bottom, closeTo(bodyBottom - 6, .01));
+      final safeEdge = 844 - safeBottom;
+      expect(tester.getRect(_sheet).bottom, 844);
+      expect(tester.getRect(dock).bottom, closeTo(safeEdge - 6, .01));
       expect(
         tester.getRect(dock).top - tester.getRect(composer).bottom,
         closeTo(8, .01),
@@ -563,7 +563,7 @@ void main() {
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
       );
-      expect(tester.getRect(composer).bottom, closeTo(bodyBottom - 6, .01));
+      expect(tester.getRect(composer).bottom, closeTo(safeEdge - 6, .01));
       expect(
         find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
         findsOneWidget,
@@ -588,7 +588,7 @@ void main() {
       await shell.appSettings.setReduceMotion(true);
       await tester.pumpAndSettle();
       expect(tester.getRect(_sheet).width, width);
-      expect(tester.getRect(_sheet).bottom, 810);
+      expect(tester.getRect(_sheet).bottom, 844);
       expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
       expect(
         tester.getRect(find.byKey(const ValueKey('chat-composer-send'))).bottom,
@@ -618,7 +618,7 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding();
       tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
       await tester.pumpAndSettle();
-      expect(tester.getRect(_sheet).bottom, 810);
+      expect(tester.getRect(_sheet).bottom, 844);
       await _capture(
         tester,
         '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-closed-${width.toInt()}',

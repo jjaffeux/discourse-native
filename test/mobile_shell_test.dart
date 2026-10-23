@@ -1274,51 +1274,52 @@ void main() {
   });
 
   for (final bottom in [0.0, 34.0]) {
-    _mobileTest('all mobile roots share one body inset ($bottom)', (
-      tester,
-    ) async {
-      tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
-      tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
-      final shell = await pumpMobileShellFixture(tester);
-      void expectBody() {
-        final body = find.byKey(const ValueKey('mobile-content-panel'));
-        expect(tester.getRect(body).bottom, phone.height - bottom);
-        expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
-        final surface = find
-            .descendant(of: body, matching: find.byType(DPageSurface))
-            .first;
-        _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
-        final page = tester.element(body);
-        expect(MediaQuery.paddingOf(page).bottom, 0);
-        final dock = tester.getRect(
-          find.byKey(const ValueKey('mobile-dock-surface')),
-        );
-        expect(dock.bottom, closeTo(phone.height - bottom - 6, .01));
-        expect(
-          DScrollChrome.bottomInsetOf(page),
-          closeTo(dock.height + 12, .01),
-        );
-      }
+    _mobileTest(
+      'all mobile roots run their body to the screen edge ($bottom)',
+      (tester) async {
+        tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
+        tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
+        final shell = await pumpMobileShellFixture(tester);
+        void expectBody() {
+          final body = find.byKey(const ValueKey('mobile-content-panel'));
+          expect(tester.getRect(body).bottom, phone.height);
+          expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
+          final surface = find
+              .descendant(of: body, matching: find.byType(DPageSurface))
+              .first;
+          _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
+          final page = tester.element(body);
+          expect(MediaQuery.paddingOf(page).bottom, bottom);
+          final dock = tester.getRect(
+            find.byKey(const ValueKey('mobile-dock-surface')),
+          );
+          expect(dock.bottom, closeTo(phone.height - bottom - 6, .01));
+          expect(
+            DScrollChrome.bottomInsetOf(page),
+            closeTo(dock.height + 12 + bottom, .01),
+          );
+        }
 
-      expectBody();
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
-      await tester.pumpAndSettle();
-      expectBody();
-      await _tapDockTab(tester, 'panel/chat');
-      expectBody();
-      shell.selectMobileDestination(
-        MobileTab.users,
-        const SidebarDestination(
-          id: 'users',
-          label: 'Users',
-          icon: DIcons.users,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expectBody();
-      expect(find.byType(UsersPage), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        expectBody();
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
+        await tester.pumpAndSettle();
+        expectBody();
+        await _tapDockTab(tester, 'panel/chat');
+        expectBody();
+        shell.selectMobileDestination(
+          MobileTab.users,
+          const SidebarDestination(
+            id: 'users',
+            label: 'Users',
+            icon: DIcons.users,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expectBody();
+        expect(find.byType(UsersPage), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
@@ -1429,7 +1430,7 @@ void main() {
         await tester.pumpAndSettle();
         await _captureChrome(tester, 'start-${mode.name}-${material.name}');
         final body = find.byKey(const ValueKey('mobile-content-panel'));
-        expect(tester.getRect(body).bottom, 810);
+        expect(tester.getRect(body).bottom, 844);
         expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
         final surface = find
             .descendant(of: body, matching: find.byType(DPageSurface))
@@ -2410,10 +2411,7 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
     await tester.pumpAndSettle();
     final listElement = tester.element(find.byType(TopicListView));
-    expect(
-      tester.getRect(find.byType(TopicListView)).bottom,
-      phone.height - 34,
-    );
+    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2433,10 +2431,7 @@ void main() {
     );
     expect(tester.getRect(restore).left, closeTo(dock.left, .01));
     expect(tester.getRect(restore).right, closeTo(dock.right, .01));
-    expect(
-      tester.getRect(find.byType(TopicListView)).bottom,
-      phone.height - 34,
-    );
+    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
     expect(tester.element(find.byType(TopicListView)), same(listElement));
     expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     final list = find
@@ -2445,7 +2440,7 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect(tester.getRect(list).bottom, phone.height - 34);
+    expect(tester.getRect(list).bottom, phone.height);
     await tester.drag(list, const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(

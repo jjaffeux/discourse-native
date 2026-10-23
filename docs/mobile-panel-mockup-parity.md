@@ -13,14 +13,18 @@ lost the visible separation from the window header.
 well as pushed pages. Start, topic lists, ordinary destinations, plugin roots,
 and readers share 22px corners on all four sides, the mockup's `pushedCard`
 radius at `5e4e72a` ("as round as a sheet"). The October 20 dock-matched
-bottom corners were rounder than the reference and are gone. The body starts 6px below the window header and stops above the live bottom
-safe-area inset. Inner pages inherit a clear surface so the panel fill paints
-once. The window header stays on the canvas.
+bottom corners were rounder than the reference and are gone. The body starts 6px below the window header and, following the October 23 request,
+runs to the bottom screen edge under the home indicator. Inner pages inherit a
+clear surface so the panel fill paints once. The window header stays on the
+canvas.
 
-`MobileForumRoot` consumes the bottom safe area once around the page and floating
-dock together. Navigation keeps its ordinary 6px margins. The measured footer
-obstruction excludes that consumed safe area, so chat composers clear the dock
-without adding another inset. Keyboard resizing uses the live safe padding.
+`MobileForumRoot` leaves the bottom safe area in the page's padding and adds it
+to the floating dock's bottom margin only, so the dock keeps its screen position
+while the page scrolls beneath it. The measured footer obstruction includes
+that safe area, so the last row of every page scrolls clear of the dock and
+the home indicator, and chat composers clear the dock without adding another
+inset. The inset navigation page still stops above the safe area. Keyboard
+resizing uses the live safe padding.
 Existing palette tint, material selection, opacity and accessibility settings
 remain the source of its fill.
 

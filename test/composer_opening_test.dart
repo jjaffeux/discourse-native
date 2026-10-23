@@ -61,7 +61,7 @@ void main({bool profile = false}) {
     await tester.pumpAndSettle();
     expect(
       tester.getRect(reader),
-      Rect.fromLTRB(resized.left, resized.top, resized.right, 932 - 21),
+      Rect.fromLTRB(resized.left, resized.top, resized.right, 932),
     );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -83,7 +83,7 @@ void main({bool profile = false}) {
         await tester.pumpAndSettle();
         final reader = find.byKey(const ValueKey('mobile-content-panel'));
         final covered = tester.getRect(reader);
-        expect(covered.bottom, 844 - 34);
+        expect(covered.bottom, 844);
 
         if (dismissal == 'swipe') {
           await tester.dragFrom(
@@ -109,7 +109,7 @@ void main({bool profile = false}) {
         tester.view.viewInsets = const FakeViewPadding();
         tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
         await tester.pumpAndSettle();
-        expect(tester.getRect(reader).bottom, 844 - 34);
+        expect(tester.getRect(reader).bottom, 844);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -130,7 +130,7 @@ void main({bool profile = false}) {
       final reader = find.byKey(const ValueKey('mobile-content-panel'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 160);
       await tester.pump();
-      expect(tester.getRect(reader).bottom, 844 - 34);
+      expect(tester.getRect(reader).bottom, 844);
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
       await tester.pump();
       expect(tester.getRect(reader).bottom, 844 - 240);
