@@ -108,6 +108,19 @@ void main() {
               .compact,
           isTrue,
         );
+        // The mockup draws the hint, icon and placeholder in one muted text.
+        expect(
+          tester
+              .widget<Text>(
+                find.descendant(
+                  of: find.byType(DShortcutKeycaps),
+                  matching: find.byType(Text),
+                ),
+              )
+              .style!
+              .color,
+          IconTheme.of(tester.element(icon)).color,
+        );
         await _capture(tester, boundary, '$dark-$scale-closed');
 
         await tester.tap(find.byKey(ForumSearch.inputKey));
