@@ -11,6 +11,7 @@ import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
+import 'ui/foundation/native_glass.dart';
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
@@ -108,6 +109,7 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   void launchApplication() {
+    NativeGlass.probeBeforeFirstFrame();
     runApp(DiscourseApp(plugins: _plugins));
     MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   }
