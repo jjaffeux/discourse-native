@@ -6,8 +6,9 @@ import 'package:flutter/widgets.dart';
 enum DLinkActivation { shiftedPrimary, middle, shiftedMiddle }
 
 /// Adds modified link navigation to a Native control without another focus or
-/// semantic target. The first actionable Item, Button, or Badge consumes the
-/// Shift-primary action; its nested controls retain their own actions.
+/// semantic target. The first actionable Item, Button, Badge, or Bubble content
+/// consumes the Shift-primary action; its nested controls retain their own
+/// actions.
 ///
 /// Middle-click uses the child's existing hit region and cancels on a drag.
 /// Navigation destinations and whether Shift selects another panel stay with

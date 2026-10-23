@@ -1136,8 +1136,8 @@ void _registerChatShellTests() {
             final compactRect = tester.getRect(composer);
             expect(compactRect.height, lessThan(openRect.height));
             final foldedDock = tester.getRect(dockSurface);
-            expect(compactRect.height, 48);
-            expect(compactRect.left - foldedDock.right, 8);
+            expect(compactRect.height, closeTo(foldedDock.height, .01));
+            expect(compactRect.left - foldedDock.right, closeTo(8, .01));
             expect(compactRect.top, foldedDock.top);
             expect(compactRect.bottom, foldedDock.bottom);
             expect(controller.text, draft);
@@ -2927,7 +2927,12 @@ void _registerChatShellTests() {
           ),
           findsOneWidget,
         );
-        expect(find.text('No unread messages'), findsNWidgets(2));
+        for (final id in [9, 10]) {
+          expect(
+            find.byKey(ValueKey('chat-browse-channel-$id')),
+            findsOneWidget,
+          );
+        }
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
           'sup',

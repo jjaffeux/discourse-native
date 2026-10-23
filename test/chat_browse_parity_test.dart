@@ -42,7 +42,7 @@ import 'support/fakes.dart';
 import 'support/skeleton_expectations.dart';
 
 const _site = 'https://meta.discourse.org';
-const _user = DiscourseUser(id: 7, username: 'reader');
+const _user = DiscourseUser(id: 7, username: 'reader', hidePresence: false);
 final _config = SiteConfig(
   plugins: PluginData.none.withValue(
     chatSettingsDataKey,

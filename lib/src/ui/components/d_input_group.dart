@@ -10,6 +10,7 @@ import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_composer_dock.dart';
 import 'd_input.dart';
 import 'd_kbd.dart';
 import 'd_scroll_area.dart';
@@ -147,12 +148,7 @@ class _DInputGroupState extends State<DInputGroup> {
     final tokens = DTokens.of(context);
     final search = widget.variant == DInputGroupVariant.search;
     final composer = widget.variant == DInputGroupVariant.composer;
-    final compactComposerExtent =
-        48 +
-        (MediaQuery.textScalerOf(context).scale(11) - 11).clamp(
-          0.0,
-          double.infinity,
-        );
+    final compactComposerExtent = DComposerDock.foldedDockExtentOf(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final focused =
         DFocusHighlight.visibleOf(context) &&
