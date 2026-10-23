@@ -8,6 +8,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
+import '../models/destination_bookmark.dart';
 import '../models/notification.dart';
 import '../plugin_api/shell_extensions.dart';
 import '../theme/d_icons.dart';
@@ -15,6 +16,7 @@ import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
 import 'account_feed_viewport.dart';
+import 'content_reading_lane.dart';
 import 'desktop_header_menu.dart';
 import 'destination_bookmark_ui.dart';
 import 'directory_skeleton.dart';
@@ -487,89 +489,50 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       identity: widget.siteUrl,
       title: Text(context.l10n.bookmarks),
       controls: _heading(context, filters),
-      bodyBuilder: (context, header) => AccountFeedViewport(
-        identity: (
-          widget.controller,
-          widget.siteUrl,
-          session,
-          _filter,
-          _reminderFilter,
-        ),
-        rows: [for (final entry in visibleEntries) entry.bookmark.id],
-        revealEnd: feed.window.lastPageWasPrevious,
-        separated: true,
-        builder: (context, viewport) {
-          _scrollController = viewport.scrollController;
-          return NotificationListener<ScrollNotification>(
-            onNotification: (notification) =>
-                viewport.restoring ? false : _onScroll(notification),
-            child: CustomScrollView(
-              controller: viewport.scrollController,
-              slivers: [
-                SliverToBoxAdapter(child: header.spacer),
-                SliverList.builder(
-                  itemCount: visibleLocalEntries.length,
-                  itemBuilder: (context, index) => DestinationBookmarkRow(
-                    siteUrl: widget.siteUrl,
-                    bookmark: visibleLocalEntries[index],
-                    onOpened: widget.onOpened,
-                  ),
-                ),
-                if (feed.hasPrevious)
-                  SliverToBoxAdapter(
-                    child: Center(
-                      child: DButton(
-                        label: Text(context.l10n.previous),
-                        loading: feed.loadingPrevious,
-                        onPressed: feed.loading ? null : _loadPrevious,
+      // Rows span the same lane as the heading and inset their own content,
+      // so their text starts under the title.
+      bodyBuilder: (context, header) => ContentReadingLane(
+        builder: (context, lane) => AccountFeedViewport(
+          identity: (
+            widget.controller,
+            widget.siteUrl,
+            session,
+            _filter,
+            _reminderFilter,
+          ),
+          rows: [for (final entry in visibleEntries) entry.bookmark.id],
+          revealEnd: feed.window.lastPageWasPrevious,
+          separated: true,
+          builder: (context, viewport) {
+            _scrollController = viewport.scrollController;
+            return NotificationListener<ScrollNotification>(
+              onNotification: (notification) =>
+                  viewport.restoring ? false : _onScroll(notification),
+              child: CustomScrollView(
+                controller: viewport.scrollController,
+                slivers: [
+                  SliverToBoxAdapter(child: header.spacer),
+                  SliverPadding(
+                    padding: EdgeInsets.only(
+                      left: lane.leftInset,
+                      right: lane.rightInset,
+                    ),
+                    sliver: SliverMainAxisGroup(
+                      slivers: _pageSlivers(
+                        context,
+                        feed: feed,
+                        state: state,
+                        viewport: viewport,
+                        visibleEntries: visibleEntries,
+                        visibleLocalEntries: visibleLocalEntries,
                       ),
                     ),
                   ),
-                if (state != null)
-                  state
-                else ...[
-                  SuperSliverList.separated(
-                    listController: viewport.listController,
-                    findChildIndexCallback: viewport.indexForKey,
-                    itemCount: visibleEntries.length,
-                    separatorBuilder: (context, index) => const DSeparator(),
-                    itemBuilder: (context, index) {
-                      final entry = visibleEntries[index];
-                      return viewport.row(
-                        entry.bookmark.id,
-                        BookmarkRow(
-                          bookmark: entry.bookmark,
-                          siteUrl: widget.siteUrl,
-                          presentation: entry.presentation,
-                          onTap: () => _openBookmark(entry.bookmark),
-                        ),
-                      );
-                    },
-                  ),
-                  if (feed.error case final error?)
-                    SliverToBoxAdapter(
-                      child: UserMenuMessage(text: error, onRetry: _retry),
-                    )
-                  else if (feed.loading)
-                    SliverToBoxAdapter(
-                      child: AccountActivityPagingSkeleton(
-                        semanticsLabel: context.l10n.loadingMoreBookmarks,
-                      ),
-                    ),
                 ],
-                if (feed.hasMore && !feed.loading && feed.error == null)
-                  SliverToBoxAdapter(
-                    child: Center(
-                      child: DButton(
-                        label: Text(context.l10n.loadMore),
-                        onPressed: _loadMore,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
     return DScrollChromePagination(
@@ -578,6 +541,76 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       child: content,
     );
   }
+
+  List<Widget> _pageSlivers(
+    BuildContext context, {
+    required BookmarkListFeed feed,
+    required Widget? state,
+    required AccountFeedViewportState viewport,
+    required List<({Bookmark bookmark, BookmarkPresentation presentation})>
+    visibleEntries,
+    required List<DestinationBookmark> visibleLocalEntries,
+  }) => [
+    SliverList.builder(
+      itemCount: visibleLocalEntries.length,
+      itemBuilder: (context, index) => DestinationBookmarkRow(
+        siteUrl: widget.siteUrl,
+        bookmark: visibleLocalEntries[index],
+        onOpened: widget.onOpened,
+      ),
+    ),
+    if (feed.hasPrevious)
+      SliverToBoxAdapter(
+        child: Center(
+          child: DButton(
+            label: Text(context.l10n.previous),
+            loading: feed.loadingPrevious,
+            onPressed: feed.loading ? null : _loadPrevious,
+          ),
+        ),
+      ),
+    if (state != null)
+      state
+    else ...[
+      SuperSliverList.separated(
+        listController: viewport.listController,
+        findChildIndexCallback: viewport.indexForKey,
+        itemCount: visibleEntries.length,
+        separatorBuilder: (context, index) => const DSeparator(),
+        itemBuilder: (context, index) {
+          final entry = visibleEntries[index];
+          return viewport.row(
+            entry.bookmark.id,
+            BookmarkRow(
+              bookmark: entry.bookmark,
+              siteUrl: widget.siteUrl,
+              presentation: entry.presentation,
+              onTap: () => _openBookmark(entry.bookmark),
+            ),
+          );
+        },
+      ),
+      if (feed.error case final error?)
+        SliverToBoxAdapter(
+          child: UserMenuMessage(text: error, onRetry: _retry),
+        )
+      else if (feed.loading)
+        SliverToBoxAdapter(
+          child: AccountActivityPagingSkeleton(
+            semanticsLabel: context.l10n.loadingMoreBookmarks,
+          ),
+        ),
+    ],
+    if (feed.hasMore && !feed.loading && feed.error == null)
+      SliverToBoxAdapter(
+        child: Center(
+          child: DButton(
+            label: Text(context.l10n.loadMore),
+            onPressed: _loadMore,
+          ),
+        ),
+      ),
+  ];
 
   Widget _heading(BuildContext context, Set<String> filters) => Wrap(
     spacing: DSpacing.sm,
@@ -658,6 +691,9 @@ class BookmarkRow extends StatelessWidget {
         context.l10n.noteBookmarklist((name).toString()),
     ].join(', ');
     final color = details?.color ?? tokens.mutedForeground;
+    final meta = theme.textTheme.labelMedium?.copyWith(
+      color: tokens.mutedForeground,
+    );
     final row = DItem(
       key: ValueKey('bookmark-row-${bookmark.id}'),
       shape: details == null ? DItemShape.standard : DItemShape.fullWidth,
@@ -691,37 +727,49 @@ class BookmarkRow extends StatelessWidget {
                   ),
           ),
         ),
-        DItemContent(
-          spacing: DSpacing.xs,
-          children: [
-            ExcludeSemantics(
-              child: Text(
-                details?.title ?? [?bookmark.author, bookmark.title].join(' '),
-                maxLines: details == null ? 2 : null,
-                overflow: details == null
-                    ? TextOverflow.ellipsis
-                    : TextOverflow.clip,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (details != null)
+        if (details == null)
+          DItemContent(
+            spacing: DSpacing.xs,
+            children: [
               ExcludeSemantics(
                 child: Text(
-                  details.subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: tokens.mutedForeground,
+                  [?bookmark.author, bookmark.title].join(' '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-          ],
-        ),
+            ],
+          )
+        else
+          ExcludeSemantics(
+            child: DItemContent(
+              children: [
+                DItemTitle(maxLines: null, child: Text(details.title)),
+                if (bookmark.name case final name? when name.isNotEmpty)
+                  DItemDescription(child: Text(name)),
+                Wrap(
+                  spacing: DSpacing.sm,
+                  runSpacing: DSpacing.xs,
+                  children: [
+                    Text(details.subtitle, style: meta),
+                    if (expired)
+                      Text(
+                        context.l10n.bookmarkReminderExpired,
+                        style: meta?.copyWith(color: tokens.primary),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
       ],
     );
 
     final name = bookmark.name;
-    final presented = name == null
+    final presented = name == null || details != null
         ? row
         : DTooltip(
             message: name,

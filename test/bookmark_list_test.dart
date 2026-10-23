@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -9,7 +10,9 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -251,6 +254,44 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('bookmark-row-1')));
       await tester.pumpAndSettle();
       expect(shell.currentContent?.topicId, 7);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final limited in [true, false]) {
+    testWidgets('rows follow the content width setting (limited: $limited)', (
+      tester,
+    ) async {
+      final shell = await _shell(
+        bookmarks: [
+          _bookmarks[0].copyWith(
+            reminderAt: DateTime.now().subtract(const Duration(days: 1)),
+          ),
+          _bookmarks[1].copyWith(name: 'Try this with the weekly meal plan'),
+        ],
+      );
+      addTearDown(shell.dispose);
+      await _pumpPage(
+        tester,
+        shell,
+        size: const Size(1440, 900),
+        limitContentSize: limited,
+      );
+
+      final title = tester.getRect(find.text('Bookmarks'));
+      final row = tester.getRect(find.byKey(const ValueKey('bookmark-row-1')));
+      final media = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey('bookmark-row-1')),
+          matching: find.byType(DAvatar),
+        ),
+      );
+      expect(row.width, limited ? DPageReadingLane.maxWidth : 1440);
+      expect(row.center.dx, 720);
+      expect(media.left, title.left);
+      expect(find.text('Try this with the weekly meal plan'), findsOneWidget);
+      expect(find.text('Reminder expired'), findsOneWidget);
+      expect(find.byType(DTooltip), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -580,8 +621,14 @@ Future<void> _pumpPage(
   double scale = 1,
   bool rtl = false,
   bool settle = true,
+  bool limitContentSize = false,
   VoidCallback? onOpened,
 }) async {
+  final settings = AppSettingsController(
+    store: AppSettingsStore(persistence: MemoryAppSettingsPersistence()),
+  );
+  addTearDown(settings.dispose);
+  await settings.setLimitContentSize(limitContentSize);
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -602,11 +649,17 @@ Future<void> _pumpPage(
           ),
           child: Directionality(
             textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-            child: Scaffold(
-              body: BookmarkSection(
-                siteUrl: _site,
-                page: true,
-                onOpened: onOpened ?? () {},
+            child: ContentSettingsScope(
+              controller: settings,
+              child: DPageContentSettings(
+                limitContentSize: limitContentSize,
+                child: Scaffold(
+                  body: BookmarkSection(
+                    siteUrl: _site,
+                    page: true,
+                    onOpened: onOpened ?? () {},
+                  ),
+                ),
               ),
             ),
           ),
