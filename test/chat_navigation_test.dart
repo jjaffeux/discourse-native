@@ -1979,13 +1979,34 @@ void main() {
         final surface = find.byKey(
           const ValueKey('chat-my-thread-preview-surface-3'),
         );
-        final ink = tester.widget<InkWell>(row);
-        final restingDecoration =
-            tester.widget<AnimatedContainer>(surface).decoration!
+        BoxDecoration cardDecoration() =>
+            tester
+                    .widget<AnimatedContainer>(
+                      find
+                          .descendant(
+                            of: surface,
+                            matching: find.byType(AnimatedContainer),
+                          )
+                          .first,
+                    )
+                    .decoration!
                 as BoxDecoration;
+        Color? rowFill() =>
+            (tester
+                        .widget<Container>(
+                          find
+                              .descendant(
+                                of: row,
+                                matching: find.byType(Container),
+                              )
+                              .first,
+                        )
+                        .decoration
+                    as BoxDecoration?)
+                ?.color;
+        final restingDecoration = cardDecoration();
 
-        expect(ink.hoverColor, Colors.transparent);
-        expect(ink.focusColor, Colors.transparent);
+        expect(rowFill(), Colors.transparent);
         expect(
           restingDecoration.color,
           AppTheme.dark.colorScheme.surfaceContainerHighest,
@@ -1996,16 +2017,13 @@ void main() {
         await mouse.moveTo(tester.getCenter(row));
         await tester.pumpAndSettle();
 
-        final hoveredDecoration =
-            tester.widget<AnimatedContainer>(surface).decoration!
-                as BoxDecoration;
+        final hoveredDecoration = cardDecoration();
         expect(hoveredDecoration.color, isNot(restingDecoration.color));
+        expect(rowFill(), Colors.transparent);
 
         await mouse.moveTo(const Offset(-10, -10));
         await tester.pumpAndSettle();
-        final restoredDecoration =
-            tester.widget<AnimatedContainer>(surface).decoration!
-                as BoxDecoration;
+        final restoredDecoration = cardDecoration();
         expect(restoredDecoration.color, restingDecoration.color);
         await mouse.removePointer();
       });
