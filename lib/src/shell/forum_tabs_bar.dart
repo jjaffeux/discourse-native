@@ -1384,10 +1384,12 @@ class ForumTabDragFeedback extends StatelessWidget {
                 const SizedBox(width: 7),
               ],
               Expanded(
-                child: Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: _TabLabelInk(
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],
@@ -1396,6 +1398,30 @@ class ForumTabDragFeedback extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A centred line box centres a label's capitals, but a mixed-case label
+/// reads from between its cap height and x-height, about 0.05em lower. Lifting
+/// the ink 0.06em lines that up with the icon and close cross beside it, as
+/// the mockup draws them.
+class _TabLabelInk extends StatelessWidget {
+  const _TabLabelInk({this.fontSize, required this.child});
+
+  /// The label's own size when its style does not come from the tab.
+  final double? fontSize;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Transform.translate(
+    offset: Offset(
+      0,
+      -MediaQuery.textScalerOf(
+            context,
+          ).scale(fontSize ?? DefaultTextStyle.of(context).style.fontSize!) *
+          .06,
+    ),
+    child: child,
+  );
 }
 
 class _NewTabButton extends StatelessWidget {
@@ -1707,7 +1733,12 @@ class _ForumTabState extends State<_ForumTab> {
                 )
               : Row(
                   children: [
-                    Flexible(child: label),
+                    Flexible(
+                      child: _TabLabelInk(
+                        fontSize: labelStyle?.fontSize,
+                        child: label,
+                      ),
+                    ),
                     if (!compact)
                       if (widget.item.labelSuffixBuilder case final builder?)
                         builder(context, 13),

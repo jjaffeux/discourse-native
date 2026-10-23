@@ -10,7 +10,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
-import 'support/stock_glass.dart';
 
 void main() {
   for (final dark in [false, true]) {
@@ -29,11 +28,19 @@ void main() {
           await _pump(tester, theme: theme, backdrop: backdrop);
           final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
           final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
-          if (material == DAppearanceMaterial.standard) {
-            await _expectPixel(tester, const Offset(120, 25), raised);
-          } else {
-            expectStockGlass(tester, find.byType(LiquidGlass));
-          }
+          // Liquid Glass paints the mockup's frost: its tint over whatever the
+          // strip sits on, with no lens of its own.
+          await _expectPixel(
+            tester,
+            const Offset(120, 25),
+            material == DAppearanceMaterial.standard
+                ? raised
+                : Color.alphaBlend(
+                    raised.withValues(alpha: dark ? .42 : .5),
+                    backdrop,
+                  ),
+          );
+          expect(find.byType(LiquidGlass), findsNothing);
           final surface = tester.widget<Container>(
             find.byKey(const ValueKey('surface')),
           );
@@ -76,11 +83,33 @@ void main() {
           addTearDown(pointer.removePointer);
           await pointer.moveTo(tester.getCenter(tab));
           await tester.pumpAndSettle();
-          if (material == DAppearanceMaterial.standard) {
-            await _expectPixel(tester, const Offset(120, 25), backdrop);
-          } else {
-            expectStockGlass(tester, find.byType(LiquidGlass));
-          }
+          final glass = material == DAppearanceMaterial.liquidGlass;
+          await _expectPixel(
+            tester,
+            const Offset(120, 25),
+            glass
+                ? Color.alphaBlend(
+                    Color.lerp(
+                      tokens.background,
+                      tokens.foreground,
+                      .1,
+                    )!.withValues(alpha: .22),
+                    backdrop,
+                  )
+                : backdrop,
+          );
+          final surface = tester.widget<Container>(
+            find.byKey(const ValueKey('surface')),
+          );
+          expect(
+            ((surface.decoration! as ShapeDecoration).shape as OutlinedBorder)
+                .side
+                .color,
+            glass
+                ? Colors.white.withValues(alpha: dark ? .14 : .75)
+                : Colors.transparent,
+          );
+          expect(find.byType(LiquidGlass), findsNothing);
           expect(tester.getRect(tab), rect);
           final close = find.byKey(const ValueKey('close'));
           await pointer.moveTo(tester.getCenter(close));

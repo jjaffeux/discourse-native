@@ -23,6 +23,10 @@ enum DSurfaceDepth {
   swatch,
   primaryCapsule,
   chromeSelection,
+
+  /// A workspace tab's frost, painted in both materials: the strip sits on
+  /// a flat panel, so a backdrop lens would only cost a pass to blur nothing.
+  frostedTab,
 }
 
 /// The kit owns depth for both materials. Text and focus rings paint above it.
@@ -73,16 +77,20 @@ class DMaterialSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (depth == DSurfaceDepth.primaryCapsule ||
-        depth == DSurfaceDepth.chromeSelection) {
-      final glass = DMaterialTheme.glassOf(context);
+        depth == DSurfaceDepth.chromeSelection ||
+        depth == DSurfaceDepth.frostedTab) {
+      final tab = depth == DSurfaceDepth.frostedTab;
+      final glass = !tab && DMaterialTheme.glassOf(context);
       final dark = Theme.of(context).brightness == Brightness.dark;
       final selected = depth == DSurfaceDepth.chromeSelection;
       final reduced = DMaterialTheme.reducedOf(context);
-      final fill = selected || reduced
+      // An unselected tab keeps this tree so its focus survives selection.
+      final bare = tab && color.a == 0;
+      final fill = selected || reduced || tab
           ? color
           : color.withValues(alpha: color.a * .76);
       return CustomPaint(
-        painter: glass
+        painter: glass || bare
             ? null
             : _ChromeOuterShadow(
                 radius,
@@ -108,6 +116,8 @@ class DMaterialSurface extends StatelessWidget {
                           depth: depth,
                           glassTint: selected ? null : color,
                         )
+                      : bare
+                      ? const SizedBox.expand()
                       : CustomPaint(
                           painter: _ChromeFill(
                             radius,
