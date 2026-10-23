@@ -28,6 +28,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
     show
         AxisDirection,
+        Offset,
         Semantics,
         Size,
         SizedBox,
@@ -37,7 +38,7 @@ import 'package:flutter/material.dart'
         Scrollable,
         ScrollableState;
 import 'package:flutter/rendering.dart'
-    show RenderObject, RenderRepaintBoundary, debugOnProfilePaint;
+    show RenderBox, RenderObject, RenderRepaintBoundary, debugOnProfilePaint;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -193,6 +194,40 @@ void main() {
       }),
     );
   }
+
+  testWidgets('each tab scrolls its end clear of the phone dock', (
+    tester,
+  ) async {
+    await _pump(tester, size: const Size(390, 600));
+    await _openSummaryFromMenu(tester);
+    for (final tab in ['Highlights', 'Connections', 'Reading']) {
+      await _selectSummaryTab(tester, tab);
+      final scroll = find.descendant(
+        of: find.byKey(const PageStorageKey('user-summary-scroll')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        ),
+      );
+      final position = tester.state<ScrollableState>(scroll).position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final panel = find
+          .descendant(
+            of: find.byType(UserSummaryView),
+            matching: find.byWidgetPredicate((widget) => widget is DTabPanel),
+          )
+          .evaluate()
+          .map((element) => element.renderObject! as RenderBox)
+          .singleWhere((box) => box.size.height > 0);
+      final dock = DScrollChrome.bottomInsetOf(tester.element(scroll.first));
+      expect(dock, greaterThan(0), reason: 'The phone dock floats.');
+      final end = panel.localToGlobal(Offset(0, panel.size.height)).dy;
+      final viewport = tester.getRect(scroll.first).bottom;
+      expect(end, lessThanOrEqualTo(viewport - dock), reason: tab);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   group('route lifecycle', () {
     for (final layout in [
