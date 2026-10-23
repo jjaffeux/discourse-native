@@ -514,41 +514,53 @@ class _GroupDirectoryRow extends StatelessWidget {
               // A different future must not retain a previous account's avatars.
               key: ObjectKey(memberPreview),
               future: memberPreview,
-              builder: (context, snapshot) => Wrap(
-                spacing: DSpacing.sm,
-                runSpacing: DSpacing.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (snapshot.data case final members? when members.isNotEmpty)
-                    DAvatarGroup(
-                      size: DAvatarSize.sm,
-                      children: [
-                        for (final member in members.take(4))
-                          DAvatar(
-                            semanticLabel: member.username,
-                            child: AvatarImage(
-                              url: member.avatarUrl,
-                              size: DAvatarSize.sm.dimension,
-                              fallback: DAvatarFallback(
-                                child: Text(
-                                  member.username.characters.firstOrNull
-                                          ?.toUpperCase() ??
-                                      '?',
+              // Reserves the avatars' height before the preview arrives, so
+              // the rows below do not shift when it does.
+              builder: (context, snapshot) => ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: DAvatarSize.sm.dimension,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  heightFactor: 1,
+                  child: Wrap(
+                    spacing: DSpacing.sm,
+                    runSpacing: DSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (snapshot.data case final members?
+                          when members.isNotEmpty)
+                        DAvatarGroup(
+                          size: DAvatarSize.sm,
+                          children: [
+                            for (final member in members.take(4))
+                              DAvatar(
+                                semanticLabel: member.username,
+                                child: AvatarImage(
+                                  url: member.avatarUrl,
+                                  size: DAvatarSize.sm.dimension,
+                                  fallback: DAvatarFallback(
+                                    child: Text(
+                                      member.username.characters.firstOrNull
+                                              ?.toUpperCase() ??
+                                          '?',
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  Text(
-                    group.userCount == null
-                        ? context.l10n.membersHidden
-                        : context.l10n.messageGrouppage(group.userCount!),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: tokens.mutedForeground,
-                    ),
+                          ],
+                        ),
+                      Text(
+                        group.userCount == null
+                            ? context.l10n.membersHidden
+                            : context.l10n.messageGrouppage(group.userCount!),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: tokens.mutedForeground,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],

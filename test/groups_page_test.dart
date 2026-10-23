@@ -161,6 +161,63 @@ void main() {
     });
   }
 
+  for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
+    testWidgets('loaded groups replace the skeleton in place at $size', (
+      tester,
+    ) async {
+      const page = GroupsPage(
+        siteUrl: 'https://example.invalid',
+        data: GroupsPageData(loading: true),
+      );
+      // A real font, so the one-line bio stays one line at phone width.
+      await _pump(
+        tester,
+        page,
+        size: size,
+        platform: TargetPlatform.iOS,
+        fontFamily: 'PageHeaderReview',
+      );
+      final region = find.byType(DSkeletonRegion);
+      final skeletonAvatar = tester.getRect(
+        find.descendant(of: region, matching: find.byType(DSkeleton)).first,
+      );
+      final skeletonDivider = tester.getRect(
+        find.descendant(of: region, matching: find.byType(DSeparator)).first,
+      );
+
+      final members = Completer<List<GroupMember>>();
+      await _pump(
+        tester,
+        GroupsPage(
+          siteUrl: 'https://example.invalid',
+          data: const GroupsPageData(
+            groups: [_support, _moderators],
+            totalRows: 2,
+            loaded: true,
+          ),
+          loadMemberPreview: (_) => members.future,
+        ),
+        size: size,
+        platform: TargetPlatform.iOS,
+        fontFamily: 'PageHeaderReview',
+      );
+      final row = find.byKey(const ValueKey('group-row-support'));
+      final avatar = tester.getRect(
+        find.descendant(of: row, matching: find.byType(DAvatar)).first,
+      );
+      final divider = tester.getRect(find.byType(DSeparator).first);
+      expect(avatar, skeletonAvatar);
+      expect(divider, skeletonDivider);
+
+      // The member preview arrives after the rows: it must not push them.
+      members.complete(_members);
+      await tester.pumpAndSettle();
+      expect(find.byType(DAvatarGroup), findsOneWidget);
+      expect(tester.getRect(find.byType(DSeparator).first), divider);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final (width, platform) in [
     (390.0, TargetPlatform.iOS),
     (700.0, TargetPlatform.android),
