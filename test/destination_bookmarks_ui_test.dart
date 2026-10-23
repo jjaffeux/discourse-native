@@ -463,81 +463,72 @@ void main() {
     },
   );
 
-  testWidgets(
-    'desktop tab context and phone More expose existing Native bookmark actions',
-    (tester) async {
-      await pumpShell(
-        tester,
-        desktop,
-        instances: [
-          instance(
-            'forum.example',
-            title: 'Community forum',
-          ).copyWith(user: const DiscourseUser(username: 'reader')),
-        ],
-        api: FakeDiscourseApi(user: const DiscourseUser(username: 'reader')),
-        authenticator: FakeAuthenticator()..keys[_site] = 'key',
-      );
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      await shell.openDestinationRoute(_category);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(ValueKey('forum-tab-pointer-${shell.activeTabId}')).first,
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('destination-bookmark-category-12')),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Bookmark'));
-      await tester.pumpAndSettle();
-      expect(shell.destinationBookmarksFor(_site).single.route, _category);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-  );
+  testWidgets('desktop tab context menu bookmarks the tab page', (
+    tester,
+  ) async {
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [
+        instance(
+          'forum.example',
+          title: 'Community forum',
+        ).copyWith(user: const DiscourseUser(username: 'reader')),
+      ],
+      api: FakeDiscourseApi(user: const DiscourseUser(username: 'reader')),
+      authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.openDestinationRoute(_category);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey('forum-tab-pointer-${shell.activeTabId}')).first,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('destination-bookmark-category-12')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Bookmark'));
+    await tester.pumpAndSettle();
+    expect(shell.destinationBookmarksFor(_site).single.route, _category);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets(
-    'phone More bookmarks the active page through its Native adaptive sheet',
-    (tester) async {
-      await pumpShell(
-        tester,
-        phone,
-        instances: [
-          instance(
-            'forum.example',
-            title: 'Community forum',
-          ).copyWith(user: const DiscourseUser(username: 'reader')),
-        ],
-        api: FakeDiscourseApi(user: const DiscourseUser(username: 'reader')),
-        authenticator: FakeAuthenticator()..keys[_site] = 'key',
-      );
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      await shell.openDestinationRoute(ContentRoute.allCategories());
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('destination-bookmark-all-categories')),
-        findsOneWidget,
-      );
-      expect(find.byType(DSheetContent), findsWidgets);
-      await tester.tap(find.text('Bookmark'));
-      await tester.pumpAndSettle();
-      expect(
-        shell.destinationBookmarksFor(_site).single.route.id,
-        'all-categories',
-      );
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
-  );
+  testWidgets('phone dock More lists destinations without a bookmark action', (
+    tester,
+  ) async {
+    await pumpShell(
+      tester,
+      phone,
+      instances: [
+        instance(
+          'forum.example',
+          title: 'Community forum',
+        ).copyWith(user: const DiscourseUser(username: 'reader')),
+      ],
+      api: FakeDiscourseApi(user: const DiscourseUser(username: 'reader')),
+      authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    await shell.openDestinationRoute(ContentRoute.allCategories());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('destination-bookmark-all-categories')),
+      findsNothing,
+    );
+    expect(find.text('Bookmark'), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }
 
 void _noop() {}
