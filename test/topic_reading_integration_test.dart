@@ -2543,6 +2543,11 @@ void _registerTopicReadingTests() {
           const ValueKey('instance-rail-badge-https://meta.discourse.org'),
         );
         final initial = tester.getRect(badge);
+        // A long count may overhang the site icon it sits on by its ring, and
+        // no further, whatever size the rail draws its icons at.
+        final icon = tester.getSize(
+          find.ancestor(of: badge, matching: find.byType(Stack)).first,
+        );
         expect(tester.widget(badge), isA<DBadge>());
         expect(initial.height, 14);
         for (final (count, label) in [(129, '129'), (1284, '999+')]) {
@@ -2562,7 +2567,7 @@ void _registerTopicReadingTests() {
           final bounds = tester.getRect(badge);
           expect(bounds.right, initial.right);
           expect(bounds.height, lessThanOrEqualTo(initial.height));
-          expect(bounds.width, lessThanOrEqualTo(36));
+          expect(bounds.width, lessThanOrEqualTo(icon.width + 4));
           expect(bounds.width, greaterThan(initial.width));
           expect(tester.takeException(), isNull);
         }
