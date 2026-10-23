@@ -776,21 +776,23 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                                 () => _seamHovered = false,
                                               ),
                                               child: TextFieldTapRegion(
-                                                child: DButton.iconOnly(
-                                                  key: const ValueKey(
-                                                    'swap-panels',
+                                                child: DStandardMaterial(
+                                                  child: DButton.iconOnly(
+                                                    key: const ValueKey(
+                                                      'swap-panels',
+                                                    ),
+                                                    focusNode: _swapFocus,
+                                                    density: DButtonDensity
+                                                        .chatMessageAction,
+                                                    variant:
+                                                        DButtonVariant.outline,
+                                                    icon: const Icon(
+                                                      Icons.swap_horiz,
+                                                    ),
+                                                    tooltip:
+                                                        context.l10n.swapPanels,
+                                                    onPressed: _swapPanels,
                                                   ),
-                                                  focusNode: _swapFocus,
-                                                  density: DButtonDensity
-                                                      .chatMessageAction,
-                                                  variant:
-                                                      DButtonVariant.outline,
-                                                  icon: const Icon(
-                                                    Icons.swap_horiz,
-                                                  ),
-                                                  tooltip:
-                                                      context.l10n.swapPanels,
-                                                  onPressed: _swapPanels,
                                                 ),
                                               ),
                                             ),

@@ -24,6 +24,10 @@ import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/glass_presets.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+import 'package:discourse_native/src/ui/foundation/native_glass.dart'
+    show NativeGlassShape;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -341,6 +345,29 @@ void main() {
       },
     );
   }
+
+  testWidgets('swap action stays flat under Liquid Glass', (tester) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell, material: DAppearanceMaterial.liquidGlass);
+    tester.widget<DButton>(_swapButton).focusNode!.requestFocus();
+    await tester.pumpAndSettle();
+    expect(_swapVisible(tester), isTrue);
+    expect(DMaterialTheme.glassOf(tester.element(_mainPanel)), isTrue);
+    expect(
+      find.descendant(
+        of: _swapButton,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DGlassSurface || widget is NativeGlassShape,
+        ),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: _swapButton, matching: find.byType(DMaterialSurface)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'swap action reveals at hovered edge, stays focusable, hides while resizing, and leaves gaps inert',
@@ -2383,6 +2410,7 @@ Future<void> _pump(
   String? fontFamily,
   EdgeInsets safeArea = EdgeInsets.zero,
   ValueListenable<Rect?>? windowFrame,
+  DAppearanceMaterial material = DAppearanceMaterial.standard,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -2397,10 +2425,13 @@ Future<void> _pump(
         key: const ValueKey('panel-swap-render'),
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.forBrightness(
-            Brightness.light,
-            fontFamily: fontFamily,
-          ).copyWith(platform: TargetPlatform.macOS),
+          theme: DMaterialTheme.apply(
+            AppTheme.forBrightness(
+              Brightness.light,
+              fontFamily: fontFamily,
+            ).copyWith(platform: TargetPlatform.macOS),
+            material,
+          ),
           home: Builder(
             builder: (context) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
