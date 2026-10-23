@@ -3767,7 +3767,7 @@ void main() {
     final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
     Finder peer(String label) =>
         find.descendant(of: navigation, matching: find.text(label));
-    expect(find.text('Browse chats'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
     expect(peer('Channels'), findsOneWidget);
     expect(peer('Threads'), findsOneWidget);
     await tester.ensureVisible(peer('Channels'));

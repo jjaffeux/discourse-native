@@ -26,6 +26,7 @@ import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -293,12 +294,98 @@ void main() {
           expectAligned(row);
           if (page == ChatBrowsePage.chats) {
             expectAligned(find.byType(ChatInboxRoomRow).first);
+            final heading = tester.getRect(
+              find.descendant(
+                of: find.byKey(
+                  const ValueKey('chat-inbox-voice-rooms-heading'),
+                ),
+                matching: find.text('Voice rooms'),
+              ),
+            );
+            expect(
+              heading.left,
+              closeTo(_rowContentBounds(tester, row).left, .01),
+            );
           }
           expect(tester.takeException(), isNull);
         },
       );
     }
   }
+
+  for (final (width, platform, oneRow) in [
+    (320.0, TargetPlatform.iOS, false),
+    (430.0, TargetPlatform.iOS, false),
+    (900.0, TargetPlatform.macOS, true),
+  ]) {
+    testWidgets('chats header places its filters beside the peer switch '
+        'only when they fit at width $width', (tester) async {
+      await _pump(tester, size: Size(width, 800), platform: platform);
+      final title = tester.getRect(
+        find.byKey(const ValueKey('chat-inbox-title')),
+      );
+      expect(find.text('Browse chats'), findsNothing);
+      final navigation = tester.getRect(
+        find.byKey(const ValueKey('chat-browse-navigation')),
+      );
+      final activity = tester.getRect(
+        find.byKey(const ValueKey('chat-inbox-activity-filter')),
+      );
+      final kind = tester.getRect(
+        find.byKey(const ValueKey('chat-inbox-kind-filter')),
+      );
+      final presence = tester.getRect(
+        find.byKey(const ValueKey('user-presence-menu')),
+      );
+      expect(navigation.top, greaterThan(title.bottom));
+      expect(activity.left, lessThan(kind.left));
+      expect(kind.center.dy, activity.center.dy);
+      expect(presence.center.dy, activity.center.dy);
+      expect(presence.right, greaterThan(kind.right));
+      if (oneRow) {
+        expect(activity.center.dy, closeTo(navigation.center.dy, .5));
+        expect(activity.left, greaterThan(navigation.right));
+      } else {
+        expect(activity.top, greaterThan(navigation.bottom));
+        expect(activity.left, navigation.left);
+      }
+      final row = _rowContentBounds(
+        tester,
+        find.byKey(const ValueKey('chat-inbox-channel-1')),
+      );
+      expect(row.top, greaterThan(activity.bottom));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('the conversation type menu names each type with its icon', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.tap(find.byKey(const ValueKey('chat-inbox-kind-filter')));
+    await tester.pumpAndSettle();
+    final menu = find.byType(DDropdownMenuContent);
+    for (final (label, icon) in [
+      ('All', DIcons.asterisk),
+      ('Direct messages', DIcons.user),
+    ]) {
+      final row = tester.getRect(
+        find.descendant(of: menu, matching: find.text(label)),
+      );
+      final glyph = tester.getRect(
+        find.descendant(
+          of: menu,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == icon,
+          ),
+        ),
+      );
+      expect(glyph.center.dy, closeTo(row.center.dy, 1), reason: label);
+      expect(glyph.right, lessThanOrEqualTo(row.left), reason: label);
+    }
+    expect(find.descendant(of: menu, matching: find.text('#')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final page in ChatBrowsePage.values) {
     testWidgets(
@@ -463,7 +550,7 @@ void main() {
       expect(find.text('First thread'), findsOneWidget);
       expect(find.text('Second thread'), findsNothing);
       await _tab(tester, ChatBrowsePage.chats);
-      expect(find.text('Browse chats'), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
       await _tab(tester, ChatBrowsePage.channels);
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).controller.text,

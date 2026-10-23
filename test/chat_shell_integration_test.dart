@@ -5392,7 +5392,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        expect(find.text('Browse chats'), findsOneWidget);
+        expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
       });
     });
   });

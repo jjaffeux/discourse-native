@@ -142,15 +142,12 @@ void main() {
     expect(fixture.host.currentContent?.id, ChatRoute.channel(9).routeId);
   });
 
-  test(
-    'the Chat shortcut opens Browse chats when there are no channels',
-    () async {
-      final fixture = await _fixture(channels: const ChatChannels());
-      addTearDown(fixture.dispose);
-      await fixture.shell.openShortcut();
-      expect(fixture.host.currentContent?.id, ChatPlugin.inboxRouteId);
-    },
-  );
+  test('the Chat shortcut opens Chats when there are no channels', () async {
+    final fixture = await _fixture(channels: const ChatChannels());
+    addTearDown(fixture.dispose);
+    await fixture.shell.openShortcut();
+    expect(fixture.host.currentContent?.id, ChatPlugin.inboxRouteId);
+  });
 
   for (final mode in [
     ChatSeparateSidebarMode.never,

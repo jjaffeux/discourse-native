@@ -2109,10 +2109,6 @@
       }
     }
   },
-  "browseChats": "Browse chats",
-  "@browseChats": {
-    "description": "English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact."
-  },
   "browseChannels": "Browse channels",
   "@browseChannels": {
     "description": "English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact."
