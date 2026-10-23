@@ -103,7 +103,6 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final background = effects?.background;
     final gradient = background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
-    final glass = DMaterialTheme.glassOf(context);
     final panelMaterial = DMaterialTheme.of(context) != null;
     final transparency = DMaterialTheme.reducedOf(context)
         ? 0.0
@@ -114,12 +113,8 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
-          // The macOS window is opaque, so nothing sits behind this canvas.
-          color: _plainWindowColor(tokens).withValues(
-            alpha: glass && theme.platform != TargetPlatform.macOS
-                ? 1 - (transparency / .3 * 65).round() / 100
-                : 1,
-          ),
+          // Every host window is opaque, so nothing sits behind this canvas.
+          color: _plainWindowColor(tokens),
           gradient: background == null ? effects?.windowGradient : null,
         ),
         child: Stack(

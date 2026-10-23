@@ -1308,7 +1308,7 @@ void main() {
   );
 
   testWidgets(
-    'panel opacity is shared; only native glass thins the ground; hatch precedes content',
+    'panel opacity is shared; the ground stays opaque; hatch precedes content',
     (tester) async {
       for (final mode in DAppearanceMaterial.values) {
         Color? panel;
@@ -1344,10 +1344,7 @@ void main() {
                     )
                     .decoration
                 as BoxDecoration;
-        expect(
-          canvas.color!.a,
-          closeTo(mode == DAppearanceMaterial.liquidGlass ? .35 : 1, .001),
-        );
+        expect(canvas.color!.a, 1);
         final hatch = find.byKey(const ValueKey('forum-hatch-texture'));
         final content = find.byKey(const ValueKey('forum-window-content'));
         expect(hatch, findsOneWidget);
@@ -1356,45 +1353,6 @@ void main() {
       }
     },
   );
-
-  testWidgets('the macOS window canvas stays opaque under glass transparency', (
-    tester,
-  ) async {
-    Color? panel;
-    await tester.pumpWidget(
-      MaterialApp(
-        themeAnimationStyle: AnimationStyle.noAnimation,
-        theme: DMaterialTheme.apply(
-          AppTheme.forBrightness(
-            Brightness.dark,
-            background: const ForumBackground.appearance(
-              transparency: .3,
-              effect: ForumBackgroundEffect.hatch,
-            ),
-          ),
-          DAppearanceMaterial.liquidGlass,
-        ).copyWith(platform: TargetPlatform.macOS),
-        home: ForumWindowBackground(
-          child: Builder(
-            builder: (context) {
-              panel = ForumWindowBackground.panelColor(context);
-              return const SizedBox.expand();
-            },
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    final canvas =
-        tester
-                .widget<DecoratedBox>(
-                  find.byKey(const ValueKey('forum-window-canvas')),
-                )
-                .decoration
-            as BoxDecoration;
-    expect(canvas.color!.a, 1);
-    expect(panel!.a, closeTo(.6, .001));
-  });
 
   testWidgets(
     'glass fallback paints visible frost without tinting its foreground',
