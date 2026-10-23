@@ -100,8 +100,14 @@ class DMaterialSurface extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(
                 child: ExcludeSemantics(
+                  // A primary capsule tints its glass as a dock action does.
+                  // A chrome selection's fill only marks its control open.
                   child: glass
-                      ? _GlassPaint(radius: radius, depth: depth)
+                      ? _GlassPaint(
+                          radius: radius,
+                          depth: depth,
+                          glassTint: selected ? null : color,
+                        )
                       : CustomPaint(
                           painter: _ChromeFill(
                             radius,
