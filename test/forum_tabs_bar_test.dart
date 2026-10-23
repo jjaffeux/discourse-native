@@ -663,7 +663,7 @@ void main() {
       await tester.pump(kDoubleTapMinTime);
       await tester.tap(find.text(first.title));
       await tester.pump();
-      final editor = tester.widget<TextField>(
+      final editor = tester.widget<DInput>(
         find.byKey(const ValueKey('forum-tab-rename-topic-1')),
       );
       expect(editor.style?.fontSize, DiscourseTypography.control);
@@ -1177,7 +1177,7 @@ void main() {
       final editor = find.byKey(const ValueKey('forum-tab-rename-topic-1'));
       expect(editor, findsOneWidget);
       expect(
-        tester.widget<TextField>(editor).controller!.selection,
+        tester.widget<DInput>(editor).controller!.selection,
         TextSelection(baseOffset: 0, extentOffset: first.title.length),
       );
 
@@ -1794,6 +1794,43 @@ void main() {
   });
 
   group('tab adornments', () {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'labels sit optically level with icon and close at ${scale}x',
+        (tester) async {
+          await _pumpBar(
+            tester,
+            items: const [first, second],
+            selectedId: first.id,
+            textScaler: TextScaler.linear(scale),
+          );
+          final tab = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+          final icon = tester.getCenter(
+            find.descendant(of: tab, matching: find.byType(DIcon)).first,
+          );
+          final title = find.descendant(
+            of: tab,
+            matching: find.text(first.title),
+          );
+          final label = tester.getCenter(title);
+          final line = tester.getCenter(
+            find.ancestor(of: title, matching: find.byType(Transform)).first,
+          );
+          final close = tester.getCenter(
+            find.byKey(const ValueKey('forum-tab-close-topic-1')),
+          );
+          // A centred line box centres capitals; mixed case reads lower, so the
+          // label is lifted 0.06em while the icon and cross keep the centre.
+          expect(line.dy, moreOrLessEquals(icon.dy, epsilon: .1));
+          expect(
+            line.dy - label.dy,
+            moreOrLessEquals(DiscourseTypography.control * scale * .06),
+          );
+          expect(close.dy, moreOrLessEquals(icon.dy, epsilon: .01));
+        },
+      );
+    }
+
     testWidgets('render prefixes, unread badges, and ellipsized labels', (
       tester,
     ) async {

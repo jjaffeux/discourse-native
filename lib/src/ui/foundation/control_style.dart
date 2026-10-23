@@ -148,7 +148,9 @@ abstract final class DControlStyle {
         DControlSize.post => 13,
         DControlSize.documentTab => 12,
         DControlSize.tabAction => 12,
-        DControlSize.tabClose => 11,
+        // The mockup's 11px Font Awesome 7 cross is 8px of ink; the bundled
+        // Font Awesome 6 cross fills less of its box and needs 14 for that.
+        DControlSize.tabClose => 14,
       };
   static double contentGap(DControlSize size) => size == DControlSize.preference
       ? 8

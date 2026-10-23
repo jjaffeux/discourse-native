@@ -1481,6 +1481,9 @@ class _DDocumentTabState extends State<DDocumentTab> {
         Color.lerp(tokens.background, tokens.foreground, amount)!;
     final foreground = widget.selected ? mix(.9) : mix(.5);
     final glass = DMaterialTheme.glassOf(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // The mockup's inactive hover in Liquid Glass: a faint tint and its rim.
+    final hoverFrost = glass && !widget.selected && _hovered;
     final radius = BorderRadius.circular(
       widget.selected && widget.size != DControlSize.documentTab
           ? DRadius.panel
@@ -1504,11 +1507,13 @@ class _DDocumentTabState extends State<DDocumentTab> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: _DocumentTabMaterial(
-        selected: widget.selected,
-        hovered: _hovered,
+      child: DMaterialSurface(
+        depth: DSurfaceDepth.frostedTab,
         radius: radius,
-        color: mix(.10),
+        // The mockup's --glass-tint: the raised fill at 42% (50% in light).
+        color: glass && widget.selected
+            ? mix(.10).withValues(alpha: dark ? .42 : .5)
+            : Colors.transparent,
         child: Container(
           key: widget.surfaceKey,
           height: DControlStyle.scaledHeight(
@@ -1519,12 +1524,18 @@ class _DDocumentTabState extends State<DDocumentTab> {
           // The outline supplies the other pixel of the compact outer inset.
           padding: const EdgeInsetsDirectional.only(start: 1, end: 10),
           decoration: ShapeDecoration(
-            color: widget.selected && !glass ? mix(.10) : Colors.transparent,
+            color: widget.selected && !glass
+                ? mix(.10)
+                : hoverFrost
+                ? mix(.10).withValues(alpha: .22)
+                : Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: radius,
               side: (BorderSide(
                 color: widget.selected && !glass
                     ? mix(.22)
+                    : hoverFrost
+                    ? Colors.white.withValues(alpha: dark ? .14 : .75)
                     : Colors.transparent,
                 strokeAlign: BorderSide.strokeAlignInside,
               )),
