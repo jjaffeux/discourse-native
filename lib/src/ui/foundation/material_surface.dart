@@ -628,8 +628,11 @@ class _PanelEdge extends CustomPainter {
     final rect = Offset.zero & size;
     canvas.save();
     canvas.clipRRect(radius.toRRect(rect));
+    // The catch of light is transparent below 140px; filling only its band
+    // keeps a tall panel from blending its whole area for it.
+    final catchOfLight = Rect.fromLTWH(0, 0, size.width, 140);
     canvas.drawRect(
-      rect,
+      catchOfLight.intersect(rect),
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
@@ -638,7 +641,7 @@ class _PanelEdge extends CustomPainter {
             Colors.white.withValues(alpha: dark ? .12 * .55 : .5),
             Colors.white.withValues(alpha: 0),
           ],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, 140)),
+        ).createShader(catchOfLight),
     );
     canvas.drawRRect(
       radius.toRRect(rect).deflate(.5),

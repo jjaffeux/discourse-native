@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/palette_contrast.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
@@ -10,6 +13,7 @@ import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -200,6 +204,65 @@ void main() {
       () => ForumBackground.fromJson({...valid.toJson(), 'transparency': .31}),
       throwsFormatException,
     );
+  });
+
+  testWidgets('glass palette pools fade out without a visible edge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 260);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: DMaterialTheme.apply(
+            brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+            DAppearanceMaterial.liquidGlass,
+          ),
+          home: const RepaintBoundary(
+            key: ValueKey('pools'),
+            child: ForumWindowBackground(child: SizedBox.expand()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final pixels = await tester.runAsync(() async {
+        final image = await tester
+            .renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('pools')),
+            )
+            .toImage();
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        final width = image.width;
+        image.dispose();
+        return (bytes: bytes!, width: width);
+      });
+      final (:bytes, :width) = pixels!;
+      final height = bytes.lengthInBytes ~/ (width * 4);
+      int channel(int x, int y, int c) =>
+          bytes.getUint8((y * width + x) * 4 + c);
+      var steepest = 0;
+      for (var y = 1; y < height; y++) {
+        for (var x = 1; x < width; x++) {
+          for (var c = 0; c < 3; c++) {
+            final here = channel(x, y, c);
+            steepest = math.max(
+              steepest,
+              math.max(
+                (here - channel(x - 1, y, c)).abs(),
+                (here - channel(x, y - 1, c)).abs(),
+              ),
+            );
+          }
+        }
+      }
+      // Overlapping pools step by at most three levels between neighbouring
+      // pixels at this size. A pool cut short of its last stop leaves a ring
+      // over fifteen levels deep.
+      expect(steepest, lessThanOrEqualTo(4), reason: '$brightness');
+    }
   });
 
   testWidgets(
