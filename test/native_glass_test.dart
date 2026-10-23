@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/native_glass.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -331,7 +332,7 @@ void main() {
               ValueListenableBuilder<bool>(
                 valueListenable: open,
                 builder: (context, value, _) => value
-                    ? const NativeGlassOccluder(child: SizedBox.shrink())
+                    ? const NativeGlassOccluder(child: SizedBox.expand())
                     : const SizedBox.shrink(),
               ),
             ],
@@ -349,6 +350,80 @@ void main() {
     open.value = false;
     await tester.pumpAndSettle();
     expect((await settle(tester))['visible'], isTrue);
+  });
+
+  testWidgets('an overlay clear of the glass leaves it to the system', (
+    tester,
+  ) async {
+    final open = ValueNotifier(false);
+    addTearDown(open.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _glass,
+        home: Scaffold(
+          body: Stack(
+            children: [
+              fixture(theme: _glass),
+              ValueListenableBuilder<bool>(
+                valueListenable: open,
+                builder: (context, value, _) => value
+                    ? const Positioned(
+                        left: 0,
+                        top: 0,
+                        width: 40,
+                        height: 40,
+                        child: NativeGlassOccluder(child: SizedBox.expand()),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect((await settle(tester))['visible'], isTrue);
+
+    open.value = true;
+    expect((await settle(tester))['visible'], isTrue);
+    expect(find.byType(LiquidGlass), findsNothing);
+  });
+
+  testWidgets('a tooltip hands back only the glass beneath it', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _glass,
+        home: Scaffold(
+          body: Stack(
+            children: [
+              sendButtonFixture(_glass),
+              const Align(
+                alignment: Alignment.topLeft,
+                child: DTooltip(
+                  message: 'Elsewhere',
+                  child: SizedBox.square(dimension: 40),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect((await settle(tester))['visible'], isTrue);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: const Offset(20, 20));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('Elsewhere'), findsOneWidget);
+    expect((await settle(tester))['visible'], isTrue);
+    expect(find.byType(LiquidGlass), findsNothing);
+
+    await mouse.moveTo(tester.getCenter(find.byIcon(Icons.send)));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('Send'), findsOneWidget);
+    expect(scenes.last['visible'], isFalse);
+    expect(find.byType(LiquidGlass), findsWidgets);
   });
 
   testWidgets('raised glass reports its shape and content, clipped', (
