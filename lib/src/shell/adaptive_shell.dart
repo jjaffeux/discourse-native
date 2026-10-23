@@ -921,31 +921,24 @@ class _WideShellState extends State<_WideShell> {
   @override
   void initState() {
     super.initState();
-    widget.sidebarExpanded.addListener(_navigationLayoutChanged);
-    widget.sidebarWidth.addListener(_navigationLayoutChanged);
+    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
   }
 
   @override
   void didUpdateWidget(_WideShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sidebarExpanded != widget.sidebarExpanded) {
-      oldWidget.sidebarExpanded.removeListener(_navigationLayoutChanged);
-      widget.sidebarExpanded.addListener(_navigationLayoutChanged);
-    }
-    if (oldWidget.sidebarWidth != widget.sidebarWidth) {
-      oldWidget.sidebarWidth.removeListener(_navigationLayoutChanged);
-      widget.sidebarWidth.addListener(_navigationLayoutChanged);
-    }
+    if (oldWidget.sidebarExpanded == widget.sidebarExpanded) return;
+    oldWidget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
+    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
   }
 
   @override
   void dispose() {
-    widget.sidebarExpanded.removeListener(_navigationLayoutChanged);
-    widget.sidebarWidth.removeListener(_navigationLayoutChanged);
+    widget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
     super.dispose();
   }
 
-  void _navigationLayoutChanged() => setState(() {});
+  void _sidebarChoiceChanged() => setState(() {});
 
   Widget _buildRail(bool sidebarExpanded) => ShellSelector<bool>(
     select: (controller) =>
@@ -976,14 +969,22 @@ class _WideShellState extends State<_WideShell> {
             !context.isTouch && sidebarExpanded && ShellTitleBar.hasWindowChrome
             ? 40.0
             : 0.0;
-        final sidebarWidth = sidebarExpanded
-            ? widget.sidebarWidth.effectiveWidth(maximum: windowMaximum)
-            : 0.0;
-        final chromeHeight = ShellTitleBar.heightFor(
+        // The title bar's height follows the main column's width, which a
+        // sidebar drag changes on every tick. Only the two boxes sized by it
+        // listen to the drag, so the sidebar and content stay unrebuilt.
+        double chromeHeight() => ShellTitleBar.heightFor(
           context,
           sidebarExpanded
-              ? constraints.maxWidth - AdaptiveShell.railWidth - sidebarWidth
+              ? constraints.maxWidth -
+                    AdaptiveShell.railWidth -
+                    widget.sidebarWidth.effectiveWidth(maximum: windowMaximum)
               : constraints.maxWidth,
+        );
+        Widget chromeSized({Widget? child}) => ListenableBuilder(
+          listenable: widget.sidebarWidth,
+          builder: (context, child) =>
+              SizedBox(height: chromeHeight(), child: child),
+          child: child,
         );
         return Row(
           children: [
@@ -991,9 +992,8 @@ class _WideShellState extends State<_WideShell> {
               width: AdaptiveShell.railWidth,
               child: Column(
                 children: [
-                  SizedBox(
-                    height: chromeHeight + MediaQuery.paddingOf(context).top,
-                  ),
+                  SizedBox(height: MediaQuery.paddingOf(context).top),
+                  chromeSized(),
                   Expanded(
                     child: sidebarExpanded ? _expandedRail : _collapsedRail,
                   ),
@@ -1016,8 +1016,7 @@ class _WideShellState extends State<_WideShell> {
                         DesktopNavigation(
                           compact: !sidebarExpanded,
                           showTrigger: sidebarChoice == null,
-                          header: SizedBox(
-                            height: chromeHeight,
+                          header: chromeSized(
                             child: OverflowBox(
                               alignment: AlignmentDirectional.centerEnd,
                               minWidth: sidebarExpanded
