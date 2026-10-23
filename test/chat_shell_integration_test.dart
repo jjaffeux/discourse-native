@@ -2927,7 +2927,12 @@ void _registerChatShellTests() {
           ),
           findsOneWidget,
         );
-        expect(find.text('No unread messages'), findsNWidgets(2));
+        for (final id in [9, 10]) {
+          expect(
+            find.byKey(ValueKey('chat-browse-channel-$id')),
+            findsOneWidget,
+          );
+        }
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
           'sup',
