@@ -205,6 +205,8 @@ class DPageSurface extends StatefulWidget {
   /// Keeps a directory lazy while the measured heading and footer fit. When
   /// they leave less than 48px for rows, false asks for a natural-height body
   /// and the whole page scrolls together. The same title and controls remain.
+  /// A bounded list may pass Clip.none to its viewport: the page then clips
+  /// it, letting a raised first row paint into the controls' empty padding.
   final Widget Function(BuildContext context, bool bounded)?
   adaptiveBodyBuilder;
 
@@ -460,6 +462,8 @@ class _DPageSurfaceState extends State<DPageSurface>
     int depth,
     BuildContext? origin,
   ) {
+    // An adaptive page's own scroll view holds the header above its list.
+    if (widget.adaptiveBodyBuilder != null && depth == 0) return;
     if (metrics.axis != Axis.vertical || !_isPageScroll(depth, origin)) return;
     // Match the edge fade's 2px tolerance, so one of the two always hides
     // content that has scrolled under the header.
@@ -867,7 +871,14 @@ class _DPageSurfaceState extends State<DPageSurface>
                             ),
                           );
                         }
-                        return _builtAdaptiveBody!.child;
+                        return ClipRect(
+                          clipper: _HeaderBodyClipper(
+                            null,
+                            _bodyAtTop,
+                            _PageControls.bottomPadding,
+                          ),
+                          child: _builtAdaptiveBody!.child,
+                        );
                       },
                     ),
                     if (widget.footer case final footer?) fixedContent(footer),
@@ -1709,7 +1720,9 @@ class _RenderPageOverlay extends RenderBox
 class _HeaderBodyClipper extends CustomClipper<Rect> {
   _HeaderBodyClipper(this.geometry, this.atTop, this.emptyBand)
     : super(reclip: Listenable.merge([geometry, atTop]));
-  final DPageHeaderGeometry geometry;
+
+  /// Null for an adaptive body, which is laid out below the header.
+  final DPageHeaderGeometry? geometry;
   final ValueListenable<bool> atTop;
 
   /// Height of the header's lowest band, which holds nothing of its own.
@@ -1718,7 +1731,7 @@ class _HeaderBodyClipper extends CustomClipper<Rect> {
   @override
   Rect getClip(Size size) => Rect.fromLTRB(
     0,
-    geometry.visibleExtent - (atTop.value ? emptyBand : 0),
+    (geometry?.visibleExtent ?? 0) - (atTop.value ? emptyBand : 0),
     size.width,
     size.height,
   );

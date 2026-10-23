@@ -284,6 +284,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         key: lazy ? const PageStorageKey('chat-browse-channels') : null,
         controller: lazy ? _scrollController : null,
         primary: false,
+        // The page clips the list, leaving the first cards room to lift.
+        clipBehavior: Clip.none,
         shrinkWrap: !lazy,
         physics: lazy
             ? const AlwaysScrollableScrollPhysics()
