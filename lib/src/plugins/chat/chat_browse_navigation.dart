@@ -73,6 +73,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     required this.options,
     required this.onChanged,
     this.icon,
+    this.optionIcons = const {},
     this.emphasized = false,
     this.mobileSheetVariant = DSheetVariant.adaptiveMenu,
   });
@@ -83,6 +84,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
   final Map<T, String> options;
   final ValueChanged<T> onChanged;
   final Widget? icon;
+  final Map<T, Widget> optionIcons;
   final bool emphasized;
   final DSheetVariant mobileSheetVariant;
 
@@ -103,6 +105,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
               DDropdownMenuRadioItem<T>(
                 value: option.key,
                 closeOnSelect: true,
+                leading: optionIcons[option.key],
                 child: Text(option.value),
               ),
           ],

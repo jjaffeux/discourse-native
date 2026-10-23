@@ -3012,12 +3012,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Browse chats'**
-  String get browseChats;
-
-  /// English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Browse channels'**
   String get browseChannels;
 

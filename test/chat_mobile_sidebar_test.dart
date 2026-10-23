@@ -23,7 +23,10 @@ final _user = DiscourseUser(
 );
 
 final _inbox = find.byType(ChatMobileSidebar);
-final _title = find.descendant(of: _inbox, matching: find.text('Browse chats'));
+final _title = find.descendant(
+  of: _inbox,
+  matching: find.byKey(const ValueKey('chat-inbox-title')),
+);
 final _navigation = find.byKey(const ValueKey('chat-browse-navigation'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
@@ -156,7 +159,7 @@ void main() {
     expect(list, findsOneWidget);
     final title = tester.getRect(_title);
     final navigation = tester.getRect(_navigation);
-    tester.view.viewInsets = const FakeViewPadding(bottom: 450);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 540);
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
     expect(list, findsNothing);

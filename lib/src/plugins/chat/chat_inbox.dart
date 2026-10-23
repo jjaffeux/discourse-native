@@ -75,15 +75,20 @@ DateTime? chatInboxActivityAt(ChatChannel channel) {
 }
 
 /// The activity and conversation-type dropdowns, plus the reader's presence.
+///
+/// A [leading] control shares the bar when the width allows and otherwise
+/// takes a row of its own; presence stays at the end of the filters' row.
 class ChatInboxFilterBar extends StatelessWidget {
   const ChatInboxFilterBar({
     super.key,
     required this.siteUrl,
     required this.filters,
+    this.leading,
   });
 
   final String siteUrl;
   final ChatInboxFilters filters;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -115,11 +120,9 @@ class ChatInboxFilterBar extends StatelessWidget {
             ChatInboxKind.directMessages => context.l10n.directMessages,
             ChatInboxKind.voiceRooms => context.l10n.voiceRooms,
           },
-          icon: switch (filter.kind) {
-            ChatInboxKind.all => const DIcon(DIcons.asterisk),
-            ChatInboxKind.channels => const Text('#'),
-            ChatInboxKind.directMessages => const DIcon(DIcons.user),
-            ChatInboxKind.voiceRooms => const DIcon(DIcons.microphoneLines),
+          icon: _kindIcon(filter.kind),
+          optionIcons: {
+            for (final kind in ChatInboxKind.values) kind: _kindIcon(kind),
           },
           semanticLabel: context.l10n.conversationType,
           value: filter.kind,
@@ -138,8 +141,7 @@ class ChatInboxFilterBar extends StatelessWidget {
               filters.update(siteUrl, filter.copyWith(kind: value)),
         ),
       ];
-      final presence = UserPresenceMenu(siteUrl: siteUrl);
-      return Row(
+      final row = Row(
         spacing: DSpacing.controlGap,
         children: [
           Expanded(
@@ -150,11 +152,41 @@ class ChatInboxFilterBar extends StatelessWidget {
               children: dropdowns,
             ),
           ),
-          presence,
+          UserPresenceMenu(siteUrl: siteUrl),
         ],
+      );
+      final leading = this.leading;
+      if (leading == null) return row;
+      return LayoutBuilder(
+        builder: (context, constraints) =>
+            constraints.maxWidth >= MediaQuery.textScalerOf(context).scale(600)
+            ? Row(
+                spacing: DSpacing.sm,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: constraints.maxWidth / 2,
+                    ),
+                    child: leading,
+                  ),
+                  Expanded(child: row),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: DSpacing.sm,
+                children: [leading, row],
+              ),
       );
     },
   );
+
+  static Widget _kindIcon(ChatInboxKind kind) => switch (kind) {
+    ChatInboxKind.all => const DIcon(DIcons.asterisk),
+    ChatInboxKind.channels => const Text('#'),
+    ChatInboxKind.directMessages => const DIcon(DIcons.user),
+    ChatInboxKind.voiceRooms => const DIcon(DIcons.microphoneLines),
+  };
 }
 
 /// The inbox's error state: nothing to show and a way to ask again.

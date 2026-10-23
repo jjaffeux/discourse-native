@@ -45,20 +45,34 @@ class ChatMobileSidebar extends StatelessWidget {
             onPressed: () => shell.openChannel(channel.id),
           ),
         );
+        // Rows are ruled within their own section; the rooms heading stands
+        // between the two sections without a rule on either side.
+        final entries = <Widget>[
+          for (final (index, channel) in channels.indexed) ...[
+            if (index > 0) DSeparator(color: colors.border),
+            row(channel),
+          ],
+          if (rooms.isNotEmpty && channels.isNotEmpty)
+            const _VoiceRoomsHeading(),
+          for (final (index, room) in rooms.indexed) ...[
+            if (index > 0) DSeparator(color: colors.border),
+            ChatInboxRoomRow(room: room),
+          ],
+        ];
         return DPageSurface.headed(
-          title: Text(context.l10n.browseChats),
+          title: Text(
+            context.l10n.chats,
+            key: const ValueKey('chat-inbox-title'),
+          ),
           controls: ContentReadingLaneBox(
             padding: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ChatBrowseNavigation(
-                  siteUrl: siteUrl,
-                  page: ChatBrowsePage.chats,
-                ),
-                const SizedBox(height: DSpacing.md),
-                ChatInboxFilterBar(siteUrl: siteUrl, filters: filters),
-              ],
+            child: ChatInboxFilterBar(
+              siteUrl: siteUrl,
+              filters: filters,
+              leading: ChatBrowseNavigation(
+                siteUrl: siteUrl,
+                page: ChatBrowsePage.chats,
+              ),
             ),
           ),
           adaptiveBodyBuilder: (context, lazy) => ContentReadingLane(
@@ -89,32 +103,15 @@ class ChatMobileSidebar extends StatelessWidget {
                     ),
                   )
                 : lazy
-                ? ListView.separated(
+                ? ListView.builder(
                     key: PageStorageKey(('mobile-chat-list', siteUrl, filter)),
                     padding: lane.padding.add(
                       EdgeInsets.only(
                         bottom: DScrollChrome.bottomInsetOf(context),
                       ),
                     ),
-                    itemCount:
-                        channels.length +
-                        rooms.length +
-                        (rooms.isNotEmpty && channels.isNotEmpty ? 1 : 0),
-                    separatorBuilder: (context, _) =>
-                        DSeparator(color: colors.border),
-                    itemBuilder: (context, index) {
-                      if (index < channels.length) return row(channels[index]);
-                      final roomIndex = index - channels.length;
-                      if (channels.isNotEmpty && roomIndex == 0) {
-                        return Padding(
-                          padding: EdgeInsets.zero,
-                          child: Text(context.l10n.voiceRooms),
-                        );
-                      }
-                      return ChatInboxRoomRow(
-                        room: rooms[roomIndex - (channels.isEmpty ? 0 : 1)],
-                      );
-                    },
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) => entries[index],
                   )
                 : Padding(
                     padding: lane.padding.add(
@@ -124,18 +121,7 @@ class ChatMobileSidebar extends StatelessWidget {
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (index, channel) in channels.indexed) ...[
-                          if (index > 0) DSeparator(color: colors.border),
-                          row(channel),
-                        ],
-                        if (rooms.isNotEmpty && channels.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(context.l10n.voiceRooms),
-                          ),
-                        for (final room in rooms) ChatInboxRoomRow(room: room),
-                      ],
+                      children: entries,
                     ),
                   ),
           ),
@@ -143,4 +129,29 @@ class ChatMobileSidebar extends StatelessWidget {
       },
     );
   }
+}
+
+/// Starts at the rows' content edge, which is the lane edge below the width
+/// where full-width rows add their own inset.
+class _VoiceRoomsHeading extends StatelessWidget {
+  const _VoiceRoomsHeading();
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final inset = constraints.maxWidth < 600 ? 0.0 : DSpacing.lg;
+      return Padding(
+        key: const ValueKey('chat-inbox-voice-rooms-heading'),
+        padding: EdgeInsetsDirectional.fromSTEB(inset, 18, inset, 2),
+        child: Text(
+          context.l10n.voiceRooms,
+          style: TextStyle(
+            fontSize: DiscourseTypography.xs,
+            fontWeight: FontWeight.w600,
+            color: DTokens.of(context).mutedForeground,
+          ),
+        ),
+      );
+    },
+  );
 }
