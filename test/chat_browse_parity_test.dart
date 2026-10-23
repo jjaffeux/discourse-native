@@ -136,6 +136,14 @@ void main() {
           ChatChannelJoinedFilter.joined,
         );
         await _tab(tester, ChatBrowsePage.threads);
+        final navigation = tester.getRect(
+          find.byKey(const ValueKey('chat-browse-navigation')),
+        );
+        final channelFilter = tester.getRect(
+          find.byKey(const ValueKey('chat-threads-channel-filter')),
+        );
+        expect(channelFilter.center.dy, navigation.center.dy);
+        expect(channelFilter.left, greaterThan(navigation.right));
         await _pick(tester, 'chat-threads-channel-filter', 'general');
         expect(fixture.chat.inboxFilters.browseFor(_site).threadChannelId, 1);
         expect(tester.takeException(), isNull);
@@ -418,7 +426,14 @@ void main() {
       await _pick(tester, 'chat-browse-status', 'Closed');
       await _pick(tester, 'chat-browse-joined', 'Joined');
       await _tab(tester, ChatBrowsePage.threads);
-      expect(find.text('Browse threads'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DPageSurface),
+          matching: find.text('Threads'),
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('Browse threads'), findsNothing);
       await _pick(tester, 'chat-threads-channel-filter', 'general');
       expect(find.text('First thread'), findsOneWidget);
       expect(find.text('Second thread'), findsNothing);

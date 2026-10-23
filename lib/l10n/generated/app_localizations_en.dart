@@ -1668,9 +1668,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get browseChannels => 'Browse channels';
 
   @override
-  String get browseThreads => 'Browse threads';
-
-  @override
   String get browseChat => 'Browse chat';
 
   @override
