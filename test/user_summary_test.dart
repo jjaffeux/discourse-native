@@ -462,12 +462,10 @@ void main() {
           find.bySemanticsLabel('Open Top native topic, 5 likes'),
           findsOneWidget,
         );
-        await tester.ensureVisible(find.text('Helpful'));
+        final milestone = find.bySemanticsLabel('Helpful, earned 2 times');
+        await tester.ensureVisible(milestone);
         await tester.pump();
-        expect(
-          find.bySemanticsLabel('Helpful, earned 2 times'),
-          findsOneWidget,
-        );
+        expect(milestone, findsOneWidget);
         await _captureReview(tester, 'highlights');
         await _selectSummaryTab(tester, 'Connections');
         await _captureReview(tester, 'connections');
@@ -491,6 +489,43 @@ void main() {
       } finally {
         semantics.dispose();
       }
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('profile facts give way a whole fact at a time', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(2200, 600));
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
+      await tester.pumpAndSettle();
+      await _openSummaryFromMenu(tester);
+      final profile = find.byKey(const ValueKey('user-summary-profile'));
+      Finder fact(String text) =>
+          find.descendant(of: profile, matching: find.text(text));
+      final handle = fact('@reader');
+      final forum = fact('meta.discourse.org');
+      final visits = fact('11 days visited');
+
+      final wide = tester.getRect(profile);
+      for (final shown in [handle, forum, visits]) {
+        final bounds = tester.getRect(shown);
+        expect(bounds.right, lessThanOrEqualTo(wide.right + .01));
+        expect(bounds.center.dy, closeTo(wide.center.dy, 1));
+      }
+
+      tester.view.physicalSize = const Size(390, 844);
+      await tester.pumpAndSettle();
+      final narrow = tester.getRect(profile);
+      final kept = tester.getRect(handle);
+      expect(kept.right, lessThanOrEqualTo(narrow.right + .01));
+      expect(kept.center.dy, closeTo(narrow.center.dy, 1));
+      expect(
+        tester.getRect(visits).top,
+        greaterThanOrEqualTo(narrow.bottom),
+        reason: 'a fact that no longer fits leaves the line whole',
+      );
+      expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('announces loading and supports retry after failure', (
@@ -625,7 +660,8 @@ void main() {
             final person = find
                 .descendant(
                   of: find.byType(UserSummaryView),
-                  matching: find.text('Sam Example'),
+                  // The handle shares the name's line, as in a table row.
+                  matching: find.textContaining('Sam Example'),
                 )
                 .first;
             expect(
@@ -720,6 +756,7 @@ Future<_Fixture> _pump(
       id: 7,
       username: 'reader',
       name: 'Reader Example',
+      hidePresence: false,
     ),
     config: SiteConfig(badgesEnabled: badgesEnabled),
   );
