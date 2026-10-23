@@ -11,9 +11,9 @@ lost the visible separation from the window header.
 
 `ForumMobileSurface` now paints one Native `DPageSurface` for root screens as
 well as pushed pages. Start, topic lists, ordinary destinations, plugin roots,
-and readers keep 22px top corners. Following the October 20 request, their
-bottom corners match half the expanded tab bar height, including text scaling.
-The body starts 6px below the window header and stops above the live bottom
+and readers share 22px corners on all four sides, the mockup's `pushedCard`
+radius at `5e4e72a` ("as round as a sheet"). The October 20 dock-matched
+bottom corners were rounder than the reference and are gone. The body starts 6px below the window header and stops above the live bottom
 safe-area inset. Inner pages inherit a clear surface so the panel fill paints
 once. The window header stays on the canvas.
 
@@ -55,7 +55,7 @@ content or typography comparison.
 
 The October 14 reader correction removes the route-dependent corner exception.
 Root, reader, chat and other content destinations inherit the same mobile
-frame and dock-matched bottom corners. The inset navigation sidebar uses
+frame and its 22px corners. The inset navigation sidebar uses
 `ForumMobileSurface.sidebar` with the Native 14px panel radius, matching
 `NavSidebarContent`'s `.side-nav.glass-sheet` in the reference. Its fill, inset
 rim and top highlight use the shared panel treatment in both materials; the

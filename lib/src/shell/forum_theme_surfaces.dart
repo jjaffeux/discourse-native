@@ -307,8 +307,8 @@ class _PalettePools extends CustomPainter {
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
-/// Pages keep 22px top corners and match the dock below; the inset sidebar
-/// uses the Native panel radius.
+/// Pages use the mockup's 22px corners; the inset sidebar uses the Native
+/// panel radius.
 class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
@@ -338,7 +338,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     border: false,
     borderRadius: widget._sidebar
         ? BorderRadius.circular(DRadius.panel)
-        : DMobilePageGeometry.borderRadiusOf(context),
+        : BorderRadius.circular(22),
     backgroundColor: widget.coveredBySheet
         ? Colors.transparent
         : ForumWindowBackground.panelColor(context),

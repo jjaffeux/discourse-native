@@ -76,21 +76,8 @@ final _user = DiscourseUser(
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
-void _expectPageRadiusForDock(
-  WidgetTester tester,
-  BorderRadiusGeometry? geometry,
-) {
-  final dock = tester.getRect(
-    find.byKey(const ValueKey('mobile-dock-surface')),
-  );
-  final radius = geometry! as BorderRadius;
-  expect(radius.topLeft, const Radius.circular(22));
-  expect(radius.topRight, const Radius.circular(22));
-  expect(radius.bottomLeft.x, closeTo(dock.height / 2, .01));
-  expect(radius.bottomRight.x, closeTo(dock.height / 2, .01));
-  expect(radius.bottomLeft.y, closeTo(dock.height / 2, .01));
-  expect(radius.bottomRight.y, closeTo(dock.height / 2, .01));
-}
+void _expectPageRadius(BorderRadiusGeometry? geometry) =>
+    expect(geometry, BorderRadius.circular(22));
 
 Future<void> _loadChromeCaptureFonts(WidgetTester tester) async {
   if (!const bool.fromEnvironment('captureMobileChrome')) return;
@@ -1300,10 +1287,7 @@ void main() {
         final surface = find
             .descendant(of: body, matching: find.byType(DPageSurface))
             .first;
-        _expectPageRadiusForDock(
-          tester,
-          tester.widget<DPageSurface>(surface).borderRadius,
-        );
+        _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
         final page = tester.element(body);
         expect(MediaQuery.paddingOf(page).bottom, 0);
         final dock = tester.getRect(
@@ -1341,7 +1325,7 @@ void main() {
     for (final material in DAppearanceMaterial.values) {
       for (final scale in [1.0, 1.5]) {
         _mobileTest(
-          'body and plugin page follow the expanded dock at $scale text '
+          'body and plugin page keep their corners and dock at $scale text '
           '${mode.name} ${material.name}',
           (tester) async {
             tester.platformDispatcher.textScaleFactorTestValue = scale;
@@ -1388,7 +1372,7 @@ void main() {
               labelSize: tester.getSize(label),
               glyphSize: tester.getSize(glyph),
             );
-            _expectPageRadiusForDock(tester, bodyRadius());
+            _expectPageRadius(bodyRadius());
             await _captureChrome(
               tester,
               'dock-topics-$scale-${mode.name}-${material.name}',
@@ -1400,17 +1384,14 @@ void main() {
             expect(tester.getSize(button).height, before.buttonHeight);
             expect(tester.getSize(label), before.labelSize);
             expect(tester.getSize(glyph), before.glyphSize);
-            _expectPageRadiusForDock(tester, bodyRadius());
+            _expectPageRadius(bodyRadius());
             final sheet = find
                 .descendant(
                   of: find.byType(DSheetContent),
                   matching: find.byType(DPageSurface),
                 )
                 .first;
-            _expectPageRadiusForDock(
-              tester,
-              tester.widget<DPageSurface>(sheet).borderRadius,
-            );
+            _expectPageRadius(tester.widget<DPageSurface>(sheet).borderRadius);
             await _captureChrome(
               tester,
               'dock-chat-$scale-${mode.name}-${material.name}',
@@ -1453,10 +1434,7 @@ void main() {
         final surface = find
             .descendant(of: body, matching: find.byType(DPageSurface))
             .first;
-        _expectPageRadiusForDock(
-          tester,
-          tester.widget<DPageSurface>(surface).borderRadius,
-        );
+        _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
         expect(
           find.byKey(const ValueKey('start-page-content')),
           findsOneWidget,
@@ -1616,8 +1594,7 @@ void main() {
           )
           .first;
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
-      _expectPageRadiusForDock(
-        tester,
+      _expectPageRadius(
         tester.widget<DPageSurface>(mobileSurface).borderRadius,
       );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
@@ -1633,10 +1610,7 @@ void main() {
             matching: find.byType(DPageSurface),
           )
           .first;
-      _expectPageRadiusForDock(
-        tester,
-        tester.widget<DPageSurface>(sheetSurface).borderRadius,
-      );
+      _expectPageRadius(tester.widget<DPageSurface>(sheetSurface).borderRadius);
       final reader = find.byType(TopicView);
       final element = tester.element(reader);
       final viewport = tester.getRect(reader);

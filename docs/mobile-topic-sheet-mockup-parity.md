@@ -6,9 +6,9 @@ plus the supplied October 20 Start-page screenshot.
 
 Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
-its top. Its top corners keep the standard 22px page radius. Following the
-October 20 request, bottom corners match half the expanded tab bar height.
-The shared mobile body stops above the bottom safe-area inset for Start, topic
+its top. All four corners use the standard 22px page radius, as the mockup's
+`pushedCard` does at `5e4e72a`; the bottom corners no longer follow the tab
+bar. The shared mobile body stops above the bottom safe-area inset for Start, topic
 lists, ordinary pages, plugin roots, topic sheets, and chat channel and thread
 sheets. Page sheets add no menu margins or reserved handle row. The outer mobile
 surface stays mounted with a transparent fill, so the corners show the window

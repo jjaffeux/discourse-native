@@ -15,7 +15,6 @@ import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
-import 'd_mobile_page_geometry.dart';
 import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
@@ -1535,7 +1534,7 @@ class DSheetContent extends StatelessWidget {
         label: semanticLabel,
         child: DPageSurface(
           border: false,
-          borderRadius: DMobilePageGeometry.borderRadiusOf(context),
+          borderRadius: BorderRadius.circular(22),
           backgroundColor: pulled ? color.withValues(alpha: 1) : color,
           child: Stack(
             fit: StackFit.expand,
