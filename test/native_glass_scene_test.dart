@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/native_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 typedef _Scene = Map<Object?, Object?>;
 
@@ -20,13 +21,14 @@ Rect _rect(Object? value) {
   );
 }
 
-Widget _fixture(Widget child) => MaterialApp(
-  theme: DMaterialTheme.apply(
-    AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-    DAppearanceMaterial.liquidGlass,
-  ),
-  home: Align(alignment: Alignment.topLeft, child: child),
-);
+Widget _fixture(Widget child, {TargetPlatform platform = TargetPlatform.iOS}) =>
+    MaterialApp(
+      theme: DMaterialTheme.apply(
+        AppTheme.light.copyWith(platform: platform),
+        DAppearanceMaterial.liquidGlass,
+      ),
+      home: Align(alignment: Alignment.topLeft, child: child),
+    );
 
 Widget _button(String name) =>
     DButton(key: ValueKey(name), label: Text(name), onPressed: () {});
@@ -76,6 +78,58 @@ void main() {
 
   List<_Scene> elements() =>
       _list(_list(scenes.last['groups']).single['elements']);
+
+  testWidgets('a macOS control draws system glass without a scope', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _fixture(_button('Desktop'), platform: TargetPlatform.macOS),
+    );
+    await _drain(tester);
+
+    final element = elements().singleWhere(
+      (element) => element['glass'] == true,
+    );
+    expect(
+      _rect(element['rect']),
+      tester.getRect(find.byKey(const ValueKey('Desktop'))),
+    );
+    expect(find.byType(LiquidGlass), findsNothing);
+  });
+
+  testWidgets('an iOS control without a scope keeps Flutter glass', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_fixture(_button('Phone')));
+    await _drain(tester);
+
+    expect(scenes.where((scene) => scene['visible'] == true), isEmpty);
+    expect(find.byType(LiquidGlass), findsWidgets);
+  });
+
+  testWidgets('a macOS control in a list is clipped to its viewport', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _fixture(
+        SizedBox(
+          width: 200,
+          height: 60,
+          child: ListView(
+            children: [
+              const SizedBox(height: 40),
+              Align(alignment: Alignment.topLeft, child: _button('Row')),
+            ],
+          ),
+        ),
+        platform: TargetPlatform.macOS,
+      ),
+    );
+    await _drain(tester);
+
+    final group = _list(scenes.last['groups']).single;
+    expect(_rect(group['clip']), tester.getRect(find.byType(ListView)));
+  });
 
   testWidgets('unchanged natural frames send no additional scene', (
     tester,
