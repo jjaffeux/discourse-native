@@ -218,6 +218,7 @@ export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor;
+export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;
