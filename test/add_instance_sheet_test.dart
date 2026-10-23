@@ -62,12 +62,12 @@ void main() {
     );
   });
 
-  testWidgets('uses the Native drawer on Android', (tester) async {
+  testWidgets('uses the shell sheet on Android', (tester) async {
     await openAddSite(tester, TargetPlatform.android);
 
     expect(find.byType(Dialog), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
-    expect(find.byType(DDrawerContent), findsOneWidget);
+    expect(find.byType(DSheetContent), findsOneWidget);
     expect(find.text('Add a site'), findsOneWidget);
     expect(
       tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
@@ -88,9 +88,7 @@ void main() {
         void expectHomeTheme(ThemeData expected) {
           for (final finder in [
             find.byType(
-              platform == TargetPlatform.macOS
-                  ? DDialogContent
-                  : DDrawerContent,
+              platform == TargetPlatform.macOS ? DDialogContent : DSheetContent,
             ),
             find.byType(DInput),
             find.text('Connect'),

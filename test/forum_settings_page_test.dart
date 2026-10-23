@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +42,25 @@ void main() {
   });
 
   mobileSettingsPanelClipTests();
+
+  testWidgets('the Settings title carries the gear mark', (tester) async {
+    final shell = controller();
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    final heading = find.ancestor(
+      of: find.text('Settings'),
+      matching: find.byType(Row),
+    );
+    expect(
+      find.descendant(
+        of: heading.first,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.gear,
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'offline font roles and the accessibility switch share persisted choices',

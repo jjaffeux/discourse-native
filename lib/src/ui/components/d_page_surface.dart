@@ -7,8 +7,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/header_motion.dart';
+import '../foundation/tokens.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
@@ -28,9 +30,11 @@ class DPageSurface extends StatefulWidget {
   /// Use [bodyBuilder] for an existing viewport and reserve [DPageHeaderGeometry.spacer]
   /// in its scroll content. Use [child] for a bounded body such as a table or
   /// calendar. The kit owns the heading typography, spacing and scroll motion.
+  /// An [icon] marks the title the way the page's navigation entry does.
   DPageSurface.headed({
     super.key,
     required Widget title,
+    DIconData? icon,
     Widget? controls,
     this.bodyBuilder,
     this.adaptiveBodyBuilder,
@@ -46,7 +50,7 @@ class DPageSurface extends StatefulWidget {
              1,
        ),
        floatingFooter = false,
-       header = _PageTitle(child: title),
+       header = _PageTitle(icon: icon, child: title),
        headerControls = _PageControls(child: controls),
        compactHeader = null,
        initialCompactHeader = null,
@@ -1128,7 +1132,8 @@ class _HeaderHitClipper extends CustomClipper<Rect> {
 }
 
 class _PageTitle extends StatelessWidget {
-  const _PageTitle({required this.child});
+  const _PageTitle({this.icon, required this.child});
+  final DIconData? icon;
   final Widget child;
 
   @override
@@ -1150,7 +1155,20 @@ class _PageTitle extends StatelessWidget {
           ),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: child,
+            child: icon == null
+                ? child
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DIcon(
+                        icon!,
+                        size: 16,
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                      const SizedBox(width: 9),
+                      Flexible(child: child),
+                    ],
+                  ),
           ),
         ),
       ),

@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
@@ -48,13 +47,9 @@ class _ChatPreferenceForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DCard(
-      spacing: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: DSelect<ChatSeparateSidebarPreference>.controlled(
-          size: DControlSize.preference,
-          isExpanded: true,
+    return PreferenceCard(
+      children: [
+        PreferenceSelect<ChatSeparateSidebarPreference>(
           key: ValueKey(('chat-separate-sidebar-mode', selectedMode)),
           value: selectedMode,
           label: Text(context.l10n.showSeparateSidebarModesForForumAndChat),
@@ -83,7 +78,7 @@ class _ChatPreferenceForm extends StatelessWidget {
           initialValue: selectedMode,
           enabled: enabled,
         ),
-      ),
+      ],
     );
   }
 }

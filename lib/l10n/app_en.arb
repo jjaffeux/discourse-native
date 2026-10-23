@@ -2113,10 +2113,6 @@
   "@browseChannels": {
     "description": "English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact."
   },
-  "browseThreads": "Browse threads",
-  "@browseThreads": {
-    "description": "English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact."
-  },
   "browseChat": "Browse chat",
   "@browseChat": {
     "description": "English UI message used by plugins/chat/chat_browse_navigation.dart. Keep placeholders intact."

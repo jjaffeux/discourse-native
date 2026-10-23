@@ -10,8 +10,10 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
+import 'preference_fields.dart';
 import 'preferences_controller.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
@@ -175,6 +177,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         instance?.isConnected == true && editable && dirty && !state.saving;
 
     return DPageSurface.headed(
+      icon: DNativeIcons.sliders,
       title: Text(context.l10n.preferences),
       controls: SettingsSectionTabs<PreferenceSection>(
         value: selected,
@@ -404,9 +407,9 @@ class _NotificationsForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PreferenceCard(
+    return PreferenceCard(
       children: [
-        _PreferenceSelect<int>(
+        PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -489,9 +492,9 @@ class _TrackingForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PreferenceCard(
+    return PreferenceCard(
       children: [
-        _PreferenceSelect<int>(
+        PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -548,7 +551,7 @@ class _TrackingForm extends StatelessWidget {
           enabled: enabled,
         ),
         const SizedBox(height: 18),
-        _PreferenceSelect<int>(
+        PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -620,7 +623,7 @@ class _TrackingForm extends StatelessWidget {
           enabled: enabled,
         ),
         const SizedBox(height: 18),
-        _PreferenceSelect<int>(
+        PreferenceSelect<int>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -689,7 +692,7 @@ class _ProfileForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PreferenceCard(
+    return PreferenceCard(
       children: [
         DField(
           orientation: MediaQuery.textScalerOf(context).scale(14) > 21
@@ -796,9 +799,9 @@ class _InterfaceForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PreferenceCard(
+    return PreferenceCard(
       children: [
-        _PreferenceSelect<BookmarkAutoDeletePreference>(
+        PreferenceSelect<BookmarkAutoDeletePreference>(
           size: DControlSize.preference,
           isExpanded: true,
           key: ValueKey((
@@ -842,17 +845,6 @@ class _InterfaceForm extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _PreferenceCard extends StatelessWidget {
-  const _PreferenceCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return DFieldGroup(spacing: 0, children: children);
   }
 }
 
@@ -947,6 +939,7 @@ class _LoadingPreferences extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DPageSurface.headed(
+    icon: DNativeIcons.sliders,
     title: Text(context.l10n.preferences),
     child: _SectionScroller(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
@@ -1051,61 +1044,3 @@ String _sectionTitle(
       PreferenceSection.interface => appL10n.interface,
       _ => section.name,
     };
-
-/// A setting row shares Field layout and the existing Select interaction owner.
-class _PreferenceSelect<T> extends StatelessWidget {
-  const _PreferenceSelect({
-    super.key,
-    required this.value,
-    required this.label,
-    this.description,
-    required this.entries,
-    required this.onChanged,
-    required this.initialValue,
-    required this.enabled,
-    this.isExpanded = true,
-    this.size = DControlSize.preference,
-  });
-  final T value;
-  final Widget label;
-  final Widget? description;
-  final List<DSelectEntry<T>> entries;
-  final ValueChanged<T?>? onChanged;
-  final T initialValue;
-  final bool enabled;
-  final bool isExpanded;
-  final DControlSize size;
-  @override
-  Widget build(BuildContext context) => DField(
-    enabled: enabled,
-    orientation: MediaQuery.textScalerOf(context).scale(14) > 21
-        ? DFieldOrientation.vertical
-        : DFieldOrientation.responsive,
-    responsiveBreakpoint: 520,
-    children: [
-      DFieldContent(
-        children: [
-          DFieldLabel(child: label),
-          if (description != null) DFieldDescription(child: description!),
-        ],
-      ),
-      DFieldControl(
-        label: label is Text ? ((label as Text).data ?? '') : '',
-        expand: false,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 250),
-          child: DSelect<T>.controlled(
-            value: value,
-            initialValue: initialValue,
-            size: size,
-            isExpanded: isExpanded,
-            entries: entries,
-            semanticLabel: label is Text ? (label as Text).data : null,
-            enabled: enabled,
-            onChanged: onChanged,
-          ),
-        ),
-      ),
-    ],
-  );
-}

@@ -152,12 +152,13 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
       }
 
       final content = DPageSurface.headed(
-        title: Text(context.l10n.browseThreads),
+        title: Text(context.l10n.threads),
         controls: ContentReadingLaneBox(
           padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: DSpacing.md,
+          child: Wrap(
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               ChatBrowseNavigation(
                 siteUrl: widget.siteUrl,
