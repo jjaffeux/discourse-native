@@ -1791,7 +1791,10 @@ class _RenderPopover extends RenderShiftedBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     final value = _configuration.animation.value;
-    if (value <= 0 || child!.size.isEmpty) return;
+    if (value <= 0 || child!.size.isEmpty) {
+      layer = null;
+      return;
+    }
     void paintSurface(PaintingContext context, Offset offset) {
       context.pushTransform(needsCompositing, offset, _contentTransform, (
         context,
@@ -1805,9 +1808,15 @@ class _RenderPopover extends RenderShiftedBox {
     // opacity isolates it in an offscreen layer, producing blank or split
     // backdrop tiles during entrance and exit. Keep its slide and scale.
     if (_configuration.glass) {
+      layer = null;
       paintSurface(context, offset);
     } else {
-      context.pushOpacity(offset, (255 * value).round(), paintSurface);
+      layer = context.pushOpacity(
+        offset,
+        (255 * value).round(),
+        paintSurface,
+        oldLayer: layer as OpacityLayer?,
+      );
     }
   }
 
