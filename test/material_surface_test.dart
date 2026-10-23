@@ -699,16 +699,18 @@ void main() {
                 }
 
                 pixel(100, 200, base);
-                pixel(
-                  100,
-                  20,
-                  Color.alphaBlend(
-                    Colors.white.withValues(
-                      alpha: (dark ? .066 : .5) * (1 - 20.5 / 140),
+                for (final y in [20, 130]) {
+                  pixel(
+                    100,
+                    y,
+                    Color.alphaBlend(
+                      Colors.white.withValues(
+                        alpha: (dark ? .066 : .5) * (1 - (y + .5) / 140),
+                      ),
+                      base,
                     ),
-                    base,
-                  ),
-                );
+                  );
+                }
                 // The constant rim receives a small contribution from the
                 // blurred inset shadow at both vertical edges. GPU blur kernels
                 // vary slightly, so bound that contribution and check constancy.

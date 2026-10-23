@@ -5,10 +5,11 @@ Investigated on October 23, 2026, against `e9496b05e` and `main` at
 points at 2x), using profile builds.
 
 Dragging the sidebar edge or the seam between the two document panels felt
-slow on macOS. The frames are bound by the GPU, and Liquid Glass is most of
-that work. The drag itself asks little of the UI thread, and the one avoidable
-rebuild on its path was already removed by `820f2fdf6`, which stopped a
-sidebar drag from rebuilding the whole wide shell.
+slow on macOS. The frames are bound by the GPU, and glass-mode painting is most
+of that work: the Flutter glass lenses, the window's palette pools, and the
+reading panels' rim. The drag itself asks little of the UI thread, and the one
+avoidable rebuild on its path was already removed by `820f2fdf6`, which stopped
+a sidebar drag from rebuilding the whole wide shell.
 
 ## Glass bounds a resize frame
 
@@ -64,22 +65,52 @@ Removing the wide shell's rebuild, the change `820f2fdf6` made, cut the
 sidebar count by about 7% and did not move build time: 2.61 ms before and
 2.57 ms after, five alternating runs each in a 1280 by 860 window. Skipping
 `DesktopPanels`' `setState` on seam ticks left the count at 1,265 and was not
-kept. The UI thread is not what makes these drags
-slow in this fixture. A forum with a long sidebar or topic list rebuilds more
-rows per tick; that was not measured.
+kept. The UI thread is not what makes these drags slow in this fixture. A
+forum with a long sidebar or topic list rebuilds more rows per tick; that was
+not measured.
 
-## Options measured
+## Where the glass time goes
 
-- Painting each glass lens as a flat tint while a pane handle is held cut
-  zoomed seam-drag raster by about a quarter, from 10.6 to 7.9 ms, and the
-  sidebar drag from 9.3 to 7.1 ms, over five noisy runs. The seam's p95 stayed
-  at 9.9 ms, over budget, and controls visibly change material when a drag
-  starts and ends. Not kept.
-- Removing frost from every `DGlassSurface` made no difference larger than the
-  run-to-run spread. Not kept.
-- Drawing desktop glass with the system material, as `NativeGlass` does on iOS
-  26, was not tried. It is the change that would take the backdrop reads out of
-  Flutter's frame.
+Each variant below switched one glass-mode painter off, in one interleaved run
+of five per side on a GPU that other applications already kept 60 to 75% busy.
+Raster time per frame:
+
+| Variant | Sidebar drag | Seam drag | Reader scroll |
+| --- | ---: | ---: | ---: |
+| Glass as shipped | 16.61 ms | 16.71 ms | 14.64 ms |
+| No palette pools | 14.70 ms | 16.05 ms | 8.64 ms |
+| No glass lenses | 15.80 ms | 16.08 ms | 10.11 ms |
+| No panel rim | 16.47 ms | 16.60 ms | 12.90 ms |
+| None of the three | 5.98 ms | 6.44 ms | 3.74 ms |
+
+A drag only gets inside its budget once all three are cheaper: while the GPU
+stays saturated, the raster thread waits on it either way. Leaving each one on
+alone, in a second run, put its share of a drag frame at about 6 ms for the
+lenses, 3.5 ms for the pools and 3 ms for the rim.
+
+The pools and the rim's catch of light each filled a whole window or panel
+with a gradient that is transparent over most of it. They now draw only the
+pixels that change, with identical output (`448d00afa`). In a similar
+interleaved run the trims cut the sidebar drag from 16.58 to 12.01 ms, the
+seam drag from 16.91 to 11.87 ms, and the reader scroll from 14.65 to
+10.23 ms.
+
+## What is left
+
+With the gradients trimmed, the Flutter lenses are the largest remaining cost.
+Drawing them with the system material, as `NativeGlass` does with
+`UIGlassEffect` on iOS 26, is the change that would take their backdrop reads
+out of Flutter's frame.
+
+## Options measured and not kept
+
+- Painting each glass lens as a flat tint while a pane handle is held. Lens
+  glass is only a third of the cost, and controls visibly change material when
+  a drag starts and ends.
+- Removing frost from every `DGlassSurface`. No difference larger than the
+  run-to-run spread.
+- The window's own `NSGlassEffectView` backdrop, and an opaque Flutter window
+  background. Neither changed raster time.
 
 ## Reproducing
 
@@ -108,8 +139,9 @@ python3 tool/benchmark_panel_resize.py \
 
 The runner checks that every case completed, drew at least 120 measured frames,
 and resized its pane by 120 pixels, and it retries a failed launch once and
-counts it. It groups runs by window size: the app reopens at its last window
-frame, and a zoom does not always reach the same size.
+counts it. It also samples the device's GPU utilization, which includes the
+window server, for each case. It groups runs by window size: the app reopens
+at its last window frame, and a zoom does not always reach the same size.
 
 To find where a frame's time goes, add
 `--dart-define=PROFILE_RESIZE_WIDGETS=true` and run the test with

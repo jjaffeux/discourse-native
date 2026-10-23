@@ -308,8 +308,12 @@ class _PalettePools extends CustomPainter {
         center: center,
         radius: size.longestSide * radius,
       );
-      canvas.drawRect(
-        Offset.zero & size,
+      // Past its last stop a pool is transparent. Filling only the circle
+      // inside that stop draws the same pixels; covering the window instead
+      // blended each pool across the whole multisampled frame.
+      canvas.drawCircle(
+        center,
+        rect.width / 2 * .7,
         Paint()
           ..shader = RadialGradient(
             center: Alignment.center,
