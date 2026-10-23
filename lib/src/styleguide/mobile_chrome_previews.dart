@@ -90,7 +90,6 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
               padding: const EdgeInsets.all(6),
               child: Builder(
                 builder: (context) => DMobileDock(
-                  referenceTextScale: widget.chatComposer,
                   collapsed: hidden || _initialFold,
                   onOverflowChanged: (_) {},
                   destinations: [

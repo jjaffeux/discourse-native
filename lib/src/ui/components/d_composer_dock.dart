@@ -14,6 +14,13 @@ class DComposerDock extends StatefulWidget {
   /// Gap above the visible composer inside the measured dock.
   static const topInset = 6.0;
 
+  /// Height of the folded dock beside a compact composer. The dock keeps the
+  /// shell's text scale while the composer uses its reference scale, so the
+  /// dock is measured outside the composer's scale.
+  static double foldedDockExtentOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_FoldedDock>()?.extent ??
+      DMobileDock.collapsedExtentOf(context);
+
   @override
   State<DComposerDock> createState() => _DComposerDockState();
 }
@@ -74,8 +81,10 @@ class _DComposerDockState extends State<DComposerDock> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      DReferenceTextScale(child: Builder(builder: _buildComposer));
+  Widget build(BuildContext context) => _FoldedDock(
+    extent: DMobileDock.collapsedExtentOf(context),
+    child: DReferenceTextScale(child: Builder(builder: _buildComposer)),
+  );
 
   Widget _buildComposer(BuildContext context) {
     final chrome = _chrome;
@@ -105,7 +114,7 @@ class _DComposerDockState extends State<DComposerDock> {
         duration: duration,
         curve: curve,
         padding: EdgeInsetsDirectional.fromSTEB(
-          compact ? 6 + DMobileDock.collapsedExtentOf(context) + 8 : 6,
+          compact ? 6 + DComposerDock.foldedDockExtentOf(context) + 8 : 6,
           DComposerDock.topInset,
           6,
           keyboard
@@ -127,4 +136,13 @@ class _DComposerDockState extends State<DComposerDock> {
       ),
     );
   }
+}
+
+class _FoldedDock extends InheritedWidget {
+  const _FoldedDock({required this.extent, required super.child});
+
+  final double extent;
+
+  @override
+  bool updateShouldNotify(_FoldedDock oldWidget) => extent != oldWidget.extent;
 }

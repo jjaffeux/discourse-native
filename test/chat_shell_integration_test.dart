@@ -1136,8 +1136,8 @@ void _registerChatShellTests() {
             final compactRect = tester.getRect(composer);
             expect(compactRect.height, lessThan(openRect.height));
             final foldedDock = tester.getRect(dockSurface);
-            expect(compactRect.height, 48);
-            expect(compactRect.left - foldedDock.right, 8);
+            expect(compactRect.height, closeTo(foldedDock.height, .01));
+            expect(compactRect.left - foldedDock.right, closeTo(8, .01));
             expect(compactRect.top, foldedDock.top);
             expect(compactRect.bottom, foldedDock.bottom);
             expect(controller.text, draft);

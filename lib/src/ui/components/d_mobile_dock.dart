@@ -5,7 +5,6 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
-import '../foundation/app_text_scaler.dart';
 import '../foundation/glass_presets.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
@@ -26,7 +25,6 @@ class DMobileDock extends StatefulWidget {
     this.action,
     this.collapsed = false,
     this.destinationsHidden = false,
-    this.referenceTextScale = false,
   });
 
   final List<Widget> destinations;
@@ -35,22 +33,11 @@ class DMobileDock extends StatefulWidget {
   final Widget? action;
   final bool collapsed;
   final bool destinationsHidden;
-
-  /// Aligns with a composer's reference dimensions while retaining app zoom
-  /// and accessibility scaling. Other navigation keeps its mobile baseline.
-  final bool referenceTextScale;
   final ValueChanged<int> onOverflowChanged;
 
   /// Height of the expanded capsule with the dock's selected text scale.
-  static double expandedExtentOf(
-    BuildContext context, {
-    bool referenceTextScale = false,
-  }) {
-    final scaler = referenceTextScale
-        ? DReferenceTextScale.scalerOf(context)
-        : MediaQuery.textScalerOf(context);
-    return 62 + math.max(0.0, scaler.scale(11) - 11);
-  }
+  static double expandedExtentOf(BuildContext context) =>
+      62 + math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
 
   /// Width of the folded destination, including its visible capsule insets.
   static double collapsedExtentOf(BuildContext context) =>
@@ -172,11 +159,8 @@ class _DMobileDockState extends State<DMobileDock>
   );
 
   @override
-  Widget build(BuildContext context) => NativeGlassScope(
-    child: widget.referenceTextScale
-        ? DReferenceTextScale(child: Builder(builder: _buildDock))
-        : Builder(builder: _buildDock),
-  );
+  Widget build(BuildContext context) =>
+      NativeGlassScope(child: Builder(builder: _buildDock));
 
   Widget _buildDock(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
