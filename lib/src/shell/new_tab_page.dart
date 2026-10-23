@@ -24,6 +24,7 @@ import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'start_page_drag.dart';
+import 'topic_create_button.dart';
 
 /// The landing surface for an otherwise empty forum tab.
 class NewTabPage extends StatelessWidget {
@@ -188,7 +189,12 @@ class NewTabPage extends StatelessWidget {
               icon: DIcons.pen,
               rows: const [],
               siteUrl: siteUrl,
-              onHeading: () => shell.openDrafts(siteUrl),
+              // Desktop already lists recent drafts in the title bar.
+              onHeading: () {
+                if (!TopicCreateButton.openHeaderDraftsMenu(shell)) {
+                  shell.openDrafts(siteUrl);
+                }
+              },
             ),
           _StartSection(
             id: 'messages',
