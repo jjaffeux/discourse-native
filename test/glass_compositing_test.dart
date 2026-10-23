@@ -37,6 +37,8 @@ List<double> _fractionalOpacityAbove(WidgetTester tester, Finder target) {
     final opacity = switch (ancestor) {
       RenderOpacity(:final opacity) => opacity,
       RenderAnimatedOpacity(:final opacity) => opacity.value,
+      // Popovers fade while painting, through the opacity layer they retain.
+      RenderObject(debugLayer: OpacityLayer(:final alpha?)) => alpha / 255,
       _ => 1.0,
     };
     if (opacity > 0 && opacity < 1) values.add(opacity);
