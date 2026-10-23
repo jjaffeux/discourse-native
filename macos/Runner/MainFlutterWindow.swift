@@ -14,27 +14,21 @@ class MainFlutterWindow: NSWindow {
   private var pasteboardChannel: FlutterMethodChannel?
   private var webViewScrollRouting = WebViewScrollRouting()
   private var launchScreen: LaunchScreenView?
-  private var materialBackdrop: NSView?
-  private var glassRequested = false
-  private var systemGlassBackdrop: NSView?
-  private var vibrancyBackdropView: NSView?
   private var accessibilityObserver: NSObjectProtocol?
   private var materialAccessibilityChannel: FlutterMethodChannel?
   private var glassRenderer: GlassRenderer?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
-    flutterViewController.backgroundColor = .clear
     flutterController = flutterViewController
     self.contentViewController = flutterViewController
     accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
       object: nil, queue: .main
     ) { [weak self] _ in
-      self?.updateMaterialBackdrop()
       self?.materialAccessibilityChannel?.invokeMethod("reduceTransparencyChanged", arguments: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
     }
-    self.isOpaque = false
+    self.isOpaque = true
 
     // The shell wants room for rail + sidebar + content + details panel, so the
     // 800x600 Flutter default opens narrower than the layout was designed for.
@@ -48,8 +42,7 @@ class MainFlutterWindow: NSWindow {
     self.styleMask.insert(.fullSizeContentView)
     self.titlebarAppearsTransparent = true
     self.titleVisibility = .hidden
-    self.backgroundColor = .clear
-    updateMaterialBackdrop()
+    self.backgroundColor = .windowBackgroundColor
     // desktop_drop installs a transparent native view across this entire
     // content view. AppKit considers transparent views draggable window
     // background, which can make it consume a click instead of forwarding the
@@ -102,47 +95,6 @@ class MainFlutterWindow: NSWindow {
 
     super.awakeFromNib()
     positionTrafficLights()
-  }
-
-  private func updateMaterialBackdrop() {
-    guard let flutterView = flutterController?.view else { return }
-    if materialBackdrop == nil {
-      // Install once outside Flutter's input hierarchy. Changing style only
-      // changes visibility; it never detaches native views or resets focus.
-      let host = flutterView.superview ?? flutterView
-      let frame = flutterView.superview == nil ? flutterView.bounds : flutterView.frame
-      let backing = PassiveBackdropContainer(frame: frame)
-      backing.autoresizingMask = [.width, .height]
-      let vibrancy = vibrancyBackdrop(frame: backing.bounds)
-      vibrancy.autoresizingMask = [.width, .height]
-      backing.addSubview(vibrancy)
-      vibrancyBackdropView = vibrancy
-      if #available(macOS 26.0, *) {
-        let glass = PassiveGlassBackdrop(frame: backing.bounds)
-        glass.autoresizingMask = [.width, .height]
-        glass.style = .regular
-        glass.cornerRadius = 0
-        let content = NSView(frame: backing.bounds)
-        content.autoresizingMask = [.width, .height]
-        glass.contentView = content
-        backing.addSubview(glass)
-        systemGlassBackdrop = glass
-      }
-      host.addSubview(backing, positioned: .below, relativeTo: flutterView.superview == nil ? nil : flutterView)
-      materialBackdrop = backing
-    }
-    let glass = glassRequested && systemGlassBackdrop != nil
-      && !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-    systemGlassBackdrop?.isHidden = !glass
-    vibrancyBackdropView?.isHidden = glass
-  }
-
-  private func vibrancyBackdrop(frame: NSRect) -> NSView {
-    let view = PassiveVibrancyBackdrop(frame: frame)
-    view.material = .underWindowBackground
-    view.blendingMode = .behindWindow
-    view.state = .active
-    return view
   }
 
   deinit {
@@ -243,10 +195,6 @@ class MainFlutterWindow: NSWindow {
         return
       }
       switch call.method {
-      case "setMaterial":
-        self.glassRequested = (call.arguments as? String) == "liquidGlass"
-        self.updateMaterialBackdrop()
-        result(nil)
       case "getWindowFrame":
         result(self.windowFrameArguments())
       case "getWindowCornerRadius":
@@ -480,9 +428,5 @@ final class PassiveGlassBackdrop: NSGlassEffectView {
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 final class PassiveVibrancyBackdrop: NSVisualEffectView {
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-
-final class PassiveBackdropContainer: NSView {
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

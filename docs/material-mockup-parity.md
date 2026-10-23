@@ -83,8 +83,8 @@ iOS simulator pixel checks verify GPU glass and saved clips. These are rendering
 checks, not physical-device performance evidence. The panel clip integration
 test verifies visible controls and saved rounded clips on iOS.
 
-The macOS host's passive `NSGlassEffectView` on macOS 26 and newer, or
-`NSVisualEffectView` on older systems, remains separate from Flutter glass.
+The macOS window is opaque and has no behind-window material. Its Flutter
+canvas is opaque there too, so panel transparency never reveals the desktop.
 Flutter glass samples application content rather than other desktop windows.
 
 ## Previous material validation
