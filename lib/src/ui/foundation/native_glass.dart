@@ -11,18 +11,19 @@ import 'package:flutter/widgets.dart';
 import 'd_overlay_route.dart';
 import 'material_theme.dart';
 
-/// Draws opted-in glass with the system material on iOS 26.
+/// Draws opted-in glass with the system material on iOS 26 and macOS 26.
 ///
 /// A backdrop filter in Flutter's frame ends the render pass, copies the screen
-/// and blurs it on every frame. UIKit composites `UIGlassEffect` views above
-/// the Flutter view outside that frame. Flutter keeps layout, gestures and
-/// semantics: after each frame it reports every glass shape's frame, corners,
-/// tint and opacity, plus an image of the content drawn above the glass, which
-/// Flutter composites itself at 1/255 opacity so touches still land on it.
+/// and blurs it on every frame. The system composites `UIGlassEffect` or
+/// `NSGlassEffectView` views above the Flutter view outside that frame. Flutter
+/// keeps layout, input and semantics: after each frame it reports every glass
+/// shape's frame, corners, tint and opacity, plus an image of the content drawn
+/// above the glass, which Flutter composites itself at 1/255 opacity so input
+/// still lands on it.
 ///
-/// UIKit draws above everything Flutter shows, so a [NativeGlassScope] hands
-/// its glass back to Flutter while its route is covered, while a sheet closes
-/// over it, and while any [NativeGlassOccluder] is mounted.
+/// The system draws above everything Flutter shows, so a [NativeGlassScope]
+/// hands its glass back to Flutter while its route is covered, while a sheet
+/// closes over it, and while any [NativeGlassOccluder] is mounted.
 abstract final class NativeGlass {
   static const channel = MethodChannel('org.discourse.native/glass');
 
@@ -40,7 +41,10 @@ abstract final class NativeGlass {
   static Map<String, Object?>? _sent;
 
   static void _probe() {
-    if (_probed || kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+    if (_probed ||
+        kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.iOS &&
+            defaultTargetPlatform != TargetPlatform.macOS)) {
       return;
     }
     _probed = true;
@@ -55,6 +59,11 @@ abstract final class NativeGlass {
   /// The active group drawing this context's glass, or null for Flutter glass.
   static NativeGlassGroup? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ActiveGroup>()?.group;
+
+  /// Whether a scope above [context] decides how its glass is drawn, whether
+  /// or not that scope is drawing system glass right now.
+  static bool scopedOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ActiveGroup>() != null;
 
   static void _activate(NativeGlassGroup group) {
     _groups.add(group);

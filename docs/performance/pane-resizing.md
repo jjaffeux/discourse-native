@@ -95,12 +95,35 @@ interleaved run the trims cut the sidebar drag from 16.58 to 12.01 ms, the
 seam drag from 16.91 to 11.87 ms, and the reader scroll from 14.65 to
 10.23 ms.
 
-## What is left
+## System glass on macOS
 
-With the gradients trimmed, the Flutter lenses are the largest remaining cost.
-Drawing them with the system material, as `NativeGlass` does with
-`UIGlassEffect` on iOS 26, is the change that would take their backdrop reads
-out of Flutter's frame.
+On macOS 26 the lenses can be drawn by `NSGlassEffectView`, the way
+`NativeGlass` already draws them with `UIGlassEffect` on iOS 26.
+`macos/Runner/GlassRenderer.swift` ports the iOS host, and every desktop lens
+without a `NativeGlassScope` above it becomes its own group, clipped by what
+clips it in Flutter. In the fixture that moves eight of nine lenses to the
+system; the panels' split-view toggle draws its glass outside the lens path
+and stays in Flutter.
+
+Five alternating runs per side, on top of the trimmed gradients:
+
+| Case | Flutter lenses | System lenses | High contrast |
+| --- | ---: | ---: | ---: |
+| Sidebar drag | 17.88 ms | 7.21 ms | 3.13 ms |
+| Seam drag | 18.28 ms | 7.90 ms | 4.12 ms |
+| Reader scroll | 14.19 ms | 6.54 ms | 2.69 ms |
+
+System GPU utilization during the same cases did not rise with system lenses
+(63 to 70% against 76 to 79%), so the work did not just move into the window
+server. Content above a system lens is uploaded as an image only when it
+changes: 30 uploads across the three cases, against about 840 scene updates.
+
+What this does not establish is how the system lenses look. They were checked
+only through the host's own record of the views it built. Known differences
+from Flutter glass: AppKit gives a lens one corner radius, so the largest
+corner applies to all four; a control that resizes shows its previous content
+image unscaled until the new one arrives; and any open overlay, tooltips
+included, hands every group back to Flutter glass while it is open.
 
 ## Options measured and not kept
 

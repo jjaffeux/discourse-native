@@ -27,6 +27,10 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/glass_presets.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+import 'package:discourse_native/src/ui/foundation/native_glass.dart'
+    show NativeGlassShape;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -512,6 +516,31 @@ void main() {
     },
   );
 
+  testWidgets('channel join buttons stay flat under Liquid Glass', (
+    tester,
+  ) async {
+    await _pump(tester, material: DAppearanceMaterial.liquidGlass);
+    await _tab(tester, ChatBrowsePage.channels);
+    final joined = find.byKey(const ValueKey('chat-unfollow-1'));
+    expect(DMaterialTheme.glassOf(tester.element(_browseCard(1))), isTrue);
+    expect(_glassIn(joined), findsNothing);
+    expect(
+      find.descendant(of: joined, matching: find.byType(DMaterialSurface)),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-button-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
+    await tester.pumpAndSettle();
+    final join = find.byKey(const ValueKey('chat-join-1'));
+    expect(_glassIn(join), findsNothing);
+    expect(
+      find.descendant(of: join, matching: find.byType(DMaterialSurface)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('leaving from the channel menu keeps the browse page open', (
     tester,
   ) async {
@@ -826,6 +855,15 @@ Rect _rowContentBounds(WidgetTester tester, Finder row) {
       .map((element) => tester.getRect(find.byWidget(element.widget)))
       .reduce((a, b) => a.expandToInclude(b));
 }
+
+Finder _browseCard(int id) => find.byKey(ValueKey('chat-browse-channel-$id'));
+
+Finder _glassIn(Finder control) => find.descendant(
+  of: control,
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DGlassSurface || widget is NativeGlassShape,
+  ),
+);
 
 Future<void> _tab(WidgetTester tester, ChatBrowsePage page) async {
   final target = find.byKey(ValueKey(('toggle-group-item', page)));

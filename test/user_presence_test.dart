@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -216,6 +217,71 @@ void main() {
       expect(api.currentUserCalls, 2);
       expect(fixture.shell.hidePresenceFor(_siteUrl), isFalse);
       expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNull);
+    },
+  );
+
+  test(
+    'a current user without the setting is unavailable, not loading',
+    () async {
+      const unset = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(
+        user: unset,
+        feeds: const {'/latest.json': <Topic>[]},
+      );
+      final fixture = await _shell(api: api, user: unset);
+      addTearDown(fixture.shell.dispose);
+
+      expect(api.currentUserRequests, [_siteUrl]);
+      expect(fixture.shell.hidePresenceFor(_siteUrl), isNull);
+      expect(
+        fixture.shell.hidePresenceErrorFor(_siteUrl),
+        "Couldn't load the presence setting. Try again.",
+      );
+
+      api.accounts['meta-key'] = _user;
+      await fixture.shell.retryHidePresence(_siteUrl);
+
+      expect(fixture.shell.hidePresenceFor(_siteUrl), isFalse);
+      expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNull);
+    },
+  );
+
+  test(
+    'connecting to a site without the setting leaves it unavailable',
+    () async {
+      const unset = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(
+        user: unset,
+        feeds: const {'/latest.json': <Topic>[]},
+      );
+      final store = FakeInstanceStore([instance('meta.discourse.org')]);
+      final shell = ShellController(
+        plugins: installedPlugins,
+        instanceStore: store,
+        api: api,
+        authenticator: FakeAuthenticator(
+          credentials: const UserApiCredentials(
+            key: 'meta-key',
+            apiVersion: 4,
+            push: false,
+          ),
+        ),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await pumpEventQueue();
+
+      await shell.connectCurrentInstance();
+      await pumpEventQueue();
+
+      expect(shell.currentInstance?.user?.id, 7);
+      expect(shell.hidePresenceFor(_siteUrl), isNull);
+      expect(
+        shell.hidePresenceErrorFor(_siteUrl),
+        "Couldn't load the presence setting. Try again.",
+      );
     },
   );
 

@@ -37,6 +37,28 @@ class DMaterialTheme extends ThemeExtension<DMaterialTheme> {
       t < .5 ? this : other ?? this;
 }
 
+/// Draws [child] in the Standard material whatever the saved choice, for
+/// controls the mockups keep flat under Liquid Glass. Hosts without a
+/// material theme stay as they are.
+class DStandardMaterial extends StatelessWidget {
+  const DStandardMaterial({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final material = DMaterialTheme.of(context)?.material;
+    if (material == null || material == DAppearanceMaterial.standard) {
+      return child;
+    }
+    return Theme(
+      data: DMaterialTheme.apply(
+        Theme.of(context),
+        DAppearanceMaterial.standard,
+      ),
+      child: child,
+    );
+  }
+}
+
 /// Keeps the OS Reduce Transparency preference live without changing the saved
 /// material choice. Preview/test hosts can omit the platform channel.
 class DMaterialAccessibility extends StatefulWidget {
