@@ -109,7 +109,7 @@ class TopicInboxHeader extends StatelessWidget {
     ];
     final bodyBuilder = this.bodyBuilder;
     if (bodyBuilder == null) {
-      return DStandardMaterial(
+      return DFlatMaterial(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -140,12 +140,12 @@ class TopicInboxHeader extends StatelessWidget {
       initialCompactHeader: shell.mobileNavigationEnabled
           ? (openingPostNumber ?? 1) > 1
           : null,
-      // The mockups keep every topic header control flat under Liquid Glass.
-      header: DStandardMaterial(
+      // The mockups draw every topic header control flat in either material.
+      header: DFlatMaterial(
         child: _morphHeader(context, compact: false, rows: rows),
       ),
       compactHeader: shell.mobileNavigationEnabled
-          ? DStandardMaterial(
+          ? DFlatMaterial(
               child: _morphHeader(context, compact: true, rows: rows),
             )
           : null,

@@ -39,6 +39,7 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -283,67 +284,69 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('topic header controls stay flat and share one corner radius', (
-    tester,
-  ) async {
-    final setup = await _setup(
-      tester,
-      theme: DMaterialTheme.apply(
-        AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-        DAppearanceMaterial.liquidGlass,
-      ),
-    );
-    setup.controller.openTopicFromList(setup.rows.first);
-    await tester.pumpAndSettle();
-    await _scrollReaderToTop(tester);
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets('topic header controls stay flat and share one corner radius in '
+        '${material.name}', (tester) async {
+      final setup = await _setup(
+        tester,
+        theme: DMaterialTheme.apply(
+          AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+          material,
+        ),
+      );
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
 
-    final category = find.descendant(
-      of: find.byKey(const ValueKey('topic-header-parent-category')),
-      matching: find.byType(DButton),
-    );
-    final buttons = [
-      category.first,
-      find.byKey(const ValueKey('topic-header-bookmark-button')),
-      find.byKey(const ValueKey('topic-header-notification-button')),
-      find.byKey(const ValueKey('topic-status-button')),
-    ];
-    final tag = find.descendant(
-      of: find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is AnimatedContainer && widget.decoration is BoxDecoration,
-      ),
-    );
-    // Joined groups square their inner corners; every rounded corner matches.
-    Set<Radius> corners(BorderRadiusGeometry? radius) {
-      final resolved = radius!.resolve(TextDirection.ltr);
-      return {
-        resolved.topLeft,
-        resolved.topRight,
-        resolved.bottomLeft,
-        resolved.bottomRight,
-      }..remove(Radius.zero);
-    }
+      final category = find.descendant(
+        of: find.byKey(const ValueKey('topic-header-parent-category')),
+        matching: find.byType(DButton),
+      );
+      final buttons = [
+        category.first,
+        find.byKey(const ValueKey('topic-header-bookmark-button')),
+        find.byKey(const ValueKey('topic-header-notification-button')),
+        find.byKey(const ValueKey('topic-status-button')),
+      ];
+      final tag = find.descendant(
+        of: find.byKey(const ValueKey(('topic-header-tag', 'community'))),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is AnimatedContainer && widget.decoration is BoxDecoration,
+        ),
+      );
+      // Joined groups square their inner corners; every rounded corner matches.
+      Set<Radius> corners(BorderRadiusGeometry? radius) {
+        final resolved = radius!.resolve(TextDirection.ltr);
+        return {
+          resolved.topLeft,
+          resolved.topRight,
+          resolved.bottomLeft,
+          resolved.bottomRight,
+        }..remove(Radius.zero);
+      }
 
-    final radius = Radius.circular(
-      DTokens.of(tester.element(category.first)).controlRadius,
-    );
-    expect(radius, const Radius.circular(DRadius.control));
-    for (final button in buttons) {
-      expect(DMaterialTheme.glassOf(tester.element(button)), isFalse);
-      expect(corners(buttonSurface(tester, of: button).borderRadius), {
-        radius,
-      }, reason: '$button');
-    }
-    expect(
-      corners(
-        (tester.widget<AnimatedContainer>(tag).decoration! as BoxDecoration)
-            .borderRadius,
-      ),
-      {radius},
-    );
-    expect(tester.takeException(), isNull);
-  });
+      final radius = Radius.circular(
+        DTokens.of(tester.element(category.first)).controlRadius,
+      );
+      expect(radius, const Radius.circular(DRadius.control));
+      for (final button in buttons) {
+        // Without a material, no glass lens, raised edge or shadow is drawn.
+        expect(DMaterialSurface.active(tester.element(button)), isFalse);
+        expect(corners(buttonSurface(tester, of: button).borderRadius), {
+          radius,
+        }, reason: '$button');
+      }
+      expect(
+        corners(
+          (tester.widget<AnimatedContainer>(tag).decoration! as BoxDecoration)
+              .borderRadius,
+        ),
+        {radius},
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('normal width caps content inside a full-width reader pane', (
     tester,
