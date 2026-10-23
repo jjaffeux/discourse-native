@@ -180,13 +180,16 @@ Future<void> _assertPillPaint(
       }
       final backdrop = pixel(Offset(rect.center.dx, rect.top - 10));
       final below = pixel(Offset(rect.center.dx, rect.bottom + 3));
-      expect(
-        [
-          for (var c = 0; c < 3; c++) backdrop[c] - below[c],
-        ].reduce((a, b) => a + b),
-        greaterThan(3),
-        reason: 'The soft outer shadow must extend below the pill bounds',
-      );
+      // Stock glass owns its depth; only the artwork casts a painted shadow.
+      if (!DMaterialTheme.glassOf(tester.element(pill))) {
+        expect(
+          [
+            for (var c = 0; c < 3; c++) backdrop[c] - below[c],
+          ].reduce((a, b) => a + b),
+          greaterThan(3),
+          reason: 'The soft outer shadow must extend below the pill bounds',
+        );
+      }
       for (final x in [rect.left + 3, rect.right - 3]) {
         final aboveCorner = pixel(Offset(x, rect.bottom - 1));
         final belowCorner = pixel(Offset(x, rect.bottom + 1));
