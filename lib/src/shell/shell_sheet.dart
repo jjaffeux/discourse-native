@@ -26,22 +26,77 @@ Future<T?> showShellSheet<T>({
   EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
   bool enableDrag = true,
   bool Function()? canDismiss,
+  FocusNode? initialFocusNode,
+
+  /// Fills the viewport above the keyboard on touch. An opener inside a
+  /// Scaffold has already consumed the keyboard inset, so a sheet that
+  /// autofocuses a field must track the view's inset instead.
+  bool fillAvailableHeight = false,
+
+  /// Wraps the whole surface, so an inherited theme also reaches its fill.
+  Widget Function(BuildContext context, Widget child)? surfaceBuilder,
 }) {
+  Widget surface(BuildContext context, Widget child) =>
+      surfaceBuilder?.call(context, child) ?? child;
   if (dialogOnDesktop && !context.isTouch) {
     return showDDialog<T>(
       context: context,
       useRootNavigator: true,
       canDismiss: canDismiss,
-      builder: (context, _) => ConstrainedBox(
-        constraints: desktopDialogConstraints,
-        child: DDialogContent(
+      initialFocusNode: initialFocusNode,
+      builder: (context, _) => surface(
+        context,
+        ConstrainedBox(
+          constraints: desktopDialogConstraints,
+          child: DDialogContent(
+            semanticLabel: title,
+            showCloseButton: false,
+            maxWidth: desktopDialogConstraints.maxWidth,
+            maxHeight: desktopDialogConstraints.maxHeight,
+            contentPadding: EdgeInsets.zero,
+            verticalPadding: 0,
+            spacing: 0,
+            children: [
+              Flexible(
+                child: _SheetBody(
+                  title: title,
+                  builder: builder,
+                  footerBuilder: footerBuilder,
+                  nested: nested,
+                  scrollBody: scrollBody,
+                  showHeaderDivider: showHeaderDivider,
+                  padding: padding,
+                  footerPadding: footerPadding,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  final variant = enableDrag ? DSheetVariant.menu : DSheetVariant.standard;
+  return showDSheet<T>(
+    context: context,
+    side: DSheetSide.bottom,
+    variant: variant,
+    dismissOnSwipe: enableDrag,
+    canDismiss: canDismiss,
+    initialFocusNode: initialFocusNode,
+    fillAvailableHeight: fillAvailableHeight,
+    topBottomMaxWidth: 640,
+    builder: (context, _) => surface(
+      context,
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 640),
+        child: DSheetContent(
+          side: DSheetSide.bottom,
+          variant: variant,
           semanticLabel: title,
           showCloseButton: false,
-          maxWidth: desktopDialogConstraints.maxWidth,
-          maxHeight: desktopDialogConstraints.maxHeight,
-          contentPadding: EdgeInsets.zero,
-          verticalPadding: 0,
-          spacing: 0,
+          scrollWholeSheet: false,
+          topBottomMaxHeightFactor: 1,
+          fillAvailableHeight: fillAvailableHeight,
           children: [
             Flexible(
               child: _SheetBody(
@@ -57,40 +112,6 @@ Future<T?> showShellSheet<T>({
             ),
           ],
         ),
-      ),
-    );
-  }
-  final variant = enableDrag ? DSheetVariant.menu : DSheetVariant.standard;
-  return showDSheet<T>(
-    context: context,
-    side: DSheetSide.bottom,
-    variant: variant,
-    dismissOnSwipe: enableDrag,
-    canDismiss: canDismiss,
-    topBottomMaxWidth: 640,
-    builder: (context, _) => ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 640),
-      child: DSheetContent(
-        side: DSheetSide.bottom,
-        variant: variant,
-        semanticLabel: title,
-        showCloseButton: false,
-        scrollWholeSheet: false,
-        topBottomMaxHeightFactor: 1,
-        children: [
-          Flexible(
-            child: _SheetBody(
-              title: title,
-              builder: builder,
-              footerBuilder: footerBuilder,
-              nested: nested,
-              scrollBody: scrollBody,
-              showHeaderDivider: showHeaderDivider,
-              padding: padding,
-              footerPadding: footerPadding,
-            ),
-          ),
-        ],
       ),
     ),
   );

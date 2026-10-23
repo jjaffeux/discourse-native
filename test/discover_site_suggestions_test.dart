@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discover_sites.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
+import 'package:discourse_native/src/shell/discover_site_suggestions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -227,6 +228,38 @@ void main() {
     gate.complete(batch());
     await tester.pumpAndSettle();
     expect(find.byType(DDialogContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('phone sheet scrolls to suggestions below the keyboard', (
+    tester,
+  ) async {
+    const size = Size(390, 844);
+    const keyboard = 336.0;
+    tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
+    final source = DiscoverSites(client: MockClient((_) async => batch()));
+    await open(tester, source, size: size, platform: TargetPlatform.iOS);
+    await tester.pumpAndSettle();
+
+    final last = find.byType(DItem).last;
+    expect(tester.getRect(last).top, greaterThan(size.height - keyboard));
+
+    await tester.drag(find.text('Connect'), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.descendant(
+        of: find.byType(DiscoverSiteSuggestions),
+        matching: find.byType(Scrollable),
+      ),
+      const Offset(0, -1200),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getRect(last).bottom,
+      lessThanOrEqualTo(size.height - keyboard),
+    );
+    expect(last.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

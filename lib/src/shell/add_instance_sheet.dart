@@ -12,8 +12,10 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'app_home_theme.dart';
 import 'discover_site_suggestions.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'shell_sheet.dart';
 
 const Duration addInstanceLookupDebounce = Duration(milliseconds: 750);
 
@@ -25,49 +27,18 @@ Future<void> showAddInstanceSheet(
   final shell = ShellScope.maybeRead(context);
   final source = discoverSites ?? shell?.discoverSites ?? DiscoverSites();
   final ownsSource = discoverSites == null && shell == null;
-  final isTouch = switch (Theme.of(context).platform) {
-    TargetPlatform.iOS || TargetPlatform.android => true,
-    _ => false,
-  };
-
   final addressFocus = FocusNode(debugLabel: 'Add site address');
   try {
-    if (isTouch) {
-      await showDDrawer<void>(
+    if (context.isTouch) {
+      await showShellSheet<void>(
         context: context,
-        showSwipeHandle: true,
+        title: title,
         initialFocusNode: addressFocus,
-        builder: (context, controller) => AppHomeTheme(
-          child: DDrawerContent(
-            semanticLabel: title,
-            children: [
-              DDrawerHeader(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: DDrawerTitle(child: Text(title))),
-                      DButton.iconOnly(
-                        variant: DButtonVariant.ghost,
-                        icon: const DIcon(DIcons.xmark),
-                        tooltip: appL10n.close,
-                        onPressed: () => controller.close(),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Flexible(
-                child: DScrollArea(
-                  padding: const EdgeInsets.all(DSpacing.lg),
-                  child: _AddInstanceForm(
-                    focusNode: addressFocus,
-                    discoverSites: source,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        fillAvailableHeight: true,
+        padding: const EdgeInsets.all(DSpacing.lg),
+        surfaceBuilder: (context, child) => AppHomeTheme(child: child),
+        builder: (context) =>
+            _AddInstanceForm(focusNode: addressFocus, discoverSites: source),
       );
       return;
     }
