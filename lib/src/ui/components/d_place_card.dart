@@ -8,11 +8,13 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
+import 'd_skeleton.dart';
 
 /// A destination card shared by directories. The solid raised surface is the
 /// same in Standard and Liquid Glass; it never refracts the text underneath.
-/// Slots contain passive content. This component owns the single visible
-/// target, keyboard activation, focus ring, hover lift and reduced motion.
+/// Slots contain passive content, except [trailing] and [action]. This
+/// component owns the card's target, keyboard activation, focus ring, hover
+/// lift and reduced motion.
 class DPlaceCard extends StatefulWidget {
   const DPlaceCard({
     super.key,
@@ -22,6 +24,8 @@ class DPlaceCard extends StatefulWidget {
     required this.onPressed,
     this.description,
     this.unreadCount,
+    this.trailing,
+    this.action,
     this.semanticLabel,
     this.strong = false,
     this.muted = false,
@@ -34,6 +38,13 @@ class DPlaceCard extends StatefulWidget {
   final Widget? description;
   final Widget footer;
   final String? unreadCount;
+
+  /// A compact control after the title row, such as a menu button. It keeps
+  /// its own target, focus and semantics inside the card's node.
+  final Widget? trailing;
+
+  /// A control at the footer's end, such as Join. The footer text yields to it.
+  final Widget? action;
   final String? semanticLabel;
   final bool strong;
   final bool muted;
@@ -75,6 +86,17 @@ class _DPlaceCardState extends State<DPlaceCard> {
         ? tokens.primary
         : Colors.transparent;
     final text = widget.muted ? tokens.mutedForeground : tokens.foreground;
+    final footer = DefaultTextStyle.merge(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: DiscourseTypography.xs,
+        height: 1.5,
+        color: Color.lerp(tokens.background, tokens.foreground, .4),
+        fontWeight: FontWeight.w400,
+      ),
+      child: widget.footer,
+    );
     Widget content = AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 200)),
       curve: Curves.ease,
@@ -177,6 +199,11 @@ class _DPlaceCardState extends State<DPlaceCard> {
                         ),
                       ),
                     ),
+                  if (widget.trailing case final trailing?)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 4),
+                      child: trailing,
+                    ),
                 ],
               ),
               DefaultTextStyle.merge(
@@ -198,17 +225,16 @@ class _DPlaceCardState extends State<DPlaceCard> {
                 ),
                 child: widget.description ?? const SizedBox.shrink(),
               ),
-              DefaultTextStyle.merge(
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: DiscourseTypography.xs,
-                  height: 1.5,
-                  color: Color.lerp(tokens.background, tokens.foreground, .4),
-                  fontWeight: FontWeight.w400,
+              switch (widget.action) {
+                final action? => Row(
+                  children: [
+                    Expanded(child: footer),
+                    const SizedBox(width: 8),
+                    action,
+                  ],
                 ),
-                child: widget.footer,
-              ),
+                null => footer,
+              },
             ],
           ),
         ),
@@ -225,6 +251,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
     // Transform paint and input together. Shadows do not own input, and the
     // inter-card gutters never forward a tap to a neighbouring destination.
     return Semantics(
+      container: true,
       button: true,
       enabled: enabled,
       selected: widget.selected ? true : null,
@@ -293,10 +320,53 @@ class DPlaceCardMark extends StatelessWidget {
   );
 }
 
+/// A loading card with the same geometry as a loaded one. Place it inside a
+/// [DSkeletonRegion] so every placeholder shares one pulse.
+class DPlaceCardSkeleton extends StatelessWidget {
+  const DPlaceCardSkeleton({super.key, this.action = false});
+
+  /// Reserves a pill at the footer's end for directories whose cards act.
+  final bool action;
+
+  @override
+  Widget build(BuildContext context) => DPlaceCard(
+    onPressed: null,
+    leading: DSkeleton(
+      width: 29,
+      height: 29,
+      borderRadius: BorderRadius.circular(9),
+    ),
+    title: const FractionallySizedBox(
+      widthFactor: .65,
+      alignment: AlignmentDirectional.centerStart,
+      child: DSkeleton(height: 14),
+    ),
+    description: const Column(
+      spacing: 6,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DSkeleton(height: 12),
+        FractionallySizedBox(widthFactor: .8, child: DSkeleton(height: 12)),
+      ],
+    ),
+    footer: const Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: DSkeleton(width: 90, height: 12),
+    ),
+    action: action
+        ? DSkeleton(
+            width: 56,
+            height: 24,
+            borderRadius: BorderRadius.circular(DRadius.pill),
+          )
+        : null,
+  );
+}
+
 /// A lazy, auto-fill directory grid with equal-height cards in each row.
 /// Cards measure normally; a second tight layout aligns their footers without
 /// intrinsic probes or constructing the entire directory during scrolling.
-class DPlaceCardGrid extends StatelessWidget {
+class DPlaceCardGrid extends StatefulWidget {
   const DPlaceCardGrid({
     super.key,
     required this.itemCount,
@@ -305,37 +375,67 @@ class DPlaceCardGrid extends StatelessWidget {
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
 
+  /// Placeholders fill whole rows by asking how many cards one row holds.
+  static int columnsFor(BuildContext context, double width) =>
+      _columns(MediaQuery.textScalerOf(context), width);
+
+  static int _columns(TextScaler textScaler, double width) {
+    final scale = math.max(1.0, textScaler.scale(14) / 14);
+    return math.max(1, ((width + 10) / (236 * scale + 10)).floor());
+  }
+
   @override
-  Widget build(BuildContext context) => SliverLayoutBuilder(
-    builder: (context, constraints) {
-      final scale = math.max(
-        1.0,
-        MediaQuery.textScalerOf(context).scale(14) / 14,
-      );
-      final columns = math.max(
-        1,
-        ((constraints.crossAxisExtent + 10) / (236 * scale + 10)).floor(),
-      );
-      return SliverList.builder(
-        itemCount: (itemCount / columns).ceil(),
-        itemBuilder: (context, row) => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _PlaceRow(
-            columns: columns,
-            direction: Directionality.of(context),
-            children: [
-              for (
-                var index = row * columns;
-                index < math.min(itemCount, (row + 1) * columns);
-                index++
-              )
-                itemBuilder(context, index),
-            ],
+  State<DPlaceCardGrid> createState() => _DPlaceCardGridState();
+}
+
+class _DPlaceCardGridState extends State<DPlaceCardGrid> {
+  // Sliver constraints change with every scroll offset. Handing back the same
+  // list while the column count holds keeps scrolling from rebuilding,
+  // relaying out and repainting every visible card.
+  ({int columns, Widget sliver})? _built;
+
+  @override
+  Widget build(BuildContext context) {
+    _built = null;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final itemCount = widget.itemCount;
+    final itemBuilder = widget.itemBuilder;
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final columns = DPlaceCardGrid._columns(
+          textScaler,
+          constraints.crossAxisExtent,
+        );
+        if (_built case (
+          columns: final built,
+          :final sliver,
+        ) when built == columns) {
+          return sliver;
+        }
+        final sliver = SliverList.builder(
+          itemCount: (itemCount / columns).ceil(),
+          itemBuilder: (context, row) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _PlaceRow(
+              columns: columns,
+              direction: direction,
+              children: [
+                for (
+                  var index = row * columns;
+                  index < math.min(itemCount, (row + 1) * columns);
+                  index++
+                )
+                  itemBuilder(context, index),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
+        );
+        _built = (columns: columns, sliver: sliver);
+        return sliver;
+      },
+    );
+  }
 }
 
 class _PlaceHitShape extends SingleChildRenderObjectWidget {
@@ -449,8 +549,7 @@ class _PlaceRow extends MultiChildRenderObjectWidget {
   void updateRenderObject(BuildContext context, _PlaceRowLayout renderObject) {
     renderObject
       ..columns = columns
-      ..direction = direction
-      ..markNeedsLayout();
+      ..direction = direction;
   }
 }
 
@@ -464,9 +563,24 @@ class _PlaceRowLayout extends RenderBox
           RenderBox,
           ContainerBoxParentData<RenderBox>
         > {
-  _PlaceRowLayout(this.columns, this.direction);
-  int columns;
-  TextDirection direction;
+  _PlaceRowLayout(this._columns, this._direction);
+
+  int _columns;
+  int get columns => _columns;
+  set columns(int value) {
+    if (value == _columns) return;
+    _columns = value;
+    markNeedsLayout();
+  }
+
+  TextDirection _direction;
+  TextDirection get direction => _direction;
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsLayout();
+  }
+
   @override
   void setupParentData(RenderBox child) =>
       child.parentData = _PlaceParentData();

@@ -6,7 +6,7 @@ import 'package:discourse_native/discourse_ui.dart'
         DControlStyle,
         DControlSize,
         DDropdownMenuItem,
-        DItem,
+        DPlaceCard,
         DSpinner,
         DSkeletonRegion;
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -172,12 +172,7 @@ void main() {
         },
       );
       final controller = await _pumpBrowse(tester, api);
-      final filter = find
-          .descendant(
-            of: find.byType(ContentReadingLaneBox).first,
-            matching: find.byType(Column),
-          )
-          .first;
+      final filter = find.byKey(const ValueKey('chat-browse-controls'));
       final card = _card(1);
 
       for (final limited in [false, true, false]) {
@@ -186,8 +181,47 @@ void main() {
         final filterRect = tester.getRect(filter);
         final cardRect = tester.getRect(card);
         expect(filterRect.left, closeTo(cardRect.left, 0.01));
-        expect(filterRect.width, closeTo(cardRect.width, 0.01));
+        expect(cardRect.right, lessThanOrEqualTo(filterRect.right + 0.01));
         expect(filterRect.width, closeTo(limited ? 825 : 1368, 0.01));
+      }
+    });
+
+    testWidgets('a desktop lane keeps every control on one line', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1), _channel(2), _channel(3)],
+          ),
+        },
+      );
+      for (final (width, oneLine) in [(1400.0, true), (700.0, false)]) {
+        await tester.binding.setSurfaceSize(Size(width, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _pumpBrowse(tester, api);
+        final navigation = tester.getRect(
+          find.byKey(const ValueKey('chat-browse-navigation')),
+        );
+        final controls = [_filter, _status, _joined].map(tester.getRect);
+        for (final control in controls) {
+          expect(
+            control.center.dy,
+            oneLine
+                ? closeTo(navigation.center.dy, 0.5)
+                : greaterThan(navigation.bottom),
+            reason: 'at $width',
+          );
+        }
+        final cards = [1, 2, 3].map((id) => tester.getRect(_card(id)));
+        if (oneLine) {
+          expect(
+            cards.map((card) => card.top).toSet(),
+            hasLength(1),
+            reason: 'cards share a grid row',
+          );
+        }
+        expect(tester.takeException(), isNull);
       }
     });
 
@@ -504,7 +538,7 @@ void main() {
 
       api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
           ChatChannelBrowsePage(channels: [_channel(2, following: true)]);
-      await tester.drag(find.byType(ListView), const Offset(0, 350));
+      await tester.drag(_list, const Offset(0, 350));
       await tester.pumpAndSettle();
 
       expect(_card(2), findsNothing);
@@ -549,7 +583,7 @@ void main() {
       await tester.tap(find.text('Load more'));
       await tester.tap(find.text('Load more'));
       await tester.pump();
-      await tester.drag(find.byType(ListView), const Offset(0, -100));
+      await tester.drag(_list, const Offset(0, -100));
       await tester.pump();
 
       expect(find.byType(DSpinner), findsNothing);
@@ -557,9 +591,9 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(DSkeletonRegion),
-          matching: find.byType(DItem),
+          matching: find.byType(DPlaceCard),
         ),
-        findsNWidgets(2),
+        findsWidgets,
       );
       expect(find.text('Load more'), findsNothing);
       expect(_offsets(api), [0, 1]);

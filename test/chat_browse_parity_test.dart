@@ -246,7 +246,9 @@ void main() {
   for (final width in [320.0, 430.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
       testWidgets(
-        '${page.name} content aligns with its dividers at width $width',
+        page == ChatBrowsePage.channels
+            ? 'channels cards align with the filters at width $width'
+            : '${page.name} content aligns with its dividers at width $width',
         (tester) async {
           final fixture = await _pump(
             tester,
@@ -260,6 +262,18 @@ void main() {
             addTearDown(detach);
             addTearDown(provider.dispose);
             await tester.pumpAndSettle();
+          }
+          if (page == ChatBrowsePage.channels) {
+            final controls = tester.getRect(
+              find.byKey(const ValueKey('chat-browse-controls')),
+            );
+            final card = tester.getRect(
+              find.byKey(const ValueKey('chat-browse-channel-1')),
+            );
+            expect(card.left, closeTo(controls.left, .01));
+            expect(card.right, lessThanOrEqualTo(controls.right + .01));
+            expect(tester.takeException(), isNull);
+            return;
           }
           final row = find.byKey(
             ValueKey(switch (page) {
@@ -328,6 +342,17 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pump();
         expect(tester.takeException(), isNull);
+        if (page == ChatBrowsePage.channels) {
+          final card = find
+              .descendant(of: skeleton, matching: find.byType(DPlaceCard))
+              .first;
+          expect(tester.getRect(card).left, tester.getRect(skeleton).left);
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(skeleton, findsNothing);
+          expect(tester.takeException(), isNull);
+          return;
+        }
         final row = find
             .descendant(of: skeleton, matching: find.byType(DItem))
             .first;
@@ -464,16 +489,16 @@ void main() {
     (tester) async {
       final fixture = await _pump(tester);
       await _tab(tester, ChatBrowsePage.channels);
-      expect(find.text('1 unread message'), findsOneWidget);
-      expect(find.text('3 unread messages'), findsOneWidget);
+      expect(_unreadOn(1), findsOneWidget);
+      expect(_unreadOn(2, '3'), findsOneWidget);
       expect(fixture.api.chatBrowseRequested, hasLength(1));
       fixture.api.chatChannelsBySite[_site] = ChatChannels(
         public: [_channel(1, 'general'), _channel(2, 'workshop', unread: 4)],
       );
       await fixture.chat.loadChannels(_site, force: true);
       await tester.pumpAndSettle();
-      expect(find.text('No unread messages'), findsOneWidget);
-      expect(find.text('4 unread messages'), findsOneWidget);
+      expect(_unreadOn(1), findsNothing);
+      expect(_unreadOn(2, '4'), findsOneWidget);
       expect(fixture.api.chatBrowseRequested, hasLength(1));
     },
   );
@@ -692,6 +717,11 @@ Widget _sidebarInbox({
       ],
     );
   },
+);
+
+Finder _unreadOn(int channelId, [String count = '1']) => find.descendant(
+  of: find.byKey(ValueKey('chat-browse-channel-$channelId')),
+  matching: find.text(count),
 );
 
 Rect _rowContentBounds(WidgetTester tester, Finder row) {

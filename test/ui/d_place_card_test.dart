@@ -82,6 +82,56 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('card controls keep their own targets and the footer yields', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    var presses = 0, joins = 0, menus = 0;
+    await _mount(
+      tester,
+      DPlaceCard(
+        leading: const DPlaceCardMark(
+          color: Colors.blue,
+          child: Icon(Icons.tag),
+        ),
+        title: const Text('Support'),
+        footer: const Text('42 members and a footer long enough to yield'),
+        trailing: DButton.iconOnly(
+          tooltip: 'More',
+          icon: const Icon(Icons.more_vert),
+          size: DButtonSize.small,
+          onPressed: () => menus++,
+        ),
+        action: DButton(
+          label: const Text('Join'),
+          size: DButtonSize.small,
+          onPressed: () => joins++,
+        ),
+        onPressed: () => presses++,
+      ),
+    );
+    final card = tester.getRect(find.byType(DPlaceCard));
+    final join = tester.getRect(find.widgetWithText(DButton, 'Join'));
+    final footer = tester.getRect(find.textContaining('42 members'));
+    expect(join.right, lessThanOrEqualTo(card.right - 12));
+    expect(footer.right, lessThanOrEqualTo(join.left));
+    await tester.tap(find.widgetWithText(DButton, 'Join'));
+    await tester.tap(find.byTooltip('More'));
+    expect((presses, joins, menus), (0, 1, 1));
+    await tester.tap(find.text('Support'));
+    expect(presses, 1);
+    final node = tester.getSemantics(find.byType(DPlaceCard));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(DPlaceCard),
+        matching: find.bySemanticsLabel('Join'),
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('hover lifts only the visible card and expands the shadow', (
     tester,
   ) async {
