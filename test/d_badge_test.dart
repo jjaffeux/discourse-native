@@ -696,6 +696,29 @@ void main() {
     },
   );
 
+  testWidgets('control badges follow the theme button radius', (tester) async {
+    for (final radius in [0.0, 4.0, 12.0]) {
+      final theme = AppTheme.light.copyWith(
+        extensions: [
+          AppTheme.light.extension<DTokens>()!.copyWith(radius: radius),
+        ],
+      );
+      await _pump(
+        tester,
+        DBadge.link(
+          size: DBadgeSize.control,
+          onPressed: () {},
+          child: const Text('# tag'),
+        ),
+        theme: theme,
+      );
+      expect(
+        _decoration(tester).borderRadius,
+        BorderRadius.circular(theme.extension<DTokens>()!.controlRadius),
+      );
+    }
+  });
+
   testWidgets('badge sizes own their touch targets and inline tag geometry', (
     tester,
   ) async {

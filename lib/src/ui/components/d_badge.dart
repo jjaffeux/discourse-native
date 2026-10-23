@@ -21,7 +21,8 @@ enum DBadgeSize {
   /// Inline topic counts: 11px bold labels with 1px/6px insets.
   unread,
 
-  /// Matches the mockup taxonomy chips: 30px with 12.5px labels.
+  /// Matches the mockup taxonomy chips: 30px with 12.5px labels and the
+  /// button corner radius, so they sit beside buttons as one control row.
   control,
 
   /// Profile awards: 26px pills with 12px labels and 10.5px artwork.
@@ -57,7 +58,7 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// span. The regular visual height is 22px; [DBadgeSize.compact] uses 16px
 /// height, 12/14px type and narrower insets. [DBadgeSize.control] opts into
 /// regular control height, typography and artwork metrics for the platform.
-/// All sizes grow with text. Actions and links use their visible pill bounds.
+/// All sizes grow with text. Actions and links use their visible bounds.
 /// [DBadge.inline] follows its paragraph's text metrics and can project hover
 /// and selection from an enclosing editor. Other static badges track hover only
 /// for ghost and link treatments. Colors resolve every build, including custom
@@ -351,7 +352,13 @@ class _DBadgeState extends State<DBadge> {
     final focus = _focused && _enabled;
     final destructiveRing = (widget.variant == DBadgeVariant.destructive);
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
-    final radius = BorderRadius.circular(unread ? 10 : DRadius.pill);
+    final radius = BorderRadius.circular(
+      unread
+          ? 10
+          : control
+          ? tokens.controlRadius
+          : DRadius.pill,
+    );
     final border = (focus
         ? tokens.focusRing
         : widget.borderColor ??
