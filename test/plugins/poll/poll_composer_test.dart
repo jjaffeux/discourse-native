@@ -172,6 +172,20 @@ void main() {
           ('<!--', '', false),
           ('[quote]', '[/quote]', true),
           ('[quote]\n[code]', '[/quote]\n[/code]', true),
+          ('[QUOTE]\n[code]', '[/quote]\n[/code]', true),
+          ('[QUOTE=Sam]\n[code]', '[/quote]\n[/code]', false),
+          ('[QUOTE=Sam, post:1, topic:2]\n[code]', '[/quote]\n[/code]', false),
+          ('[excerpt]\n[code]', '[/excerpt]\n[/code]', true),
+          ('[grid]\n[code]', '[/grid]\n[/code]', true),
+          ('[wrap]\n[code]', '[/wrap]\n[/code]', true),
+          ('[excerpt]\n```\n[/excerpt]', '', true),
+          ('[grid]\n```\n[/grid]', '', true),
+          ('[wrap]\n```\n[/wrap]', '', true),
+          ('[poll]\n[code]\n[/poll]', '[/code]', true),
+          ('[poll]\n```\n[/poll]', '', true),
+          ('[details]\n[code]', '[/details]\n[/code]', false),
+          ('[spoiler]\n[code]', '[/spoiler]\n[/code]', false),
+          ('[event]\n[code]', '[/event]\n[/code]', false),
           ('[quote=Sam, post:1, topic:2]\n[code]', '[/quote]\n[/code]', true),
           ('[quote]\n<!--\n[/quote]', '-->', false),
           ('[quote]\n<!--\n[/quote]\n-->', '', false),
@@ -208,8 +222,8 @@ void main() {
             reason: source,
           );
           expect(
-            pollNamesInComposerSource(source).isNotEmpty,
-            active,
+            pollNamesInComposerSource(source),
+            active ? {'poll'} : <String>{},
             reason: source,
           );
         }
@@ -228,10 +242,44 @@ void main() {
           '$quote\n<!--\n-->\n[/quote]\n$poll',
           '$quote\n```\n[/quote]\n$poll',
         ]) {
-          final block = parsePollComposerBlocks(source).single;
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks, hasLength(1), reason: source);
+          final block = blocks.single;
           expect(block.source, poll, reason: source);
           expect(block.start, source.indexOf(poll), reason: source);
           expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+        }
+      }
+    });
+
+    test('keeps uppercase legacy quote examples literal', () {
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      for (final quote in const ['QUOTE=Sam', 'QUOTE=Sam, post:1, topic:2']) {
+        final source = '[$quote]\n[code]\n$poll\n[/quote]\n[/code]';
+        expect(parsePollComposerBlocks(source), isEmpty, reason: source);
+        expect(pollNamesInComposerSource(source), isEmpty, reason: source);
+        expect(nextPollName(source), 'poll', reason: source);
+      }
+    });
+
+    test('preserves active polls at core BBCode boundaries', () {
+      const poll = '[poll name=live]\r\n* A\r\n* B\r\n[/poll]';
+      for (final tag in const ['excerpt', 'grid', 'wrap', 'poll']) {
+        for (final source in [
+          '[$tag]\r\n[code]\r\n[/$tag]\r\n$poll\r\n[/code]',
+          '[$tag]\r\n```\r\n[/$tag]\r\n$poll',
+        ]) {
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks, hasLength(1), reason: source);
+          final block = blocks.single;
+          expect(block.source, poll, reason: source);
+          expect(block.start, source.indexOf(poll), reason: source);
+          expect(block.end, block.start + poll.length, reason: source);
+          expect(
+            pollNamesInComposerSource(source),
+            tag == 'poll' ? {'poll', 'live'} : {'live'},
+            reason: source,
+          );
         }
       }
     });

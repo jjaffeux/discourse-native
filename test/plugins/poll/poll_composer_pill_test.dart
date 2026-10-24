@@ -194,6 +194,25 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
+    test('projects only active polls across core wrapper boundaries', () {
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      const document =
+          '[QUOTE=Sam]\n[code]\n$poll\n[/quote]\n[/code]\n'
+          '[excerpt]\n[code]\n[/excerpt]\n'
+          '$source\n[/code]';
+      final controller = MarkdownEditingController(
+        text: document,
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
+      );
+      addTearDown(controller.dispose);
+
+      expect(controller.pollBlocks.map((poll) => poll.name), ['lunch']);
+      expect(controller.pollBlocks.single.start, document.indexOf(source));
+      expect(controller.isPollCollapsed(controller.pollBlocks.single), isTrue);
+      expect(nextPollName(document), 'poll');
+      expect(controller.text, document);
+    });
+
     testWidgets('keeps examples raw while projecting the active poll', (
       tester,
     ) async {
