@@ -79,7 +79,62 @@ final class UserDirectoryState {
   final bool pageError;
 }
 
-typedef _DirectoryKey = ({String siteUrl, UserDirectoryQuery query});
+final class _DirectoryAccount {
+  _DirectoryAccount(this.lease);
+
+  static const cachedQueries = 16;
+  final SiteLease lease;
+  final Map<UserDirectoryQuery, UserDirectoryState> states = {};
+  UserDirectoryMetadata? metadata;
+  Future<UserDirectoryMetadata>? metadataLoad;
+  final Map<UserDirectoryQuery, Object> requests = {};
+  Object? columnUpdate;
+  void Function()? detach;
+
+  UserDirectoryState stateFor(UserDirectoryQuery query) {
+    final held = states[query];
+    if (held != null) return held;
+    final shared = metadata;
+    return shared == null
+        ? const UserDirectoryState.empty()
+        : UserDirectoryState(
+            columns: shared.columns,
+            availableColumns: shared.availableColumns,
+            groupNames: shared.groupNames,
+            canManageColumns: shared.canManageColumns,
+          );
+  }
+
+  void touch(UserDirectoryQuery query) {
+    final held = states.remove(query);
+    if (held != null) states[query] = held;
+  }
+
+  void trim() {
+    for (final query
+        in states.keys
+            .take((states.length - cachedQueries).clamp(0, states.length))
+            .toList()) {
+      states.remove(query);
+      requests.remove(query);
+    }
+  }
+
+  void clearQueries() {
+    states.clear();
+    metadata = null;
+    metadataLoad?.ignore();
+    metadataLoad = null;
+    requests.clear();
+  }
+
+  void dispose() {
+    detach?.call();
+    detach = null;
+    clearQueries();
+    columnUpdate = null;
+  }
+}
 
 final class UserDirectoryController extends FrameSafeNotifier {
   UserDirectoryController({
@@ -88,54 +143,36 @@ final class UserDirectoryController extends FrameSafeNotifier {
     required this.lifecycle,
   });
 
-  static const int _cachedQueriesPerSite = 16;
-
   final UserDirectoryApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
 
-  final Map<_DirectoryKey, UserDirectoryState> _states = {};
-  final Map<String, UserDirectoryMetadata> _metadata = {};
-  final Map<String, Future<UserDirectoryMetadata>> _metadataLoads = {};
-  final Map<_DirectoryKey, Object> _requests = {};
-  final Map<_DirectoryKey, SiteLease> _leases = {};
-  final Map<String, Object> _columnUpdates = {};
+  final Map<String, _DirectoryAccount> _accounts = {};
 
-  UserDirectoryState stateFor(String siteUrl, UserDirectoryQuery query) {
-    final held = _states[(siteUrl: siteUrl, query: query)];
-    if (held != null) return held;
-    final metadata = _metadata[siteUrl];
-    return metadata == null
-        ? const UserDirectoryState.empty()
-        : UserDirectoryState(
-            columns: metadata.columns,
-            availableColumns: metadata.availableColumns,
-            groupNames: metadata.groupNames,
-            canManageColumns: metadata.canManageColumns,
-          );
+  _DirectoryAccount? _accountFor(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return account?.lease.isCurrent == true ? account : null;
   }
+
+  _DirectoryAccount _ensureAccount(String siteUrl) {
+    final held = _accountFor(siteUrl);
+    if (held != null) return held;
+    final account = _DirectoryAccount(lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() {
+      final owned = identical(_accounts[siteUrl], account);
+      if (owned) _accounts.remove(siteUrl);
+      account.dispose();
+      if (owned) notifySafely();
+    });
+    return account;
+  }
+
+  UserDirectoryState stateFor(String siteUrl, UserDirectoryQuery query) =>
+      _accountFor(siteUrl)?.stateFor(query) ?? const UserDirectoryState.empty();
 
   bool updatingColumnsFor(String siteUrl) =>
-      _columnUpdates.containsKey(siteUrl);
-
-  void _touchQuery(_DirectoryKey key) {
-    final held = _states.remove(key);
-    if (held != null) _states[key] = held;
-  }
-
-  void _trimQueries(String siteUrl) {
-    final keys = _states.keys
-        .where((key) => key.siteUrl == siteUrl)
-        .toList(growable: false);
-    if (keys.length <= _cachedQueriesPerSite) return;
-    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
-      _states.remove(key);
-      // A delayed page must not restore evicted rows or release a newer load
-      // when the same query is selected again.
-      _requests.remove(key);
-      _leases.remove(key);
-    }
-  }
+      _accountFor(siteUrl)?.columnUpdate != null;
 
   Future<void> load(
     DiscourseInstance instance, {
@@ -144,20 +181,19 @@ final class UserDirectoryController extends FrameSafeNotifier {
     bool more = false,
   }) async {
     if (isDisposed) return;
-    final key = (siteUrl: instance.url, query: query);
-    final held = stateFor(instance.url, query);
-    _touchQuery(key);
-    if (_requests.containsKey(key) ||
+    final account = _ensureAccount(instance.url);
+    final held = account.stateFor(query);
+    account.touch(query);
+    if (account.requests.containsKey(query) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
       return;
     }
 
     final token = Object();
-    final lease = lifecycle.capture(instance.url);
-    _requests[key] = token;
-    _leases[key] = lease;
-    _states[key] = UserDirectoryState(
+    final lease = account.lease;
+    account.requests[query] = token;
+    account.states[query] = UserDirectoryState(
       items: held.items,
       columns: held.columns,
       availableColumns: held.availableColumns,
@@ -171,14 +207,16 @@ final class UserDirectoryController extends FrameSafeNotifier {
       loadingMore: more,
       loaded: held.loaded,
     );
-    _trimQueries(instance.url);
+    account.trim();
     notifySafely();
 
     try {
-      final auth = await _credentialsFor(instance, key, token, lease);
-      if (auth == null || !_isCurrent(key, token, lease)) return;
-      final metadata = await _ensureMetadata(instance, auth, lease);
-      if (!_isCurrent(key, token, lease)) return;
+      final auth = await _credentialsFor(instance, account, query, token);
+      if (auth == null || !_isCurrent(instance.url, account, query, token)) {
+        return;
+      }
+      final metadata = await _ensureMetadata(instance, auth, account);
+      if (!_isCurrent(instance.url, account, query, token)) return;
       final page = await auth.run(
         () => api.directory(
           siteUrl: instance.url,
@@ -193,17 +231,17 @@ final class UserDirectoryController extends FrameSafeNotifier {
           group: query.group,
         ),
       );
-      if (!_isCurrent(key, token, lease)) return;
+      if (!_isCurrent(instance.url, account, query, token)) return;
       lease.commit(() {
-        if (!_isCurrent(key, token, lease)) return;
+        if (!_isCurrent(instance.url, account, query, token)) return;
         final requestedPage = more ? held.nextPage : 0;
-        final current = _states[key] ?? held;
+        final current = account.states[query] ?? held;
         final rows = more ? [...current.items] : <UserDirectoryItem>[];
         final seen = {for (final row in rows) row.id};
         for (final row in page.items) {
           if (seen.add(row.id)) rows.add(row);
         }
-        _states[key] = UserDirectoryState(
+        account.states[query] = UserDirectoryState(
           items: rows,
           columns: metadata.columns,
           availableColumns: metadata.availableColumns,
@@ -222,12 +260,12 @@ final class UserDirectoryController extends FrameSafeNotifier {
         notifySafely();
       });
     } catch (error) {
-      if (!_isCurrent(key, token, lease)) return;
+      if (!_isCurrent(instance.url, account, query, token)) return;
 
       lease.commit(() {
-        if (!_isCurrent(key, token, lease)) return;
-        final current = _states[key] ?? held;
-        _states[key] = UserDirectoryState(
+        if (!_isCurrent(instance.url, account, query, token)) return;
+        final current = account.states[query] ?? held;
+        account.states[query] = UserDirectoryState(
           items: current.items,
           columns: current.columns,
           availableColumns: current.availableColumns,
@@ -246,9 +284,8 @@ final class UserDirectoryController extends FrameSafeNotifier {
         notifySafely();
       });
     } finally {
-      if (identical(_requests[key], token)) {
-        _requests.remove(key);
-        _leases.remove(key);
+      if (identical(account.requests[query], token)) {
+        account.requests.remove(query);
       }
     }
   }
@@ -258,19 +295,18 @@ final class UserDirectoryController extends FrameSafeNotifier {
     List<UserDirectoryColumn> columns, {
     required UserDirectoryQuery query,
   }) async {
-    if (isDisposed ||
-        instance.user?.staff != true ||
-        _columnUpdates.containsKey(instance.url)) {
-      return false;
-    }
+    if (isDisposed || instance.user?.staff != true) return false;
+    final account = _ensureAccount(instance.url);
+    if (account.columnUpdate != null) return false;
     final token = Object();
-    final lease = lifecycle.capture(instance.url);
-    _columnUpdates[instance.url] = token;
+    final lease = account.lease;
+    account.columnUpdate = token;
     notifySafely();
     bool isCurrent() =>
         !isDisposed &&
         lease.isCurrent &&
-        identical(_columnUpdates[instance.url], token);
+        identical(_accounts[instance.url], account) &&
+        identical(account.columnUpdate, token);
 
     try {
       final auth = await AccountRequestSession(
@@ -291,19 +327,16 @@ final class UserDirectoryController extends FrameSafeNotifier {
       );
       if (!isCurrent()) return false;
 
-      _metadata.remove(instance.url);
-      _metadataLoads.remove(instance.url)?.ignore();
-      _states.removeWhere((key, _) => key.siteUrl == instance.url);
-      _requests.removeWhere((key, _) => key.siteUrl == instance.url);
-      _leases.removeWhere((key, _) => key.siteUrl == instance.url);
+      account.clearQueries();
       notifySafely();
+      if (!isCurrent()) return false;
       await load(instance, query: query, refresh: true);
       return isCurrent();
     } catch (error) {
       return false;
     } finally {
-      if (!isDisposed && identical(_columnUpdates[instance.url], token)) {
-        _columnUpdates.remove(instance.url);
+      if (isCurrent()) {
+        account.columnUpdate = null;
         notifySafely();
       }
     }
@@ -312,11 +345,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
   Future<UserDirectoryMetadata> _ensureMetadata(
     DiscourseInstance instance,
     AccountRequestCredentials auth,
-    SiteLease lease,
+    _DirectoryAccount account,
   ) async {
-    final cached = _metadata[instance.url];
+    final cached = account.metadata;
     if (cached != null) return cached;
-    final existing = _metadataLoads[instance.url];
+    final existing = account.metadataLoad;
     if (existing != null) return existing;
     final future = auth.run(
       () => api.metadata(
@@ -326,60 +359,59 @@ final class UserDirectoryController extends FrameSafeNotifier {
         canManageColumns: instance.user?.staff == true,
       ),
     );
-    _metadataLoads[instance.url] = future;
+    account.metadataLoad = future;
     try {
       final loaded = await future;
       if (!isDisposed &&
-          lease.isCurrent &&
-          identical(_metadataLoads[instance.url], future)) {
-        _metadata[instance.url] = loaded;
+          account.lease.isCurrent &&
+          identical(_accounts[instance.url], account) &&
+          identical(account.metadataLoad, future)) {
+        account.metadata = loaded;
       }
       return loaded;
     } finally {
-      if (identical(_metadataLoads[instance.url], future)) {
-        _metadataLoads.remove(instance.url)?.ignore();
+      if (identical(account.metadataLoad, future)) {
+        account.metadataLoad = null;
       }
     }
   }
 
   Future<AccountRequestCredentials?> _credentialsFor(
     DiscourseInstance instance,
-    _DirectoryKey key,
+    _DirectoryAccount account,
+    UserDirectoryQuery query,
     Object token,
-    SiteLease lease,
   ) async {
-    if (!_isCurrent(key, token, lease)) return null;
-    final session = AccountRequestSession(instance.url, lease);
+    if (!_isCurrent(instance.url, account, query, token)) return null;
+    final session = AccountRequestSession(instance.url, account.lease);
     final auth = instance.isConnected
         ? await session.credentials(credentials)
         : session.anonymousCredentials();
-    return _isCurrent(key, token, lease) ? auth : null;
+    return _isCurrent(instance.url, account, query, token) ? auth : null;
   }
 
-  bool _isCurrent(_DirectoryKey key, Object token, SiteLease lease) =>
+  bool _isCurrent(
+    String siteUrl,
+    _DirectoryAccount account,
+    UserDirectoryQuery query,
+    Object token,
+  ) =>
       !isDisposed &&
-      lease.isCurrent &&
-      identical(_requests[key], token) &&
-      identical(_leases[key], lease);
+      account.lease.isCurrent &&
+      identical(_accounts[siteUrl], account) &&
+      identical(account.requests[query], token);
 
   void forget(String siteUrl) {
-    _states.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _metadata.remove(siteUrl);
-    _metadataLoads.remove(siteUrl)?.ignore();
-    _requests.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _leases.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _columnUpdates.remove(siteUrl);
+    _accounts.remove(siteUrl)?.dispose();
     notifySafely();
   }
 
   @override
   void dispose() {
-    _states.clear();
-    _metadata.clear();
-    _metadataLoads.clear();
-    _requests.clear();
-    _leases.clear();
-    _columnUpdates.clear();
+    for (final account in _accounts.values) {
+      account.dispose();
+    }
+    _accounts.clear();
     super.dispose();
   }
 }

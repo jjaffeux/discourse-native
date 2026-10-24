@@ -66,7 +66,31 @@ final class BadgesState {
   );
 }
 
-typedef _BadgeKey = ({String siteUrl, BadgeRoute route});
+final class _BadgeAccount {
+  _BadgeAccount(this.lease);
+
+  final SiteLease lease;
+  final Map<BadgeRoute, BadgesState> states = {};
+  final Map<BadgeRoute, Object> requests = {};
+  void Function()? detach;
+
+  void trim() {
+    for (final route
+        in states.keys
+            .take((states.length - 16).clamp(0, states.length))
+            .toList()) {
+      states.remove(route);
+      requests.remove(route);
+    }
+  }
+
+  void dispose() {
+    detach?.call();
+    detach = null;
+    states.clear();
+    requests.clear();
+  }
+}
 
 final class BadgesController extends FrameSafeNotifier {
   BadgesController({
@@ -78,16 +102,29 @@ final class BadgesController extends FrameSafeNotifier {
   final BadgesApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
-  final Map<_BadgeKey, BadgesState> _states = {};
-  final Map<_BadgeKey, Object> _requests = {};
-  final Map<_BadgeKey, SiteLease> _leases = {};
+  final Map<String, _BadgeAccount> _accounts = {};
 
-  BadgesState stateFor(String siteUrl, BadgeRoute route) {
-    final key = (siteUrl: siteUrl, route: route);
-    return _leases[key]?.isCurrent == true
-        ? _states[key] ?? const BadgesState()
-        : const BadgesState();
+  _BadgeAccount? _accountFor(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return account?.lease.isCurrent == true ? account : null;
   }
+
+  _BadgeAccount _ensureAccount(String siteUrl) {
+    final held = _accountFor(siteUrl);
+    if (held != null) return held;
+    final account = _BadgeAccount(lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() {
+      final owned = identical(_accounts[siteUrl], account);
+      if (owned) _accounts.remove(siteUrl);
+      account.dispose();
+      if (owned) notifySafely();
+    });
+    return account;
+  }
+
+  BadgesState stateFor(String siteUrl, BadgeRoute route) =>
+      _accountFor(siteUrl)?.states[route] ?? const BadgesState();
 
   Future<void> load(
     DiscourseInstance instance,
@@ -96,10 +133,9 @@ final class BadgesController extends FrameSafeNotifier {
     bool more = false,
   }) async {
     if (isDisposed || !instance.config.badgesEnabled) return;
-    final key = (siteUrl: instance.url, route: route);
-    if (_leases[key]?.isCurrent == false) _remove(key);
-    final held = stateFor(instance.url, route);
-    if (_requests.containsKey(key) ||
+    final account = _ensureAccount(instance.url);
+    final held = account.states[route] ?? const BadgesState();
+    if (account.requests.containsKey(route) ||
         (!refresh && !more && held.loaded) ||
         (more &&
             (held.badge == null ||
@@ -107,22 +143,19 @@ final class BadgesController extends FrameSafeNotifier {
       return;
     }
 
-    final lease = lifecycle.capture(instance.url);
+    final lease = account.lease;
     final token = Object();
-    _leases[key] = lease;
-    _requests[key] = token;
-    _states.remove(key);
-    _states[key] = held.copyWith(loading: !more, loadingMore: more);
-    final keys = _states.keys
-        .where((entry) => entry.siteUrl == instance.url)
-        .toList();
-    for (final oldest in keys.take((keys.length - 16).clamp(0, keys.length))) {
-      _remove(oldest);
-    }
+    account.requests[route] = token;
+    account.states.remove(route);
+    account.states[route] = held.copyWith(loading: !more, loadingMore: more);
+    account.trim();
     notifySafely();
 
     bool current() =>
-        !isDisposed && lease.isCurrent && identical(_requests[key], token);
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_accounts[instance.url], account) &&
+        identical(account.requests[route], token);
     var fetchingRecipients = more;
     try {
       final session = AccountRequestSession(instance.url, lease);
@@ -144,7 +177,7 @@ final class BadgesController extends FrameSafeNotifier {
           ),
         );
         if (!current()) return;
-        _states[key] = BadgesState(catalog: catalog, loaded: true);
+        account.states[route] = BadgesState(catalog: catalog, loaded: true);
       } else {
         if (!more) {
           final badge = await auth.run(
@@ -156,8 +189,13 @@ final class BadgesController extends FrameSafeNotifier {
             ),
           );
           if (!current()) return;
-          _states[key] = BadgesState(badge: badge, loading: true, loaded: true);
+          account.states[route] = BadgesState(
+            badge: badge,
+            loading: true,
+            loaded: true,
+          );
           notifySafely();
+          if (!current()) return;
         }
         fetchingRecipients = true;
         final offset = more ? held.nextOffset : 0;
@@ -181,7 +219,7 @@ final class BadgesController extends FrameSafeNotifier {
           }
         }
         final nextOffset = offset + page.rawCount;
-        _states[key] = _states[key]!.copyWith(
+        account.states[route] = account.states[route]!.copyWith(
           grants: rows,
           totalGrants: page.total,
           nextOffset: nextOffset,
@@ -198,7 +236,7 @@ final class BadgesController extends FrameSafeNotifier {
     } catch (error) {
       if (!current()) return;
 
-      _states[key] = _states[key]!.copyWith(
+      account.states[route] = account.states[route]!.copyWith(
         loading: false,
         loadingMore: false,
         loaded: true,
@@ -211,29 +249,23 @@ final class BadgesController extends FrameSafeNotifier {
       );
       notifySafely();
     } finally {
-      if (identical(_requests[key], token)) _requests.remove(key);
+      if (identical(account.requests[route], token)) {
+        account.requests.remove(route);
+      }
     }
-  }
-
-  void _remove(_BadgeKey key) {
-    _states.remove(key);
-    _requests.remove(key);
-    _leases.remove(key);
   }
 
   void forget(String siteUrl) {
-    for (final key
-        in _states.keys.where((key) => key.siteUrl == siteUrl).toList()) {
-      _remove(key);
-    }
+    _accounts.remove(siteUrl)?.dispose();
     notifySafely();
   }
 
   @override
   void dispose() {
-    _states.clear();
-    _requests.clear();
-    _leases.clear();
+    for (final account in _accounts.values) {
+      account.dispose();
+    }
+    _accounts.clear();
     super.dispose();
   }
 }
