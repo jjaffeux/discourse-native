@@ -6891,6 +6891,37 @@ void main() {
   });
 
   group('pinning a message', () {
+    test('confirmed chat pin survives lost HTTP response', () async {
+      final gate = Completer<void>();
+      final subject = build(
+        currentUser: currentUser,
+        pinGate: gate,
+        pinFailure: const WriteException(WriteFailure.unreachable),
+        messages: {
+          key(9): page([message(12)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      subject.store.put(site, channel(9, canManagePins: true));
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+      await Future<void>.delayed(Duration.zero);
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'pin',
+        'chat_message_id': 12,
+        'pinned_by_id': currentUser.id,
+        'pinned_message_count': 1,
+      });
+      expect(subject.store.read<ChatMessage>(site, 12)!.pinned, true);
+      gate.complete();
+      await writing;
+      expect(subject.store.read<ChatMessage>(site, 12)!.pinned, true);
+      expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 1);
+    });
+
     test('projects a pin and sends the channel capability write', () async {
       final held = message(12);
       final subject = build(
