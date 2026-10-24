@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +14,9 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader', draftCount: 9);
 
 final class _GatedFreshnessApi extends FakeDiscourseApi {
-  _GatedFreshnessApi()
+  _GatedFreshnessApi({DateTime? doNotDisturbUntil})
     : super(
+        doNotDisturbUntil: doNotDisturbUntil,
         user: _user,
         feeds: const {'/latest.json': []},
         topics: {
@@ -48,6 +50,49 @@ final class _GatedFreshnessApi extends FakeDiscourseApi {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('a fresh account read reconciles a pause changed on another device', () async {
+    final api = _GatedFreshnessApi(doNotDisturbUntil: DateTime.utc(2040));
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org').copyWith(user: _user),
+      ]),
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_site] = 'account-key',
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+      initialRootMode: ShellRootMode.forum,
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    await api.started[0].future;
+    api.responses[0].complete(_user);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(await shell.doNotDisturb.pause(
+      _site,
+      DoNotDisturbOption.oneHour.duration,
+    ), isNull);
+    expect(shell.currentInstance?.user?.doNotDisturbUntil, DateTime.utc(2040));
+
+    shell.pushContent(ContentRoute.topic(topicId: 1, slug: 'draft-1', title: 'Draft topic 1'));
+    await shell.loadTopic(1, 'draft-1');
+    shell.openReply();
+    final composer = shell.visibleComposer!;
+    expect(await shell.finishComposerDraftRestore(composer), isTrue);
+    expect(await shell.discardComposer(composer), isNull);
+    await api.started[1].future;
+    final remoteUntil = DateTime.utc(2041);
+    api.responses[1].complete(_user.withDoNotDisturbUntil(remoteUntil));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(shell.currentInstance?.user?.doNotDisturbUntil, remoteUntil);
+    expect(shell.doNotDisturb.stateFor(_site).until, remoteUntil);
+    expect(await shell.doNotDisturb.resume(_site), isNull);
+    expect(api.doNotDisturbResumes, [_site]);
+    expect(shell.currentInstance?.user?.doNotDisturbUntil, isNull);
+  });
 
   test(
     'unlisted draft discards share a freshness replay and publish its count',
