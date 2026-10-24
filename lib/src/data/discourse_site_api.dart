@@ -584,7 +584,7 @@ final class DiscourseSiteApi {
       clientId: clientId,
       body: {
         'term': bounded,
-        'include_uncategorized': includeUncategorized,
+        'include_uncategorized': includeUncategorized.toString(),
         'include_subcategories': true,
         if (includeAncestors) 'include_ancestors': true,
         'limit': maximumCategorySearchResults,
