@@ -1,5 +1,59 @@
 part of 'voice_controller.dart';
 
+enum _VoiceMediaSetting {
+  muted,
+  deafened,
+  screenSharing;
+
+  bool read(VoiceCallSnapshot call) => switch (this) {
+    muted => call.muted,
+    deafened => call.deafened,
+    screenSharing => call.screenSharing,
+  };
+
+  VoiceCallSnapshot update(VoiceCallSnapshot call, bool value) =>
+      switch (this) {
+        muted => call.copyWith(muted: value),
+        deafened => call.copyWith(deafened: value),
+        screenSharing => call.copyWith(screenSharing: value),
+      };
+}
+
+final class _VoiceMediaControl {
+  _VoiceMediaControl(this.accepted);
+
+  bool accepted;
+  int _revision = 0;
+  final Map<int, bool> _pending = {};
+
+  bool get value => _pending.values.lastOrNull ?? accepted;
+  int? get latestStop =>
+      _pending.entries.where((entry) => !entry.value).lastOrNull?.key;
+  bool owns(int revision) => _pending.containsKey(revision);
+  bool isLatest(int revision) => _pending.keys.lastOrNull == revision;
+
+  int begin(bool value) {
+    final revision = ++_revision;
+    _pending[revision] = value;
+    return revision;
+  }
+
+  void settle(int revision, {required bool succeeded}) {
+    final value = _pending.remove(revision)!;
+    if (succeeded) {
+      accepted = value;
+      _pending.removeWhere((pending, _) => pending < revision);
+    }
+  }
+
+  void accept(bool value, {int? through}) {
+    accepted = value;
+    _pending.removeWhere(
+      (revision, _) => through == null || revision <= through,
+    );
+  }
+}
+
 final class _VoiceCallSession {
   _VoiceCallSession(
     this.manager,
@@ -53,6 +107,7 @@ final class _VoiceCallSession {
   ({VoiceMediaSession media, int revision, bool remember})? _startingCamera;
   _VoiceCameraRestore? _cameraRestore;
   final Map<int, Object> _participantVolumeRevisions = {};
+  final Map<_VoiceMediaSetting, _VoiceMediaControl> _mediaControls = {};
 
   bool get isActive =>
       !_retired &&
@@ -870,63 +925,48 @@ final class _VoiceCallSession {
   }
 
   Future<void> _updateMediaState({
+    required _VoiceMediaSetting setting,
+    required bool value,
     required Future<void> Function(VoiceCallSnapshot call) media,
-    required VoiceCallSnapshot Function(VoiceCallSnapshot call) update,
-    required VoiceCallSnapshot Function(
-      VoiceCallSnapshot current,
-      VoiceCallSnapshot previous,
-    )
-    rollback,
     Future<void> Function(VoiceCallSnapshot current)? system,
   }) async {
-    if (controller._disposed) return;
+    if (controller._disposed || !isActive) return;
     final call = _call;
     // A leaving call's media is already being released; a control that lands
     // meanwhile must not restart capture on it.
     if (call == null || call.status == VoiceCallStatus.leaving) return;
-    _call = update(call);
+    bool isCurrent() =>
+        !controller._disposed &&
+        isActive &&
+        identical(_call?.media, call.media) &&
+        _call?.status != VoiceCallStatus.leaving;
+    final control = _mediaControls.putIfAbsent(
+      setting,
+      () => _VoiceMediaControl(setting.read(call)),
+    );
+    final revision = control.begin(value);
+    _call = setting.update(call, value);
     controller._notifyCallChanged();
+    var succeeded = false;
     try {
       await media(call);
-    } catch (error) {
-      final current = _call;
-      if (!controller._disposed &&
-          current != null &&
-          identical(current.media, call.media)) {
-        // Roster, status, and recording updates can land while the media call
-        // is in flight; restoring the pre-toggle snapshot would erase them.
-        // Revert only the toggled field on the current snapshot.
-        _call = rollback(
-          current,
-          call,
-        ).copyWith(error: appL10n.theMediaSettingWasNotApplied);
-        controller._notifyCallChanged();
-      }
+      succeeded = true;
+    } catch (_) {}
+    if (!isCurrent() || !control.owns(revision)) return;
 
-      return;
+    final reportFailure = !succeeded && control.isLatest(revision);
+    control.settle(revision, succeeded: succeeded);
+    final current = _call!;
+    _call = setting.update(current, control.value);
+    if (reportFailure) {
+      _call = _call!.copyWith(error: appL10n.theMediaSettingWasNotApplied);
     }
-
-    if (controller._disposed) return;
+    controller._notifyCallChanged();
     await _requestStateSync();
-    // Toggles made while one state sync runs all resume, back to back, when
-    // it drains. Each hands the platform the call's current state rather
-    // than the value it set, so an earlier toggle cannot land last and
-    // overturn a newer one. A call that no longer owns this media has none
-    // of this toggle's state left to sync.
-    final current = _call;
-    if (controller._disposed ||
-        system == null ||
-        current == null ||
-        !identical(current.media, call.media)) {
-      return;
-    }
+    if (!isCurrent() || system == null) return;
     try {
-      await system(current);
-    } catch (_) {
-      // The local media operation already succeeded. A platform call-control
-      // sync failure must not roll it back or claim that the device rejected
-      // the setting.
-    }
+      await system(_call!);
+    } catch (_) {}
   }
 
   Future<void> _requestStateSync() {
@@ -1042,12 +1082,17 @@ final class _VoiceCallSession {
               status == VoiceCallStatus.reconnecting,
         );
       }
+      final screenControl = _mediaControls[_VoiceMediaSetting.screenSharing];
       final screenShareEnded =
           updated.status != VoiceCallStatus.leaving &&
-          updated.screenSharing &&
-          !view.screenSharing;
+          (updated.screenSharing || screenControl?.accepted == true) &&
+          !view.screenSharing &&
+          (seen?.screenSharing == true || screenControl?.accepted == true);
       if (screenShareEnded) {
-        updated = updated.copyWith(screenSharing: false);
+        screenControl?.accept(false, through: screenControl.latestStop);
+        updated = updated.copyWith(
+          screenSharing: screenControl?.value ?? false,
+        );
       }
       _call = updated;
       if (view.connectionFailure case final WriteException error
@@ -1115,6 +1160,9 @@ final class _VoiceCallSession {
     final canPublishVideo = canPublishAudio && room.videoAllowed;
     final stopsVideo =
         !canPublishVideo && (call.cameraEnabled || call.screenSharing);
+    if (!canPublishAudio) {
+      _mediaControls[_VoiceMediaSetting.muted]?.accept(true);
+    }
     _call = call.copyWith(room: room, muted: canPublishAudio ? null : true);
     if (canPublishAudio != couldPublishAudio) {
       controller._observe(() async {
@@ -1140,29 +1188,26 @@ final class _VoiceCallSession {
 
   Future<void> _setMuted(bool muted, {required bool syncSystem}) =>
       _updateMediaState(
+        setting: _VoiceMediaSetting.muted,
+        value: muted,
         media: (call) => call.media.setMuted(muted),
-        update: (call) => call.copyWith(muted: muted),
-        rollback: (current, previous) =>
-            current.copyWith(muted: previous.muted),
         system: syncSystem
             ? (current) => controller.systemCall.setMuted(current.muted)
             : null,
       );
 
   Future<void> _setDeafened(bool deafened) => _updateMediaState(
+    setting: _VoiceMediaSetting.deafened,
+    value: deafened,
     media: (call) => call.media.setDeafened(deafened),
-    update: (call) => call.copyWith(deafened: deafened),
-    rollback: (current, previous) =>
-        current.copyWith(deafened: previous.deafened),
   );
 
   Future<void> _setScreenSharing(bool enabled) async {
     _cameraRevision++;
     await _updateMediaState(
+      setting: _VoiceMediaSetting.screenSharing,
+      value: enabled,
       media: (call) => call.media.setScreenShareEnabled(enabled),
-      update: (call) => call.copyWith(screenSharing: enabled),
-      rollback: (current, previous) =>
-          current.copyWith(screenSharing: previous.screenSharing),
     );
     if (!enabled) _restorePreferredCamera();
   }
@@ -1196,6 +1241,9 @@ final class _VoiceCallSession {
           participants,
           userId,
         );
+      }
+      if (!canPublishAudio) {
+        _mediaControls[_VoiceMediaSetting.muted]?.accept(true);
       }
       _call = call.copyWith(
         room: call.room.withParticipants(participants),

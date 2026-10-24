@@ -143,6 +143,9 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   Future<void> Function()? onSyncParticipants;
   Object? audioPublishingFailure;
   Object? muteFailure;
+  Future<void> Function(bool)? onSetMuted;
+  Future<void> Function(bool)? onSetDeafened;
+  Future<void> Function(bool)? onSetScreenSharing;
   Object? participantSyncFailure;
   Object? disposeFailure;
   Completer<void>? disposeStarted;
@@ -244,10 +247,14 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   }
 
   @override
-  Future<void> setDeafened(bool enabled) async => deafened = enabled;
+  Future<void> setDeafened(bool enabled) async {
+    if (onSetDeafened case final update?) await update(enabled);
+    deafened = enabled;
+  }
 
   @override
   Future<void> setMuted(bool enabled) async {
+    if (onSetMuted case final update?) await update(enabled);
     muted = enabled;
     if (muteStarted case final started? when !started.isCompleted) {
       started.complete();
@@ -262,7 +269,10 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   }
 
   @override
-  Future<void> setScreenShareEnabled(bool enabled) async => screen = enabled;
+  Future<void> setScreenShareEnabled(bool enabled) async {
+    if (onSetScreenSharing case final update?) await update(enabled);
+    screen = enabled;
+  }
 
   @override
   Future<void> syncParticipants(List<VoiceParticipant> value) async {
@@ -1000,6 +1010,303 @@ void main() {
       expect(controller.call?.muted, media.muted);
     },
   );
+
+  group('media control settlement', () {
+    Future<FakeVoiceMediaSession> join() async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      return mediaFactory.sessions.single;
+    }
+
+    for (final setting in ['mute', 'deafen', 'share']) {
+      Future<void> set(bool value) => switch (setting) {
+        'mute' => controller.setMuted(value),
+        'deafen' => controller.setDeafened(value),
+        _ => controller.setScreenSharing(value),
+      };
+      bool? value() => switch (setting) {
+        'mute' => controller.call?.muted,
+        'deafen' => controller.call?.deafened,
+        _ => controller.call?.screenSharing,
+      };
+      bool actual(FakeVoiceMediaSession media) => switch (setting) {
+        'mute' => media.muted,
+        'deafen' => media.deafened,
+        _ => media.screen,
+      };
+      void hold(
+        FakeVoiceMediaSession media,
+        Future<void> Function(bool)? operation,
+      ) {
+        switch (setting) {
+          case 'mute':
+            media.onSetMuted = operation;
+          case 'deafen':
+            media.onSetDeafened = operation;
+          case 'share':
+            media.onSetScreenSharing = operation;
+        }
+      }
+
+      test('newer successful $setting survives an older failure', () async {
+        final media = await join();
+        await set(true);
+        final gate = Completer<void>();
+        hold(media, (_) => gate.future);
+        final older = set(false);
+        hold(media, null);
+        await set(true);
+        await set(false);
+        gate.completeError(StateError('older operation rejected'));
+        await older;
+
+        expect(value(), isFalse);
+        expect(actual(media), isFalse);
+        expect(controller.call?.error, isNull);
+      });
+
+      for (final newerFirst in [false, true]) {
+        test(
+          '$setting restores accepted state when both fail, newer first $newerFirst',
+          () async {
+            final media = await join();
+            await set(true);
+            final gates = [Completer<void>(), Completer<void>()];
+            var next = 0;
+            hold(media, (_) => gates[next++].future);
+            final older = set(false);
+            final newer = set(true);
+            final first = newerFirst ? 1 : 0;
+            gates[first].completeError(StateError('first rejection'));
+            await (newerFirst ? newer : older);
+            gates[1 - first].completeError(StateError('second rejection'));
+            await (newerFirst ? older : newer);
+
+            expect(value(), isTrue);
+            expect(actual(media), isTrue);
+            expect(
+              controller.call?.error,
+              'The media setting was not applied.',
+            );
+          },
+        );
+      }
+
+      test(
+        '$setting rollback reconciles an already synced optimistic state',
+        () async {
+          final media = await join();
+          await set(true);
+          final gates = [Completer<void>(), Completer<void>()];
+          var next = 0;
+          hold(media, (_) => gates[next++].future);
+          final older = set(false);
+          final newer = set(true);
+          gates[0].complete();
+          await older;
+          expect(value(), isTrue);
+          gates[1].completeError(StateError('newer operation rejected'));
+          await newer;
+
+          expect(value(), isFalse);
+          expect(actual(media), isFalse);
+          final state = transport.writes.lastWhere(
+            (write) => write.path.endsWith('/state.json'),
+          );
+          final key = switch (setting) {
+            'mute' => 'muted',
+            'deafen' => 'deafened',
+            _ => 'screen',
+          };
+          expect(state.body[key], isFalse);
+          if (setting == 'mute') expect(systemCall.systemMuted, isFalse);
+        },
+      );
+
+      for (final replacing in [false, true]) {
+        for (final fails in [false, true]) {
+          test(
+            'late $setting settlement after ${replacing ? 'replacement' : 'retirement'}, fails $fails',
+            () async {
+              final media = await join();
+              final gate = Completer<void>();
+              hold(media, (_) => gate.future);
+              final pending = set(false);
+              await controller.leave();
+              if (replacing) {
+                await controller.join(
+                  siteUrl: firstSite,
+                  siteName: 'One',
+                  room: controller.room(firstSite, 7)!,
+                );
+              }
+              final current = controller.call;
+              final writes = transport.writes.length;
+              systemCall.systemMuted = null;
+              if (fails) {
+                gate.completeError(StateError('retired operation rejected'));
+              } else {
+                gate.complete();
+              }
+              await pending;
+
+              expect(controller.call, same(current));
+              expect(transport.writes, hasLength(writes));
+              expect(systemCall.systemMuted, isNull);
+            },
+          );
+        }
+      }
+    }
+
+    test(
+      'mute failure preserves roster and independent deafen settlement',
+      () async {
+        final media = await join();
+        final gate = Completer<void>();
+        media.onSetMuted = (_) => gate.future;
+        final pending = controller.setMuted(false);
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'moderator'},
+            {'id': 2, 'username': 'lee', 'role': 'participant'},
+          ],
+        });
+        await controller.setDeafened(true);
+        gate.completeError(StateError('mute rejected'));
+        await pending;
+
+        expect(controller.call?.muted, isTrue);
+        expect(controller.call?.deafened, isTrue);
+        expect(
+          controller.call?.room.participants.map((user) => user.username),
+          containsAll(['sam', 'lee']),
+        );
+      },
+    );
+
+    test('external share end invalidates a pending failed stop', () async {
+      final media = await join();
+      await controller.setScreenSharing(true);
+      final gate = Completer<void>();
+      media.onSetScreenSharing = (_) => gate.future;
+      final pending = controller.setScreenSharing(false);
+      media.screen = false;
+      media.notifyListeners();
+      gate.completeError(StateError('stop rejected after capture ended'));
+      await pending;
+
+      expect(controller.call?.screenSharing, isFalse);
+      expect(controller.call?.error, isNull);
+    });
+
+    test(
+      'a pending share restart survives the older stop media event',
+      () async {
+        final media = await join();
+        await controller.setScreenSharing(true);
+        media.notifyListeners();
+        final gates = [Completer<void>(), Completer<void>()];
+        var next = 0;
+        media.onSetScreenSharing = (_) => gates[next++].future;
+        final stopping = controller.setScreenSharing(false);
+        final restarting = controller.setScreenSharing(true);
+        media.screen = false;
+        media.notifyListeners();
+        expect(controller.call?.screenSharing, isTrue);
+        gates[0].complete();
+        await stopping;
+        gates[1].complete();
+        await restarting;
+
+        expect(controller.call?.screenSharing, isTrue);
+        expect(media.screen, isTrue);
+      },
+    );
+
+    test(
+      'share failures after an observed stop retain the stopped state',
+      () async {
+        final media = await join();
+        await controller.setScreenSharing(true);
+        media.notifyListeners();
+        final gates = [Completer<void>(), Completer<void>()];
+        var next = 0;
+        media.onSetScreenSharing = (_) => gates[next++].future;
+        final stopping = controller.setScreenSharing(false);
+        final restarting = controller.setScreenSharing(true);
+        media.screen = false;
+        media.notifyListeners();
+        gates[0].completeError(StateError('stop rejected after capture ended'));
+        await stopping;
+        gates[1].completeError(StateError('restart rejected'));
+        await restarting;
+
+        expect(controller.call?.screenSharing, isFalse);
+        expect(media.screen, isFalse);
+        final state = transport.writes.lastWhere(
+          (write) => write.path.endsWith('/state.json'),
+        );
+        expect(state.body['screen'], isFalse);
+      },
+    );
+
+    test(
+      'unrelated media event does not cancel a pending share start',
+      () async {
+        final media = await join();
+        final gate = Completer<void>();
+        media.onSetScreenSharing = (_) => gate.future;
+        final pending = controller.setScreenSharing(true);
+        media.localVideoTrack = FakeVoiceVideoHandle();
+        media.notifyListeners();
+        expect(controller.call?.screenSharing, isTrue);
+        gate.complete();
+        await pending;
+
+        expect(controller.call?.screenSharing, isTrue);
+        expect(media.screen, isTrue);
+      },
+    );
+
+    for (final fails in [false, true]) {
+      test(
+        'stage demotion owns mute over late settlement, fails $fails',
+        () async {
+          final payload = fixture('join_mesh');
+          final room = payload['room'] as Map<String, dynamic>;
+          room['room_type'] = 'open';
+          transport.responses['POST /voice/rooms/7/join.json'] = payload;
+          final media = await join();
+          expect(controller.call?.muted, isFalse);
+          final gate = Completer<void>();
+          media.onSetMuted = (_) => gate.future;
+          final pending = controller.setMuted(true);
+          media.onSetMuted = null;
+          firstTracker.deliver('/voice/rooms/index', {
+            'type': 'updated',
+            'room': {...room, 'room_type': 'stage'},
+          });
+          await pumpEventQueue();
+          if (fails) {
+            gate.completeError(StateError('old mute rejected'));
+          } else {
+            gate.complete();
+          }
+          await pending;
+
+          expect(controller.call?.muted, isTrue);
+          expect(media.muted, isTrue);
+          expect(controller.call?.error, isNull);
+        },
+      );
+    }
+  });
 
   _ControlledVoiceTransport privilegedTransport() {
     final joinPayload = fixture('join_mesh');
