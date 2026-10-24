@@ -89,6 +89,42 @@ void main() {
       },
     );
 
+    test('uses cooker numeric entity validation and HTML fallback', () async {
+      final cooker = OfflineCookingService();
+      addTearDown(cooker.dispose);
+      for (final (entity, decoded) in const [
+        ('&#128;', '&#128;'),
+        ('&#000000128;', '€'),
+        ('&#x00000080;', '&#x00000080;'),
+        ('&#x000000080;', '€'),
+        ('&#000000000;', '\ufffd'),
+        ('&#x110000;', '&#x110000;'),
+        ('&#128x;', '&#128x;'),
+        ('&#x20acx;', '&#x20acx;'),
+        ('&#9999999999999999999999999999999;', '\ufffd'),
+        ('&#xfffffffffffffffffffffffffff;', '\ufffd'),
+      ]) {
+        final raw = '![x](https://example.test/a$entity.png)';
+        final expected = 'https://example.test/a$decoded.png';
+        final cooked = await cooker.cook(
+          CookingRequest(
+            raw: raw,
+            snapshot: CookingSnapshot(
+              siteId: 'destination',
+              accountId: 'destination',
+            ),
+          ),
+        );
+        expect(cooked.failure, isNull, reason: raw);
+        final cookedUrl = html
+            .parseFragment(cooked.html)
+            .querySelector('img')!
+            .attributes['src']!;
+        expect(Uri.decodeFull(cookedUrl), expected, reason: raw);
+        expect(parseComposerImages(raw).single.url, expected, reason: raw);
+      }
+    });
+
     test('requires a real outer terminator and recovers later images', () {
       for (final malformed in const [
         '![x](https://example.test/a(b)',

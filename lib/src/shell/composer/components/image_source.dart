@@ -320,11 +320,23 @@ final _imageDestinationEscape = RegExp(
   caseSensitive: false,
 );
 
+final _imageCoreNumericEntity = RegExp(
+  r'^#(?:x[a-f0-9]{1,8}|[0-9]{1,8})$',
+  caseSensitive: false,
+);
+final _imageHtmlNumericEntity = RegExp(
+  r'^#(?:x[a-f0-9]+|[0-9]+)$',
+  caseSensitive: false,
+);
+
 String _unescapeImageDestination(String value) =>
     value.replaceAllMapped(_imageDestinationEscape, (match) {
       if (match[1] case final escaped?) return escaped;
       final entity = match[2]!;
-      if (entity.startsWith('#')) {
+      if (entity.startsWith('#') && !_imageHtmlNumericEntity.hasMatch(entity)) {
+        return match[0]!;
+      }
+      if (_imageCoreNumericEntity.hasMatch(entity)) {
         final hex = entity.length > 1 && entity[1].toLowerCase() == 'x';
         final code = int.tryParse(
           entity.substring(hex ? 2 : 1),
@@ -342,6 +354,14 @@ String _unescapeImageDestination(String value) =>
           return match[0]!;
         }
         return String.fromCharCode(code);
+      }
+      if (entity.startsWith('#')) {
+        final hex = entity[1].toLowerCase() == 'x';
+        final code = int.tryParse(
+          entity.substring(hex ? 2 : 1),
+          radix: hex ? 16 : 10,
+        );
+        if (code == null || code < 0 || code > 0x10ffff) return '\ufffd';
       }
       // Attribute parsing leaves unknown named entities intact instead of
       // accepting a legacy semicolon-free prefix from their name.
