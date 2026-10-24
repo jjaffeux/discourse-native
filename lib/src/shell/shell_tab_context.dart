@@ -453,8 +453,7 @@ final class ShellTabContext {
           for (final category in categories) category.id,
           ?source?.categoryId,
         })
-          if (shell.categoryFor(id, siteUrl: instance.url) case final category?)
-            id: category,
+          id: ?shell.categoryFor(id, siteUrl: instance.url),
       },
       resolvedTags: shell._topicListFilterTagNames(instance.url, source),
       signedIn: instance.user != null,
