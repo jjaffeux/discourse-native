@@ -3,13 +3,13 @@ import 'dart:io';
 
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/draft_coordinator.dart';
-import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,6 +48,12 @@ void main() {
 
   tearDown(() async => directory.delete(recursive: true));
 
+  final liveShells = <ShellController>{};
+
+  void disposeShell(ShellController shell) {
+    if (liveShells.remove(shell)) shell.dispose();
+  }
+
   Future<ShellController> shellFor(DiscourseInstance instance) async {
     final shell = ShellController(
       instanceStore: FakeInstanceStore([instance]),
@@ -61,9 +67,8 @@ void main() {
       forumTabs: FakeForumTabStore(),
       trackers: FakeSiteTracker.reset(),
     );
-    addTearDown(() {
-      if (!shell.isDisposed) shell.dispose();
-    });
+    liveShells.add(shell);
+    addTearDown(() => disposeShell(shell));
     await shell.load();
     await shell.loadFeed('latest');
     return shell;
@@ -81,7 +86,7 @@ void main() {
         isTrue,
       );
       expect(bShell.visibleComposer!.text.text, 'Remote placeholder');
-      bShell.dispose();
+      disposeShell(bShell);
 
       final expired = DiscourseInstance.fromJson(
         replacement.copyWith(clearUser: true).toJson(),

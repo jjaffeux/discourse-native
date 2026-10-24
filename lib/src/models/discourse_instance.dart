@@ -44,11 +44,11 @@ class DiscourseInstance {
     this.apiVersion = 0,
     this.loginRequired = false,
     this.user,
-    String? draftOwner,
+    this.draftOwner,
     this.notificationTotals,
     this.appearance,
     this.config = const SiteConfig.unknown(),
-  }) : _draftOwner = draftOwner;
+  });
 
   factory DiscourseInstance.fromJson(
     Map<String, dynamic> json, {
@@ -117,7 +117,7 @@ class DiscourseInstance {
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
       user: clearUser ? null : (user ?? this.user),
-      draftOwner: draftOwner,
+      draftOwner: _resolvedDraftOwner,
       notificationTotals: clearUser || clearNotificationTotals
           ? null
           : (notificationTotals ?? this.notificationTotals),
@@ -147,7 +147,7 @@ class DiscourseInstance {
       apiVersion: apiVersion,
       loginRequired: info.loginRequired,
       user: user,
-      draftOwner: draftOwner,
+      draftOwner: _resolvedDraftOwner,
       notificationTotals: notificationTotals,
       appearance: appearance,
       config: config,
@@ -164,16 +164,16 @@ class DiscourseInstance {
 
   final DiscourseUser? user;
 
-  final String? _draftOwner;
-
   /// The account entitled to pre-migration drafts, including while signed out.
-  /// Empty means their owner was unknown and cannot be inferred at sign-in.
-  String get draftOwner => _draftOwner ?? _draftIdentity(user);
+  /// Empty means unknown; null migrates the currently held account.
+  final String? draftOwner;
+
+  String get _resolvedDraftOwner => draftOwner ?? _draftIdentity(user);
 
   /// Null keeps the original flat draft namespace for its proven owner.
   String? get localDraftAccount {
     final identity = _draftIdentity(user);
-    final owner = draftOwner;
+    final owner = _resolvedDraftOwner;
     if (identity.isNotEmpty && owner == identity) {
       return null;
     }
@@ -208,7 +208,7 @@ class DiscourseInstance {
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
     'user': user?.toJson(extensions: extensions),
-    'draftOwner': draftOwner,
+    'draftOwner': _resolvedDraftOwner,
     if (user != null && notificationTotals != null)
       'notificationTotals': notificationTotals!.toStoredJson(
         counterCodec: counterCodec,
