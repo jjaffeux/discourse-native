@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../models/group.dart';
 
 @immutable
 final class GroupUpdateCommand {
@@ -94,8 +95,9 @@ final class GroupWriteFailed<T> extends GroupWriteOutcome<T> {
   final GroupWriteDelivery delivery;
 }
 
-final class GroupUpdateConfirmation extends GroupWriteOutcome<void> {
-  const GroupUpdateConfirmation(this.affectedUserCount);
+final class GroupUpdateConfirmation extends GroupWriteOutcome<Group> {
+  const GroupUpdateConfirmation(this.affectedUserCount, {this.groupName});
 
   final int affectedUserCount;
+  final String? groupName;
 }

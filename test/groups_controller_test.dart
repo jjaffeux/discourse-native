@@ -67,6 +67,244 @@ void main() {
     expect(controller.detailState(_site, 'support').detail, isNull);
   });
 
+  group('accepted group rename', () {
+    const original = Group(id: 7, name: 'support');
+    const canonical = {
+      'group': {'id': 7, 'name': 'canonical', 'full_name': 'Saved'},
+    };
+
+    for (final cache in _GroupPageCache.values) {
+      for (final name in ['support', 'canonical']) {
+        test('revokes delayed $name ${cache.name} reads', () async {
+          final transport = _ControlledGroupTransport()
+            ..onWrite = (_) => canonical;
+          final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+          final controller = _controller(transport, credentials: credentials);
+          addTearDown(controller.dispose);
+          final respond = cache.hold(transport);
+          final oldRead = cache.load(controller, _connectedInstance, name);
+          await pumpEventQueue();
+          transport.objects.add(_completed(canonical));
+          final saved = await controller.updateGroup(
+            _connectedInstance,
+            original,
+            GroupUpdateCommand(const {'name': 'requested'}),
+          );
+          expect(saved.canApplyLocally, isTrue);
+          respond(99);
+          await oldRead;
+          expect(controller.detailState(_site, 'support').detail, isNull);
+          expect(
+            controller.detailState(_site, 'canonical').detail?.group.id,
+            7,
+          );
+          if (cache != _GroupPageCache.detail) {
+            expect(cache.ids(controller, _site, name), isEmpty);
+          }
+        });
+      }
+    }
+
+    for (final cache in _SearchableGroupCache.values) {
+      test('revokes delayed ${cache.name} pages', () async {
+        final transport = _ControlledGroupTransport()
+          ..onWrite = (_) => canonical;
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        final response = Completer<Map<String, dynamic>>();
+        transport.objects.add(response);
+        final oldRead = cache.load(controller, _connectedInstance, '');
+        await pumpEventQueue();
+        transport.objects.add(_completed(canonical));
+        await controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {}),
+        );
+        response.complete(cache.page(7));
+        await oldRead;
+        expect(cache.ids(controller, _site, ''), isEmpty);
+        expect(
+          controller.detailState(_site, 'canonical').detail?.group.name,
+          'canonical',
+        );
+      });
+    }
+
+    test(
+      'retains returned fields and visible names when canonical refresh fails',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.add(
+            _completed({
+              'group': {'id': 7, 'name': 'support'},
+              'extras': {
+                'visible_group_names': ['staff'],
+              },
+            }),
+          )
+          ..onWrite = (_) => canonical;
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        await controller.loadDetail(_connectedInstance, original.name);
+        transport.onGet = (_) => throw StateError('refresh failed');
+        final result = await controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {}),
+        );
+        expect(
+          result,
+          isA<GroupWriteAccepted<Group>>()
+              .having(
+                (result) => result.projection,
+                'projection',
+                GroupProjectionFreshness.stale,
+              )
+              .having(
+                (result) => result.value.name,
+                'accepted name',
+                'canonical',
+              ),
+        );
+        final detail = controller.detailState(_site, 'canonical');
+        expect(detail.detail?.group.fullName, 'Saved');
+        expect(detail.detail?.visibleGroupNames, ['staff']);
+        expect(detail.error, isNotNull);
+        expect(detail.mutating, isFalse);
+        expect(controller.detailState(_site, 'support').detail, isNull);
+      },
+    );
+
+    for (final response in [
+      {'success': 'OK'},
+      {
+        'group': {'id': 8, 'name': 'someone-else'},
+      },
+      {
+        'group': {'id': 7, 'name': '../unsafe'},
+      },
+    ]) {
+      test(
+        'unusable update identity refreshes the opening group $response',
+        () async {
+          final transport = _ControlledGroupTransport()
+            ..onWrite = ((_) => response)
+            ..objects.add(
+              _completed({
+                'group': {'id': 7, 'name': 'support'},
+              }),
+            );
+          final controller = _controller(
+            transport,
+            credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+          );
+          addTearDown(controller.dispose);
+          final result = await controller.updateGroup(
+            _connectedInstance,
+            original,
+            GroupUpdateCommand(const {'name': 'requested'}),
+          );
+          expect(
+            result,
+            isA<GroupWriteAccepted<Group>>().having(
+              (result) => result.value.name,
+              'name',
+              'support',
+            ),
+          );
+          expect(transport.gets.single.path, '/groups/support.json');
+        },
+      );
+    }
+
+    test('retirement blocks canonical projection after acceptance', () async {
+      final transport = _ControlledGroupTransport()..onWrite = (_) => canonical;
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(
+        transport,
+        lifecycle: lifecycle,
+        credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+      );
+      addTearDown(controller.dispose);
+      final write = transport.holdWrite();
+      final pending = controller.updateGroup(
+        _connectedInstance,
+        original,
+        GroupUpdateCommand(const {}),
+      );
+      await write.started.future;
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      write.release.complete();
+      final result = await pending;
+      expect(
+        result,
+        isA<GroupWriteAccepted<Group>>()
+            .having((result) => result.value.name, 'server name', 'canonical')
+            .having(
+              (result) => result.projection,
+              'projection',
+              GroupProjectionFreshness.retired,
+            ),
+      );
+      expect(result.canApplyLocally, isFalse);
+      expect(controller.detailState(_site, 'canonical').detail, isNull);
+      expect(transport.gets, isEmpty);
+    });
+
+    test(
+      'confirmation projects only the accepted canonical identity',
+      () async {
+        var writes = 0;
+        final transport = _ControlledGroupTransport()
+          ..onWrite = (_) {
+            if (writes++ == 0) {
+              throw const WriteException(
+                WriteFailure.validation,
+                statusCode: 422,
+                affectedUserCount: 3,
+              );
+            }
+            return canonical;
+          }
+          ..objects.add(_completed(canonical));
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        final confirmation =
+            await controller.updateGroup(
+                  _connectedInstance,
+                  original,
+                  GroupUpdateCommand(const {'name': 'requested'}),
+                )
+                as GroupUpdateConfirmation;
+        expect(controller.detailState(_site, 'canonical').detail, isNull);
+        expect(transport.gets, isEmpty);
+        final result = await controller.confirmUpdate(
+          confirmation,
+          applyToExistingUsers: true,
+        );
+        expect(
+          result,
+          isA<GroupWriteAccepted<Group>>().having(
+            (result) => result.value.name,
+            'name',
+            'canonical',
+          ),
+        );
+        expect(transport.gets.single.path, '/groups/canonical.json');
+        expect(controller.detailState(_site, 'support').detail, isNull);
+      },
+    );
+  });
+
   const previewGroup = Group(
     id: 1,
     name: 'support',

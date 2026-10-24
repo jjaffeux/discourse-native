@@ -8462,6 +8462,59 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  void replaceOpeningGroupName({
+    required String siteUrl,
+    required String? tabId,
+    required String previousName,
+    required Group group,
+  }) {
+    if (previousName == group.name) return;
+    final workspace = _workspace.forSite(siteUrl);
+    final tab = workspace?.tabById(tabId ?? '');
+    if (workspace == null || tab == null) return;
+    final username = _instances
+        .where((site) => site.url == siteUrl)
+        .firstOrNull
+        ?.user
+        ?.username;
+    final updated = tab.rewriteRoutes((content) {
+      final route = content.groupRoute;
+      if (route?.groupName?.toLowerCase() != previousName.toLowerCase()) {
+        return content;
+      }
+      final renamed = route!.isPlugin
+          ? GroupRoute.plugin(
+              groupName: group.name,
+              owner: route.pluginOwner!,
+              section: route.section!,
+              subsection: route.subsection,
+            )
+          : GroupRoute.detail(
+              group.name,
+              section: route.section!,
+              subsection: route.subsection,
+            );
+      return ContentRoute.group(
+        renamed,
+        title: group.label,
+        feedPath: renamed.topicFeedPath(username) ?? content.feedPath,
+      ).withDisplay(
+        icon: content.icon,
+        subtitle: content.subtitle,
+        color: content.color,
+      );
+    });
+    if (identical(updated, tab)) return;
+    _workspace.put(
+      workspace.copyWith(
+        tabs: [
+          for (final item in workspace.tabs) item.id == tab.id ? updated : item,
+        ],
+      ),
+    );
+    _notify();
+  }
+
   void selectGroupRoute(GroupRoute route, {String? feedPath}) {
     final instance = currentInstance;
     final current = currentContent?.groupRoute;

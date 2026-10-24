@@ -12,6 +12,7 @@ import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/group.dart';
+import '../models/group_route.dart';
 import 'group_write.dart';
 
 export 'group_write.dart';
@@ -1417,7 +1418,7 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  Future<GroupWriteOutcome<void>> updateGroup(
+  Future<GroupWriteOutcome<Group>> updateGroup(
     DiscourseInstance instance,
     Group group,
     GroupUpdateCommand command,
@@ -1431,10 +1432,13 @@ final class GroupsController extends FrameSafeNotifier {
     final result = await _writeUpdate(attempt);
     final key = _groupKey(instance.url, group.name);
     if (identical(_pendingUpdates[key], attempt)) {
-      if (result case GroupWriteFailed<void>(
+      if (result case GroupWriteFailed<Group>(
         error: WriteException(statusCode: 422, :final affectedUserCount?),
       ) when affectedUserCount > 0 && !isDisposed && attempt.lease.isCurrent) {
-        final confirmation = GroupUpdateConfirmation(affectedUserCount);
+        final confirmation = GroupUpdateConfirmation(
+          affectedUserCount,
+          groupName: group.name,
+        );
         _confirmationAttempts[confirmation] = attempt;
         return confirmation;
       }
@@ -1443,7 +1447,7 @@ final class GroupsController extends FrameSafeNotifier {
     return result;
   }
 
-  Future<GroupWriteOutcome<void>> confirmUpdate(
+  Future<GroupWriteOutcome<Group>> confirmUpdate(
     GroupUpdateConfirmation confirmation, {
     required bool applyToExistingUsers,
   }) {
@@ -1474,29 +1478,82 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
-  Future<GroupWriteOutcome<void>> _writeUpdate(
+  Future<GroupWriteOutcome<Group>> _writeUpdate(
     _GroupUpdateAttempt attempt, {
     bool? updateExistingUsers,
   }) => _mutate(
     attempt.instance,
     attempt.group,
-    (apiKey, clientId) => api.updateGroup(
-      siteUrl: attempt.instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupId: attempt.group.id,
-      values: attempt.command.values,
-      updateExistingUsers: updateExistingUsers,
+    (apiKey, clientId) async => _acceptedUpdateGroup(
+      attempt.group,
+      await api.updateGroup(
+        siteUrl: attempt.instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: attempt.group.id,
+        values: attempt.command.values,
+        updateExistingUsers: updateExistingUsers,
+      ),
     ),
+    updatedGroup: (group) => group,
     lease: attempt.lease,
     updateAttempt: updateExistingUsers == null ? attempt : null,
   );
+
+  Group _acceptedUpdateGroup(Group original, Group returned) {
+    if (returned.id <= 0 || returned.id != original.id) return original;
+    try {
+      GroupRoute.detail(returned.name);
+      return returned;
+    } on ArgumentError {
+      return original;
+    }
+  }
+
+  void _projectUpdatedGroup(String siteUrl, Group original, Group updated) {
+    final oldKey = _groupKey(siteUrl, original.name);
+    final newKey = _groupKey(siteUrl, updated.name);
+    final held = _details[oldKey];
+    if (oldKey != newKey) {
+      final names = {oldKey.groupName, newKey.groupName};
+      _requests.removeWhere(
+        (_, request) =>
+            request.siteUrl == siteUrl &&
+            (request.groupName == null || names.contains(request.groupName)),
+      );
+      _details.remove(oldKey);
+      _members.removeWhere(
+        (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
+      );
+      _requesters.removeWhere(
+        (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
+      );
+      _activities.removeWhere(
+        (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
+      );
+      _permissions.removeWhere(
+        (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
+      );
+      _logs.removeWhere(
+        (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
+      );
+      _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
+    }
+    _details[newKey] = GroupDetailState(
+      detail: GroupDetail(
+        group: updated,
+        visibleGroupNames: held?.detail?.visibleGroupNames ?? const [],
+      ),
+      loaded: true,
+    );
+  }
 
   Future<GroupWriteOutcome<T>> _mutate<T>(
     DiscourseInstance instance,
     Group group,
     Future<T> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
+    Group Function(T value)? updatedGroup,
     VoidCallback? removeCachedRows,
     SiteLease? lease,
     _GroupUpdateAttempt? updateAttempt,
@@ -1545,15 +1602,21 @@ final class GroupsController extends FrameSafeNotifier {
       if (current()) {
         removeCachedRows?.call();
         token.finishRemoval();
-        _details[key] = GroupDetailState(
-          detail: held.detail,
-          loaded: held.loaded,
-        );
+        final acceptedGroup = updatedGroup?.call(value);
+        if (acceptedGroup != null) {
+          _projectUpdatedGroup(instance.url, group, acceptedGroup);
+        } else {
+          _details[key] = GroupDetailState(
+            detail: held.detail,
+            loaded: held.loaded,
+          );
+        }
         if (refreshDetail) {
-          _requests.remove(key);
+          final refreshName = acceptedGroup?.name ?? group.name;
+          _requests.remove(_groupKey(instance.url, refreshName));
           final refreshed = await loadDetail(
             instance,
-            group.name,
+            refreshName,
             refresh: true,
           );
           projection = refreshed

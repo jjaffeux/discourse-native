@@ -556,11 +556,13 @@ final class ShellGroupPagesPort implements GroupPagesPort {
     if (instance == null) {
       return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
     }
-    return _shell.groups.updateGroup(
+    final result = await _shell.groups.updateGroup(
       instance,
       group,
       GroupUpdateCommand(update.values),
     );
+    _applyUpdatedGroup(owner, group.name, result);
+    return result;
   }
 
   @override
@@ -568,17 +570,35 @@ final class ShellGroupPagesPort implements GroupPagesPort {
     GroupPagesOwner owner,
     GroupUpdateConfirmation confirmation, {
     required bool applyToExistingUsers,
-  }) {
+  }) async {
     if (!isCurrent(owner)) {
       _shell.groups.cancelUpdate(confirmation);
-      return Future.value(
-        const GroupWriteNotAdmitted(GroupWriteAdmission.inactive),
-      );
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
     }
-    return _shell.groups.confirmUpdate(
+    final result = await _shell.groups.confirmUpdate(
       confirmation,
       applyToExistingUsers: applyToExistingUsers,
     );
+    final previousName = confirmation.groupName;
+    if (previousName != null) _applyUpdatedGroup(owner, previousName, result);
+    return result;
+  }
+
+  void _applyUpdatedGroup(
+    GroupPagesOwner owner,
+    String previousName,
+    GroupWriteOutcome<Group> result,
+  ) {
+    if (result case GroupWriteAccepted<Group>(
+      :final value,
+    ) when result.canApplyLocally && isCurrent(owner)) {
+      _shell.replaceOpeningGroupName(
+        siteUrl: owner.siteUrl,
+        tabId: owner.tabId,
+        previousName: previousName,
+        group: value,
+      );
+    }
   }
 
   @override
