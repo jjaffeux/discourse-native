@@ -2859,6 +2859,7 @@ class ShellController extends FrameSafeNotifier
     changed: (siteUrl) {
       if (currentInstance?.url == siteUrl) _notifyLiveChange();
     },
+    retryBeforeAccept: _liveSessions.retryTracking,
     clock: _clock,
   );
   bool _liveChangeNotifyPending = false;
@@ -3260,15 +3261,8 @@ class ShellController extends FrameSafeNotifier
     api: api.topicFeeds,
     credentials: credentials,
     lifecycle: lifecycle,
-    acceptTracking: (siteUrl, lease, message) {
-      if (!lease.isCurrent || isDisposed) return;
-      _topicTracking
-          .capture(siteUrl, lease: lease)
-          ?.accept(
-            message,
-            retryBeforeAccept: () => _liveSessions.retryTracking(siteUrl),
-          );
-    },
+    trackingFor: (siteUrl, lease) =>
+        _topicTracking.capture(siteUrl, lease: lease),
     reloadSource: (command, lease) async {
       if (!lease.isCurrent || isDisposed) return;
       await topicFeeds.load(

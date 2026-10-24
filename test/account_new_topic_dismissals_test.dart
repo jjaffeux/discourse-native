@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/account_new_topic_dismissals.dart';
+import 'package:discourse_native/src/shell/topic_tracking_directory.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -12,6 +13,46 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  test(
+    'closed tracking admission cannot read credentials or publish busy',
+    () async {
+      final credentials = _Credentials();
+      final fixture = _Fixture(credentials: credentials)..admitting = false;
+      expect(await fixture.owner.dismiss(fixture.command), isNull);
+      expect(credentials.started.isCompleted, isFalse);
+      expect(fixture.api.calls, 0);
+      expect(fixture.events, isEmpty);
+    },
+  );
+
+  test(
+    'same-lease tracking retirement isolates the original dismissal',
+    () async {
+      final fixture = _Fixture();
+      final lease = fixture.lifecycle.capture(_site);
+      final oldWrite = fixture.api.hold();
+      final old = fixture.owner.dismiss(fixture.command);
+      await oldWrite.started.future;
+      fixture.tracking[lease.session]!.retired = true;
+      fixture.tracking[lease.session] = _Tracking(fixture, lease);
+      final newWrite = fixture.api.hold();
+      final next = fixture.owner.dismiss(fixture.command);
+      await newWrite.started.future;
+      fixture.events.clear();
+      oldWrite.result.complete([1]);
+      expect(await old, isNull);
+      expect(lease.isCurrent, isTrue);
+      expect(fixture.events, isEmpty);
+      expect(fixture.owner.isBusy(_site), isTrue);
+      newWrite.result.complete([7]);
+      expect(await next, isNull);
+      expect(fixture.acceptedIds, [
+        [7],
+        [7],
+      ]);
+    },
+  );
+
   test('publishes busy before reentrant admission without a binding', () async {
     final fixture = _Fixture();
     Future<DismissNewTopicsFailure?>? reentrant;
@@ -215,14 +256,14 @@ final class _Fixture {
       api: api,
       credentials: credentials ?? _Credentials(),
       lifecycle: lifecycle,
-      acceptTracking: (siteUrl, lease, message) {
+      trackingFor: (siteUrl, lease) {
         expect(siteUrl, _site);
         expect(lease.isCurrent, isTrue);
-        final data = message! as Map<String, Object>;
-        events.add(data['message_type']! as String);
-        final payload = data['payload']! as Map<String, List<int>>;
-        acceptedIds.add(payload['topic_ids']!);
-        onAccepted?.call();
+        if (!admitting) return null;
+        return tracking.putIfAbsent(
+          lease.session,
+          () => _Tracking(this, lease),
+        );
       },
       reloadSource: (captured, lease) async {
         expect(captured, same(command));
@@ -239,6 +280,8 @@ final class _Fixture {
 
   final api = _Api();
   final lifecycle = SiteLifecycle();
+  final tracking = <Object, _Tracking>{};
+  bool admitting = true;
   final events = <String>[];
   final acceptedIds = <List<int>>[];
   final command = DismissNewTopicsCommand(
@@ -305,5 +348,27 @@ final class _Api extends FakeDiscourseApi {
     final write = _writes.removeAt(0);
     write.started.complete();
     return write.result.future;
+  }
+}
+
+final class _Tracking implements TopicTrackingAdmission {
+  _Tracking(this.fixture, this.lease);
+  final _Fixture fixture;
+  final SiteLease lease;
+  bool retired = false;
+
+  @override
+  bool get isCurrent => !retired && lease.isCurrent;
+
+  @override
+  bool belongsTo(DiscourseUser? user) => user?.id == 7;
+
+  @override
+  void accept(Object? message) {
+    final data = message! as Map<String, Object>;
+    fixture.events.add(data['message_type']! as String);
+    final payload = data['payload']! as Map<String, List<int>>;
+    fixture.acceptedIds.add(payload['topic_ids']!);
+    fixture.onAccepted?.call();
   }
 }

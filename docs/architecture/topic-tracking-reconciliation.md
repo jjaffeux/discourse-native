@@ -44,7 +44,7 @@ successor's admission or publish more effects.
 
 `ShellTabContext` captures an immutable `DismissNewTopicsCommand` from the
 rendered route and listed topics, including the server's exact tag spelling.
-The owner accepts tracking messages through a lease-checked tracking-account capability, then
+The owner captures a `TopicTrackingAdmission` before busy publication and credential IO. Admission refuses account transitions and commands rendered for another account. The session retains that original capability through transport and completion, then
 forces a reload of the captured source feed through a second capability. Store,
 `TopicTrackingReconciler` and `TopicFeedController` remain authoritative. Feed
 reload errors remain feed state after an accepted write. Dismissal does not

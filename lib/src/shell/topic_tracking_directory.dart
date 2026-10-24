@@ -7,6 +7,12 @@ import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../plugin_api/discourse_model_codec.dart';
 
+abstract interface class TopicTrackingAdmission {
+  bool get isCurrent;
+  bool belongsTo(DiscourseUser? user);
+  void accept(Object? message);
+}
+
 /// Owns tracking identity and canonical row effects independently of transport.
 final class TopicTrackingDirectory {
   TopicTrackingDirectory({
@@ -16,6 +22,7 @@ final class TopicTrackingDirectory {
     required this.userFor,
     required this.configFor,
     required this.changed,
+    this.retryBeforeAccept,
     this.clock,
   });
 
@@ -25,6 +32,7 @@ final class TopicTrackingDirectory {
   final DiscourseUser? Function(String siteUrl) userFor;
   final SiteConfig Function(String siteUrl) configFor;
   final void Function(String siteUrl) changed;
+  final void Function(String siteUrl)? retryBeforeAccept;
   final DateTime Function()? clock;
   final Map<String, TopicTrackingAccount> _accounts = {};
   final Map<String, Object> _transitions = {};
@@ -96,7 +104,7 @@ final class TopicTrackingDirectory {
   }
 }
 
-final class TopicTrackingAccount {
+final class TopicTrackingAccount implements TopicTrackingAdmission {
   TopicTrackingAccount._(this._owner, this.siteUrl, this.lease, this._user) {
     reconciler = TopicTrackingReconciler(
       isCurrent: () => isCurrent,
@@ -112,6 +120,7 @@ final class TopicTrackingAccount {
   void Function()? _detach;
   bool _retired = false;
 
+  @override
   bool get isCurrent {
     if (_retired ||
         _owner._disposed ||
@@ -120,12 +129,15 @@ final class TopicTrackingAccount {
         !identical(_owner._accounts[siteUrl], this)) {
       return false;
     }
-    final current = _owner.userFor(siteUrl);
+    return belongsTo(_owner.userFor(siteUrl));
+  }
+
+  @override
+  bool belongsTo(DiscourseUser? user) {
     final original = _user;
     return original == null
-        ? current == null
-        : current != null &&
-              _owner.models.sameCurrentUserAccount(original, current);
+        ? user == null
+        : user != null && _owner.models.sameCurrentUserAccount(original, user);
   }
 
   bool owns(TopicTrackingSnapshot ticket) =>
@@ -139,9 +151,14 @@ final class TopicTrackingAccount {
         config: _owner.configFor(siteUrl),
       );
 
+  @override
   void accept(Object? message, {void Function()? retryBeforeAccept}) {
     if (!isCurrent) return;
-    retryBeforeAccept?.call();
+    if (retryBeforeAccept != null) {
+      retryBeforeAccept();
+    } else {
+      _owner.retryBeforeAccept?.call(siteUrl);
+    }
     if (!isCurrent) return;
     final changed = reconciler.accept(
       message,
