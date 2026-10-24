@@ -187,13 +187,13 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
   if (source.isEmpty) return const [];
 
   final lines = _linesOf(source);
-  final inFence = _fenceMap(lines);
+  final excluded = _excludedLineMap(lines);
   final blocks = <PollComposerBlock>[];
 
   var index = 0;
   while (index < lines.length) {
     final line = lines[index];
-    final opening = inFence[index] ? null : _parseOpening(line.text);
+    final opening = excluded[index] ? null : _parseOpening(line.text);
     if (opening == null) {
       index++;
       continue;
@@ -204,7 +204,7 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
     _Closing? closing;
     var cursor = index + 1;
     for (; cursor < lines.length; cursor++) {
-      if (inFence[cursor]) continue;
+      if (excluded[cursor]) continue;
       final current = lines[cursor];
       if (_parseOpening(current.text) != null) {
         depth++;
@@ -262,10 +262,10 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
 /// Includes valid openers with complex raw bodies so new polls cannot collide.
 Set<String> pollNamesInComposerSource(String source) {
   final lines = _linesOf(source);
-  final inFence = _fenceMap(lines);
+  final excluded = _excludedLineMap(lines);
   final names = <String>{};
   for (var index = 0; index < lines.length; index++) {
-    if (inFence[index]) continue;
+    if (excluded[index]) continue;
     final opening = _parseOpening(lines[index].text);
     if (opening == null) continue;
     names.add(_attributeValue(opening.attributes, 'name') ?? 'poll');
@@ -332,6 +332,53 @@ final RegExp _closingPattern = RegExp(
 );
 final RegExp _leadingHorizontalSpacePattern = RegExp(r'^[ \t]');
 final RegExp _fenceOpeningPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
+final RegExp _commentOpeningPattern = RegExp(r'^ {0,3}<!--');
+
+enum _BbcodeBlock { code, quote }
+
+final RegExp _bbcodeClosingPattern = RegExp(
+  r'^ {0,3}\[/(code|quote)\]\s*$',
+  caseSensitive: false,
+);
+const _bbcodeQuotationPairs = [
+  '""',
+  "''",
+  '«»',
+  '“”',
+  '””',
+  '‘’',
+  '„“',
+  '‚’',
+  '‹›',
+];
+final String _bbcodeQuotedValuePattern = [
+  for (final pair in _bbcodeQuotationPairs)
+    '${RegExp.escape(pair[0])}[^${RegExp.escape(pair[1])}]+${RegExp.escape(pair[1])}',
+].join('|');
+final RegExp _bbcodeOpeningPattern = RegExp(
+  r'^ {0,3}\[(?=(code|quote)(?:[=\s\]]))'
+  '(?:(?:[-\\w]+(?:=(?:$_bbcodeQuotedValuePattern|[^\\s\\]]+))?)+\\s*)+',
+  caseSensitive: false,
+);
+final RegExp _legacyQuoteOpeningPattern = RegExp(
+  '^ {0,3}\\[quote=(\\s*[^${RegExp.escape(_bbcodeQuotationPairs.join())}].+?)\\]',
+  caseSensitive: false,
+);
+
+_BbcodeBlock? _bbcodeBlockOpening(String line) {
+  final legacyQuote = _legacyQuoteOpeningPattern.firstMatch(line);
+  if (legacyQuote != null && line.substring(legacyQuote.end).trim().isEmpty) {
+    return _BbcodeBlock.quote;
+  }
+  final opening = _bbcodeOpeningPattern.firstMatch(line);
+  if (opening == null ||
+      opening.end == line.length ||
+      line[opening.end] != ']' ||
+      line.substring(opening.end + 1).trim().isNotEmpty) {
+    return null;
+  }
+  return _BbcodeBlock.values.byName(opening.group(1)!.toLowerCase());
+}
 
 class _Opening {
   const _Opening({
@@ -532,27 +579,72 @@ List<_SourceLine> _linesOf(String source) {
   return lines;
 }
 
-List<bool> _fenceMap(List<_SourceLine> lines) {
-  final result = List<bool>.filled(lines.length, false);
-  String? marker;
-  var minimumLength = 0;
+List<bool> _excludedLineMap(List<_SourceLine> lines) {
+  final starts = {for (final tag in _BbcodeBlock.values) tag: <int>[]};
+  final ends = {for (final tag in _BbcodeBlock.values) tag: <int, int>{}};
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index].text;
-    if (marker != null) {
-      result[index] = true;
-      final close = RegExp(
-        '^ {0,3}${RegExp.escape(marker)}{$minimumLength,}[ \\t]*\$',
-      ).hasMatch(line);
-      if (close) marker = null;
+    final opening = _bbcodeBlockOpening(line);
+    if (opening != null) {
+      starts[opening]!.add(index);
+      continue;
+    }
+    final closing = _bbcodeClosingPattern.firstMatch(line);
+    if (closing == null) continue;
+    final tag = _BbcodeBlock.values.byName(closing.group(1)!.toLowerCase());
+    if (starts[tag]!.isNotEmpty) {
+      ends[tag]![starts[tag]!.removeLast()] = index;
+    }
+  }
+
+  final result = List<bool>.filled(lines.length, false);
+  final quoteEnds = <int>[];
+  for (var index = 0; index < lines.length; index++) {
+    while (quoteEnds.isNotEmpty && index >= quoteEnds.last) {
+      quoteEnds.removeLast();
+    }
+    final limit = quoteEnds.isEmpty ? lines.length : quoteEnds.last;
+    final line = lines[index].text;
+    final codeEnd = ends[_BbcodeBlock.code]![index];
+    if (codeEnd != null && codeEnd < limit) {
+      result.fillRange(index, codeEnd + 1, true);
+      index = codeEnd;
+      continue;
+    }
+
+    if (_commentOpeningPattern.hasMatch(line)) {
+      var end = index;
+      while (end < limit && !lines[end].text.contains('-->')) {
+        end++;
+      }
+      if (end == limit) {
+        result.fillRange(index, lines.length, true);
+        break;
+      }
+      result.fillRange(index, end + 1, true);
+      index = end;
+      continue;
+    }
+
+    final quoteEnd = ends[_BbcodeBlock.quote]![index];
+    if (quoteEnd != null && quoteEnd < limit) {
+      quoteEnds.add(quoteEnd);
       continue;
     }
 
     final open = _fenceOpeningPattern.firstMatch(line);
     if (open == null) continue;
     final run = open.group(1)!;
-    marker = run[0];
-    minimumLength = run.length;
-    result[index] = true;
+    final close = RegExp(
+      '^ {0,3}${RegExp.escape(run[0])}{${run.length},}[ \\t]*\$',
+    );
+    var end = index + 1;
+    while (end < limit && !close.hasMatch(lines[end].text)) {
+      end++;
+    }
+    if (end == limit) end--;
+    result.fillRange(index, end + 1, true);
+    index = end;
   }
   return result;
 }

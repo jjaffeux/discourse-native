@@ -145,6 +145,9 @@ void main() {
         ('[quote]', '[/quote]'),
         ('[code]', ''),
         ('[code] trailing', '[/code]'),
+        ('[code=]', '[/code]'),
+        ('[code foo=]', '[/code]'),
+        ('[code ] trailing', '[/code]'),
         ('[code]', '[/code] trailing'),
         ('before <!--', '-->'),
         ('    <!--', '-->'),
@@ -168,6 +171,17 @@ void main() {
           ('<!--', '-->', false),
           ('<!--', '', false),
           ('[quote]', '[/quote]', true),
+          ('[quote]\n[code]', '[/quote]\n[/code]', true),
+          ('[quote=Sam, post:1, topic:2]\n[code]', '[/quote]\n[/code]', true),
+          ('[quote]\n<!--\n[/quote]', '-->', false),
+          ('[quote]\n<!--\n[/quote]\n-->', '', false),
+          ('[quote]\n<!--\n-->\n[/quote]', '', true),
+          ('[quote]\n```\n[/quote]', '', true),
+          ('[code=]', '[/code]', true),
+          ('[code foo=]', '[/code]', true),
+          ('[code ] trailing', '[/code]', true),
+          ('[code lang=“a b”]', '[/code]', false),
+          ('[code]\n[code]', '[/code]', false),
           ('[code]', '', true),
           ('before <!--', '-->', true),
           ('<!-->', '', true),
@@ -201,6 +215,32 @@ void main() {
         }
       },
     );
+
+    test('preserves active polls at quote boundaries', () {
+      const poll = '[poll name=live]\n* A\n* B\n[/poll]';
+      for (final quote in const [
+        '[quote]',
+        '[quote="a user"]',
+        '[quote=Sam, post:1, topic:2]',
+      ]) {
+        for (final source in [
+          '$quote\n[code]\n$poll\n[/quote]\n[/code]',
+          '$quote\n<!--\n-->\n[/quote]\n$poll',
+          '$quote\n```\n[/quote]\n$poll',
+        ]) {
+          final block = parsePollComposerBlocks(source).single;
+          expect(block.source, poll, reason: source);
+          expect(block.start, source.indexOf(poll), reason: source);
+          expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+        }
+      }
+    });
+
+    test('leaves a long malformed code opener literal', () {
+      final source = '[code ${'a' * 100}!]\n[poll]\n* A\n* B\n[/poll]\n[/code]';
+      expect(parsePollComposerBlocks(source).single.name, 'poll');
+      expect(nextPollName(source), 'poll2');
+    });
 
     test('an unmatched outer poll does not project an apparent inner poll', () {
       const source =
