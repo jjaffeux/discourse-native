@@ -143,7 +143,7 @@ final class _VoiceCallManager {
 
     bool clearImmediately = false,
   }) {
-    controller._retireIncomingAnswer();
+    controller._incoming.retireAnswer();
     final session = current;
     return session?.close(
           notifyServer: notifyServer,

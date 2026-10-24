@@ -1,0 +1,366 @@
+import 'dart:async';
+
+import '../../plugin_api/live_channels.dart';
+import 'voice_callkit.dart';
+import 'voice_models.dart';
+
+/// A resolved incoming call, still owned by the account and answer that
+/// requested it. UI continuations must recheck [isCurrent] after awaiting or
+/// invoking navigation callbacks before joining.
+final class VoiceIncomingCallAcceptance {
+  VoiceIncomingCallAcceptance._(this.siteUrl, this.room, this._isCurrent);
+
+  final String siteUrl;
+  final VoiceRoom room;
+  final bool Function() _isCurrent;
+
+  bool get isCurrent => _isCurrent();
+}
+
+sealed class _VoiceIncomingAdmission {}
+
+enum _VoiceIncomingPresentation { pending, local, system }
+
+final class _VoiceIncomingRing extends _VoiceIncomingAdmission {
+  _VoiceIncomingRing(this.siteUrl, this.call);
+
+  final String siteUrl;
+  final VoiceIncomingCall call;
+  Timer? expiry;
+  _VoiceIncomingPresentation presentation = _VoiceIncomingPresentation.pending;
+
+  bool get presented => presentation == _VoiceIncomingPresentation.system;
+}
+
+final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
+  _VoiceIncomingAnswer({
+    required this.siteUrl,
+    required this.call,
+    required this.presented,
+    required this.isCurrent,
+  });
+
+  final String siteUrl;
+  final VoiceIncomingCall call;
+  final bool presented;
+  final bool Function() isCurrent;
+}
+
+/// Account-scoped resolution and attribution remain with the room directory.
+abstract interface class VoiceIncomingRooms {
+  bool Function() captureAccount(String siteUrl);
+  Future<VoiceRoom?> resolve(
+    String siteUrl,
+    String slug, {
+    required bool Function() ifCurrent,
+  });
+  void rememberCaller(String siteUrl, VoiceIncomingCall call);
+}
+
+/// The media owner remains authoritative for both pending and active joins.
+abstract interface class VoiceIncomingJoins {
+  Object? get admissionIdentity;
+  bool get hasCallOrPendingJoin;
+  bool isInRoom(String siteUrl, int roomId);
+  Future<void> join(
+    VoiceIncomingCallAcceptance acceptance, {
+    required String siteName,
+  });
+}
+
+abstract interface class VoiceIncomingNavigation {
+  /// Opens the accepted room and reports privacy policy under its original lease.
+  /// Returns null when a callback or asynchronous read retires the acceptance.
+  FutureOr<String?> prepare(VoiceIncomingCallAcceptance acceptance);
+}
+
+/// Optional cancellation boundary for a Voice message-bus adapter whose
+/// native teardown is asynchronous.
+abstract interface class VoiceAwaitableSubscriptionTeardown {
+  Future<void> cancelAndWait();
+}
+
+final class VoiceIncomingCalls {
+  VoiceIncomingCalls({
+    required this.rooms,
+    required this.joins,
+    required this.navigation,
+    required this.systemCall,
+    required this.onChanged,
+    required this.clock,
+    required this.timerFactory,
+  });
+
+  final VoiceIncomingRooms rooms;
+  final VoiceIncomingJoins joins;
+  final VoiceIncomingNavigation navigation;
+  final VoiceSystemCall systemCall;
+  final void Function() onChanged;
+  final DateTime Function() clock;
+  final Timer Function(Duration, void Function()) timerFactory;
+  final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
+  final Set<String> _handledRings = {};
+  _VoiceIncomingAdmission? _incomingAdmission;
+  bool _closed = false;
+  Future<void>? _closeOperation;
+
+  _VoiceIncomingRing? get _ringingCall => switch (_incomingAdmission) {
+    _VoiceIncomingRing ring => ring,
+    _ => null,
+  };
+  VoiceIncomingCall? get call => _ringingCall?.call;
+  String? get siteUrl => _ringingCall?.siteUrl;
+  bool get handledBySystem => _ringingCall?.presented ?? false;
+
+  bool attach(String siteUrl, int? userId, PluginLiveChannelHandle tracker) {
+    if (_closed || userId == null || _ringSubscriptions.containsKey(siteUrl)) {
+      return false;
+    }
+    _ringSubscriptions[siteUrl] = tracker.subscribe(
+      '/voice/call-ring/$userId',
+      (data, _) => _onRingEvent(siteUrl, data),
+    );
+    return true;
+  }
+
+  void detach(String siteUrl) {
+    _ringSubscriptions.remove(siteUrl)?.cancel();
+    if (_ringingCall?.siteUrl == siteUrl) {
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    }
+  }
+
+  /// Takes the ringing call: the room is resolved (and held) so the caller
+  /// can open and join it. Joining through the invite ref credits the
+  /// caller, the same as joining from the notification link.
+  Future<VoiceIncomingCallAcceptance?> accept({bool fromSystem = false}) async {
+    final answer = _takeIncomingCall();
+    if (answer == null) return null;
+    return _acceptIncomingCall(answer, fromSystem: fromSystem);
+  }
+
+  _VoiceIncomingAnswer? _takeIncomingCall() {
+    final incoming = _ringingCall;
+    if (_closed || incoming == null) return null;
+    final accountIsCurrent = rooms.captureAccount(incoming.siteUrl);
+    final joinTail = joins.admissionIdentity;
+    late final _VoiceIncomingAnswer answer;
+    answer = _VoiceIncomingAnswer(
+      siteUrl: incoming.siteUrl,
+      call: incoming.call,
+      presented: incoming.presented,
+      isCurrent: () =>
+          identical(_incomingAdmission, answer) &&
+          identical(joins.admissionIdentity, joinTail) &&
+          !_closed &&
+          accountIsCurrent(),
+    );
+    incoming.expiry?.cancel();
+    _incomingAdmission = answer;
+    return answer;
+  }
+
+  Future<VoiceIncomingCallAcceptance?> _acceptIncomingCall(
+    _VoiceIncomingAnswer answer, {
+    required bool fromSystem,
+  }) async {
+    if (!answer.isCurrent()) return null;
+    if (answer.presented && !fromSystem) {
+      // The system is still ringing; its call becomes the active one so the
+      // join below does not place a second call.
+      await _runHandled(systemCall.answerIncomingCall);
+    }
+    if (!answer.isCurrent()) return null;
+    final room = await rooms.resolve(
+      answer.siteUrl,
+      answer.call.roomSlug,
+      ifCurrent: answer.isCurrent,
+    );
+    if (room == null || !answer.isCurrent()) return null;
+    rooms.rememberCaller(answer.siteUrl, answer.call);
+    return VoiceIncomingCallAcceptance._(
+      answer.siteUrl,
+      room,
+      answer.isCurrent,
+    );
+  }
+
+  void decline({bool fromSystem = false}) {
+    final incoming = _ringingCall;
+    if (incoming == null) return;
+    final presented = incoming.presented;
+
+    _clearIncomingCall();
+    if (presented && !fromSystem) {
+      _observe(systemCall.declineIncomingCall);
+    }
+    onChanged();
+  }
+
+  void _clearIncomingCall({VoiceIncomingCallEndReason? tellSystem}) {
+    final incoming = _ringingCall;
+    if (incoming == null) return;
+    incoming.expiry?.cancel();
+    _incomingAdmission = null;
+    if (incoming.presented && tellSystem != null) {
+      _observe(() => systemCall.endIncomingCall(tellSystem));
+    }
+  }
+
+  void retireAnswer() {
+    if (_incomingAdmission is _VoiceIncomingAnswer) _incomingAdmission = null;
+  }
+
+  void roomJoined(String siteUrl, int roomId) {
+    final incoming = _ringingCall;
+    if (incoming?.siteUrl == siteUrl && incoming?.call.roomId == roomId) {
+      _clearIncomingCall(
+        tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
+      );
+    }
+  }
+
+  /// A ring the system may present too: the phone rings with the system
+  /// ringtone and on the lock screen, and answering or declining there
+  /// comes back as a system action. When the system declines to (no
+  /// system call UI on this platform, a call already up, the ring already
+  /// over), the app's own banner stays.
+  Future<void> _presentIncomingCall(_VoiceIncomingRing incoming) async {
+    final call = incoming.call;
+    final caller = call.caller;
+    final presented = await _runHandledValue(
+      () => systemCall.reportIncomingCall(
+        callerName: caller.name ?? caller.username,
+        roomName: call.roomName,
+        handle: caller.username,
+      ),
+
+      fallback: false,
+    );
+    if (_closed) return;
+    if (!identical(_incomingAdmission, incoming)) {
+      if (presented) {
+        _observe(
+          () =>
+              systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
+        );
+      }
+      return;
+    }
+
+    incoming.presentation = presented
+        ? _VoiceIncomingPresentation.system
+        : _VoiceIncomingPresentation.local;
+    if (presented) {
+      onChanged();
+    }
+  }
+
+  /// The user answered from the system's call UI. There is no app surface
+  /// to ask anything on (the app may be behind the lock screen), so the
+  /// join proceeds directly; a peer-to-peer privacy warning the site would
+  /// have shown before a join is said afterwards instead.
+  Future<void> answerFromSystem() async {
+    // CallKit can echo a local answer or deliver its action more than once.
+    // Once taken, that answer alone owns resolution and failure handling.
+    if (_closed ||
+        (_ringingCall == null &&
+            (_incomingAdmission is _VoiceIncomingAnswer ||
+                joins.hasCallOrPendingJoin))) {
+      return;
+    }
+    final answer = _takeIncomingCall();
+    final accepted = answer == null
+        ? null
+        : await _acceptIncomingCall(answer, fromSystem: true);
+    bool isCurrent() =>
+        answer?.isCurrent() ??
+        (!_closed && _incomingAdmission == null && !joins.hasCallOrPendingJoin);
+    if (!isCurrent()) return;
+    if (accepted == null) {
+      if (!isCurrent()) return;
+      await _runHandled(systemCall.failed);
+      return;
+    }
+    final preparation = navigation.prepare(accepted);
+    final siteName = preparation is Future<String?>
+        ? await preparation
+        : preparation;
+    if (siteName == null || !isCurrent()) return;
+    await joins.join(accepted, siteName: siteName);
+  }
+
+  void _onRingEvent(String siteUrl, Object? data) {
+    if (_closed || data is! Map<String, dynamic>) return;
+    final call = VoiceIncomingCall.fromJson(data);
+    if (call == null) return;
+    final now = clock();
+    final remaining = call.remainingAt(now);
+
+    if (remaining <= Duration.zero) return;
+    if (joins.isInRoom(siteUrl, call.roomId)) {
+      return;
+    }
+    if (!_handledRings.add(call.key)) return;
+    if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
+    retireAnswer();
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    final incoming = _VoiceIncomingRing(siteUrl, call);
+    _incomingAdmission = incoming;
+    incoming.expiry = timerFactory(remaining, () {
+      if (!identical(_incomingAdmission, incoming)) return;
+
+      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+      if (!_closed) onChanged();
+    });
+    onChanged();
+    unawaited(_presentIncomingCall(incoming));
+  }
+
+  Future<void> close() {
+    if (_closeOperation case final operation?) return operation;
+    final completion = Completer<void>();
+    _closeOperation = completion.future;
+    _closed = true;
+    final subscriptions = _ringSubscriptions.values.toList();
+    _ringSubscriptions.clear();
+    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    unawaited(
+      Future.wait([
+        for (final subscription in subscriptions)
+          _cancelSubscription(subscription),
+      ]).then((_) => completion.complete(), onError: completion.completeError),
+    );
+    return completion.future;
+  }
+
+  Future<void> _cancelSubscription(
+    PluginLiveChannelSubscription subscription,
+  ) => _runHandled(() async {
+    if (subscription case final VoiceAwaitableSubscriptionTeardown value) {
+      await value.cancelAndWait();
+    } else {
+      subscription.cancel();
+    }
+  });
+
+  void _observe(Future<void> Function() action) =>
+      unawaited(_runHandled(action));
+
+  Future<void> _runHandled(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {}
+  }
+
+  Future<T> _runHandledValue<T>(
+    Future<T> Function() action, {
+    required T fallback,
+  }) async {
+    try {
+      return await action();
+    } catch (_) {
+      return fallback;
+    }
+  }
+}

@@ -288,7 +288,7 @@ final class _VoiceCallSession {
       }
       _mediaViewSeen = VoiceController._mediaView(media);
       media.addListener(_mediaChanged);
-      controller._incomingRoomJoined(siteUrl, room.id);
+      controller._incoming.roomJoined(siteUrl, room.id);
       final roomResponse = controller
           ._roomDirectory(siteUrl)
           .acceptWrite(response.room);
@@ -1227,7 +1227,7 @@ final class _VoiceCallSession {
 
     bool clearImmediately = false,
   }) {
-    controller._retireIncomingAnswer();
+    controller._incoming.retireAnswer();
     final active = _leaveOperation;
     final call = _call;
     if (active != null) {
