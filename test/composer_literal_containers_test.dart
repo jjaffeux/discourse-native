@@ -222,8 +222,8 @@ void main() {
           expect(images.single.start, source.indexOf(active));
           expect(images.single.source, active);
           final containers = ComposerLiteralContainers(source);
-          expect(containers.contains(source.indexOf(literal)), isTrue);
-          expect(containers.containsBlock(source.indexOf(literal)), isFalse);
+          expect(containers.contains(prefix.length), isTrue);
+          expect(containers.containsBlock(prefix.length), isFalse);
         },
       );
     }
@@ -296,6 +296,8 @@ void main() {
     ('quote separator', '> prose\n>\n', '>     ', '\n\n'),
     ('heading', '# Heading\n', '    ', '\n'),
     ('thematic break', '---\n', '    ', '\n'),
+    ('spaced star break', '* * *\n', '    ', '\n'),
+    ('spaced dash break', '- - -\n', '    ', '\n'),
     ('closed fence', '```\ncode\n```\n', '    ', '\n'),
     ('closed comment', '<!-- closed -->\n', '    ', '\n'),
     ('closed BBCode', '[code]code[/code]\n', '    ', '\n'),
