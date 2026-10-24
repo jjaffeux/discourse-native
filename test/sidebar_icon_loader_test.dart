@@ -6,10 +6,14 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/api_credentials.dart';
+import 'package:discourse_native/src/data/custom_sidebar_sections.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
+import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/sidebar_icon_loader.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/plugin_api/plugin_icon_catalog.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -46,6 +50,7 @@ String _fixture(String name) =>
 
 void main() {
   sidebarArtworkReuseTests();
+  signedInArtworkTests();
   test(
     'loads solid, regular, brand, custom and composite sidebar icons',
     () async {
@@ -289,10 +294,10 @@ void main() {
     ];
     final api = DiscourseApi(
       client: MockClient((request) async {
-        if (request.url.path == '/site.json') {
+        if (request.url.path == '/sidebar_sections.json') {
           return http.Response(
             jsonEncode({
-              'anonymous_sidebar_sections': [_section(names)],
+              'sidebar_sections': [_section(names)],
             }),
             200,
           );
@@ -305,9 +310,22 @@ void main() {
       }),
     );
     addTearDown(api.close);
-    final section = (await tester.runAsync(
-      () => api.customSidebarSections(siteUrl: 'https://forum.example'),
-    ))!.single;
+    const instance = DiscourseInstance(
+      url: 'https://forum.example',
+      title: 'Forum',
+      user: DiscourseUser(id: 7, username: 'reader'),
+    );
+    final owner = CustomSidebarSections(
+      api: api,
+      credentials: const _SignedInCredentials(),
+      lifecycle: SiteLifecycle(),
+      instanceFor: (_) => instance,
+      selectedSite: () => instance.url,
+      onChanged: () {},
+    );
+    addTearDown(owner.dispose);
+    await tester.runAsync(() => owner.ensure(instance.url));
+    final section = owner.customFor(instance.url).single;
     String? selected;
 
     for (final brightness in Brightness.values) {
@@ -645,4 +663,140 @@ final class _SignedInCredentials implements ApiCredentialReader {
 
   @override
   Future<String> clientId() async => 'client';
+}
+
+Future<AccountRequestCredentials> _signedIn(SiteLifecycle lifecycle) =>
+    AccountRequestSession(
+      'https://forum.example',
+      lifecycle.capture('https://forum.example'),
+    ).credentials(const _SignedInCredentials());
+
+void signedInArtworkTests() {
+  for (final offOrigin in [false, true]) {
+    test(
+      'signed-in artwork ${offOrigin ? 'rejects off-origin' : 'follows same-origin'} redirects anonymously',
+      () async {
+        final requests = <http.Request>[];
+        var redirect = true;
+        final loader = _artworkLoader((request) async {
+          requests.add(request);
+          if (redirect && request.url.path.endsWith('theme-logo.svg')) {
+            return http.Response(
+              '',
+              302,
+              headers: {
+                'location': offOrigin
+                    ? 'https://other.example/icon.svg'
+                    : '/redirected.svg',
+              },
+            );
+          }
+          return http.Response(_customSvg, 200);
+        });
+        final credentials = await _signedIn(SiteLifecycle());
+        final first = await credentials.run(
+          () => _loadArtwork(loader, 'theme-logo'),
+        );
+        expect(first.name, offOrigin ? 'link' : 'theme-logo');
+        expect(requests, hasLength(offOrigin ? 1 : 2));
+        expect(requests.every((r) => r.url.host == 'forum.example'), isTrue);
+        for (final request in requests) {
+          expect(request.headers['User-Api-Key'], isNull);
+          expect(request.headers['User-Api-Client-Id'], isNull);
+        }
+        redirect = false;
+        final recovered = await credentials.run(
+          () => _loadArtwork(loader, 'theme-logo'),
+        );
+        expect(recovered.name, 'theme-logo');
+        final cached = await credentials.run(
+          () => _loadArtwork(loader, 'theme-logo'),
+        );
+        expect(cached, same(recovered));
+        expect(requests, hasLength(2));
+      },
+    );
+  }
+
+  for (final dependency in [false, true]) {
+    test(
+      'retired ${dependency ? 'dependency' : 'artwork'} cannot populate replacement account cache',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final oldResponse = Completer<http.Response>();
+        var pendingRequests = 0;
+        final name = dependency ? 'table-cells-plus' : 'theme-logo';
+        final loader = _artworkLoader((request) async {
+          final requested = _requestedArtwork(request);
+          if (dependency && requested != 'plus') {
+            return http.Response(_fixture(requested), 200);
+          }
+          pendingRequests++;
+          if (pendingRequests == 1) return oldResponse.future;
+          return http.Response(dependency ? _fixture('plus') : _customSvg, 200);
+        });
+        final oldCredentials = await _signedIn(lifecycle);
+        final retired = oldCredentials.run(() => _loadArtwork(loader, name));
+        await pumpEventQueue();
+        expect(pendingRequests, 1);
+        lifecycle.invalidate('https://forum.example');
+        final replacement = await _signedIn(lifecycle);
+        final current = replacement.run(() => _loadArtwork(loader, name));
+        expect((await retired).name, 'link');
+        final icon = await current;
+        expect(icon.name, name);
+        expect(pendingRequests, 2);
+        oldResponse.complete(
+          http.Response('<svg><path id="stale"/></svg>', 200),
+        );
+        await pumpEventQueue();
+        final cached = await replacement.run(() => _loadArtwork(loader, name));
+        expect(cached, same(icon));
+        expect(cached.svg, isNot(contains('stale')));
+        expect(pendingRequests, 2);
+      },
+    );
+  }
+
+  test(
+    'retirement before queued artwork admission never dispatches SVG',
+    () async {
+      var requests = 0;
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((request) async {
+            requests++;
+            return http.Response(_customSvg, 200);
+          }),
+        ),
+        const Duration(seconds: 5),
+        4096,
+        maxConcurrentPerOrigin: 1,
+      );
+      addTearDown(transport.close);
+      final blocker = Completer<http.Response>();
+      final occupied = transport.coordinator.run(
+        Uri.parse('https://forum.example'),
+        () => blocker.future,
+      );
+      final loader = SidebarIconLoader(transport, const CoreIconNameDecoder());
+      final lifecycle = SiteLifecycle();
+      final credentials = await _signedIn(lifecycle);
+      final loading = credentials.run(() => _loadArtwork(loader, 'theme-logo'));
+      await pumpEventQueue();
+      expect(requests, 0);
+      lifecycle.invalidate('https://forum.example');
+      expect((await loading).name, 'link');
+      blocker.complete(http.Response('{}', 200));
+      await occupied;
+      await pumpEventQueue();
+      expect(requests, 0);
+      final replacement = await _signedIn(lifecycle);
+      expect(
+        (await replacement.run(() => _loadArtwork(loader, 'theme-logo'))).name,
+        'theme-logo',
+      );
+      expect(requests, 1);
+    },
+  );
 }

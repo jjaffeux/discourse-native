@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/custom_sidebar_sections.dart';
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -193,6 +196,73 @@ final class _Harness {
 
 void main() {
   group('custom sidebar loads', () {
+    test(
+      'signed-in production owner publishes anonymous custom artwork',
+      () async {
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            if (request.url.path.endsWith('/sidebar_sections.json')) {
+              return http.Response(
+                jsonEncode({
+                  'sidebar_sections': [
+                    {
+                      'id': 9,
+                      'title': 'Projects',
+                      'links': [
+                        {
+                          'id': 11,
+                          'name': 'Project',
+                          'value': '/project',
+                          'icon': 'theme-logo',
+                        },
+                      ],
+                    },
+                  ],
+                }),
+                200,
+              );
+            }
+            return http.Response(
+              '<svg viewBox="0 0 16 16"><path d="M0 16L8 0L16 16Z"/></svg>',
+              200,
+            );
+          }),
+        );
+        addTearDown(api.close);
+        const instance = DiscourseInstance(
+          url: _site,
+          title: 'Forum',
+          user: DiscourseUser(id: 7, username: 'reader'),
+        );
+        var changes = 0;
+        final owner = CustomSidebarSections(
+          api: api,
+          credentials: _Credentials(),
+          lifecycle: SiteLifecycle(),
+          instanceFor: (_) => instance,
+          selectedSite: () => _site,
+          onChanged: () => changes++,
+        );
+        addTearDown(owner.dispose);
+        await owner.ensure(_site);
+        final link = owner.customFor(_site).single.destinations.single;
+        expect(link.url, '/project');
+        expect(link.icon.name, 'theme-logo');
+        expect(link.icon.svg, contains('M0 16L8 0L16 16Z'));
+        expect(changes, 1);
+        expect(requests, hasLength(2));
+        expect(requests.first.headers['User-Api-Key'], 'key');
+        expect(requests.first.headers['User-Api-Client-Id'], 'client');
+        expect(
+          requests.last.url.path,
+          '/discuss/svg-sprite/forum.example/icon/theme-logo.svg',
+        );
+        expect(requests.last.headers['User-Api-Key'], isNull);
+        expect(requests.last.headers['User-Api-Client-Id'], isNull);
+      },
+    );
     test(
       'retirement observers cannot read the retired account snapshot',
       () async {

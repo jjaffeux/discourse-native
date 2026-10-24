@@ -76,6 +76,9 @@ final class AccountRequestScope {
   final AccountRequestCredentials _credentials;
   final Completer<void> _retired = Completer<void>();
 
+  Future<T> runAnonymous<T>(Future<T> Function() operation) =>
+      _credentials._session.anonymousCredentials().run(operation);
+
   Future<void> get retired => _retired.future;
   Object get session => _credentials._session.lease.session;
   bool get isCurrent => _credentials._session.lease.isCurrent;

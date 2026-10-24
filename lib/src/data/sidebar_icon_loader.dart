@@ -1,9 +1,11 @@
+import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
 import '../models/json.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_icon_catalog.dart';
 import '../theme/d_icon.dart';
+import 'account_request_session.dart';
 import 'discourse_transport.dart';
 
 /// Supplements bundled icons with the forum's complete SVG catalogue.
@@ -171,11 +173,12 @@ final class SidebarIconLoader {
       _removeSource(url);
     }
     // This endpoint is public, including on login-required forums.
-    final response = await _transport.get(
-      url,
-      siteUrl: siteUrl,
-      accept: 'image/svg+xml',
-    );
+    final scope = AccountRequestScope.current;
+    Future<http.Response> fetch() =>
+        _transport.get(url, siteUrl: siteUrl, accept: 'image/svg+xml');
+    final response = await (scope == null
+        ? fetch()
+        : scope.runAnonymous(fetch));
     final source = response.body;
     final root = XmlDocument.parse(source).childElements.singleOrNull;
     if (root == null ||

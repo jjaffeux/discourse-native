@@ -116,6 +116,53 @@ void main() {
     },
   );
 
+  test(
+    'derived anonymous scopes retain the account and restore credentials',
+    () async {
+      final fixture = _Fixture();
+      addTearDown(fixture.api.close);
+      final snapshot = await AccountRequestSession(
+        _site,
+        fixture.lifecycle.capture(_site),
+      ).credentials(_Credentials()..client = 'client');
+      await snapshot.run(() async {
+        final parent = AccountRequestScope.current!;
+        await parent.runAnonymous(() async {
+          final child = AccountRequestScope.current!;
+          expect(child.session, same(parent.session));
+          child.validate(_site, null, null);
+          expect(
+            () => child.validate(_site, 'secret', 'client'),
+            throwsStateError,
+          );
+          expect(
+            () => child.validateRequest(
+              Uri.parse('https://other.example/icon.svg'),
+              {},
+            ),
+            throwsStateError,
+          );
+          await Future<void>.value();
+          expect(AccountRequestScope.current, same(child));
+        });
+        expect(AccountRequestScope.current, same(parent));
+        parent.validate(_site, 'secret', 'client');
+        fixture.lifecycle.invalidate(_site);
+        var invoked = false;
+        await expectLater(
+          Future.sync(
+            () => parent.runAnonymous(() async {
+              invoked = true;
+            }),
+          ),
+          throwsA(isA<AccountRequestRetiredException>()),
+        );
+        expect(invoked, isFalse);
+      });
+      expect(AccountRequestScope.current, isNull);
+    },
+  );
+
   test('anonymous reads never access the client ID', () async {
     final lifecycle = SiteLifecycle();
     final reader = _Credentials()..key = null;
