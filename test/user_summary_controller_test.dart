@@ -136,7 +136,6 @@ void main() {
       final former = controller.load(_one);
       await pumpEventQueue();
       lifecycle.invalidate(_oneUrl);
-      controller.forget(_oneUrl);
 
       const replacement = DiscourseInstance(
         url: _oneUrl,
@@ -175,7 +174,6 @@ void main() {
       final load = controller.load(_one);
       await pumpEventQueue();
       lifecycle.invalidate(_oneUrl);
-      controller.forget(_oneUrl);
       credentials.results.single.complete('former-key');
       await load;
 
@@ -183,6 +181,88 @@ void main() {
       expect(controller.stateFor(_oneUrl).summary, isNull);
     },
   );
+
+  test(
+    'retirement hides a completed summary without explicit forgetting',
+    () async {
+      final api = _GatedSummaryApi();
+      final lifecycle = SiteLifecycle();
+      final controller = UserSummaryController(
+        api: api,
+        credentials: _ReadyKeys(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      final first = controller.load(_one);
+      await pumpEventQueue();
+      api.requests.single.result.complete(const UserSummary(daysVisited: 7));
+      await first;
+      lifecycle.invalidate(_oneUrl);
+      expect(controller.stateFor(_oneUrl).summary, isNull);
+      expect(controller.stateFor(_oneUrl).loaded, isFalse);
+
+      final replacement = controller.load(_one);
+      await pumpEventQueue();
+      expect(api.requests, hasLength(2));
+      api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+      await replacement;
+      expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+    },
+  );
+
+  test('late failure cannot release the successor request', () async {
+    final api = _GatedSummaryApi();
+    final lifecycle = SiteLifecycle();
+    final controller = UserSummaryController(
+      api: api,
+      credentials: _ReadyKeys(),
+      lifecycle: lifecycle,
+    );
+    addTearDown(controller.dispose);
+    final former = controller.load(_one);
+    await pumpEventQueue();
+    lifecycle.invalidate(_oneUrl);
+    final replacement = controller.load(_one);
+    await pumpEventQueue();
+    api.requests.first.result.completeError(StateError('old failure'));
+    await former;
+    expect(controller.stateFor(_oneUrl).loading, isTrue);
+    expect(controller.stateFor(_oneUrl).error, isNull);
+    await controller.load(_one);
+    expect(api.requests, hasLength(2));
+    api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+    await replacement;
+    expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+  });
+
+  test('an earlier retirement observer can start a successor safely', () async {
+    final api = _GatedSummaryApi();
+    final lifecycle = SiteLifecycle();
+    final controller = UserSummaryController(
+      api: api,
+      credentials: _ReadyKeys(),
+      lifecycle: lifecycle,
+    );
+    addTearDown(controller.dispose);
+    Future<void>? successor;
+    lifecycle.capture(_oneUrl).onRetire(() {
+      successor = controller.load(_one);
+    });
+    final former = controller.load(_one);
+    await pumpEventQueue();
+    lifecycle.invalidate(_oneUrl);
+    await pumpEventQueue();
+    expect(controller.stateFor(_oneUrl).loading, isTrue);
+    api.requests.first.result.complete(const UserSummary(daysVisited: 99));
+    await former;
+    expect(controller.stateFor(_oneUrl).loading, isTrue);
+    expect(controller.stateFor(_oneUrl).summary, isNull);
+    await controller.load(_one);
+    expect(api.requests, hasLength(2));
+    api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+    await successor;
+    expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
+  });
 
   test('dispose while credentials are pending sends no request', () async {
     final api = _GatedSummaryApi();

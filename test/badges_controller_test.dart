@@ -158,6 +158,99 @@ void main() {
     },
   );
 
+  test('late failure cannot release a pending successor catalog', () async {
+    final oldStarted = Completer<void>();
+    final oldReply = Completer<Map<String, dynamic>>();
+    transport.respond = (_) {
+      oldStarted.complete();
+      return oldReply.future;
+    };
+    final former = controller.load(site, directory);
+    await oldStarted.future;
+    lifecycle.invalidate(site.url);
+    final newStarted = Completer<void>();
+    final newReply = Completer<Map<String, dynamic>>();
+    transport.respond = (_) {
+      newStarted.complete();
+      return newReply.future;
+    };
+    final replacement = controller.load(site, directory);
+    await newStarted.future;
+    oldReply.completeError(StateError('old catalog'));
+    await former;
+    expect(controller.stateFor(site.url, directory).loading, isTrue);
+    expect(controller.stateFor(site.url, directory).error, isNull);
+    await controller.load(site, directory);
+    expect(transport.requests, hasLength(2));
+    newReply.complete(badgeCatalogWire);
+    await replacement;
+    expect(controller.stateFor(site.url, directory).catalog!.total, 3);
+  });
+
+  test(
+    'bounds routes and fences an evicted request for the same route',
+    () async {
+      final oldStarted = Completer<void>();
+      final oldReply = Completer<Map<String, dynamic>>();
+      transport.respond = (path) async {
+        if (path == '/badges.json?only_listable=true') {
+          oldStarted.complete();
+          return oldReply.future;
+        }
+        if (path.startsWith('/badges/')) return {'badge': badgeWire};
+        return badgeGrantsWire();
+      };
+      final former = controller.load(site, directory);
+      await oldStarted.future;
+      for (var id = 1; id <= 16; id++) {
+        await controller.load(site, BadgeRoute.detail(id));
+      }
+      expect(controller.stateFor(site.url, directory).loading, isFalse);
+      final newStarted = Completer<void>();
+      final newReply = Completer<Map<String, dynamic>>();
+      transport.respond = (_) {
+        newStarted.complete();
+        return newReply.future;
+      };
+      final replacement = controller.load(site, directory);
+      await newStarted.future;
+      oldReply.complete(badgeCatalogWire);
+      await former;
+      expect(controller.stateFor(site.url, directory).loading, isTrue);
+      final count = transport.requests.length;
+      await controller.load(site, directory);
+      expect(transport.requests.length, count);
+      newReply.complete(badgeCatalogWire);
+      await replacement;
+      expect(controller.stateFor(site.url, directory).catalog!.total, 3);
+      expect(
+        controller.stateFor(site.url, BadgeRoute.detail(1)).loaded,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'forgetting during detail publication prevents recipient loading',
+    () async {
+      transport.respond = (path) async =>
+          path == '/badges/1.json' ? {'badge': badgeWire} : badgeGrantsWire();
+      var forgotten = false;
+      controller.addListener(() {
+        if (!forgotten && controller.stateFor(site.url, detail).badge != null) {
+          forgotten = true;
+          controller.forget(site.url);
+        }
+      });
+      await controller.load(site, detail);
+      expect(forgotten, isTrue);
+      expect(controller.stateFor(site.url, detail).badge, isNull);
+      expect(transport.requests.map((request) => request.path), [
+        '/badges/1.json',
+      ]);
+    },
+  );
+
   test(
     'forgetting a forum suppresses late details and recipient requests',
     () async {

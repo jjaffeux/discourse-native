@@ -63,7 +63,6 @@ void main() {
 
     final signedOut = controller.load(instance, query: defaultQuery);
     lifecycle.invalidate(instance.url);
-    controller.forget(instance.url);
     final signedIn = controller.load(
       instance.copyWith(
         user: const DiscourseUser(username: 'admin', staff: true),
@@ -349,6 +348,96 @@ void main() {
     );
   }
 
+  test(
+    'retirement clears rows and shared metadata without forgetting',
+    () async {
+      final transport = _ControllerTransport();
+      final lifecycle = SiteLifecycle();
+      final controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      const site = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: DiscourseUser(username: 'admin', staff: true),
+      );
+      await controller.load(site, query: defaultQuery);
+      lifecycle.invalidate(site.url);
+      const otherQuery = UserDirectoryQuery(search: 'other');
+      for (final query in [defaultQuery, otherQuery]) {
+        final state = controller.stateFor(site.url, query);
+        expect(state.items, isEmpty);
+        expect(state.columns, isEmpty);
+        expect(state.groupNames, isEmpty);
+        expect(state.canManageColumns, isFalse);
+        expect(state.loaded, isFalse);
+      }
+      await controller.load(site, query: defaultQuery);
+      expect(controller.stateFor(site.url, defaultQuery).loaded, isTrue);
+      expect(
+        transport.requests.where(
+          (path) => path == '/edit-directory-columns.json',
+        ),
+        hasLength(2),
+      );
+    },
+  );
+
+  test(
+    'old metadata failure cannot release successor metadata or query',
+    () async {
+      final transport = _ControllerTransport();
+      final lifecycle = SiteLifecycle();
+      final controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      const site = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+      );
+      final oldStarted = Completer<void>();
+      final oldMetadata = Completer<Map<String, dynamic>>();
+      transport.nextColumns = () {
+        oldStarted.complete();
+        return oldMetadata.future;
+      };
+      final former = controller.load(site, query: defaultQuery);
+      await oldStarted.future;
+      lifecycle.invalidate(site.url);
+      final newStarted = Completer<void>();
+      final newMetadata = Completer<Map<String, dynamic>>();
+      transport.nextColumns = () {
+        newStarted.complete();
+        return newMetadata.future;
+      };
+      final replacement = controller.load(site, query: defaultQuery);
+      await newStarted.future;
+      oldMetadata.completeError(StateError('former metadata'));
+      await former;
+      expect(controller.stateFor(site.url, defaultQuery).loading, isTrue);
+      expect(controller.stateFor(site.url, defaultQuery).error, isNull);
+      await controller.load(site, query: defaultQuery);
+      const other = UserDirectoryQuery(search: 'other');
+      final concurrent = controller.load(site, query: other);
+      await pumpEventQueue();
+      expect(transport.requests, hasLength(2));
+      newMetadata.complete(const {
+        'directory_columns': [
+          {'id': 1, 'name': 'likes_received', 'type': 'automatic'},
+        ],
+      });
+      await Future.wait([replacement, concurrent]);
+      expect(controller.stateFor(site.url, defaultQuery).loaded, isTrue);
+      expect(controller.stateFor(site.url, other).loaded, isTrue);
+    },
+  );
+
   test('staff can load and update the complete column configuration', () async {
     final transport = _ControllerTransport();
     final controller = UserDirectoryController(
@@ -395,6 +484,108 @@ void main() {
     ]);
     expect(transport.writes.single.path, '/edit-directory-columns.json');
   });
+
+  test(
+    'retired column update cannot clear successor metadata or update ticket',
+    () async {
+      final transport = _ControllerTransport();
+      final lifecycle = SiteLifecycle();
+      final controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      const site = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: DiscourseUser(username: 'admin', staff: true),
+      );
+      await controller.load(site, query: defaultQuery);
+      final columns = controller
+          .stateFor(site.url, defaultQuery)
+          .availableColumns;
+      final oldStarted = Completer<void>();
+      final oldReply = Completer<void>();
+      transport.beforeWriteReply = () {
+        oldStarted.complete();
+        return oldReply.future;
+      };
+      final former = controller.updateColumns(
+        site,
+        columns,
+        query: defaultQuery,
+      );
+      await oldStarted.future;
+      lifecycle.invalidate(site.url);
+      expect(controller.updatingColumnsFor(site.url), isFalse);
+      await controller.load(site, query: defaultQuery);
+      final newStarted = Completer<void>();
+      final newReply = Completer<void>();
+      transport.beforeWriteReply = () {
+        newStarted.complete();
+        return newReply.future;
+      };
+      final replacement = controller.updateColumns(
+        site,
+        columns,
+        query: defaultQuery,
+      );
+      await newStarted.future;
+      oldReply.complete();
+      expect(await former, isFalse);
+      expect(controller.stateFor(site.url, defaultQuery).loaded, isTrue);
+      expect(controller.updatingColumnsFor(site.url), isTrue);
+      expect(
+        await controller.updateColumns(site, columns, query: defaultQuery),
+        isFalse,
+      );
+      expect(transport.writes, hasLength(2));
+      newReply.complete();
+      expect(await replacement, isTrue);
+      expect(controller.updatingColumnsFor(site.url), isFalse);
+    },
+  );
+
+  test(
+    'retirement during column publication prevents its follow-up load',
+    () async {
+      final transport = _ControllerTransport();
+      final lifecycle = SiteLifecycle();
+      final controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      const site = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: DiscourseUser(username: 'admin', staff: true),
+      );
+      await controller.load(site, query: defaultQuery);
+      final columns = controller
+          .stateFor(site.url, defaultQuery)
+          .availableColumns;
+      var retired = false;
+      controller.addListener(() {
+        if (!retired &&
+            controller.updatingColumnsFor(site.url) &&
+            !controller.stateFor(site.url, defaultQuery).loaded) {
+          retired = true;
+          lifecycle.invalidate(site.url);
+        }
+      });
+      final requests = transport.requests.length;
+      expect(
+        await controller.updateColumns(site, columns, query: defaultQuery),
+        isFalse,
+      );
+      expect(retired, isTrue);
+      expect(transport.requests.length, requests);
+      expect(controller.stateFor(site.url, defaultQuery).loaded, isFalse);
+    },
+  );
 
   test('forgotten metadata cannot repopulate a replacement account', () async {
     final transport = _ControllerTransport();
@@ -498,6 +689,7 @@ final class _ControllerTransport
   final Map<String, List<String>> usernamesBySearch = {};
   Future<Map<String, dynamic>> Function()? nextColumns;
   Future<void> Function(Uri uri)? beforeDirectoryReply;
+  Future<void> Function()? beforeWriteReply;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -601,6 +793,7 @@ final class _ControllerTransport
     String? clientId,
   }) async {
     writes.add((path: path, body: body));
+    await beforeWriteReply?.call();
     final configuration = body['directory_columns'];
     if (configuration is Map) {
       for (final value in configuration.values) {

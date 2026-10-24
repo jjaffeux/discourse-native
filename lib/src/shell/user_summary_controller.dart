@@ -34,6 +34,22 @@ final class UserSummaryState {
       UserSummaryState(summary: summary, loaded: true, error: message);
 }
 
+final class _SummaryAccount {
+  _SummaryAccount(this.lease);
+
+  final SiteLease lease;
+  UserSummaryState state = const UserSummaryState();
+  Object? request;
+  void Function()? detach;
+
+  void dispose() {
+    detach?.call();
+    detach = null;
+    state = const UserSummaryState();
+    request = null;
+  }
+}
+
 final class UserSummaryController extends FrameSafeNotifier {
   UserSummaryController({
     required this.api,
@@ -45,27 +61,46 @@ final class UserSummaryController extends FrameSafeNotifier {
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
 
-  final Map<String, UserSummaryState> _states = {};
-  final Map<String, Object> _requests = {};
+  final Map<String, _SummaryAccount> _accounts = {};
+
+  _SummaryAccount? _accountFor(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return account?.lease.isCurrent == true ? account : null;
+  }
+
+  _SummaryAccount _ensureAccount(String siteUrl) {
+    final held = _accountFor(siteUrl);
+    if (held != null) return held;
+    final account = _SummaryAccount(lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() {
+      final owned = identical(_accounts[siteUrl], account);
+      if (owned) _accounts.remove(siteUrl);
+      account.dispose();
+      if (owned) notifySafely();
+    });
+    return account;
+  }
 
   UserSummaryState stateFor(String? siteUrl) => siteUrl == null
       ? const UserSummaryState()
-      : _states[siteUrl] ?? const UserSummaryState();
+      : _accountFor(siteUrl)?.state ?? const UserSummaryState();
 
   Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
     if (isDisposed || !instance.isConnected) return;
     final user = instance.user;
     if (user == null) return;
     final siteUrl = instance.url;
-    final held = stateFor(siteUrl);
-    if (_requests.containsKey(siteUrl) || (!refresh && held.loaded)) return;
+    final account = _ensureAccount(siteUrl);
+    final held = account.state;
+    if (account.request != null || (!refresh && held.loaded)) return;
 
     final request = Object();
-    final lease = lifecycle.capture(siteUrl);
-    _requests[siteUrl] = request;
-    _states[siteUrl] = held.loadingNow();
+    final lease = account.lease;
+    account.request = request;
+    account.state = held.loadingNow();
     notifySafely();
-    if (!_isCurrent(lease, siteUrl, request)) return;
+    if (!_isCurrent(siteUrl, account, request)) return;
 
     try {
       final auth = await AccountRequestSession(
@@ -73,10 +108,10 @@ final class UserSummaryController extends FrameSafeNotifier {
         lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      if (!_isCurrent(lease, siteUrl, request)) return;
+      if (!_isCurrent(siteUrl, account, request)) return;
       if (apiKey == null) {
-        _commit(lease, siteUrl, request, () {
-          _states[siteUrl] = stateFor(siteUrl).withError(
+        _commit(siteUrl, account, request, () {
+          account.state = account.state.withError(
             appL10n.reconnectToToSeeYourSummary((instance.host).toString()),
           );
         });
@@ -90,42 +125,42 @@ final class UserSummaryController extends FrameSafeNotifier {
           username: user.username,
         ),
       );
-      _commit(lease, siteUrl, request, () {
-        _states[siteUrl] = stateFor(siteUrl).withSummary(summary);
+      _commit(siteUrl, account, request, () {
+        account.state = account.state.withSummary(summary);
       });
     } catch (error) {
-      if (!_isCurrent(lease, siteUrl, request)) return;
+      if (!_isCurrent(siteUrl, account, request)) return;
 
-      _commit(lease, siteUrl, request, () {
-        _states[siteUrl] = stateFor(siteUrl).withError(
+      _commit(siteUrl, account, request, () {
+        account.state = account.state.withError(
           appL10n.couldnTLoadYourSummaryFrom((instance.host).toString()),
         );
       });
     } finally {
-      if (!isDisposed && identical(_requests[siteUrl], request)) {
-        _requests.remove(siteUrl);
-      }
+      if (identical(account.request, request)) account.request = null;
     }
   }
 
   void forget(String siteUrl) {
-    var changed = _states.remove(siteUrl) != null;
-    changed = _requests.remove(siteUrl) != null || changed;
-    if (changed) notifySafely();
+    final account = _accounts.remove(siteUrl);
+    account?.dispose();
+    if (account != null) notifySafely();
   }
 
-  bool _isCurrent(SiteLease lease, String siteUrl, Object request) =>
-      !isDisposed && lease.isCurrent && identical(_requests[siteUrl], request);
+  bool _isCurrent(String siteUrl, _SummaryAccount account, Object request) =>
+      !isDisposed &&
+      account.lease.isCurrent &&
+      identical(_accounts[siteUrl], account) &&
+      identical(account.request, request);
 
   void _commit(
-    SiteLease lease,
     String siteUrl,
+    _SummaryAccount account,
     Object request,
     VoidCallback mutation,
   ) {
-    if (!_isCurrent(lease, siteUrl, request)) return;
-    lease.commit(() {
-      if (!identical(_requests[siteUrl], request)) return;
+    if (!_isCurrent(siteUrl, account, request)) return;
+    account.lease.commit(() {
       mutation();
       notifySafely();
     });
@@ -133,7 +168,10 @@ final class UserSummaryController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _requests.clear();
+    for (final account in _accounts.values) {
+      account.dispose();
+    }
+    _accounts.clear();
     super.dispose();
   }
 }
