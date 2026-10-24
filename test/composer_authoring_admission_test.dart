@@ -7,6 +7,8 @@ import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/composer_submission.dart';
+
 void main() {
   for (final state in [
     'loading',
@@ -42,6 +44,7 @@ void main() {
           case 'submitting':
             composer.beginSubmit();
           case 'checking':
+            beginTestComposerSubmission(composer);
             composer.checking();
           case 'closing':
             composer.beginClose();
@@ -110,7 +113,7 @@ void main() {
       value: 'smile',
       label: 'Smile',
     );
-    composer.beginSubmit();
+    beginTestComposerSubmission(composer);
     final before = composer.value;
     composer.acceptSuggestion(suggestion);
     expect(composer.value, before);
@@ -147,6 +150,7 @@ void main() {
           composer.beginSubmit();
           composer.failed(const WriteException(WriteFailure.conflict));
         case 'unresolved':
+          beginTestComposerSubmission(composer);
           composer.checking();
           composer.unresolved();
         case 'cancel close':

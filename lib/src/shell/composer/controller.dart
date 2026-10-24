@@ -106,6 +106,48 @@ abstract interface class ComposerSubmission {
   Object get attempt;
 }
 
+sealed class _ComposerSubmissionState {
+  const _ComposerSubmissionState();
+}
+
+final class _ComposerEditing extends _ComposerSubmissionState {
+  const _ComposerEditing();
+}
+
+sealed class _ComposerAttemptState extends _ComposerSubmissionState {
+  const _ComposerAttemptState();
+
+  Object get attempt;
+}
+
+final class _ComposerPreparing extends _ComposerAttemptState {
+  const _ComposerPreparing(this.attempt);
+
+  @override
+  final Object attempt;
+}
+
+sealed class _ComposerSentState extends _ComposerAttemptState {
+  const _ComposerSentState(this.sent);
+
+  final ComposerSubmission sent;
+
+  @override
+  Object get attempt => sent.attempt;
+}
+
+final class _ComposerSent extends _ComposerSentState {
+  const _ComposerSent(super.sent);
+}
+
+final class _ComposerChecking extends _ComposerSentState {
+  const _ComposerChecking(super.sent);
+}
+
+final class _ComposerUnresolved extends _ComposerSentState {
+  const _ComposerUnresolved(super.sent);
+}
+
 class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
     this._target, {
@@ -525,8 +567,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   int? beginDiscard() {
     if (_disposed ||
         _discarding ||
-        (_state != ComposerState.editing &&
-            _state != ComposerState.unresolved)) {
+        (state != ComposerState.editing && state != ComposerState.unresolved)) {
       return null;
     }
     _discarding = true;
@@ -718,7 +759,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       !_discarding &&
       !_closing &&
       !_loadingBody &&
-      (_state == ComposerState.editing || _state == ComposerState.unresolved);
+      (state == ComposerState.editing || state == ComposerState.unresolved);
 
   @override
   PluginData get siteSettings =>
@@ -755,12 +796,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   @override
   void requestFocus() => focus.requestFocus();
 
-  ComposerState _state = ComposerState.editing;
-  ComposerState get state => _state;
+  _ComposerSubmissionState _submissionState = const _ComposerEditing();
 
-  bool get submitting => _state == ComposerState.submitting;
+  ComposerState get state => switch (_submissionState) {
+    _ComposerEditing() => ComposerState.editing,
+    _ComposerPreparing() || _ComposerSent() => ComposerState.submitting,
+    _ComposerChecking() => ComposerState.checking,
+    _ComposerUnresolved() => ComposerState.unresolved,
+  };
 
-  bool get canRecheck => _state == ComposerState.unresolved;
+  bool get submitting => state == ComposerState.submitting;
+
+  bool get canRecheck => _submissionState is _ComposerUnresolved;
 
   WriteException? _error;
 
@@ -1602,7 +1649,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool get canSubmit =>
       _canSubmit &&
-      _state == ComposerState.editing &&
+      state == ComposerState.editing &&
       !_rateLimited &&
       !_loadingBody &&
       !_missingEditBody &&
@@ -1654,21 +1701,29 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   int draftSequence = 0;
 
-  Object? _submissionAttempt;
-  ComposerSubmission? _submission;
+  ComposerSubmission? get submission => switch (_submissionState) {
+    _ComposerSentState(:final sent) => sent,
+    _ComposerEditing() || _ComposerPreparing() => null,
+  };
 
-  ComposerSubmission? get submission => _submission;
-
-  bool ownsSubmission(Object attempt) =>
-      !_disposed && identical(_submissionAttempt, attempt);
+  bool ownsSubmission(Object attempt) {
+    final current = _submissionState;
+    return !_disposed &&
+        current is _ComposerAttemptState &&
+        identical(current.attempt, attempt);
+  }
 
   void retainSubmission(ComposerSubmission submission) {
-    if (ownsSubmission(submission.attempt)) _submission = submission;
+    if (_disposed) return;
+    if (_submissionState case _ComposerPreparing(
+      :final attempt,
+    ) when identical(attempt, submission.attempt)) {
+      _submissionState = _ComposerSent(submission);
+    }
   }
 
   void _retireSubmission() {
-    _submissionAttempt = null;
-    _submission = null;
+    _submissionState = const _ComposerEditing();
   }
 
   Timer? _draftTimer;
@@ -1767,8 +1822,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Future<void> flushDraftOnBackground() {
     if (!(_draftTimer?.isActive ?? false) ||
         _discarding ||
-        (_state != ComposerState.editing &&
-            _state != ComposerState.unresolved)) {
+        (state != ComposerState.editing && state != ComposerState.unresolved)) {
       return Future.value();
     }
     // Queued revisions are already staged locally. Enqueuing them again
@@ -1805,8 +1859,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // the draft it is about to turn into a post.
     if (onSaveDraft == null ||
         _disposed ||
-        (_state != ComposerState.editing &&
-            _state != ComposerState.unresolved)) {
+        (state != ComposerState.editing && state != ComposerState.unresolved)) {
       return;
     }
     _draftTimer?.cancel();
@@ -1949,7 +2002,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }) {
     // A submit already out was built from the target as it stood; the reply
     // it will create must not change underneath it.
-    if (_disposed || _discarding || _state == ComposerState.submitting) return;
+    if (_disposed || _discarding || state == ComposerState.submitting) return;
     final target = _target;
     if (target is! ReplyComposerTarget) return;
     final next = target.replyingTo(
@@ -1979,10 +2032,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void beginSubmit({Object? attempt}) {
     if (_disposed) return;
-    _submissionAttempt = attempt ?? Object();
-    _submission = null;
+    _submissionState = _ComposerPreparing(attempt ?? Object());
     _clearTagRemovalNotice();
-    _state = ComposerState.submitting;
     _error = null;
     _notice = null;
     _notify();
@@ -1991,7 +2042,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void failed(WriteException error) {
     if (_disposed) return;
     _retireSubmission();
-    _state = ComposerState.editing;
     _error = error;
     if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryAfter);
     _notify();
@@ -1999,7 +2049,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void checking() {
     if (_disposed) return;
-    _state = ComposerState.checking;
+    final current = _submissionState;
+    if (current is! _ComposerSentState) return;
+    _submissionState = _ComposerChecking(current.sent);
     _error = null;
     _notice = appL10n.checkingWhetherThatPosted;
     _notify();
@@ -2008,7 +2060,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void checkedNotPosted(WriteException error) {
     if (_disposed) return;
     _retireSubmission();
-    _state = ComposerState.editing;
     _notice = null;
     _error = error;
     _notify();
@@ -2016,7 +2067,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void unresolved() {
     if (_disposed) return;
-    _state = ComposerState.unresolved;
+    final current = _submissionState;
+    if (current is! _ComposerSentState) return;
+    _submissionState = _ComposerUnresolved(current.sent);
     _error = null;
     _notice = appL10n.thatMayHavePostedTheSiteCouldNotBeReachedTo;
     _notify();
@@ -2041,7 +2094,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _retireSubmission();
     _clearTagRemovalNotice();
     draftSettled();
-    _state = ComposerState.editing;
     _error = null;
     _notice = message ?? appL10n.yourReplyWasSentForReviewSoItIsNotPosted;
     _replaceDocument(TextEditingValue.empty);
@@ -2067,7 +2119,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _retireSubmission();
     _clearTagRemovalNotice();
     draftSettled();
-    _state = ComposerState.editing;
     _error = null;
     _notice = null;
     // A valid caret, as TextEditingController.clear leaves it: the live input
@@ -2089,7 +2140,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed || _pluginTarget?.policy.supportsEditing != true) return;
     _clearTagRemovalNotice();
     draftSettled();
-    _state = ComposerState.editing;
+    _retireSubmission();
     _error = null;
     _notice = null;
     _uploadTransactions.replaceCompleted(uploads);

@@ -13,7 +13,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/composer_submission.dart';
+
 void main() {
+  test('plugin document replacement retires submission authority', () {
+    final composer = ComposerController(_attachmentTarget);
+    addTearDown(composer.dispose);
+    beginTestComposerSubmission(composer);
+    final sent = composer.submission!;
+
+    composer.replacePluginDocument(raw: 'Replacement', uploads: const []);
+    composer.retainSubmission(sent);
+    composer.unresolved();
+
+    expect(composer.state, ComposerState.editing);
+    expect(composer.raw, 'Replacement');
+    expect(composer.submission, isNull);
+    expect(composer.ownsSubmission(sent.attempt), isFalse);
+    expect(composer.canRecheck, isFalse);
+  });
+
   testWidgets(
     'main editor focus only notifies when leaving an embedded editor',
     (tester) async {
@@ -174,7 +193,7 @@ void main() {
 
     // While the submit is out the site may be turning this draft into a post;
     // a save now would race the site clearing it.
-    composer.beginSubmit();
+    beginTestComposerSubmission(composer);
     composer.text.text = 'Sent once. Typed while it was out.';
     await tester.pump(ComposerController.draftDebounce);
     await tester.pump();
@@ -417,6 +436,7 @@ void main() {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);
 
+    beginTestComposerSubmission(composer);
     composer.unresolved();
     expect(composer.beginDiscard(), isNotNull);
     expect(composer.discarding, isTrue);

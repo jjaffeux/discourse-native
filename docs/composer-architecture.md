@@ -180,12 +180,18 @@ admission. Accepted metadata advances its own baseline before body writing;
 body refusal does not erase that success. Unknown edit failures retain the
 existing retryable edit presentation.
 
-The editor retains one opaque `ComposerSubmission` for an uncertain create. Its
-attempt identity authorizes editor transitions without another submission phase
-machine. Refusal, positive absence, enqueue, document reset and disposal retire
-that identity and retained value. Editing or retargeting while unresolved does
-not rewrite the sent facts. Upload and authoring admission still follow the
-editor's existing state.
+The editor holds one private sealed submission value. Preparing carries an
+attempt identity without sent facts. Sent, checking and unresolved values require
+the original opaque `ComposerSubmission` and derive identity from it. The public
+`ComposerState` and UI getters derive from this value. Only matching preparation
+can retain a snapshot, so later retention cannot rewrite frozen facts. Checking
+and unresolved transitions require that snapshot; calling them before retention
+does nothing.
+
+Refusal, positive absence, enqueue, document reset and disposal retire the whole
+value. Editing or retargeting while unresolved does not rewrite the sent facts.
+Unresolved text remains editable and drafted while Send stays blocked. Upload
+and authoring admission retain their existing state policies.
 
 Account authority and editor authority are checked separately. Retiring an
 editor prevents further writes and editor mutation, but an already accepted
