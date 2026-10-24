@@ -79,7 +79,6 @@ class SiteImage extends StatefulWidget {
 class _SiteImageState extends State<SiteImage> {
   SiteImageRepository? _repository;
   SiteImageRequest? _request;
-  bool _viewportCheckScheduled = false;
   bool _tickerEnabled = true;
   bool _playbackVisible = true;
   SiteImageBytes? _bytes;
@@ -213,51 +212,40 @@ class _SiteImageState extends State<SiteImage> {
       (!_resolved && widget.viewportAware) || (_resolved && _isAnimated);
 
   void _scheduleViewportCheck() {
-    if (_viewportCheckScheduled || !_needsViewportCheck) return;
-    _viewportCheckScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewportCheckScheduled = false;
-      if (!mounted || !_needsViewportCheck) return;
-      final visible = _viewportDemand();
-      if (_resolved && _isAnimated && _playbackVisible != (visible == true)) {
-        setState(() => _playbackVisible = visible == true);
-      }
-      if (!_resolved && widget.viewportAware) {
-        if (visible == null) {
-          _releaseRequest();
-        } else if (_request case final request?) {
-          request.setVisible(visible);
-        } else {
-          _startRequest(visible: visible);
-        }
-      }
-      // Recheck ancestor-only layout changes on natural frames without
-      // requesting another frame while an image waits outside the viewport.
-      _scheduleViewportCheck();
-    });
+    if (_needsViewportCheck) _SiteImageViewportChecks.schedule(this);
   }
 
-  bool? _viewportDemand() {
+  void _checkViewport(Map<RenderObject, Rect?> viewports) {
+    if (!mounted || !_needsViewportCheck) return;
+    final visible = _viewportDemand(viewports);
+    if (_resolved && _isAnimated && _playbackVisible != (visible == true)) {
+      setState(() => _playbackVisible = visible == true);
+    }
+    if (!_resolved && widget.viewportAware) {
+      if (visible == null) {
+        _releaseRequest();
+      } else if (_request case final request?) {
+        request.setVisible(visible);
+      } else {
+        _startRequest(visible: visible);
+      }
+    }
+    _scheduleViewportCheck();
+  }
+
+  bool? _viewportDemand(Map<RenderObject, Rect?> viewports) {
     if (!_tickerEnabled) return null;
     final source = context.findRenderObject();
     if (source is! RenderBox || !source.attached || !source.hasSize) {
       return null;
     }
     final view = View.of(context);
-    var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-    RenderObject child = source;
-    for (var parent = child.parent; parent != null; parent = child.parent) {
-      if (!parent.paintsChild(child)) return null;
-      if (parent is RenderAbstractViewport && parent is RenderBox) {
-        viewport = viewport.intersect(
-          MatrixUtils.transformRect(
-            parent.getTransformTo(null),
-            parent.paintBounds,
-          ),
-        );
-      }
-      child = parent;
-    }
+    final viewport = _SiteImageViewportChecks.viewportAbove(
+      source,
+      Offset.zero & (view.physicalSize / view.devicePixelRatio),
+      viewports,
+    );
+    if (viewport == null) return null;
     if (!viewport.isFinite || viewport.isEmpty) return null;
     final bounds = MatrixUtils.transformRect(
       source.getTransformTo(null),
@@ -346,6 +334,7 @@ class _SiteImageState extends State<SiteImage> {
 
   @override
   void dispose() {
+    _SiteImageViewportChecks.cancel(this);
     _generation++;
     _releaseRequest();
     _stopListening();
@@ -488,6 +477,80 @@ class _SiteImageState extends State<SiteImage> {
 
   static bool _isSvgUrl(String url) =>
       Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') == true;
+}
+
+abstract final class _SiteImageViewportChecks {
+  static final _pending = <_SiteImageState>{};
+  static bool _scheduled = false;
+
+  static void schedule(_SiteImageState state) {
+    _pending.add(state);
+    if (_scheduled) return;
+    _scheduled = true;
+    // Post-frame callbacks observe natural frames without creating idle frames.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      final pending = _pending.toList();
+      _pending.clear();
+      final viewports = <RenderObject, Rect?>{};
+      for (final state in pending) {
+        try {
+          state._checkViewport(viewports);
+        } catch (error, stack) {
+          FlutterError.reportError(
+            FlutterErrorDetails(
+              exception: error,
+              stack: stack,
+              library: 'discourse_native',
+              context: ErrorDescription(
+                'while checking image viewport visibility',
+              ),
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  static void cancel(_SiteImageState state) => _pending.remove(state);
+
+  static Rect? viewportAbove(
+    RenderObject source,
+    Rect viewBounds,
+    Map<RenderObject, Rect?> viewports,
+  ) {
+    final path = <RenderObject>[];
+    var child = source;
+    while (!viewports.containsKey(child)) {
+      final parent = child.parent;
+      if (parent == null) {
+        viewports[child] = viewBounds;
+        break;
+      }
+      if (!parent.paintsChild(child)) {
+        viewports[child] = null;
+        break;
+      }
+      path.add(child);
+      child = parent;
+    }
+    var viewport = viewports[child];
+    for (final child in path.reversed) {
+      final parent = child.parent!;
+      if (viewport != null &&
+          parent is RenderAbstractViewport &&
+          parent is RenderBox) {
+        viewport = viewport.intersect(
+          MatrixUtils.transformRect(
+            parent.getTransformTo(null),
+            parent.paintBounds,
+          ),
+        );
+      }
+      viewports[child] = viewport;
+    }
+    return viewports[source];
+  }
 }
 
 class _GifPlaybackControl extends StatefulWidget {

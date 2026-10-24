@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,6 +16,183 @@ const _site = 'https://forum.example';
 const _url = '$_site/image.png';
 
 void main() {
+  testWidgets('shared image ancestry is checked once per natural frame', (
+    tester,
+  ) async {
+    final client = _Bodies();
+    final repository = _repository(client);
+    final probe = _TraversalCounts();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _TraversalProbe(
+          counts: probe,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                for (var index = 0; index < 24; index++)
+                  SizedBox(
+                    height: 10,
+                    child: SiteImage(
+                      viewportAware: true,
+                      url: '$_site/traversal-$index.png',
+                      siteUrl: _site,
+                      repository: repository,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await _drain(tester);
+    expect(client.urls, hasLength(8));
+    for (var frame = 0; frame < 5; frame++) {
+      probe.paints = 0;
+      probe.transforms = 0;
+      tester.binding.scheduleFrame();
+      await tester.pump();
+      debugPrint(
+        'image traversal frame=$frame images=24 paints=${probe.paints} transforms=${probe.transforms}',
+      );
+      expect(probe.paints, 1);
+      expect(probe.transforms, 25);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _drain(tester);
+    expect(client.cancelled, 8);
+  });
+
+  testWidgets('a failed image check does not drop other pending checks', (
+    tester,
+  ) async {
+    final client = _Bodies();
+    final repository = _repository(client);
+    final probe = _TraversalCounts();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _TraversalProbe(
+          counts: probe,
+          child: Column(
+            children: [
+              for (var index = 0; index < 2; index++)
+                SizedBox(
+                  height: 20,
+                  child: SiteImage(
+                    viewportAware: true,
+                    url: '$_site/isolated-$index.png',
+                    siteUrl: _site,
+                    repository: repository,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await _drain(tester);
+    expect(client.urls, hasLength(2));
+    probe.paints = 0;
+    probe.throwNext = true;
+    tester.binding.scheduleFrame();
+    await tester.pump();
+    expect(tester.takeException(), isA<StateError>());
+    expect(probe.paints, 2);
+    probe.paints = 0;
+    tester.binding.scheduleFrame();
+    await tester.pump();
+    expect(probe.paints, 1);
+    expect(tester.takeException(), isNull);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('shared ancestors retain child-specific paint decisions', (
+    tester,
+  ) async {
+    final client = _Bodies();
+    final repository = _repository(client);
+    Widget frame(int selected) => MaterialApp(
+      home: _SelectiveStack(
+        selected: selected,
+        children: [
+          for (var index = 0; index < 2; index++)
+            SiteImage(
+              key: ValueKey(index),
+              viewportAware: true,
+              url: '$_site/selected-$index.png',
+              siteUrl: _site,
+              repository: repository,
+            ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(frame(1));
+    await _drain(tester);
+    expect(client.urls.map((url) => url.path), ['/selected-1.png']);
+    await tester.pumpWidget(frame(0));
+    await _drain(tester);
+    expect(client.cancelled, 1);
+    expect(client.urls.map((url) => url.path), [
+      '/selected-1.png',
+      '/selected-0.png',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ancestor transforms refresh shared nested viewport geometry', (
+    tester,
+  ) async {
+    final client = _Bodies();
+    final repository = _repository(client);
+    final translation = ValueNotifier(Offset.zero);
+    addTearDown(translation.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: ValueListenableBuilder(
+            valueListenable: translation,
+            builder: (context, offset, child) =>
+                Transform.translate(offset: offset, child: child),
+            child: SizedBox(
+              width: 200,
+              height: 100,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (var index = 0; index < 2; index++)
+                      SizedBox(
+                        height: 20,
+                        child: SiteImage(
+                          viewportAware: true,
+                          url: '$_site/transformed-$index.png',
+                          siteUrl: _site,
+                          repository: repository,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await _drain(tester);
+    expect(client.urls, hasLength(2));
+    final elements = tester.elementList(find.byType(SiteImage)).toList();
+    translation.value = const Offset(2000, 0);
+    await _drain(tester);
+    expect(client.cancelled, 2);
+    expect(tester.elementList(find.byType(SiteImage)), elements);
+    translation.value = Offset.zero;
+    await _drain(tester);
+    expect(client.urls, hasLength(4));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'retained scrolling images release and reacquire unfinished work',
     (tester) async {
@@ -310,5 +488,77 @@ final class _Bodies extends http.BaseClient {
       200,
       request: request,
     );
+  }
+}
+
+final class _TraversalCounts {
+  var paints = 0;
+  var transforms = 0;
+  var throwNext = false;
+}
+
+final class _TraversalProbe extends SingleChildRenderObjectWidget {
+  const _TraversalProbe({required this.counts, required super.child});
+  final _TraversalCounts counts;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _TraversalRenderBox(counts);
+}
+
+final class _TraversalRenderBox extends RenderProxyBox {
+  _TraversalRenderBox(this.counts);
+  final _TraversalCounts counts;
+
+  @override
+  bool paintsChild(RenderObject child) {
+    counts.paints++;
+    if (counts.throwNext) {
+      counts.throwNext = false;
+      throw StateError('image visibility probe failed');
+    }
+    return super.paintsChild(child);
+  }
+
+  @override
+  void applyPaintTransform(RenderObject child, Matrix4 transform) {
+    counts.transforms++;
+    super.applyPaintTransform(child, transform);
+  }
+}
+
+final class _SelectiveStack extends MultiChildRenderObjectWidget {
+  const _SelectiveStack({required this.selected, required super.children});
+  final int selected;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _SelectiveRenderStack(selected);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _SelectiveRenderStack renderObject,
+  ) {
+    renderObject.selected = selected;
+    renderObject.markNeedsPaint();
+  }
+}
+
+final class _SelectiveRenderStack extends RenderStack {
+  _SelectiveRenderStack(this.selected)
+    : super(textDirection: TextDirection.ltr);
+  int selected;
+
+  RenderBox get selectedChild => selected == 0 ? firstChild! : lastChild!;
+
+  @override
+  bool paintsChild(RenderBox child) => identical(child, selectedChild);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = selectedChild;
+    final data = child.parentData! as StackParentData;
+    context.paintChild(child, offset + data.offset);
   }
 }
