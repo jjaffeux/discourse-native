@@ -7709,6 +7709,24 @@ void main() {
       );
     });
 
+    test(
+      'ring replay history retains only the latest fifty identities',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        for (var index = 0; index < 51; index++) {
+          firstTracker.deliver(
+            '/voice/call-ring/1',
+            ring(sentAt: 1786204800 + index),
+          );
+          controller.declineIncomingCall();
+        }
+        firstTracker.deliver('/voice/call-ring/1', ring(sentAt: 1786204850));
+        expect(controller.incomingCall, isNull);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+        expect(controller.incomingCall?.sentAt, ringSentAt);
+      },
+    );
+
     test('a ring for the room the user is already in is nothing new', () async {
       await controller.ensureLoaded(firstSite);
       final room = await controller.resolveRoom(firstSite, 'call-1a2b');

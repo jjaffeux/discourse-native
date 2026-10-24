@@ -1,7 +1,7 @@
 # Voice call lifetime
 
-`VoiceController` keeps the public call API, account identities, incoming-ring
-routing, video-view watches, and device preferences. Each account's private
+`VoiceController` keeps the public call API, account identities, video-view
+watches, and device preferences. Each account's private
 `_VoiceRoomDirectory` owns room snapshots, linked rooms, request identity,
 HTTP/live precedence, capability state, cursors, and directory/room subscriptions.
 The facade coordinates directory updates with retained calls and embedded Chat.
@@ -11,16 +11,33 @@ call controls, incoming rings, embedded Chat, and device preferences.
 joins under the captured account identity. Its admission identity also fences
 incoming-answer continuations.
 
-Incoming admission stays in `VoiceController` as one private sealed state.
+`VoiceIncomingCalls` owns incoming admission, ring subscriptions, bounded replay
+history, expiry, system presentation, and answer continuations. Its room access,
+join access, and navigation collaborators expose the existing authorities
+without importing the controller or shell. Private adapters in the controller
+library compose these capabilities. The owner borrows the system-call bridge;
+the controller disposes that bridge after owner and call-manager shutdown.
+
 A ringing state owns its expiry timer and pending, local, or system presentation.
 Taking a ring replaces it with an answer capability and cancels expiry before
-room resolution. That capability retains the account, request lease, and join
-admission fences through navigation and privacy confirmation. The bounded ring
-deduplication history survives both states. Call owners report answer retirement
-or a joined room through transition methods rather than mutating admission.
-Late presentation checks the original ring identity. Controller close cancels
-the ring synchronously without waiting for the presentation response. A late
-completion is ignored after controller disposal.
+room resolution. That capability retains the original account and request lease,
+plus the join admission identity, through navigation and privacy confirmation.
+The taken answer remains an admission tombstone so duplicate system answers
+cannot repeat resolution or failure handling. A fresh join, replacement ring,
+account retirement, or close invalidates the continuation. The bounded replay
+history survives ring and answer retirement.
+
+Call owners report answer retirement or a joined room through transition methods
+rather than mutating admission. Late presentation checks the original ring
+identity and ends an obsolete presentation after expiry or replacement. Close
+cancels ringing and subscriptions synchronously. Its asynchronous drain is
+idempotent and does not wait for a presentation response. A presentation that
+finishes after close is ignored, so it cannot touch the retired bridge.
+
+System-answer navigation preserves the original continuation across privacy
+reads and navigation callbacks. It performs no asynchronous privacy read when
+the warning does not apply. Local answering still returns the accepted room for
+the existing app flow to navigate and confirm privacy.
 
 Each `_VoiceCallSession` exists before preference or credential acquisition.
 It owns its call snapshot, server participant identity, media, signal batcher,

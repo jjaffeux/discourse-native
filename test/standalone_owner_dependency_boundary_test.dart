@@ -6,6 +6,7 @@ import 'support/owner_dependency_graph.dart';
 
 const _owners = {
   'lib/src/plugins/chat/chat_thread_metadata_owner.dart',
+  'lib/src/plugins/voice/voice_incoming_calls.dart',
   'lib/src/shell/account_history_feed_owners.dart',
   'lib/src/shell/bookmark_link_resolver.dart',
   'lib/src/shell/checklist_transactions.dart',

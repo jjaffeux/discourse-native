@@ -14,6 +14,8 @@ import 'voice_api.dart';
 import 'voice_callkit.dart';
 
 import 'voice_idle.dart';
+import 'voice_incoming_calls.dart';
+
 import 'voice_media.dart';
 import 'voice_models.dart';
 import 'voice_preferences.dart';
@@ -21,11 +23,15 @@ import 'voice_settings.dart';
 import 'voice_signaling.dart';
 import 'voice_video_handle.dart';
 
+export 'voice_incoming_calls.dart'
+    show VoiceIncomingCallAcceptance, VoiceAwaitableSubscriptionTeardown;
+
 part 'voice_call_commands.dart';
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
 part 'voice_chat_association.dart';
 part 'voice_device_preferences.dart';
+part 'voice_incoming_call_adapters.dart';
 part 'voice_membership_editor.dart';
 part 'voice_room_directory.dart';
 part 'voice_user_invitation_session.dart';
@@ -43,48 +49,6 @@ final class VoiceOutgoingCall {
   final bool Function() _isCurrent;
 
   bool get isCurrent => _isCurrent();
-}
-
-/// A resolved incoming call, still owned by the account and answer that
-/// requested it. UI continuations must recheck [isCurrent] after awaiting or
-/// invoking navigation callbacks before joining.
-final class VoiceIncomingCallAcceptance {
-  VoiceIncomingCallAcceptance._(this.siteUrl, this.room, this._isCurrent);
-
-  final String siteUrl;
-  final VoiceRoom room;
-  final bool Function() _isCurrent;
-
-  bool get isCurrent => _isCurrent();
-}
-
-sealed class _VoiceIncomingAdmission {}
-
-enum _VoiceIncomingPresentation { pending, local, system }
-
-final class _VoiceIncomingRing extends _VoiceIncomingAdmission {
-  _VoiceIncomingRing(this.siteUrl, this.call);
-
-  final String siteUrl;
-  final VoiceIncomingCall call;
-  Timer? expiry;
-  _VoiceIncomingPresentation presentation = _VoiceIncomingPresentation.pending;
-
-  bool get presented => presentation == _VoiceIncomingPresentation.system;
-}
-
-final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
-  _VoiceIncomingAnswer({
-    required this.siteUrl,
-    required this.call,
-    required this.presented,
-    required this.isCurrent,
-  });
-
-  final String siteUrl;
-  final VoiceIncomingCall call;
-  final bool presented;
-  final bool Function() isCurrent;
 }
 
 final class _VoiceCameraRestore {
@@ -211,12 +175,6 @@ typedef _VoiceMediaView = ({
   VoiceVideoHandle? localVideoTrack,
 });
 
-/// Optional cancellation boundary for a Voice message-bus adapter whose
-/// native teardown is asynchronous.
-abstract interface class VoiceAwaitableSubscriptionTeardown {
-  Future<void> cancelAndWait();
-}
-
 Future<bool?> _unknownVoiceCapability(String _) async => null;
 
 /// App-global Voice state. Directories belong to sites; media belongs to the
@@ -291,13 +249,17 @@ final class VoiceController extends ChangeNotifier {
   final VoiceIncomingCallAnswered? _onIncomingCallAnswered;
   final Duration Function()? _idleClock;
   late final _VoiceCallManager _calls = _VoiceCallManager(this);
-  final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
-  final Set<String> _handledRings = {};
-  _VoiceIncomingAdmission? _incomingAdmission;
-  _VoiceIncomingRing? get _ringingCall => switch (_incomingAdmission) {
-    _VoiceIncomingRing ring => ring,
-    _ => null,
-  };
+  late final _incoming = VoiceIncomingCalls(
+    rooms: _VoiceIncomingRoomAccess(this),
+    joins: _VoiceIncomingJoinAccess(this),
+    navigation: _VoiceIncomingSystemNavigation(this),
+    systemCall: systemCall,
+    onChanged: () {
+      if (!_disposed) notifyListeners();
+    },
+    clock: _clock,
+    timerFactory: _timerFactory,
+  );
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -394,13 +356,13 @@ final class VoiceController extends ChangeNotifier {
 
   /// The direct call ringing this user right now, if any. Cleared when it
   /// is answered, declined, or has run out.
-  VoiceIncomingCall? get incomingCall => _ringingCall?.call;
+  VoiceIncomingCall? get incomingCall => _incoming.call;
 
-  String? get incomingCallSiteUrl => _ringingCall?.siteUrl;
+  String? get incomingCallSiteUrl => _incoming.siteUrl;
 
   /// The system (CallKit) is ringing for [incomingCall], so the app's own
   /// banner would only duplicate it; the answer arrives as a system action.
-  bool get incomingCallHandledBySystem => _ringingCall?.presented ?? false;
+  bool get incomingCallHandledBySystem => _incoming.handledBySystem;
 
   /// Starts a direct call to [username] on [siteUrl]. The server answers
   /// with the ephemeral call room, which is held beside the directory so
@@ -433,234 +395,12 @@ final class VoiceController extends ChangeNotifier {
     return isCurrent() ? VoiceOutgoingCall._(siteUrl, room, isCurrent) : null;
   }
 
-  /// Takes the ringing call: the room is resolved (and held) so the caller
-  /// can open and join it. Joining through the invite ref credits the
-  /// caller, the same as joining from the notification link.
   Future<VoiceIncomingCallAcceptance?> acceptIncomingCall({
     bool fromSystem = false,
-  }) async {
-    final answer = _takeIncomingCall();
-    if (answer == null) return null;
-    return _acceptIncomingCall(answer, fromSystem: fromSystem);
-  }
+  }) => _incoming.accept(fromSystem: fromSystem);
 
-  _VoiceIncomingAnswer? _takeIncomingCall() {
-    final incoming = _ringingCall;
-    if (_disposed || incoming == null) return null;
-    final siteSession = _siteSession(incoming.siteUrl);
-    final lease = _requests.capture(incoming.siteUrl);
-    // A later join takes ownership even before it has created its media.
-    final joinTail = _calls.admissionIdentity;
-    late final _VoiceIncomingAnswer answer;
-    answer = _VoiceIncomingAnswer(
-      siteUrl: incoming.siteUrl,
-      call: incoming.call,
-      presented: incoming.presented,
-      isCurrent: () =>
-          identical(_incomingAdmission, answer) &&
-          identical(_calls.admissionIdentity, joinTail) &&
-          _isCurrentSiteSession(incoming.siteUrl, siteSession) &&
-          lease.isCurrent,
-    );
-    incoming.expiry?.cancel();
-    _incomingAdmission = answer;
-    return answer;
-  }
-
-  Future<VoiceIncomingCallAcceptance?> _acceptIncomingCall(
-    _VoiceIncomingAnswer answer, {
-    required bool fromSystem,
-  }) async {
-    if (!answer.isCurrent()) return null;
-
-    if (!answer.isCurrent()) return null;
-    if (answer.presented && !fromSystem) {
-      // The system is still ringing; its call becomes the active one so the
-      // join below does not place a second call.
-      await _runHandled(systemCall.answerIncomingCall);
-    }
-    if (!answer.isCurrent()) return null;
-    final room = await _resolveRoom(
-      answer.siteUrl,
-      answer.call.roomSlug,
-      ifCurrent: answer.isCurrent,
-    );
-    if (room == null || !answer.isCurrent()) return null;
-    rememberInviteRef(
-      siteUrl: answer.siteUrl,
-      roomSlug: answer.call.roomSlug,
-      username: answer.call.caller.username.toLowerCase(),
-    );
-    return VoiceIncomingCallAcceptance._(
-      answer.siteUrl,
-      room,
-      answer.isCurrent,
-    );
-  }
-
-  void declineIncomingCall({bool fromSystem = false}) {
-    final incoming = _ringingCall;
-    if (incoming == null) return;
-    final presented = incoming.presented;
-
-    _clearIncomingCall();
-    if (presented && !fromSystem) {
-      _observe(systemCall.declineIncomingCall);
-    }
-    notifyListeners();
-  }
-
-  /// Forgets the ring locally. [tellSystem] ends the system's presentation
-  /// with that reason when it was ringing too; the answer and decline paths
-  /// settle the system call themselves.
-  void _clearIncomingCall({VoiceIncomingCallEndReason? tellSystem}) {
-    final incoming = _ringingCall;
-    if (incoming == null) return;
-    incoming.expiry?.cancel();
-    _incomingAdmission = null;
-    if (incoming.presented && tellSystem != null) {
-      _observe(() => systemCall.endIncomingCall(tellSystem));
-    }
-  }
-
-  void _retireIncomingAnswer() {
-    if (_incomingAdmission is _VoiceIncomingAnswer) _incomingAdmission = null;
-  }
-
-  void _incomingRoomJoined(String siteUrl, int roomId) {
-    final incoming = _ringingCall;
-    if (incoming?.siteUrl == siteUrl && incoming?.call.roomId == roomId) {
-      _clearIncomingCall(
-        tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
-      );
-    }
-  }
-
-  /// A ring the system may present too: the phone rings with the system
-  /// ringtone and on the lock screen, and answering or declining there
-  /// comes back as a system action. When the system declines to (no
-  /// system call UI on this platform, a call already up, the ring already
-  /// over), the app's own banner stays.
-  Future<void> _presentIncomingCall(_VoiceIncomingRing incoming) async {
-    final call = incoming.call;
-    final caller = call.caller;
-    final presented = await _runHandledValue(
-      () => systemCall.reportIncomingCall(
-        callerName: caller.name ?? caller.username,
-        roomName: call.roomName,
-        handle: caller.username,
-      ),
-
-      fallback: false,
-    );
-    if (_disposed) return;
-    if (!identical(_incomingAdmission, incoming)) {
-      // The ring ended (or was replaced) while the system was being asked.
-      if (presented) {
-        _observe(
-          () =>
-              systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
-        );
-      }
-      return;
-    }
-
-    incoming.presentation = presented
-        ? _VoiceIncomingPresentation.system
-        : _VoiceIncomingPresentation.local;
-    if (presented) {
-      notifyListeners();
-    }
-  }
-
-  /// The user answered from the system's call UI. There is no app surface
-  /// to ask anything on (the app may be behind the lock screen), so the
-  /// join proceeds directly; a peer-to-peer privacy warning the site would
-  /// have shown before a join is said afterwards instead.
-  Future<void> _answerFromSystem() async {
-    // CallKit can echo a local answer or deliver its action more than once.
-    // Once taken, that answer alone owns resolution and failure handling.
-    if (_disposed ||
-        (_ringingCall == null &&
-            (_incomingAdmission is _VoiceIncomingAnswer ||
-                _call != null ||
-                _calls.hasPendingJoin))) {
-      return;
-    }
-    final answer = _takeIncomingCall();
-    final accepted = answer == null
-        ? null
-        : await _acceptIncomingCall(answer, fromSystem: true);
-    bool isCurrent() =>
-        answer?.isCurrent() ??
-        (!_disposed &&
-            _incomingAdmission == null &&
-            _call == null &&
-            !_calls.hasPendingJoin);
-    if (!isCurrent()) return;
-    if (accepted == null) {
-      if (!isCurrent()) return;
-      await _runHandled(systemCall.failed);
-      return;
-    }
-    final siteUrl = accepted.siteUrl;
-    final room = accepted.room;
-    final privacyWarningEnabled =
-        _meshPrivacyWarningEnabledFor?.call(siteUrl) ?? false;
-    if (!isCurrent()) return;
-    var warnAboutPrivacy = false;
-    if (privacyWarningEnabled &&
-        room.expectedTransport == VoiceTransport.mesh &&
-        !await meshPrivacyAcknowledged()) {
-      warnAboutPrivacy = true;
-    }
-    if (!isCurrent()) return;
-    final siteName = _siteNameFor?.call(siteUrl) ?? siteUrl;
-    if (!isCurrent()) return;
-    _onIncomingCallAnswered?.call(siteUrl, room);
-    if (!isCurrent()) return;
-    if (warnAboutPrivacy) {
-      _notify(
-        appL10n
-            .thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble,
-      );
-    }
-    await join(siteUrl: siteUrl, siteName: siteName, room: room);
-  }
-
-  /// A ring for this user. Rings replayed from a message-bus backlog after
-  /// the app wakes are only real while still within their window; a ring
-  /// for the room the user is already in (answered from the notification)
-  /// is nothing new; and the same ring is handled once.
-  void _onRingEvent(String siteUrl, Object? data) {
-    if (_disposed || data is! Map<String, dynamic>) return;
-    final call = VoiceIncomingCall.fromJson(data);
-    if (call == null) return;
-    final now = _clock();
-    final remaining = call.remainingAt(now);
-
-    if (remaining <= Duration.zero) return;
-    final active = _call;
-    if (active != null &&
-        active.siteUrl == siteUrl &&
-        active.room.id == call.roomId) {
-      return;
-    }
-    if (!_handledRings.add(call.key)) return;
-    if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
-    _retireIncomingAnswer();
-    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
-    final incoming = _VoiceIncomingRing(siteUrl, call);
-    _incomingAdmission = incoming;
-    incoming.expiry = _timerFactory(remaining, () {
-      if (!identical(_incomingAdmission, incoming)) return;
-
-      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
-      if (!_disposed) notifyListeners();
-    });
-    notifyListeners();
-    unawaited(_presentIncomingCall(incoming));
-  }
+  void declineIncomingCall({bool fromSystem = false}) =>
+      _incoming.decline(fromSystem: fromSystem);
 
   void _notify(String message) {
     if (_disposed || _notices.isClosed) return;
@@ -843,12 +583,9 @@ final class VoiceController extends ChangeNotifier {
 
   void _cancelTrackerSubscriptions(String siteUrl) {
     _roomDirectories[siteUrl]?.detachTracker();
-    _ringSubscriptions.remove(siteUrl)?.cancel();
+    _incoming.detach(siteUrl);
     for (final entry in _chats.entries) {
       if (entry.key.$1 == siteUrl) entry.value.detachTracker();
-    }
-    if (_ringingCall?.siteUrl == siteUrl) {
-      _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     }
   }
 
@@ -856,15 +593,7 @@ final class VoiceController extends ChangeNotifier {
     String siteUrl,
     PluginLiveChannelHandle tracker,
   ) {
-    var changed = false;
-    final userId = _userIdFor(siteUrl);
-    if (userId != null && !_ringSubscriptions.containsKey(siteUrl)) {
-      _ringSubscriptions[siteUrl] = tracker.subscribe(
-        '/voice/call-ring/$userId',
-        (data, _) => _onRingEvent(siteUrl, data),
-      );
-      changed = true;
-    }
+    final changed = _incoming.attach(siteUrl, _userIdFor(siteUrl), tracker);
     for (final entry in _chats.entries) {
       if (entry.key.$1 == siteUrl) entry.value.syncTracker();
     }
@@ -1828,7 +1557,7 @@ final class VoiceController extends ChangeNotifier {
       case VoiceSystemCallAction.end:
         _observe(() => _leave(notifyServer: true));
       case VoiceSystemCallAction.answer:
-        _observe(_answerFromSystem);
+        _observe(_incoming.answerFromSystem);
       case VoiceSystemCallAction.decline:
         declineIncomingCall(fromSystem: true);
     }
@@ -1927,17 +1656,12 @@ final class VoiceController extends ChangeNotifier {
   }
 
   Future<void> _cancelSubscriptions() {
-    final subscriptions = <PluginLiveChannelSubscription>[
-      ..._ringSubscriptions.values,
-    ];
-    _ringSubscriptions.clear();
-    _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    final incomingCancellation = _incoming.close();
     final directories = [..._roomDirectories.values, ..._closingDirectories];
     _roomDirectories.clear();
     return Future.wait([
       for (final directory in directories) directory.close(),
-      for (final subscription in subscriptions)
-        _cancelSubscription(subscription),
+      incomingCancellation,
     ]);
   }
 
