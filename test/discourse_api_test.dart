@@ -2239,7 +2239,7 @@ void _feedGroups() {
       expect(sent.headers['User-Api-Client-Id'], 'client');
       expect(jsonDecode(sent.body), {
         'term': 'support docs',
-        'include_uncategorized': false,
+        'include_uncategorized': 'false',
         'include_subcategories': true,
         'include_ancestors': true,
         'limit': 25,
@@ -2247,6 +2247,55 @@ void _feedGroups() {
       expect(categories.map((category) => category.id), [6, 5]);
       expect(categories.first.canCreateTopic, isTrue);
     });
+
+    test(
+      'category search includes Uncategorized by default and on request',
+      () async {
+        final requested = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requested.add(request);
+            return http.Response(
+              jsonEncode({
+                'categories': [
+                  {'id': 1, 'name': 'Uncategorized', 'color': '0088CC'},
+                ],
+                'ancestors': [
+                  {'id': 5, 'name': 'Support', 'color': '112233'},
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+
+        final defaultCategories = await api.searchCategories(
+          siteUrl: 'https://example.com',
+          term: '',
+          apiKey: 'key',
+        );
+        final requestedCategories = await api.searchCategories(
+          siteUrl: 'https://example.com',
+          term: '',
+          includeUncategorized: true,
+          apiKey: 'key',
+        );
+
+        expect(requested, hasLength(2));
+        for (final request in requested) {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/categories/search.json');
+          expect(jsonDecode(request.body), {
+            'term': '',
+            'include_uncategorized': 'true',
+            'include_subcategories': true,
+            'limit': 25,
+          });
+        }
+        expect(defaultCategories.map((category) => category.id), [1]);
+        expect(requestedCategories.map((category) => category.id), [1]);
+      },
+    );
 
     test('requests page two without reading the site supplement', () async {
       final requested = <Uri>[];

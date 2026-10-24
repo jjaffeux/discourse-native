@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -41,6 +42,30 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final allowUncategorized in [false, true]) {
+    test(
+      'editor category search forwards allowUncategorizedTopics=$allowUncategorized',
+      () async {
+        final api = _EditorCategorySearchApi(allowUncategorized);
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+
+        expect(
+          shell.siteConfigFor(_site).allowUncategorizedTopics,
+          allowUncategorized,
+        );
+        final categories = await shell.searchTopicCategoriesForEditor(
+          siteUrl: _site,
+          term: 'Directory',
+        );
+
+        expect(api.includeUncategorizedRequests, [allowUncategorized]);
+        expect(api.categorySearchTerms, ['Directory']);
+        expect(categories, [_directoryRoot]);
+      },
+    );
+  }
 
   test('tag searches preserve remote precedence and numeric ranking', () async {
     final api = _TagSearchApi()
@@ -416,6 +441,41 @@ Future<ShellController> _loadShell(
   await shell.load();
   await pumpEventQueue();
   return shell;
+}
+
+final class _EditorCategorySearchApi extends FakeDiscourseApi {
+  _EditorCategorySearchApi(bool allowUncategorized)
+    : super(
+        feeds: const {'/latest.json': []},
+        siteConfigs: {
+          _site: SiteConfig(allowUncategorizedTopics: allowUncategorized),
+        },
+        categorySearches: const {
+          'Directory': [_directoryRoot],
+        },
+      );
+
+  final includeUncategorizedRequests = <bool>[];
+
+  @override
+  Future<List<TopicCategory>> searchCategories({
+    required String siteUrl,
+    required String term,
+    required String apiKey,
+    bool includeUncategorized = true,
+    bool includeAncestors = false,
+    String? clientId,
+  }) {
+    includeUncategorizedRequests.add(includeUncategorized);
+    return super.searchCategories(
+      siteUrl: siteUrl,
+      term: term,
+      apiKey: apiKey,
+      includeUncategorized: includeUncategorized,
+      includeAncestors: includeAncestors,
+      clientId: clientId,
+    );
+  }
 }
 
 final class _LookupApi extends FakeDiscourseApi {
