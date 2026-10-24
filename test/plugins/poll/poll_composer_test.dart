@@ -311,6 +311,65 @@ void main() {
       }
     });
 
+    final fixedBaseExamples = <String>[
+      for (final (marker, indent, openings) in const [
+        ('- a', '  ', [4, 5]),
+        ('1. a', '   ', [4, 5, 6]),
+      ])
+        for (final opening in openings)
+          '$marker\n\n${' ' * opening}<!--\n'
+              '$indent[poll name=example]\n$indent* A\n$indent* B\n'
+              '$indent[/poll]\n$indent-->\n',
+      '[code]\n- a\n\n    [code]\n'
+          '[poll name=example]\n* A\n* B\n[/poll]\n[/code]',
+      '[code]\n- a\n\n  [code]\n'
+          '[poll name=example]\n* A\n* B\n[/poll]\n[/code]\n[/code]',
+    ];
+    for (var index = 0; index < fixedBaseExamples.length; index++) {
+      test('matches fixed-base code and list comment example $index', () async {
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        for (final newline in const ['\n', '\r\n']) {
+          final live = '[poll name=live]\n* C\n* D\n[/poll]'.replaceAll(
+            '\n',
+            newline,
+          );
+          final source = '${fixedBaseExamples[index]}\n$live'.replaceAll(
+            RegExp(r'\r?\n'),
+            newline,
+          );
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            ['live'],
+            reason: source,
+          );
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks.map((block) => block.name), ['live'], reason: source);
+          final block = blocks.single;
+          expect(block.start, source.indexOf(live), reason: source);
+          expect(block.end, source.length, reason: source);
+          expect(block.source, live, reason: source);
+          expect(block.lineEnding, newline, reason: source);
+          expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+          expect(nextPollName(source), 'poll', reason: source);
+        }
+      });
+    }
+
     final relativeCases = <({String source, bool active})>[
       for (final (marker, indent, closers) in const [
         ('- a', '  ', [4, 5]),

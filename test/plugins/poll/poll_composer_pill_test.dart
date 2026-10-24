@@ -194,6 +194,40 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
+    test(
+      'projects only live polls after fixed-base code and list comments',
+      () {
+        const policy = PollComposerSyntaxPolicy();
+        final examples = [
+          for (final (marker, indent, openings) in const [
+            ('- a', '  ', [4, 5]),
+            ('1. a', '   ', [4, 5, 6]),
+          ])
+            for (final opening in openings)
+              '$marker\n\n${' ' * opening}<!--\n'
+                  '$indent[poll name=example]\n$indent* A\n$indent* B\n'
+                  '$indent[/poll]\n$indent-->\n',
+          '[code]\n- a\n\n    [code]\n'
+              '[poll name=example]\n* A\n* B\n[/poll]\n[/code]',
+          '[code]\n- a\n\n  [code]\n'
+              '[poll name=example]\n* A\n* B\n[/poll]\n[/code]\n[/code]',
+        ];
+        for (final example in examples) {
+          for (final newline in const ['\n', '\r\n']) {
+            final live = source.replaceAll('\n', newline);
+            final document = '$example\n$source'.replaceAll('\n', newline);
+            final occurrences = policy.parse(document);
+            expect(occurrences, hasLength(1), reason: document);
+            final occurrence = occurrences.single;
+            expect(occurrence.start, document.indexOf(live), reason: document);
+            expect(occurrence.end, document.length, reason: document);
+            expect(occurrence.source, live, reason: document);
+            expect(nextPollName(document), 'poll', reason: document);
+          }
+        }
+      },
+    );
+
     test('projects polls using list-relative BBCode boundaries', () {
       const policy = PollComposerSyntaxPolicy();
       for (final (marker, indent, closers) in const [
