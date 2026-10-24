@@ -601,6 +601,223 @@ void main() {
     },
   );
 
+  for (final whitespace in [false, true]) {
+    testWidgets(
+      '${whitespace ? 'whitespace' : 'Enter'} replaces an existing author',
+      (tester) async {
+        final api = _EngineApi();
+        final controller = _controller(api);
+        addTearDown(controller.dispose);
+        controller.addCondition(
+          const GlobalSearchCondition(filterId: 'author', value: ['alice']),
+        );
+        controller.setQuery(whitespace ? '@bob ' : '@bob');
+        controller.submit();
+        await tester.pump(const Duration(milliseconds: 10));
+        expect(controller.conditions.map((c) => (c.filterId, c.text)), [
+          ('author', 'bob'),
+        ]);
+        expect(api.requests, hasLength(1));
+        expect(globalSearchTerm(api.requests.single), '@bob in:all-posts');
+      },
+    );
+  }
+
+  for (final scope in [GlobalSearchScope.forum, GlobalSearchScope.all]) {
+    testWidgets('Enter replaces a choice in the retained ${scope.name} bank', (
+      tester,
+    ) async {
+      final api = _EngineApi();
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.addCondition(
+        const GlobalSearchCondition(filterId: 'author', value: ['alice']),
+      );
+      controller.addCondition(
+        const GlobalSearchCondition(filterId: 'searchIn', value: ['title']),
+      );
+      controller.setScope(scope);
+      controller.setQuery('in:first');
+      controller.submit();
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(controller.scope, GlobalSearchScope.forum);
+      expect(controller.conditions.map((c) => (c.filterId, c.text)), [
+        ('author', 'alice'),
+        ('searchIn', 'first'),
+      ]);
+      expect(globalSearchTerm(api.requests.single), '@alice in:first');
+    });
+  }
+
+  testWidgets('Enter normalizes contributed filters in their plugin bank', (
+    tester,
+  ) async {
+    final api = _EngineApi();
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.addCondition(
+      const GlobalSearchCondition(filterId: 'author', value: ['forum-user']),
+    );
+    controller.addCondition(
+      const GlobalSearchCondition(filterId: 'chatAuthor', value: ['alice']),
+    );
+    controller.addCondition(
+      const GlobalSearchCondition(filterId: 'chatChannel', value: ['12']),
+    );
+    controller.setQuery('@bob');
+    controller.submit();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(controller.scope, chatSearchScope);
+    expect(controller.conditions.map((c) => (c.filterId, c.text)), [
+      ('chatChannel', '12'),
+      ('chatAuthor', 'bob'),
+    ]);
+    expect(api.requests.single.scope, chatSearchScope);
+    expect(api.requests.single.conditions.map((c) => c.text), ['12', 'bob']);
+    expect(
+      controller.conditionsFor(GlobalSearchScope.forum).single.text,
+      'forum-user',
+    );
+  });
+
+  for (final filterId in ['userGroup', 'userName']) {
+    testWidgets('Enter preserves additive $filterId exclusions', (
+      tester,
+    ) async {
+      final api = _EngineApi();
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.addCondition(
+        GlobalSearchCondition(filterId: filterId, value: const ['alice']),
+      );
+      controller.addCondition(
+        GlobalSearchCondition(
+          filterId: filterId,
+          operator: 'excludes',
+          value: const ['staff'],
+        ),
+      );
+      final key = filterId == 'userGroup' ? 'group' : 'username';
+      final exclusionKey = filterId == 'userGroup'
+          ? 'exclude_groups'
+          : 'exclude_usernames';
+      controller.setQuery('$exclusionKey=admins');
+      controller.submit();
+      controller.setQuery('$key=bob');
+      controller.submit();
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(controller.conditions.map((c) => (c.operator, c.text)), [
+        ('excludes', 'staff'),
+        ('excludes', 'admins'),
+        ('is', 'bob'),
+      ]);
+      final transport = _Transport();
+      await GlobalSearchApi(
+        transport: transport,
+      ).search(siteUrl: _site, apiKey: 'key', request: api.requests.single);
+      final params = transport.paths.single.queryParameters;
+      expect(params[key], 'bob');
+      expect(
+        params[exclusionKey],
+        filterId == 'userGroup' ? 'staff|admins' : 'staff,admins',
+      );
+    });
+  }
+
+  testWidgets('Enter keeps independent multi-value tag conditions additive', (
+    tester,
+  ) async {
+    final api = _EngineApi();
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.addCondition(
+      const GlobalSearchCondition(
+        filterId: 'tags',
+        operator: 'none',
+        value: ['hidden'],
+      ),
+    );
+    controller.setQuery('tags:visible');
+    controller.submit();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(controller.conditions.map((c) => (c.operator, c.text)), [
+      ('none', 'hidden'),
+      ('any', 'visible'),
+    ]);
+    expect(globalSearchTerm(api.requests.single), '-tags:hidden tags:visible');
+  });
+
+  testWidgets('Enter replaces a singleton at the thirty-condition limit', (
+    tester,
+  ) async {
+    final api = _EngineApi();
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.addCondition(
+      const GlobalSearchCondition(filterId: 'author', value: ['alice']),
+    );
+    for (var i = 0; i < 29; i++) {
+      controller.addCondition(
+        GlobalSearchCondition(
+          filterId: 'tags',
+          operator: 'none',
+          value: ['tag$i'],
+        ),
+      );
+    }
+    controller.setQuery('@bob');
+    controller.submit();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(controller.conditions, hasLength(30));
+    expect(
+      controller.conditions.where((c) => c.filterId == 'author').single.text,
+      'bob',
+    );
+    expect(api.requests.single.conditions, hasLength(30));
+  });
+
+  testWidgets(
+    'Enter rejects excess conditions without changing settled search',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      for (var i = 0; i < 30; i++) {
+        controller.addCondition(
+          GlobalSearchCondition(
+            filterId: 'tags',
+            operator: 'none',
+            value: ['tag$i'],
+          ),
+        );
+      }
+      controller.setQuery('tags:overflow');
+      await tester.pump(const Duration(milliseconds: 10));
+      api.pending.single.complete(_page('settled', hasMore: true));
+      await tester.pump();
+      final before = controller.conditions;
+      controller.submit();
+      expect(controller.phase, GlobalSearchPhase.failed);
+      expect(controller.error, isNotNull);
+      expect(controller.query, 'tags:overflow');
+      expect(controller.conditions, before);
+      expect(controller.results.single.title, 'settled');
+      expect(controller.hasMore, isTrue);
+      expect(api.requests, hasLength(1));
+      controller.setQuery('@bob');
+      controller.removeCondition(0);
+      controller.submit();
+      await tester.pump();
+      expect(controller.conditions, hasLength(30));
+      expect(controller.conditions.last.text, 'bob');
+      expect(api.requests, hasLength(2));
+      api.pending.last.complete(_page('recovered'));
+      await tester.pump();
+      expect(controller.results.single.title, 'recovered');
+      expect(controller.error, isNull);
+    },
+  );
+
   testWidgets('invalid submission retains settled results and pagination', (
     tester,
   ) async {
