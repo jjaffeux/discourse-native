@@ -364,6 +364,7 @@ class DiscourseApi
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async => _account.updateBookmark(
@@ -372,6 +373,7 @@ class DiscourseApi
     bookmarkId: bookmarkId,
     name: name,
     reminderAt: reminderAt,
+    originalReminderAt: originalReminderAt,
     autoDeletePreference: autoDeletePreference,
     clientId: clientId,
   );

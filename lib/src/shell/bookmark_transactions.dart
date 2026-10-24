@@ -713,6 +713,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
             bookmarkId: bookmark.id,
             name: name,
             reminderAt: reminderAt,
+            originalReminderAt: bookmark.reminderAt,
             autoDeletePreference: autoDeletePreference,
           ),
         );

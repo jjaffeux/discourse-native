@@ -681,6 +681,7 @@ class _BookmarkApi extends FakeDiscourseApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
@@ -692,6 +693,7 @@ class _BookmarkApi extends FakeDiscourseApi {
       bookmarkId: bookmarkId,
       name: name,
       reminderAt: reminderAt,
+      originalReminderAt: originalReminderAt,
       autoDeletePreference: autoDeletePreference,
     );
   }

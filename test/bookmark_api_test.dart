@@ -10,6 +10,159 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  final now = DateTime.utc(2026, 4, 15, 12);
+  for (final reminder in [
+    now.subtract(const Duration(days: 1)),
+    now,
+    DateTime.utc(2036, 4, 15, 12, 0, 0, 0, 1),
+  ]) {
+    test('bookmark update preserves the stored instant $reminder', () async {
+      final requests = <http.Request>[];
+      final transport = DiscourseTransport.create(
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response('{}', 200);
+        }),
+      );
+      addTearDown(transport.close);
+      final api = DiscourseAccountApi(
+        transport,
+        const DiscourseModelCodec.core(),
+        clock: () => now,
+      );
+      await api.updateBookmark(
+        siteUrl: 'https://forum.example',
+        apiKey: 'secret',
+        bookmarkId: 81,
+        name: 'Updated note',
+        reminderAt: reminder.toLocal(),
+        originalReminderAt: reminder,
+        autoDeletePreference: BookmarkAutoDeletePreference.onOwnerReply,
+      );
+      expect(requests, hasLength(1));
+      expect(requests.single.method, 'PUT');
+      expect(jsonDecode(requests.single.body), {
+        'name': 'Updated note',
+        'reminder_at': reminder.toIso8601String(),
+        'auto_delete_preference': 2,
+      });
+      await expectLater(
+        api.updateBookmark(
+          siteUrl: 'https://forum.example',
+          apiKey: 'secret',
+          bookmarkId: 81,
+          name: List.filled(101, '🧵').join(),
+          reminderAt: reminder,
+          originalReminderAt: reminder,
+          autoDeletePreference: BookmarkAutoDeletePreference.never,
+        ),
+        throwsA(
+          isA<WriteException>().having((error) => error.errors, 'errors', [
+            'Bookmark notes must be 100 characters or fewer.',
+          ]),
+        ),
+      );
+      expect(requests, hasLength(1));
+    });
+
+    for (final create in [false, true]) {
+      test(
+        '${create ? 'create' : 'changed update'} rejects invalid reminder $reminder',
+        () async {
+          final requests = <http.Request>[];
+          final transport = DiscourseTransport.create(
+            client: MockClient((request) async {
+              requests.add(request);
+              return http.Response('{"id":81}', 200);
+            }),
+          );
+          addTearDown(transport.close);
+          final api = DiscourseAccountApi(
+            transport,
+            const DiscourseModelCodec.core(),
+            clock: () => now,
+          );
+          final write = create
+              ? api.createBookmark(
+                  siteUrl: 'https://forum.example',
+                  apiKey: 'secret',
+                  targetType: BookmarkTargetType.post,
+                  targetId: 44,
+                  reminderAt: reminder,
+                )
+              : api.updateBookmark(
+                  siteUrl: 'https://forum.example',
+                  apiKey: 'secret',
+                  bookmarkId: 81,
+                  reminderAt: reminder,
+                  originalReminderAt: now.add(const Duration(days: 1)),
+                  autoDeletePreference: BookmarkAutoDeletePreference.never,
+                );
+          await expectLater(
+            write,
+            throwsA(
+              isA<WriteException>().having(
+                (error) => error.failure,
+                'failure',
+                WriteFailure.validation,
+              ),
+            ),
+          );
+          expect(requests, isEmpty);
+        },
+      );
+    }
+  }
+
+  test('bookmark facade forwards the stored reminder for note edits', () async {
+    final requests = <http.Request>[];
+    final api = DiscourseApi(
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response('{}', 200);
+      }),
+    );
+    addTearDown(api.close);
+    final reminder = DateTime.utc(2000, 1, 1);
+    await api.updateBookmark(
+      siteUrl: 'https://forum.example',
+      apiKey: 'secret',
+      bookmarkId: 81,
+      name: 'Updated note',
+      reminderAt: reminder,
+      originalReminderAt: reminder.toLocal(),
+      autoDeletePreference: BookmarkAutoDeletePreference.never,
+    );
+    expect(requests, hasLength(1));
+    expect(jsonDecode(requests.single.body), {
+      'name': 'Updated note',
+      'reminder_at': reminder.toIso8601String(),
+      'auto_delete_preference': 0,
+    });
+    await api.updateBookmark(
+      siteUrl: 'https://forum.example',
+      apiKey: 'secret',
+      bookmarkId: 81,
+      originalReminderAt: reminder,
+      autoDeletePreference: BookmarkAutoDeletePreference.never,
+    );
+    expect(jsonDecode(requests.last.body), {'auto_delete_preference': 0});
+    final nextReminder = DateTime.now().toUtc().add(const Duration(days: 1));
+    await api.updateBookmark(
+      siteUrl: 'https://forum.example',
+      apiKey: 'secret',
+      bookmarkId: 81,
+      reminderAt: nextReminder,
+      originalReminderAt: reminder,
+      autoDeletePreference: BookmarkAutoDeletePreference.never,
+    );
+    expect(requests, hasLength(3));
+    expect(
+      (jsonDecode(requests.last.body) as Map)['reminder_at'],
+      nextReminder.toIso8601String(),
+    );
+  });
+
   for (final create in [true, false]) {
     for (final scenario in [
       (

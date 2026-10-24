@@ -1048,6 +1048,7 @@ abstract interface class BookmarksWriteApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   });

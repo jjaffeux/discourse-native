@@ -1418,6 +1418,7 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
@@ -1427,6 +1428,7 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       bookmarkId: bookmarkId,
       name: name,
       reminderAt: reminderAt,
+      originalReminderAt: originalReminderAt,
       autoDeletePreference: autoDeletePreference,
       clientId: clientId,
     );
@@ -1532,6 +1534,7 @@ final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
@@ -1541,6 +1544,7 @@ final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
       bookmarkId: bookmarkId,
       name: name,
       reminderAt: reminderAt,
+      originalReminderAt: originalReminderAt,
       autoDeletePreference: autoDeletePreference,
       clientId: clientId,
     );

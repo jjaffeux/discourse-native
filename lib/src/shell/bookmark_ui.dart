@@ -870,12 +870,17 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     if (!_canUseSession || _busy || _nameError != null) return;
     final now = widget.now().toUtc();
     final reminder = _reminder?.toUtc();
-    if (reminder != null && !reminder.isAfter(now)) {
+    final originalReminder = widget.bookmark.reminderAt;
+    final reminderChanged =
+        reminder != null &&
+        (originalReminder == null ||
+            !reminder.isAtSameMomentAs(originalReminder));
+    if (reminderChanged && !reminder.isAfter(now)) {
       setState(() => _error = appL10n.chooseAReminderInTheFuture);
       return;
     }
     final maximum = BookmarkReminderCalculator.maximumReminderAt(now: now);
-    if (reminder != null && reminder.isAfter(maximum)) {
+    if (reminderChanged && reminder.isAfter(maximum)) {
       setState(() => _error = appL10n.chooseAReminderNoMoreThan10YearsAway);
       return;
     }

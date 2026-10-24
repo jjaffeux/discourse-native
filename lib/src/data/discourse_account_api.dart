@@ -395,11 +395,16 @@ final class DiscourseAccountApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
     _requirePositiveId(bookmarkId, 'bookmarkId');
-    _validateBookmarkDraft(name: name, reminderAt: reminderAt);
+    _validateBookmarkDraft(
+      name: name,
+      reminderAt: reminderAt,
+      originalReminderAt: originalReminderAt,
+    );
     await _write(
       Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
       siteUrl: siteUrl,
@@ -784,6 +789,7 @@ final class DiscourseAccountApi {
   void _validateBookmarkDraft({
     required String? name,
     required DateTime? reminderAt,
+    DateTime? originalReminderAt,
   }) {
     // Core validates Ruby string length, which counts Unicode scalar values.
     if (name != null && name.runes.length > 100) {
@@ -792,7 +798,11 @@ final class DiscourseAccountApi {
         errors: [appL10n.bookmarkNotesMustBe100CharactersOrFewer],
       );
     }
-    if (reminderAt == null) return;
+    if (reminderAt == null ||
+        (originalReminderAt != null &&
+            reminderAt.isAtSameMomentAs(originalReminderAt))) {
+      return;
+    }
     final now = _clock().toUtc();
     final reminder = reminderAt.toUtc();
     if (!reminder.isAfter(now)) {

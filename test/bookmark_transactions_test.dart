@@ -144,6 +144,7 @@ final class _PendingWriteApi extends FakeDiscourseApi {
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
@@ -154,6 +155,7 @@ final class _PendingWriteApi extends FakeDiscourseApi {
       bookmarkId: bookmarkId,
       name: name,
       reminderAt: reminderAt,
+      originalReminderAt: originalReminderAt,
       autoDeletePreference: autoDeletePreference,
     );
   }
@@ -245,6 +247,31 @@ final class _Fixture {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'bookmark updates forward the stored reminder independently of the draft',
+    () async {
+      final f = _Fixture();
+      final original = DateTime.utc(2000, 1, 1);
+      final bookmark = _bookmark.copyWith(
+        reminderAt: original,
+        autoDeletePreference: BookmarkAutoDeletePreference.never,
+      );
+      for (final reminder in [original, null, DateTime.utc(2030, 1, 1)]) {
+        final result = await f.account.updateBookmark(
+          topicId: 7,
+          bookmark: bookmark,
+          name: 'Updated note',
+          reminderAt: reminder,
+          autoDeletePreference: BookmarkAutoDeletePreference.onOwnerReply,
+        );
+        expect(result.saved, isTrue);
+        expect(f.api.updatedBookmarkOriginalReminders.last, original);
+        expect(f.api.updatedBookmarks.last.reminderAt, reminder);
+      }
+      expect(f.api.updatedBookmarks, hasLength(3));
+    },
+  );
 
   test(
     'a forced bookmark replay cannot dispatch for a replacement account',

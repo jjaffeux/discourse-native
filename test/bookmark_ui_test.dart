@@ -318,6 +318,83 @@ void main() {
     );
   }
 
+  testWidgets('editor preserves a reminder that expires while open', (
+    tester,
+  ) async {
+    var now = DateTime.utc(2026, 4, 15, 12);
+    final reminder = now.add(const Duration(minutes: 1));
+    final api = await _openEditor(
+      tester,
+      now: now,
+      clock: () => now,
+      reminder: reminder,
+    );
+    now = reminder;
+    await tester.enterText(find.byType(DInput).first, 'Updated after expiry');
+    await _saveEditor(tester);
+    expect(api.updatedBookmarks.single.reminderAt, reminder);
+    expect(api.updatedBookmarks.single.name, 'Updated after expiry');
+    expect(find.text('Save'), findsNothing);
+  });
+
+  testWidgets(
+    'editor preserves a stored normalized March 1 beyond the maximum',
+    (tester) async {
+      final reminder = DateTime.utc(2034, 3, 1, 12);
+      final api = await _openEditor(
+        tester,
+        now: DateTime.utc(2024, 2, 29, 12),
+        reminder: reminder,
+        timezone: 'Etc/UTC',
+      );
+      await _saveEditor(tester);
+      expect(api.updatedBookmarks.single.reminderAt, reminder);
+      expect(find.text('Save'), findsNothing);
+    },
+  );
+
+  testWidgets('editor rejects a changed reminder that expires while open', (
+    tester,
+  ) async {
+    var now = DateTime.utc(2026, 4, 15, 12);
+    final api = await _openEditor(
+      tester,
+      now: now,
+      clock: () => now,
+      reminder: now.subtract(const Duration(days: 1)),
+    );
+    await tester.ensureVisible(find.text('Tomorrow'));
+    await tester.tap(find.text('Tomorrow'));
+    now = now.add(const Duration(days: 3));
+    await _saveEditor(tester);
+    expect(api.updatedBookmarks, isEmpty);
+    expect(find.text('Choose a reminder in the future.'), findsOneWidget);
+  });
+
+  for (final clear in [false, true]) {
+    testWidgets(
+      'editor ${clear ? 'clears' : 'reschedules'} an expired reminder',
+      (tester) async {
+        final now = DateTime.utc(2026, 4, 15, 12);
+        final reminder = now.subtract(const Duration(days: 1));
+        final api = await _openEditor(tester, now: now, reminder: reminder);
+        final choice = find.text(clear ? 'No reminder' : 'Tomorrow');
+        await tester.ensureVisible(choice);
+        await tester.tap(choice);
+        await _saveEditor(tester);
+        expect(api.updatedBookmarks, hasLength(1));
+        final updatedReminder = api.updatedBookmarks.single.reminderAt;
+        if (clear) {
+          expect(updatedReminder, isNull);
+        } else {
+          expect(updatedReminder!.isAfter(now), isTrue);
+          expect(updatedReminder, isNot(reminder));
+        }
+        expect(find.text('Save'), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'editor opens and saves with a wrong-typed last custom preference',
     (tester) => (() async {
@@ -517,17 +594,9 @@ void main() {
   });
 
   for (final scenario in [
-    (
-      label: 'past',
-      reminder: DateTime.utc(2026, 4, 14, 8),
-      error: 'Choose a reminder in the future.',
-    ),
-    (label: 'future', reminder: DateTime.utc(2026, 4, 17, 8), error: null),
-    (
-      label: 'beyond the upper bound',
-      reminder: DateTime.utc(2046, 4, 15, 8),
-      error: 'Choose a reminder no more than 10 years away.',
-    ),
+    (label: 'past', reminder: DateTime.utc(2026, 4, 14, 8)),
+    (label: 'future', reminder: DateTime.utc(2026, 4, 17, 8)),
+    (label: 'beyond the upper bound', reminder: DateTime.utc(2046, 4, 15, 8)),
   ]) {
     for (final stage in ['date', 'time']) {
       testWidgets(
@@ -565,12 +634,8 @@ void main() {
           expect(await store.read(_site, 'reader'), lastCustom);
           expect(api.updatedBookmarks, isEmpty);
           await _saveEditor(tester);
-          if (scenario.error case final error?) {
-            expect(find.text(error), findsOneWidget);
-            expect(api.updatedBookmarks, isEmpty);
-          } else {
-            expect(api.updatedBookmarks.single.reminderAt, scenario.reminder);
-          }
+          expect(api.updatedBookmarks.single.reminderAt, scenario.reminder);
+          expect(find.text('Save'), findsNothing);
         },
       );
     }
@@ -647,7 +712,7 @@ void main() {
       final api = await _openEditor(
         tester,
         now: DateTime.utc(2026, 4, 15, 12),
-        reminder: scenario.reminder,
+        reminder: scenario.reminder.add(const Duration(seconds: 30)),
       );
       await _openCustomPicker(tester);
       await _confirmPicker(tester);
@@ -673,12 +738,6 @@ void main() {
       valid: false,
     ),
     (
-      label: 'leap-day normalized March 1',
-      now: DateTime.utc(2024, 2, 29, 12),
-      reminder: DateTime.utc(2034, 3, 1, 12),
-      valid: false,
-    ),
-    (
       label: 'ordinary exact boundary',
       now: DateTime.utc(2026, 4, 15, 12),
       reminder: DateTime.utc(2036, 4, 15, 12),
@@ -697,14 +756,12 @@ void main() {
       final api = await _openEditor(
         tester,
         now: scenario.now,
-        reminder: scenario.reminder,
+        reminder: scenario.reminder.add(const Duration(seconds: 30)),
         timezone: 'Etc/UTC',
       );
-      if (scenario.label != 'leap-day normalized March 1') {
-        await _openCustomPicker(tester);
-        await _confirmPicker(tester);
-        await _confirmPicker(tester);
-      }
+      await _openCustomPicker(tester);
+      await _confirmPicker(tester);
+      await _confirmPicker(tester);
       await _saveEditor(tester);
       if (scenario.valid) {
         expect(api.updatedBookmarks.single.reminderAt, scenario.reminder);
@@ -963,6 +1020,7 @@ Future<void> _scrollEditorToEnd(WidgetTester tester, String action) async {
 Future<FakeDiscourseApi> _openEditor(
   WidgetTester tester, {
   required DateTime now,
+  DateTime Function()? clock,
   DateTime? reminder,
   String timezone = 'Europe/Paris',
 }) async {
@@ -992,7 +1050,7 @@ Future<FakeDiscourseApi> _openEditor(
               siteUrl: _site,
               topicId: 7,
               bookmark: bookmark,
-              now: () => now,
+              now: clock ?? () => now,
             ),
           ),
           label: const Text('Open editor'),

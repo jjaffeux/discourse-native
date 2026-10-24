@@ -918,6 +918,7 @@ class FakeDiscourseApi
     })
   >
   updatedBookmarks = [];
+  final updatedBookmarkOriginalReminders = <DateTime?>[];
   final List<int> deletedBookmarks = [];
 
   final List<int> markedRead = [];
@@ -1760,11 +1761,13 @@ class FakeDiscourseApi
     required int bookmarkId,
     String? name,
     DateTime? reminderAt,
+    DateTime? originalReminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
     String? clientId,
   }) async {
     final failure = writeFailure;
     if (failure != null) throw failure;
+    updatedBookmarkOriginalReminders.add(originalReminderAt);
     updatedBookmarks.add((
       bookmarkId: bookmarkId,
       name: name,
