@@ -11565,6 +11565,25 @@ void main() {
       expect(held(subject.store)?.membership.lastReadMessageId, 3);
     });
 
+    test('retries the same visible receipt after an unsent failure', () async {
+      final api = _RecoveringChatReadApi();
+      final subject = build(api: api);
+      subject.store.put(site, channel(9, lastRead: 1));
+
+      await subject.chat.markRead(site, 9, 3);
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+
+      api.offline = false;
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(api.chatReadsMarked, [
+        (channelId: 9, messageId: 3),
+        (channelId: 9, messageId: 3),
+      ]);
+      expect(held(subject.store)?.membership.lastReadMessageId, 3);
+    });
+
     test('writes once for a message it has already recorded', () async {
       // The optimistic update is the whole of the de-duplication: a second
       // scroll tick that sees the same message reads back its own answer.
@@ -11905,6 +11924,24 @@ final class _GatedChannelDetailApi extends FakeDiscourseApi {
       channelId: channelId,
       clientId: clientId,
     );
+  }
+}
+
+final class _RecoveringChatReadApi extends FakeDiscourseApi {
+  bool offline = true;
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatReadsMarked.add((channelId: channelId, messageId: messageId));
+    if (offline) {
+      throw const WriteException(WriteFailure.unreachable, notSent: true);
+    }
   }
 }
 
