@@ -183,6 +183,47 @@ void main() {
   }
 
   test(
+    'user edits survive delayed draft restoration and the next opening',
+    () async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      const draft = ComposerDraft(
+        action: ComposerDraft.createTopicAction,
+        title: 'A restored topic',
+        reply: 'Saved body',
+        categoryId: 5,
+      );
+      final (:shell, api: _) = await start(
+        draftRestoreGate: gate,
+        draftToRestore: (draft: draft, sequence: 1),
+      );
+      final opening = shell.resumeDraft(
+        _siteUrl,
+        const UserDraft(key: 'new_topic_123', sequence: 1, data: draft),
+      );
+      await pumpEventQueue();
+      final first = shell.visibleComposer!;
+      expect(first.text.text, isEmpty);
+      await shell.changeComposerCategory(first, _bugs.id);
+      expect(first.text.text, _bugTemplate);
+      first.text.text = 'User text before restoration finishes';
+      gate.complete();
+      await opening;
+      await shell.openNewTopic();
+      final second = shell.visibleComposer!;
+      await pumpEventQueue();
+
+      expect(second, isNot(same(first)));
+      expect(second.text.text, isEmpty);
+      expect(first.text.text, 'User text before restoration finishes');
+      expect(first.categoryId, _bugs.id);
+      expect(shell.liveComposers, containsAll([first, second]));
+    },
+  );
+
+  test(
     'submitting an untouched template is refused with the core message',
     () async {
       final (:shell, :api) = await start();
