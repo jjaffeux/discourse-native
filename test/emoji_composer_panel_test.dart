@@ -295,15 +295,13 @@ void main() {
     await _pumpComposer(tester, shell);
 
     await tester.tap(find.byKey(const ValueKey('composer-emoji-picker')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('emoji-picker-desktop-popover')),
       findsOneWidget,
     );
     await tester.tap(find.byTooltip(':wave:'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     expect(composer.text.text, 'Before :wave:After');
     expect(composer.focus.hasFocus, isTrue);
@@ -332,15 +330,13 @@ void main() {
     await _pumpComposer(tester, shell);
 
     await tester.tap(find.byKey(const ValueKey('composer-emoji-picker')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     composer.text.value = const TextEditingValue(
       text: 'Changed elsewhere',
       selection: TextSelection.collapsed(offset: 17),
     );
     await tester.tap(find.byTooltip(':wave:'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     expect(composer.text.text, 'Changed elsewhere');
     expect(
@@ -366,14 +362,17 @@ void main() {
     );
     await _pumpComposer(tester, shell);
     await tester.tap(find.byKey(const ValueKey('composer-emoji-picker')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     composer.beginSubmit();
     final before = composer.value;
     await tester.tap(find.byTooltip(':wave:'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.byKey(const ValueKey('emoji-picker-desktop-popover')),
+      findsNothing,
+    );
 
     expect(composer.value, before);
     expect(

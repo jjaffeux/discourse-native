@@ -1041,7 +1041,7 @@ void main() {
       controller.selection = const TextSelection.collapsed(offset: 6);
       await tester.pump();
       expect(find.byType(EmojiImage), findsNothing);
-      controller.selection = TextSelection.collapsed(
+      controller.selection = const TextSelection.collapsed(
         offset: '🧵 :türkiye:'.length,
       );
       await tester.pump();
