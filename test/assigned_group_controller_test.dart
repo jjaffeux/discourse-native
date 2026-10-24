@@ -154,6 +154,41 @@ Future<void> _loadQueries(
 }
 
 void main() {
+  test('complete assignment totals include every loaded member page', () async {
+    AssignedGroupMembersPage page(int offset, int count) =>
+        AssignedGroupMembersPage.fromJson({
+          'members': [
+            for (var index = 0; index < count; index++)
+              {
+                'id': offset + index + 1,
+                'username': 'member${offset + index + 1}',
+                'assignments_count': 1,
+              },
+          ],
+          'assignment_count': count + 2,
+          'group_assignment_count': 2,
+        }, _site, offset: offset, limit: 50);
+    final api = _ControlledAssignedGroupApi()
+      ..memberResults.addAll([
+        _completed(page(0, 50)),
+        _completed(page(50, 1)),
+      ]);
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadMembers(siteUrl: _site, groupName: 'support');
+    await controller.loadMoreMembers(siteUrl: _site, groupName: 'support');
+
+    final state = controller.membersStateFor(_site, 'support');
+    expect(state.members, hasLength(51));
+    expect(state.hasMore, isFalse);
+    expect(state.assignmentCount, 53);
+    expect(api.memberCalls.map((call) => call.offset), [0, 50]);
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
