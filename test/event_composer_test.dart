@@ -91,6 +91,62 @@ void main() {
     });
   }
 
+  testWidgets(
+    'stray backticks keep the existing event editable without duplication',
+    (tester) async {
+      const event =
+          '[event start="2026-10-24 12:00" name="Team call"]\nAgenda\n[/event]';
+      for (final closer in ['`', '``']) {
+        final source = '`before\n$event\n$closer';
+        final editor = _Editor(source, policyFor(createsTopic: true));
+        final projection = editor.policy.parse(source).single;
+        expect(projection.source, event);
+        expect(projection.start, '`before\n'.length);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => DButton(
+                  onPressed: () => projection.edit(context, editor),
+                  label: const Text('Edit event'),
+                ),
+              ),
+            ),
+          ),
+        );
+        final context = tester.element(find.byType(DButton));
+        await openEventComposer(context, editor, editor.policy);
+        await tester.pumpAndSettle();
+        expect(find.byType(EventComposerSheet), findsNothing);
+        expect(editor.value.text, source);
+        await tester.tap(find.text('Edit event'));
+        await tester.pumpAndSettle();
+        expect(find.byType(EventComposerSheet), findsOneWidget);
+        await tester.enterText(
+          find.byWidgetPredicate(
+            (widget) => widget is DInput && widget.labelText == 'Name',
+          ),
+          'Planning call',
+        );
+        await tester.tap(find.widgetWithText(DButton, 'Apply'));
+        await tester.pumpAndSettle();
+        expect(
+          editor.value.text,
+          source.replaceFirst('Team call', 'Planning call'),
+        );
+        expect(editor.policy.parse(editor.value.text), hasLength(1));
+        await openEventComposer(context, editor, editor.policy);
+        await tester.pumpAndSettle();
+        expect(find.byType(EventComposerSheet), findsNothing);
+        expect(
+          editor.value.text,
+          source.replaceFirst('Team call', 'Planning call'),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   test(
     'unchanged source is lossless; editing a value preserves recurrence anchor and unknown attributes',
     () {

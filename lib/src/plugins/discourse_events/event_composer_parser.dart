@@ -398,37 +398,111 @@ Iterable<(int, int)> _delimitedRanges(
 }
 
 Iterable<(int, int)> _inlineCodeRanges(String source) sync* {
-  final runs = RegExp(r'`+').allMatches(source).toList();
-  final longestAfter = List.filled(runs.length + 1, 0);
-  for (var i = runs.length - 1; i >= 0; i--) {
-    final length = runs[i].end - runs[i].start;
-    longestAfter[i] = length > longestAfter[i + 1]
-        ? length
-        : longestAfter[i + 1];
-  }
-  var index = 0;
-  var offset = 0;
-  while (index < runs.length) {
-    final run = runs[index];
-    if (offset < run.start) offset = run.start;
-    final start = offset;
-    final length = run.end - start;
-    // The old (`+)...\1 pattern chose the longest opener that could close,
-    // including within its own run after backtracking. A closer can consume
-    // only part of a run; its remainder can open the next span.
-    var width = longestAfter[index + 1];
-    if (width < length ~/ 2) width = length ~/ 2;
-    if (width > length) width = length;
-    if (width == 0) break;
-    if (width * 2 <= length) {
-      offset = start + width * 2;
-    } else {
-      do {
-        index++;
-      } while (runs[index].end - runs[index].start < width);
-      offset = runs[index].start + width;
+  var paragraphStart = 0;
+  for (final line in RegExp(
+    r'^.*(?:\n|$)',
+    multiLine: true,
+  ).allMatches(source)) {
+    final text = line[0]!;
+    if (text.trim().isEmpty || _eventInterruptsParagraph(text)) {
+      yield* _paragraphCodeRanges(source, paragraphStart, line.start);
+      paragraphStart = text.trim().isEmpty ? line.end : line.start;
     }
-    yield (start, offset);
-    if (offset == runs[index].end) index++;
+  }
+  yield* _paragraphCodeRanges(source, paragraphStart, source.length);
+}
+
+// BBCode interrupts paragraphs before its block body is validated. Native
+// authoring also accepts spaces around '=' and dotted keys, which the cooker
+// does not, so those spellings must still respect multiline inline code.
+bool _eventInterruptsParagraph(String line) {
+  final opening = RegExp(
+    r'^ {0,3}\[event(?=[\s\]])',
+    caseSensitive: false,
+  ).firstMatch(line);
+  if (opening == null) return false;
+  var offset = opening.end;
+  final key = RegExp(r'[-A-Za-z0-9_]+');
+  const quotes = {
+    '"': '"',
+    "'": "'",
+    '«': '»',
+    '“': '”',
+    '”': '”',
+    '‘': '’',
+    '„': '“',
+    '‚': '’',
+    '‹': '›',
+  };
+  final absentQuotes = <String>{};
+  while (offset < line.length) {
+    while (offset < line.length && line[offset].trim().isEmpty) {
+      if (line[offset] == '\n' || line[offset] == '\r') return false;
+      offset++;
+    }
+    if (offset == line.length) return false;
+    if (line[offset] == ']') return true;
+    final name = key.matchAsPrefix(line, offset);
+    if (name == null) return false;
+    offset = name.end;
+    if (offset == line.length || line[offset] != '=') continue;
+    offset++;
+    if (offset == line.length ||
+        line[offset].trim().isEmpty ||
+        line[offset] == ']') {
+      return false;
+    }
+    final closingQuote = quotes[line[offset]];
+    if (closingQuote != null && !absentQuotes.contains(closingQuote)) {
+      final end = line.indexOf(closingQuote, offset + 1);
+      if (end == -1) absentQuotes.add(closingQuote);
+      if (end > offset + 1) {
+        offset = end + 1;
+        continue;
+      }
+    }
+    while (offset < line.length &&
+        line[offset].trim().isNotEmpty &&
+        line[offset] != ']') {
+      offset++;
+    }
+  }
+  return false;
+}
+
+Iterable<(int, int)> _paragraphCodeRanges(
+  String source,
+  int start,
+  int end,
+) sync* {
+  final text = source.substring(start, end);
+  final runs = RegExp(r'`+').allMatches(text).toList();
+  final closers = List<int?>.filled(runs.length, null);
+  final openerStarts = List<int>.filled(runs.length, 0);
+  final nextByWidth = <int, int>{};
+  for (var i = runs.length - 1; i >= 0; i--) {
+    final run = runs[i];
+    var backslashes = 0;
+    for (
+      var before = run.start - 1;
+      before >= 0 && text[before] == r'\';
+      before--
+    ) {
+      backslashes++;
+    }
+    final openerStart = run.start + backslashes % 2;
+    openerStarts[i] = openerStart;
+    closers[i] = nextByWidth[run.end - openerStart];
+    nextByWidth[run.end - run.start] = i;
+  }
+  var i = 0;
+  while (i < runs.length) {
+    final closer = closers[i];
+    if (closer == null) {
+      i++;
+    } else {
+      yield (start + openerStarts[i], start + runs[closer].end);
+      i = closer + 1;
+    }
   }
 }

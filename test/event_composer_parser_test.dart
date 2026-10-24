@@ -1,3 +1,4 @@
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -142,8 +143,6 @@ void main() {
       ('[code foo]\n', '\n[/code]'),
       ('<pre>\n', '\n</code>'),
       ('<!--\n[quote]\n', '\n[/quote]\n-->'),
-      ('`\n', '\n`'),
-      ('``\n', '\na ```'),
       ('    ', ''),
       ('\t', ''),
       ('> ', ''),
@@ -171,50 +170,124 @@ void main() {
     }
   });
 
-  test(
-    'inline backtick runs retain greedy opener and partial closer behavior',
-    () {
-      for (final (before, after, excluded) in [
-        ('a ``', '``', true),
-        ('a ```', '``', true),
-        ('a ````', '``', false),
-        ('a `````', '```', true),
-        ('a `````', '``', true),
-        ('a ``````', '``', false),
-        ('a ``', '```\n$_event\n`', true),
-      ]) {
-        final source = '$before\n$_event\n$after';
-        expect(parseEventBlocks(source).isEmpty, excluded, reason: source);
-        expect(hasEventMarkup(source), !excluded, reason: source);
+  test('inline code requires complete matching runs within a paragraph', () {
+    const legacy = '[event start = "2026-09-08 12:00"]\nAgenda\n[/event]';
+    for (var first = 1; first <= 8; first++) {
+      for (var second = 1; second <= 8; second++) {
+        final source = 'text ${'`' * first}\n$legacy\n${'`' * second}';
+        final isCode = first == second;
+        expect(parseEventBlocks(source).isEmpty, isCode, reason: source);
+        expect(hasEventMarkup(source), !isCode, reason: source);
       }
-    },
-  );
+    }
+  });
 
-  test('varying backtick runs preserve the previous exclusion pattern', () {
-    final pattern = RegExp(r'(`+)[\s\S]*?\1');
-    for (var first = 0; first <= 8; first++) {
-      for (var second = 0; second <= 8; second++) {
-        for (var third = 0; third <= 8; third++) {
-          final source = [
-            for (final width in [first, second, third])
-              'text ${'`' * width}\n$_event\n',
-          ].join();
-          final excluded = pattern.allMatches(source).toList();
-          final expected = [
-            for (final match in RegExp(r'\[event').allMatches(source))
-              if (!excluded.any(
-                (range) =>
-                    range.start <= match.start && match.start < range.end,
-              ))
-                match.start,
-          ];
-          expect(
-            parseEventBlocks(source).map((block) => block.start),
-            expected,
-            reason: 'backtick widths: $first, $second, $third',
-          );
-          expect(hasEventMarkup(source), expected.isNotEmpty);
-        }
+  test('inline exclusions match the application cooker', () async {
+    final service = OfflineCookingService();
+    addTearDown(service.dispose);
+    const legacy = '[event start = "2026-09-08 12:00"]\nAgenda\n[/event]';
+    const dotted = '[event start=x future.Flag=abc]\nAgenda\n[/event]';
+    final cases = <({String source, bool event, bool code, bool editable})>[
+      for (final newline in ['\n', '\r\n'])
+        for (final indent in ['', '   '])
+          for (final closer in ['`', '``'])
+            (
+              source:
+                  '`before$newline$indent${_event.replaceAll('\n', newline)}$newline$closer',
+              event: true,
+              code: false,
+              editable: true,
+            ),
+      (
+        source: '`before\n\n$legacy\n\n`after',
+        event: false,
+        code: false,
+        editable: true,
+      ),
+      for (final event in [legacy, dotted])
+        (
+          source: '`before\n$event\n`after',
+          event: false,
+          code: true,
+          editable: false,
+        ),
+      for (final (before, after, code) in [
+        ('``', '``', true),
+        ('```', '``', false),
+        ('`````', '```', false),
+        ('``', '``` then ``', true),
+        (r'\`', '`', false),
+        (r'\``', '`', true),
+        (r'\\`', '`', true),
+        ('`', r'\`', true),
+      ])
+        (
+          source: 'text $before\n$legacy\n$after',
+          event: false,
+          code: code,
+          editable: !code,
+        ),
+      for (final (before, after) in [
+        ('```\n', '\n```'),
+        ('[code]\n', '\n[/code]'),
+        ('<!--\n', '\n-->'),
+      ])
+        (
+          source: '$before$_event$after',
+          event: false,
+          code: before != '<!--\n',
+          editable: false,
+        ),
+    ];
+    for (final fixture in cases) {
+      final result = await service.cook(
+        CookingRequest(
+          raw: fixture.source,
+          snapshot: CookingSnapshot(
+            siteId: 'event-test',
+            accountId: 'event-test',
+            pluginContext: const {
+              'discourse-events': {
+                'settings': {'discourse_post_event_enabled': true},
+              },
+            },
+          ),
+          configuration: CookingConfiguration(
+            modules: [
+              CookingModule(
+                id: 'post-event',
+                owner: 'discourse-events',
+                version: '1',
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(result.failure, isNull, reason: fixture.source);
+      expect(
+        result.html.contains('class="discourse-post-event"'),
+        fixture.event,
+        reason: fixture.source,
+      );
+      expect(
+        result.html.contains('<code'),
+        fixture.code,
+        reason: fixture.source,
+      );
+      final blocks = parseEventBlocks(fixture.source);
+      expect(
+        blocks,
+        hasLength(fixture.editable ? 1 : 0),
+        reason: fixture.source,
+      );
+      expect(
+        hasEventMarkup(fixture.source),
+        fixture.editable,
+        reason: fixture.source,
+      );
+      for (final block in blocks) {
+        expect(fixture.source.substring(block.start, block.end), block.source);
+        expect(block.replace({}), block.source);
       }
     }
   });
@@ -237,6 +310,26 @@ void main() {
             '8x unfinished openers with suffix "$suffix": ${large / small}x',
       );
     }
+  });
+
+  test('unclosed asymmetric quote values scale within one opening line', () {
+    String draft(int count) =>
+        '`before\n[event start=“word ${'key=“word ' * count}]\nAgenda\n[/event]\n`after\n$_event';
+    final smallSource = draft(256);
+    final largeSource = draft(2048);
+    for (final source in [smallSource, largeSource]) {
+      expect(parseEventBlocks(source).map((block) => block.source), [_event]);
+      expect(hasEventMarkup(source), isTrue);
+    }
+    final (:small, :large) = measureScaling(
+      () =>
+          parseEventBlocks(smallSource).length +
+          (hasEventMarkup(smallSource) ? 1 : 0),
+      () =>
+          parseEventBlocks(largeSource).length +
+          (hasEventMarkup(largeSource) ? 1 : 0),
+    );
+    expect(large, lessThan(small * 25));
   });
 
   test('exclusion scans and multiple blocks scale with the draft', () {
