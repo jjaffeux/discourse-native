@@ -10,6 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
+import '../data/site_lifecycle.dart';
 
 import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
@@ -39,6 +40,7 @@ import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_pointer_predictor.dart';
 import 'topic_prefetch_controller.dart';
+import 'topic_text_measurements.dart';
 import 'topic_title.dart';
 import 'user_card.dart';
 

@@ -22,24 +22,6 @@ String _topicCompactCount(int count) => count >= 10000
     ? '${(count / 1000).toStringAsFixed(1)}k'
     : '$count';
 
-/// Measure the same styled/scaled text that the Native links display.
-double _topicTextWidth(BuildContext context, String text) {
-  var style = _topicMetadataStyle(context);
-  // Text applies the accessibility weight after merging its explicit style.
-  // Fit tags and reserve counts using that same rendered weight.
-  if (MediaQuery.boldTextOf(context)) {
-    style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
-  }
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  final width = painter.width;
-  painter.dispose();
-  return width;
-}
-
 double _topicCategoryMarkWidth(TopicCategory category) =>
     (category.styleType == 'icon' ||
             (category.styleType == 'emoji' && category.emoji != null)
@@ -47,8 +29,11 @@ double _topicCategoryMarkWidth(TopicCategory category) =>
         : 9.0) +
     (category.readRestricted ? 4 + 13 : 0);
 
-double _topicMinimumTaxonomyWidth(BuildContext context, _TopicRowBody row) {
-  final ellipsis = _topicTextWidth(context, '…');
+double _topicMinimumTaxonomyWidth(
+  _TopicRowBody row,
+  double Function(String) measure,
+) {
+  final ellipsis = measure('…');
   var width = 0.0;
   if (row.topic.privateMessage) {
     width = ellipsis;
@@ -62,10 +47,7 @@ double _topicMinimumTaxonomyWidth(BuildContext context, _TopicRowBody row) {
   if (row.topic.tags.isNotEmpty) {
     width +=
         (width > 0 ? _topicTagGap : 0) +
-        _topicTextWidth(
-          context,
-          '+${row.topic.tags.length}',
-        ).clamp(16.0, double.infinity);
+        measure('+${row.topic.tags.length}').clamp(16.0, double.infinity);
   }
   return width.clamp(45.0, double.infinity);
 }
@@ -87,10 +69,90 @@ String? _topicSortOrder(
       : null;
 }
 
-class _TopicCardFooter extends StatelessWidget {
+class _TopicCardFooter extends StatefulWidget {
   const _TopicCardFooter({required this.row, required this.allowSort});
   final _TopicRowBody row;
   final bool allowSort;
+
+  @override
+  State<_TopicCardFooter> createState() => _TopicCardFooterState();
+}
+
+class _TopicCardFooterState extends State<_TopicCardFooter> {
+  final _measurements = TopicTextMeasurements();
+  SiteLease? _lease;
+  VoidCallback? _removeRetirementListener;
+  _TopicRowBody get row => widget.row;
+  bool get allowSort => widget.allowSort;
+
+  @override
+  void initState() {
+    super.initState();
+    PaintingBinding.instance.systemFonts.addListener(_fontsChanged);
+  }
+
+  void _fontsChanged() {
+    _measurements.clear();
+    setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(_TopicCardFooter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.row.topic.id != row.topic.id ||
+        oldWidget.row.siteUrl != row.siteUrl) {
+      _measurements.clear();
+    }
+  }
+
+  double Function(String) _resolveMeasure(BuildContext context) {
+    final lease = ShellScope.maybeRead(context)?.lifecycle.capture(row.siteUrl);
+    if (!identical(lease?.session, _lease?.session)) {
+      _removeRetirementListener?.call();
+      _measurements.clear();
+      _lease = lease;
+      _removeRetirementListener = lease?.onRetire(_measurements.clear);
+    }
+    var style = _topicMetadataStyle(context);
+    if (MediaQuery.boldTextOf(context)) {
+      style = style.merge(const TextStyle(fontWeight: FontWeight.bold));
+    }
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+    final ambientLocale = Localizations.maybeLocaleOf(context);
+    final ambientDefaultTextStyle = DefaultTextStyle.of(context).style;
+    final ambientLineHeightScaleFactor =
+        MediaQuery.maybeLineHeightScaleFactorOverrideOf(context);
+    final ambientLetterSpacing = MediaQuery.maybeLetterSpacingOverrideOf(
+      context,
+    );
+    final ambientWordSpacing = MediaQuery.maybeWordSpacingOverrideOf(context);
+    return (text) {
+      final retired = lease != null && !lease.isCurrent;
+      if (retired) _measurements.clear();
+      final width = _measurements.measure(
+        text,
+        style: style,
+        textScaler: textScaler,
+        textDirection: textDirection,
+        ambientLocale: ambientLocale,
+        ambientDefaultTextStyle: ambientDefaultTextStyle,
+        ambientLineHeightScaleFactor: ambientLineHeightScaleFactor,
+        ambientLetterSpacing: ambientLetterSpacing,
+        ambientWordSpacing: ambientWordSpacing,
+      );
+      if (retired) _measurements.clear();
+      return width;
+    };
+  }
+
+  @override
+  void dispose() {
+    PaintingBinding.instance.systemFonts.removeListener(_fontsChanged);
+    _removeRetirementListener?.call();
+    _measurements.clear();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => switch (row.topic.bumpedAt) {
@@ -102,6 +164,7 @@ class _TopicCardFooter extends StatelessWidget {
   };
 
   Widget _build(BuildContext context, String age) {
+    final measure = _resolveMeasure(context);
     final topic = row.topic;
     final posters = topic.posters.isNotEmpty
         ? topic.posters
@@ -171,23 +234,27 @@ class _TopicCardFooter extends StatelessWidget {
         child: Text(age, style: _topicMetadataStyle(context)),
       ),
     );
-    final taxonomy = _TopicCardTaxonomy(row: row, allowSort: allowSort);
+    final taxonomy = _TopicCardTaxonomy(
+      row: row,
+      allowSort: allowSort,
+      measure: measure,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final room =
             constraints.maxWidth -
             avatarsWidth -
-            _topicTextWidth(context, age) -
+            measure(age) -
             (_topicSortOrder(context, row, allowSort: allowSort) == 'activity'
                 ? 18
                 : 0) -
             (shown.isEmpty ? 14 : 28);
         // At accessibility sizes the entire metadata strip gets its own line.
         // Keep every link/count available instead of squeezing it to zero.
-        final minimumTaxonomyWidth = _topicMinimumTaxonomyWidth(context, row);
+        final minimumTaxonomyWidth = _topicMinimumTaxonomyWidth(row, measure);
         final wrap =
             room <
-            _topicCountsWidth(context, row, allowSort: allowSort) +
+            _topicCountsWidth(context, row, measure, allowSort: allowSort) +
                 minimumTaxonomyWidth;
         final footer = wrap
             ? Column(
@@ -237,10 +304,15 @@ class _TopicCardFooter extends StatelessWidget {
               ),
             ],
           );
-          final siteWidth = 20 + _topicTextWidth(context, forum.title);
+          final siteWidth = 20 + measure(forum.title);
           if (!wrap &&
               room - siteWidth - _topicTailGap >=
-                  _topicCountsWidth(context, row, allowSort: allowSort) +
+                  _topicCountsWidth(
+                        context,
+                        row,
+                        measure,
+                        allowSort: allowSort,
+                      ) +
                       minimumTaxonomyWidth.clamp(82.0, double.infinity)) {
             return Row(
               spacing: _topicTailGap,
@@ -270,7 +342,8 @@ List<(int, DIconData, CountNoun, String)> _topicCounts(_TopicRowBody row) => [
 
 double _topicCountsWidth(
   BuildContext context,
-  _TopicRowBody row, {
+  _TopicRowBody row,
+  double Function(String) measure, {
   required bool allowSort,
 }) {
   final order = _topicSortOrder(context, row, allowSort: allowSort);
@@ -280,16 +353,21 @@ double _topicCountsWidth(
         width +
         11 +
         4 +
-        _topicTextWidth(context, _topicCompactCount(count.$1)) +
+        measure(_topicCompactCount(count.$1)) +
         _topicTailGap +
         (order == count.$4 ? 18 : 0),
   );
 }
 
 class _TopicCardTaxonomy extends StatefulWidget {
-  const _TopicCardTaxonomy({required this.row, required this.allowSort});
+  const _TopicCardTaxonomy({
+    required this.row,
+    required this.allowSort,
+    required this.measure,
+  });
   final _TopicRowBody row;
   final bool allowSort;
+  final double Function(String) measure;
   @override
   State<_TopicCardTaxonomy> createState() => _TopicCardTaxonomyState();
 }
@@ -317,12 +395,13 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           if (row.category != null) row.category!,
         ],
       ];
-      double measure(String text) => _topicTextWidth(context, text);
+      final measure = widget.measure;
       final layout = TopicCardTaxonomyLayout.calculate(
         width: constraints.maxWidth,
         countsWidth: _topicCountsWidth(
           context,
           row,
+          measure,
           allowSort: widget.allowSort,
         ),
         categories: path.map((c) => c.name).toList(),

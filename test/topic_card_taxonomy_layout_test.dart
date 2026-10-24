@@ -16,6 +16,25 @@ void main() {
     measure: measure,
   );
 
+  test('each label is measured once during a layout calculation', () {
+    final requests = <String, int>{};
+    final result = TopicCardTaxonomyLayout.calculate(
+      width: 350,
+      countsWidth: 100,
+      categories: ['Parent', 'Category'],
+      tags: ['alpha', 'beta', 'gamma'],
+      measure: (text) {
+        requests.update(text, (count) => count + 1, ifAbsent: () => 1);
+        return measure(text);
+      },
+    );
+    expect(result.leaf, 'Category');
+    expect(result.visibleTags, 1);
+    expect(result.stub, '#b…');
+    expect(result.remainingTags, 1);
+    expect(requests.values, everyElement(1));
+  });
+
   test('full path and every tag fit when there is room', () {
     final result = layout(500);
     expect(result.abridged, isFalse);

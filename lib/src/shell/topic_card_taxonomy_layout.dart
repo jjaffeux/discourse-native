@@ -30,6 +30,9 @@ class TopicCardTaxonomyLayout {
       categoryMarkWidths == null ||
           categoryMarkWidths.length == categories.length,
     );
+    final widths = <String, double>{};
+    final measureText = measure;
+    measure = (text) => widths.putIfAbsent(text, () => measureText(text));
     const gap = 5.0;
     // Keep the mockup's minimum, but allow for scaled text and multi-digit +N.
     final plus = math.max(16.0, measure('+${tags.length}'));
