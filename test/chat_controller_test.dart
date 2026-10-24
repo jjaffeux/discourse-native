@@ -6891,36 +6891,376 @@ void main() {
   });
 
   group('pinning a message', () {
-    test('confirmed chat pin survives lost HTTP response', () async {
-      final gate = Completer<void>();
-      final subject = build(
+    late ({ChatController chat, FakeDiscourseApi api, Store store}) subject;
+    late FakeSiteTracker tracker;
+    late Completer<void> gate;
+    late _ControllableCredentials credentials;
+    late SiteLifecycle lifecycle;
+
+    setUp(() {
+      gate = Completer<void>();
+      credentials = _ControllableCredentials();
+      lifecycle = SiteLifecycle();
+    });
+
+    Future<void> prepare({
+      bool pinned = false,
+      Map<int, ChatPins> pins = const {},
+      FakeDiscourseApi? api,
+    }) async {
+      subject = build(
+        api: api,
         currentUser: currentUser,
+        credentialReader: credentials,
+        lifecycle: lifecycle,
         pinGate: gate,
-        pinFailure: const WriteException(WriteFailure.unreachable),
+        pins: pins,
+        channels: {
+          site: ChatChannels(
+            public: [
+              channel(
+                9,
+                canManagePins: true,
+              ).withPinnedMessagesCount(pinned ? 1 : 0),
+            ],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
         messages: {
-          key(9): page([message(12)]),
+          key(9): page([message(12, pinned: pinned)]),
         },
       );
       addTearDown(subject.chat.dispose);
-      final tracker = attachTracker(subject.chat);
-      subject.store.put(site, channel(9, canManagePins: true));
+      tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
       await subject.chat.openChannel(site, 9);
       final view = subject.chat.beginViewingChannel(site, 9);
       addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
-      final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
-      await Future<void>.delayed(Duration.zero);
+    }
+
+    void livePin({
+      required bool pinned,
+      int messageId = 12,
+      int actorId = 7,
+      int? count,
+    }) {
       tracker.deliverPluginMessage('/chat/9', {
-        'type': 'pin',
-        'chat_message_id': 12,
-        'pinned_by_id': currentUser.id,
-        'pinned_message_count': 1,
+        'type': pinned ? 'pin' : 'unpin',
+        'chat_message_id': messageId,
+        pinned ? 'pinned_by_id' : 'unpinned_by_id': actorId,
+        'pinned_message_count': ?count,
       });
-      expect(subject.store.read<ChatMessage>(site, 12)!.pinned, true);
-      gate.complete();
-      await writing;
-      expect(subject.store.read<ChatMessage>(site, 12)!.pinned, true);
+    }
+
+    for (final pinned in [true, false]) {
+      for (final failure in [
+        const WriteException(WriteFailure.unreachable),
+        StateError('lost response'),
+      ]) {
+        for (final opposite in [false, true]) {
+          test(
+            'confirmed ${pinned ? 'pin' : 'unpin'} survives $failure '
+            '${opposite ? 'and a later opposite event' : 'with an equal echo'}',
+            () async {
+              await prepare(pinned: !pinned);
+              final writing = subject.chat.setMessagePinned(
+                site,
+                12,
+                pinned: pinned,
+              );
+              await Future<void>.delayed(Duration.zero);
+              expect(subject.api.chatMessagePinsUpdated, hasLength(1));
+              livePin(pinned: pinned, count: pinned ? 1 : 0);
+              if (opposite) {
+                livePin(pinned: !pinned, actorId: 8, count: pinned ? 0 : 1);
+              }
+              gate.completeError(failure);
+              expect(await writing, isNull);
+              final expected = opposite ? !pinned : pinned;
+              expect(subject.chat.message(site, 12)!.pinned, expected);
+              expect(
+                subject.chat.channel(site, 9)!.pinnedMessagesCount,
+                expected ? 1 : 0,
+              );
+            },
+          );
+        }
+      }
+      for (final failure in [
+        const WriteException(WriteFailure.forbidden),
+        const WriteException(WriteFailure.unreachable, notSent: true),
+        const WriteException(WriteFailure.unreachable),
+        StateError('lost response'),
+      ]) {
+        test(
+          '${pinned ? 'pin' : 'unpin'} without confirmation rolls back $failure',
+          () async {
+            await prepare(pinned: !pinned);
+            final writing = subject.chat.setMessagePinned(
+              site,
+              12,
+              pinned: pinned,
+            );
+            await Future<void>.delayed(Duration.zero);
+            subject.store.update<ChatMessage>(
+              site,
+              12,
+              (row) => row.withReactions(const [
+                ChatReaction(emoji: 'clap', count: 1),
+              ]),
+            );
+            gate.completeError(failure);
+            expect(await writing, isNotNull);
+            expect(subject.chat.message(site, 12)!.pinned, !pinned);
+            expect(
+              subject.chat.message(site, 12)!.reactions.single.emoji,
+              'clap',
+            );
+            expect(
+              subject.chat.channel(site, 9)!.pinnedMessagesCount,
+              pinned ? 0 : 1,
+            );
+          },
+        );
+      }
+      for (final actorId in [7, 8]) {
+        for (final failure in [
+          const WriteException(WriteFailure.forbidden),
+          const WriteException(WriteFailure.unreachable, notSent: true),
+          if (actorId == 8) const WriteException(WriteFailure.unreachable),
+        ]) {
+          test(
+            '${pinned ? 'pin' : 'unpin'} actor $actorId preserves authority but reports $failure',
+            () async {
+              await prepare(pinned: !pinned);
+              final writing = subject.chat.setMessagePinned(
+                site,
+                12,
+                pinned: pinned,
+              );
+              await Future<void>.delayed(Duration.zero);
+              livePin(pinned: pinned, actorId: actorId, count: pinned ? 1 : 0);
+              gate.completeError(failure);
+              expect(await writing, failure.message);
+              expect(subject.chat.message(site, 12)!.pinned, pinned);
+              expect(
+                subject.chat.channel(site, 9)!.pinnedMessagesCount,
+                pinned ? 1 : 0,
+              );
+              if (pinned && actorId == 8) {
+                expect(
+                  subject.chat.channel(site, 9)!.membership.hasUnseenPins,
+                  isTrue,
+                );
+              }
+            },
+          );
+        }
+      }
+      test(
+        'own ${pinned ? 'pin' : 'unpin'} before dispatch does not confirm a later failure',
+        () async {
+          await prepare(pinned: !pinned);
+          final started = credentials.blockApiKey();
+          final writing = subject.chat.setMessagePinned(
+            site,
+            12,
+            pinned: pinned,
+          );
+          await started;
+          expect(subject.api.chatMessagePinsUpdated, isEmpty);
+          livePin(pinned: pinned, count: pinned ? 1 : 0);
+          credentials.releaseApiKey();
+          await Future<void>.delayed(Duration.zero);
+          gate.completeError(const WriteException(WriteFailure.unreachable));
+          expect(await writing, isNotNull);
+          expect(subject.api.chatMessagePinsUpdated, hasLength(1));
+          expect(subject.chat.message(site, 12)!.pinned, pinned);
+          expect(
+            subject.chat.channel(site, 9)!.pinnedMessagesCount,
+            pinned ? 1 : 0,
+          );
+        },
+      );
+    }
+
+    for (final held in [false, true]) {
+      test(
+        'another ${held ? 'held' : 'unheld'} message count survives failed pin rollback',
+        () async {
+          await prepare();
+          if (held) subject.store.put(site, message(13));
+          final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+          await Future<void>.delayed(Duration.zero);
+          livePin(pinned: true, messageId: 13, actorId: 8, count: 4);
+          gate.completeError(const WriteException(WriteFailure.forbidden));
+          expect(await writing, isNotNull);
+          expect(subject.chat.message(site, 12)!.pinned, isFalse);
+          expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 4);
+          expect(
+            subject.chat.channel(site, 9)!.membership.hasUnseenPins,
+            isTrue,
+          );
+        },
+      );
+    }
+
+    test(
+      'channel refresh preserves an intervening unpin delta for rollback',
+      () async {
+        final snapshot = ChatChannels(
+          public: [channel(9, canManagePins: true).withPinnedMessagesCount(1)],
+        );
+        final api = _GatedChannelRefreshApi(
+          snapshot,
+          pinGate: gate,
+          messages: {
+            key(9): page([message(12, pinned: true)]),
+          },
+        );
+        await prepare(pinned: true, api: api);
+        final started = api.holdRefresh();
+        final refresh = subject.chat.loadChannels(site, force: true);
+        await started;
+        final writing = subject.chat.setMessagePinned(site, 12, pinned: false);
+        await Future<void>.delayed(Duration.zero);
+        api.releaseRefresh(snapshot);
+        await refresh;
+        expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 0);
+        gate.completeError(const WriteException(WriteFailure.forbidden));
+        expect(await writing, isNotNull);
+        expect(subject.chat.message(site, 12)!.pinned, isTrue);
+        expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 1);
+      },
+    );
+
+    test('channel refresh count survives failed unpin rollback', () async {
+      await prepare(pinned: true);
+      final writing = subject.chat.setMessagePinned(site, 12, pinned: false);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 0);
+      await subject.chat.loadChannels(site, force: true);
+      expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 1);
+      gate.completeError(const WriteException(WriteFailure.forbidden));
+      expect(await writing, isNotNull);
+      expect(subject.chat.message(site, 12)!.pinned, isTrue);
       expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 1);
     });
+
+    test('pin snapshot count survives failed pin rollback', () async {
+      await prepare(
+        pins: {
+          9: (
+            pins: [
+              ChatPin(
+                id: 13,
+                messageId: 13,
+                message: message(13, pinned: true),
+                pinnedBy: const ChatMessageAuthor(id: 8, username: 'sam'),
+              ),
+            ],
+            membership: null,
+          ),
+        },
+      );
+      final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+      await Future<void>.delayed(Duration.zero);
+      await subject.chat.loadPinnedMessages(site, 9);
+      gate.completeError(const WriteException(WriteFailure.forbidden));
+      expect(await writing, isNotNull);
+      expect(subject.chat.message(site, 12)!.pinned, isFalse);
+      expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 1);
+    });
+
+    test(
+      'permission lost during credentials prevents dispatch and rolls back',
+      () async {
+        await prepare();
+        final started = credentials.blockApiKey();
+        final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+        await started;
+        subject.store.put(site, channel(9));
+        credentials.releaseApiKey();
+        expect(await writing, isNotNull);
+        expect(subject.api.chatMessagePinsUpdated, isEmpty);
+        expect(subject.chat.message(site, 12)!.pinned, isFalse);
+      },
+    );
+
+    for (final retireAccount in [false, true]) {
+      test(
+        '${retireAccount ? 'account retirement' : 'channel revocation'} fences confirmed completion from replacement ticket',
+        () async {
+          await prepare();
+          final writing = subject.chat.setMessagePinned(site, 12, pinned: true);
+          await Future<void>.delayed(Duration.zero);
+          livePin(pinned: true, count: 1);
+          if (retireAccount) {
+            lifecycle.invalidate(site);
+            subject.chat.forget(site);
+          } else {
+            tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+          }
+          final fresh = message(12, raw: 'replacement');
+          subject.store.put(
+            site,
+            channel(9, canManagePins: true).withPinnedMessagesCount(6),
+          );
+          subject.store.put(site, fresh);
+          final started = credentials.blockApiKey();
+          final replacement = subject.chat.setMessagePinned(
+            site,
+            12,
+            pinned: true,
+          );
+          await started;
+          gate.completeError(const WriteException(WriteFailure.unreachable));
+          expect(await writing, isNotNull);
+          expect(subject.chat.message(site, 12)!.raw, 'replacement');
+          expect(subject.chat.message(site, 12)!.pinned, isTrue);
+          expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 7);
+          expect(
+            await subject.chat.setMessagePinned(site, 12, pinned: false),
+            'Another message change is still finishing.',
+          );
+          credentials.releaseApiKey();
+          expect(await replacement, isNotNull);
+          expect(subject.chat.message(site, 12)!.pinned, isFalse);
+          expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 6);
+        },
+      );
+    }
+
+    test(
+      'channel revocation while optimism notifies prevents later projection and dispatch',
+      () async {
+        await prepare();
+        final ref = subject.store.ref<ChatMessage>(site, 12);
+        var revoked = false;
+        void revoke() {
+          if (revoked || ref.value?.pinned != true) return;
+          revoked = true;
+          tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+          subject.store.put(
+            site,
+            channel(9, canManagePins: true).withPinnedMessagesCount(6),
+          );
+          subject.store.put(site, message(12, raw: 'replacement'));
+        }
+
+        ref.addListener(revoke);
+        addTearDown(() => ref.removeListener(revoke));
+        expect(
+          await subject.chat.setMessagePinned(site, 12, pinned: true),
+          isNull,
+        );
+        expect(revoked, isTrue);
+        expect(subject.api.chatMessagePinsUpdated, isEmpty);
+        expect(subject.chat.message(site, 12)!.raw, 'replacement');
+        expect(subject.chat.message(site, 12)!.pinned, isFalse);
+        expect(subject.chat.channel(site, 9)!.pinnedMessagesCount, 6);
+      },
+    );
 
     test('projects a pin and sends the channel capability write', () async {
       final held = message(12);
@@ -11957,7 +12297,12 @@ final class _GatedChannelRefreshApi extends FakeDiscourseApi {
     Map<String, ChatMessagePage> messages = const {},
     Map<int, ChatChannel> details = const {},
     this.readGate,
-  }) : super(chatMessagesByKey: messages, chatChannelsById: details);
+    Completer<void>? pinGate,
+  }) : super(
+         chatMessagesByKey: messages,
+         chatChannelsById: details,
+         chatPinGate: pinGate,
+       );
 
   ChatChannels snapshot;
   final Completer<void>? readGate;

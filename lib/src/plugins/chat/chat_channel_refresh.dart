@@ -35,6 +35,10 @@ final class ChatChannelRefresh {
     _changes.putIfAbsent(channel.id, _ChannelChanges.new)._activity = channel;
   }
 
+  bool preservesPinnedMessagesCount(int channelId) =>
+      _changes[channelId]?._values.containsKey(_Field.pinnedMessagesCount) ==
+      true;
+
   void removeChannel(int channelId) {
     _removed.add(channelId);
     _changes.remove(channelId);

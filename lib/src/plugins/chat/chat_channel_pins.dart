@@ -73,6 +73,7 @@ final class _ChatChannelPins {
           if (!canPublish()) return;
           final channel = chat.channel(siteUrl, channelId);
           if (channel != null) {
+            chat._messageWriteOwners[siteUrl]?.acceptPinCount(channelId);
             chat._putChannel(
               siteUrl,
               channel.withPinSnapshot(

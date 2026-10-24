@@ -10,6 +10,7 @@ final class _ChatChannelDirectory {
     required this.liveSync,
     required this.currentUserFor,
     required this.onChanged,
+    required this.onPinCountAccepted,
 
     required this.onChatNotificationsDelta,
     required this.hasThreads,
@@ -25,6 +26,7 @@ final class _ChatChannelDirectory {
   final ChatLiveSyncCoordinator liveSync;
   final DiscourseUser? Function(String) currentUserFor;
   final void Function() onChanged;
+  final void Function(int) onPinCountAccepted;
 
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final bool Function() hasThreads;
@@ -925,6 +927,7 @@ final class _ChatChannelDirectory {
         channel =
             this.channel(channel.id)?.withServerSettings(channel) ?? channel;
         _publishListedNotificationChange(() {
+          onPinCountAccepted(channel.id);
           _putChannel(channel);
           final direct = _directIds ?? const <int>[];
           _directIds = [
@@ -981,6 +984,7 @@ final class _ChatChannelDirectory {
         for (final item in result.items) {
           if (item case ChatDirectMessageChannel(:final channel)) {
             final held = store.read<ChatChannel>(siteUrl, channel.id);
+            onPinCountAccepted(channel.id);
             store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
             if (listed != null &&
                 channel.isDirectMessage &&
@@ -1375,6 +1379,7 @@ final class _ChatChannelDirectory {
       }
       return lease.commit(() {
             _partialChannelIds.remove(channelId);
+            onPinCountAccepted(channelId);
             store.put(siteUrl, fetched);
             liveSync.adoptChannel(siteUrl, fetched, includeActivity: false);
           })
@@ -1463,7 +1468,17 @@ final class _ChatChannelDirectory {
           direct: directChannels(),
         );
         _refresh = null;
+        final incomingIds = {
+          for (final channel in [...snapshot.public, ...snapshot.direct])
+            channel.id,
+        };
         _publishListedNotificationChange(() {
+          for (final channel in [...channels.public, ...channels.direct]) {
+            if (incomingIds.contains(channel.id) &&
+                !refresh!.preservesPinnedMessagesCount(channel.id)) {
+              onPinCountAccepted(channel.id);
+            }
+          }
           store.putAll(siteUrl, channels.public);
           store.putAll(siteUrl, channels.direct);
           _partialChannelIds.removeAll([

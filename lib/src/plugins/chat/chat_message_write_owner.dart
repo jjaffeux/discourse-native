@@ -2,12 +2,29 @@ part of 'chat_controller.dart';
 
 enum _MessageWriteKind { edit, deletion, pin, flag, rebake }
 
+final class _PinWriteSettlement {
+  _PinWriteSettlement({
+    required this.channelId,
+    required this.pinned,
+    required this.actorId,
+  });
+
+  final int channelId;
+  final bool pinned;
+  final int? actorId;
+  bool dispatched = false;
+  bool confirmed = false;
+  bool messageAuthority = false;
+  bool countAuthority = false;
+}
+
 final class _MessageWrite {
-  _MessageWrite(this.kind, Iterable<int> ids)
+  _MessageWrite(this.kind, Iterable<int> ids, {this.pin})
     : ids = List<int>.unmodifiable(ids);
 
   final _MessageWriteKind kind;
   final List<int> ids;
+  final _PinWriteSettlement? pin;
 }
 
 final class _AccountMessageWrites {
@@ -24,9 +41,13 @@ final class _AccountMessageWrites {
   bool inFlight(int id, _MessageWriteKind kind) =>
       !_retired && _active[id]?.kind == kind;
 
-  _MessageWrite? _admit(_MessageWriteKind kind, Iterable<int> ids) {
+  _MessageWrite? _admit(
+    _MessageWriteKind kind,
+    Iterable<int> ids, {
+    _PinWriteSettlement? pin,
+  }) {
     if (ids.any(_active.containsKey)) return null;
-    final ticket = _MessageWrite(kind, ids);
+    final ticket = _MessageWrite(kind, ids, pin: pin);
     for (final id in ticket.ids) {
       _active[id] = ticket;
     }
@@ -45,6 +66,36 @@ final class _AccountMessageWrites {
   void retire() {
     _retired = true;
     _active.clear();
+  }
+
+  void retireChannelPins(int channelId) {
+    _active.removeWhere((_, ticket) => ticket.pin?.channelId == channelId);
+  }
+
+  void acceptPinCount(int channelId) {
+    if (!isCurrent) return;
+    for (final ticket in _active.values) {
+      final pin = ticket.pin;
+      if (pin != null && pin.channelId == channelId) pin.countAuthority = true;
+    }
+  }
+
+  void acceptPinEvent(
+    int channelId,
+    int messageId, {
+    required bool pinned,
+    required int? actorId,
+  }) {
+    if (!isCurrent) return;
+    final pin = _active[messageId]?.pin;
+    if (pin == null || pin.channelId != channelId) return;
+    pin.messageAuthority = true;
+    if (pin.dispatched &&
+        pin.pinned == pinned &&
+        pin.actorId != null &&
+        pin.actorId == actorId) {
+      pin.confirmed = true;
+    }
   }
 
   Future<String?> flag(
@@ -126,30 +177,45 @@ final class _AccountMessageWrites {
     }
     if (held.pinned == pinned) return null;
 
-    final ticket = _admit(_MessageWriteKind.pin, [messageId]);
+    final settlement = _PinWriteSettlement(
+      channelId: held.channelId,
+      pinned: pinned,
+      actorId: chat._currentUserFor(siteUrl)?.id,
+    );
+    final ticket = _admit(_MessageWriteKind.pin, [messageId], pin: settlement);
     if (ticket == null) return appL10n.anotherMessageChangeIsStillFinishing;
 
     bool ownsRequest() => _owns(ticket);
 
     void project(bool next) {
+      if (!ownsRequest()) return;
       lease.commit(() {
         final latest = chat._store.read<ChatMessage>(siteUrl, messageId);
         if (latest == null || latest.pinned == next) return;
         chat._store.put(siteUrl, latest.withPinned(next));
-        chat._updateChannel(
-          siteUrl,
-          latest.channelId,
-          (channel) => channel.withPinnedMessagesCount(
-            channel.pinnedMessagesCount + (next ? 1 : -1),
-          ),
-        );
+        if (!ownsRequest()) return;
+        if (!settlement.countAuthority) {
+          chat._updateChannel(
+            siteUrl,
+            latest.channelId,
+            (channel) => channel.withPinnedMessagesCount(
+              channel.pinnedMessagesCount + (next ? 1 : -1),
+            ),
+          );
+        }
+        if (!ownsRequest()) return;
         // Pinning forces the message to begin a speaker run in core.
         chat._bumpStreamsHolding(siteUrl, messageId);
       });
     }
 
+    void rollback() {
+      if (!settlement.messageAuthority) project(held.pinned);
+    }
+
     try {
       project(pinned);
+      if (!ownsRequest()) return null;
       try {
         final requestCredentials = await chat._requests.credentialsFor(siteUrl);
         final apiKey = requestCredentials.apiKey;
@@ -159,27 +225,33 @@ final class _AccountMessageWrites {
         if (!ownsRequest()) return null;
         final current = chat._store.read<ChatMessage>(siteUrl, messageId);
         if (current == null || !chat.canPinMessage(siteUrl, current)) {
-          project(held.pinned);
+          rollback();
           return appL10n.thisMessageCanNoLongerBe((pinned).toString());
         }
-        await requestCredentials.run(
-          () => chat.api.updateChatMessagePinned(
+        await requestCredentials.run(() {
+          settlement.dispatched = true;
+          return chat.api.updateChatMessagePinned(
             siteUrl: siteUrl,
             apiKey: apiKey,
             clientId: clientId,
             channelId: held.channelId,
             messageId: held.id,
             pinned: pinned,
-          ),
-        );
+          );
+        });
         return null;
       } on WriteException catch (error) {
-        if (ownsRequest()) project(held.pinned);
+        rollback();
+        if (ownsRequest() &&
+            settlement.confirmed &&
+            error.failure == WriteFailure.unreachable &&
+            !error.notSent) {
+          return null;
+        }
         return error.message;
       } catch (error) {
-        if (ownsRequest()) {
-          project(held.pinned);
-        }
+        rollback();
+        if (ownsRequest() && settlement.confirmed) return null;
         return const WriteException(WriteFailure.unreachable).message;
       }
     } finally {

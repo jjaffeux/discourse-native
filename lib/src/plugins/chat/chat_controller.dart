@@ -735,6 +735,8 @@ class ChatController extends FrameSafeNotifier {
       liveSync: _liveSync,
       currentUserFor: _currentUserFor,
       onChanged: notifySafely,
+      onPinCountAccepted: (channelId) =>
+          _messageWriteOwners[siteUrl]?.acceptPinCount(channelId),
 
       onChatNotificationsDelta: onChatNotificationsDelta,
       hasThreads: () => hasThreads(siteUrl),
@@ -2080,6 +2082,7 @@ class ChatController extends FrameSafeNotifier {
       _liveSync.attachTracker(siteUrl, channels);
 
   void _removeKickedChannelState(String siteUrl, int channelId) {
+    _messageWriteOwners[siteUrl]?.retireChannelPins(channelId);
     _directory(siteUrl).revokeChannel(channelId);
     final key = _streamKey(siteUrl, channelId);
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
@@ -2263,6 +2266,20 @@ class ChatController extends FrameSafeNotifier {
         : _pinLists[_pinsKey(siteUrl, resolvedChannelId)];
     pins?.advanceLiveRevision();
     final pinned = data['type'] == 'pin';
+    if (resolvedChannelId != null) {
+      final writes = _messageWriteOwners[siteUrl];
+      writes?.acceptPinEvent(
+        resolvedChannelId,
+        messageId,
+        pinned: pinned,
+        actorId: jsonIntOrNull(
+          data[pinned ? 'pinned_by_id' : 'unpinned_by_id'],
+        ),
+      );
+      if (jsonIntOrNull(data['pinned_message_count']) != null) {
+        writes?.acceptPinCount(resolvedChannelId);
+      }
+    }
     var changed = false;
     if (message != null && message.pinned != pinned) {
       changed = true;
