@@ -62,7 +62,6 @@ import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
-import '../models/do_not_disturb.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
@@ -114,7 +113,6 @@ import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../site_preference_inventory.g.dart';
 import '../theme/d_icons.dart';
-import 'profile_write_transactions.dart';
 import 'account_activity_controller.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
@@ -146,6 +144,7 @@ import 'plugin_background_retention.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
+import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
@@ -10322,7 +10321,15 @@ final class _ShellProfileCurrentUser implements ProfileCurrentUser {
   final ShellController _shell;
 
   @override
-  DiscourseInstance? instanceFor(String siteUrl) => _shell._instanceAt(siteUrl);
+  ProfileUserSnapshot? snapshotFor(String siteUrl) {
+    final instance = _shell._instanceAt(siteUrl);
+    return instance == null
+        ? null
+        : ProfileUserSnapshot(
+            user: instance.user,
+            statusEnabled: instance.config.userStatusEnabled,
+          );
+  }
 
   @override
   CurrentUserReconciler reconcilerFor(String siteUrl) =>

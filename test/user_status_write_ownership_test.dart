@@ -14,6 +14,27 @@ const _site = 'https://meta.discourse.org';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'override listener retirement stops canonical publication and persistence',
+    () async {
+      final api = _GatedStatusApi();
+      final shell = await _load(api);
+      addTearDown(shell.dispose);
+      final store = shell.instanceStore as FakeInstanceStore;
+      final saves = store.saveCount;
+      shell.userStatuses.addListener(() => shell.lifecycle.invalidate(_site));
+      final write = _write(shell, false);
+      await pumpEventQueue();
+      api.requests.single.complete();
+      expect(await write, isNull);
+
+      expect(shell.currentInstance?.user?.status, isNull);
+      expect(store.saveCount, saves);
+      expect(api.doNotDisturbResumes, isEmpty);
+      expect(shell.userStatusWriteInFlight(_site), isFalse);
+    },
+  );
+
   for (final clear in [false, true]) {
     final action = clear ? 'clear' : 'set';
     for (final outcome in ['success', 'write failure', 'unexpected failure']) {

@@ -59,6 +59,36 @@ void main() {
     },
   );
 
+  test(
+    'lease retirement removes optimistic presence and releases admission',
+    () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        user: _user,
+        presenceGate: gate,
+        feeds: const {'/latest.json': <Topic>[]},
+      );
+      final fixture = await _shell(api: api);
+      addTearDown(fixture.shell.dispose);
+      final write = fixture.shell.toggleHidePresence(_siteUrl);
+      await pumpEventQueue();
+      fixture.shell.lifecycle.invalidate(_siteUrl);
+      final busyAfterRetirement = fixture.shell.hidePresenceWriteInFlight(
+        _siteUrl,
+      );
+      final projectedAfterRetirement = fixture.shell.hidePresenceFor(_siteUrl);
+      gate.complete();
+      await write;
+
+      expect(busyAfterRetirement, isFalse);
+      expect(projectedAfterRetirement, isFalse);
+      expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNull);
+      await fixture.shell.toggleHidePresence(_siteUrl);
+      expect(api.presencePreferencesUpdated, hasLength(2));
+      expect(fixture.shell.currentInstance?.user?.hidePresence, isTrue);
+    },
+  );
+
   test('rolls back a refusal and gates a duplicate tap', () async {
     final gate = Completer<void>();
     addTearDown(() {
