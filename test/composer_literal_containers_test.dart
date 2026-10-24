@@ -352,8 +352,12 @@ void main() {
       true,
     ),
     ('link header pipe', '| [a|b](https://example.test/a) |\n| --- |', true),
+    ('reference header pipe', '| [a|b][id] |\n| --- |', true),
+    ('malformed reference header', '| [a|b][ |\n| --- |', false),
+    ('unpaired label header', '| [a|b] |\n| --- |', false),
     ('mismatched table columns', '| A | B |\n| --- |', false),
     ('empty grid', '[grid]\n[/grid]', true),
+    ('indented empty grid', '   [grid]\n   [/grid]', true),
     ('carousel grid', '[grid mode=carousel]\n[/grid]', true),
     ('cooker grid attribute', '[grid mode=other]\n[/grid]', true),
     ('grid with prose', '[grid]\nprose\n[/grid]', true),
@@ -400,6 +404,35 @@ void main() {
         }
       });
     }
+  }
+
+  for (final (name, prefix, continuation, indentation) in [
+    ('quoted table', '> | A |\n> | --- |', '> ', '>     '),
+    ('list table', '- | A |\n  | --- |', '  ', '      '),
+  ]) {
+    test('post-block indented comment after $name', () async {
+      const image = '![active](https://example.test/b.png)';
+      final source =
+          '$prefix\n$indentation<!--\n$continuation$image\n$continuation-->';
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      final result = await service.cook(
+        CookingRequest(
+          raw: source,
+          snapshot: CookingSnapshot(
+            siteId: 'test-site',
+            accountId: 'test-account',
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      expect(result.html, contains('<pre><code>&lt;!--'));
+      expect(result.html, contains('alt="active"'));
+      final images = parseComposerImages(source);
+      expect(images.map((block) => block.alt), ['active']);
+      expect(images.single.start, source.indexOf(image));
+      expect(images.single.source, image);
+    });
   }
 
   test('rejected inline comments preserve the later paragraph image', () {
