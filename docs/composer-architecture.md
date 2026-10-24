@@ -79,6 +79,28 @@ span cache identity, artwork retries, atomic deletion, gallery identity, and
 undo. Plugin tests pin permissions and stale picker behavior. The composer plugin
 boundary test also prevents built-in modules from importing bundled features.
 
+## Opening and setup
+
+`composer/opening_owner.dart` owns new-topic replacement admission and delayed
+setup. Shell captures the source site, account lease, tab, feed and route. The
+owner prepares a plan containing the exact draft key and initial taxonomy.
+Shell builds and registers the editor, starts setup and publishes presentation.
+Metadata loading therefore does not block the first editor frame.
+
+Each setup session keeps its account lease, editor and draft identity. Registry
+membership admits retained editors even when another draft is selected. Account
+retirement, editor removal and owner disposal suppress late setup results.
+The owner resolves placeholder categories and tag-list seeds, updates the current
+category's tag minimum and applies its template after draft restoration.
+`ComposerController` keeps authority over untouched tags, text and templates.
+
+`ComposerOpeningPresentation` supplies selection, registry membership, source
+validity, replacement confirmation and publication. `ComposerOpeningMetadata`
+provides canonical taxonomy and capability services. Neither port gives the
+standalone owner access to `ShellController`. Draft persistence and restore
+ordering remain in `ComposerDraftCoordinator`. Category changes reuse the setup
+owner for templates and tag validation. Reply and edit opening stay in shell.
+
 ## Upload transactions
 
 `ComposerController` keeps the public upload commands and read-only upload views.

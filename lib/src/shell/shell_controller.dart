@@ -70,7 +70,6 @@ import '../models/group.dart';
 import '../models/group_route.dart';
 import '../models/incoming_topics.dart';
 import '../models/json.dart';
-import '../models/list_link.dart';
 import '../models/live_refresh_id.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
@@ -123,6 +122,7 @@ import 'composer/autocomplete.dart';
 import 'composer/components/quote.dart';
 import 'composer/controller.dart';
 import 'composer/draft_coordinator.dart';
+import 'composer/opening_owner.dart';
 import 'composer/pills.dart';
 import 'composer/triggers.dart';
 import 'content_page_contract.dart';
@@ -5605,6 +5605,16 @@ class ShellController extends FrameSafeNotifier
 
   /// Explicit draft selections reveal even an already selected minimized editor.
   int get composerRevealRevision => _composerRegistry.revealRevision;
+  late final _composerOpeningHost = _ShellComposerOpeningHost(this);
+  late final _composerOpening = ComposerOpeningOwner(
+    presentation: _composerOpeningHost,
+    metadata: _composerOpeningHost,
+    drafts: _composerDrafts,
+    credentials: credentials,
+    categories: api.categories,
+    queries: api.topicComposerQueries,
+  );
+
   late final _ComposerSubmissionOwner _composerSubmissions =
       _ComposerSubmissionOwner(this);
 
@@ -5951,32 +5961,6 @@ class ShellController extends FrameSafeNotifier
     return '${base}_$_lastNewDraftId';
   }
 
-  Future<bool> _prepareNewTopicComposer() async {
-    final existing = _composer;
-    if (existing == null) return true;
-    if (existing.closing || _composerHasPendingOperation(existing)) {
-      return false;
-    }
-    if (existing.canSaveDraft && !await finishComposerDraftRestore(existing)) {
-      return false;
-    }
-    if (!identical(_composer, existing) ||
-        existing.closing ||
-        _composerHasPendingOperation(existing)) {
-      return false;
-    }
-    if (existing.canSaveDraft) return true;
-    if (!existing.hasChanges &&
-        !existing.metadataChanged &&
-        !existing.hasUnappliedDraft) {
-      return true;
-    }
-    final confirm = confirmComposerReplacement;
-    if (confirm == null) return false;
-    await confirm(existing);
-    return existing.isDisposed && _composer == null;
-  }
-
   Future<void> openNewTopicFromList() => _openNewTopic(
     permitted: canCreateTopicFromList,
     revealContent: false,
@@ -6006,201 +5990,39 @@ class ShellController extends FrameSafeNotifier
         !permitted) {
       return;
     }
-    final lease = lifecycle.capture(instance.url);
-    final content = currentContent;
-    if (!await _prepareNewTopicComposer() ||
-        isDisposed ||
-        !lease.isCurrent ||
-        currentInstance?.url != instance.url ||
-        activeTabId != tabId ||
-        currentFeedId != feedId ||
-        currentContent != content) {
+    final origin = NewTopicOpeningOrigin(
+      siteUrl: instance.url,
+      lease: lifecycle.capture(instance.url),
+      tabId: tabId,
+      feedId: feedId,
+      content: currentContent,
+      route: route,
+      originFeedId: revealContent && !canCreateTopicHere
+          ? instance.defaultDestination.id
+          : feedId,
+      seedCategory: canCreateTopicHere || sourceRoute != null,
+    );
+    final plan = await _composerOpening.prepareNewTopic(
+      origin,
+      allocateDraftKey: () => _newDraftKey(ComposerDraft.newTopicDraftKey),
+      topicTitle: () => appL10n.newTopic,
+      listedDraft: listedDraft,
+    );
+    if (plan == null ||
+        !_composerOpening.isCurrent(plan) ||
+        !_replaceComposer()) {
       return;
     }
-    final originFeedId = revealContent && !canCreateTopicHere
-        ? instance.defaultDestination.id
-        : feedId;
-    final path = route.feedPath;
-    final link = path == null
-        ? null
-        : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
-    final categoryId = canCreateTopicHere || sourceRoute != null
-        ? route.categoryId
-        : null;
-    var selectedCategory = categoryFor(categoryId, siteUrl: instance.url);
-    final categoryNeedsLookup = categoryId != null && selectedCategory == null;
-    if (selectedCategory == null &&
-        categoryId != null &&
-        link?.kind == ListKind.category) {
-      final color = route.color?.toARGB32();
-      selectedCategory = TopicCategory(
-        id: categoryId,
-        name: route.title,
-        color: color == null
-            ? '888888'
-            : (color & 0x00ffffff)
-                  .toRadixString(16)
-                  .padLeft(6, '0')
-                  .toUpperCase(),
-        slug: link!.slug,
-      );
-    }
-    if (categoryNeedsLookup && selectedCategory != null) {
-      _taxonomy.mergeCategories(instance.url, [selectedCategory]);
-    }
-    if (!_replaceComposer()) return;
-    final target = NewTopicComposerTarget(
-      siteUrl: instance.url,
-      tabId: tabId,
-      topicTitle: appL10n.newTopic,
-      draftKey:
-          listedDraft?.key ?? _newDraftKey(ComposerDraft.newTopicDraftKey),
-      originFeedId: originFeedId,
-      initialCategoryId: categoryId,
-    );
     final composer = _buildTextComposer(
-      target,
+      plan.target,
       persistsDraft: true,
-      minimumRequiredTags: selectedCategory?.minimumRequiredTags ?? 0,
+      minimumRequiredTags: plan.category?.minimumRequiredTags ?? 0,
     );
     _composerRegistry.add(composer);
     if (revealContent) _mobilePane = MobilePane.content;
-    if (listedDraft == null) {
-      _composerDrafts.startNewDraft(composer);
-    } else {
-      _composerDrafts.startRestore(composer, listedDraft: listedDraft);
-    }
-    final enrichment = _enrichNewTopicComposer(
-      composer,
-      instance: instance,
-      link: link,
-      categoryId: categoryId,
-      placeholderCategory: categoryNeedsLookup ? selectedCategory : null,
-    );
+    final enrichment = _composerOpening.start(plan, composer);
     _notify();
     await enrichment;
-  }
-
-  Future<void> _enrichNewTopicComposer(
-    ComposerController composer, {
-    required DiscourseInstance instance,
-    required ListLink? link,
-    required int? categoryId,
-    required TopicCategory? placeholderCategory,
-  }) async {
-    final siteUrl = instance.url;
-    final lease = lifecycle.capture(siteUrl);
-    bool isCurrent() =>
-        lease.isCurrent &&
-        _composerRegistry.owns(composer) &&
-        !composer.isDisposed;
-
-    // Categories and capabilities refine an already usable composer. Keeping
-    // them off the presentation path makes the first frame independent of the
-    // network while retaining retryable failures and late-arriving metadata.
-    await Future.wait<void>([
-      if (!_topicComposerCapabilities.containsKey(siteUrl))
-        _ensureTopicComposerCapabilities(siteUrl),
-      if (_taxonomy.needsCategoryLoad(siteUrl)) loadCategories(siteUrl),
-    ]);
-    if (!isCurrent()) return;
-
-    AccountRequestCredentials? requestCredentials;
-    var credentialsRead = false;
-    Future<AccountRequestCredentials?> readCredentials() async {
-      if (credentialsRead) return requestCredentials;
-      credentialsRead = true;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!isCurrent() || credential.failure != null) return null;
-      return requestCredentials = credential.request;
-    }
-
-    final loadedCategory = categoryFor(categoryId, siteUrl: siteUrl);
-    final stillHasPlaceholder =
-        placeholderCategory != null &&
-        identical(loadedCategory, placeholderCategory);
-    if (categoryId != null && (loadedCategory == null || stillHasPlaceholder)) {
-      final credential = await readCredentials();
-      if (!isCurrent()) return;
-      if (credential != null) {
-        try {
-          final found = await credential.run(
-            () => api.categories.findCategories(
-              siteUrl: siteUrl,
-              ids: [categoryId],
-              apiKey: credential.apiKey!,
-            ),
-          );
-          if (!isCurrent()) return;
-          if (found.isNotEmpty) {
-            _taxonomy.mergeCategories(siteUrl, found);
-            _notify();
-          }
-        } catch (_) {}
-      }
-    }
-    if (!isCurrent()) return;
-
-    final capabilities = topicComposerCapabilities(siteUrl);
-    if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
-      final tagLink = link!;
-      final credential = await readCredentials();
-      if (!isCurrent()) return;
-      if (credential != null) {
-        try {
-          final result = await credential.run(
-            () => api.topicComposerQueries.searchTopicTags(
-              siteUrl: siteUrl,
-              apiKey: credential.apiKey!,
-              term: tagLink.slug,
-              categoryId: categoryId,
-            ),
-          );
-          if (!isCurrent()) return;
-          final exact = result.results.where(
-            (tag) =>
-                tag.id == tagLink.id ||
-                tag.name.toLowerCase() == tagLink.slug.toLowerCase() ||
-                tag.slug?.toLowerCase() == tagLink.slug.toLowerCase(),
-          );
-          if (exact.isNotEmpty && !exact.first.disabled) {
-            composer.applyInitialTagsIfUntouched([exact.first]);
-          }
-        } catch (_) {}
-      }
-    }
-    if (!isCurrent()) return;
-
-    composer.setMinimumRequiredTags(
-      categoryFor(composer.categoryId, siteUrl: siteUrl)?.minimumRequiredTags ??
-          0,
-    );
-    unawaited(_applyInitialTopicTemplate(composer, isCurrent));
-  }
-
-  /// Core applies the template of the category a new topic opens in. A draft
-  /// being restored outranks it: filling the field first would advance the
-  /// revision the restore checks and leave it refusing a field that is no
-  /// longer empty. Opening does not wait for it: a restore can be waiting on
-  /// the site.
-  Future<void> _applyInitialTopicTemplate(
-    ComposerController composer,
-    bool Function() isCurrent,
-  ) async {
-    final restore = _composerDrafts.restoreTaskFor(composer);
-    if (restore == null) return;
-    try {
-      if (!await restore) return;
-    } catch (_) {
-      return;
-    }
-    if (!isCurrent()) return;
-    composer.applyInitialTopicTemplateIfUntouched(
-      categoryFor(
-        composer.categoryId,
-        siteUrl: composer.target.siteUrl,
-      )?.topicTemplate,
-    );
   }
 
   /// Whether [topic] offers continuing in a new topic, or, from a message, in
@@ -6248,7 +6070,9 @@ class ShellController extends FrameSafeNotifier
       ]);
       if (!sourceIsCurrent()) return;
     }
-    if (!await _prepareNewTopicComposer() || !sourceIsCurrent()) return;
+    if (!await _composerOpening.prepareReplacement() || !sourceIsCurrent()) {
+      return;
+    }
 
     final ComposerTarget target;
     var minimumRequiredTags = 0;
@@ -6358,7 +6182,7 @@ class ShellController extends FrameSafeNotifier
         composer.target.siteUrl == siteUrl &&
         composer.target.originFeedId == feedId;
     if (!reusable) {
-      if (!await _prepareNewTopicComposer()) {
+      if (!await _composerOpening.prepareReplacement()) {
         return OpenComposerResult.unavailable;
       }
       if (!forumActive ||
@@ -6474,52 +6298,7 @@ class ShellController extends FrameSafeNotifier
   Future<void> changeComposerCategory(
     ComposerController composer,
     int? categoryId,
-  ) async {
-    final categories = topicComposerCategories(composer.target.siteUrl);
-    TopicCategory? find(int? id) =>
-        categories.where((category) => category.id == id).firstOrNull;
-    final previous = find(composer.categoryId);
-    final category = find(categoryId);
-    composer.setCategory(
-      categoryId,
-      minimumRequiredTags: category?.minimumRequiredTags ?? 0,
-    );
-    composer.applyTopicTemplate(
-      category?.topicTemplate,
-      replacing: previous?.topicTemplate,
-    );
-    if (composer.tags.isEmpty) return;
-    final kept = <TopicTag>[];
-    for (final selected in composer.tags) {
-      try {
-        final result = await searchComposerTags(composer, selected.name);
-        if (!_composerRegistry.owns(composer) ||
-            composer.categoryId != categoryId) {
-          return;
-        }
-        final match = result.results
-            .where(
-              (tag) =>
-                  tag.id == selected.id ||
-                  tag.name.toLowerCase() == selected.name.toLowerCase(),
-            )
-            .firstOrNull;
-        if (!result.isForbidden && match != null && !match.disabled) {
-          kept.add(match);
-        }
-      } catch (_) {
-        return;
-      }
-    }
-    if (!_composerRegistry.owns(composer) ||
-        composer.categoryId != categoryId) {
-      return;
-    }
-    if (kept.length != composer.tags.length) {
-      composer.setTags(kept);
-      composer.showTagRemovalNotice(categoryName: category?.name);
-    }
-  }
+  ) => _composerOpening.changeCategory(composer, categoryId);
 
   void openReply({
     int? replyToPostNumber,
@@ -7872,11 +7651,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _composerHasPendingOperation(ComposerController composer) =>
-      composer.discarding ||
-      composer.submitting ||
-      composer.loadingBody ||
-      composer.hasActiveUploads ||
-      composer.state == ComposerState.checking;
+      ComposerOpeningOwner.hasPendingOperation(composer);
 
   Future<({int? revision, String? error})> rollbackSavedComposerDraft(
     ComposerController composer, {
@@ -9308,6 +9083,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    _composerOpening.dispose();
     _instanceRail.retire();
     _bookmarks.dispose();
     _checklists.dispose();
@@ -10081,4 +9857,62 @@ final class _ShellProfileCurrentUser implements ProfileCurrentUser {
   @override
   void persist() =>
       _shell.instanceStore.save(List.of(_shell._instances)).ignore();
+}
+
+final class _ShellComposerOpeningHost
+    implements ComposerOpeningPresentation, ComposerOpeningMetadata {
+  _ShellComposerOpeningHost(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  ComposerController? get selectedComposer => _shell._composer;
+
+  @override
+  bool owns(ComposerController composer) =>
+      _shell._composerRegistry.owns(composer);
+
+  @override
+  bool isCurrentOrigin(NewTopicOpeningOrigin origin) =>
+      _shell.currentInstance?.url == origin.siteUrl &&
+      _shell.activeTabId == origin.tabId &&
+      _shell.currentFeedId == origin.feedId &&
+      _shell.currentContent == origin.content;
+
+  @override
+  Future<void>? confirmReplacement(ComposerController composer) =>
+      _shell.confirmComposerReplacement?.call(composer);
+
+  @override
+  void publishOpening() => _shell._notify();
+
+  @override
+  TopicCategory? categoryFor(String siteUrl, int? categoryId) =>
+      _shell.categoryFor(categoryId, siteUrl: siteUrl);
+
+  @override
+  List<TopicCategory> categoriesFor(String siteUrl) =>
+      _shell.topicComposerCategories(siteUrl);
+
+  @override
+  void mergeCategories(String siteUrl, List<TopicCategory> categories) =>
+      _shell._taxonomy.mergeCategories(siteUrl, categories);
+
+  @override
+  Future<void> ensureForOpening(String siteUrl) async {
+    await Future.wait<void>([
+      if (!_shell._topicComposerCapabilities.containsKey(siteUrl))
+        _shell._ensureTopicComposerCapabilities(siteUrl),
+      if (_shell._taxonomy.needsCategoryLoad(siteUrl))
+        _shell.loadCategories(siteUrl),
+    ]);
+  }
+
+  @override
+  TopicComposerCapabilities capabilitiesFor(String siteUrl) =>
+      _shell.topicComposerCapabilities(siteUrl);
+
+  @override
+  Future<TopicTagSearch> searchTags(ComposerController composer, String term) =>
+      _shell.searchComposerTags(composer, term);
 }
