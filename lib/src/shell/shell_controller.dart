@@ -117,6 +117,7 @@ import 'app_settings_controller.dart';
 import 'badges_controller.dart';
 import 'bookmark_link_resolver.dart';
 import 'bookmark_transactions.dart';
+import 'core_link_resolver.dart';
 import 'checklist_transactions.dart';
 import 'composer/autocomplete.dart';
 import 'composer/components/quote.dart';
@@ -4969,47 +4970,30 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  _ResolvedCoreLink? _routeForLink(
+  ResolvedCoreLink? _routeForLink(
     String url, {
     String? title,
     String? specializedTitle,
   }) {
-    final absolute = absoluteUrl(url);
-    final target = Uri.tryParse(absolute);
+    final target = CoreLinkTarget.match(
+      url,
+      currentSiteUrl: currentInstance?.url,
+      instances: _instances,
+    );
     if (target == null) return null;
-    final instance = mostSpecificServingForum(
-      _instances,
-      target,
-      siteUrl: (site) => site.url,
-    )?.forum;
-    if (instance == null) return null;
-
-    ContentRoute? decoded;
-    if (const {'', '/'}.contains(instance.pathWithin(target)) &&
-        !target.hasQuery &&
-        !target.hasFragment) {
-      decoded = _homepageFor(instance);
-    } else {
-      decoded = ContentRouteCodec.fromUrl(
-        absolute,
-        instance: instance,
-        config: siteConfigFor(instance.url),
-        defaultTopPeriod: _defaultTopPeriodFor(instance.url),
-        title: title,
-      );
-      if (decoded != null &&
-          (decoded.destination is BadgeDestination || decoded.isTaxonomyList)) {
-        decoded = decoded.withDisplay(title: specializedTitle);
-      }
-    }
+    final instance = target.instance;
+    final decoded = target.decode(
+      config: siteConfigFor(instance.url),
+      homepage: target.isHomepage ? _homepageFor(instance) : null,
+      title: title,
+      specializedTitle: specializedTitle,
+    );
     if (decoded == null) return null;
-    final category = categoryFor(decoded.categoryId, siteUrl: instance.url);
-    final route =
-        (category == null
-                ? decoded
-                : decoded.withDisplay(color: Color(category.colorValue)))
-            .resolveCategoryLink(filterCategoriesFor(instance.url));
-    return (route: route, siteUrl: instance.url);
+    return target.enrich(
+      decoded,
+      category: categoryFor(decoded.categoryId, siteUrl: instance.url),
+      filterCategories: filterCategoriesFor(instance.url),
+    );
   }
 
   bool openBadgeUrl(String url, {String? title, bool refresh = false}) {

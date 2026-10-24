@@ -1,7 +1,5 @@
 part of 'shell_controller.dart';
 
-typedef _ResolvedCoreLink = ({ContentRoute route, String siteUrl});
-
 enum _CoreLinkIntent { ordinary, notification }
 
 extension _CoreLinkNavigation on ShellController {
@@ -14,7 +12,7 @@ extension _CoreLinkNavigation on ShellController {
       };
 
   bool _openResolvedCoreLink(
-    _ResolvedCoreLink destination,
+    ResolvedCoreLink destination,
     _CoreLinkIntent intent,
   ) {
     final route = destination.route;
