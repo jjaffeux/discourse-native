@@ -72,7 +72,7 @@ void main() {
     },
   );
 
-  test('external, credential-bearing and malformed links are declined', () {
+  test('external and malformed links are declined', () {
     for (final url in [
       'https://elsewhere.example/t/example/7',
       'https://[',
