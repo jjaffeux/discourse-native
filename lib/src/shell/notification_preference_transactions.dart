@@ -40,7 +40,7 @@ final class NotificationPreferenceTracking {
     required this.refresh,
   });
 
-  final TopicTrackingReconciler Function(String siteUrl) forSite;
+  final TopicTrackingReconciler? Function(String siteUrl) forSite;
   final Future<void> Function({
     required String siteUrl,
     required String username,
@@ -82,14 +82,18 @@ final class NotificationPreferenceTransactions {
   final Map<String, _NotificationPreferenceSession> _sessions = {};
   bool _disposed = false;
 
-  _NotificationPreferenceSession _session(String siteUrl) {
+  _NotificationPreferenceSession? _session(String siteUrl) {
+    final tracking = trackingEffects.forSite(siteUrl);
+    if (tracking == null) return null;
     final held = _sessions[siteUrl];
-    if (held != null && held.isCurrent) return held;
+    if (held != null && held.isCurrent && identical(held.tracking, tracking)) {
+      return held;
+    }
     held?.retire();
     final account = _NotificationPreferenceSession(
       siteUrl,
       lifecycle.capture(siteUrl),
-      trackingEffects.forSite(siteUrl),
+      tracking,
       currentUsers.reconcilerFor(siteUrl),
     );
     _sessions[siteUrl] = account;
@@ -120,6 +124,7 @@ final class NotificationPreferenceTransactions {
     if (held == null) return Future.value(false);
 
     final account = _session(siteUrl);
+    if (account == null) return Future.value(false);
     final key = topicId;
     if (held.notificationLevel == level && !account.topics.containsKey(key)) {
       return Future.value(true);
@@ -258,7 +263,9 @@ final class NotificationPreferenceTransactions {
     if (value is! int || value < 0 || value > 3) return;
     final level = TopicNotificationLevel.fromJson(value);
     final account = _session(siteUrl);
-    if (!identical(account.lease.session, lease.session)) return;
+    if (account == null || !identical(account.lease.session, lease.session)) {
+      return;
+    }
     final visible = account.tracking.observeNotificationLevel(topicId, level);
     _setTopicNotificationLevel(siteUrl, topicId, visible, lease);
   }
@@ -288,6 +295,7 @@ final class NotificationPreferenceTransactions {
     if (held == null) return Future.value(false);
 
     final account = _session(siteUrl);
+    if (account == null) return Future.value(false);
     if (held.notificationLevel == level &&
         account.category(categoryId) == null) {
       return Future.value(true);

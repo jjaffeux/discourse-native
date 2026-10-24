@@ -1,6 +1,20 @@
 # Topic tracking reconciliation
 
-`TopicTrackingReconciler` owns the tracking protocol for one account at one site. Private site live sessions own MessageBus startup, subscriptions, snapshot transport, and retry capabilities. `NotificationPreferenceTransactions` owns notification write queues, current-user category preference merging, and refresh admission. `ShellController` retains navigation and adapts the owner to current-user persistence, taxonomy, and live-session transport.
+`TopicTrackingReconciler` owns the tracking protocol for one account at one site. `TopicTrackingDirectory` owns each account's reconciler identity, admission, canonical topic-row projection, and retirement. Private site live sessions own MessageBus startup, subscriptions, snapshot transport, and retry capabilities. `NotificationPreferenceTransactions` owns notification write queues, current-user category preference merging, and refresh admission. `ShellController` retains navigation and adapts the owner to current-user persistence, taxonomy, and live-session transport.
+
+## Account ownership
+
+`TopicTrackingDirectory.capture` admits one `TopicTrackingAccount` for the current lease and current-user identity. `existing` is a read-only lookup. Account equality uses `DiscourseModelCodec.sameCurrentUserAccount`, so immutable preference refreshes preserve the reconciler. Lease retirement detaches the original account and retires its reconciler. `matching` accepts only the original reconciler and lease, without creating an owner.
+
+A current-user account change closes tracking admission before reentrant cleanup and publication. Its completion reopens admission only for that exact transition. Notification transactions and pending new-topic dismissals retire with the old tracking account, including when the lease remains current.
+
+A same-lease account replacement restarts a ready live connection so its private channels use the accepted user ID. A starting connection keeps its bootstrap attempt and selects the accepted account before channel registration.
+
+Transport callbacks retain the account captured when their channels were registered. Snapshot acceptance, failure, cancellation, and retry check that account rather than looking up a successor by site URL. Incoming filtering and tracking events share its reconciler. Retry opens a report before admission of its triggering event.
+
+The account projects admitted dismissals into canonical Store rows even when tracking has no matching row. It checks its original authority before every Store effect and after synchronous listeners return. Topic-list projection preserves seen markers, local read coverage, sparse rows, and replies newer than that coverage. Local read and mark-unread operations capture tracking before their own reentrant publication.
+
+The standalone directory was compared with adding tracking children to the live-session owner. Tracking exists without active polling and can retire independently during bootstrap account reconciliation. A live-session child therefore still needs an independent account lifetime while retaining broad shell dependencies. The standalone owner exposes that lifetime directly and supports headless Store tests.
 
 ## Usage
 
@@ -30,7 +44,7 @@ successor's admission or publish more effects.
 
 `ShellTabContext` captures an immutable `DismissNewTopicsCommand` from the
 rendered route and listed topics, including the server's exact tag spelling.
-The owner accepts tracking messages through a guarded shell capability, then
+The owner captures a `TopicTrackingAdmission` before busy publication and credential IO. Admission refuses account transitions and commands rendered for another account. The session retains that original capability through transport and completion, then
 forces a reload of the captured source feed through a second capability. Store,
 `TopicTrackingReconciler` and `TopicFeedController` remain authoritative. Feed
 reload errors remain feed state after an accepted write. Dismissal does not
@@ -67,5 +81,7 @@ The existing partial-report policy and explicit acknowledged mark-unread reset a
 ## Validation
 
 `topic_tracking_reconciler_test.dart` pins pure delayed report reconciliation, choice settlement, category barriers, admission-time replay, retry, truncation, and retirement. `site_live_sessions_test.dart` pins reentrant retention before the first poll, hidden bootstrap ordering, replacement during bootstrap, failed registration cleanup, and retirement during attachment. The owning shell notification, muted tracking, async ordering, unread, and rebuild-isolation tests exercise production adapters and publication.
+
+`topic_tracking_directory_test.dart` constructs the directory without a shell or Flutter binding and pins identity replacement, lease retirement, transition admission, retry-before-event ordering, reentrant Store effects, and canonical row projection.
 
 `notification_preference_transactions_test.dart` constructs the owner without a shell or Flutter binding. It pins reentrant admission, account-wide category ordering, lease retirement during writes and credential reads, unknown write outcomes, and confirmed success after publication or refresh failure.

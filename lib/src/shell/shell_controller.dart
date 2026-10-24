@@ -156,6 +156,7 @@ import 'topic_filter_scope.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
 import 'topic_reader_projections.dart';
+import 'topic_tracking_directory.dart';
 import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
@@ -1645,7 +1646,7 @@ class ShellController extends FrameSafeNotifier
   /// category counting rules as sidebar badges.
   int categoryActivityCountFor(String siteUrl, int categoryId) {
     final user = _instanceAt(siteUrl)?.user;
-    final tracking = _topicTrackingBySite[siteUrl];
+    final tracking = _topicTracking.existing(siteUrl)?.reconciler;
     if (user == null || tracking == null || !tracking.hasSnapshot) {
       return 0;
     }
@@ -2263,7 +2264,7 @@ class ShellController extends FrameSafeNotifier
     final user = instance?.user;
     final tracking = instance == null
         ? null
-        : _topicTrackingBySite[instance.url];
+        : _topicTracking.existing(instance.url)?.reconciler;
     // A live message can seed a site's tracking state before its snapshot
     // has landed, or after that load failed. Counting from that state would
     // show whichever topics happened to arrive on the bus as the whole
@@ -2300,7 +2301,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   int topicTrackingRevisionFor(String siteUrl) =>
-      _topicTrackingBySite[siteUrl]?.revision ?? 0;
+      _topicTracking.existing(siteUrl)?.reconciler.revision ?? 0;
 
   int draftCountFor(String? siteUrl) {
     if (siteUrl == null) return 0;
@@ -2849,17 +2850,20 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await accountActivity.loadUserActivity(instance);
   }
 
-  final Map<String, TopicTrackingReconciler> _topicTrackingBySite = {};
+  late final _topicTracking = TopicTrackingDirectory(
+    lifecycle: lifecycle,
+    store: store,
+    models: plugins.models,
+    userFor: (siteUrl) => _instanceAt(siteUrl)?.user,
+    configFor: siteConfigFor,
+    changed: (siteUrl) {
+      if (currentInstance?.url == siteUrl) _notifyLiveChange();
+    },
+    retryBeforeAccept: _liveSessions.retryTracking,
+    clock: _clock,
+  );
   bool _liveChangeNotifyPending = false;
 
-  TopicTrackingReconciler _trackingFor(String siteUrl) =>
-      _topicTrackingBySite.putIfAbsent(siteUrl, () {
-        final lease = lifecycle.capture(siteUrl);
-        return TopicTrackingReconciler(
-          isCurrent: () => !isDisposed && lease.isCurrent,
-          clock: _clock,
-        );
-      });
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
   final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
 
@@ -2976,7 +2980,7 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     final totals = currentTotals;
     if (instance?.user?.unifiedNewEnabled == true) {
-      final tracking = _topicTrackingBySite[instance!.url];
+      final tracking = _topicTracking.existing(instance!.url)?.reconciler;
       if (tracking == null || !tracking.hasSnapshot) {
         // Core's totals give a unified-New account one combined count and no
         // unread one, so the subsets and Unread wait for the snapshot.
@@ -3029,10 +3033,10 @@ class ShellController extends FrameSafeNotifier
   /// Null means tracking is not ready; sparse live arrivals are not a total.
   Map<int, int>? categoryUnreadTopicCountsFor(String siteUrl) {
     if (currentUserFor(siteUrl) == null ||
-        _topicTrackingBySite[siteUrl]?.hasSnapshot != true) {
+        _topicTracking.existing(siteUrl)?.reconciler.hasSnapshot != true) {
       return null;
     }
-    final tracking = _topicTrackingBySite[siteUrl];
+    final tracking = _topicTracking.existing(siteUrl)?.reconciler;
     if (tracking == null) return null;
     final counts = <int, int>{};
     for (final topic in tracking.topics) {
@@ -3257,10 +3261,8 @@ class ShellController extends FrameSafeNotifier
     api: api.topicFeeds,
     credentials: credentials,
     lifecycle: lifecycle,
-    acceptTracking: (siteUrl, lease, message) {
-      if (!lease.isCurrent || isDisposed) return;
-      _applyTopicTrackingMessage(siteUrl, message);
-    },
+    trackingFor: (siteUrl, lease) =>
+        _topicTracking.capture(siteUrl, lease: lease),
     reloadSource: (command, lease) async {
       if (!lease.isCurrent || isDisposed) return;
       await topicFeeds.load(
@@ -3577,13 +3579,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  bool _admitsIncomingTopic(String siteUrl, Object? data) =>
-      _trackingFor(siteUrl).admitsIncoming(
-        data,
-        user: _instanceAt(siteUrl)?.user,
-        config: siteConfigFor(siteUrl),
-      );
-
   /// What a loaded list announces, read the way core's `trackIncoming` reads
   /// the list `findTopicList` found: Latest, New and Unseen by name, a
   /// category or tag link as its default list, the category from the path
@@ -3678,16 +3673,21 @@ class ShellController extends FrameSafeNotifier
         ],
     };
     final lease = lifecycle.capture(siteUrl);
+    final tracking = _topicTracking.capture(siteUrl, lease: lease);
+    if (tracking == null) return;
+    bool ownsTopic() =>
+        !isDisposed &&
+        tracking.isCurrent &&
+        identical(_liveSessions.trackerFor(siteUrl), tracker);
     tracker.watchTopic(
       routes.keys.first,
       channelsByTopic.values.expand((channels) => channels).toSet().toList(),
       (channel, data) {
-        if (isDisposed ||
-            !lease.isCurrent ||
-            !identical(_liveSessions.trackerFor(siteUrl), tracker)) {
+        if (!ownsTopic()) {
           return;
         }
         for (final entry in channelsByTopic.entries) {
+          if (!ownsTopic()) return;
           if (!entry.value.contains(channel)) continue;
           final topicId = entry.key;
           final coreChannel = '/topic/$topicId';
@@ -3698,7 +3698,9 @@ class ShellController extends FrameSafeNotifier
               data,
               lease,
             );
+            if (!ownsTopic()) return;
             _applyTopicStatsMessage(siteUrl, topicId, data, lease);
+            if (!ownsTopic()) return;
           }
           final core = channel == coreChannel
               ? _coreTopicMessageInvalidation(siteUrl, data)
@@ -3806,99 +3808,6 @@ class ShellController extends FrameSafeNotifier
 
   bool supportsComposerColors(String siteUrl) =>
       _serverPluginNames[siteUrl]?.contains('discourse-bbcode-color') ?? false;
-
-  void _applyTopicTrackingMessage(String siteUrl, Object? data) {
-    // A message proves the site reachable again. A snapshot whose load failed
-    // is fetched before this message is buffered, so the replay covers it.
-    _liveSessions.retryTracking(siteUrl);
-    final tracking = _trackingFor(siteUrl);
-    final changed = tracking.accept(
-      data,
-      user: _instanceAt(siteUrl)?.user,
-      config: siteConfigFor(siteUrl),
-    );
-    if (changed == null) return;
-    _applyTopicDismissal(siteUrl, data, tracking);
-    if (changed && currentInstance?.url == siteUrl) {
-      _notifyLiveChange();
-    }
-  }
-
-  /// Core refreshes loaded list rows from tracking state once a dismissal
-  /// changes it (`updateTopics`). Every list here reads one store record per
-  /// topic, so the record takes the dismissal; a list that is not reloaded,
-  /// or is served from its cache, would otherwise keep every marker. The
-  /// message is applied whether or not tracking holds the topic: it is the
-  /// server's record of the dismissal.
-  void _applyTopicDismissal(
-    String siteUrl,
-    Object? data,
-    TopicTrackingReconciler tracking,
-  ) {
-    if (data is! Map) return;
-    final type = data['message_type'];
-    if (type != 'dismiss_new' && type != 'dismiss_new_posts') return;
-    for (final value in jsonArray(jsonObject(data['payload'])['topic_ids'])) {
-      final topicId = jsonIntOrNull(value);
-      if (topicId == null) continue;
-      store.update<Topic>(siteUrl, topicId, (row) {
-        // A dismissed new topic is seen but stays unvisited: core records the
-        // dismissal apart from any read position.
-        if (type == 'dismiss_new') {
-          return row.seen ? row : row.copyWith(seen: true);
-        }
-        // Core moves only an existing read position, to the highest post.
-        if (row.lastReadPostNumber == null) return row;
-        final tracked = tracking.topic(topicId)?.highestPostNumber ?? 0;
-        return _readThrough(
-          row,
-          tracked > row.highestPostNumber ? tracked : row.highestPostNumber,
-        );
-      });
-    }
-  }
-
-  /// A list response sent before a dismissal, or before a read elsewhere,
-  /// must not restore markers tracking state has since cleared. Only a state
-  /// that has passed the row's own is projected: a dismissed topic is never
-  /// new again, and a read position covering the row's highest post leaves
-  /// nothing unread in it. A row reporting a reply since then carries a
-  /// highest post beyond that position, so it keeps its count.
-  Topic _projectTopicTracking(String siteUrl, Topic incoming) {
-    final tracked = _topicTrackingBySite[siteUrl]?.topic(incoming.id);
-    if (tracked == null) return incoming;
-    var row = incoming;
-    if (!row.listReadStateKnown &&
-        row.lastReadPostNumber == null &&
-        tracked.isNew &&
-        row.seen) {
-      row = row.copyWith(seen: false);
-    }
-    if (tracked.isSeen && !row.seen) row = row.copyWith(seen: true);
-    final position = tracked.lastReadPostNumber;
-    final held = row.lastReadPostNumber;
-    // A sparse row's missing highest post is no proof that it is read.
-    if (position != null &&
-        held != null &&
-        position > held &&
-        row.highestPostNumber > 0 &&
-        position >= row.highestPostNumber) {
-      row = _readThrough(row, position);
-    }
-    return row;
-  }
-
-  static Topic _readThrough(Topic row, int position) {
-    final read = row.copyWith(
-      lastReadPostNumber: position > (row.lastReadPostNumber ?? 0)
-          ? position
-          : null,
-      highestPostNumber: position > row.highestPostNumber ? position : null,
-      unreadPosts: 0,
-      newPosts: 0,
-    );
-    return read == row ? row : read;
-  }
 
   /// One poll answer can carry a backlog of messages, delivered in one
   /// synchronous run: tracking rows, `/latest` and `/new` arrivals, `/topic`
@@ -4032,51 +3941,64 @@ class ShellController extends FrameSafeNotifier
   ) {
     bool ownsPublication() => _canAcceptCurrentUser(siteUrl) && lease.isCurrent;
 
-    final user = accepted.user;
-    final changed = previous.user != user || accepted.accountChanged;
-    _profileWrites.currentUserAccepted(siteUrl, user);
-    if (!ownsPublication()) return false;
-    if (changed) {
+    final finishTrackingChange = accepted.accountChanged
+        ? _topicTracking.beginAccountChange(siteUrl)
+        : () {};
+    try {
       if (accepted.accountChanged) {
-        accountActivity.forget(siteUrl);
-        if (!ownsPublication()) return false;
-        groups.forget(siteUrl);
-        if (!ownsPublication()) return false;
-        userDirectory.forget(siteUrl);
-        if (!ownsPublication()) return false;
-        badges.forget(siteUrl);
-        if (!ownsPublication()) return false;
         _notificationPreferences.forget(siteUrl);
-        _topicTrackingBySite.remove(siteUrl)?.retire();
+        _newTopicDismissals.forget(siteUrl);
         _liveSessions.clearRetry(siteUrl);
       }
-      if (!ownsPublication() || !identical(_instanceAt(siteUrl), previous)) {
-        return false;
+      final user = accepted.user;
+      final changed = previous.user != user || accepted.accountChanged;
+      _profileWrites.currentUserAccepted(siteUrl, user);
+      if (!ownsPublication()) return false;
+      if (changed) {
+        if (accepted.accountChanged) {
+          accountActivity.forget(siteUrl);
+          if (!ownsPublication()) return false;
+          groups.forget(siteUrl);
+          if (!ownsPublication()) return false;
+          userDirectory.forget(siteUrl);
+          if (!ownsPublication()) return false;
+          badges.forget(siteUrl);
+          if (!ownsPublication()) return false;
+        }
+        if (!ownsPublication() || !identical(_instanceAt(siteUrl), previous)) {
+          return false;
+        }
+        _replaceInstance(
+          previous,
+          previous.copyWith(
+            user: user,
+            clearNotificationTotals: accepted.accountChanged,
+          ),
+        );
+        if (!ownsPublication()) return true;
+        if (accepted.accountChanged) {
+          _liveSessions.accountChanged(siteUrl, lease);
+        }
+        if (!ownsPublication()) return true;
       }
-      _replaceInstance(
-        previous,
-        previous.copyWith(
-          user: user,
-          clearNotificationTotals: accepted.accountChanged,
-        ),
-      );
+      if (accepted.seedGroupedUnreadCounts) {
+        _seedGroupedUnreadNotifications(siteUrl, user);
+        if (!ownsPublication()) return true;
+      }
+      _notify();
       if (!ownsPublication()) return true;
+      if (changed) instanceStore.save(List.of(_instances)).ignore();
+      for (final observer
+          in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
+        if (!ownsPublication()) break;
+        _observePluginLifecycle(
+          Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
+        );
+      }
+      return true;
+    } finally {
+      finishTrackingChange();
     }
-    if (accepted.seedGroupedUnreadCounts) {
-      _seedGroupedUnreadNotifications(siteUrl, user);
-      if (!ownsPublication()) return true;
-    }
-    _notify();
-    if (!ownsPublication()) return true;
-    if (changed) instanceStore.save(List.of(_instances)).ignore();
-    for (final observer
-        in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
-      if (!ownsPublication()) break;
-      _observePluginLifecycle(
-        Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
-      );
-    }
-    return true;
   }
 
   void _applyUserDraftsMessage(String siteUrl, Object? data) {
@@ -4353,7 +4275,7 @@ class ShellController extends FrameSafeNotifier
     ),
     taxonomy: _taxonomy,
     trackingEffects: NotificationPreferenceTracking(
-      forSite: _trackingFor,
+      forSite: (siteUrl) => _topicTracking.capture(siteUrl)?.reconciler,
       refresh:
           ({
             required siteUrl,
@@ -5694,6 +5616,7 @@ class ShellController extends FrameSafeNotifier
     final tab = activeTabId;
     final route = currentContent;
     String? failure;
+    final tracking = _topicTracking.capture(siteUrl, lease: lease);
     await _topicReads.reset(
       siteUrl,
       topicId,
@@ -5714,9 +5637,11 @@ class ShellController extends FrameSafeNotifier
         );
       },
       accepted: () async {
-        _trackingFor(
-          siteUrl,
-        ).markLastPostUnread(topicId, math.max(0, topic.highestPostNumber - 1));
+        if (tracking?.isCurrent != true) return;
+        tracking!.markLastPostUnread(
+          topicId,
+          math.max(0, topic.highestPostNumber - 1),
+        );
         final row = store.read<Topic>(siteUrl, topicId);
         if (row != null) {
           store.put(
@@ -5727,13 +5652,16 @@ class ShellController extends FrameSafeNotifier
             ),
           );
         }
-        if (currentInstance?.url == siteUrl &&
+        if (tracking.isCurrent &&
+            currentInstance?.url == siteUrl &&
             activeTabId == tab &&
             identical(currentContent, route) &&
             route?.topicId == topicId) {
           handleBack(canReturnToSidebar: false);
         }
-        await _topicData.forLease(siteUrl, lease)?.refresh(topicId, slug: '');
+        if (tracking.isCurrent) {
+          await _topicData.forLease(siteUrl, lease)?.refresh(topicId, slug: '');
+        }
       },
       onError: (error, stackTrace) {
         if (error is WriteException) {
@@ -5755,6 +5683,7 @@ class ShellController extends FrameSafeNotifier
   }) {
     if (topicUnreadWriteInFlight(siteUrl, topicId)) return Future.value();
     final lease = lifecycle.capture(siteUrl);
+    final tracking = _topicTracking.capture(siteUrl, lease: lease);
     final receipt = _topicReads.mark(
       siteUrl,
       topicId,
@@ -5766,8 +5695,10 @@ class ShellController extends FrameSafeNotifier
     // Update counts and visible queues from that same optimistic position.
     final position = _topicReads.lastReadPostNumberFor(siteUrl, topicId);
     if (!isDisposed && lease.isCurrent && position != null) {
-      _trackingFor(siteUrl).markRead(topicId, position);
-      if (currentInstance?.url == siteUrl) _notifyLiveChange();
+      tracking?.markRead(topicId, position);
+      if (tracking?.isCurrent == true && currentInstance?.url == siteUrl) {
+        _notifyLiveChange();
+      }
     }
     return receipt;
   }
@@ -7944,7 +7875,10 @@ class ShellController extends FrameSafeNotifier
   ) => _bookmarks
       .forSite(siteUrl)
       .prepareRow(
-        _projectTopicTracking(siteUrl, _topicReads.project(siteUrl, incoming)),
+        _topicTracking
+                .existing(siteUrl)
+                ?.project(_topicReads.project(siteUrl, incoming)) ??
+            _topicReads.project(siteUrl, incoming),
         versionAtDispatch,
       );
 
@@ -8766,7 +8700,7 @@ class ShellController extends FrameSafeNotifier
     _topicReads.forget(siteUrl);
 
     _taxonomy.forget(siteUrl);
-    _topicTrackingBySite.remove(siteUrl)?.retire();
+    _topicTracking.forget(siteUrl);
     _liveSessions.clearRetry(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
@@ -9692,10 +9626,7 @@ class ShellController extends FrameSafeNotifier
       lifecycle.invalidate(instance.url);
     }
     _taxonomy.dispose();
-    for (final tracking in _topicTrackingBySite.values) {
-      tracking.retire();
-    }
-    _topicTrackingBySite.clear();
+    _topicTracking.dispose();
     _liveSessions.dispose();
     updates.dispose();
     accountActivity.dispose();

@@ -6,6 +6,7 @@ import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
+import 'topic_tracking_directory.dart';
 
 @immutable
 final class DismissNewTopicsCommand {
@@ -34,7 +35,7 @@ final class NewTopicDismissals {
     required this.api,
     required this.credentials,
     required this.lifecycle,
-    required this.acceptTracking,
+    required this.trackingFor,
     required this.reloadSource,
     required this.changed,
   });
@@ -42,8 +43,8 @@ final class NewTopicDismissals {
   final TopicFeedsApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
-  final void Function(String siteUrl, SiteLease lease, Object? message)
-  acceptTracking;
+  final TopicTrackingAdmission? Function(String siteUrl, SiteLease lease)
+  trackingFor;
   final Future<void> Function(DismissNewTopicsCommand command, SiteLease lease)
   reloadSource;
   final void Function() changed;
@@ -52,12 +53,23 @@ final class NewTopicDismissals {
 
   bool isBusy(String? siteUrl) => _accounts[siteUrl]?.isBusy ?? false;
 
-  _AccountNewTopicDismissals _account(String siteUrl) {
+  _AccountNewTopicDismissals? _account(DismissNewTopicsCommand scope) {
+    final siteUrl = scope.instance.url;
+    final lease = lifecycle.capture(siteUrl);
+    final tracking = trackingFor(siteUrl, lease);
+    if (tracking == null ||
+        !tracking.isCurrent ||
+        !tracking.belongsTo(scope.instance.user)) {
+      return null;
+    }
     final held = _accounts[siteUrl];
-    if (held != null && held.isCurrent) return held;
+    if (held != null && held.isCurrent && identical(held.tracking, tracking)) {
+      return held;
+    }
     held?.retire();
     final account = _AccountNewTopicDismissals(
-      AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
+      AccountRequestSession(siteUrl, lease),
+      tracking,
     );
     _accounts[siteUrl] = account;
     account.detach = account.request.lease.onRetire(() {
@@ -82,7 +94,8 @@ final class NewTopicDismissals {
     DismissNewTopicsCommand scope,
   ) async {
     if (_disposed) return null;
-    final account = _account(scope.instance.url);
+    final account = _account(scope);
+    if (account == null) return null;
     final siteUrl = account.request.siteUrl;
     final lease = account.request.lease;
     if (!account.isCurrent || account.busy) return null;
@@ -142,7 +155,7 @@ final class NewTopicDismissals {
         if (posts) 'dismiss_new_posts',
       ]) {
         if (!account.isCurrent) return null;
-        acceptTracking(siteUrl, lease, {
+        account.tracking.accept({
           'message_type': type,
           'payload': {'topic_ids': ids},
         });
@@ -162,14 +175,16 @@ final class NewTopicDismissals {
 }
 
 final class _AccountNewTopicDismissals {
-  _AccountNewTopicDismissals(this.request);
+  _AccountNewTopicDismissals(this.request, this.tracking);
 
   final AccountRequestSession request;
+  final TopicTrackingAdmission tracking;
   bool busy = false;
   bool _retired = false;
   void Function()? detach;
 
-  bool get isCurrent => !_retired && request.lease.isCurrent;
+  bool get isCurrent =>
+      !_retired && request.lease.isCurrent && tracking.isCurrent;
   bool get isBusy => isCurrent && busy;
 
   void retire() {

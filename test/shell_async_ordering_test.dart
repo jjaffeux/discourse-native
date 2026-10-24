@@ -314,6 +314,10 @@ Future<ShellController> _loadShell(
 }) async {
   final credentials = authenticator ?? FakeAuthenticator();
   credentials.keys[_siteUrl] = 'api-key';
+  api.accounts.putIfAbsent(
+    'api-key',
+    () => api.user ?? const DiscourseUser(id: 1, username: 'author'),
+  );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance(

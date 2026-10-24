@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -19,6 +20,96 @@ const _reader = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'same-lease account replacement reconnects private tracking authority',
+    () async {
+      final api = _ReplacementUserApi();
+      final shell = _shell(api: api);
+      addTearDown(shell.dispose);
+      addTearDown(() {
+        if (!api.response.isCompleted) api.response.complete(_reader);
+      });
+      await shell.load();
+      await api.started.future;
+      await pumpEventQueue();
+      final original = FakeSiteTracker.built.single;
+      final lease = shell.lifecycle.capture(_site);
+      const next = DiscourseUser(id: 8, username: 'next-reader');
+
+      api.response.complete(next);
+      await pumpEventQueue();
+
+      expect(lease.isCurrent, isTrue);
+      expect(shell.currentInstance?.user?.id, 8);
+      expect(original.disposed, isTrue);
+      final replacement = FakeSiteTracker.built.last;
+      expect(replacement.userId, 8);
+      expect(replacement.disposed, isFalse);
+      expect(replacement.polling, isTrue);
+      final revision = shell.topicTrackingRevisionFor(_site);
+      original.deliverTopicTracking(const {
+        'message_type': 'new_topic',
+        'topic_id': 20,
+        'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+      });
+      expect(shell.topicTrackingRevisionFor(_site), revision);
+      replacement.deliverTopicTracking(const {
+        'message_type': 'new_topic',
+        'topic_id': 21,
+        'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+      });
+      expect(shell.topicTrackingRevisionFor(_site), greaterThan(revision));
+    },
+  );
+
+  test('cleanup-listener dismissal cannot enter successor tracking', () async {
+    final api = _ReplacementUserApi();
+    final shell = _shell(api: api);
+    addTearDown(shell.dispose);
+    addTearDown(() {
+      if (!api.response.isCompleted) api.response.complete(_reader);
+    });
+    await shell.load();
+    await api.started.future;
+    const row = Topic(
+      id: 30,
+      title: 'New topic',
+      slug: 'new-topic',
+      seen: false,
+    );
+    final route = ContentRoute.topicList(TopicListMode.newTopics);
+    api.newTopicRow = row;
+    shell.pushContent(route);
+    await shell.loadFeed(route.id);
+    expect(shell.canDismissNewTopics, isTrue);
+    await shell.accountActivity.loadNotifications(shell.currentInstance!);
+    expect(shell.accountActivity.notificationsFor(_site).loaded, isTrue);
+    Future<String?>? dismissal;
+    void dismissDuringCleanup() {
+      if (dismissal != null ||
+          shell.currentInstance?.user?.id != 7 ||
+          shell.accountActivity.notificationsFor(_site).loaded) {
+        return;
+      }
+      dismissal = shell.dismissNewTopics();
+    }
+
+    shell.accountActivity.addListener(dismissDuringCleanup);
+    addTearDown(
+      () => shell.accountActivity.removeListener(dismissDuringCleanup),
+    );
+
+    api.response.complete(const DiscourseUser(id: 8, username: 'next-reader'));
+    await pumpEventQueue();
+
+    expect(dismissal, isNotNull);
+    expect(await dismissal, isNull);
+    expect(shell.currentInstance?.user?.id, 8);
+    expect(api.dismissNewCalls, isEmpty);
+    expect(shell.store.read<Topic>(_site, 30)?.seen, isFalse);
+    expect(shell.dismissingNewTopics, isFalse);
+  });
 
   test(
     'retention acquired during attachment cannot start a partial poll',
@@ -339,4 +430,30 @@ final class _FailingTopicTracker extends FakeSiteTracker {
     void Function(String channel, Object? data) onMessage, {
     Map<String, int?> lastIds = const {},
   }) => throw _SubscriptionFailure();
+}
+
+final class _ReplacementUserApi extends FakeDiscourseApi {
+  _ReplacementUserApi() : super(user: _reader);
+  final started = Completer<void>();
+  final response = Completer<DiscourseUser>();
+  Topic? newTopicRow;
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async => TopicList(topics: [?newTopicRow]);
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) {
+    currentUserRequests.add(siteUrl);
+    if (!started.isCompleted) started.complete();
+    return response.future;
+  }
 }
