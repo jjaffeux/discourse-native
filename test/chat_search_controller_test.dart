@@ -44,6 +44,65 @@ class CountingCredentials extends FakeApiCredentialReader {
   }
 }
 
+class _HeldSearchApi extends FakeDiscourseApi {
+  _HeldSearchApi({
+    required this.completion,
+    required this.heldOffset,
+    required super.chatSearchPagesByKey,
+  });
+
+  final Completer<void> completion;
+  final int heldOffset;
+
+  @override
+  Future<ChatSearchPage> searchChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required String query,
+    int? channelId,
+    ChatSearchSort sort = ChatSearchSort.relevance,
+    int offset = 0,
+    int limit = ChatSearchPage.defaultPageSize,
+    bool excludeThreads = false,
+    String? clientId,
+  }) async {
+    final page = await super.searchChatMessages(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      query: query,
+      channelId: channelId,
+      sort: sort,
+      offset: offset,
+      limit: limit,
+      excludeThreads: excludeThreads,
+      clientId: clientId,
+    );
+    if (offset == heldOffset) await completion.future;
+    return page;
+  }
+}
+
+void expectCanonicalMessage(ChatMessage? actual, ChatMessage? expected) {
+  if (expected == null) {
+    expect(actual, isNull);
+    return;
+  }
+  expect(actual, isNotNull);
+  expect(actual!.cooked, expected.cooked);
+  expect(actual.raw, expected.raw);
+  expect(actual.edited, expected.edited);
+  expect(actual.deletedAt, expected.deletedAt);
+  expect(actual.pinned, expected.pinned);
+  expect(
+    actual.reactions.map(
+      (reaction) => (reaction.emoji, reaction.count, reaction.reacted),
+    ),
+    expected.reactions.map(
+      (reaction) => (reaction.emoji, reaction.count, reaction.reacted),
+    ),
+  );
+}
+
 void main() {
   late FakeApiCredentialReader credentials;
   late Store store;
@@ -209,6 +268,194 @@ void main() {
         expect(search.globalState(site).hasMore, isFalse);
       },
     );
+
+    for (final heldOffset in [0, 2]) {
+      for (final mutation in ['edit', 'delete', 'reaction', 'pin', 'remove']) {
+        test(
+          'late search at offset $heldOffset preserves canonical $mutation',
+          () async {
+            final gate = Completer<void>();
+            addTearDown(() {
+              if (!gate.isCompleted) gate.complete();
+            });
+            final old = hit(2);
+            final api = _HeldSearchApi(
+              completion: gate,
+              heldOffset: heldOffset,
+              chatSearchPagesByKey: {
+                FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
+                  hits: heldOffset == 0 ? [old, hit(3)] : [hit(1), old],
+                  hasMore: heldOffset != 0,
+                ),
+                FakeDiscourseApi.chatSearchKey('needle', offset: 2):
+                    ChatSearchPage(hits: [old, hit(3)], hasMore: true),
+                FakeDiscourseApi.chatSearchKey('needle', offset: 4):
+                    ChatSearchPage(hits: [hit(4)]),
+              },
+            );
+            final search = ChatSearchController(
+              api: api,
+              requests: FakePluginRequestHost(credentials: credentials),
+              store: store,
+              debounceDuration: Duration.zero,
+            );
+            addTearDown(search.dispose);
+            store.put(site, old.message);
+            search.setGlobalQuery(site, 'needle');
+            await drain();
+            if (heldOffset != 0) {
+              expect(search.globalState(site).hits.map((hit) => hit.id), [
+                1,
+                2,
+              ]);
+              search.loadMore(site);
+              await drain();
+              expect(search.globalState(site).loadingMore, isTrue);
+            }
+            expect(api.chatSearchesRequested.last.offset, heldOffset);
+            final updated = switch (mutation) {
+              'edit' => ChatMessage(
+                id: old.id,
+                channelId: old.message.channelId,
+                cooked: '<p>edited while searching</p>',
+                raw: 'edited while searching',
+                edited: true,
+                author: old.message.author,
+              ),
+              'delete' => old.message.withDeletedAt(DateTime.utc(2026, 10, 24)),
+              'reaction' => old.message.withReactions(const [
+                ChatReaction(emoji: 'heart', count: 1, reacted: true),
+              ]),
+              'pin' => old.message.withPinned(true),
+              'remove' => null,
+              _ => throw StateError(mutation),
+            };
+            if (updated == null) {
+              store.remove<ChatMessage>(site, old.id);
+            } else {
+              store.put(site, updated);
+            }
+            final ref = store.ref<ChatMessage>(site, old.id);
+            var changes = 0;
+            ref.addListener(() => changes++);
+            expect(store.read<ChatMessage>(site, 3), isNull);
+            gate.complete();
+            await drain();
+
+            expectCanonicalMessage(
+              store.read<ChatMessage>(site, old.id),
+              updated,
+            );
+            expectCanonicalMessage(ref.value, updated);
+            expect(changes, 0);
+            final state = search.globalState(site);
+            expect(state.phase, ChatSearchPhase.results);
+            expect(
+              state.hits.map((hit) => hit.id),
+              heldOffset == 0 ? [2, 3] : [1, 2, 3],
+            );
+            expect(state.hits.last.message.cooked, '<p>message 3</p>');
+            expect(state.hits.last.excerpt, 'message 3');
+            expect(state.loadingMore, isFalse);
+            expect(state.nextOffset, heldOffset + 2);
+            if (heldOffset != 0) {
+              search.loadMore(site);
+              await drain();
+              expect(
+                api.chatSearchesRequested.map((request) => request.offset),
+                [0, 2, 4],
+              );
+              expect(search.globalState(site).hits.map((hit) => hit.id), [
+                1,
+                2,
+                3,
+                4,
+              ]);
+              expect(search.globalState(site).hasMore, isFalse);
+              expectCanonicalMessage(
+                store.read<ChatMessage>(site, old.id),
+                updated,
+              );
+            }
+          },
+        );
+      }
+    }
+
+    for (final heldOffset in [0, 1]) {
+      for (final retirement in ['invalidate', 'forget', 'dispose', 'clear']) {
+        test('$retirement retires held search at offset $heldOffset', () async {
+          final gate = Completer<void>();
+          addTearDown(() {
+            if (!gate.isCompleted) gate.complete();
+          });
+          final old = hit(2);
+          final api = _HeldSearchApi(
+            completion: gate,
+            heldOffset: heldOffset,
+            chatSearchPagesByKey: {
+              FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
+                hits: heldOffset == 0 ? [old, hit(3)] : [hit(1)],
+                hasMore: heldOffset != 0,
+              ),
+              FakeDiscourseApi.chatSearchKey('needle', offset: 1):
+                  ChatSearchPage(hits: [old, hit(3)]),
+            },
+          );
+          final search = ChatSearchController(
+            api: api,
+            requests: FakePluginRequestHost(
+              credentials: credentials,
+              lifecycle: lifecycle,
+            ),
+            store: store,
+            debounceDuration: Duration.zero,
+          );
+          addTearDown(search.dispose);
+          store.put(site, old.message);
+          final resultRef = search.globalRef(site);
+          var publications = 0;
+          resultRef.addListener(() => publications++);
+          search.setGlobalQuery(site, 'needle');
+          await drain();
+          if (heldOffset != 0) {
+            search.loadMore(site);
+            await drain();
+          }
+          expect(api.chatSearchesRequested.last.offset, heldOffset);
+          final updated = old.message.withPinned(true);
+          store.put(site, updated);
+          final messageRef = store.ref<ChatMessage>(site, 2);
+          var messageChanges = 0;
+          messageRef.addListener(() => messageChanges++);
+          switch (retirement) {
+            case 'invalidate':
+              lifecycle.invalidate(site);
+            case 'forget':
+              search.forget(site);
+            case 'dispose':
+              search.dispose();
+            case 'clear':
+              search.setGlobalQuery(site, '');
+          }
+          final retiredState = search.globalState(site);
+          publications = 0;
+          gate.complete();
+          await drain();
+
+          expect(search.globalState(site), retiredState);
+          expect(publications, 0);
+          expect(messageChanges, 0);
+          expectCanonicalMessage(store.read<ChatMessage>(site, 2), updated);
+          expectCanonicalMessage(messageRef.value, updated);
+          expect(store.read<ChatMessage>(site, 3), isNull);
+          expect(
+            search.globalState(site).hits.map((hit) => hit.id),
+            retirement == 'invalidate' && heldOffset != 0 ? [1] : isEmpty,
+          );
+        });
+      }
+    }
 
     test('stores results and appends unique pages', () async {
       final api = FakeDiscourseApi(
