@@ -15,12 +15,12 @@ import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../theme/d_icons.dart';
 import 'content_navigation_controls.dart';
-import 'content_page_contract.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'global_search_panel.dart';
 import 'open_link.dart';
+import 'search_presentation.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
@@ -59,10 +59,6 @@ class _ForumSearchState extends State<ForumSearch> {
   final _clearFocus = FocusNode(debugLabel: 'clear forum search');
   final _popover = DPopoverController();
   MaterialPageRoute<void>? _page;
-  // A popped page keeps painting this search through its exit transition, so
-  // nothing it shows changes until it is gone or search opens again.
-  MaterialPageRoute<void>? _leavingPage;
-  bool _clearWhenLeft = false;
   final _pageRevision = ValueNotifier(0);
   ShellController? _shell;
   String? _tabId;
@@ -83,8 +79,9 @@ class _ForumSearchState extends State<ForumSearch> {
   late ShellSearchController _search;
   late GlobalSearchController _global;
   VoidCallback? _unregisterFocus;
-  bool _open = false;
-  bool _suppressFocus = false;
+  SearchPresentation? _presentationOwner;
+  SearchPresentation get _presentation => _presentationOwner!;
+  bool get _open => _presentation.isOpen;
   bool _syncScheduled = false;
   bool _geometryScheduled = false;
   double _anchorHeight = DControlStyle.regularHeight;
@@ -92,10 +89,7 @@ class _ForumSearchState extends State<ForumSearch> {
   double _anchorTop = 6;
   double? _layoutWidth;
   Size? _layoutViewport;
-  String? _selectedResultId;
-  Object? _selectedNavigationIdentity;
-  TextEditingValue? _draftEditingValue;
-  String? _openingExpression;
+  String? get _selectedResultId => _presentation.selectedResultId;
   final _panelKey = GlobalKey<GlobalSearchPanelState>();
 
   String get _listExpression {
@@ -103,34 +97,14 @@ class _ForumSearchState extends State<ForumSearch> {
     final tab = _document;
     final route = tab?.currentContent;
     if (shell == null || route == null) return '';
-    if (route.isTopic) return '';
-    final words = shell.search.wordsFor(
-      _search.siteUrl ?? '',
-      tab?.tabId,
-      route.id,
+    return SearchPresentation.listExpression(
+      route,
+      shell.search.wordsFor(_search.siteUrl ?? '', tab?.tabId, route.id),
     );
-    if (route.isAdvancedTopicFilter) return route.topicFilterQuery;
-    if (route.isSearchList) {
-      return Uri.parse(route.feedPath!).queryParameters['q'] ?? '';
-    }
-    return [
-      if (route.categoryId != null) 'category:${route.categoryId}',
-      if (route.tagNames.isNotEmpty) 'tags:${route.tagNames.join('+')}',
-      route.topicListSearch.isNotEmpty ? route.topicListSearch : words,
-    ].where((part) => part.isNotEmpty).join(' ');
   }
 
-  GlobalSearchExpression get _closedExpression {
-    try {
-      return parseGlobalSearchExpression(
-        _listExpression,
-        GlobalSearchScope.all,
-        _global.capabilities,
-      );
-    } on FormatException {
-      return GlobalSearchExpression(_listExpression, const [], null);
-    }
-  }
+  GlobalSearchExpression get _closedExpression =>
+      _presentation.closedExpression(_listExpression);
 
   bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
 
@@ -146,7 +120,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (widget.fullScreen) {
       final page = _page;
       if (page != null) {
-        _leavingPage = page;
+        _presentation.beginLeaving(page);
         if (page.isCurrent) {
           page.navigator?.pop();
         } else {
@@ -176,6 +150,8 @@ class _ForumSearchState extends State<ForumSearch> {
     _shell = shell;
     _search = shell.search;
     _global = shell.globalSearch;
+    _presentationOwner ??= SearchPresentation(_global);
+    _presentation.global = _global;
     _search.addListener(_searchChanged);
     _global.addListener(_globalChanged);
     shell.addListener(_siteChanged);
@@ -232,18 +208,8 @@ class _ForumSearchState extends State<ForumSearch> {
     setState(() {});
   }
 
-  void _retireClosedDraftIfScopeChanged() {
-    if (!_open &&
-        _leavingPage == null &&
-        _openingExpression != null &&
-        _openingExpression != _listExpression) {
-      _draftEditingValue = null;
-      _openingExpression = _listExpression;
-      _global.clearAllConditions();
-      _global.setQuery('');
-      _global.setScope(GlobalSearchScope.all);
-    }
-  }
+  void _retireClosedDraftIfScopeChanged() =>
+      _presentation.retireClosedDraft(_listExpression);
 
   void _searchChanged() {
     if (!mounted) return;
@@ -265,28 +231,17 @@ class _ForumSearchState extends State<ForumSearch> {
     });
   }
 
-  void _selectResult(String? id) {
-    _selectedResultId = id;
-    _selectedNavigationIdentity = _global.results
-        .where((result) => result.id == id)
-        .firstOrNull
-        ?.navigationIdentity;
-  }
+  void _selectResult(String? id) => _presentation.selectResult(id);
 
   void _globalChanged() {
     if (!mounted) return;
     _syncText();
-    final selected = _global.results
-        .where((row) => row.id == _selectedResultId)
-        .firstOrNull;
-    if (selected?.navigationIdentity != _selectedNavigationIdentity) {
-      _selectResult(null);
-    }
+    _presentation.reconcileSelection();
     setState(() {});
   }
 
   void _syncText() {
-    if (_leavingPage != null) return;
+    if (_presentation.isLeaving) return;
     final query = _query;
     if (_text.text == query) return;
     _text.value = TextEditingValue(
@@ -323,93 +278,29 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _focusChanged() {
-    if (_focus.hasFocus && !_suppressFocus && !_open) _requestFocus();
+    if (_focus.hasFocus && !_presentation.suppressFocus && !_open) {
+      _requestFocus();
+    }
   }
 
-  void _clearSubmittedSearch() {
-    if (_leavingPage != null) {
-      _clearWhenLeft = true;
-      return;
-    }
-    _global.setQuery('');
-    _global.clearAllConditions();
-  }
+  void _clearSubmittedSearch() => _presentation.clearSubmittedSearch();
 
-  void _pageLeft() {
-    _leavingPage = null;
-    if (_clearWhenLeft) {
-      _clearWhenLeft = false;
-      _clearSubmittedSearch();
-    }
+  void _pageLeft({Object? surface}) {
+    if (!_presentation.finishLeaving(surface: surface)) return;
     if (!mounted) return;
     _retireClosedDraftIfScopeChanged();
     _syncText();
   }
 
   void _openSearch({SearchFocusMode? mode}) {
-    if (_leavingPage != null) _pageLeft();
+    if (_presentation.isLeaving) _pageLeft();
     if (_search.siteUrl == null) return;
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
-      _openingExpression = _listExpression;
-      final route = _document?.currentContent;
-      final preferred = route == null
-          ? null
-          : ContentPageContract.resolve(route).searchScope ??
-                _global.scopes
-                    .where(
-                      (scope) =>
-                          route.destination is ExtensionDestination &&
-                          !scope.isCore &&
-                          route.id.startsWith(scope.owner),
-                    )
-                    .firstOrNull;
-      _global.setPageContext(
-        preferredScope: preferred,
-        topicId: route?.topicId,
-        topicTitle: route?.title,
+      _presentation.prepareOpening(
+        source: _ForumSearchSource(this),
+        mode: mode,
       );
-      final pluginContext = _shell!.plugins.registry.contentSearchContext(
-        context,
-      );
-      final openingContext =
-          pluginContext ??
-          (route?.isTopic == true || route?.isTopicList == true
-              ? GlobalSearchContext(
-                  scope: GlobalSearchScope.forum,
-                  condition: route?.topicId != null
-                      ? GlobalSearchCondition(
-                          filterId: 'topicId',
-                          value: ['${route!.topicId}'],
-                        )
-                      : route?.categoryId != null
-                      ? GlobalSearchCondition(
-                          filterId: 'category',
-                          operator: 'any',
-                          value: ['${route!.categoryId}'],
-                        )
-                      : null,
-                )
-              : null);
-      if (mode != SearchFocusMode.contextual || openingContext == null) {
-        if (mode == SearchFocusMode.global) {
-          _global.setContext(null);
-          if (_global.scope != GlobalSearchScope.forum ||
-              _global.conditions.isEmpty && !_global.hasOrderFilter) {
-            _global.setScope(GlobalSearchScope.all);
-          }
-        }
-        if (_global.query.trim().isEmpty &&
-            _global.conditions.isEmpty &&
-            !_global.hasOrderFilter) {
-          _global.clearAllConditions();
-          _global.setScope(GlobalSearchScope.all);
-          final expression = _listExpression;
-          if (expression.isNotEmpty) _global.setQuery('$expression ');
-        }
-      } else {
-        _global.setContext(openingContext);
-      }
     }
     if (!_surfaceOpen) {
       if (widget.fullScreen) {
@@ -447,13 +338,11 @@ class _ForumSearchState extends State<ForumSearch> {
   void _openChanged(bool open, DPopoverChangeReason reason) {
     if (!mounted) return;
     final editingValue = _text.value;
-    if (!open) _draftEditingValue = editingValue;
-    _suppressFocus = true;
-    setState(() => _open = open);
+    setState(() => _presentation.surfaceChanged(open, editingValue));
     if (open) {
       _syncText();
-      if (_draftEditingValue?.text == _global.query) {
-        _text.value = _draftEditingValue!;
+      if (_presentation.restoredDraft case final draft?) {
+        _text.value = draft;
       }
     }
     if (!open) {
@@ -461,8 +350,8 @@ class _ForumSearchState extends State<ForumSearch> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (open && _draftEditingValue?.text == _global.query) {
-        _text.value = _draftEditingValue!;
+      if (open && _presentation.restoredDraft != null) {
+        _text.value = _presentation.restoredDraft!;
       }
       if (_text.text == editingValue.text) _text.value = editingValue;
       if (open) {
@@ -472,7 +361,7 @@ class _ForumSearchState extends State<ForumSearch> {
       }
       // Focus requests apply in a microtask. Keep restoration suppressed until
       // then, so Escape from a filter or scope button cannot reopen search.
-      scheduleMicrotask(() => _suppressFocus = false);
+      scheduleMicrotask(() => _presentation.suppressFocus = false);
     });
   }
 
@@ -575,29 +464,33 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!_ownsInput(owner)) return;
     final site = _global.siteUrl;
     if (site == null) return;
-    final routeBeforeClosing = owner!.currentContent;
-    final lease = shell.lifecycle.capture(site);
-    final words = _global.wordsQuery;
+    final activation = SearchResultActivation(
+      host: shell,
+      lease: shell.lifecycle.capture(site),
+      site: site,
+      sourceRoute: owner!.currentContent,
+      words: _global.wordsQuery,
+      result: result,
+    );
     unawaited(_global.recordSelection(result));
     final page = _page;
     _closeSearch();
     if (page != null) await page.completed;
     if (!mounted ||
-        !lease.isCurrent ||
-        !_ownsInput(owner) ||
-        routeBeforeClosing?.sameDestinationAs(owner.currentContent) != true) {
-      return;
-    }
-    if (!identical(_shell, shell) ||
-        !identical(ShellScope.maybeRead(context), shell) ||
-        _global.siteUrl != site ||
-        shell.currentInstance?.url != site) {
+        !activation.canNavigate(
+          currentHost: _shell,
+          contextHost: ShellScope.maybeRead(context),
+          sourceOwnsInput: _ownsInput(owner),
+          currentRoute: owner.currentContent,
+          searchSite: _global.siteUrl,
+          activeSite: shell.currentInstance?.url,
+        )) {
       return;
     }
     _global.setQuery('');
     _global.clearAllConditions();
     if (result.source case final SearchPostHit hit) {
-      shell.openSearchResult(hit, words: words);
+      shell.openSearchResult(hit, words: activation.words);
     } else {
       final previousRoute = owner.currentContent;
       ({ShellTabContext owner, ForumTab tab})? destination;
@@ -615,27 +508,17 @@ class _ForumSearchState extends State<ForumSearch> {
         },
       );
       final opened = destination;
-      if (!mounted ||
-          !lease.isCurrent ||
-          opened == null ||
-          !_ownsInput(opened.owner) ||
-          !identical(opened.owner.tab, opened.tab)) {
-        return;
-      }
+      if (!mounted || opened == null) return;
       final route = opened.tab.currentContent;
-      final expected = result.destination;
-      if (expected != null && route.destination.identity != expected.identity) {
-        return;
-      }
-      if (!route.sameDestinationAs(previousRoute)) {
-        shell.search.setPageWords(
-          site,
-          opened.owner.tabId,
-          route.id,
-          result.source is SearchCategoryHit || result.source is SearchTagHit
-              ? ''
-              : words,
-        );
+      final words = activation.wordsForDestination(
+        ownsInput: _ownsInput(opened.owner),
+        capturedTab: opened.tab,
+        currentTab: opened.owner.tab,
+        route: route,
+        previousRoute: previousRoute,
+      );
+      if (words != null) {
+        shell.search.setPageWords(site, opened.owner.tabId, route.id, words);
       }
     }
   }
@@ -1153,14 +1036,29 @@ class _ForumSearchState extends State<ForumSearch> {
         animation.removeStatusListener(focusAfterTransition);
         if (!mounted || _page != page) return;
         _page = null;
-        _leavingPage = page;
+        _presentation.beginLeaving(page);
         _openChanged(false, DPopoverChangeReason.imperative);
       }),
     );
     unawaited(
       page.completed.then((_) {
-        if (identical(_leavingPage, page)) _pageLeft();
+        _pageLeft(surface: page);
       }),
     );
   }
+}
+
+final class _ForumSearchSource implements SearchPresentationSource {
+  _ForumSearchSource(this.state);
+  final _ForumSearchState state;
+
+  @override
+  String get expression => state._listExpression;
+
+  @override
+  ContentRoute? get route => state._document?.currentContent;
+
+  @override
+  GlobalSearchContext? get pluginContext =>
+      state._shell!.plugins.registry.contentSearchContext(state.context);
 }
