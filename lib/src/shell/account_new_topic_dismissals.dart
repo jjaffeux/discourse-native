@@ -1,8 +1,15 @@
-part of 'shell_controller.dart';
+import 'package:flutter/foundation.dart' show immutable;
+
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart';
+import '../data/site_lifecycle.dart';
+import '../models/content_route.dart';
+import '../models/discourse_instance.dart';
 
 @immutable
-final class _DismissNewTopicsScope {
-  const _DismissNewTopicsScope({
+final class DismissNewTopicsCommand {
+  const DismissNewTopicsCommand({
     required this.instance,
     required this.route,
     required this.mode,
@@ -20,32 +27,76 @@ final class _DismissNewTopicsScope {
       mode != TopicListMode.newTopics;
 }
 
-enum _DismissNewTopicsFailure { reconnect, failed }
+enum DismissNewTopicsFailure { reconnect, failed }
 
-final class _AccountNewTopicDismissals {
-  _AccountNewTopicDismissals(this._shell, this._session);
+final class NewTopicDismissals {
+  NewTopicDismissals({
+    required this.api,
+    required this.credentials,
+    required this.lifecycle,
+    required this.acceptTracking,
+    required this.reloadSource,
+    required this.changed,
+  });
 
-  final ShellController _shell;
-  final AccountRequestSession _session;
-  bool _busy = false;
+  final TopicFeedsApi api;
+  final ApiCredentialReader credentials;
+  final SiteLifecycle lifecycle;
+  final void Function(String siteUrl, SiteLease lease, Object? message)
+  acceptTracking;
+  final Future<void> Function(DismissNewTopicsCommand command, SiteLease lease)
+  reloadSource;
+  final void Function() changed;
+  final Map<String, _AccountNewTopicDismissals> _accounts = {};
+  bool _disposed = false;
 
-  bool get isBusy => _session.lease.isCurrent && _busy;
+  bool isBusy(String? siteUrl) => _accounts[siteUrl]?.isBusy ?? false;
 
-  Future<_DismissNewTopicsFailure?> dismiss(
-    _DismissNewTopicsScope scope,
+  _AccountNewTopicDismissals _account(String siteUrl) {
+    final held = _accounts[siteUrl];
+    if (held != null && held.isCurrent) return held;
+    held?.retire();
+    final account = _AccountNewTopicDismissals(
+      AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
+    );
+    _accounts[siteUrl] = account;
+    account.detach = account.request.lease.onRetire(() {
+      account.retire();
+      if (identical(_accounts[siteUrl], account)) _accounts.remove(siteUrl);
+    });
+    return account;
+  }
+
+  void forget(String siteUrl) => _accounts.remove(siteUrl)?.retire();
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    for (final account in _accounts.values) {
+      account.retire();
+    }
+    _accounts.clear();
+  }
+
+  Future<DismissNewTopicsFailure?> dismiss(
+    DismissNewTopicsCommand scope,
   ) async {
-    final siteUrl = _session.siteUrl;
-    final lease = _session.lease;
-    if (!lease.isCurrent || _shell._tabContextDisposed || _busy) return null;
-    _busy = true;
-    _shell._notify();
+    if (_disposed) return null;
+    final account = _account(scope.instance.url);
+    final siteUrl = account.request.siteUrl;
+    final lease = account.request.lease;
+    if (!account.isCurrent || account.busy) return null;
+    account.busy = true;
+    changed();
     final route = scope.route;
     final topics = scope.dismissTopics;
     final posts = scope.dismissPosts;
     try {
-      final credential = await _session.credentials(_shell.credentials);
-      if (credential.apiKey == null || !lease.isCurrent) {
-        return _DismissNewTopicsFailure.reconnect;
+      if (!account.isCurrent) return null;
+      final credential = await account.request.credentials(credentials);
+      if (!account.isCurrent) return null;
+      if (credential.apiKey == null) {
+        return DismissNewTopicsFailure.reconnect;
       }
       // Core accepts one tag. Resolve the full intersection before a bulk
       // write when this app's list has multiple tags.
@@ -57,14 +108,14 @@ final class _AccountNewTopicDismissals {
         while (path != null && visited.add(path)) {
           final requestPath = path;
           final page = await credential.run(
-            () => _shell.api.topicFeeds.topicList(
+            () => api.topicList(
               siteUrl: siteUrl,
               path: requestPath,
               apiKey: credential.apiKey,
               clientId: credential.clientId,
             ),
           );
-          if (!lease.isCurrent || _shell._tabContextDisposed) return null;
+          if (!account.isCurrent) return null;
           topicIds.addAll(page.topics.map((topic) => topic.id));
           path = page.nextPagePath;
         }
@@ -72,9 +123,9 @@ final class _AccountNewTopicDismissals {
           throw StateError('Could not load all matching topics.');
         }
       }
-      if (!lease.isCurrent || _shell._tabContextDisposed) return null;
+      if (!account.isCurrent) return null;
       final ids = await credential.run(
-        () => _shell.api.topicFeeds.dismissNewTopics(
+        () => api.dismissNewTopics(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           clientId: credential.clientId,
@@ -85,31 +136,46 @@ final class _AccountNewTopicDismissals {
           topicIds: topicIds,
         ),
       );
-      if (!lease.isCurrent || _shell._tabContextDisposed) return null;
+      if (!account.isCurrent) return null;
       for (final type in [
         if (topics) 'dismiss_new',
         if (posts) 'dismiss_new_posts',
       ]) {
-        _shell._applyTopicTrackingMessage(siteUrl, {
+        if (!account.isCurrent) return null;
+        acceptTracking(siteUrl, lease, {
           'message_type': type,
           'payload': {'topic_ids': ids},
         });
       }
-      await _shell.topicFeeds.load(
-        instance: scope.instance,
-        destinationId: route.id,
-        path: route.feedPath!,
-        incoming: _shell._liveSessions.trackerFor(siteUrl)?.incoming,
-        force: true,
-      );
+      if (!account.isCurrent) return null;
+      await reloadSource(scope, lease);
       return null;
     } catch (error) {
-      if (!lease.isCurrent || _shell._tabContextDisposed) return null;
+      if (!account.isCurrent) return null;
 
-      return _DismissNewTopicsFailure.failed;
+      return DismissNewTopicsFailure.failed;
     } finally {
-      _busy = false;
-      if (!_shell._tabContextDisposed) _shell._notify();
+      account.busy = false;
+      if (account.isCurrent) changed();
     }
+  }
+}
+
+final class _AccountNewTopicDismissals {
+  _AccountNewTopicDismissals(this.request);
+
+  final AccountRequestSession request;
+  bool busy = false;
+  bool _retired = false;
+  void Function()? detach;
+
+  bool get isCurrent => !_retired && request.lease.isCurrent;
+  bool get isBusy => isCurrent && busy;
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    detach?.call();
+    detach = null;
   }
 }
