@@ -117,6 +117,7 @@ import 'account_activity_controller.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
 import 'badges_controller.dart';
+import 'bookmark_link_resolver.dart';
 import 'bookmark_transactions.dart';
 import 'checklist_transactions.dart';
 import 'composer/autocomplete.dart';
@@ -4223,6 +4224,20 @@ class ShellController extends FrameSafeNotifier
         accountActivity.refreshLoadedBookmarkList(instance),
   );
 
+  late final BookmarkLinkResolver _bookmarkLinks = BookmarkLinkResolver(
+    bookmarks: _bookmarks,
+    store: store,
+    api: api.topicContent,
+    credentials: credentials,
+    servingForum: (target) => mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (site) => site.url,
+    )?.forum,
+    pluginResolvers: () =>
+        _pluginSession.capabilities<PluginBookmarkLinkResolver>(),
+  );
+
   late final ChecklistTransactions _checklists = ChecklistTransactions(
     api: api.postMutations,
     store: store,
@@ -4888,189 +4903,14 @@ class ShellController extends FrameSafeNotifier
   }
 
   /// Builds a topic-list action without waiting for the topic request.
-  BookmarkLinkAction? cachedTopicBookmarkLink(String url) {
-    final target = Uri.tryParse(url);
-    if (target == null || !{'http', 'https'}.contains(target.scheme)) {
-      return null;
-    }
-    final instance = mostSpecificServingForum(
-      _instances,
-      target,
-      siteUrl: (site) => site.url,
-    )?.forum;
-    if (instance == null || !instance.isConnected || instance.user == null) {
-      return null;
-    }
-    final siteUrl = instance.url;
-    final link = TopicLink.parse(url, siteUrl: siteUrl);
-    if (link == null || link.postNumber != null) return null;
-    final topic = store.read<Topic>(siteUrl, link.topicId);
-    if (topic == null ||
-        bookmarkWriteInFlight(
-          siteUrl: siteUrl,
-          topicId: link.topicId,
-          targetType: BookmarkTargetType.topic,
-          targetId: link.topicId,
-        )) {
-      return null;
-    }
-    final detail = store.read<TopicDetail>(siteUrl, link.topicId);
-    if (topic.bookmarked && detail == null) {
-      // The list's flag also includes post bookmarks, so it cannot tell us
-      // whether this topic bookmark exists or supply its deletion ID.
-      final resolution = resolveBookmarkLink(url);
-      return BookmarkLinkAction(
-        bookmark: null,
-        resolution: resolution,
-        invoke: () async {
-          final action = await resolution;
-          return action == null
-              ? BookmarkWriteResult.refused(appL10n.bookmarkChangedRefreshMenu)
-              : action.invoke();
-        },
-      );
-    }
-    return _bookmarkLinkAction(
-      siteUrl: siteUrl,
-      topicId: link.topicId,
-      type: BookmarkTargetType.topic,
-      targetId: link.topicId,
-      bookmark: topic.bookmarked ? detail?.topicBookmark : null,
-    );
-  }
-
-  BookmarkLinkAction _bookmarkLinkAction({
-    required String siteUrl,
-    required int topicId,
-    required BookmarkTargetType type,
-    required int targetId,
-    required Bookmark? bookmark,
-  }) {
-    final lease = lifecycle.capture(siteUrl);
-    final bookmarkCurrent = _bookmarks.forSite(siteUrl).guard(topicId);
-    return BookmarkLinkAction(
-      bookmark: bookmark,
-      invoke: () async {
-        if (!lease.isCurrent || !bookmarkCurrent()) {
-          return BookmarkWriteResult.refused(
-            appL10n.bookmarkChangedRefreshMenu,
-          );
-        }
-        final host = bookmarkTarget(type);
-        return bookmark == null
-            ? host.createBookmark(
-                siteUrl: siteUrl,
-                topicId: topicId,
-                targetId: targetId,
-              )
-            : host.deleteBookmark(
-                siteUrl: siteUrl,
-                topicId: topicId,
-                bookmark: bookmark,
-              );
-      },
-    );
-  }
+  BookmarkLinkAction? cachedTopicBookmarkLink(String url) =>
+      _bookmarkLinks.cachedTopicBookmarkLink(url);
 
   /// Resolves the clicked link without selecting its forum, tab, or topic.
   Future<BookmarkLinkAction?> resolveBookmarkLink(
     String url, {
     Bookmark? targetBookmark,
-  }) async {
-    final target = Uri.tryParse(url);
-    if (target == null || !{'http', 'https'}.contains(target.scheme)) {
-      return null;
-    }
-    final instance = mostSpecificServingForum(
-      _instances,
-      target,
-      siteUrl: (site) => site.url,
-    )?.forum;
-    if (instance == null || !instance.isConnected || instance.user == null) {
-      return null;
-    }
-    final siteUrl = instance.url;
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final link = TopicLink.parse(url, siteUrl: siteUrl);
-      if (link == null) {
-        for (final resolver
-            in _pluginSession.capabilities<PluginBookmarkLinkResolver>()) {
-          final action = await resolver.resolveBookmarkLink(siteUrl, url);
-          if (!lease.isCurrent) return null;
-          if (action != null) return action;
-        }
-        return null;
-      }
-      if (targetBookmark != null && targetBookmark.coreTargetType == null) {
-        return null;
-      }
-      final bookmarkCurrent = _bookmarks.forSite(siteUrl).guard(link.topicId);
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (credential.apiKey == null || !lease.isCurrent) return null;
-      final payload = await credential.run(
-        () => api.topicContent.topic(
-          siteUrl: siteUrl,
-          slug: link.slug,
-          id: link.topicId,
-          postNumber: link.postNumber,
-          apiKey: credential.apiKey,
-        ),
-      );
-      if (!lease.isCurrent ||
-          payload.detail.id != link.topicId ||
-          !bookmarkCurrent()) {
-        return null;
-      }
-      final topicTarget =
-          targetBookmark?.coreTargetType == BookmarkTargetType.topic ||
-          (targetBookmark == null && link.postNumber == null);
-      final post = topicTarget
-          ? null
-          : payload.posts
-                .where(
-                  (post) => targetBookmark?.bookmarkableId != null
-                      ? post.id == targetBookmark!.bookmarkableId
-                      : post.postNumber == link.postNumber,
-                )
-                .firstOrNull;
-      if (!topicTarget && (post == null || post.isDeleted || post.hidden)) {
-        return null;
-      }
-      if (topicTarget &&
-          targetBookmark?.bookmarkableId != null &&
-          targetBookmark!.bookmarkableId != link.topicId) {
-        return null;
-      }
-      final type = topicTarget
-          ? BookmarkTargetType.topic
-          : BookmarkTargetType.post;
-      final targetId = topicTarget ? link.topicId : post!.id;
-      final bookmark = topicTarget
-          ? payload.detail.topicBookmark
-          : post!.bookmark;
-      if (bookmarkWriteInFlight(
-        siteUrl: siteUrl,
-        topicId: link.topicId,
-        targetType: type,
-        targetId: targetId,
-      )) {
-        return null;
-      }
-      return _bookmarkLinkAction(
-        siteUrl: siteUrl,
-        topicId: link.topicId,
-        type: type,
-        targetId: targetId,
-        bookmark: bookmark,
-      );
-    } catch (error) {
-      return null;
-    }
-  }
+  }) => _bookmarkLinks.resolveBookmarkLink(url, targetBookmark: targetBookmark);
 
   Future<bool> openInAppLink(
     String url, {
