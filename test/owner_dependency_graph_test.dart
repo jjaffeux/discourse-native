@@ -286,6 +286,26 @@ const example = "import 'shell_controller.dart';";
       }
     });
 
+    test('accepts platform source paths before resolving declarations', () {
+      final graph = OwnerDependencyGraph({
+        r'lib\src\owner.dart': "import 'typed.dart';",
+        r'lib\src\typed.dart': 'class TypedCapability {}',
+        r'lib\src\shell_controller.dart': 'class ShellController {}',
+        r'lib\src\shell_scope.dart': 'class ShellScope {}',
+      });
+      expect(
+        graph.violations(owners: [_owner], forbidden: {_shell, _scope}),
+        isEmpty,
+      );
+    });
+
+    test('rejects shell recovery from platform source paths', () {
+      _expectForbidden(
+        {r'lib\src\owner.dart': "import 'shell_controller.dart';"},
+        [_owner, _shell],
+      );
+    });
+
     test('decodes percent escapes exactly once', () {
       expect(
         _check({

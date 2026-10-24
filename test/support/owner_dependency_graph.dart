@@ -21,9 +21,13 @@ final class _Unit {
 /// types, callbacks and duplicated state are outside this check.
 final class OwnerDependencyGraph {
   OwnerDependencyGraph(Map<String, String> sources) {
-    for (final path in sources.keys.toList()..sort()) {
+    final localSources = {
+      for (final entry in sources.entries)
+        entry.key.replaceAll('\\', '/'): entry.value,
+    };
+    for (final path in localSources.keys.toList()..sort()) {
       final parsed = parseString(
-        content: sources[path]!,
+        content: localSources[path]!,
         path: path,
         throwIfDiagnostics: false,
       );
