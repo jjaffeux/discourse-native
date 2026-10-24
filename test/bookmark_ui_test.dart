@@ -282,6 +282,42 @@ void main() {
     expect(api.updatedBookmarks, isEmpty);
   });
 
+  for (final editPreference in [false, true]) {
+    testWidgets(
+      'editor preserves an unchanged expired reminder for ${editPreference ? 'auto-delete' : 'note'} edits',
+      (tester) async {
+        final reminder = DateTime.utc(2026, 4, 14, 8);
+        final api = await _openEditor(
+          tester,
+          now: DateTime.utc(2026, 4, 15, 12),
+          reminder: reminder,
+        );
+        if (editPreference) {
+          final preference = find.byType(DSelect<BookmarkAutoDeletePreference>);
+          await tester.ensureVisible(preference);
+          await tester.tap(preference);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Delete once I reply').last);
+          await tester.pumpAndSettle();
+        } else {
+          await tester.enterText(find.byType(DInput).first, 'Updated note');
+        }
+        await _saveEditor(tester);
+        expect(api.updatedBookmarks, hasLength(1));
+        final update = api.updatedBookmarks.single;
+        expect(update.reminderAt, reminder);
+        expect(update.name, editPreference ? null : 'Updated note');
+        expect(
+          update.autoDeletePreference,
+          editPreference
+              ? BookmarkAutoDeletePreference.onOwnerReply
+              : BookmarkAutoDeletePreference.never,
+        );
+        expect(find.text('Save'), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'editor opens and saves with a wrong-typed last custom preference',
     (tester) => (() async {
@@ -936,6 +972,7 @@ Future<FakeDiscourseApi> _openEditor(
     bookmarkableType: 'Post',
     postNumber: 2,
     reminderAt: reminder,
+    autoDeletePreference: BookmarkAutoDeletePreference.never,
   );
   final (controller, api) = await _controller(
     topic: _topic(bookmarks: [bookmark]).detail,
@@ -947,7 +984,7 @@ Future<FakeDiscourseApi> _openEditor(
       controller,
       TargetPlatform.macOS,
       Builder(
-        builder: (context) => FilledButton(
+        builder: (context) => DButton(
           onPressed: () => unawaited(
             showBookmarkEditor(
               context: context,
@@ -958,7 +995,7 @@ Future<FakeDiscourseApi> _openEditor(
               now: () => now,
             ),
           ),
-          child: const Text('Open editor'),
+          label: const Text('Open editor'),
         ),
       ),
     ),
