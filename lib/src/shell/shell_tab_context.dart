@@ -410,131 +410,82 @@ final class ShellTabContext {
   Future<void> selectTopicListMode(
     TopicListMode mode, {
     bool keepTopicOpen = false,
-  }) async {
-    final instance = _instance;
-    final user = instance?.user;
-    final tab = activeTab;
-    final currentMode = currentTopicListMode;
-    if (instance == null || tab == null || currentMode == null) return;
-    if (user == null &&
-        (mode.isNew ||
-            mode == TopicListMode.unread ||
-            mode == TopicListMode.unseen)) {
-      return;
-    }
-    if (mode.isSubset && user?.unifiedNewEnabled != true) return;
-    if (mode == currentMode &&
-        topicListContent?.isAdvancedTopicFilter != true) {
-      return;
-    }
+  }) => _transitionTopicList(
+    SelectTopicListMode(mode, keepTopicOpen: keepTopicOpen),
+  );
 
-    final source = topicListContent;
-    final tags = shell._topicListFilterTagNames(instance.url, source);
-    final route = shell
-        ._topicListFilterRoute(
-          siteUrl: instance.url,
-          mode: mode,
-          category: shell.categoryFor(source?.categoryId),
-          tagName: tags.firstOrNull,
-          tags: tags,
-        )
-        .withTopicListQueryFrom(
-          source?.isAdvancedTopicFilter == true ? null : source,
-        );
-    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
-    shell._mobilePane = MobilePane.content;
-    shell._syncTopicChannels();
-    shell._notify();
-    await loadFeed(route.id);
-  }
-
-  Future<void> sortTopicList(String column) async {
-    final source = topicListContent;
-    if (_instance == null ||
-        source?.canSortTopicList != true ||
-        !ContentRoute.topicListSortColumns.contains(column)) {
-      return;
-    }
-    final same = source!.topicListOrder == column;
-    final route = source.withTopicListSort(
-      same && source.topicListAscending ? null : column,
-      ascending: same && !source.topicListAscending,
-    );
-    _replaceTopicListContent(route, keepTopicOpen: true);
-    shell._syncTopicChannels();
-    shell._notify();
-    await loadFeed(route.id);
-  }
+  Future<void> sortTopicList(String column) =>
+      _transitionTopicList(SortTopicList(column));
 
   void selectTopicListCategory(
     TopicCategory? category, {
     bool keepTopicOpen = false,
-  }) {
-    final route = topicListContent;
-    final siteUrl = _instance?.url;
-    if (route?.isTopicListFilter != true || siteUrl == null) return;
-    final tags = shell._topicListFilterTagNames(siteUrl, route);
-    _selectTopicListFilter(
-      category: category,
-      tagName: tags.firstOrNull,
-      tags: tags,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  }) => unawaited(
+    _transitionTopicList(
+      SelectTopicListCategory(category, keepTopicOpen: keepTopicOpen),
+    ),
+  );
 
-  void selectTopicListTag(String? tagName, {bool keepTopicOpen = false}) {
-    final route = topicListContent;
-    if (route?.isTopicListFilter != true) return;
-    _selectTopicListFilter(
-      category: shell.categoryFor(route!.categoryId),
-      tagName: tagName,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  void selectTopicListTag(String? tagName, {bool keepTopicOpen = false}) =>
+      selectTopicListTags([?tagName], keepTopicOpen: keepTopicOpen);
 
-  void selectTopicListTags(List<String> tags, {bool keepTopicOpen = false}) {
-    final route = topicListContent;
-    if (route?.isTopicListFilter != true) return;
-    _selectTopicListFilter(
-      category: shell.categoryFor(route!.categoryId),
-      tagName: tags.firstOrNull,
-      tags: tags,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  void selectTopicListTags(List<String> tags, {bool keepTopicOpen = false}) =>
+      unawaited(
+        _transitionTopicList(
+          SelectTopicListTags(tags, keepTopicOpen: keepTopicOpen),
+        ),
+      );
 
-  void _selectTopicListFilter({
-    required TopicCategory? category,
-    required String? tagName,
-    List<String>? tags,
-    bool keepTopicOpen = false,
-  }) {
+  TopicListTransitions? get _topicListTransitions {
     final instance = _instance;
     final tab = activeTab;
-    if (instance == null || tab == null) return;
+    if (instance == null || tab == null) return null;
+    final source = topicListContent;
+    final categories = shell.filterCategoriesFor(instance.url);
+    return TopicListTransitions(
+      tab: tab,
+      source: source,
+      mode: currentTopicListMode,
+      sidebarSource: sidebarFilterRoute,
+      categories: categories,
+      canonicalCategories: {
+        for (final id in {
+          for (final category in categories) category.id,
+          ?source?.categoryId,
+        })
+          id: ?shell.categoryFor(id, siteUrl: instance.url),
+      },
+      resolvedTags: shell._topicListFilterTagNames(instance.url, source),
+      signedIn: instance.user != null,
+      unifiedNewEnabled: instance.user?.unifiedNewEnabled == true,
+      desktopPanelsEnabled: shell.desktopPanelsEnabled,
+      mobileNavigationEnabled: shell.mobileNavigationEnabled,
+    );
+  }
 
-    final normalizedTag = switch (tagName?.trim()) {
-      final value? when value.isNotEmpty => value,
-      _ => null,
-    };
-    final route = shell
-        ._topicListFilterRoute(
-          siteUrl: instance.url,
-          category: category,
-          tagName: normalizedTag,
-          tags: tags,
-          mode: currentTopicListMode ?? TopicListMode.latest,
-        )
-        .withTopicListQueryFrom(topicListContent);
-    if (route.sameDestinationAs(topicListContent)) {
-      return;
-    }
-
-    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
-    shell._mobilePane = MobilePane.content;
+  Future<void> _transitionTopicList(TopicListCommand command) async {
+    final plan = _topicListTransitions?.plan(command);
+    if (plan == null) return;
+    _publishTopicListTransition(plan);
     shell._syncTopicChannels();
     shell._notify();
-    unawaited(loadFeed(route.id));
+    await loadFeed(plan.route.id);
+  }
+
+  void _publishTopicListTransition(TopicListTransition plan) {
+    if (plan.presentation == TopicListPresentation.scopeList ||
+        plan.presentation == TopicListPresentation.sidebar) {
+      shell._showMobileScopeList();
+    }
+    shell._workspace.consumeHomepage(plan.replacement.id);
+    shell._workspace.replaceTab(siteUrl!, plan.replacement);
+    if (plan.mobileLocation case final location?) {
+      shell.mobileNavigation.replaceCurrent(location);
+    }
+    if (plan.presentation == TopicListPresentation.content ||
+        plan.presentation == TopicListPresentation.sidebar) {
+      shell._mobilePane = MobilePane.content;
+    }
   }
 
   void _replaceTopicListContent(
@@ -543,77 +494,22 @@ final class ShellTabContext {
   }) {
     final tab = activeTab;
     if (tab == null) return;
-    final sourceIndex = tab.contentStack.lastIndexWhere(
-      (item) => !item.isTopic,
-    );
-    final retainReader =
-        !shell.desktopPanelsEnabled &&
-        keepTopicOpen &&
-        tab.currentContent.isTopic &&
-        sourceIndex >= 0 &&
-        tab.contentStack[sourceIndex].isTopicList;
-    shell._workspace.consumeHomepage(tab.id);
-    shell._workspace.replaceTab(
-      siteUrl!,
-      tab.navigate(
-        rootDestinationId: route.isMessages ? 'messages' : 'latest',
-        contentStack: retainReader
-            ? [
-                ...tab.contentStack.take(sourceIndex),
-                route,
-                ...tab.contentStack.skip(sourceIndex + 1),
-              ]
-            : [route],
+    _publishTopicListTransition(
+      TopicListTransition.replace(
+        tab: tab,
+        route: route,
+        keepTopicOpen: keepTopicOpen,
+        desktopPanelsEnabled: shell.desktopPanelsEnabled,
+        mobileNavigationEnabled: shell.mobileNavigationEnabled,
       ),
     );
-    if (shell.mobileNavigationEnabled && tab.currentContent.isTopicList) {
-      shell.mobileNavigation.replaceCurrent(
-        tab
-            .navigate(
-              rootDestinationId: route.isMessages ? "messages" : "latest",
-              contentStack: [route],
-            )
-            .location,
-      );
-    }
   }
 
-  Future<void> applyTopicListFilterQuery(String query) async {
-    final instance = _instance;
-    if (instance == null) return;
-    final scope = parseTopicFilterScope(
-      query,
-      shell.filterCategoriesFor(instance.url),
-    );
-    final source = topicListContent;
-    final route = scope.query.isEmpty
-        ? shell
-              ._topicListFilterRoute(
-                siteUrl: instance.url,
-                category: shell.categoryFor(scope.categoryId),
-                tagName: scope.tags.firstOrNull,
-                tags: scope.tags,
-                mode:
-                    TopicListMode.fromRoute(sidebarFilterRoute) ??
-                    TopicListMode.latest,
-              )
-              .withTopicListQueryFrom(
-                source?.isAdvancedTopicFilter == true ? null : source,
-              )
-        : ContentRoute.topicFilter(
-            scope.query,
-            categoryId: scope.categoryId,
-            tags: scope.tags,
-          );
-    shell._showMobileScopeList();
-    _replaceTopicListContent(
-      route,
-      keepTopicOpen: currentContent?.isTopic == true,
-    );
-    shell._syncTopicChannels();
-    shell._notify();
-    await loadFeed(route.id);
-  }
+  Future<void> applyTopicListFilterQuery(String query) =>
+      _transitionTopicList(ApplyTopicListFilterQuery(query));
+
+  Future<void> submitTopicFilter(String query) =>
+      _transitionTopicList(SubmitTopicListFilter(query));
 
   Future<String?> dismissNewTopics() async {
     final scope = _dismissNewScope;

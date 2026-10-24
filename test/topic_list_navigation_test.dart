@@ -323,6 +323,152 @@ void main() {
     expect(setup.api.feedPaths.length, requests);
   });
 
+  test(
+    'applying a category scope uses its current canonical name and path',
+    () async {
+      const original = TopicCategory(
+        id: 42,
+        name: 'Support',
+        slug: 'support',
+        color: '3188CC',
+      );
+      const renamed = TopicCategory(
+        id: 42,
+        name: 'Help',
+        slug: 'help',
+        color: 'AA5500',
+      );
+      final setup = await _controller(
+        categoryList: [original],
+        extraFeeds: {
+          '/c/help/42.json': [_popularTopic],
+        },
+      );
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      final site = controller.currentInstance!.url;
+      await controller.loadCategories(site);
+      controller.store.put(site, renamed);
+      expect(controller.filterCategoriesFor(site).single.slug, 'support');
+
+      await controller.applyTopicListFilterQuery('category:42');
+
+      expect(controller.topicListContent?.feedPath, '/c/help/42.json');
+      expect(controller.topicListContent?.title, 'Help');
+      expect(setup.api.feedPaths.last, '/c/help/42.json');
+      expect(controller.currentFeed?.topicIds, [_popularTopic.id]);
+    },
+  );
+
+  for (final submit in [false, true]) {
+    test(
+      '${submit ? 'submitting' : 'applying'} an empty filter query preserves '
+      '${submit ? 'scope and resets sorting' : 'sorting and clears scope'}',
+      () async {
+        const category = TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '3188CC',
+        );
+        final setup = await _controller(
+          categoryList: [category],
+          extraFeeds: {
+            '/c/support/42.json': [_latestTopic],
+            '/tags/c/support/42/design.json': [_latestTopic],
+            '/tags/c/support/42/design.json?order=posts': [_latestTopic],
+            '/latest.json?order=posts': [_popularTopic],
+            '/latest.json?category=42&tags%5B%5D=design&match_all_tags=true': [
+              _latestTopic,
+            ],
+          },
+        );
+        final controller = setup.controller;
+        addTearDown(controller.dispose);
+        await controller.loadCategories(controller.currentInstance!.url);
+        controller.selectTopicListCategory(category);
+        await controller.focusedTabContext.loadFeed(
+          controller.topicListContent!.id,
+        );
+        controller.selectTopicListTag('design');
+        await controller.focusedTabContext.loadFeed(
+          controller.topicListContent!.id,
+        );
+        await controller.sortTopicList('posts');
+        expect(controller.topicListContent?.categoryId, category.id);
+        expect(controller.topicListContent?.tagNames, ['design']);
+        expect(controller.topicListContent?.topicListOrder, 'posts');
+
+        if (submit) {
+          await controller.submitTopicFilter('  ');
+        } else {
+          await controller.focusedTabContext.applyTopicListFilterQuery('  ');
+        }
+
+        expect(controller.currentTopicListMode, TopicListMode.latest);
+        expect(controller.topicListContent?.isAdvancedTopicFilter, isFalse);
+        expect(controller.topicListContent?.categoryId, submit ? 42 : null);
+        expect(
+          controller.topicListContent?.tagNames,
+          submit ? ['design'] : <String>[],
+        );
+        expect(
+          controller.topicListContent?.topicListOrder,
+          submit ? null : 'posts',
+        );
+        expect(
+          setup.api.feedPaths.last,
+          submit
+              ? '/latest.json?category=42&tags%5B%5D=design&match_all_tags=true'
+              : '/latest.json?order=posts',
+        );
+        expect(controller.currentFeed?.topicIds, submit ? [1] : [8]);
+      },
+    );
+  }
+
+  test('a captured filter transition retains its reader when another tab opens '
+      'during the feed request', () async {
+    final release = Completer<void>();
+    addTearDown(() {
+      if (!release.isCompleted) release.complete();
+    });
+    final setup = await _controller(
+      forumTabsEnabled: true,
+      feedGates: {'/filter.json?q=status%3Aopen': release},
+      extraFeeds: {
+        '/filter.json?q=status%3Aopen': [_popularTopic],
+      },
+    );
+    final controller = setup.controller;
+    addTearDown(controller.dispose);
+    controller.openTopicFromList(_latestTopic);
+    final captured = controller.focusedTabContext;
+    final originalId = captured.activeTabId;
+    final pending = captured.applyTopicListFilterQuery('status:open');
+    await Future<void>.delayed(Duration.zero);
+    expect(setup.api.feedPaths.last, '/filter.json?q=status%3Aopen');
+    expect(captured.currentContent?.topicId, _latestTopic.id);
+    expect(captured.topicListContent?.topicFilterQuery, 'status:open');
+    expect(captured.activeTab?.rootDestinationId, 'latest');
+    expect(captured.contentStack, hasLength(2));
+    controller.createTab();
+    final focusedId = controller.activeTabId;
+    expect(focusedId, isNot(originalId));
+    final focusedRoute = controller.currentContent;
+
+    release.complete();
+    await pending;
+
+    expect(controller.activeTabId, focusedId);
+    expect(controller.currentContent, focusedRoute);
+    expect(captured.currentContent?.topicId, _latestTopic.id);
+    expect(captured.topicListContent?.topicFilterQuery, 'status:open');
+    expect(captured.currentFeed?.topicIds, [_popularTopic.id]);
+    expect(captured.activeTab?.rootDestinationId, 'latest');
+    expect(captured.contentStack, hasLength(2));
+  });
+
   for (final multiple in [false, true]) {
     for (final withCategory in [false, true]) {
       test(
@@ -2790,6 +2936,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   List<SidebarTag> tagList = const [],
   Map<String, List<TopicFilterLookupValue>> filterTagSearches = const {},
   Map<String, List<Topic>> extraFeeds = const {},
+  Map<String, Completer<void>> feedGates = const {},
   bool canCreateTopics = false,
   bool forumTabsEnabled = false,
 }) async {
@@ -2806,6 +2953,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   if (user != null) authenticator.keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
     topics: {},
+    feedGates: feedGates,
     siteConfigGate: siteConfigGate,
     siteConfigs: {site.url: ?remoteConfig},
     creatableFeedPaths: canCreateTopics ? const {'/latest.json'} : const {},

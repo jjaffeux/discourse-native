@@ -153,7 +153,7 @@ import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
-import 'topic_filter_scope.dart';
+import 'topic_list_transitions.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
 import 'topic_reader_projections.dart';
@@ -3101,23 +3101,11 @@ class ShellController extends FrameSafeNotifier
     _mobilePane = MobilePane.content;
   }
 
-  void changeSidebarScope({int? categoryId, String? tag}) {
-    final site = currentInstance?.url;
-    if (site == null) return;
-    final source = sidebarFilterRoute;
-    final route = _topicListFilterRoute(
-      siteUrl: site,
-      category: categoryFor(categoryId),
-      tagName: tag,
-      mode: TopicListMode.fromRoute(source) ?? TopicListMode.latest,
-    ).withTopicListQueryFrom(source);
-    _showMobileScopeList();
-    _replaceTopicListContent(route, keepTopicOpen: false);
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    unawaited(loadFeed(route.id));
-  }
+  void changeSidebarScope({int? categoryId, String? tag}) => unawaited(
+    focusedTabContext._transitionTopicList(
+      SelectTopicListScope(category: categoryFor(categoryId), tagName: tag),
+    ),
+  );
 
   bool selectSidebarScopeDestination(SidebarDestination destination) {
     final source = sidebarFilterRoute;
@@ -3340,30 +3328,8 @@ class ShellController extends FrameSafeNotifier
   Future<void> applyTopicListFilterQuery(String query) =>
       focusedTabContext.applyTopicListFilterQuery(query);
 
-  Future<void> submitTopicFilter(String query) async {
-    final instance = currentInstance;
-    if (instance == null) return;
-    final source = topicListContent;
-    final tags = _topicListFilterTagNames(instance.url, source);
-    final route = query.trim().isEmpty
-        ? ContentRoute.filteredTopicList(
-            TopicListMode.latest,
-            categoryId: source?.categoryId,
-            tags: tags,
-          )
-        : ContentRoute.topicFilter(
-            query,
-            categoryId: source?.categoryId,
-            tags: tags,
-          );
-    _replaceTopicListContent(
-      route,
-      keepTopicOpen: currentContent?.isTopic == true,
-    );
-    _syncTopicChannels();
-    _notify();
-    await loadFeed(route.id);
-  }
+  Future<void> submitTopicFilter(String query) =>
+      focusedTabContext.submitTopicFilter(query);
 
   List<TopicCategory> filterCategoriesFor(String siteUrl) =>
       _taxonomy.categoriesFor(siteUrl);
@@ -8889,20 +8855,12 @@ class ShellController extends FrameSafeNotifier
 
   void clearTopicListFilters() {
     if (currentContent?.isTopicListFilter != true) return;
-    _selectTopicListFilter(category: null, tagName: null);
+    unawaited(
+      focusedTabContext._transitionTopicList(
+        const BrowseTopicListCategory(null),
+      ),
+    );
   }
-
-  void _selectTopicListFilter({
-    required TopicCategory? category,
-    required String? tagName,
-    List<String>? tags,
-    bool keepTopicOpen = false,
-  }) => focusedTabContext._selectTopicListFilter(
-    category: category,
-    tagName: tagName,
-    tags: tags,
-    keepTopicOpen: keepTopicOpen,
-  );
 
   void _replaceTopicListContent(
     ContentRoute route, {
@@ -8915,120 +8873,22 @@ class ShellController extends FrameSafeNotifier
   void browseTopicCategory(
     TopicCategory category, {
     bool keepTopicOpen = false,
-  }) {
-    _selectTopicListFilter(
-      category: category,
-      tagName: null,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  }) => unawaited(
+    focusedTabContext._transitionTopicList(
+      BrowseTopicListCategory(category, keepTopicOpen: keepTopicOpen),
+    ),
+  );
 
-  /// The tags [route] passes on to a list that narrows it. `tags[]`, the
-  /// Filter box's `tag:` and a `/tags/c/…/<tag>` segment all look tags up by
-  /// name, but a `/tag/<slug>/<id>` list carries the URL slug core derives
-  /// from the name (`café` is `cafe`, `中文` is `7-tag`), so its id picks the
-  /// name. An unknown tag keeps its slug.
-  List<String> _topicListFilterTagNames(String siteUrl, ContentRoute? route) {
-    if (route == null) return const [];
-    final id = route.tagId;
-    final name = id == null ? null : _tagNameFor(siteUrl, id, route.id);
-    return name == null ? route.tagNames : [name];
-  }
-
-  /// The tag's own list goes first: it follows a rename the sidebar, top tags
-  /// and directory have not seen, and names tags none of them hold, such as
-  /// one opened from a topic.
-  String? _tagNameFor(String siteUrl, int id, String listId) {
-    final listed = topicFeeds.feedFor(siteUrl, listId)?.topicIds;
-    for (final topicId in listed ?? const <int>[]) {
-      final topic = store.read<Topic>(siteUrl, topicId);
-      for (final tag in topic?.tags ?? const <TopicTag>[]) {
-        if (tag.id == id) return tag.name;
-      }
-    }
-    for (final tag in _taxonomy.knownTagsFor(siteUrl)) {
-      if (tag.id == id) return tag.name;
-    }
-    return null;
-  }
-
-  ContentRoute _topicListFilterRoute({
-    required String siteUrl,
-    required TopicCategory? category,
-    required String? tagName,
-    List<String>? tags,
-    TopicListMode mode = TopicListMode.latest,
-  }) {
-    final selectedTags =
-        (tags ?? [?tagName])
-            .map((tag) => tag.trim())
-            .where((tag) => tag.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    // Core interprets numeric tag path segments as IDs, including in category
-    // routes. Query filters preserve the selected tag name without ambiguity.
-    final numericTagName =
-        selectedTags.length == 1 &&
-        RegExp(r'^\d+$').hasMatch(selectedTags.single);
-    if (mode != TopicListMode.latest ||
-        selectedTags.length > 1 ||
-        numericTagName) {
-      return ContentRoute.filteredTopicList(
-        mode,
-        categoryId: category?.id,
-        tags: selectedTags,
+  List<String> _topicListFilterTagNames(String siteUrl, ContentRoute? route) =>
+      TopicListTransitions.tagNames(
+        route,
+        listedTopics:
+            (topicFeeds.feedFor(siteUrl, route?.id ?? '')?.topicIds ??
+                    const <int>[])
+                .map((id) => store.read<Topic>(siteUrl, id))
+                .whereType<Topic>(),
+        knownTags: _taxonomy.knownTagsFor(siteUrl),
       );
-    }
-    if (category == null && tagName == null) {
-      return ContentRoute.topicList(TopicListMode.latest);
-    }
-
-    final categories = filterCategoriesFor(siteUrl);
-    final categoriesById = <int, TopicCategory>{
-      for (final item in categories) item.id: item,
-    };
-    if (category case final selected?) {
-      categoriesById[selected.id] = selected;
-    }
-    final categoryDestination = category == null
-        ? null
-        : buildCategoryDestination(category, categoriesById: categoriesById);
-    if (tagName == null) {
-      return ContentRoute.fromDestination(categoryDestination!);
-    }
-
-    final tagPath = Uri(pathSegments: ['tag', tagName]).toString();
-    final selectedCategory = category;
-    if (categoryDestination == null || selectedCategory == null) {
-      return ContentRoute(
-        destination: FeedDestination(
-          key: 'topic-list-filter-$tagPath',
-          sourcePath: '/$tagPath.json',
-        ),
-        title: tagName,
-        icon: DIcons.tag,
-      );
-    }
-
-    final categoryFeedPath = categoryDestination.feedPath!;
-    final categoryPath = categoryFeedPath.substring(
-      0,
-      categoryFeedPath.length - '.json'.length,
-    );
-    final combinedPath = Uri(
-      pathSegments: ['tags', ...Uri.parse(categoryPath).pathSegments, tagName],
-    ).toString();
-    return ContentRoute(
-      destination: FeedDestination(
-        key: 'topic-list-filter-$combinedPath',
-        sourcePath: '/$combinedPath.json',
-      ),
-      title: selectedCategory.name,
-      icon: categoryDestination.icon,
-      color: categoryDestination.routeColor,
-    );
-  }
 
   void flushAnchorPersist() {
     if (isDisposed) return;
