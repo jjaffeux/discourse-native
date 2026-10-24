@@ -975,6 +975,32 @@ void main() {
 
   tearDown(() => controller.dispose());
 
+  test(
+    'a late failed unmute cannot claim a newer open microphone is muted',
+    () async {
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+      expect(controller.call?.muted, isTrue);
+      final gate = Completer<void>();
+      media.muteGate = gate;
+      final oldUnmute = controller.setMuted(false);
+      await pumpEventQueue();
+      media.muteGate = null;
+      await controller.setMuted(true);
+      await controller.setMuted(false);
+      expect(media.muted, isFalse);
+      expect(controller.call?.muted, isFalse);
+      gate.completeError(StateError('old unmute failed'));
+      await oldUnmute;
+      expect(controller.call?.muted, media.muted);
+    },
+  );
+
   _ControlledVoiceTransport privilegedTransport() {
     final joinPayload = fixture('join_mesh');
     (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
