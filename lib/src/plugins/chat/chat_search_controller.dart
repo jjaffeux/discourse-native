@@ -64,16 +64,12 @@ final class ChatSearchController {
   ChatSearchController({
     required this.api,
     required PluginRequestHost requests,
-    required Store store,
-
     this.debounceDuration = const Duration(milliseconds: 400),
   }) : assert(debounceDuration >= Duration.zero),
-       _requests = requests,
-       _store = store;
+       _requests = requests;
 
   final ChatApi api;
   final PluginRequestHost _requests;
-  final Store _store;
 
   final Duration debounceDuration;
 
@@ -260,7 +256,6 @@ final class ChatSearchController {
       );
       if (!current()) return;
       lease.commit(() {
-        _store.putAll(siteUrl, page.hits.map((hit) => hit.message));
         final hits = append ? _appendUnique(held.hits, page.hits) : page.hits;
         _setGlobal(
           siteUrl,

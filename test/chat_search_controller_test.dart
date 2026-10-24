@@ -121,7 +121,6 @@ void main() {
       final search = ChatSearchController(
         api: api,
         requests: FakePluginRequestHost(credentials: credentials),
-        store: store,
       );
       addTearDown(search.dispose);
       final query = 'x' * (ChatSearchController.maximumQueryLength + 1);
@@ -160,7 +159,6 @@ void main() {
               credentials: credentials,
               lifecycle: lifecycle,
             ),
-            store: store,
           );
           addTearDown(search.dispose);
           void setQuery(String query) {
@@ -246,7 +244,6 @@ void main() {
         final search = ChatSearchController(
           api: api,
           requests: FakePluginRequestHost(credentials: credentials),
-          store: store,
           debounceDuration: Duration.zero,
         );
         addTearDown(search.dispose);
@@ -296,7 +293,6 @@ void main() {
             final search = ChatSearchController(
               api: api,
               requests: FakePluginRequestHost(credentials: credentials),
-              store: store,
               debounceDuration: Duration.zero,
             );
             addTearDown(search.dispose);
@@ -408,7 +404,6 @@ void main() {
               credentials: credentials,
               lifecycle: lifecycle,
             ),
-            store: store,
             debounceDuration: Duration.zero,
           );
           addTearDown(search.dispose);
@@ -457,7 +452,7 @@ void main() {
       }
     }
 
-    test('stores results and appends unique pages', () async {
+    test('keeps result snapshots separate and appends unique pages', () async {
       final api = FakeDiscourseApi(
         chatSearchPagesByKey: {
           FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
@@ -479,7 +474,6 @@ void main() {
           credentials: credentials,
           lifecycle: lifecycle,
         ),
-        store: store,
         debounceDuration: Duration.zero,
       );
       addTearDown(search.dispose);
@@ -487,12 +481,22 @@ void main() {
       search.setGlobalQuery(site, 'needle');
       await drain();
       expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2]);
-      expect(store.read<ChatMessage>(site, 1), isNotNull);
+      expect(
+        search.globalState(site).hits.first.message.cooked,
+        '<p>message 1</p>',
+      );
+      expect(store.read<ChatMessage>(site, 1), isNull);
+      expect(store.read<ChatMessage>(site, 2), isNull);
 
       search.loadMore(site);
       await drain();
       expect(search.globalState(site).hits.map((entry) => entry.id), [1, 2, 3]);
       expect(api.chatSearchesRequested.last.offset, 2);
+      expect(
+        search.globalState(site).hits.last.message.cooked,
+        '<p>message 3</p>',
+      );
+      expect(store.read<ChatMessage>(site, 3), isNull);
 
       search.loadMore(site);
       await drain();
@@ -503,6 +507,11 @@ void main() {
         4,
       ]);
       expect(api.chatSearchesRequested.last.offset, 4);
+      expect(
+        search.globalState(site).hits.last.message.cooked,
+        '<p>message 4</p>',
+      );
+      expect(store.read<ChatMessage>(site, 4), isNull);
     });
 
     test(
@@ -522,7 +531,6 @@ void main() {
         final search = ChatSearchController(
           api: api,
           requests: FakePluginRequestHost(credentials: credentials),
-          store: store,
           debounceDuration: Duration.zero,
         );
         addTearDown(search.dispose);
@@ -562,7 +570,6 @@ void main() {
           credentials: credentials,
           lifecycle: lifecycle,
         ),
-        store: store,
         debounceDuration: Duration.zero,
       );
       addTearDown(search.dispose);

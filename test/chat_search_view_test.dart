@@ -193,6 +193,7 @@ void main() {
           );
           final api = _DelayedChannelApi(gate, hit);
           final original = await _createController(api);
+          final chat = original.pluginSession.require(chatControllerService);
           final other = await _createController(
             FakeDiscourseApi(
               user: const DiscourseUser(id: 8, username: 'replacement'),
@@ -215,10 +216,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 400));
           await tester.pumpAndSettle();
           expect(find.text('deploy 1'), findsOneWidget);
-          expect(
-            original.store.read<ChatMessage>(_site, hit.message.id),
-            isNull,
-          );
+          expect(chat.message(_site, hit.message.id), isNull);
           await tester.tap(find.text('Ops'));
           await tester.pump();
           expect(api.chatChannelDetailsRequested, [9]);
@@ -253,11 +251,7 @@ void main() {
               ChatRoute.parse(sourceShell.currentContent?.id ?? '')?.threadId,
               threaded ? 12 : null,
             );
-            expect(
-              original.store.read<ChatMessage>(_site, hit.message.id),
-              isNull,
-            );
-            final chat = original.pluginSession.require(chatControllerService);
+            expect(chat.message(_site, hit.message.id), isNull);
             if (threaded) {
               await chat.openThread(
                 _site,
@@ -282,10 +276,7 @@ void main() {
               expect(api.chatMessagesRequested.single.fromLastRead, isFalse);
               expect(api.chatThreadMessagesRequested, isEmpty);
             }
-            expect(
-              original.store.read<ChatMessage>(_site, hit.message.id)?.pinned,
-              isTrue,
-            );
+            expect(chat.message(_site, hit.message.id)?.pinned, isTrue);
           }
           expect(find.text('Could not open this chat message.'), findsNothing);
           expect(tester.takeException(), isNull);
