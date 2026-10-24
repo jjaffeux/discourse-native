@@ -198,6 +198,18 @@ void main() {
         );
         expect(api.flagsCreated, isEmpty);
         expect(api.topicFlagsCreated, isEmpty);
+        expect(shell.topicFlagWriteInFlight(_siteUrl, 7), isFalse);
+        if (target == 'topic') {
+          expect(
+            await shell.createTopicFlag(
+              _siteUrl,
+              shell.store.read<TopicDetail>(_siteUrl, 7)!,
+              _topicOnly,
+            ),
+            isNull,
+          );
+          expect(api.topicFlagsCreated, hasLength(1));
+        }
       },
     );
   }
