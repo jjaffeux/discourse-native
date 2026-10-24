@@ -99,7 +99,17 @@ validity, replacement confirmation and publication. `ComposerOpeningMetadata`
 provides canonical taxonomy and capability services. Neither port gives the
 standalone owner access to `ShellController`. Draft persistence and restore
 ordering remain in `ComposerDraftCoordinator`. Category changes reuse the setup
-owner for templates and tag validation. Reply and edit opening stay in shell.
+owner for templates and tag validation.
+
+`composer/existing_topic_opening_owner.dart` prepares reply reuse/creation and
+post/topic edit plans. Its continuations keep the original account lease and
+exact editor. Quote insertion waits for that editor's draft restoration and
+checks the exact originating reader route, including when another reader is
+focused. Raw edit loading follows retained editors across tab changes and keeps
+stored whitespace and caret matching intact. Shell builds, registers, selects
+and publishes editors. The owner reads canonical posts for whisper policy through
+Store and receives only editor membership and reader-validity capabilities.
+Draft restoration and persistence remain in `ComposerDraftCoordinator`.
 
 ## Upload transactions
 
