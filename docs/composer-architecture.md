@@ -234,6 +234,14 @@ value. Editing or retargeting while unresolved does not rewrite the sent facts.
 Unresolved text remains editable and drafted while Send stays blocked. Upload
 and authoring admission retain their existing state policies.
 
+Replies capture a fresh account-bound ordinary topic stream before dispatch,
+without publishing the read. Confirmation retains that stream's maximum post ID
+and requires one newer post with the frozen author, normalized raw and exact
+public or whisper type. Positive confirmation also requires all newer candidates
+to be examined. A missing pre-send boundary or ambiguous positive lookup leaves
+the attempt unresolved. This is a conservative boundary, not a server receipt. A previously hidden post above the boundary or another client's identical
+reply during the request cannot be distinguished without server request identity.
+
 Account authority and editor authority are checked separately. Retiring an
 editor prevents further writes and editor mutation, but an already accepted
 write can still publish canonical data for the original current account.

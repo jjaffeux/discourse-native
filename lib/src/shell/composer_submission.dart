@@ -37,6 +37,7 @@ final class _SentComposerSubmission implements ComposerSubmission {
   final List<TopicTag> tags;
   final Duration typingDuration;
   final Duration openDuration;
+  late final ReplySendBoundary? replyBoundary;
 }
 
 final class _ComposerEdit {
@@ -213,7 +214,6 @@ final class _ComposerSubmissionOwner {
     if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
 
     final sent = _SentComposerSubmission(attempt);
-    editor.retainSubmission(sent);
     final credential = await shell._credentialForWrite(
       target.siteUrl,
       lease: attempt.lease,
@@ -222,6 +222,19 @@ final class _ComposerSubmissionOwner {
     if (credential.failure case final failure?) {
       return _refuse(attempt, failure);
     }
+
+    sent.replyBoundary = target is ReplyComposerTarget
+        ? await shell._topicData
+              .forLease(target.siteUrl, attempt.lease)
+              ?.captureReplySendBoundary(
+                topicId: target.topicId,
+                slug: target.slug,
+                credential: credential.request!,
+              )
+        : null;
+    if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
+    editor.retainSubmission(sent);
+    if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
 
     final PostCreation creation;
     try {
@@ -394,10 +407,19 @@ final class _ComposerSubmissionOwner {
             slug: target.slug,
             username: attempt.username,
             raw: sent.raw,
+            whisper: attempt.whisper,
+            boundary: sent.replyBoundary,
             credential: credential.request!,
           );
           if (!_accountCurrent(attempt)) return _unresolved(attempt);
-          if (landed == null) return _refuse(attempt, failure, checked: true);
+          switch (landed) {
+            case ReplyIndeterminate():
+              return _unresolved(attempt);
+            case ReplyAbsent():
+              return _refuse(attempt, failure, checked: true);
+            case ReplyFound():
+              break;
+          }
           _settleDraft(attempt);
           return _SubmissionAccepted(
             attempt,
