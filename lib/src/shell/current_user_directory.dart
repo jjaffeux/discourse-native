@@ -8,7 +8,11 @@ abstract interface class _CurrentUserRefreshHost {
     String apiKey,
     SiteLease lease,
   );
-  DiscourseUser _acceptDoNotDisturbSnapshot(String siteUrl, DiscourseUser user);
+  DiscourseUser _acceptDoNotDisturbSnapshot(
+    String siteUrl,
+    DiscourseUser user, {
+    required bool isCurrent,
+  });
   bool _publishFreshCurrentUser(
     String siteUrl,
     SiteLease lease,
@@ -110,13 +114,17 @@ final class _CurrentUserDirectory {
         _host._canAcceptCurrentUser(siteUrl);
 
     if (!ownsAcceptance()) return null;
-    final user = _host._acceptDoNotDisturbSnapshot(siteUrl, response);
+    final user = _host._acceptDoNotDisturbSnapshot(
+      siteUrl,
+      response,
+      isCurrent: account!.reconciler.doNotDisturbIsCurrent(ticket),
+    );
     if (!ownsAcceptance()) return null;
     DiscourseUser? committed;
     lease.commit(() {
       final previous = _host._instanceAt(siteUrl);
       if (!ownsAcceptance() || previous == null) return;
-      final accepted = account!.reconciler.reconcile(
+      final accepted = account.reconciler.reconcile(
         ticket,
         previous: previous.user,
         incoming: user,

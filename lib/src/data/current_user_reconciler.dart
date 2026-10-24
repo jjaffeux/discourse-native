@@ -9,6 +9,7 @@ final class CurrentUserReconciler {
   final SiteLease _lease;
   final DiscourseModelCodec _models;
   int _presenceRevision = 0;
+  int _doNotDisturbRevision = 0;
   int _groupedUnreadRevision = 0;
   int _draftCountRevision = 0;
   int _categoryPreferencesRevision = 0;
@@ -32,6 +33,8 @@ final class CurrentUserReconciler {
   }
 
   void groupedUnreadChanged() => _groupedUnreadRevision++;
+
+  void doNotDisturbChanged() => _doNotDisturbRevision++;
 
   void draftCountChanged() => _draftCountRevision++;
 
@@ -59,6 +62,9 @@ final class CurrentUserReconciler {
   bool categoryPreferencesAreCurrent(CurrentUserSnapshot ticket) =>
       _accepts(ticket) &&
       ticket._categoryPreferencesRevision == _categoryPreferencesRevision;
+
+  bool doNotDisturbIsCurrent(CurrentUserSnapshot ticket) =>
+      _accepts(ticket) && ticket._doNotDisturbRevision == _doNotDisturbRevision;
 
   bool acceptsCategoryPreferences(
     CurrentUserSnapshot ticket, {
@@ -131,6 +137,7 @@ final class CurrentUserSnapshot {
   CurrentUserSnapshot._(CurrentUserReconciler owner)
     : _owner = owner,
       _presenceRevision = owner._presenceRevision,
+      _doNotDisturbRevision = owner._doNotDisturbRevision,
       _groupedUnreadRevision = owner._groupedUnreadRevision,
       _draftCountRevision = owner._draftCountRevision,
       _categoryPreferencesRevision = owner._categoryPreferencesRevision,
@@ -138,6 +145,7 @@ final class CurrentUserSnapshot {
 
   final CurrentUserReconciler _owner;
   final int _presenceRevision;
+  final int _doNotDisturbRevision;
   final int _groupedUnreadRevision;
   final int _draftCountRevision;
   final int _categoryPreferencesRevision;

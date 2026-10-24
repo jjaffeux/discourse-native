@@ -19,6 +19,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     required this.credentials,
     required this.lifecycle,
     required this.onCommitted,
+    this.onSnapshotInvalidated,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
@@ -26,12 +27,13 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final DoNotDisturbCommitted onCommitted;
+  final void Function(String siteUrl)? onSnapshotInvalidated;
   final DateTime Function() _clock;
 
   final Map<String, DateTime?> _untilBySite = {};
   final Map<String, Object> _requests = {};
   final Map<String, int> _revisions = {};
-  final Set<String> _locallyAuthoritative = {};
+  final Set<String> _protectsRestoration = {};
   final Map<String, Timer> _expiryTimers = {};
 
   DoNotDisturbState stateFor(String siteUrl) => DoNotDisturbState(
@@ -40,12 +42,16 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   );
 
   void restoreSnapshot(String siteUrl, DateTime? until) {
-    if (_locallyAuthoritative.contains(siteUrl)) return;
+    if (_protectsRestoration.contains(siteUrl)) return;
     _replaceUntil(siteUrl, _activeUntil(until), notify: false);
   }
 
-  DateTime? acceptSnapshot(String siteUrl, DateTime? until) {
-    if (!_locallyAuthoritative.contains(siteUrl)) {
+  DateTime? acceptSnapshot(
+    String siteUrl,
+    DateTime? until, {
+    required bool isCurrent,
+  }) {
+    if (isCurrent && !_requests.containsKey(siteUrl)) {
       _replaceUntil(siteUrl, _activeUntil(until));
     }
     return _untilBySite[siteUrl];
@@ -85,11 +91,12 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
     final revision = _bumpRevision(siteUrl);
-    final wasAuthoritative = _locallyAuthoritative.contains(siteUrl);
+    final wasRestorationProtected = _protectsRestoration.contains(siteUrl);
     var confirmed = false;
-    _locallyAuthoritative.add(siteUrl);
+    _protectsRestoration.add(siteUrl);
     _requests[siteUrl] = request;
     _expiryTimers.remove(siteUrl)?.cancel();
+    onSnapshotInvalidated?.call(siteUrl);
     notifySafely();
 
     bool isCurrent() =>
@@ -127,12 +134,13 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_requests[siteUrl], request)) {
-        // Only confirmed writes and live messages supersede account snapshots.
-        // A failed first write must not block later session reconciliation.
+        if (!isDisposed && lease.isCurrent) {
+          onSnapshotInvalidated?.call(siteUrl);
+        }
         if (!confirmed &&
-            !wasAuthoritative &&
+            !wasRestorationProtected &&
             _revisions[siteUrl] == revision) {
-          _locallyAuthoritative.remove(siteUrl);
+          _protectsRestoration.remove(siteUrl);
         }
         _requests.remove(siteUrl);
         _schedule(siteUrl);
@@ -154,8 +162,9 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       return;
     }
 
-    _locallyAuthoritative.add(siteUrl);
+    _protectsRestoration.add(siteUrl);
     _bumpRevision(siteUrl);
+    onSnapshotInvalidated?.call(siteUrl);
     _replaceUntil(siteUrl, _activeUntil(until), committed: true);
   }
 
@@ -168,7 +177,7 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     var changed = _untilBySite.remove(siteUrl) != null;
     changed = _requests.remove(siteUrl) != null || changed;
-    _locallyAuthoritative.remove(siteUrl);
+    _protectsRestoration.remove(siteUrl);
     _revisions.remove(siteUrl);
     _expiryTimers.remove(siteUrl)?.cancel();
     if (changed && !isDisposed) notifySafely();
@@ -243,8 +252,9 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   }
 
   void _expire(String siteUrl) {
-    _locallyAuthoritative.add(siteUrl);
+    _protectsRestoration.add(siteUrl);
     _bumpRevision(siteUrl);
+    onSnapshotInvalidated?.call(siteUrl);
     _replaceUntil(siteUrl, null, committed: true);
   }
 

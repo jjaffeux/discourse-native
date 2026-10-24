@@ -87,10 +87,12 @@ void main() {
       ..pauseGate = gate
       ..pauseResponse = DateTime.utc(2040);
     final committed = <DateTime?>[];
+    final invalidations = <String>[];
     final controller = _controller(
       api,
       lifecycle: lifecycle,
       onCommitted: (_, until) => committed.add(until),
+      onSnapshotInvalidated: invalidations.add,
     );
     addTearDown(controller.dispose);
 
@@ -107,6 +109,7 @@ void main() {
     expect(await write, isNull);
     expect(controller.stateFor(_siteUrl).until, isNull);
     expect(committed, isEmpty);
+    expect(invalidations, [_siteUrl]);
   });
 
   test(
@@ -175,13 +178,16 @@ void main() {
         'Not saved',
       );
       final until = DateTime.utc(2030);
-      expect(controller.acceptSnapshot(_siteUrl, until), until);
+      expect(
+        controller.acceptSnapshot(_siteUrl, until, isCurrent: true),
+        until,
+      );
       expect(controller.stateFor(_siteUrl).until, until);
     },
   );
 
   test(
-    'a live update during a rejected change still wins over later snapshots',
+    'a live update during a rejected change wins over older snapshots',
     () async {
       final started = Completer<void>();
       final reply = Completer<void>();
@@ -205,9 +211,50 @@ void main() {
       });
       reply.complete();
       expect(await pause, 'Not saved');
-      expect(controller.acceptSnapshot(_siteUrl, null), DateTime.utc(2030));
+      expect(
+        controller.acceptSnapshot(_siteUrl, null, isCurrent: false),
+        DateTime.utc(2030),
+      );
+      expect(
+        controller.acceptSnapshot(_siteUrl, null, isCurrent: true),
+        isNull,
+      );
     },
   );
+
+  test('pending writes reject snapshots even with a current ticket', () async {
+    final started = Completer<void>();
+    final reply = Completer<void>();
+    final confirmedUntil = DateTime.utc(2030);
+    final api = _Api()
+      ..pauseGate = reply
+      ..onPause = started.complete
+      ..pauseResponse = DateTime.utc(2040);
+    final controller = _controller(api)
+      ..restoreSnapshot(_siteUrl, confirmedUntil);
+    addTearDown(controller.dispose);
+    addTearDown(() {
+      if (!reply.isCompleted) reply.complete();
+    });
+
+    final pause = controller.pause(
+      _siteUrl,
+      DoNotDisturbOption.oneHour.duration,
+    );
+    await started.future;
+    expect(
+      controller.acceptSnapshot(_siteUrl, null, isCurrent: true),
+      confirmedUntil,
+    );
+    reply.complete();
+    expect(await pause, isNull);
+    expect(controller.stateFor(_siteUrl).until, DateTime.utc(2040));
+    expect(
+      controller.acceptSnapshot(_siteUrl, null, isCurrent: false),
+      DateTime.utc(2040),
+    );
+    expect(controller.acceptSnapshot(_siteUrl, null, isCurrent: true), isNull);
+  });
 
   test('a live update supersedes an older in-flight response', () async {
     final gate = Completer<void>();
@@ -261,7 +308,10 @@ void main() {
 
         // Invalid messages must not become authoritative over snapshots.
         final nextUntil = until.add(const Duration(hours: 1));
-        expect(controller.acceptSnapshot(_siteUrl, nextUntil), nextUntil);
+        expect(
+          controller.acceptSnapshot(_siteUrl, nextUntil, isCurrent: true),
+          nextUntil,
+        );
       });
     }
 
@@ -334,12 +384,14 @@ DoNotDisturbController _controller(
   SiteLifecycle? lifecycle,
   DateTime Function()? clock,
   DoNotDisturbCommitted? onCommitted,
+  void Function(String siteUrl)? onSnapshotInvalidated,
 }) => DoNotDisturbController(
   api: api,
   credentials: _Credentials(),
   lifecycle: lifecycle ?? SiteLifecycle(),
   clock: clock,
   onCommitted: onCommitted ?? (_, _) {},
+  onSnapshotInvalidated: onSnapshotInvalidated,
 );
 
 final class _Credentials implements ApiCredentialReader {

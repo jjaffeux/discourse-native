@@ -926,6 +926,8 @@ class ShellController extends FrameSafeNotifier
     credentials: credentials,
     lifecycle: lifecycle,
     onCommitted: _commitDoNotDisturb,
+    onSnapshotInvalidated: (siteUrl) =>
+        _currentUsers.reconcilerFor(siteUrl).doNotDisturbChanged(),
     clock: _clock,
   );
 
@@ -4081,9 +4083,14 @@ class ShellController extends FrameSafeNotifier
   @override
   DiscourseUser _acceptDoNotDisturbSnapshot(
     String siteUrl,
-    DiscourseUser user,
-  ) {
-    final until = doNotDisturb.acceptSnapshot(siteUrl, user.doNotDisturbUntil);
+    DiscourseUser user, {
+    required bool isCurrent,
+  }) {
+    final until = doNotDisturb.acceptSnapshot(
+      siteUrl,
+      user.doNotDisturbUntil,
+      isCurrent: isCurrent,
+    );
     return until == user.doNotDisturbUntil
         ? user
         : user.withDoNotDisturbUntil(until);
@@ -8060,6 +8067,7 @@ class ShellController extends FrameSafeNotifier
       final user = _acceptDoNotDisturbSnapshot(
         replacement.url,
         replacement.user!,
+        isCurrent: true,
       );
       applied = replacement.copyWith(user: user);
       _seedGroupedUnreadNotifications(replacement.url, user);
