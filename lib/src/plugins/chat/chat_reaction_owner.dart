@@ -5,7 +5,7 @@ typedef _ChatReactorsKey = ({int channelId, int messageId, String? filter});
 
 final class _ChatReactionWrite {
   bool dispatched = false;
-  bool? liveReacted;
+  ({bool reacted, bool afterDispatch})? liveReaction;
 }
 
 final class _AccountChatReactions {
@@ -96,7 +96,7 @@ final class _AccountChatReactions {
         _projectReader(
           messageId,
           emoji,
-          reacted: request.liveReacted ?? !adding,
+          reacted: request.liveReaction?.reacted ?? !adding,
           userId: readerId,
         );
       }
@@ -135,25 +135,26 @@ final class _AccountChatReactions {
       _projectReader(
         messageId,
         emoji,
-        reacted: request.liveReacted ?? adding,
+        reacted: switch (request.liveReaction) {
+          (afterDispatch: true, reacted: final reacted) => reacted,
+          _ => adding,
+        },
         userId: readerId,
       );
       return null;
     } on WriteException catch (error) {
       rollback();
       if (ownsRequest() &&
-          request.dispatched &&
           !error.notSent &&
           error.failure == WriteFailure.unreachable &&
-          request.liveReacted == adding) {
+          request.liveReaction == (reacted: adding, afterDispatch: true)) {
         return null;
       }
       return error.message;
     } catch (error) {
       rollback();
       if (ownsRequest() &&
-          request.dispatched &&
-          request.liveReacted == adding) {
+          request.liveReaction == (reacted: adding, afterDispatch: true)) {
         return null;
       }
       return const WriteException(WriteFailure.unreachable).message;
@@ -250,8 +251,13 @@ final class _AccountChatReactions {
           reactions.length >= ChatMessage.maximumReactionsPerMessage) {
         return;
       }
-      _reactionWrites[(messageId: messageId, emoji: emoji)]?.liveReacted =
-          action == 'add';
+      final request = _reactionWrites[(messageId: messageId, emoji: emoji)];
+      if (request != null) {
+        request.liveReaction = (
+          reacted: action == 'add',
+          afterDispatch: request.dispatched,
+        );
+      }
       _projectReader(
         messageId,
         emoji,
