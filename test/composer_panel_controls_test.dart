@@ -8,8 +8,11 @@ import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
@@ -30,6 +33,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/button_surface.dart';
@@ -37,6 +41,12 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  setUpAll(() async {
+    LocalDateEnvironment.instance.ensureDatabase();
+    LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
+    await initializeDateFormatting('en');
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
@@ -560,7 +570,7 @@ void main() {
     testWidgets(
       'formatting toolbar applies a mark and returns focus to the live editor',
       (tester) async {
-        final composer = ComposerController(_replyTarget);
+        final composer = ComposerController(_newTopicTarget);
         final shell = await _shell();
         addTearDown(composer.dispose);
         addTearDown(shell.dispose);
@@ -569,6 +579,9 @@ void main() {
           selection: TextSelection(baseOffset: 4, extentOffset: 8),
         );
         await _pumpPanel(tester, shell, composer);
+        composer.titleFocus.requestFocus();
+        await tester.pump();
+        expect(composer.titleFocus.hasPrimaryFocus, isTrue);
         await tester.tap(find.byKey(const ValueKey('composer-format-italic')));
         await tester.pumpAndSettle();
         expect(composer.raw, 'One *word*');
@@ -817,6 +830,168 @@ void main() {
         TargetPlatform.android,
       }),
     );
+
+    for (final modifier in [
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.metaLeft,
+    ]) {
+      for (final field in ['title', 'recipients']) {
+        for (final key in [
+          LogicalKeyboardKey.keyB,
+          LogicalKeyboardKey.keyI,
+          LogicalKeyboardKey.keyE,
+          LogicalKeyboardKey.keyL,
+          LogicalKeyboardKey.period,
+        ]) {
+          testWidgets(
+            '$field focus keeps body shortcuts out of the retained editor with ${modifier.keyLabel} ${key.keyLabel}',
+            (tester) async {
+              final composer = ComposerController(
+                field == 'title'
+                    ? _newTopicTarget
+                    : _privateMessageTarget.withRecipients(''),
+                syntaxPolicies: [
+                  LocalDateComposerSyntaxPolicy(
+                    environment: LocalDateEnvironment.instance,
+                    settings: const LocalDatesSettings(enabled: true),
+                  ),
+                ],
+              );
+              final shell = await _shell(localDates: true);
+              addTearDown(composer.dispose);
+              addTearDown(shell.dispose);
+              await _pumpPanel(tester, shell, composer);
+              composer.text.value = const TextEditingValue(
+                text: 'body content',
+                selection: TextSelection(baseOffset: 0, extentOffset: 4),
+              );
+              composer.focus.requestFocus();
+              await tester.pump();
+              final input = find
+                  .byKey(
+                    ValueKey(
+                      field == 'title'
+                          ? 'composer-topic-title'
+                          : 'composer-recipients-input',
+                    ),
+                  )
+                  .first;
+              await tester.tap(input);
+              await tester.pump();
+              final editable = tester.widget<EditableText>(
+                find.descendant(of: input, matching: find.byType(EditableText)),
+              );
+              expect(editable.focusNode.hasPrimaryFocus, isTrue);
+              expect(composer.activeEditor, same(composer));
+
+              await _pressBodyShortcut(tester, modifier, key);
+              expect(composer.raw, 'body content', reason: '$key');
+              expect(editable.focusNode.hasPrimaryFocus, isTrue);
+              expect(
+                find.byKey(const ValueKey('composer-link-dialog')),
+                findsNothing,
+              );
+              expect(tester.takeException(), isNull);
+            },
+          );
+        }
+      }
+
+      testWidgets('focused body accepts the date shortcut with $modifier', (
+        tester,
+      ) async {
+        final composer = ComposerController(
+          _newTopicTarget,
+          syntaxPolicies: [
+            LocalDateComposerSyntaxPolicy(
+              environment: LocalDateEnvironment.instance,
+              settings: const LocalDatesSettings(enabled: true),
+            ),
+          ],
+        );
+        final shell = await _shell(localDates: true);
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        composer.text.value = const TextEditingValue(
+          text: 'body content',
+          selection: TextSelection(baseOffset: 0, extentOffset: 4),
+        );
+        composer.focus.requestFocus();
+        await tester.pump();
+        await _pressBodyShortcut(tester, modifier, LogicalKeyboardKey.period);
+        expect(composer.raw, startsWith('[date='));
+        expect(composer.raw, endsWith(' content'));
+        expect(composer.focus.hasPrimaryFocus, isTrue);
+      });
+
+      testWidgets(
+        'title focus retains global submit and close with $modifier',
+        (tester) async {
+          final composer = ComposerController(_newTopicTarget);
+          final shell = await _InteractionTrackingShellController.create();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          await _pumpPanel(tester, shell, composer);
+          await tester.enterText(
+            find.byKey(const ValueKey('composer-topic-title')),
+            'A topic title',
+          );
+          await tester.sendKeyDownEvent(modifier);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.sendKeyUpEvent(modifier);
+          await tester.pump();
+          expect(shell.submitCalls, 1);
+          expect(composer.titleFocus.hasPrimaryFocus, isTrue);
+          await tester.sendKeyDownEvent(modifier);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+          await tester.sendKeyUpEvent(modifier);
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsOneWidget,
+          );
+        },
+      );
+    }
+
+    testWidgets('date shortcut inserts into the focused details body', (
+      tester,
+    ) async {
+      final composer = ComposerController(
+        _newTopicTarget,
+        syntaxPolicies: [
+          LocalDateComposerSyntaxPolicy(
+            environment: LocalDateEnvironment.instance,
+            settings: const LocalDatesSettings(enabled: true),
+          ),
+        ],
+      );
+      final shell = await _shell(localDates: true);
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'Before\n\n[details="Summary"]\nWords\n[/details]\n\nAfter',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+      await _pumpPanel(tester, shell, composer);
+      final body = tester
+          .widget<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
+          .composer;
+      body.focus.requestFocus();
+      body.text.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+      await tester.pumpAndSettle();
+      expect(composer.activeEditor, same(body));
+      await _pressBodyShortcut(
+        tester,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.period,
+      );
+      expect(body.raw, startsWith('[date='));
+      expect(composer.raw, startsWith('Before\n\n[details="Summary"]\n[date='));
+      expect(composer.raw, endsWith('[/details]\n\nAfter'));
+      expect(body.focus.hasPrimaryFocus, isTrue);
+    });
 
     testWidgets('Linux formatting hints match their keyboard actions', (
       tester,
@@ -2001,6 +2176,23 @@ class _RecipientSearchApi extends FakeDiscourseApi {
   }
 }
 
+Future<void> _pressBodyShortcut(
+  WidgetTester tester,
+  LogicalKeyboardKey modifier,
+  LogicalKeyboardKey key,
+) async {
+  await tester.sendKeyDownEvent(modifier);
+  if (key == LogicalKeyboardKey.period) {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  }
+  await tester.sendKeyEvent(key);
+  if (key == LogicalKeyboardKey.period) {
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  }
+  await tester.sendKeyUpEvent(modifier);
+  await tester.pump();
+}
+
 Future<void> _pressCommandE(WidgetTester tester) async {
   await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyE);
@@ -2028,13 +2220,18 @@ Future<T> _withTargetPlatform<T>(
   }
 }
 
-Future<ShellController> _shell() async {
+Future<ShellController> _shell({bool localDates = false}) async {
+  final plugins = localDates
+      ? PluginInstaller.install(PluginManifest([localDatesModule]))
+      : null;
+  if (plugins != null) addTearDown(plugins.close);
   final shell = ShellController(
     instanceStore: FakeInstanceStore(),
     api: FakeDiscourseApi(),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
+    plugins: plugins,
   );
   await shell.load();
   return shell;
