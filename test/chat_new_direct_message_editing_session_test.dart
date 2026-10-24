@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart'
-    show PluginSiteLease;
+    show PluginSiteLease, WriteException, WriteFailure;
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_new_direct_message_session.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -43,6 +44,116 @@ void main() {
       'maya',
       'theo',
     ]);
+  });
+
+  for (final self in [
+    const ChatDirectMessageUser(
+      identifier: 'u-7',
+      matchQuality: 1,
+      enabled: true,
+      username: 'renamed-reader',
+    ),
+    const ChatDirectMessageUser(
+      identifier: 'u-reader',
+      matchQuality: 1,
+      enabled: true,
+      username: 'READER',
+    ),
+  ]) {
+    test('sender-only group recognizes ${self.identifier}', () async {
+      final (editor, _, api) = await _fixture(maximum: 2);
+      expect(editor.startGroup(editor.revision), isTrue);
+      await editor.select(self, editor.revision);
+      expect(editor.members, [self]);
+      expect(editor.membersCount, 0);
+      expect(await editor.createGroup('Just me'), isNotNull);
+      expect(api.directMessageChannelRequests.single.usernames, [
+        self.username,
+      ]);
+    });
+  }
+
+  test('ordinary recipients still enforce the other-user limit', () async {
+    final (editor, _, api) = await _fixture(maximum: 2);
+    expect(editor.startGroup(editor.revision), isTrue);
+    for (final person in startChattingPeople.take(2)) {
+      await editor.select(person, editor.revision);
+    }
+    expect(editor.membersCount, 2);
+    expect(editor.canAddMember(startChattingPeople.first), isTrue);
+    await editor.select(startChattingPeople.first, editor.revision);
+    expect(editor.members, startChattingPeople.take(2));
+    expect(editor.canAddMember(startChattingPeople.last), isFalse);
+    await editor.select(startChattingPeople.last, editor.revision);
+    expect(editor.members, startChattingPeople.take(2));
+    expect(editor.error, 'A group chat can include up to 2 people.');
+    expect(await editor.createGroup('Within the limit'), isNotNull);
+    expect(api.directMessageChannelRequests.single.usernames, ['maya', 'theo']);
+  });
+
+  test('explicit recipients count distinct normalized usernames', () async {
+    final (editor, _, api) = await _fixture(maximum: 2);
+    const duplicate = ChatDirectMessageUser(
+      identifier: 'u-maya',
+      matchQuality: 1,
+      enabled: true,
+      username: 'MAYA',
+    );
+    expect(editor.startGroup(editor.revision), isTrue);
+    await editor.select(startChattingPeople.first, editor.revision);
+    await editor.select(startChattingPeople[1], editor.revision);
+    expect(editor.canAddMember(duplicate), isTrue);
+    await editor.select(duplicate, editor.revision);
+    expect(editor.membersCount, 2);
+    expect(editor.canAddMember(startChattingPeople.last), isFalse);
+    expect(await editor.createGroup('Distinct recipients'), isNotNull);
+    expect(api.directMessageChannelRequests.single.usernames, [
+      'maya',
+      'theo',
+      'MAYA',
+    ]);
+  });
+
+  test('retained count stays bound to the sender after replacement', () async {
+    final (editor, shell, api) = await _fixture(maximum: 2);
+    const self = ChatDirectMessageUser(
+      identifier: 'u-7',
+      matchQuality: 1,
+      enabled: true,
+      username: 'reader',
+    );
+    expect(editor.startGroup(editor.revision), isTrue);
+    await editor.select(self, editor.revision);
+    api.accounts['api-key'] = DiscourseUser(
+      id: 2,
+      username: 'maya',
+      plugins: startChattingUser.plugins,
+    );
+    await shell.connectCurrentInstance();
+    expect(shell.currentUserFor(startChattingSite)?.username, 'maya');
+    expect(editor.members, [self]);
+    expect(editor.membersCount, 0);
+    expect(await editor.createGroup('Retired'), isNull);
+    expect(api.directMessageChannelRequests, isEmpty);
+    expect(
+      editor.error,
+      'Your connection changed. Reopen the action and try again.',
+    );
+  });
+
+  test('group server refusal retains recipients and permits retry', () async {
+    final api = _RefusingApi();
+    final (editor, _, _) = await _fixture(maximum: 2, api: api);
+    expect(editor.startGroup(editor.revision), isTrue);
+    await editor.select(startChattingPeople.first, editor.revision);
+    expect(await editor.createGroup('Refused'), isNull);
+    expect(editor.opening, isFalse);
+    expect(editor.members, [startChattingPeople.first]);
+    expect(editor.error, 'The server rejected these recipients.');
+    api.refuse = false;
+    expect(await editor.createGroup('Retry'), isNotNull);
+    expect(api.directMessageChannelRequests, hasLength(2));
+    expect(api.directMessageChannelRequests.last.usernames, ['maya']);
   });
 
   test(
@@ -290,8 +401,8 @@ void main() {
 }
 
 Future<(ChatNewDirectMessageSession, ShellController, StartChattingApi)>
-_fixture({int maximum = 10, bool staff = false}) async {
-  final api = StartChattingApi();
+_fixture({int maximum = 10, bool staff = false, StartChattingApi? api}) async {
+  api ??= StartChattingApi();
   final shell = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -331,6 +442,38 @@ _fixture({int maximum = 10, bool staff = false}) async {
     await shell.pluginTeardown;
   });
   return (editor, shell, api);
+}
+
+final class _RefusingApi extends StartChattingApi {
+  bool refuse = true;
+
+  @override
+  Future<ChatChannel> createChatDirectMessageChannel({
+    required String siteUrl,
+    required String apiKey,
+    required List<String> usernames,
+    List<String> groups = const [],
+    String? name,
+    bool upsert = false,
+    String? clientId,
+  }) async {
+    final channel = await super.createChatDirectMessageChannel(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      usernames: usernames,
+      groups: groups,
+      name: name,
+      upsert: upsert,
+      clientId: clientId,
+    );
+    if (refuse) {
+      throw const WriteException(
+        WriteFailure.validation,
+        errors: ['The server rejected these recipients.'],
+      );
+    }
+    return channel;
+  }
 }
 
 final class _MutableLease implements PluginSiteLease {

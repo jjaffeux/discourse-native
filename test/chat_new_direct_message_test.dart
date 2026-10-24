@@ -229,6 +229,58 @@ void main() {
   );
 
   testWidgets(
+    'selecting yourself preserves both other-recipient slots and their label',
+    (tester) async {
+      shell.dispose();
+      await shell.pluginTeardown;
+      shell = await startChattingShell(api, maximumMembers: 2);
+      api.pendingSearches['reader'] = Completer();
+      await pump(tester);
+      await tester.tap(startGroup);
+      await tester.pumpAndSettle();
+      await tester.enterText(search, 'reader');
+      await tester.pump(const Duration(milliseconds: 350));
+      api.pendingSearches['reader']!.complete(
+        ChatDirectMessageSearchResults([
+          const ChatDirectMessageUser(
+            identifier: 'u-7',
+            matchQuality: 1,
+            enabled: true,
+            username: 'reader',
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(user('reader'));
+      await tester.pumpAndSettle();
+      expect(find.text('0 of 2 people selected'), findsOneWidget);
+      expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
+      for (final username in ['maya', 'theo']) {
+        await query(tester, username);
+        await tester.tap(user(username));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('2 of 2 people selected'), findsOneWidget);
+      for (final identifier in ['u-7', 'u-2', 'u-3']) {
+        expect(
+          find.byKey(ValueKey('chat-new-group-member-$identifier')),
+          findsOneWidget,
+        );
+      }
+      await tester.tap(createGroup);
+      await tester.pumpAndSettle();
+      expect(api.directMessageChannelRequests.single.usernames, [
+        'reader',
+        'maya',
+        'theo',
+      ]);
+      expect(shell.currentContent?.id, 'chat-c-59');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'group members clear search, enforce limits, and can be removed',
     (tester) async {
       await pump(tester);

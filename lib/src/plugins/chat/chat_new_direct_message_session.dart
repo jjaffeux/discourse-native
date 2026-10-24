@@ -13,7 +13,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     required this.chat,
     required this.siteUrl,
     required this._lease,
-  }) {
+  }) : _sender = chat.currentUserFor(siteUrl) {
     _showExistingChannels();
     chat.addListener(_sessionChanged);
     _sessionChanged();
@@ -22,6 +22,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
   final ChatController chat;
   final String siteUrl;
   final PluginSiteLease _lease;
+  final DiscourseUser? _sender;
   _ConversationMode _mode = const _DirectEditing();
   _EditingActivity _activity = const _Idle();
   Timer? _debounce;
@@ -42,8 +43,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
   int get maximumGroupMembers =>
       chat.siteConfigFor(siteUrl).chatMaximumDirectMessageUsers;
   bool get canUseGroupChat => staff || maximumGroupMembers > 1;
-  int get membersCount =>
-      members.fold(0, (count, item) => count + _count(item));
+  int get membersCount => _countMembers(members);
 
   bool _checkSession() {
     if (_activity is _Retired) return false;
@@ -203,16 +203,34 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     _error = null;
   }
 
-  static int _count(ChatDirectMessageSearchItem item) => switch (item) {
-    ChatDirectMessageUser() => 1,
-    ChatDirectMessageGroup(:final memberCount) => memberCount,
-    ChatDirectMessageChannel() => 0,
-  };
+  int _countMembers(Iterable<ChatDirectMessageSearchItem> selection) {
+    final identifiers = <String>{};
+    final usernames = <String>{};
+    final senderUsername = _sender?.username.toLowerCase();
+    final senderIdentifier = _sender?.id == null ? null : 'u-${_sender!.id}';
+    var groupMembers = 0;
+    for (final item in selection) {
+      if (!identifiers.add(item.identifier)) continue;
+      switch (item) {
+        case ChatDirectMessageUser(:final username):
+          final normalized = username.toLowerCase();
+          if (item.identifier != senderIdentifier &&
+              normalized != senderUsername) {
+            usernames.add(normalized);
+          }
+        case ChatDirectMessageGroup(:final memberCount):
+          groupMembers += memberCount;
+        case ChatDirectMessageChannel():
+          break;
+      }
+    }
+    return usernames.length + groupMembers;
+  }
 
   bool canAddMember(ChatDirectMessageSearchItem item) =>
       item is! ChatDirectMessageChannel &&
       item.enabled &&
-      (staff || membersCount + _count(item) <= maximumGroupMembers);
+      (staff || _countMembers([...members, item]) <= maximumGroupMembers);
 
   void _memberLimitError() {
     _error = appL10n.aGroupChatCanIncludeUpToPeople(
