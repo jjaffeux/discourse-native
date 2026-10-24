@@ -311,6 +311,119 @@ void main() {
       }
     });
 
+    test('first-line list examples agree with the bundled cooker', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      for (final (marker, indent, opening, closing, names) in const [
+        ('-', '  ', '[code]', '[/code]', ['live']),
+        ('-', '  ', '<!--', '-->', ['live']),
+        ('1.', '   ', '[code]', '[/code]', ['live']),
+        ('1.', '   ', '<!--', '-->', ['live']),
+        ('1.', '  ', '[code]', '[/code]', ['example', 'live']),
+        ('1.', '  ', '<!--', '-->', <String>[]),
+        ('- [ ]', '  ', '[code]', '[/code]', ['example', 'live']),
+        ('- [ ]', '  ', '<!--', '-->', ['example', 'live']),
+        ('- [x]', '  ', '[code]', '[/code]', ['example', 'live']),
+        ('- [x]', '  ', '<!--', '-->', ['example', 'live']),
+      ]) {
+        for (final newline in const ['\n', '\r\n']) {
+          final example =
+              '$indent[poll name=example]\n$indent* A\n$indent* B\n'
+              '$indent[/poll]';
+          const live = '[poll name=live]\n* C\n* D\n[/poll]';
+          final source = '$marker $opening\n$example\n$indent$closing\n$live'
+              .replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            names,
+            reason: source,
+          );
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks.map((block) => block.name), names, reason: source);
+          expect(
+            pollNamesInComposerSource(source),
+            names.toSet(),
+            reason: source,
+          );
+          for (final block in blocks) {
+            final expected = (block.name == 'example' ? example : live)
+                .replaceAll('\n', newline);
+            expect(block.start, source.indexOf(expected), reason: source);
+            expect(block.end, block.start + expected.length, reason: source);
+            expect(block.source, expected, reason: source);
+            expect(block.lineEnding, newline, reason: source);
+          }
+          expect(nextPollName(source), 'poll', reason: source);
+        }
+      }
+    });
+
+    test('list comment dedents retain only the preceding active poll', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      for (final (marker, indent, bodyIndent, closeIndent) in const [
+        ('- a', '  ', '', ''),
+        ('1. a', '   ', '  ', '  '),
+        ('- a', '  ', '  ', ''),
+        ('1. a', '   ', '   ', '  '),
+      ]) {
+        for (final newline in const ['\n', '\r\n']) {
+          final live = '[poll name=live]\n* C\n* D\n[/poll]'.replaceAll(
+            '\n',
+            newline,
+          );
+          final source =
+              '[poll name=live]\n* C\n* D\n[/poll]\n\n'
+                      '$marker\n\n$indent<!--\n'
+                      '$bodyIndent[poll name=example]\n$bodyIndent* A\n'
+                      '$bodyIndent* B\n$bodyIndent[/poll]\n$closeIndent-->\n\n'
+                      '[poll name=hidden]\n* E\n* F\n[/poll]'
+                  .replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            ['live'],
+            reason: source,
+          );
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks.map((block) => block.name), ['live'], reason: source);
+          expect(blocks.single.start, 0, reason: source);
+          expect(blocks.single.end, live.length, reason: source);
+          expect(blocks.single.source, live, reason: source);
+          expect(blocks.single.lineEnding, newline, reason: source);
+          expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+          expect(nextPollName(source), 'poll', reason: source);
+        }
+      }
+    });
+
     final fixedBaseExamples = <String>[
       for (final (marker, indent, openings) in const [
         ('- a', '  ', [4, 5]),
