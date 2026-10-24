@@ -62,6 +62,7 @@ import 'topic_move_posts.dart';
 import 'topic_post_retention.dart';
 import 'topic_post_sliver.dart';
 import 'topic_progress.dart';
+import 'topic_reader_interaction.dart';
 import 'topic_skeleton.dart';
 import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
@@ -165,7 +166,9 @@ double topicContextEyeline({
   return topBoundary + progress * (bottomBoundary - topBoundary);
 }
 
-class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
+class _TopicViewState extends State<TopicView>
+    with WidgetsBindingObserver
+    implements TopicReaderCommandGeometry {
   final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
   late final TopicReaderGeometry _reader;
@@ -185,16 +188,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   int? _visibleContextCurrentPostId;
-  final ValueNotifier<int?> _keyboardPost = ValueNotifier(null);
+  late final TopicReaderInteraction _interaction;
   final ReadingFocusNode _entryFocus = ReadingFocusNode(
     debugLabel: 'topic reader',
   );
   final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
     debugLabel: 'Topic post cursor',
   );
-  Object? _keyboardPostLoad;
-  int? _keyboardPostEndTarget;
-  int _boundaryJumpRevision = 0;
   String? _recommendationsSiteUrl;
   bool _sidebarCollapsed = false;
   bool _sidebarRestored = false;
@@ -205,7 +205,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       coreSuggestedTopicRecommendationSourceId;
   int _recommendationsTabRestoreGeneration = 0;
   List<_TopicDayStart> _laidOutDayStarts = const [];
-  Object? _dayJumpToken;
   bool _tickerEnabled = true;
   ValueListenable<TickerModeData>? _tickerMode;
   final _postRetention = TopicPostRetention();
@@ -302,6 +301,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
       pagingThreshold: TopicView._loadPostsThreshold,
     );
+    _interaction = TopicReaderInteraction(
+      geometry: this,
+      postFrame: (callback) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
+      scheduleFrame: WidgetsBinding.instance.scheduleFrame,
+      focus: _keyboardFocus.requestFocus,
+      scheduleLook: _scheduleLook,
+    );
     if (WidgetsBinding.instance.lifecycleState case final lifecycle?) {
       _viewport.handleAppLifecycleState(lifecycle);
     }
@@ -372,14 +379,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _visitLastReadPostNumber = snapshot.topic?.lastReadPostNumber;
     }
 
-    if (previousIdentity?.$1 != snapshot.siteUrl ||
-        previousIdentity?.$2 != snapshot.topicId ||
-        previousTabId != ForumTabScope.tabOf(context).activeTabId ||
-        !identical(previousController, controller)) {
-      _keyboardPost.value = null;
-      _keyboardPostEndTarget = null;
-      _keyboardPostLoad = null;
-    }
+    _interaction.bind(_TopicReaderNavigation(controller, _viewport));
 
     previousController?.clearVisibleTopicContext(_visibleTopicContextOwner);
     controller.updateVisibleTopicContext(
@@ -394,7 +394,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _initialBodyChecked = false;
     _openingPostId = null;
     _laidOutDayStarts = const [];
-    _dayJumpToken = null;
     _visibleContextCurrentPostId = null;
     _reader.clear();
     _postRetention.clear();
@@ -402,122 +401,50 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _sidebarOverlayOpen = false;
   }
 
-  bool _navigatePost(
-    ShellController controller,
-    TopicViewportSnapshot snapshot,
-    int direction,
-  ) {
-    if (_keyboardPostLoad != null) return true;
-    if (_keyboardPostEndTarget != null &&
-        _keyboardPostEndTarget == _keyboardPost.value) {
-      return true;
-    }
-    // A mega topic's progress positions are post numbers, so a step past its
-    // loaded posts has no stream place to jump to; paging extends them.
-    final posts = snapshot.progressByPostNumber
-        ? snapshot.postIds
-        : snapshot.streamIds;
-    final current = _keyboardPost.value ?? _visibleContextCurrentPostId;
-    if (current != null && _scrollWithinPost(current, direction)) return true;
-    final currentIndex = current == null
-        ? (_progressPosition ?? 1) - 1
-        : posts.indexOf(current);
-    final nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= posts.length) return false;
-    final nextId = posts[nextIndex];
-    _keyboardPost.value = nextId;
-    _keyboardPostEndTarget = direction < 0 ? nextId : null;
-    _keyboardFocus.requestFocus();
-    final loadedIndex = snapshot.postIds.indexOf(nextId);
-    if (loadedIndex >= 0) {
-      _visibleContextCurrentPostId = nextId;
-      _reader.jumpToPost(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
-      _scheduleLook();
-    } else {
-      final token = Object();
-      _keyboardPostLoad = token;
-      unawaited(() async {
-        try {
-          final loaded = await controller.jumpToCurrentTopicIndex(
-            nextIndex + 1,
-          );
-          if (!mounted || !identical(_keyboardPostLoad, token)) return;
-          if (!loaded) {
-            _keyboardPost.value = null;
-            _keyboardPostEndTarget = null;
-          }
-        } finally {
-          if (identical(_keyboardPostLoad, token)) _keyboardPostLoad = null;
-        }
-      }());
-    }
-    return true;
-  }
-
-  bool _scrollWithinPost(int postId, int direction) {
+  @override
+  TopicReaderCommandScroll? get commandScroll {
     final scroll = _scroll;
-    final bounds = _reader.boundsForPost(postId);
-    if (scroll == null || !scroll.hasClients || bounds == null) return false;
-    final position = scroll.position;
-    final height = _readingViewportExtent;
-    if (height <= 0 || bounds.bottom <= 0 || bounds.top >= height) return false;
-    if (_reader.postContext(postId) case StatefulElement(
-      state: _TopicPostItemState(bodyComplete: false),
-    )) {
-      _keyboardPost.value = postId;
-      _keyboardFocus.requestFocus();
-      return true;
-    }
-
-    // Keep a little context between pages, and stop at the post's edge before
-    // selecting its neighbor. Use the unobscured area below the header.
-    final remaining = direction > 0 ? bounds.bottom - height : -bounds.top;
-    if (remaining <= 0.5) return false;
-    final delta = math.min(height * 0.9, remaining) * direction;
-    final target = (position.pixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
+    if (scroll == null || !scroll.hasClients) return null;
+    return (
+      pixels: scroll.position.pixels,
+      minScrollExtent: scroll.position.minScrollExtent,
+      maxScrollExtent: scroll.position.maxScrollExtent,
+      viewportExtent: _readingViewportExtent,
     );
-    if ((target - position.pixels).abs() <= 0.5) return false;
-    _keyboardPost.value = postId;
-    _keyboardFocus.requestFocus();
-    scroll.jumpTo(target);
-    return true;
   }
 
-  bool _revealKeyboardPostEnd() {
-    final postId = _keyboardPostEndTarget;
-    if (postId == null) return false;
-    if (_keyboardPost.value != postId) {
-      _keyboardPostEndTarget = null;
-      return false;
-    }
-    if (!_restored || _restoring) return false;
-    // A newly loaded or virtualized post can still be mounting its HTML.
-    // Wait for its real height before landing on its last page.
-    if (_reader.postContext(postId) case StatefulElement(
-      state: _TopicPostItemState(:final bodyComplete),
-    ) when bodyComplete) {
-      final bounds = _reader.boundsForPost(postId);
-      final scroll = _scroll;
-      if (bounds == null || scroll == null || !scroll.hasClients) return false;
-      _keyboardPostEndTarget = null;
-      final position = scroll.position;
-      if (bounds.bottom - bounds.top <= _readingViewportExtent) {
-        return false;
-      }
-      final target = (position.pixels + bounds.bottom - _readingViewportExtent)
-          .clamp(position.minScrollExtent, position.maxScrollExtent);
-      if ((target - position.pixels).abs() <= 0.5) return false;
-      scroll.jumpTo(target);
-      return true;
-    }
-    return false;
+  @override
+  TopicReaderCommandPost? commandPost(int postId) {
+    final bounds = _reader.boundsForPost(postId);
+    if (bounds == null) return null;
+    final bodyComplete = switch (_reader.postContext(postId)) {
+      StatefulElement(state: _TopicPostItemState(:final bodyComplete)) =>
+        bodyComplete,
+      _ => null,
+    };
+    return (top: bounds.top, bottom: bounds.bottom, bodyComplete: bodyComplete);
+  }
+
+  @override
+  int get leadingItems => _reader.window.leadingItems;
+
+  @override
+  void jumpToPixels(double pixels) => _scroll!.jumpTo(pixels);
+
+  @override
+  void jumpToPost(int itemIndex) => _reader.jumpToPost(itemIndex);
+
+  @override
+  TopicReaderCommandBoundary? captureBoundary() {
+    final list = _list;
+    final scroll = _scroll;
+    if (list == null || scroll == null || !scroll.hasClients) return null;
+    return _TopicReaderBoundary(this, list, scroll);
   }
 
   bool _replyToSelectedPost(ShellController controller) {
     final siteUrl = controller.currentInstance?.url;
-    final id = _keyboardPost.value;
+    final id = _interaction.selection.value;
     if (siteUrl == null ||
         id == null ||
         !ForumTabScope.tabOf(context).canReplyHere) {
@@ -537,57 +464,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     return true;
   }
 
-  void _jumpToBoundary({required bool end}) {
-    final revision = ++_boundaryJumpRevision;
-    final list = _list;
-    final scroll = _scroll;
-    if (list == null || scroll == null || !scroll.hasClients) return;
-
-    if (!end || !list.isAttached || list.numberOfItems == 0) {
-      scroll.jumpTo(
-        end ? scroll.position.maxScrollExtent : scroll.position.minScrollExtent,
-      );
-      return;
-    }
-
-    final target = list.numberOfItems - 1;
-    bool isCurrent() {
-      if (!mounted || !identical(_list, list) || !identical(_scroll, scroll)) {
-        return false;
-      }
-      return revision == _boundaryJumpRevision &&
-          list.isAttached &&
-          scroll.hasClients;
-    }
-
-    void correctToEnd({bool repeat = true}) {
-      if (!isCurrent()) return;
-      scroll.jumpTo(scroll.position.maxScrollExtent);
-      if (!repeat) return;
-
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => correctToEnd(repeat: false),
-      );
-      WidgetsBinding.instance.scheduleFrame();
-    }
-
-    // Reveal and measure the terminal post before including trailing padding.
-    list.jumpToItem(index: target, scrollController: scroll, alignment: 1);
-    WidgetsBinding.instance.addPostFrameCallback((_) => correctToEnd());
-    WidgetsBinding.instance.scheduleFrame();
-  }
-
-  bool _isCurrent(
-    ShellController controller,
-    (String, int, int) topicIdentity,
-  ) =>
-      mounted &&
-      _viewport.isCurrentOwner(controller, (
-        siteUrl: topicIdentity.$1,
-        topicId: topicIdentity.$2,
-        navigationRevision: topicIdentity.$3,
-      ));
-
   @override
   void dispose() {
     _tickerMode?.removeListener(_tickerModeChanged);
@@ -597,13 +473,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _controller?.clearVisibleTopicContext(_visibleTopicContextOwner);
     _sidebarRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
-    _dayJumpToken = null;
 
     _headerGeometry?.removeListener(_scheduleLook);
     _viewport.dispose();
     _warmCacheIdentity.dispose();
     _moreTopicsCovered.dispose();
-    _keyboardPost.dispose();
+    _interaction.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
     super.dispose();
@@ -735,7 +610,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _scheduleLook();
       return;
     }
-    if (_revealKeyboardPostEnd()) return;
+    if (_interaction.revealPostEnd()) return;
 
     _syncMoreTopicsCoverage();
     _syncFloatingDay(snapshot);
@@ -940,70 +815,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   List<int>? _timeGapsFor;
   String? _timeGapsSite;
   int? _timeGapsShowAfterDays;
-
-  Future<void> _jumpToDayStart(DateTime day) async {
-    final controller = _controller;
-    final identity = _topicIdentity;
-    if (controller == null || identity == null) return;
-
-    final token = Object();
-    _dayJumpToken = token;
-    _viewport.beginRestoration();
-
-    bool isCurrent() =>
-        identical(_dayJumpToken, token) && _isCurrent(controller, identity);
-
-    while (isCurrent()) {
-      final snapshot = _viewport.binding!.currentSnapshot();
-      if (!snapshot.hasEarlier || snapshot.postIds.isEmpty) break;
-      final first = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        snapshot.postIds.first,
-      );
-      if (calendarDay(first?.createdAt) != day) break;
-
-      final before = List<int>.of(snapshot.postIds);
-      await _viewport.binding!.loadEarlier();
-      if (!isCurrent()) return;
-      if (listEquals(before, _viewport.binding!.currentSnapshot().postIds)) {
-        // A refused page should still land on the earliest copy in hand rather
-        // than retrying forever from one click.
-        break;
-      }
-    }
-    if (!isCurrent()) return;
-
-    void finish() {
-      if (!isCurrent()) return;
-      _dayJumpToken = null;
-      _viewport.finishRestoration(saveAnchor: true);
-      _viewport.scheduleLoadEarlier(_viewport.binding!.currentSnapshot());
-    }
-
-    void jump() {
-      if (!isCurrent()) return;
-      final snapshot = _viewport.binding!.currentSnapshot();
-      final postIndex = snapshot.postIds.indexWhere((id) {
-        final post = controller.store.read<Post>(snapshot.siteUrl!, id);
-        return calendarDay(post?.createdAt) == day;
-      });
-      if (postIndex < 0) return;
-      _reader.jumpToPost(postIndex + _reader.window.leadingItems);
-    }
-
-    // A preceding page changes the list in the same event turn. Let it lay
-    // out before addressing its rows, then repeat once measured just like the
-    // reader's normal post restoration.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isCurrent()) return;
-      jump();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!isCurrent()) return;
-        jump();
-        finish();
-      });
-    });
-  }
 
   void _noteWhatIsOnScreen(
     ShellController controller,
@@ -1393,7 +1204,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 key: ValueKey(('topic-floating-day', floatingDay)),
                 day: floatingDay,
                 floating: true,
-                onTap: () => _jumpToDayStart(floatingDay),
+                onTap: () => _interaction.jumpToDayStart(floatingDay),
               ),
             );
           },
@@ -1916,7 +1727,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           showDayDivider: post?.postNumber != 1,
           timeGapDays: timeGapByPostIndex[postIndex],
           firstUnread: postIndex == firstUnreadIndex,
-          onDayTap: day == null ? null : () => _jumpToDayStart(day),
+          onDayTap: day == null ? null : () => _interaction.jumpToDayStart(day),
           gapBefore: snapshot.topic!.gapsBefore[postId] ?? const [],
           gapAfter: snapshot.topic!.gapsAfter[postId] ?? const [],
           expandGapBefore: () =>
@@ -1927,7 +1738,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           onDetach: _unregisterPostContext,
           onBodyComplete: _scheduleLook,
           child: _StoredPost(
-            keyboardSelection: _keyboardPost,
+            keyboardSelection: _interaction.selection,
             siteUrl: siteUrl,
             topic: snapshot.topic!,
             postId: postId,
@@ -2012,8 +1823,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             if (notification.depth == 0) {
               if (notification is UserScrollNotification &&
                   notification.direction != ScrollDirection.idle) {
-                _keyboardPost.value = null;
-                _keyboardPostEndTarget = null;
+                _interaction.clearSelection();
               }
 
               _viewport.handleScroll(notification, snapshot);
@@ -2061,10 +1871,20 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         commands: {
           ReadingCommand.nextPost: () =>
               !anotherReaderIsActive() &&
-              _navigatePost(controller, snapshot, 1),
+              _interaction.navigatePost(
+                snapshot: _commandSnapshot(snapshot),
+                direction: 1,
+                visiblePostId: _visibleContextCurrentPostId,
+                selectVisiblePost: (id) => _visibleContextCurrentPostId = id,
+              ),
           ReadingCommand.previousPost: () =>
               !anotherReaderIsActive() &&
-              _navigatePost(controller, snapshot, -1),
+              _interaction.navigatePost(
+                snapshot: _commandSnapshot(snapshot),
+                direction: -1,
+                visiblePostId: _visibleContextCurrentPostId,
+                selectVisiblePost: (id) => _visibleContextCurrentPostId = id,
+              ),
           ReadingCommand.replyToPost: () =>
               !anotherReaderIsActive() && _replyToSelectedPost(controller),
         },
@@ -2074,8 +1894,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           initiallyActive: true,
           focusNode: _keyboardFocus,
           scrollController: _scroll!,
-          onStart: () => _jumpToBoundary(end: false),
-          onEnd: () => _jumpToBoundary(end: true),
+          onStart: () => _interaction.jumpToBoundary(end: false),
+          onEnd: () => _interaction.jumpToBoundary(end: true),
           child: DScrollBar(
             controller: _scroll,
             thumbVisibility: false,
@@ -5151,5 +4971,87 @@ class _TopicPaginationSkeleton extends StatelessWidget {
       lineWidths: [lineWidthFactor],
       showFooter: false,
     ),
+  );
+}
+
+TopicReaderCommandSnapshot _commandSnapshot(TopicViewportSnapshot snapshot) => (
+  postIds: snapshot.postIds,
+  streamIds: snapshot.streamIds,
+  progressByPostNumber: snapshot.progressByPostNumber,
+  hasEarlier: snapshot.hasEarlier,
+);
+
+final class _TopicReaderNavigation implements TopicReaderNavigation {
+  _TopicReaderNavigation(this.controller, this.viewport)
+    : binding = viewport.binding!;
+
+  final ShellController controller;
+  final TopicViewportCoordinator viewport;
+  final TopicViewportBinding binding;
+
+  @override
+  TopicReaderCommandIdentity get identity => (
+    owner: binding.owner,
+    session: binding.session,
+    siteUrl: binding.identity.siteUrl,
+    topicId: binding.identity.topicId,
+    tabId: binding.tabId,
+    navigationRevision: binding.identity.navigationRevision,
+  );
+
+  @override
+  bool get isCurrent => viewport.isCurrent(binding);
+  @override
+  TopicReaderCommandSnapshot get snapshot =>
+      _commandSnapshot(binding.currentSnapshot());
+  @override
+  int? get progressPosition => viewport.progressPosition;
+  @override
+  bool get restored => viewport.restored;
+  @override
+  bool get restoring => viewport.restoring;
+  @override
+  Future<bool> hydrateIndex(int index) =>
+      controller.jumpToCurrentTopicIndex(index);
+  @override
+  Future<void> loadEarlier() => binding.loadEarlier();
+  @override
+  DateTime? dayForPost(int postId) => calendarDay(
+    controller.store.read<Post>(binding.identity.siteUrl, postId)?.createdAt,
+  );
+  @override
+  void beginDayJump() => viewport.beginRestoration();
+  @override
+  void finishDayJump() {
+    viewport.finishRestoration(saveAnchor: true);
+    viewport.scheduleLoadEarlier(binding.currentSnapshot());
+  }
+}
+
+final class _TopicReaderBoundary implements TopicReaderCommandBoundary {
+  _TopicReaderBoundary(this.view, this.list, this.scroll);
+
+  final _TopicViewState view;
+  final ListController list;
+  final ScrollController scroll;
+
+  @override
+  bool get isCurrent =>
+      view.mounted &&
+      identical(view._list, list) &&
+      identical(view._scroll, scroll) &&
+      list.isAttached &&
+      scroll.hasClients;
+  @override
+  bool get hasItems => list.isAttached && list.numberOfItems != 0;
+  @override
+  void revealLastItem() => list.jumpToItem(
+    index: list.numberOfItems - 1,
+    scrollController: scroll,
+    alignment: 1,
+  );
+  @override
+  void jumpToEdge({required bool end}) => scroll.jumpTo(
+    end ? scroll.position.maxScrollExtent : scroll.position.minScrollExtent,
   );
 }
