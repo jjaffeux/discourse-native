@@ -118,6 +118,7 @@ import 'account_activity_controller.dart';
 import 'app_settings_controller.dart';
 import 'badges_controller.dart';
 import 'bookmark_transactions.dart';
+import 'checklist_transactions.dart';
 import 'composer/autocomplete.dart';
 import 'composer/components/quote.dart';
 import 'composer/controller.dart';
@@ -139,7 +140,6 @@ import 'hashtag.dart';
 import 'mobile_navigation.dart';
 import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
-import 'post_checklist_write.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
@@ -4365,7 +4365,7 @@ class ShellController extends FrameSafeNotifier
         _pluginSession.capabilities<PluginBookmarkTargetStrategy>(),
     topicData: (siteUrl, lease) => _topicData.forLease(siteUrl, lease),
     checklistWriting: (siteUrl, postId) =>
-        _postChecklistWrites.containsKey(_postKey(siteUrl, postId)),
+        _checklists.isWriting(siteUrl, postId),
     topicSlug: (siteUrl, topicId) {
       final route = currentContent;
       return route?.topicId == topicId
@@ -4378,6 +4378,18 @@ class ShellController extends FrameSafeNotifier
         accountActivity.loadBookmarks(instance, force: true),
     refreshList: (instance) =>
         accountActivity.refreshLoadedBookmarkList(instance),
+  );
+
+  late final ChecklistTransactions _checklists = ChecklistTransactions(
+    api: api.postMutations,
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    isConnected: (siteUrl) => _instanceAt(siteUrl)?.isConnected == true,
+    topicData: (siteUrl, lease) => _topicData.forLease(siteUrl, lease),
+    bookmarkWriting: (siteUrl, lease, postId) =>
+        _bookmarks.forLease(siteUrl, lease)?.postBookmarkWriting(postId) ??
+        false,
   );
 
   late final TopicDataOwner _topicData = TopicDataOwner(
@@ -7990,87 +8002,19 @@ class ShellController extends FrameSafeNotifier
     String? message,
   }) => _flags.createTopic(siteUrl, topic, flagType, message: message);
 
-  final _postChecklistWrites = <String, PostChecklistWrite>{};
-  int _checklistMutationSequence = 0;
-
   Future<String?> togglePostChecklist({
     required String siteUrl,
     required int topicId,
     required Post post,
     required PostChecklistTarget target,
     required bool checked,
-  }) async {
-    final instance = _instanceAt(siteUrl);
-    final held = store.read<Post>(siteUrl, post.id);
-    if (instance?.isConnected != true ||
-        held?.canEdit != true ||
-        held!.isLocalized ||
-        held.isDeleted ||
-        topicId <= 0) {
-      return null;
-    }
-    final key = _postKey(siteUrl, post.id);
-    final active = _postChecklistWrites[key];
-    if (active != null && active.isCurrent()) {
-      active.toggle(post, target, checked);
-      return null;
-    }
-    if (postWriteInFlight(post.id, siteUrl: siteUrl) &&
-        !_bookmarks.forSite(siteUrl).postBookmarkWriting(post.id)) {
-      return appL10n.anotherPostActionIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null) return null;
-    String? apiKey;
-    AccountRequestCredentials? requestCredential;
-    late final PostChecklistWrite operation;
-    operation = PostChecklistWrite(
-      post: held,
-      isCurrent: () =>
-          lease.isCurrent && identical(_postChecklistWrites[key], operation),
-      publish: data.publishChecklist,
-      load: () async {
-        final fresh = await data.checklistPost(topicId, post.id, apiKey);
-        if (fresh == null || fresh.raw == null || fresh.updatedAt == null) {
-          throw const WriteException(WriteFailure.unreachable);
-        }
-        return fresh;
-      },
-      save: (baseline, toggles) => requestCredential!.run(
-        () => api.postMutations.togglePostChecklist(
-          siteUrl: siteUrl,
-          apiKey: apiKey!,
-          postId: post.id,
-          toggles: toggles,
-          expectedRaw: baseline.raw!,
-          expectedUpdatedAt: baseline.updatedAt!,
-          mutationId:
-              'native-${DateTime.now().microsecondsSinceEpoch}-${_checklistMutationSequence++}',
-        ),
-      ),
-    );
-    _postChecklistWrites[key] = operation;
-    final releasePost = data.holdPostWrite(post.id);
-    try {
-      if (!operation.toggle(post, target, checked)) return null;
-      if (!lease.isCurrent) return null;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent) return null;
-      if (credential.failure case final failure?) {
-        operation.reject();
-        return failure.message;
-      }
-      apiKey = credential.apiKey!;
-      requestCredential = credential.request!;
-      return await operation.run();
-    } finally {
-      if (identical(_postChecklistWrites[key], operation)) {
-        _postChecklistWrites.remove(key);
-      }
-      lease.commit(releasePost);
-    }
-  }
+  }) => _checklists.toggle(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    post: post,
+    target: target,
+    checked: checked,
+  );
 
   Future<String?> toggleLike(Post post, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
@@ -8236,8 +8180,6 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
   }) => _bookmarks.forSite(siteUrl).deleteAllTopicBookmarks(topicId: topicId);
-
-  static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
 
   PostLikers? likers(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
@@ -9062,6 +9004,7 @@ class ShellController extends FrameSafeNotifier
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
     _newTopicDismissals.remove(siteUrl);
     _bookmarks.forget(siteUrl);
+    _checklists.forget(siteUrl);
     _topicData.forget(siteUrl);
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
@@ -9083,7 +9026,6 @@ class ShellController extends FrameSafeNotifier
 
     likerRequests.forget(siteUrl);
     userCardRequests.forget(siteUrl);
-    _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _selectedPostModeration.forget(siteUrl);
     _flags.forget(siteUrl);
     _notificationPreferences.forget(siteUrl);
@@ -9984,6 +9926,7 @@ class ShellController extends FrameSafeNotifier
   void dispose() {
     _instanceRail.retire();
     _bookmarks.dispose();
+    _checklists.dispose();
     _topicData.dispose();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.

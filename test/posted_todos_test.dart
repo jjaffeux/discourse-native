@@ -920,6 +920,66 @@ void main() {
     },
   );
 
+  test(
+    'old checklist cleanup leaves a successor checklist coalescing',
+    () async {
+      final api = ChecklistApi()
+        ..writeGates.add(Completer<void>())
+        ..writeGates.add(Completer<void>());
+      final shell = await shellFor(api);
+      addTearDown(shell.dispose);
+      final old = toggle(shell, 0, true);
+      await pumpEventQueue();
+      shell.lifecycle.invalidate(site);
+      shell.store.put(site, post());
+      final successor = toggle(shell, 1, false);
+      await pumpEventQueue();
+      expect(api.calls, hasLength(2));
+      expect(states(shell), [false, false]);
+
+      api.writeGates.first.complete();
+      expect(await old, isNull);
+      expect(states(shell), [false, false]);
+      expect(shell.postWriteInFlight(22), isTrue);
+      await toggle(shell, 0, true);
+      expect(api.calls, hasLength(2));
+      expect(states(shell), [true, false]);
+
+      api.writeGates.last.complete();
+      expect(await successor, isNull);
+      expect(states(shell), [true, false]);
+      expect(shell.postWriteInFlight(22), isFalse);
+      expect(
+        api.calls.map((call) => call['mutationId']).toSet(),
+        hasLength(api.calls.length),
+      );
+    },
+  );
+
+  test('retirement during optimistic publication skips the request', () async {
+    final api = ChecklistApi();
+    final shell = await shellFor(api);
+    addTearDown(shell.dispose);
+    final ref = shell.store.ref<Post>(site, 22);
+    var retired = false;
+    void retire() {
+      if (retired) return;
+      retired = true;
+      shell.lifecycle.invalidate(site);
+      shell.store.put(site, post().copyWith(cooked: '<p>Successor</p>'));
+    }
+
+    ref.addListener(retire);
+    addTearDown(() => ref.removeListener(retire));
+
+    expect(await toggle(shell, 0, true), isNull);
+    expect(retired, isTrue);
+    expect(api.reads, 0);
+    expect(api.calls, isEmpty);
+    expect(shell.store.read<Post>(site, 22)!.cooked, '<p>Successor</p>');
+    expect(shell.postWriteInFlight(22), isFalse);
+  });
+
   for (final kind in ['details', 'spoiler']) {
     testWidgets(
       'nested $kind keeps its disclosure open and whole-post checkbox index',
