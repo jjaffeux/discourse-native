@@ -30,6 +30,32 @@ final class TopicOpening {
   final bool Function() canResume;
 }
 
+final class ReplySendBoundary {
+  const ReplySendBoundary._(this._session, this._topicId, this._maxPostId);
+
+  final TopicDataSession _session;
+  final int _topicId;
+  final int _maxPostId;
+}
+
+sealed class ReplyLookupResult {
+  const ReplyLookupResult();
+}
+
+final class ReplyFound extends ReplyLookupResult {
+  const ReplyFound(this.post);
+
+  final Post post;
+}
+
+final class ReplyAbsent extends ReplyLookupResult {
+  const ReplyAbsent();
+}
+
+final class ReplyIndeterminate extends ReplyLookupResult {
+  const ReplyIndeterminate();
+}
+
 final class TopicDataOwner {
   TopicDataOwner({
     required this.content,
@@ -1576,14 +1602,57 @@ final class TopicDataSession implements BookmarkTopicData {
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
 
-  Future<Post?> findReply({
+  static bool _hasReplyBoundaryStream(TopicDetail detail) =>
+      !detail.isMegaTopic &&
+      detail.stream.isNotEmpty &&
+      detail.stream.length >= detail.postsCount &&
+      detail.gapsBefore.isEmpty &&
+      detail.gapsAfter.isEmpty &&
+      detail.stream.every((id) => id > 0);
+
+  Future<ReplySendBoundary?> captureReplySendBoundary({
+    required int topicId,
+    required String slug,
+    required AccountRequestCredentials credential,
+  }) async {
+    if (!isCurrent) return null;
+    try {
+      final payload = await credential.run(
+        () => _owner.content.topic(
+          siteUrl: siteUrl,
+          slug: slug,
+          id: topicId,
+          apiKey: credential.apiKey,
+        ),
+      );
+      if (!isCurrent) return null;
+      final detail = payload.detail;
+      if (detail.id != topicId || !_hasReplyBoundaryStream(detail)) {
+        return null;
+      }
+      return ReplySendBoundary._(this, topicId, detail.stream.reduce(math.max));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ReplyLookupResult> findReply({
     required int topicId,
     required String slug,
     required String? username,
     required String raw,
+    required bool whisper,
+    required ReplySendBoundary? boundary,
     required AccountRequestCredentials credential,
   }) async {
-    if (!isCurrent) return null;
+    if (!isCurrent ||
+        username == null ||
+        username.trim().isEmpty ||
+        boundary == null ||
+        !identical(boundary._session, this) ||
+        boundary._topicId != topicId) {
+      return const ReplyIndeterminate();
+    }
     final state = _topic(topicId);
     final stamp = _stamp(topicId);
     state.matchingReads++;
@@ -1596,7 +1665,9 @@ final class TopicDataSession implements BookmarkTopicData {
           apiKey: credential.apiKey,
         ),
       );
-      if (!isCurrent) return null;
+      if (!isCurrent || payload.detail.id != topicId) {
+        return const ReplyIndeterminate();
+      }
       final stream = payload.detail.stream;
       final tail = stream.length <= _reconcileWindow
           ? stream
@@ -1610,23 +1681,53 @@ final class TopicDataSession implements BookmarkTopicData {
           apiKey: credential.apiKey,
         ),
       );
-      if (!isCurrent) return null;
+      if (!isCurrent) return const ReplyIndeterminate();
       final rawKey = _storedRaw(raw);
-      final landed = posts
+      final expectedType = whisper
+          ? Post.whisperPostType
+          : Post.regularPostType;
+      final matches = posts
           .where(
             (post) =>
+                post.id > boundary._maxPostId &&
+                tail.contains(post.id) &&
                 post.username == username &&
+                post.postType == expectedType &&
                 post.raw != null &&
                 _storedRaw(post.raw!) == rawKey,
           )
-          .firstOrNull;
-      if (_publishTopic(payload, stamp) == null) return null;
-      if (!_publishPosts(topicId, posts, stamp)) return null;
-      if (landed != null &&
-          !_removedSince(topicId, stamp.removals).contains(landed.id)) {
-        _update<TopicDetail>(topicId, (held) => held.withPostId(landed.id));
+          .toList();
+      if (_publishTopic(payload, stamp) == null ||
+          !_publishPosts(topicId, posts, stamp) ||
+          !isCurrent ||
+          matches.length > 1) {
+        return const ReplyIndeterminate();
       }
-      return isCurrent ? landed : null;
+      if (matches.isEmpty) return const ReplyAbsent();
+      final landed = matches.single;
+      final newIds = stream.where((id) => id > boundary._maxPostId);
+      if (!_hasReplyBoundaryStream(payload.detail) ||
+          !newIds.every(
+            (id) =>
+                tail.contains(id) &&
+                posts.any(
+                  (post) =>
+                      post.id == id &&
+                      post.username.trim().isNotEmpty &&
+                      (post.username != username ||
+                          post.postType != expectedType ||
+                          post.raw != null),
+                ),
+          )) {
+        return const ReplyIndeterminate();
+      }
+      if (_removedSince(topicId, stamp.removals).contains(landed.id)) {
+        return const ReplyIndeterminate();
+      }
+      _update<TopicDetail>(topicId, (held) => held.withPostId(landed.id));
+      return isCurrent ? ReplyFound(landed) : const ReplyIndeterminate();
+    } catch (_) {
+      return const ReplyIndeterminate();
     } finally {
       state.matchingReads--;
     }

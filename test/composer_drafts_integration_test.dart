@@ -722,18 +722,12 @@ void _registerTopicReplyTests() {
     ) async {
       // The post was created; only the answer was lost. Sending again would
       // publish it twice, since a user API key gets no idempotency.
+      final gate = Completer<void>();
       final api = FakeDiscourseApi(
+        createPostGate: gate,
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
-        postsById: {
-          2: const Post(
-            id: 2,
-            postNumber: 2,
-            username: 'joffreyj',
-            cooked: '<p>It landed.</p>',
-            raw: 'It landed.',
-          ),
-        },
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -743,6 +737,16 @@ void _registerTopicReplyTests() {
       await tester.enterText(_composerField, 'It landed.');
       await tester.pumpAndSettle();
 
+      await tester.tap(sendButton());
+      await tester.pump();
+      expect(api.created, hasLength(1));
+      api.postsById[2] = const Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>It landed.</p>',
+        raw: 'It landed.',
+      );
       api.topics[7] = topicPayload(
         id: 7,
         title: 'A real topic',
@@ -752,7 +756,7 @@ void _registerTopicReplyTests() {
         canCreatePost: true,
       );
 
-      await tester.tap(sendButton());
+      gate.complete();
       await tester.pumpAndSettle();
 
       expect(api.created, hasLength(1));
@@ -760,6 +764,93 @@ void _registerTopicReplyTests() {
       expect(find.byType(ComposerPanel), findsNothing);
       expect(renderedText('It landed.'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('an older identical reply does not confirm a failed send', (
+      tester,
+    ) async {
+      const previousReply = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>Repeated reply.</p>',
+        raw: '  Repeated\u00a0reply.  ',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [detail().posts.first, previousReply],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+        postsById: {2: previousReply},
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      );
+
+      await openTopic(tester, api);
+      expect(renderedText('Repeated reply.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField, 'Repeated reply.');
+      await tester.pumpAndSettle();
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      expect(api.created, hasLength(1));
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        tester.widget<TextField>(_composerField).controller!.text,
+        'Repeated reply.',
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets(
+      'an older identical reply does not confirm a failed send when absent from cached stream',
+      (tester) async {
+        const previousReply = Post(
+          id: 2,
+          postNumber: 2,
+          username: 'joffreyj',
+          cooked: '<p>Repeated reply.</p>',
+          raw: 'Repeated reply.',
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          postsById: {2: previousReply},
+          writeFailure: const WriteException(WriteFailure.unreachable),
+        );
+
+        await openTopic(tester, api);
+        expect(renderedText('Repeated reply.'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField, 'Repeated reply.');
+        await tester.pumpAndSettle();
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [detail().posts.first, previousReply],
+          stream: const [1, 2],
+          postsCount: 2,
+          canCreatePost: true,
+        );
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+
+        expect(api.created, hasLength(1));
+        expect(find.byType(ComposerPanel), findsOneWidget);
+        expect(
+          tester.widget<TextField>(_composerField).controller!.text,
+          'Repeated reply.',
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
 
     testWidgets('a check that finds nothing lets the reply be sent again', (
       tester,
@@ -789,6 +880,7 @@ void _registerTopicReplyTests() {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -808,9 +900,27 @@ void _registerTopicReplyTests() {
       expect(tester.widget<DButton>(button).tooltip, 'Check again');
       expect(find.text('Unknown fate.'), findsOneWidget);
 
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A real topic',
+        posts: [detail().posts.first],
+        stream: const [1, 2],
+        postsCount: 2,
+        canCreatePost: true,
+      );
+      api.postsById[2] = const Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>Unknown fate.</p>',
+        raw: 'Unknown fate.',
+      );
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(api.created, hasLength(1));
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(find.textContaining('may have posted'), findsOneWidget);
+      expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a reply that never reached the site is not checked for', (
@@ -840,7 +950,7 @@ void _registerTopicReplyTests() {
       await tester.pumpAndSettle();
 
       expect(api.created, hasLength(1));
-      expect(api.topicsOpened, hasLength(topicReads));
+      expect(api.topicsOpened, hasLength(topicReads + 1));
       expect(api.postFetches, hasLength(postReads));
       expect(find.textContaining('may have posted'), findsNothing);
       expect(
@@ -856,18 +966,12 @@ void _registerTopicReplyTests() {
     testWidgets(
       'Check again looks for what was sent, not what was typed since',
       (tester) async {
+        final gate = Completer<void>();
         final api = FakeDiscourseApi(
+          createPostGate: gate,
           feeds: {'/latest.json': listed},
           topics: {7: detail()},
-          postsById: {
-            2: const Post(
-              id: 2,
-              postNumber: 2,
-              username: 'joffreyj',
-              cooked: '<p>It landed.</p>',
-              raw: 'It landed.',
-            ),
-          },
+          postsById: {},
           writeFailure: const WriteException(WriteFailure.unreachable),
         );
 
@@ -877,8 +981,18 @@ void _registerTopicReplyTests() {
         await tester.enterText(_composerField, 'It landed.');
         await tester.pumpAndSettle();
 
-        api.topics.remove(7);
         await tester.tap(sendButton());
+        await tester.pump();
+        expect(api.created, hasLength(1));
+        api.postsById[2] = const Post(
+          id: 2,
+          postNumber: 2,
+          username: 'joffreyj',
+          cooked: '<p>It landed.</p>',
+          raw: 'It landed.',
+        );
+        api.topics.remove(7);
+        gate.complete();
         await tester.pumpAndSettle();
         expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
 
@@ -905,28 +1019,12 @@ void _registerTopicReplyTests() {
     testWidgets('a reply the site stored with plain spaces is found posted', (
       tester,
     ) async {
+      final gate = Completer<void>();
       final api = FakeDiscourseApi(
+        createPostGate: gate,
         feeds: {'/latest.json': listed},
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'A real topic',
-            posts: [detail().posts.first],
-            stream: const [1, 2],
-            postsCount: 2,
-            canCreatePost: true,
-          ),
-        },
-        postsById: {
-          // PostCreator stores TextCleaner.normalize_whitespaces(raw).
-          2: const Post(
-            id: 2,
-            postNumber: 2,
-            username: 'joffreyj',
-            cooked: '<p>ありがとう ございます</p>',
-            raw: 'ありがとう ございます',
-          ),
-        },
+        topics: {7: detail()},
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -937,6 +1035,25 @@ void _registerTopicReplyTests() {
       await tester.enterText(_composerField, 'ありがとう\u3000ございます');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
+      await tester.pump();
+      expect(api.created, hasLength(1));
+      // PostCreator stores TextCleaner.normalize_whitespaces(raw).
+      api.postsById[2] = const Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>ありがとう ございます</p>',
+        raw: 'ありがとう ございます',
+      );
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A real topic',
+        posts: [detail().posts.first],
+        stream: const [1, 2],
+        postsCount: 2,
+        canCreatePost: true,
+      );
+      gate.complete();
       await tester.pumpAndSettle();
 
       expect(api.created, hasLength(1));
@@ -3339,7 +3456,9 @@ void _registerComposerAndDraftTests() {
         'leaves no draft behind',
         (tester) async {
           final drafts = FakeDraftStore();
+          final gate = Completer<void>();
           final api = FakeDiscourseApi(
+            createPostGate: gate,
             feeds: {'/latest.json': listed},
             topics: {7: detail()},
             postsById: {
@@ -3372,12 +3491,15 @@ void _registerComposerAndDraftTests() {
           await settleDraft(tester);
           expect(drafts.saved, isNotEmpty);
 
+          await tester.tap(sendButton);
+          await tester.pump();
+          expect(api.created, hasLength(1));
           if (recheck) {
             api.topics.remove(7);
           } else {
             api.topics[7] = landed;
           }
-          await tester.tap(sendButton);
+          gate.complete();
           await tester.pumpAndSettle();
           if (recheck) {
             expect(tester.widget<DButton>(sendButton).tooltip, 'Check again');

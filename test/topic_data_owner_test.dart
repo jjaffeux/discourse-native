@@ -217,6 +217,59 @@ final class _Fixture {
   }
 }
 
+Future<AccountRequestCredentials> _replyCredential(
+  _Fixture f,
+  TopicDataSession data,
+) => AccountRequestSession(_site, data.lease).keyCredentials(f.credentials);
+
+Future<ReplySendBoundary?> _captureReplyBoundary(
+  _Fixture f,
+  TopicDataSession data,
+  AccountRequestCredentials credential, {
+  TopicPayload? payload,
+}) async {
+  final count = f.api.topicReads.length;
+  final capturing = data.captureReplySendBoundary(
+    topicId: 7,
+    slug: 'topic',
+    credential: credential,
+  );
+  await f.api.waitTopics(count + 1);
+  f.api.topicReads.last.result.complete(payload ?? _payload([], stream: [1]));
+  return capturing;
+}
+
+Future<ReplyLookupResult> _lookupReply(
+  _Fixture f,
+  TopicDataSession data,
+  AccountRequestCredentials credential,
+  ReplySendBoundary boundary,
+  List<Post> posts, {
+  bool whisper = false,
+  TopicDetail? detail,
+}) async {
+  final topics = f.api.topicReads.length;
+  final reads = f.api.postReads.length;
+  final matching = data.findReply(
+    topicId: 7,
+    slug: 'topic',
+    username: 'author',
+    raw: '  Same\u00a0reply  ',
+    whisper: whisper,
+    boundary: boundary,
+    credential: credential,
+  );
+  await f.api.waitTopics(topics + 1);
+  f.api.topicReads.last.result.complete(
+    detail == null
+        ? _payload([], stream: {1, ...posts.map((post) => post.id)}.toList())
+        : (detail: detail, posts: const <Post>[]),
+  );
+  await f.api.waitPosts(reads + 1);
+  f.api.postReads.last.result.complete(posts);
+  return matching;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -494,6 +547,7 @@ void main() {
         _site,
         data.lease,
       ).keyCredentials(f.credentials);
+      final boundary = await _captureReplyBoundary(f, data, credential);
       final page = data.pageIds(7, ids: [2], newer: true);
       await f.api.waitPosts(1);
       final matching = data.findReply(
@@ -501,22 +555,317 @@ void main() {
         slug: 'topic',
         username: 'author',
         raw: 'landed reply',
+        whisper: false,
+        boundary: boundary,
         credential: credential,
       );
-      await f.api.waitTopics(1);
+      await f.api.waitTopics(2);
       f.api.postReads[0].result.complete([]);
       await page;
       expect(f.store.read<TopicDetail>(_site, 7)?.stream, [1, 2]);
-      f.api.topicReads.single.result.complete(_payload([_post(1, 'one')]));
+      f.api.topicReads.last.result.complete(_payload([_post(1, 'one')]));
       await f.api.waitPosts(2);
       f.api.postReads[1].result.complete([
         _post(1, 'one'),
         _post(2, 'reply', raw: 'landed reply'),
       ]);
-      expect((await matching)?.id, 2);
+      expect((await matching as ReplyFound).post.id, 2);
       expect(f.store.read<TopicDetail>(_site, 7)?.stream, [1, 2]);
     },
   );
+
+  test(
+    'reply boundary uses a fresh maximum without publishing its read',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      final changes = f.changes;
+      final boundary = await _captureReplyBoundary(
+        f,
+        data,
+        credential,
+        payload: _payload([], stream: [1, 120, 100]),
+      );
+      expect(f.store.read<TopicDetail>(_site, 7)?.stream, [1, 2]);
+      expect(f.changes, changes);
+      expect(
+        await _lookupReply(f, data, credential, boundary!, [
+          _post(110, 'Same reply', raw: 'Same reply'),
+        ]),
+        isA<ReplyAbsent>(),
+      );
+    },
+  );
+
+  test(
+    'a new normalized reply is found beyond its original boundary',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      final boundary = await _captureReplyBoundary(f, data, credential);
+      final result = await _lookupReply(f, data, credential, boundary!, [
+        _post(1, 'Same reply', raw: 'Same reply'),
+        _post(2, 'Same reply', raw: 'Same reply'),
+      ]);
+      expect((result as ReplyFound).post.id, 2);
+    },
+  );
+
+  for (final whisper in [false, true]) {
+    for (final type in [Post.regularPostType, Post.whisperPostType, 3]) {
+      test(
+        'reply confirmation requires exact type $type for whisper $whisper',
+        () async {
+          final f = _Fixture()..seed();
+          final data = f.data;
+          final credential = await _replyCredential(f, data);
+          final boundary = await _captureReplyBoundary(f, data, credential);
+          final result = await _lookupReply(f, data, credential, boundary!, [
+            Post(
+              id: 2,
+              postNumber: 2,
+              username: 'author',
+              cooked: '<p>Same reply</p>',
+              raw: 'Same reply',
+              postType: type,
+            ),
+          ], whisper: whisper);
+          final expectedType = whisper
+              ? Post.whisperPostType
+              : Post.regularPostType;
+          expect(
+            result,
+            type == expectedType ? isA<ReplyFound>() : isA<ReplyAbsent>(),
+          );
+        },
+      );
+    }
+  }
+
+  test(
+    'a matching tail reply cannot confirm an unexamined new candidate',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      final boundary = await _captureReplyBoundary(f, data, credential);
+      final result = await _lookupReply(
+        f,
+        data,
+        credential,
+        boundary!,
+        [
+          for (var id = 3; id <= 6; id++)
+            _post(id, 'Another reply', raw: 'Another reply'),
+          _post(7, 'Same reply', raw: 'Same reply'),
+        ],
+        detail: const TopicDetail(
+          id: 7,
+          title: 'More new replies than the lookup window',
+          stream: [1, 2, 3, 4, 5, 6, 7],
+          postsCount: 7,
+        ),
+      );
+      expect(result, isA<ReplyIndeterminate>());
+    },
+  );
+
+  for (final detail in [
+    const TopicDetail(
+      id: 7,
+      title: 'Mega',
+      stream: [1, 2],
+      postsCount: 2,
+      isMegaTopic: true,
+    ),
+    const TopicDetail(id: 7, title: 'Partial', stream: [1, 2], postsCount: 3),
+    const TopicDetail(
+      id: 7,
+      title: 'Gapped',
+      stream: [1, 2],
+      postsCount: 2,
+      gapsBefore: {
+        2: [3],
+      },
+    ),
+  ]) {
+    test(
+      'a matching reply in ${detail.title} evidence is indeterminate',
+      () async {
+        final f = _Fixture()..seed();
+        final data = f.data;
+        final credential = await _replyCredential(f, data);
+        final boundary = await _captureReplyBoundary(f, data, credential);
+        expect(
+          await _lookupReply(f, data, credential, boundary!, [
+            _post(2, 'Same reply', raw: 'Same reply'),
+          ], detail: detail),
+          isA<ReplyIndeterminate>(),
+        );
+      },
+    );
+  }
+
+  test(
+    'another identified author needs no raw to exclude their reply',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      final boundary = await _captureReplyBoundary(f, data, credential);
+      final result = await _lookupReply(f, data, credential, boundary!, [
+        const Post(
+          id: 2,
+          postNumber: 2,
+          username: 'another',
+          cooked: '<p>Another reply</p>',
+        ),
+        _post(3, 'Same reply', raw: 'Same reply'),
+      ]);
+      expect((result as ReplyFound).post.id, 3);
+    },
+  );
+
+  for (final username in ['', 'author']) {
+    test(
+      'a new candidate with unavailable identity or raw remains indeterminate for $username',
+      () async {
+        final f = _Fixture()..seed();
+        final data = f.data;
+        final credential = await _replyCredential(f, data);
+        final boundary = await _captureReplyBoundary(f, data, credential);
+        expect(
+          await _lookupReply(f, data, credential, boundary!, [
+            Post(
+              id: 2,
+              postNumber: 2,
+              username: username,
+              cooked: '<p>A reply</p>',
+            ),
+            _post(3, 'Same reply', raw: 'Same reply'),
+          ]),
+          isA<ReplyIndeterminate>(),
+        );
+      },
+    );
+  }
+
+  test('multiple new matching replies remain indeterminate', () async {
+    final f = _Fixture()..seed();
+    final data = f.data;
+    final credential = await _replyCredential(f, data);
+    final boundary = await _captureReplyBoundary(f, data, credential);
+    expect(
+      await _lookupReply(f, data, credential, boundary!, [
+        _post(2, 'Same reply', raw: 'Same reply'),
+        _post(3, 'Same reply', raw: 'Same reply'),
+      ]),
+      isA<ReplyIndeterminate>(),
+    );
+  });
+
+  for (final username in <String?>[null, '', '   ']) {
+    test(
+      'reply confirmation requires a known nonblank author $username',
+      () async {
+        final f = _Fixture()..seed();
+        final data = f.data;
+        final credential = await _replyCredential(f, data);
+        final boundary = await _captureReplyBoundary(f, data, credential);
+        final reads = f.api.topicReads.length;
+        expect(
+          await data.findReply(
+            topicId: 7,
+            slug: 'topic',
+            username: username,
+            raw: 'Same reply',
+            whisper: false,
+            boundary: boundary,
+            credential: credential,
+          ),
+          isA<ReplyIndeterminate>(),
+        );
+        expect(f.api.topicReads, hasLength(reads));
+      },
+    );
+  }
+
+  test(
+    'reply confirmation cannot infer acceptance without a boundary',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      expect(
+        await data.findReply(
+          topicId: 7,
+          slug: 'topic',
+          username: 'author',
+          raw: 'Same reply',
+          whisper: false,
+          boundary: null,
+          credential: credential,
+        ),
+        isA<ReplyIndeterminate>(),
+      );
+      expect(f.api.topicReads, isEmpty);
+    },
+  );
+
+  for (final detail in [
+    const TopicDetail(id: 8, title: 'Wrong topic', stream: [1], postsCount: 1),
+    const TopicDetail(id: 7, title: 'Empty', stream: [], postsCount: 0),
+    const TopicDetail(id: 7, title: 'Invalid', stream: [0], postsCount: 1),
+    const TopicDetail(id: 7, title: 'Partial', stream: [1], postsCount: 2),
+    const TopicDetail(
+      id: 7,
+      title: 'Mega',
+      stream: [1],
+      postsCount: 1,
+      isMegaTopic: true,
+    ),
+  ]) {
+    test('reply boundary rejects ${detail.title} evidence', () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final credential = await _replyCredential(f, data);
+      expect(
+        await _captureReplyBoundary(
+          f,
+          data,
+          credential,
+          payload: (detail: detail, posts: const []),
+        ),
+        isNull,
+      );
+    });
+  }
+
+  test('reply boundary cannot be reused by a replacement account', () async {
+    final f = _Fixture()..seed();
+    final original = f.data;
+    final credential = await _replyCredential(f, original);
+    final boundary = await _captureReplyBoundary(f, original, credential);
+    f.lifecycle.invalidate(_site);
+    final replacement = f.data;
+    final replacementCredential = await _replyCredential(f, replacement);
+    final reads = f.api.topicReads.length;
+    expect(
+      await replacement.findReply(
+        topicId: 7,
+        slug: 'topic',
+        username: 'author',
+        raw: 'Same reply',
+        whisper: false,
+        boundary: boundary,
+        credential: replacementCredential,
+      ),
+      isA<ReplyIndeterminate>(),
+    );
+    expect(f.api.topicReads, hasLength(reads));
+  });
 
   test('summary publication does not advance full-stream authority', () async {
     final f = _Fixture()..seed();

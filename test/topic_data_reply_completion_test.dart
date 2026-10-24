@@ -43,6 +43,7 @@ void main() {
       controller.visibleComposer!.text.text = 'An accepted reply';
       expect(controller.visibleComposer!.canSubmit, isTrue);
       var retired = false;
+      int? readsAtRetirement;
       controller.addListener(() {
         if (retired ||
             controller.visibleComposer != null ||
@@ -50,6 +51,7 @@ void main() {
           return;
         }
         retired = true;
+        readsAtRetirement = api.topicsOpened.length;
         controller.lifecycle.invalidate(site.url);
         controller.store.forget(site.url);
       });
@@ -59,7 +61,7 @@ void main() {
 
       expect(api.created, hasLength(1));
       expect(retired, isTrue);
-      expect(api.topicsOpened, isEmpty);
+      expect(api.topicsOpened, hasLength(readsAtRetirement!));
       expect(controller.store.read<TopicDetail>(site.url, 7), isNull);
     },
   );

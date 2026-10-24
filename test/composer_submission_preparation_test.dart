@@ -140,6 +140,92 @@ void main() {
     expect(selected.raw, _editedBody);
   });
 
+  for (final retirement in ['editor', 'account', 'document']) {
+    test(
+      'a held reply boundary cannot dispatch after $retirement retirement',
+      () async {
+        final gate = Completer<void>();
+        final api = _SubmissionApi(topicGate: gate);
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'Topic 7',
+          stream: const [1],
+          postsCount: 1,
+        );
+        final fixture = await _openShell(api);
+        final shell = fixture.shell;
+        final composer = await _openReply(shell, 7);
+        composer.text.text = _body;
+        final sending = shell.submitComposer(composer: composer);
+        addTearDown(() async {
+          if (!gate.isCompleted) gate.complete();
+          await sending;
+        });
+        await pumpEventQueue();
+        expect(api.topicsOpened, [7]);
+        expect(api.created, isEmpty);
+        switch (retirement) {
+          case 'editor':
+            shell.closeComposer(composer: composer);
+          case 'account':
+            shell.lifecycle.invalidate(_site);
+          case 'document':
+            composer.clearDocument();
+            composer.text.text = _editedBody;
+        }
+        gate.complete();
+        await sending;
+        expect(api.created, isEmpty);
+        if (retirement == 'document') expect(composer.raw, _editedBody);
+      },
+    );
+  }
+
+  test('reply fields stay frozen while the boundary is pending', () async {
+    final gate = Completer<void>();
+    final api = _SubmissionApi(topicGate: gate);
+    api.topics[7] = topicPayload(
+      id: 7,
+      title: 'Topic 7',
+      stream: const [1],
+      postsCount: 1,
+    );
+    final fixture = await _openShell(api);
+    final shell = fixture.shell;
+    final composer = await _openReply(shell, 7);
+    composer.text.text = _body;
+    final sending = shell.submitComposer(composer: composer);
+    addTearDown(() async {
+      if (!gate.isCompleted) gate.complete();
+      await sending;
+    });
+    await pumpEventQueue();
+    expect(api.topicsOpened, [7]);
+    expect(composer.submitting, isTrue);
+    composer.text.text = _editedBody;
+    await shell.submitComposer(composer: composer);
+    expect(api.created, isEmpty);
+    gate.complete();
+    await sending;
+    expect(api.created, hasLength(1));
+    expect(api.created.single['raw'], _body);
+    expect(api.created.single['topicId'], 7);
+  });
+
+  test(
+    'direct reply success remains accepted when boundary read fails',
+    () async {
+      final api = _SubmissionApi();
+      final fixture = await _openShell(api);
+      final composer = await _openReply(fixture.shell, 7);
+      composer.text.text = _body;
+      await fixture.shell.submitComposer(composer: composer);
+      expect(api.created, hasLength(1));
+      expect(fixture.shell.visibleComposer, isNull);
+      expect(fixture.shell.store.read<Post>(_site, 9001), isNotNull);
+    },
+  );
+
   test('create fields stay frozen while credentials are pending', () async {
     final authenticator = _HeldAuthenticator()..keys[_site] = 'api-key';
     final api = _SubmissionApi();
@@ -273,12 +359,21 @@ void main() {
       final api = _SubmissionApi(
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'Topic 7',
+        stream: const [1],
+        postsCount: 1,
+        canCreatePost: true,
+      );
       final fixture = await _openShell(api);
       final shell = fixture.shell;
       final first = await _openReply(shell, 7);
       first.text.text = _body;
 
+      api.failPostRead = true;
       await shell.submitComposer(composer: first);
+      api.failPostRead = false;
       expect(api.created, hasLength(1));
       expect(first.canRecheck, isTrue);
 
@@ -415,7 +510,7 @@ final class _Preparer implements PluginComposerSubmitPreparer {
 }
 
 final class _SubmissionApi extends FakeDiscourseApi {
-  _SubmissionApi({super.writeFailure, super.createPostGate})
+  _SubmissionApi({super.writeFailure, super.createPostGate, super.topicGate})
     : super(
         feeds: const {'/latest.json': []},
         creatableFeedPaths: const {'/latest.json'},
@@ -426,6 +521,30 @@ final class _SubmissionApi extends FakeDiscourseApi {
           _site: SiteConfig(authorizedExtensions: ['png', 'txt']),
         },
       );
+
+  bool failPostRead = false;
+
+  @override
+  Future<List<Post>> posts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    bool includeRaw = false,
+    String? apiKey,
+    String? clientId,
+  }) {
+    if (failPostRead) {
+      throw const WriteException(WriteFailure.unreachable);
+    }
+    return super.posts(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      ids: ids,
+      includeRaw: includeRaw,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 
   final uploadedNames = <String>[];
 
