@@ -8885,6 +8885,64 @@ void main() {
       },
     );
 
+    for (final ownAdd in [false, true]) {
+      for (final failure in [
+        null,
+        const WriteException(WriteFailure.unreachable),
+        const WriteException(WriteFailure.unreachable, notSent: true),
+      ]) {
+        test(
+          'own ${ownAdd ? 'add' : 'remove'} before dispatch cannot confirm '
+          '${failure == null ? 'success' : 'unreachable notSent=${failure.notSent}'}',
+          () async {
+            final credentials = _ControllableCredentials();
+            final subject = build(
+              currentUser: currentUser,
+              credentialReader: credentials,
+              reactionFailure: failure,
+              messages: {
+                key(9): page([
+                  message(
+                    1,
+                    reactions: const [
+                      ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+                    ],
+                  ),
+                ]),
+              },
+            );
+            addTearDown(subject.chat.dispose);
+            addTearDown(credentials.releaseApiKey);
+            subject.store.put(site, channel(9));
+            final tracker = attachTracker(subject.chat);
+            await subject.chat.openChannel(site, 9);
+            final view = subject.chat.beginViewingChannel(site, 9);
+            addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+            final started = credentials.blockApiKey();
+            final writing = subject.chat.addMessageReaction(site, 1, 'clap');
+            await started;
+            expect(subject.api.chatReactionsSet, isEmpty);
+            tracker.deliverPluginMessage('/chat/9', {
+              'type': 'reaction',
+              'chat_message_id': 1,
+              'emoji': 'clap',
+              'action': ownAdd ? 'add' : 'remove',
+              'user': {'id': currentUser.id},
+            });
+            credentials.releaseApiKey();
+            final error = await writing;
+            expect(subject.api.chatReactionsSet, hasLength(1));
+            final reaction = subject.chat.message(site, 1)!.reactions.single;
+            final expectedReacted = failure == null || ownAdd;
+            expect(reaction.reacted, expectedReacted);
+            expect(reaction.count, expectedReacted ? 2 : 1);
+            expect(reaction.reactorIds, expectedReacted ? [8, 7] : [8]);
+            expect(error, failure == null ? isNull : failure.message);
+          },
+        );
+      }
+    }
+
     for (final fail in [false, true]) {
       test(
         'retired confirmed reaction ${fail ? 'response loss' : 'success'} cannot settle or release its replacement',
