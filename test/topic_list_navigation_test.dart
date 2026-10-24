@@ -371,7 +371,10 @@ void main() {
         expect(controller.currentTopicListMode, TopicListMode.latest);
         expect(controller.topicListContent?.isAdvancedTopicFilter, isFalse);
         expect(controller.topicListContent?.categoryId, submit ? 42 : null);
-        expect(controller.topicListContent?.tagNames, submit ? ['design'] : []);
+        expect(
+          controller.topicListContent?.tagNames,
+          submit ? ['design'] : <String>[],
+        );
         expect(
           controller.topicListContent?.topicListOrder,
           submit ? null : 'posts',
