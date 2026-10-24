@@ -11213,6 +11213,60 @@ void main() {
       },
     );
 
+    test(
+      'admitted callers wait for the drain while duplicate reads finish',
+      () async {
+        final api = _SessionReadRaceApi();
+        final subject = build(api: api);
+        subject.store.put(site, channel(9, lastRead: 1));
+        addTearDown(subject.chat.dispose);
+
+        var firstDone = false;
+        var queuedDone = false;
+        final first = subject.chat
+            .markRead(site, 9, 2)
+            .then((_) => firstDone = true);
+        await api.firstReadStarted.future;
+        final queued = subject.chat
+            .markRead(site, 9, 3)
+            .then((_) => queuedDone = true);
+        await subject.chat.markRead(site, 9, 3);
+        expect(firstDone, isFalse);
+        expect(queuedDone, isFalse);
+        expect(subject.chat.channel(site, 9)?.membership.lastReadMessageId, 3);
+
+        api.firstReadGate.complete();
+        await api.secondReadStarted.future;
+        expect(firstDone, isFalse);
+        expect(queuedDone, isFalse);
+        api.secondReadGate.complete();
+        await Future.wait([first, queued]);
+        expect(firstDone, isTrue);
+        expect(queuedDone, isTrue);
+      },
+    );
+
+    test(
+      'forget during optimistic publication prevents receipt delivery',
+      () async {
+        final subject = build();
+        subject.store.put(site, channel(9, lastRead: 1));
+        addTearDown(subject.chat.dispose);
+        var published = false;
+        subject.store.ref<ChatChannel>(site, 9).addListener(() {
+          if (published) return;
+          published = true;
+          subject.chat.forget(site);
+        });
+
+        await subject.chat.markRead(site, 9, 3);
+
+        expect(published, isTrue);
+        expect(subject.api.chatReadsMarked, isEmpty);
+        expect(subject.chat.channel(site, 9), isNull);
+      },
+    );
+
     test('an old session cannot dequeue a new session read receipt', () async {
       final api = _SessionReadRaceApi();
       final credentials = FakeApiCredentialReader()..keys[site] = 'account-a';

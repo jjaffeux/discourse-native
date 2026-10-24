@@ -25,6 +25,7 @@ import 'chat_plugin_data.dart';
 import 'chat_prepared_cooking.dart';
 import 'chat_preview.dart';
 import 'chat_reactors.dart';
+import 'chat_read_receipt_owner.dart';
 import 'chat_route.dart';
 import 'chat_send_coordinator.dart';
 import 'chat_stream_target.dart';
@@ -3357,83 +3358,46 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed) return Future.value();
     final lease = _requests.capture(siteUrl);
     final window = streamFor(siteUrl, target);
+    final admission = ChatReadReceiptOwner.admit(
+      target,
+      messageId,
+      ChatReadReceiptSnapshot(
+        lease: lease,
+        channel: channel(siteUrl, target.channelId),
+        thread: target.threadId == null
+            ? null
+            : thread(siteUrl, target.threadId!),
+        isLocalMessage: window.localMessageIds.contains(messageId),
+        atPresent: window.atPresent,
+        newestMessageId: window.newestId,
+      ),
+    );
+    if (admission == null) return Future.value();
+    return _conversationFor(siteUrl, target).readReceipts.markRead(admission);
+  }
 
-    // A negative optimistic ID must never become the server's read cursor.
-    if (messageId <= 0 || window.localMessageIds.contains(messageId)) {
-      return Future.value();
-    }
-
-    // Discourse returns 404 when no followed membership row can be advanced.
-    final channelHeld = channel(siteUrl, target.channelId);
-    final threadHeld = target.threadId == null
-        ? null
-        : thread(siteUrl, target.threadId!);
-    if (target.threadId == null &&
-        (channelHeld == null || !channelHeld.membership.following)) {
-      return Future.value();
-    }
-    if (target.threadId != null && threadHeld?.membership == null) {
-      return Future.value();
-    }
-
-    // Read cursors are monotonic, also deduplicating repeated viewport ticks.
-    final lastRead = target.threadId == null
-        ? channelHeld!.membership.lastReadMessageId
-        : threadHeld!.membership!.lastReadMessageId;
-    final alreadyRead = lastRead != null && lastRead >= messageId;
-
-    // Membership and tracking can briefly disagree. Clear stale aggregate
-    // counts locally without sending a duplicate receipt.
-    final caughtUp =
-        target.threadId == null &&
-        window.atPresent &&
-        window.newestId == messageId;
-    final hasStaleChannelCounts =
-        caughtUp &&
-        (channelHeld!.tracking.unreadCount > 0 ||
-            channelHeld.tracking.mentionCount > 0);
-    if (alreadyRead && !hasStaleChannelCounts) return Future.value();
-
-    final conversation = _conversationFor(siteUrl, target);
-    // Queue before the credential await so concurrent viewport ticks coalesce.
-    final viewedAt = _clock().toUtc();
-    if (target.threadId == null) {
-      // Root caught-up state cannot use channel.last_message_id, which may name
-      // a thread reply deliberately absent from the root stream.
-      ChatChannel? updatedChannel;
-      _updateChannel(siteUrl, target.channelId, (current) {
-        final readThrough = alreadyRead
-            ? current.membership.lastReadMessageId
-            : messageId;
-        if (readThrough == null) return current;
-        var updated = current.withLastRead(readThrough, caughtUp: caughtUp);
-        final previous = updated.membership.lastViewedAt;
-        if (previous == null || viewedAt.isAfter(previous)) {
-          updated = updated.withLastViewedAt(viewedAt);
+  void _publishRead(
+    String siteUrl,
+    ChatStreamTarget target,
+    ChatReadAdmission admission,
+    DateTime viewedAt,
+  ) {
+    switch (admission) {
+      case ChatChannelRead():
+        ChatChannel? updatedChannel;
+        _updateChannel(siteUrl, target.channelId, (current) {
+          final updated = admission.project(current, viewedAt);
+          if (updated == null) return current;
+          updatedChannel = updated;
+          return updated;
+        });
+        if (updatedChannel case final updated?) {
+          _publishNotificationChange(siteUrl, admission.before, updated);
         }
-        updatedChannel = updated;
-        return updated;
-      });
-      if (updatedChannel case final updated?) {
-        _publishNotificationChange(siteUrl, channelHeld!, updated);
-      }
-    } else {
-      _updateThread(siteUrl, target.threadId!, (current) {
-        final membership = current.membership;
-        if (membership == null ||
-            (membership.lastReadMessageId ?? 0) >= messageId) {
-          return current;
-        }
-        return current.copyWith(
-          membership: membership.withLastReadMessageId(messageId),
-        );
-      });
+      case ChatThreadRead():
+        _updateThread(siteUrl, target.threadId!, admission.project);
     }
     notifySafely();
-
-    if (alreadyRead) return Future.value();
-
-    return conversation.queueReadReceipt(messageId, lease);
   }
 
   void forget(String siteUrl) {

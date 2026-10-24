@@ -8,15 +8,6 @@ final class _ChatPageRequest {
   final _ChatWindowGeneration generation;
 }
 
-final class _ChatReadRun {}
-
-final class _ChatReadReceipt {
-  _ChatReadReceipt(this.messageId, this.lease);
-
-  final int messageId;
-  final PluginSiteLease lease;
-}
-
 final class _ChatConversationStream {
   _ChatConversationStream(this._controller, this.siteUrl, this.target)
     : key = ChatController._targetKey(siteUrl, target);
@@ -37,9 +28,7 @@ final class _ChatConversationStream {
   DateTime? _attemptedAt;
   final Set<int> _pendingLiveMessageIds = {};
   Timer? _noticeTimer;
-  _ChatReadReceipt? _queuedReadReceipt;
-  Future<void>? _readTask;
-  _ChatReadRun? _readRun;
+  ChatReadReceiptOwner? _readReceipts;
   bool _retired = false;
 
   bool get isCurrent =>
@@ -64,9 +53,7 @@ final class _ChatConversationStream {
       _olderRequest != null ||
       _newerRequest != null ||
       _noticeTimer != null ||
-      _queuedReadReceipt != null ||
-      _readTask != null ||
-      _readRun != null ||
+      (_readReceipts?.preventsEviction ?? false) ||
       (_messagePins?.length ?? 0) > 0;
 
   void publish(ChatStreamState stream, {_ChatWindowGrowth? growth}) {
@@ -147,9 +134,8 @@ final class _ChatConversationStream {
     _completePinInputs = null;
     abandonWindowWork();
     _window = null;
-    _queuedReadReceipt = null;
-    _readRun = null;
-    _readTask = null;
+    _readReceipts?.retire();
+    _readReceipts = null;
     _messagePins?.release();
     _messagePins = null;
   }
@@ -740,67 +726,15 @@ final class _ChatConversationStream {
     }
   }
 
-  Future<void> queueReadReceipt(int messageId, PluginSiteLease lease) {
-    if (!isCurrent || !lease.isCurrent) return Future.value();
-    _queuedReadReceipt = _ChatReadReceipt(messageId, lease);
-    final running = _readTask;
-    if (running != null) return running;
-    final run = _ChatReadRun();
-    _readRun = run;
-    final task = _drainReadReceipts(run);
-    _readTask = task;
-    return task;
-  }
-
-  Future<void> _drainReadReceipts(_ChatReadRun run) async {
-    bool ownsRequest() => isCurrent && identical(_readRun, run);
-    while (true) {
-      if (!ownsRequest()) return;
-      final receipt = _queuedReadReceipt;
-      _queuedReadReceipt = null;
-      if (receipt == null) {
-        if (ownsRequest()) {
-          _readRun = null;
-          _readTask = null;
-        }
-        return;
-      }
-      try {
-        final requestCredentials = await _controller._requests.credentialsFor(
-          siteUrl,
-        );
-        final apiKey = requestCredentials.apiKey;
-        if (!_controller._requestIsCurrent(receipt.lease, ownsRequest)) {
-          continue;
-        }
-        if (apiKey == null) continue;
-        final clientId = requestCredentials.clientId;
-        if (!_controller._requestIsCurrent(receipt.lease, ownsRequest)) {
-          continue;
-        }
-        if (target.threadId == null) {
-          await requestCredentials.run(
-            () => _controller.api.markChatChannelRead(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              channelId: target.channelId,
-              messageId: receipt.messageId,
-              clientId: clientId,
-            ),
-          );
-        } else {
-          await requestCredentials.run(
-            () => _controller.api.markChatThreadRead(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              messageId: receipt.messageId,
-              clientId: clientId,
-            ),
-          );
-        }
-      } catch (_) {}
-    }
-  }
+  ChatReadReceiptOwner get readReceipts =>
+      _readReceipts ??= ChatReadReceiptOwner(
+        siteUrl: siteUrl,
+        target: target,
+        api: _controller.api,
+        requests: _controller._requests,
+        clock: _controller._clock,
+        isCurrent: () => isCurrent,
+        publish: (admission, viewedAt) =>
+            _controller._publishRead(siteUrl, target, admission, viewedAt),
+      );
 }
