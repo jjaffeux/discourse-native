@@ -448,6 +448,60 @@ void main() {
       expect(await restoredWriting(), 'My only unsent writing');
     });
 
+    for (final account in <String?>[null, 'id:1']) {
+      test(
+        'restores legacy-only writing after ${account ?? 'flat'} draft retirement fails',
+        () async {
+          final localSite = DraftStore.accountSiteKey(_siteUrl, account);
+          final flatPrefix = 'discourse_native.draft::$_siteUrl::';
+          final accountPrefix =
+              'discourse_native.account_draft::${Uri.encodeComponent(_siteUrl)}::';
+          final activePrefix = account == null ? flatPrefix : accountPrefix;
+          final inactivePrefix = account == null ? accountPrefix : flatPrefix;
+          final key = account == null
+              ? '${flatPrefix}topic_42'
+              : '$accountPrefix${Uri.encodeComponent(account)}::topic_42';
+          SharedPreferences.setMockInitialValues({
+            key: 'Writing that has never reached private storage',
+          });
+          final storage = LinuxFileStorage(directory: directory);
+          final failingStorage = _FailingDraftPrefixDeletion(
+            storage,
+            activePrefix,
+          );
+          final fixture = _Fixture(
+            initialInstance: DiscourseInstance(
+              url: _siteUrl,
+              title: 'Meta',
+              user: _accountA,
+              draftOwner: account == null ? null : 'id:2',
+            ),
+            draftStore: DraftStore(
+              persistence: PrivateDraftPersistence(storage: failingStorage),
+            ),
+          );
+
+          final result = await fixture.coordinator.disconnect(_siteUrl);
+
+          expect(result, isA<AccountDisconnectionFailed>());
+          expect(fixture.current.user, _accountA);
+          expect((await fixture.durable).user, _accountA);
+          expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+          expect(failingStorage.deletedPrefixes, [inactivePrefix, activePrefix]);
+          expect(failingStorage.retirementMarkerWasDurable, isTrue);
+          final restarted = DraftStore(
+            persistence: PrivateDraftPersistence(
+              storage: LinuxFileStorage(directory: directory),
+            ),
+          );
+          expect(
+            await restarted.read(localSite, 'topic_42'),
+            'Writing that has never reached private storage',
+          );
+        },
+      );
+    }
+
     test('preserves saved writing after expiry and process restart', () async {
       final fixture = _Fixture(draftStore: drafts);
       final expired = await fixture.coordinator.expireRejectedKey(
@@ -1366,4 +1420,37 @@ final class _NoLegacyDrafts implements PrivateStorage {
 
   @override
   Future<void> delete(String key) async {}
+}
+
+final class _FailingDraftPrefixDeletion implements EnumerablePrivateStorage {
+  _FailingDraftPrefixDeletion(this.storage, this.failingPrefix);
+
+  final EnumerablePrivateStorage storage;
+  final String failingPrefix;
+  final deletedPrefixes = <String>[];
+  bool retirementMarkerWasDurable = false;
+
+  @override
+  Future<void> deletePrefix(String prefix) async {
+    deletedPrefixes.add(prefix);
+    if (prefix == failingPrefix) {
+      retirementMarkerWasDurable =
+          await storage.read('discourse_native.retired_draft_prefix::$prefix') !=
+          null;
+      throw StateError('active draft deletion failed after retirement');
+    }
+    await storage.deletePrefix(prefix);
+  }
+
+  @override
+  Future<void> delete(String key) => storage.delete(key);
+
+  @override
+  Future<String?> read(String key) => storage.read(key);
+
+  @override
+  Future<Map<String, String>> readAll() => storage.readAll();
+
+  @override
+  Future<void> write(String key, String value) => storage.write(key, value);
 }
