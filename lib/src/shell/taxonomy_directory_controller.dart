@@ -31,7 +31,8 @@ final class _TaxonomySite {
   _KnownTagIndex? knownTagIndex;
 }
 
-final class _TaxonomyDirectoryController {
+final class _TaxonomyDirectoryController
+    implements NotificationPreferenceTaxonomy {
   _TaxonomyDirectoryController(this._shell);
 
   final ShellController _shell;
@@ -69,11 +70,13 @@ final class _TaxonomyDirectoryController {
       _sites[siteUrl]?.categoryFeed ?? const CategoryFeed();
   TagDirectoryFeed tagDirectoryFeedFor(String siteUrl) =>
       _sites[siteUrl]?.tagDirectoryFeed ?? const TagDirectoryFeed();
+  @override
   void invalidateCategorySidebar(String siteUrl) {
     final site = _sites[siteUrl];
     if (site != null) site.categorySidebarCache = null;
   }
 
+  @override
   void projectNotificationLevel(
     String siteUrl,
     int categoryId,

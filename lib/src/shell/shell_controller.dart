@@ -135,6 +135,7 @@ import 'global_search_models.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'mobile_navigation.dart';
+import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
 import 'post_checklist_write.dart';
 import 'post_quote.dart';
@@ -162,7 +163,6 @@ part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'instance_rail_transactions.dart';
-part 'notification_preference_transactions.dart';
 part 'post_commands.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
@@ -3849,7 +3849,12 @@ class ShellController extends FrameSafeNotifier
           final topicId = entry.key;
           final coreChannel = '/topic/$topicId';
           if (channel == coreChannel) {
-            _applyTopicNotificationMessage(siteUrl, topicId, data, lease);
+            _notificationPreferences.observeTopicMessage(
+              siteUrl,
+              topicId,
+              data,
+              lease,
+            );
             _applyTopicStatsMessage(siteUrl, topicId, data, lease);
           }
           final core = channel == coreChannel
@@ -4266,6 +4271,7 @@ class ShellController extends FrameSafeNotifier
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
           badges.forget(siteUrl);
+          _notificationPreferences.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl)?.retire();
           _liveSessions.clearRetry(siteUrl);
         }
@@ -4537,10 +4543,54 @@ class ShellController extends FrameSafeNotifier
     loadTimeout: topicLoadTimeout,
     bookmarkReads: (siteUrl, lease) => _bookmarks.forLease(siteUrl, lease)!,
   );
-  final Map<(String siteUrl, int topicId), _TopicNotificationQueue>
-  _topicNotificationQueues = {};
-  final Map<String, _CategoryNotificationAccount>
-  _categoryNotificationAccounts = {};
+  late final _notificationPreferences = NotificationPreferenceTransactions(
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    topics: api.topicMutations,
+    categories: api.categoryMutations,
+    site: api.site,
+    currentUsers: NotificationPreferenceCurrentUsers(
+      read: (siteUrl) => _instanceAt(siteUrl)?.user,
+      reconcilerFor: _currentUserReconcilerFor,
+      publish: (siteUrl, lease, user) {
+        if (!lease.isCurrent || isDisposed) return;
+        final instance = _instanceAt(siteUrl);
+        if (instance == null) return;
+        _replaceInstance(instance, instance.copyWith(user: user));
+        instanceStore.save(List.of(_instances)).ignore();
+      },
+    ),
+    taxonomy: _taxonomy,
+    trackingEffects: NotificationPreferenceTracking(
+      forSite: _trackingFor,
+      refresh:
+          ({
+            required siteUrl,
+            required username,
+            required lease,
+            required tracking,
+            required ticket,
+            required requestCredentials,
+            refreshCategoryPreferences,
+          }) {
+            _liveSessions.clearRetry(siteUrl);
+            return _liveSessions.loadTracking(
+              siteUrl: siteUrl,
+              username: username,
+              lease: lease,
+              tracking: tracking,
+              ticket: ticket,
+              requestCredentials: requestCredentials,
+              refreshCategoryPreferences: refreshCategoryPreferences,
+            );
+          },
+    ),
+    topicChanged: (siteUrl) {
+      if (currentInstance?.url == siteUrl) _notify();
+    },
+    changed: _notify,
+  );
   final Set<String> _topicPinWrites = {};
   final Set<String> _topicStatusWrites = {};
   final Set<String> _topicDeletionWrites = {};
@@ -5865,437 +5915,13 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     int topicId,
     TopicNotificationLevel level,
-  ) {
-    if (isDisposed || topicId <= 0) return Future.value(false);
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (held == null) return Future.value(false);
-
-    final key = (siteUrl, topicId);
-    if (held.notificationLevel == level &&
-        !_topicNotificationQueues.containsKey(key)) {
-      return Future.value(true);
-    }
-    final tracking = _trackingFor(siteUrl);
-    final choice = tracking.chooseNotificationLevel(
-      topicId,
-      level,
-      confirmed: held.notificationLevel,
-    );
-    final heldQueue = _topicNotificationQueues[key];
-    final queue = heldQueue != null && heldQueue.isCurrent
-        ? heldQueue
-        : _TopicNotificationQueue(siteUrl, topicId, lifecycle.capture(siteUrl));
-    final write = _QueuedTopicNotification(
-      level: level,
-      tracking: tracking,
-      choice: choice,
-    );
-    late final Future<void> tail;
-    tail = queue.tail
-        .catchError((_) {
-          // Every write settles internally. Keep one unexpected failure from
-          // stranding later selections in the queue.
-        })
-        .then((_) => _performTopicNotificationWrite(queue, write))
-        .whenComplete(() {
-          if (!identical(_topicNotificationQueues[key], queue) ||
-              !queue.finish(write, tail)) {
-            return;
-          }
-          final _ = _topicNotificationQueues.remove(key);
-          write.tracking.releaseNotificationChoice(write.choice);
-        });
-    queue.admit(write, tail);
-    _topicNotificationQueues[key] = queue;
-    unawaited(tail);
-    // Store and shell listeners can synchronously replace this selection or
-    // account. Own the lease and queue slot before either can run.
-    _projectTopicNotificationLevel(queue, write, level);
-    return write.result.future;
-  }
-
-  bool _isLatestTopicNotification(
-    _TopicNotificationQueue queue,
-    _QueuedTopicNotification write,
-  ) =>
-      queue.owns(write) &&
-      identical(_topicTrackingBySite[queue.siteUrl], write.tracking) &&
-      !isDisposed;
-
-  Future<void> _performTopicNotificationWrite(
-    _TopicNotificationQueue queue,
-    _QueuedTopicNotification write,
-  ) async {
-    bool isLatest() => _isLatestTopicNotification(queue, write);
-
-    if (!isLatest()) {
-      write.complete(false);
-      return;
-    }
-
-    try {
-      final credential = await _credentialForWrite(
-        queue.siteUrl,
-        lease: queue.lease,
-        withClientId: true,
-      );
-      if (!isLatest()) {
-        write.complete(false);
-        return;
-      }
-      if (credential.failure != null) {
-        _rollbackTopicNotification(queue, write);
-        write.complete(false);
-        return;
-      }
-      final clientId = credential.request!.clientId;
-      if (!isLatest()) {
-        write.complete(false);
-        return;
-      }
-      await credential.request!.run(
-        () => api.topicMutations.updateTopicNotificationLevel(
-          siteUrl: queue.siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: queue.topicId,
-          notificationLevel: write.level,
-          clientId: clientId,
-        ),
-      );
-      if (!queue.isCurrent || isDisposed) {
-        write.complete(false);
-        return;
-      }
-      final visible = write.tracking.settleNotificationLevel(
-        write.choice,
-        succeeded: true,
-      );
-      if (visible != null) {
-        _projectTopicNotificationLevel(queue, write, visible);
-      }
-      write.complete(true);
-    } catch (error) {
-      if (queue.isCurrent && !isDisposed) {
-        if (isLatest()) _rollbackTopicNotification(queue, write);
-      }
-      write.complete(false);
-    }
-  }
-
-  void _rollbackTopicNotification(
-    _TopicNotificationQueue queue,
-    _QueuedTopicNotification write,
-  ) {
-    final visible = write.tracking.settleNotificationLevel(
-      write.choice,
-      succeeded: false,
-    );
-    if (visible != null) _projectTopicNotificationLevel(queue, write, visible);
-  }
-
-  void _projectTopicNotificationLevel(
-    _TopicNotificationQueue queue,
-    _QueuedTopicNotification write,
-    TopicNotificationLevel level,
-  ) {
-    if (!_isLatestTopicNotification(queue, write)) return;
-    _setTopicNotificationLevel(
-      queue.siteUrl,
-      queue.topicId,
-      level,
-      queue.lease,
-    );
-  }
-
-  void _applyTopicNotificationMessage(
-    String siteUrl,
-    int topicId,
-    Object? data,
-    SiteLease lease,
-  ) {
-    if (data is! Map) return;
-    final value = data['notification_level_change'];
-    if (value is! int || value < 0 || value > 3) return;
-    final level = TopicNotificationLevel.fromJson(value);
-    final visible = _trackingFor(
-      siteUrl,
-    ).observeNotificationLevel(topicId, level);
-    _setTopicNotificationLevel(siteUrl, topicId, visible, lease);
-  }
-
-  void _setTopicNotificationLevel(
-    String siteUrl,
-    int topicId,
-    TopicNotificationLevel level,
-    SiteLease lease,
-  ) {
-    if (!lease.isCurrent || isDisposed) return;
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (topic) => topic.withNotificationLevel(level),
-    );
-    if (lease.isCurrent && !isDisposed && currentInstance?.url == siteUrl) {
-      _notify();
-    }
-  }
+  ) => _notificationPreferences.updateTopic(siteUrl, topicId, level);
 
   Future<bool> updateCategoryNotificationLevel(
     String siteUrl,
     int categoryId,
     CategoryNotificationLevel level,
-  ) {
-    if (isDisposed || categoryId <= 0) return Future.value(false);
-    final held = store.read<TopicCategory>(siteUrl, categoryId);
-    if (held == null) return Future.value(false);
-
-    final heldAccount = _categoryNotificationAccounts[siteUrl];
-    if (held.notificationLevel == level &&
-        heldAccount?.category(categoryId) == null) {
-      return Future.value(true);
-    }
-    final account = heldAccount != null && heldAccount.isCurrent
-        ? heldAccount
-        : _CategoryNotificationAccount(siteUrl, lifecycle.capture(siteUrl));
-    final queue =
-        account.category(categoryId) ??
-        _CategoryNotificationQueue(account, categoryId, held.notificationLevel);
-    final write = _QueuedCategoryNotification(level: level);
-    // The response includes a site-wide inherited mute list. Serialize category
-    // writes across the account so an older response cannot undo another edit.
-    late final Future<void> tail;
-    tail = account.tail
-        .catchError((_) {
-          // Every write settles internally. Keep one unexpected failure from
-          // stranding later selections in the queue.
-        })
-        .then((_) => _performCategoryNotificationWrite(queue, write))
-        .whenComplete(() {
-          if (!identical(_categoryNotificationAccounts[siteUrl], account)) {
-            return;
-          }
-          if (account.finish(queue, write, tail)) {
-            final _ = _categoryNotificationAccounts.remove(siteUrl);
-          }
-        });
-    account.admit(queue, write, tail);
-    _categoryNotificationAccounts[siteUrl] = account;
-    unawaited(tail);
-    // Reentrant selections must append after this write, even when they are
-    // made by a listener during optimistic projection.
-    _projectCategoryNotificationLevel(queue, write, level);
-    return write.result.future;
-  }
-
-  bool _isLatestCategoryNotification(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
-  ) => queue.owns(write) && !isDisposed;
-
-  Future<void> _performCategoryNotificationWrite(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
-  ) async {
-    bool isLatest() => _isLatestCategoryNotification(queue, write);
-
-    if (!isLatest()) {
-      write.complete(false);
-      return;
-    }
-
-    late final String apiKey;
-    late final String clientId;
-    late final AccountRequestCredentials requestCredentials;
-    final List<int>? indirectlyMuted;
-    try {
-      final credential = await _credentialForWrite(
-        queue.account.siteUrl,
-        lease: queue.account.lease,
-        withClientId: true,
-      );
-      if (!isLatest()) {
-        write.complete(false);
-        return;
-      }
-      if (credential.failure != null) {
-        _rollbackCategoryNotification(queue, write);
-        write.complete(false);
-        return;
-      }
-      apiKey = credential.apiKey!;
-      clientId = credential.request!.clientId;
-      requestCredentials = credential.request!;
-      if (!isLatest()) {
-        write.complete(false);
-        return;
-      }
-      indirectlyMuted = await credential.request!.run(
-        () => api.categoryMutations.updateCategoryNotificationLevel(
-          siteUrl: queue.account.siteUrl,
-          apiKey: apiKey,
-          categoryId: queue.categoryId,
-          notificationLevel: write.level,
-          clientId: clientId,
-        ),
-      );
-    } catch (error) {
-      if (queue.account.isCurrent && !isDisposed) {
-        if (isLatest()) _rollbackCategoryNotification(queue, write);
-      }
-      write.complete(false);
-      return;
-    }
-
-    if (!queue.account.isCurrent || isDisposed) {
-      write.complete(false);
-      return;
-    }
-    queue.confirm(write.level);
-    final currentUserOwner = _currentUserReconcilerFor(queue.account.siteUrl);
-    final categoryTicket = currentUserOwner.categoryPreferencesChanged();
-    final user = _instanceAt(queue.account.siteUrl)?.user;
-    if (user != null) {
-      List<int>? membership(List<int>? ids, CategoryNotificationLevel level) =>
-          ids == null
-          ? null
-          : List.unmodifiable({
-              for (final id in ids)
-                if (id != queue.categoryId) id,
-              if (write.level == level) queue.categoryId,
-            });
-      _commitCategoryNotificationPreferences(
-        queue.account.siteUrl,
-        user.withCategoryNotificationPreferences(
-          trackedCategoryIds: membership(
-            user.trackedCategoryIds,
-            CategoryNotificationLevel.tracking,
-          ),
-          watchedCategoryIds: membership(
-            user.watchedCategoryIds,
-            CategoryNotificationLevel.watching,
-          ),
-          watchedFirstPostCategoryIds: membership(
-            user.watchedFirstPostCategoryIds,
-            CategoryNotificationLevel.watchingFirstPost,
-          ),
-          mutedCategoryIds: membership(
-            user.mutedCategoryIds,
-            CategoryNotificationLevel.muted,
-          ),
-          indirectlyMutedCategoryIds:
-              indirectlyMuted ?? user.indirectlyMutedCategoryIds,
-        ),
-      );
-    }
-    _projectCategoryNotificationLevel(queue, write, write.level);
-    // Persistence and refresh failures cannot turn a committed POST into a
-    // failed write, nor delay the next optimistic choice in the write queue.
-    write.complete(true);
-    if (!queue.account.isCurrent || isDisposed) return;
-    final username = _instanceAt(queue.account.siteUrl)?.user?.username;
-    if (username == null) return;
-    final tracking = _trackingFor(queue.account.siteUrl);
-    final ticket = tracking.beginSnapshot(replace: true);
-    if (ticket == null) return;
-    _liveSessions.clearRetry(queue.account.siteUrl);
-    unawaited(
-      _liveSessions.loadTracking(
-        siteUrl: queue.account.siteUrl,
-        username: username,
-        lease: queue.account.lease,
-        tracking: tracking,
-        ticket: ticket,
-        requestCredentials: requestCredentials,
-        refreshCategoryPreferences:
-            indirectlyMuted == null ||
-                user?.followedCategoryIds == null ||
-                user?.mutedCategoryIds == null
-            ? () async {
-                final response = await requestCredentials.run(
-                  () => api.site.currentUser(
-                    siteUrl: queue.account.siteUrl,
-                    apiKey: apiKey,
-                    clientId: clientId,
-                  ),
-                );
-                if (!queue.account.isCurrent || isDisposed) return;
-                final held = _instanceAt(queue.account.siteUrl)?.user;
-                if (!currentUserOwner.acceptsCategoryPreferences(
-                  categoryTicket,
-                  previous: held,
-                  incoming: response,
-                )) {
-                  return;
-                }
-                _commitCategoryNotificationPreferences(
-                  queue.account.siteUrl,
-                  response,
-                );
-              }
-            : null,
-      ),
-    );
-    _notify();
-  }
-
-  void _commitCategoryNotificationPreferences(
-    String siteUrl,
-    DiscourseUser preferences,
-  ) {
-    final instance = _instanceAt(siteUrl);
-    final user = instance?.user;
-    if (instance == null || user == null) return;
-    final updated = user.withCategoryNotificationPreferences(
-      trackedCategoryIds:
-          preferences.trackedCategoryIds ?? user.trackedCategoryIds,
-      watchedCategoryIds:
-          preferences.watchedCategoryIds ?? user.watchedCategoryIds,
-      watchedFirstPostCategoryIds:
-          preferences.watchedFirstPostCategoryIds ??
-          user.watchedFirstPostCategoryIds,
-      mutedCategoryIds: preferences.mutedCategoryIds ?? user.mutedCategoryIds,
-      indirectlyMutedCategoryIds:
-          preferences.indirectlyMutedCategoryIds ??
-          user.indirectlyMutedCategoryIds,
-    );
-    _replaceInstance(instance, instance.copyWith(user: updated));
-    _taxonomy.invalidateCategorySidebar(siteUrl);
-    instanceStore.save(List.of(_instances)).ignore();
-  }
-
-  void _rollbackCategoryNotification(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
-  ) {
-    _projectCategoryNotificationLevel(queue, write, queue.confirmed);
-  }
-
-  void _projectCategoryNotificationLevel(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
-    CategoryNotificationLevel level,
-  ) {
-    if (!_isLatestCategoryNotification(queue, write)) return;
-    _taxonomy.projectNotificationLevel(
-      queue.account.siteUrl,
-      queue.categoryId,
-      level,
-      queue.account.lease,
-    );
-  }
-
-  void _retireNotificationTransactions({String? siteUrl}) {
-    _topicNotificationQueues.removeWhere((key, queue) {
-      if (siteUrl != null && key.$1 != siteUrl) return false;
-      queue.retire();
-      return true;
-    });
-    _categoryNotificationAccounts.removeWhere((key, account) {
-      if (siteUrl != null && key != siteUrl) return false;
-      account.retire();
-      return true;
-    });
-  }
+  ) => _notificationPreferences.updateCategory(siteUrl, categoryId, level);
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
       _topicPinWrites.contains(_topicKey(siteUrl, topicId));
@@ -10695,7 +10321,7 @@ class ShellController extends FrameSafeNotifier
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _selectedPosts.removeWhere((key, _) => key.siteUrl == siteUrl);
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _retireNotificationTransactions(siteUrl: siteUrl);
+    _notificationPreferences.forget(siteUrl);
     _currentUserReconcilers.remove(siteUrl)?.retire();
     _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
@@ -11621,7 +11247,7 @@ class ShellController extends FrameSafeNotifier
     _topicNavigation.dispose();
     _topicPropertyRequests.dispose();
     unawaited(_topicListRevealRequests.close());
-    _retireNotificationTransactions();
+    _notificationPreferences.dispose();
     for (final owner in _currentUserReconcilers.values) {
       owner.retire();
     }
