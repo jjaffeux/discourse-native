@@ -34,70 +34,61 @@ abstract interface class AccountSessionHost {
   );
 }
 
-enum AccountConnectionOutcome { connected, cancelled, failed, stale, missing }
+sealed class AccountConnectionResult {
+  const AccountConnectionResult._();
+}
 
-final class AccountConnectionResult {
-  const AccountConnectionResult._({
-    required this.outcome,
-    this.instance,
-    this.apiKey,
-    this.message,
-    this.refreshSignedOutPresentation = false,
-  });
+final class AccountConnected extends AccountConnectionResult {
+  const AccountConnected(this.instance, this.apiKey) : super._();
 
-  const AccountConnectionResult.connected(
-    DiscourseInstance instance,
-    String apiKey,
-  ) : this._(
-        outcome: AccountConnectionOutcome.connected,
-        instance: instance,
-        apiKey: apiKey,
-      );
+  final DiscourseInstance instance;
+  final String apiKey;
+}
 
-  const AccountConnectionResult.cancelled()
-    : this._(outcome: AccountConnectionOutcome.cancelled);
+final class AccountConnectionCancelled extends AccountConnectionResult {
+  const AccountConnectionCancelled() : super._();
+}
 
-  const AccountConnectionResult.failed(
-    String message, {
-    bool refreshSignedOutPresentation = false,
-  }) : this._(
-         outcome: AccountConnectionOutcome.failed,
-         message: message,
-         refreshSignedOutPresentation: refreshSignedOutPresentation,
-       );
+final class AccountConnectionFailed extends AccountConnectionResult {
+  const AccountConnectionFailed(
+    this.message, {
+    required this.refreshSignedOutPresentation,
+  }) : super._();
 
-  const AccountConnectionResult.stale()
-    : this._(outcome: AccountConnectionOutcome.stale);
-
-  const AccountConnectionResult.missing()
-    : this._(outcome: AccountConnectionOutcome.missing);
-
-  final AccountConnectionOutcome outcome;
-  final DiscourseInstance? instance;
-  final String? apiKey;
-  final String? message;
+  final String message;
   final bool refreshSignedOutPresentation;
 }
 
-enum AccountDisconnectionOutcome { disconnected, failed, stale, missing }
+final class AccountConnectionStale extends AccountConnectionResult {
+  const AccountConnectionStale() : super._();
+}
 
-final class AccountDisconnectionResult {
-  const AccountDisconnectionResult._(this.outcome, [this.lease]);
+final class AccountConnectionMissing extends AccountConnectionResult {
+  const AccountConnectionMissing() : super._();
+}
 
-  const AccountDisconnectionResult.disconnected(SiteLease lease)
-    : this._(AccountDisconnectionOutcome.disconnected, lease);
+sealed class AccountDisconnectionResult {
+  const AccountDisconnectionResult._();
+}
 
-  const AccountDisconnectionResult.failed()
-    : this._(AccountDisconnectionOutcome.failed);
+final class AccountDisconnected extends AccountDisconnectionResult {
+  const AccountDisconnected(this.lease) : super._();
 
-  const AccountDisconnectionResult.stale(SiteLease lease)
-    : this._(AccountDisconnectionOutcome.stale, lease);
+  final SiteLease lease;
+}
 
-  const AccountDisconnectionResult.missing()
-    : this._(AccountDisconnectionOutcome.missing);
+final class AccountDisconnectionFailed extends AccountDisconnectionResult {
+  const AccountDisconnectionFailed() : super._();
+}
 
-  final AccountDisconnectionOutcome outcome;
-  final SiteLease? lease;
+final class AccountDisconnectionStale extends AccountDisconnectionResult {
+  const AccountDisconnectionStale(this.lease) : super._();
+
+  final SiteLease lease;
+}
+
+final class AccountDisconnectionMissing extends AccountDisconnectionResult {
+  const AccountDisconnectionMissing() : super._();
 }
 
 /// Owns the durable account boundary across public metadata and private state.
@@ -130,7 +121,7 @@ final class AccountSessionCoordinator {
     final initial = host.accountSessionInstance(siteUrl);
     if (initial == null) {
       _finish(siteUrl, operation);
-      return const AccountConnectionResult.missing();
+      return const AccountConnectionMissing();
     }
 
     String? previousKey;
@@ -141,13 +132,13 @@ final class AccountSessionCoordinator {
     try {
       previousKey = await authenticator.apiKeyFor(siteUrl);
       if (!_isCurrent(siteUrl, operation)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       credentials = await authenticator.authorize(siteUrl);
       if (!_isCurrent(siteUrl, operation)) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       await drafts.clearSite(
@@ -156,18 +147,18 @@ final class AccountSessionCoordinator {
       );
       if (!_isCurrent(siteUrl, operation)) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       final pendingLease = _rotate(siteUrl, operation);
       if (pendingLease == null) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       final held = host.accountSessionInstance(siteUrl);
       if (held == null) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.missing();
+        return const AccountConnectionMissing();
       }
       final pending = held.copyWith(
         apiVersion: credentials.apiVersion,
@@ -181,17 +172,17 @@ final class AccountSessionCoordinator {
           ) ==
           null) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.missing();
+        return const AccountConnectionMissing();
       }
       pendingPublished = true;
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       await instances.save(List.of(host.accountSessionInstances));
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       final user = await api.currentUser(
@@ -200,13 +191,13 @@ final class AccountSessionCoordinator {
       );
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
         await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       await authenticator.persistCredentials(siteUrl, credentials);
       credentialsPersisted = true;
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       if (previousKey != null && previousKey != credentials.key) {
@@ -218,28 +209,28 @@ final class AccountSessionCoordinator {
         );
       }
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
 
       final connectedLease = _rotate(siteUrl, operation);
       if (connectedLease == null) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       final latest = host.accountSessionInstance(siteUrl);
-      if (latest == null) return const AccountConnectionResult.missing();
+      if (latest == null) return const AccountConnectionMissing();
       final applied = host.applyAccountSessionInstance(
         latest.copyWith(user: user, apiVersion: credentials.apiVersion),
         AccountSessionPhase.connected,
       );
-      if (applied == null) return const AccountConnectionResult.missing();
+      if (applied == null) return const AccountConnectionMissing();
       if (!_isCurrent(siteUrl, operation, connectedLease)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       await instances.save(List.of(host.accountSessionInstances));
       if (!_isCurrent(siteUrl, operation, connectedLease)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
-      return AccountConnectionResult.connected(applied, credentials.key);
+      return AccountConnected(applied, credentials.key);
     } on UserApiAuthException catch (error) {
       if (credentials != null) {
         final recovered = await _recoverConnection(
@@ -253,20 +244,26 @@ final class AccountSessionCoordinator {
         return recovered;
       }
       if (!_isCurrent(siteUrl, operation)) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       if (error.failure == UserApiAuthFailure.cancelled) {
-        return const AccountConnectionResult.cancelled();
+        return const AccountConnectionCancelled();
       }
 
-      return AccountConnectionResult.failed(error.message);
+      return AccountConnectionFailed(
+        error.message,
+        refreshSignedOutPresentation: false,
+      );
     } on SiteLookupException catch (error) {
       if (credentials == null) {
         if (!_isCurrent(siteUrl, operation)) {
-          return const AccountConnectionResult.stale();
+          return const AccountConnectionStale();
         }
 
-        return AccountConnectionResult.failed(error.message);
+        return AccountConnectionFailed(
+          error.message,
+          refreshSignedOutPresentation: false,
+        );
       }
       final recovered = await _recoverConnection(
         siteUrl: siteUrl,
@@ -283,11 +280,12 @@ final class AccountSessionCoordinator {
           await _revokeIssued(siteUrl, credentials.key);
         }
         if (!_isCurrent(siteUrl, operation)) {
-          return const AccountConnectionResult.stale();
+          return const AccountConnectionStale();
         }
 
-        return AccountConnectionResult.failed(
+        return AccountConnectionFailed(
           appL10n.couldNotConnectTo((initial.host).toString()),
+          refreshSignedOutPresentation: false,
         );
       }
       final recovered = await _recoverConnection(
@@ -313,14 +311,14 @@ final class AccountSessionCoordinator {
     required Object error,
   }) async {
     if (!_isCurrent(siteUrl, operation)) {
-      return const AccountConnectionResult.stale();
+      return const AccountConnectionStale();
     }
 
     var refreshSignedOutPresentation = false;
     if (!credentialsPersisted) {
       final recoveryLease = _rotate(siteUrl, operation);
       if (recoveryLease == null) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       host.applyAccountSessionInstance(initial, AccountSessionPhase.restored);
       await _repairSnapshot(siteUrl, operation, recoveryLease);
@@ -328,7 +326,7 @@ final class AccountSessionCoordinator {
     } else {
       final recoveryLease = _rotate(siteUrl, operation);
       if (recoveryLease == null) {
-        return const AccountConnectionResult.stale();
+        return const AccountConnectionStale();
       }
       final held = host.accountSessionInstance(siteUrl);
       if (held != null) {
@@ -353,14 +351,14 @@ final class AccountSessionCoordinator {
     }
 
     if (!_isCurrent(siteUrl, operation)) {
-      return const AccountConnectionResult.stale();
+      return const AccountConnectionStale();
     }
     final message = switch (error) {
       UserApiAuthException(:final message) => message,
       SiteLookupException(:final message) => message,
       _ => appL10n.couldNotConnectTo((initial.host).toString()),
     };
-    return AccountConnectionResult.failed(
+    return AccountConnectionFailed(
       message,
       refreshSignedOutPresentation: refreshSignedOutPresentation,
     );
@@ -374,13 +372,13 @@ final class AccountSessionCoordinator {
     final initial = host.accountSessionInstance(siteUrl);
     if (initial == null) {
       _finish(siteUrl, operation);
-      return const AccountDisconnectionResult.missing();
+      return const AccountDisconnectionMissing();
     }
 
     try {
       final lease = _rotate(siteUrl, operation);
       if (lease == null) {
-        return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+        return AccountDisconnectionStale(lifecycle.capture(siteUrl));
       }
 
       try {
@@ -399,7 +397,7 @@ final class AccountSessionCoordinator {
         );
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
+        return AccountDisconnectionStale(lease);
       }
 
       if (await _enterSignedOut(siteUrl, operation, lease, initial)
@@ -412,7 +410,7 @@ final class AccountSessionCoordinator {
         apiKey = await authenticator.apiKeyFor(siteUrl);
       } catch (_) {}
       if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
+        return AccountDisconnectionStale(lease);
       }
       if (apiKey != null) {
         final revocation = _revokeBestEffort(
@@ -431,7 +429,7 @@ final class AccountSessionCoordinator {
         }
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
-        return AccountDisconnectionResult.stale(lease);
+        return AccountDisconnectionStale(lease);
       }
       return await _forgetCredential(siteUrl, operation, lease);
     } finally {
@@ -478,7 +476,7 @@ final class AccountSessionCoordinator {
     SiteLease lease,
   ) async {
     if (_operations.containsKey(siteUrl) || !lease.isCurrent) {
-      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+      return AccountDisconnectionStale(lifecycle.capture(siteUrl));
     }
     final operation = _begin(siteUrl);
 
@@ -487,19 +485,19 @@ final class AccountSessionCoordinator {
       try {
         stored = await authenticator.apiKeyFor(siteUrl);
       } catch (error) {
-        return const AccountDisconnectionResult.failed();
+        return const AccountDisconnectionFailed();
       }
       final initial = host.accountSessionInstance(siteUrl);
-      if (initial == null) return const AccountDisconnectionResult.missing();
+      if (initial == null) return const AccountDisconnectionMissing();
       if (!_isCurrent(siteUrl, operation, lease) ||
           !initial.isConnected ||
           stored != apiKey) {
-        return AccountDisconnectionResult.stale(lease);
+        return AccountDisconnectionStale(lease);
       }
 
       final signingOut = _rotate(siteUrl, operation);
       if (signingOut == null) {
-        return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+        return AccountDisconnectionStale(lifecycle.capture(siteUrl));
       }
       if (await _enterSignedOut(siteUrl, operation, signingOut, initial)
           case final aborted?) {
@@ -533,16 +531,16 @@ final class AccountSessionCoordinator {
           AccountSessionPhase.disconnecting,
         ) ==
         null) {
-      return const AccountDisconnectionResult.missing();
+      return const AccountDisconnectionMissing();
     }
     if (!_isCurrent(siteUrl, operation, lease)) {
-      return AccountDisconnectionResult.stale(lease);
+      return AccountDisconnectionStale(lease);
     }
     if (!await _persistSignedOut(siteUrl, operation, lease)) {
       return _restoreFailedDisconnect(siteUrl, operation, lease, initial);
     }
     if (!_isCurrent(siteUrl, operation, lease)) {
-      return AccountDisconnectionResult.stale(lease);
+      return AccountDisconnectionStale(lease);
     }
     return null;
   }
@@ -558,15 +556,15 @@ final class AccountSessionCoordinator {
       await authenticator.disconnect(siteUrl);
     } catch (_) {}
     if (!_isCurrent(siteUrl, operation, lease)) {
-      return AccountDisconnectionResult.stale(lease);
+      return AccountDisconnectionStale(lease);
     }
 
     final signedOut = _rotate(siteUrl, operation);
     if (signedOut == null) {
-      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+      return AccountDisconnectionStale(lifecycle.capture(siteUrl));
     }
     final latest = host.accountSessionInstance(siteUrl);
-    if (latest == null) return const AccountDisconnectionResult.missing();
+    if (latest == null) return const AccountDisconnectionMissing();
     host.applyAccountSessionInstance(
       latest.copyWith(
         clearUser: true,
@@ -575,7 +573,7 @@ final class AccountSessionCoordinator {
       ),
       AccountSessionPhase.disconnected,
     );
-    return AccountDisconnectionResult.disconnected(signedOut);
+    return AccountDisconnected(signedOut);
   }
 
   Future<AccountDisconnectionResult> _restoreFailedDisconnect(
@@ -585,24 +583,24 @@ final class AccountSessionCoordinator {
     DiscourseInstance initial,
   ) async {
     if (!_isCurrent(siteUrl, operation, lease)) {
-      return AccountDisconnectionResult.stale(lease);
+      return AccountDisconnectionStale(lease);
     }
 
     final restoredLease = _rotate(siteUrl, operation);
     if (restoredLease == null) {
-      return AccountDisconnectionResult.stale(lifecycle.capture(siteUrl));
+      return AccountDisconnectionStale(lifecycle.capture(siteUrl));
     }
     if (host.applyAccountSessionInstance(
           initial,
           AccountSessionPhase.restored,
         ) ==
         null) {
-      return const AccountDisconnectionResult.missing();
+      return const AccountDisconnectionMissing();
     }
     await _repairSnapshot(siteUrl, operation, restoredLease);
     return _isCurrent(siteUrl, operation, restoredLease)
-        ? const AccountDisconnectionResult.failed()
-        : AccountDisconnectionResult.stale(restoredLease);
+        ? const AccountDisconnectionFailed()
+        : AccountDisconnectionStale(restoredLease);
   }
 
   Future<bool> _persistSignedOut(
