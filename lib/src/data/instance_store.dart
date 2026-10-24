@@ -91,9 +91,6 @@ class InstanceStore {
   }
 
   Future<void> _persistSnapshot(List<DiscourseInstance> instances) async {
-    // Instances are immutable, but equality compares URLs rather than revisions.
-    // Keep encodings with this store's codec and discard removed identities even
-    // if conversion or persistence of the replacement snapshot fails.
     final retained = Map<DiscourseInstance, String>.identity();
     for (final instance in instances) {
       if (_encodedInstances[instance] case final encoded?) {
