@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_video_thumbnail_repository.dart';
 import 'package:flutter/services.dart';
@@ -107,6 +108,66 @@ void main() {
     },
   );
 
+  test(
+    'retirement releases active and queued jobs without explicit forget',
+    () async {
+      final harness = _Harness(maxConcurrent: 1);
+      final first = harness.acquire();
+      final shared = harness.acquire();
+      final queued = harness.acquire('queued');
+      final other = harness.acquire('other', 'https://other.example');
+      await _flush();
+      first.dispose();
+      expect(harness.jobs.single.cancelled, isFalse);
+
+      harness.lifecycle.invalidate(_site);
+      expect(harness.jobs.single.cancelled, isTrue);
+      expect(await shared.result, isNull);
+      expect(await queued.result, isNull);
+      await _flush();
+      expect(harness.jobs, hasLength(2));
+      expect(harness.jobs.last.source.host, 'other.example');
+      harness.jobs.last.result.complete(Uint8List.fromList([3]));
+      expect(await other.result, orderedEquals([3]));
+
+      final successor = harness.acquire();
+      await _flush();
+      shared.dispose();
+      queued.dispose();
+      harness.jobs.first.result.completeError(
+        StateError('late extraction failure'),
+      );
+      await _flush();
+      expect(harness.jobs.last.cancelled, isFalse);
+      harness.jobs.last.result.complete(Uint8List.fromList([4]));
+      expect(await successor.result, orderedEquals([4]));
+      expect(await harness.acquire().result, orderedEquals([4]));
+    },
+  );
+
+  test(
+    'retirement releases a job waiting for credentials and observes late errors',
+    () async {
+      final credentials = _HeldCredentials();
+      final harness = _Harness(maxConcurrent: 1, credentials: credentials);
+      final waiting = harness.repository.acquire(
+        siteUrl: _site,
+        url: Uri.parse('$_site/secure-uploads/clip.mp4'),
+      );
+      await credentials.started.future;
+      final next = harness.acquire('next', 'https://other.example');
+
+      harness.lifecycle.invalidate(_site);
+      expect(await waiting.result, isNull);
+      await _flush();
+      expect(harness.jobs.single.source.host, 'other.example');
+      credentials.held.completeError(StateError('late credential failure'));
+      await _flush();
+      harness.jobs.single.result.complete(Uint8List.fromList([5]));
+      expect(await next.result, orderedEquals([5]));
+    },
+  );
+
   test('briefly caches failures and permits retry after cooldown', () async {
     final harness = _Harness();
     final first = harness.acquire();
@@ -200,9 +261,10 @@ final class _Harness {
     int maxConcurrent = 2,
     int maxPending = 32,
     int maxCachedBytes = 1024,
+    ApiCredentialReader? credentials,
   }) {
     repository = SiteVideoThumbnailRepository(
-      credentials: FakeApiCredentialReader(),
+      credentials: credentials ?? FakeApiCredentialReader(),
       lifecycle: lifecycle,
       maxConcurrent: maxConcurrent,
       maxPending: maxPending,
@@ -225,9 +287,12 @@ final class _Harness {
   var now = DateTime(2026);
   late final SiteVideoThumbnailRepository repository;
 
-  VideoThumbnailRequest acquire([String name = 'clip']) => repository.acquire(
-    siteUrl: _site,
-    url: Uri.parse('$_site/uploads/$name.mp4'),
+  VideoThumbnailRequest acquire([
+    String name = 'clip',
+    String siteUrl = _site,
+  ]) => repository.acquire(
+    siteUrl: siteUrl,
+    url: Uri.parse('$siteUrl/uploads/$name.mp4'),
   );
 }
 
@@ -237,4 +302,18 @@ final class _Extraction {
   final Uri source;
   final result = Completer<Uint8List?>();
   bool cancelled = false;
+}
+
+final class _HeldCredentials implements ApiCredentialReader {
+  final started = Completer<void>();
+  final held = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    started.complete();
+    return held.future;
+  }
+
+  @override
+  Future<String> clientId() async => 'client';
 }

@@ -452,6 +452,111 @@ void main() {
     );
   }
 
+  test(
+    'retirement aborts only its own probe and permits a successor',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final started = Completer<void>();
+      final aborted = Completer<void>();
+      final lateHeaders = Completer<http.StreamedResponse>();
+      var bodyCancelled = false;
+      final body = StreamController<List<int>>(
+        onCancel: () => bodyCancelled = true,
+      );
+      var requests = 0;
+      final resolver = SiteVideoSourceResolver(
+        credentials: const _Credentials(apiKey: 'secret'),
+        lifecycle: lifecycle,
+        client: MockClient.streaming((request, _) {
+          requests++;
+          if (requests == 1) {
+            unawaited(
+              (request as http.Abortable).abortTrigger!.then(
+                (_) => aborted.complete(),
+              ),
+            );
+            started.complete();
+            return lateHeaders.future;
+          }
+          return Future.value(
+            http.StreamedResponse(
+              const Stream.empty(),
+              request.url.host == 'cdn.example' ? 200 : 302,
+              headers: {'location': 'https://cdn.example/demo.mp4'},
+            ),
+          );
+        }),
+      );
+      addTearDown(resolver.close);
+      final old = resolver.resolve(
+        siteUrl: siteUrl,
+        url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+      );
+      final stopped = expectLater(old, throwsStateError);
+      await started.future;
+      final other = resolver.resolve(
+        siteUrl: 'https://other.example',
+        url: Uri.parse('https://other.example/secure-uploads/demo.mp4'),
+      );
+      lifecycle.invalidate(siteUrl);
+      await stopped;
+      await aborted.future;
+      expect((await other).url.host, 'cdn.example');
+      expect(
+        (await resolver.resolve(
+          siteUrl: siteUrl,
+          url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+        )).url.host,
+        'cdn.example',
+      );
+      lateHeaders.complete(http.StreamedResponse(body.stream, 200));
+      await pumpEventQueue();
+      expect(bodyCancelled, isTrue);
+      await body.close();
+    },
+  );
+
+  test(
+    'retirement interrupts stalled probe-body cancellation and observes late failure',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final cancelling = Completer<void>();
+      final release = Completer<void>();
+      final body = StreamController<List<int>>(
+        onCancel: () {
+          cancelling.complete();
+          return release.future;
+        },
+      );
+      final aborted = Completer<void>();
+      final resolver = SiteVideoSourceResolver(
+        credentials: const _Credentials(apiKey: 'secret'),
+        lifecycle: lifecycle,
+        client: MockClient.streaming((request, _) async {
+          unawaited(
+            (request as http.Abortable).abortTrigger!.then(
+              (_) => aborted.complete(),
+            ),
+          );
+          return http.StreamedResponse(body.stream, 200);
+        }),
+      );
+      addTearDown(resolver.close);
+      final resolving = resolver.resolve(
+        siteUrl: siteUrl,
+        url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+      );
+      final stopped = expectLater(resolving, throwsStateError);
+      await cancelling.future;
+      lifecycle.invalidate(siteUrl);
+      await stopped;
+      await aborted.future;
+      release.completeError(StateError('late cancellation failure'));
+      await pumpEventQueue();
+      await body.close();
+    },
+  );
+
   test('closing aborts a stalled redirect probe', () async {
     final requestStarted = Completer<void>();
     final resolver = SiteVideoSourceResolver(
@@ -508,9 +613,10 @@ void main() {
 
   test('closing does not retain and abort completed probe requests', () async {
     final aborted = <Uri>[];
+    final lifecycle = SiteLifecycle();
     final resolver = SiteVideoSourceResolver(
       credentials: const _Credentials(apiKey: 'secret'),
-      lifecycle: SiteLifecycle(),
+      lifecycle: lifecycle,
       client: MockClient.streaming((request, _) async {
         unawaited(
           (request as http.Abortable).abortTrigger!.then((_) {
@@ -529,6 +635,7 @@ void main() {
       siteUrl: siteUrl,
       url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
     );
+    lifecycle.invalidate(siteUrl);
     resolver.close();
     await pumpEventQueue();
 
