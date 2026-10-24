@@ -439,7 +439,8 @@ final class _GatedAccountHealingApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
-    started.complete();
+    currentUserRequests.add(siteUrl);
+    if (!started.isCompleted) started.complete();
     await accountGate.future;
     return const DiscourseUser(id: 42, username: 'account-a');
   }
@@ -1140,6 +1141,62 @@ void main() {
         },
       );
     }
+
+    test(
+      'an interrupted refresh retries after a reentrant connection fails',
+      () async {
+        final responseGate = Completer<void>();
+        final authGate = Completer<void>();
+        final api = _GatedAccountHealingApi(responseGate);
+        final auth = _GatedAuthFailureAuthenticator(authGate)
+          ..keys[_siteUrl] = 'account-key';
+        final observer = _RecordingCurrentUserObserver([]);
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'account-a')),
+          ]),
+          api: api,
+          authenticator: auth,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: PluginInstaller.install(
+            PluginManifest([
+              _CurrentUserObserverModule([observer]),
+            ]),
+          ),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await api.started.future;
+        shell.accountActivity.applyGroupedUnreadSnapshot(
+          _siteUrl,
+          NotificationTypeCounts.empty,
+        );
+        Future<void>? connecting;
+        shell.accountActivity.addListener(() {
+          if (connecting != null ||
+              shell.accountActivity.totalsFor(_siteUrl) != null) {
+            return;
+          }
+          connecting = shell.connectCurrentInstance();
+        });
+
+        responseGate.complete();
+        await auth.started.future;
+        expect(shell.currentUserFor(_siteUrl)?.id, 7);
+        expect(shell.freshCurrentUserFor(_siteUrl), isNull);
+        authGate.complete();
+        await connecting!;
+        await pumpEventQueue();
+
+        expect(api.currentUserRequests, hasLength(2));
+        expect(shell.currentUserFor(_siteUrl)?.id, 42);
+        expect(shell.freshCurrentUserFor(_siteUrl)?.id, 42);
+        expect(observer.calls, ['recording:$_siteUrl']);
+      },
+    );
 
     test(
       'a retiring current-user observer prevents later observers from seeing its response',

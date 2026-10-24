@@ -4142,14 +4142,14 @@ class ShellController extends FrameSafeNotifier
           clearNotificationTotals: accepted.accountChanged,
         ),
       );
-      if (!ownsPublication()) return false;
+      if (!ownsPublication()) return true;
     }
     if (accepted.seedGroupedUnreadCounts) {
       _seedGroupedUnreadNotifications(siteUrl, user);
-      if (!ownsPublication()) return false;
+      if (!ownsPublication()) return true;
     }
     _notify();
-    if (!ownsPublication()) return false;
+    if (!ownsPublication()) return true;
     if (changed) instanceStore.save(List.of(_instances)).ignore();
     for (final observer
         in _pluginSession.capabilities<PluginCurrentUserObserver>()) {

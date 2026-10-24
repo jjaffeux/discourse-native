@@ -60,7 +60,7 @@ final class _CurrentUserDirectory {
 
   void markConnectedUserFresh(String siteUrl, SiteLease lease) {
     if (_disposed || !lease.isCurrent) return;
-    _accountFor(siteUrl, lease).fresh = true;
+    _accountFor(siteUrl, lease).confirmation = Object();
   }
 
   Future<DiscourseUser?> refresh(
@@ -122,9 +122,24 @@ final class _CurrentUserDirectory {
         incoming: user,
       );
       if (accepted == null) return;
-      account.fresh = true;
-      if (_host._publishFreshCurrentUser(siteUrl, lease, previous, accepted)) {
-        committed = accepted.user;
+      final previousConfirmation = account.confirmation;
+      final confirmation = Object();
+      account.confirmation = confirmation;
+      var published = false;
+      try {
+        published = _host._publishFreshCurrentUser(
+          siteUrl,
+          lease,
+          previous,
+          accepted,
+        );
+        if (published) committed = accepted.user;
+      } finally {
+        if (!published &&
+            account.isCurrent &&
+            identical(account.confirmation, confirmation)) {
+          account.confirmation = previousConfirmation;
+        }
       }
     });
     return committed;
@@ -147,7 +162,8 @@ final class _CurrentUserAccount {
   final SiteLease lease;
   final CurrentUserReconciler reconciler;
   CurrentUserRefresh? refresh;
-  bool fresh = false;
+  Object? confirmation;
+  bool get fresh => confirmation != null;
   bool _retired = false;
   void Function()? detach;
 
@@ -160,6 +176,6 @@ final class _CurrentUserAccount {
     detach = null;
     refresh?.retire();
     reconciler.retire();
-    fresh = false;
+    confirmation = null;
   }
 }
