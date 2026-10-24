@@ -684,14 +684,36 @@ void main() {
       },
     );
 
+    test('locale week tokens use English week boundaries', () {
+      expect(
+        LocalDateFormatter.formatMoment(
+          DateTime.utc(2026, 12, 31),
+          'w ww wo gg gggg | W WW Wo GG GGGG',
+          const Locale('en'),
+        ),
+        '1 01 1st 27 2027 | 53 53 53rd 26 2026',
+      );
+    });
+
+    test('locale weekday starts on Monday in French', () {
+      expect(
+        LocalDateFormatter.formatMoment(
+          DateTime.utc(2026, 8, 9),
+          'd e E',
+          const Locale('fr'),
+        ),
+        '0 6 7',
+      );
+    });
+
     test('day-of-year and ISO week follow the displayed wall clock', () {
       const locale = Locale('en');
       final newYork = tz.getLocation('America/New_York');
 
       final yearEnd = tz.TZDateTime(newYork, 2026, 12, 31, 23);
       expect(LocalDateFormatter.formatMoment(yearEnd, 'DDD', locale), '365');
-      expect(LocalDateFormatter.formatMoment(yearEnd, 'w', locale), '53');
-      expect(LocalDateFormatter.formatMoment(yearEnd, 'gggg', locale), '2026');
+      expect(LocalDateFormatter.formatMoment(yearEnd, 'W', locale), '53');
+      expect(LocalDateFormatter.formatMoment(yearEnd, 'GGGG', locale), '2026');
 
       final afterSpringForward = tz.TZDateTime(
         tz.getLocation('Australia/Sydney'),
@@ -706,7 +728,7 @@ void main() {
         '277',
       );
       expect(
-        LocalDateFormatter.formatMoment(afterSpringForward, 'w', locale),
+        LocalDateFormatter.formatMoment(afterSpringForward, 'W', locale),
         '40',
       );
 
@@ -718,12 +740,12 @@ void main() {
         12,
       );
       expect(LocalDateFormatter.formatMoment(midYear, 'DDD', locale), '182');
-      expect(LocalDateFormatter.formatMoment(midYear, 'w', locale), '27');
+      expect(LocalDateFormatter.formatMoment(midYear, 'W', locale), '27');
 
       final isoRollover = tz.TZDateTime(newYork, 2025, 12, 29, 12);
-      expect(LocalDateFormatter.formatMoment(isoRollover, 'w', locale), '1');
+      expect(LocalDateFormatter.formatMoment(isoRollover, 'W', locale), '1');
       expect(
-        LocalDateFormatter.formatMoment(isoRollover, 'gggg', locale),
+        LocalDateFormatter.formatMoment(isoRollover, 'GGGG', locale),
         '2026',
       );
     });
