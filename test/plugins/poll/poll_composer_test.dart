@@ -428,6 +428,54 @@ void main() {
       }
     });
 
+    test('comments cannot supply list contexts to later code', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      const live = '[poll name=live]\n* E\n* F\n[/poll]';
+      final sources = [
+        '    [code]\n<!--\n- a\n-->\n  [code]\n    [/code]\n'
+            '[poll]\n* C\n* D\n[/poll]\n[/code]\n$live',
+        '- a\n  [code]\n<!--\n- b\n-->\n  [code]\n    [/code]\n'
+            '[poll]\n* C\n* D\n[/poll]\n[/code]\n[/code]\n$live',
+        '<!--\n- a\n-->\n  [code]\n    [/code]\n  <!--\n[/code]\n'
+            '- b\n\n  [code]\n$live\n[/code]',
+      ];
+      for (final original in sources) {
+        for (final newline in const ['\n', '\r\n']) {
+          final source = original.replaceAll('\n', newline);
+          final expected = live.replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            ['live'],
+            reason: source,
+          );
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks.map((block) => block.name), ['live'], reason: source);
+          final block = blocks.single;
+          expect(block.start, source.indexOf(expected), reason: source);
+          expect(block.end, block.start + expected.length, reason: source);
+          expect(block.source, expected, reason: source);
+          expect(block.lineEnding, newline, reason: source);
+          expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+          expect(nextPollName(source), 'poll', reason: source);
+        }
+      }
+    });
+
     final fixedBaseExamples = <String>[
       for (final task in const ['[ ]', '[x]'])
         for (final (opening, closing) in const [
