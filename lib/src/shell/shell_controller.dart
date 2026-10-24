@@ -155,6 +155,7 @@ import 'topic_feed_controller.dart';
 import 'topic_filter_scope.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
+import 'topic_reader_projections.dart';
 import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
@@ -210,7 +211,6 @@ typedef _ShellWriteCredential = ({
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
-typedef _PostWindow = ({List<int> stream, (int, int)? range, List<int> ids});
 typedef _ClosedForumTab = ({
   String siteUrl,
   String accountIdentity,
@@ -4422,89 +4422,7 @@ class ShellController extends FrameSafeNotifier
 
   List<int> get currentPostIds => focusedTabContext.currentPostIds;
 
-  /// The loaded, contiguous run of the open topic's stream, with its bounds.
-  ///
-  /// The viewport snapshot and the paging flags ask on every shell
-  /// notification, so the run is found once per change of its inputs:
-  /// finding it reads the store once per loaded post, and every read touches
-  /// the store's recency order.
-
-  static const _PostWindow _emptyPostWindow = (
-    stream: [],
-    range: null,
-    ids: [],
-  );
-  final _postWindowCaches = <(String, String?), _PostWindow>{};
-  final _postWindowCacheKeys =
-      <(String, String?), (String, List<int>, int?, Object?)>{};
-
-  /// Where the topic's saved reading position falls in the loaded window,
-  /// counting the "earlier" row that precedes the window when there is one.
-  ///
-  /// The viewport snapshot asks on every shell notification, and the answer
-  /// moves only with the window, the target and that row, so it is kept
-  /// against them: resolving it reads the store once per post up to the
-  /// target. A window is a new list whenever its inputs change, so its
-  /// identity stands for them.
-  int? initialPostIndexFor(
-    String siteUrl,
-    List<int> postIds,
-    int target, {
-    required bool hasEarlier,
-  }) {
-    final cached = _initialPostIndexCache;
-    if (cached != null &&
-        identical(cached.postIds, postIds) &&
-        cached.siteUrl == siteUrl &&
-        cached.target == target &&
-        cached.hasEarlier == hasEarlier) {
-      return cached.index;
-    }
-    int? index;
-    for (var i = 0; i < postIds.length; i++) {
-      final post = store.read<Post>(siteUrl, postIds[i]);
-      // If the named post has since been deleted, reveal the next visible
-      // one rather than dropping the reader at the start of the window.
-      if (post != null && post.postNumber >= target) {
-        index = i + (hasEarlier ? 1 : 0);
-        break;
-      }
-    }
-    _initialPostIndexCache = (
-      siteUrl: siteUrl,
-      postIds: postIds,
-      target: target,
-      hasEarlier: hasEarlier,
-      index: index,
-    );
-    return index;
-  }
-
-  ({
-    String siteUrl,
-    List<int> postIds,
-    int target,
-    bool hasEarlier,
-    int? index,
-  })?
-  _initialPostIndexCache;
-
-  List<int> _pendingPostIds(String siteUrl, _PostWindow window, int limit) {
-    final stream = window.stream;
-    final range = window.range;
-    final start = range == null ? 0 : range.$2 + 1;
-    final pending = <int>[];
-    // One page plus a lookahead tells the caller whether to resolve the
-    // final recommendations. Do not scan and allocate the entire unread tail
-    // on the UI isolate every time the reader approaches a page boundary.
-    for (var index = start; index < stream.length; index++) {
-      final id = stream[index];
-      if (store.containsRecord<Post>(siteUrl, id)) continue;
-      pending.add(id);
-      if (pending.length == limit) break;
-    }
-    return pending;
-  }
+  late final _readerProjections = TopicReaderProjections(store);
 
   /// Whether the stream continues past the loaded window.
   ///
@@ -5857,8 +5775,7 @@ class ShellController extends FrameSafeNotifier
     final data = _topicData.forSite(instance.url);
     if (data.paging(topicId, newer: true)) return;
     final bounded = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
-    final pending = _pendingPostIds(
-      instance.url,
+    final pending = context._reader!.pendingAfter(
       context._currentPostWindow(),
       bounded + 1,
     );
@@ -5887,9 +5804,8 @@ class ShellController extends FrameSafeNotifier
     final data = _topicData.forSite(instance.url);
     if (data.paging(topicId, newer: false)) return;
     final bounded = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
-    final pending = context._pendingEarlierPostIds(
-      instance.url,
-      detail,
+    final pending = context._reader!.pendingBefore(
+      context._currentPostWindow(),
       bounded,
     );
     if (pending.isEmpty) {
@@ -9835,6 +9751,7 @@ class ShellController extends FrameSafeNotifier
     _bookmarks.dispose();
     _checklists.dispose();
     _topicData.dispose();
+    _readerProjections.dispose();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
     for (final composer in _composerRegistry.live) {
