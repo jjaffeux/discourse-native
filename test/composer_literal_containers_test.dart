@@ -329,6 +329,79 @@ void main() {
     );
   }
 
+  for (final (name, prefix, active) in [
+    ('table with body', '| A | B |\n| --- | --- |\n| x | y |', true),
+    ('table without body', '| A | B |\n| --- | --- |', true),
+    ('single column table', '| A |\n| --- |', true),
+    ('nonpipe table body', '| A | B |\n| --- | --- |\nplain body', true),
+    (
+      'escaped header pipe',
+      r'A\|B'
+          '\n---',
+      true,
+    ),
+    (
+      'double escaped header pipe',
+      r'| A\\|B |'
+          '\n| --- |',
+      true,
+    ),
+    (
+      'image header pipe',
+      '| ![a|20x20](https://example.test/a.png) |\n| --- |',
+      true,
+    ),
+    ('link header pipe', '| [a|b](https://example.test/a) |\n| --- |', true),
+    ('mismatched table columns', '| A | B |\n| --- |', false),
+    ('empty grid', '[grid]\n[/grid]', true),
+    ('carousel grid', '[grid mode=carousel]\n[/grid]', true),
+    ('cooker grid attribute', '[grid mode=other]\n[/grid]', true),
+    ('grid with prose', '[grid]\nprose\n[/grid]', true),
+    ('nested grid', '[grid]\n[grid]\n[/grid]\n[/grid]', true),
+    ('same-line grid', '[grid]one[/grid]', true),
+    ('malformed grid closer', '[grid]\n[/grid ]', false),
+    ('trailing grid text', '[grid]\n[/grid] trailing', false),
+    ('unclosed grid', '[grid]\nprose', false),
+    ('orphan grid closer', 'prose\n[/grid]', false),
+    ('inline code grid opener', '`[grid]`\n[/grid]', false),
+    ('comment grid opener', '<!--\n[grid]\n-->\n[/grid]', false),
+    ('plain details tags', '[details=x]\nbody\n[/details]', false),
+    ('prose after table', '| A |\n| --- |\n\nprose', false),
+    ('prose after grid', '[grid]\n[/grid]\nprose', false),
+  ]) {
+    for (final newline in ['\n', '\r\n']) {
+      test('post-block indented comment after $name with $newline', () async {
+        const image = '![active](https://example.test/b.png)';
+        final source = '$prefix\n    <!--\n$image\n-->'.replaceAll(
+          '\n',
+          newline,
+        );
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        final result = await service.cook(
+          CookingRequest(
+            raw: source,
+            snapshot: CookingSnapshot(
+              siteId: 'test-site',
+              accountId: 'test-account',
+            ),
+          ),
+        );
+        expect(result.failure, isNull);
+        expect(result.html!.contains('alt="active"'), active);
+        expect(result.html!.contains('<pre><code>&lt;!--'), active);
+        final images = parseComposerImages(
+          source,
+        ).where((block) => block.alt == 'active');
+        expect(images, hasLength(active ? 1 : 0));
+        if (active) {
+          expect(images.single.start, source.indexOf(image));
+          expect(images.single.source, image);
+        }
+      });
+    }
+  }
+
   test('rejected inline comments preserve the later paragraph image', () {
     const active = '![active](https://example.test/b.png)';
     final source = '${'text <!--\n' * 2000}\n-->\n\n$active';
