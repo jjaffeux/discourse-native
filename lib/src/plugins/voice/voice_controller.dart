@@ -34,6 +34,7 @@ part 'voice_device_preferences.dart';
 part 'voice_incoming_call_adapters.dart';
 part 'voice_membership_editor.dart';
 part 'voice_room_directory.dart';
+part 'voice_room_events.dart';
 part 'voice_user_invitation_session.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -249,6 +250,17 @@ final class VoiceController extends ChangeNotifier {
   final VoiceIncomingCallAnswered? _onIncomingCallAnswered;
   final Duration Function()? _idleClock;
   late final _VoiceCallManager _calls = _VoiceCallManager(this);
+  late final _roomEvents = _VoiceRoomEvents(
+    calls: _calls,
+    directoryFor: (siteUrl) => _roomDirectories[siteUrl],
+    userIdFor: _userIdFor,
+    publish: () {
+      _notifyRoomListChanged();
+      notifyListeners();
+    },
+    notify: _notify,
+    observe: _observe,
+  );
   late final _incoming = VoiceIncomingCalls(
     rooms: _VoiceIncomingRoomAccess(this),
     joins: _VoiceIncomingJoinAccess(this),
@@ -616,214 +628,6 @@ final class VoiceController extends ChangeNotifier {
             : incoming.recording,
       );
 
-  void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
-    if (_disposed) return;
-    if (data is! Map<String, dynamic>) return;
-    if (data['type'] == 'signal') {
-      _observe(() => _handleSignalEnvelope(siteUrl, roomId, data));
-      return;
-    }
-    final event = VoiceRoomEvent.fromJson(data);
-    if (event == null) return;
-    if (event is VoiceKickedEvent) {
-      final call = _call;
-      if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-        _observe(() => _leave(notifyServer: false));
-      }
-      return;
-    }
-    _roomDirectories[siteUrl]?.liveRoomChanged(roomId);
-    if (event is VoiceRoleChangedEvent) {
-      final held = room(siteUrl, roomId);
-      if (held != null &&
-          held.participants.any(
-            (participant) => participant.id == event.userId,
-          )) {
-        _replaceParticipants(siteUrl, roomId, [
-          for (final participant in held.participants)
-            participant.id == event.userId
-                ? _participantWithRole(participant, event.role)
-                : participant,
-        ]);
-      }
-      if (event.userId == _userIdFor(siteUrl) &&
-          _call?.siteUrl == siteUrl &&
-          _call?.room.id == roomId) {
-        _notify(
-          event.role == VoiceRole.participant
-              ? appL10n.youVeBeenMovedToListeners
-              : appL10n.youVeBeenMadeASpeaker,
-        );
-      }
-      return;
-    }
-    if (event is VoiceHandRaiseEvent) {
-      _applyHandRaise(siteUrl, roomId, event);
-      return;
-    }
-    if (event is VoiceRingingEvent) {
-      _updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
-      _notifyRoomListChanged();
-      notifyListeners();
-      return;
-    }
-    if (event is VoiceParticipantsEvent) {
-      _replaceParticipants(siteUrl, roomId, event.participants);
-    }
-    if (event is VoiceRecordingEvent) {
-      final wasRecording = room(siteUrl, roomId)?.recording?.active ?? false;
-      _replaceRecording(siteUrl, roomId, event.recording);
-      // Only people in the call are told; the moderator who pressed the
-      // button watched their own control change.
-      final call = _call;
-      if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-        final recording = event.recording;
-        if (recording != null && recording.active) {
-          if (recording.startedById != _userIdFor(siteUrl)) {
-            _notify(appL10n.thisCallIsNowBeingRecorded);
-          }
-        } else if (wasRecording) {
-          _notify(appL10n.theRecordingHasStopped);
-        }
-      }
-    }
-  }
-
-  /// The lightweight hand-raise event lands before the roster broadcast that
-  /// carries the same change, so the raise is applied to the held roster at
-  /// once. The toasts mirror the web client: a dismissed request tells its
-  /// owner, a new raise tells the room's managers.
-  void _applyHandRaise(String siteUrl, int roomId, VoiceHandRaiseEvent event) {
-    final userId = _userIdFor(siteUrl);
-    _updateRoom(siteUrl, roomId, (room) {
-      if (!room.participants.any((p) => p.id == event.userId)) return room;
-      return room.withParticipants([
-        for (final participant in room.participants)
-          participant.id == event.userId
-              ? _participantWithHandRaised(
-                  participant,
-                  event.raised ? (event.raisedAt ?? DateTime.now()) : null,
-                )
-              : participant,
-      ]);
-    });
-    // The call's copy of the room is the one serialized for this user, so
-    // it is the one that knows whether they manage it.
-    final call = _call;
-    final inCall =
-        call != null && call.siteUrl == siteUrl && call.room.id == roomId;
-    final held = inCall ? call.room : room(siteUrl, roomId);
-    if (inCall && event.userId == userId) {
-      if (!event.raised && event.reason == 'dismissed') {
-        _notify(appL10n.yourRequestToSpeakWasDismissed);
-      }
-    } else if (inCall && event.raised && (held?.canManage ?? false)) {
-      final raiser = held?.participants
-          .where((participant) => participant.id == event.userId)
-          .firstOrNull;
-      if (raiser != null) {
-        _notify(
-          appL10n.raisedTheirHandToSpeak(
-            (raiser.name ?? raiser.username).toString(),
-          ),
-        );
-      }
-    }
-    _notifyRoomListChanged();
-    notifyListeners();
-  }
-
-  Future<void> _handleSignalEnvelope(
-    String siteUrl,
-    int roomId,
-    Map<String, dynamic> envelope,
-  ) async {
-    final senderId = liveRefreshId(envelope['sender_id']);
-    if (senderId == null) return;
-
-    final events = <Map<String, dynamic>>[];
-    final rawEvents = envelope['events'];
-    if (rawEvents is Iterable) {
-      for (final value in rawEvents.take(25)) {
-        if (value is Map) events.add(Map<String, dynamic>.from(value));
-      }
-    } else {
-      final legacyEvent = envelope['data'];
-      if (legacyEvent is Map) {
-        events.add(Map<String, dynamic>.from(legacyEvent));
-      }
-    }
-    final call = _call;
-
-    if (call == null ||
-        call.siteUrl != siteUrl ||
-        call.room.id != roomId ||
-        events.isEmpty) {
-      return;
-    }
-    final activeCall = call;
-
-    // Voice attests the sender and includes their basic serialization so an
-    // offer can beat the asynchronous roster broadcast without creating an
-    // invisible peer. Stage rooms still wait for the authoritative roster,
-    // because the basic serialization does not carry the sender's stage role.
-    if (activeCall.room.type == VoiceRoomType.open &&
-        events.any((event) => event['type'] == 'offer') &&
-        !activeCall.room.participants.any(
-          (participant) => participant.id == senderId,
-        )) {
-      final rawSender = envelope['sender'];
-      if (rawSender is Map) {
-        final participant = VoiceParticipant.fromJson(
-          Map<String, dynamic>.from(rawSender),
-        );
-        if (participant.id == senderId) {
-          final participants = canonicalVoiceParticipants([
-            ...activeCall.room.participants,
-            participant,
-          ]);
-          _roomDirectories[siteUrl]?.updateListedRoom(
-            roomId,
-            (room) => room.withParticipants(participants),
-          );
-          if (identical(_call?.media, activeCall.media)) {
-            _calls.current?.updateRoom(
-              (room) => room.withParticipants(participants),
-            );
-            _notifyRoomListChanged();
-            notifyListeners();
-            await activeCall.media.syncParticipants(participants);
-          }
-        }
-      }
-    }
-
-    if (!identical(_call?.media, activeCall.media)) return;
-    for (final event in events) {
-      await activeCall.media.handleSignal(senderId, event);
-    }
-  }
-
-  static VoiceParticipant _participantWithRole(
-    VoiceParticipant participant,
-    VoiceRole role,
-  ) => VoiceParticipant(
-    id: participant.id,
-    username: participant.username,
-    externalAgent: participant.externalAgent,
-    livekitIdentity: participant.livekitIdentity,
-    role: role,
-    name: participant.name,
-    avatarTemplate: participant.avatarTemplate,
-    muted: participant.muted,
-    deafened: participant.deafened,
-    videoOn: participant.videoOn,
-    screenSharing: participant.screenSharing,
-    watchingVideo: participant.watchingVideo,
-    idleState: participant.idleState,
-    handRaisedAt: participant.handRaisedAt,
-  );
-
   static VoiceParticipant _participantWithIdleState(
     VoiceParticipant participant,
     VoiceIdleState idleState,
@@ -844,78 +648,10 @@ final class VoiceController extends ChangeNotifier {
     handRaisedAt: participant.handRaisedAt,
   );
 
-  static VoiceParticipant _participantWithHandRaised(
-    VoiceParticipant participant,
-    DateTime? handRaisedAt,
-  ) => VoiceParticipant(
-    id: participant.id,
-    username: participant.username,
-    externalAgent: participant.externalAgent,
-    livekitIdentity: participant.livekitIdentity,
-    role: participant.role,
-    name: participant.name,
-    avatarTemplate: participant.avatarTemplate,
-    muted: participant.muted,
-    deafened: participant.deafened,
-    videoOn: participant.videoOn,
-    screenSharing: participant.screenSharing,
-    watchingVideo: participant.watchingVideo,
-    idleState: participant.idleState,
-    handRaisedAt: handRaisedAt,
-  );
-
-  /// Applies [update] to every copy of the room this controller holds — the
-  /// directory listing, a room reached by link, and (unless [updateCall] is
-  /// off) the active call — so no surface reads a stale copy.
-  void _updateRoom(
-    String siteUrl,
-    int roomId,
-    VoiceRoom Function(VoiceRoom room) update, {
-    bool updateCall = true,
-  }) {
-    _roomDirectories[siteUrl]?.updateRoom(roomId, update);
-    final call = _call;
-    if (updateCall &&
-        call != null &&
-        call.siteUrl == siteUrl &&
-        call.room.id == roomId) {
-      _calls.current?.updateRoom(update);
-    }
-  }
-
-  void _replaceRecording(
-    String siteUrl,
-    int roomId,
-    VoiceRecording? recording,
-  ) {
-    _updateRoom(siteUrl, roomId, (room) => room.withRecording(recording));
-    _notifyRoomListChanged();
-    notifyListeners();
-  }
-
-  void _replaceParticipants(
-    String siteUrl,
-    int roomId,
-    List<VoiceParticipant> participants,
-  ) {
-    _updateRoom(
-      siteUrl,
-      roomId,
-      (room) => room.withParticipants(participants),
-      updateCall: false,
-    );
-    if (_calls.current case final session?) {
-      session.receiveParticipants(siteUrl, roomId, participants);
-    } else {
-      _notifyRoomListChanged();
-      notifyListeners();
-    }
-  }
-
   void _removeLocalParticipant(String siteUrl, int roomId) {
     final userId = _userIdFor(siteUrl);
     if (userId == null) return;
-    _updateRoom(
+    _roomEvents.updateRoom(
       siteUrl,
       roomId,
       (room) => room.withParticipants([

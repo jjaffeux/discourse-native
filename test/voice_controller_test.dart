@@ -139,6 +139,8 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   bool screen = false;
   bool audioPublishingAllowed = true;
   Object? signalFailure;
+  Future<void> Function()? onHandleSignal;
+  Future<void> Function()? onSyncParticipants;
   Object? audioPublishingFailure;
   Object? muteFailure;
   Object? participantSyncFailure;
@@ -194,6 +196,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) async {
     signals.add((senderId, data));
+    await onHandleSignal?.call();
     if (signalFailure case final failure?) throw failure;
   }
 
@@ -264,6 +267,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   Future<void> syncParticipants(List<VoiceParticipant> value) async {
     participants = value;
+    await onSyncParticipants?.call();
     if (participantSyncFailure case final failure?) throw failure;
   }
 
@@ -3080,6 +3084,97 @@ void main() {
       expect(controller.call?.muted, isTrue);
       expect(media.audioPublishingAllowed, isFalse);
       expect(media.participants.single.id, 1);
+    });
+
+    for (final retirement in ['call replacement', 'account replacement']) {
+      for (final blockedAt in ['roster sync', 'first signal']) {
+        test(
+          'signal batch preserves $blockedAt ordering across $retirement',
+          () async {
+            final joinPayload = fixture('join_mesh');
+            transport.responses['POST /voice/rooms/7/join.json'] = joinPayload;
+            await controller.ensureLoaded(firstSite);
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'One',
+              room: controller.room(firstSite, 7)!,
+            );
+            final media = mediaFactory.sessions.single;
+            final started = Completer<void>();
+            final release = Completer<void>();
+            addTearDown(() {
+              if (!release.isCompleted) release.complete();
+            });
+            Future<void> block() async {
+              if (!started.isCompleted) started.complete();
+              await release.future;
+            }
+
+            if (blockedAt == 'roster sync') {
+              media.onSyncParticipants = block;
+            } else {
+              media.onHandleSignal = block;
+            }
+            firstTracker.deliver('/voice/rooms/7', {
+              'type': 'signal',
+              'sender_id': 2,
+              'sender': {'id': 2, 'username': 'early'},
+              'events': [
+                for (var i = 0; i < 30; i++) {'type': 'offer', 'sdp': '$i'},
+              ],
+            });
+            await started.future;
+            expect(controller.call?.room.participants.map((p) => p.id), [2, 1]);
+            if (retirement == 'account replacement') {
+              controller.forget(firstSite);
+              await pumpEventQueue();
+              await controller.ensureLoaded(firstSite);
+            } else {
+              await controller.leave();
+            }
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'One',
+              room: controller.room(firstSite, 7)!,
+            );
+            final replacement = mediaFactory.sessions.last;
+            expect(replacement, isNot(same(media)));
+            release.complete();
+            await pumpEventQueue();
+            expect(
+              media.signals.map((s) => s.$2['sdp']),
+              blockedAt == 'roster sync'
+                  ? isEmpty
+                  : [for (var i = 0; i < 25; i++) '$i'],
+            );
+            expect(replacement.signals, isEmpty);
+            expect(controller.call?.media, same(replacement));
+          },
+        );
+      }
+    }
+
+    test('an unattested early sender cannot enter the roster', () async {
+      transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+        'join_mesh',
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'signal',
+        'sender_id': 2,
+        'sender': {'id': 3, 'username': 'impostor'},
+        'data': {'type': 'offer', 'sdp': 'legacy'},
+      });
+      await pumpEventQueue();
+      expect(controller.call?.room.participants.map((p) => p.id), [1]);
+      final signal = mediaFactory.sessions.single.signals.single;
+      expect(signal.$1, 2);
+      expect(signal.$2, {'type': 'offer', 'sdp': 'legacy'});
     });
 
     group('signal sender admission', () {

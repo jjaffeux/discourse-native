@@ -420,7 +420,9 @@ final class _VoiceRoomDirectory {
           return;
         }
         _liveCursors.roomDelivered(room.id, messageId);
-        controller._onRoomEvent(siteUrl, room.id, data, messageId);
+        if (!controller._disposed) {
+          controller._roomEvents.deliver(siteUrl, room.id, data);
+        }
       }, lastId: roomCursor);
       _roomSubscriptions[room.id] = subscription;
       changed = true;
