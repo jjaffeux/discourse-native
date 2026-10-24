@@ -163,6 +163,10 @@ class ComposerPanel extends StatelessWidget {
       );
     }
 
+    VoidCallback bodyShortcut(VoidCallback action) => () {
+      if (composer.activeEditor.focus.hasPrimaryFocus) action();
+    };
+
     void openLink() => unawaited(
       showComposerLinkDialog(context: context, composer: composer.activeEditor),
     );
@@ -439,36 +443,62 @@ class ComposerPanel extends StatelessWidget {
               const SingleActivator(LogicalKeyboardKey.keyW, meta: true): close,
               const SingleActivator(LogicalKeyboardKey.keyW, control: true):
                   close,
-              const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
-                  composer.activeEditor.toggleMark(ComposerMark.bold),
+              const SingleActivator(
+                LogicalKeyboardKey.keyB,
+                meta: true,
+              ): bodyShortcut(
+                () => composer.activeEditor.toggleMark(ComposerMark.bold),
+              ),
               const SingleActivator(
                 LogicalKeyboardKey.keyB,
                 control: true,
-              ): () =>
-                  composer.activeEditor.toggleMark(ComposerMark.bold),
-              const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
-                  composer.activeEditor.toggleMark(ComposerMark.italic),
+              ): bodyShortcut(
+                () => composer.activeEditor.toggleMark(ComposerMark.bold),
+              ),
+              const SingleActivator(
+                LogicalKeyboardKey.keyI,
+                meta: true,
+              ): bodyShortcut(
+                () => composer.activeEditor.toggleMark(ComposerMark.italic),
+              ),
               const SingleActivator(
                 LogicalKeyboardKey.keyI,
                 control: true,
-              ): () =>
-                  composer.activeEditor.toggleMark(ComposerMark.italic),
-              const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-                  composer.activeEditor.toggleSelectedInlineCode,
+              ): bodyShortcut(
+                () => composer.activeEditor.toggleMark(ComposerMark.italic),
+              ),
+              const SingleActivator(
+                LogicalKeyboardKey.keyE,
+                meta: true,
+              ): bodyShortcut(
+                () => composer.activeEditor.toggleSelectedInlineCode(),
+              ),
               if (!_usesCommandModifier)
-                const SingleActivator(LogicalKeyboardKey.keyE, control: true):
-                    composer.activeEditor.toggleSelectedInlineCode,
+                const SingleActivator(
+                  LogicalKeyboardKey.keyE,
+                  control: true,
+                ): bodyShortcut(
+                  () => composer.activeEditor.toggleSelectedInlineCode(),
+                ),
               const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
-                  openLink,
+                  bodyShortcut(openLink),
               if (!_usesCommandModifier)
                 const SingleActivator(LogicalKeyboardKey.keyL, control: true):
-                    openLink,
-              for (final binding in PluginScope.of(
-                context,
-              ).registry.composerShortcuts(context, composer).entries)
-                binding.key: () {
-                  if (composer.isEditing) binding.value();
-                },
+                    bodyShortcut(openLink),
+              for (final binding
+                  in PluginScope.of(context).registry
+                      .composerShortcuts(context, composer.activeEditor)
+                      .entries)
+                binding.key: bodyShortcut(() {
+                  if (composer.isEditing) {
+                    PluginScope.of(context).registry
+                        .composerShortcuts(
+                          context,
+                          composer.activeEditor,
+                        )[binding.key]
+                        ?.call();
+                  }
+                }),
             },
             child: FocusScope(
               canRequestFocus: !composer.discarding,
