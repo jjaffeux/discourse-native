@@ -59,12 +59,13 @@ void main() {
     ),
     SiteConfig? siteConfig,
     TopicCategory bugs = _bugs,
+    Set<String> creatableFeedPaths = const {'/latest.json', '/c/bugs/5.json'},
   }) async {
     const user = DiscourseUser(id: 7, username: 'reader', canCreateTopic: true);
     final api = FakeDiscourseApi(
       user: user,
       feeds: const {'/latest.json': [], '/c/bugs/5.json': []},
-      creatableFeedPaths: const {'/latest.json', '/c/bugs/5.json'},
+      creatableFeedPaths: creatableFeedPaths,
       categoryList: [bugs, _features, _general],
       draftRestoreGate: draftRestoreGate,
       draftToRestore: draftToRestore,
@@ -178,6 +179,103 @@ void main() {
           await shell.changeComposerCategory(composer, _features.id);
           expect(composer.text.text, reply);
         }
+      },
+    );
+  }
+
+  test(
+    'user edits survive delayed draft restoration and the next opening',
+    () async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      const draft = ComposerDraft(
+        action: ComposerDraft.createTopicAction,
+        title: 'A restored topic',
+        reply: 'Saved body',
+        categoryId: 5,
+      );
+      final (:shell, api: _) = await start(
+        draftRestoreGate: gate,
+        draftToRestore: (draft: draft, sequence: 1),
+      );
+      final opening = shell.resumeDraft(
+        _siteUrl,
+        const UserDraft(key: 'new_topic_123', sequence: 1, data: draft),
+      );
+      await pumpEventQueue();
+      final first = shell.visibleComposer!;
+      expect(first.text.text, isEmpty);
+      await shell.changeComposerCategory(first, _bugs.id);
+      expect(first.text.text, _bugTemplate);
+      first.text.text = 'User text before restoration finishes';
+      gate.complete();
+      await opening;
+      await shell.openNewTopic();
+      final second = shell.visibleComposer!;
+      await pumpEventQueue();
+
+      expect(second, isNot(same(first)));
+      expect(second.text.text, isEmpty);
+      expect(first.text.text, 'User text before restoration finishes');
+      expect(first.categoryId, _bugs.id);
+      expect(shell.liveComposers, containsAll([first, second]));
+    },
+  );
+
+  for (final sidebar in [false, true]) {
+    test(
+      'feed capability after delayed admission controls setup $sidebar',
+      () async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final paths = {'/latest.json', '/c/bugs/5.json'};
+        const draft = ComposerDraft(
+          action: ComposerDraft.createTopicAction,
+          title: 'Restoring topic',
+          reply: 'Saved body',
+          categoryId: 5,
+        );
+        final (:shell, api: _) = await start(
+          draftRestoreGate: gate,
+          draftToRestore: (draft: draft, sequence: 1),
+          creatableFeedPaths: paths,
+        );
+        shell.browseTopicCategory(_bugs);
+        await pumpEventQueue();
+        final restoring = shell.resumeDraft(
+          _siteUrl,
+          const UserDraft(key: 'new_topic_123', sequence: 1, data: draft),
+        );
+        await pumpEventQueue();
+        final first = shell.visibleComposer!;
+        final route = shell.currentContent;
+        final feedId = shell.currentFeedId!;
+        expect(shell.canCreateTopicHere, isTrue);
+        final opening = sidebar
+            ? shell.openNewTopicFromSidebar()
+            : shell.openNewTopic();
+        await pumpEventQueue();
+        paths.remove('/c/bugs/5.json');
+        await shell.loadFeed(feedId, force: true);
+        expect(shell.currentContent, same(route));
+        expect(shell.canCreateTopicHere, isFalse);
+        expect(shell.visibleComposer, same(first));
+        gate.complete();
+        await restoring;
+        await opening;
+        await pumpEventQueue();
+        final next = shell.visibleComposer!;
+        expect(next, isNot(same(first)));
+        expect(next.categoryId, sidebar ? 5 : isNull);
+        expect(next.text.text, sidebar ? _bugTemplate : isEmpty);
+        expect(
+          (next.target as NewTopicComposerTarget).originFeedId,
+          sidebar ? shell.currentInstance!.defaultDestination.id : feedId,
+        );
       },
     );
   }

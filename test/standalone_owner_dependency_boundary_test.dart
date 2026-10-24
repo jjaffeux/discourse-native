@@ -12,6 +12,7 @@ const _owners = {
   'lib/src/shell/topic_list_transitions.dart',
   'lib/src/shell/site_live_sessions.dart',
   'lib/src/plugins/chat/chat_viewport_transitions.dart',
+  'lib/src/shell/composer/opening_owner.dart',
   'lib/src/shell/checklist_transactions.dart',
   'lib/src/shell/flag_transactions.dart',
   'lib/src/shell/account_new_topic_dismissals.dart',
