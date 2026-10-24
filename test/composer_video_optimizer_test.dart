@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/src/data/composer_image_optimizer.dart';
 import 'package:discourse_native/src/data/composer_video_optimizer.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_video_optimizer/discourse_video_optimizer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -257,6 +259,61 @@ void main() {
     expect(encoder.starts, 0);
     expect(await temporary.list().length, 0);
   });
+
+  test('active image staging does not block the video lane', () async {
+    final listening = Completer<void>();
+    final stream = StreamController<List<int>>(onListen: listening.complete);
+    final image = ComposerImageOptimizer(
+      temporaryDirectory: () async => temporary,
+    );
+    final pendingImage = image.prepare(
+      ComposerUploadFile(
+        name: 'photo.jpg',
+        length: () async => 3,
+        openRead: () => stream.stream,
+      ),
+      settings: const ComposerImageOptimization(bytesThreshold: 1),
+      canUpload: (_) => true,
+      abortTrigger: Completer<void>().future,
+    );
+    await listening.future;
+    final video = await prepare();
+    expect(encoder.starts, 1);
+    await video.dispose();
+    stream.add([1, 2, 3]);
+    await stream.close();
+    await (await pendingImage).dispose();
+    expect(await temporary.list().length, 0);
+  });
+
+  for (final failure in ['surplus', 'read-error', 'stalled']) {
+    test(
+      '$failure staging falls back before native encoding and cleans files',
+      () async {
+        optimizer = ComposerVideoOptimizer(
+          native: encoder,
+          temporaryDirectory: () async => temporary,
+          minimumBytes: 1,
+          maximumBytes: 100,
+          ioTimeout: const Duration(milliseconds: 20),
+        );
+        final stream = StreamController<List<int>>();
+        final source = ComposerUploadFile(
+          name: 'movie.mov',
+          length: () async => 10,
+          openRead: () => switch (failure) {
+            'surplus' => Stream.value(List.filled(11, 1)),
+            'read-error' => Stream.error(StateError('unreadable')),
+            _ => stream.stream,
+          },
+        );
+        expect((await prepare(file: source)).file, same(source));
+        if (failure == 'stalled') await stream.close();
+        expect(encoder.starts, 0);
+        expect(await temporary.list().length, 0);
+      },
+    );
+  }
 
   test('stalled export is cancelled and falls back', () async {
     optimizer = ComposerVideoOptimizer(

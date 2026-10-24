@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_image_codec.dart';
+import 'composer_media_preparation.dart';
 
 /// Serializes image work across composers; the network uploads can still run
 /// concurrently. Callers own the returned preparation through retries.
@@ -19,7 +20,7 @@ class ComposerImageOptimizer {
 
   final Future<Directory> Function() _temporaryDirectory;
   final Duration workerTimeout;
-  static Future<void>? _queue;
+  static final _lane = ComposerMediaPreparationLane();
 
   Future<PreparedComposerUpload> prepare(
     ComposerUploadFile file, {
@@ -41,14 +42,11 @@ class ComposerImageOptimizer {
 
     var cancelled = false;
     final aborted = abortTrigger.then((_) => cancelled = true);
-    Completer<void>? slot;
-    Directory? directory;
-    var retained = false;
     try {
       // The size limits are decided before queueing: a file that will never
       // be encoded must not wait behind another composer's image.
       final length = await Future.any<int?>([
-        file.length(),
+        file.length().timeout(workerTimeout),
         aborted.then((_) => null),
       ]);
       if (length == null ||
@@ -56,91 +54,85 @@ class ComposerImageOptimizer {
           length > composerImageMaxInputBytes) {
         return original;
       }
-      // A cancelled queued job must not release the next job ahead of the
-      // image that currently owns the worker slot.
-      final previous = _queue ?? Future<void>.value();
-      final done = Completer<void>();
-      slot = done;
-      final tail = previous.then((_) => done.future);
-      _queue = tail;
-      unawaited(
-        tail.then((_) {
-          if (identical(_queue, tail)) _queue = null;
-        }),
-      );
-      await Future.any<Object?>([previous, aborted]);
-      if (cancelled) return original;
-      final root = await _temporaryDirectory();
-      if (cancelled) return original;
-      directory = await root.createTemp('composer-image-');
-      final input = File('${directory.path}/source');
-      final output = File('${directory.path}/optimized');
-      final iterator = StreamIterator(file.openRead());
-      final sink = input.openWrite();
-      try {
-        var copied = 0;
-        while (await Future.any<bool>([
-          iterator.moveNext(),
-          aborted.then((_) => false),
-        ]).timeout(workerTimeout)) {
-          if (cancelled) return original;
-          copied += iterator.current.length;
-          if (copied > composerImageMaxInputBytes) return original;
-          sink.add(iterator.current);
-        }
-      } finally {
-        await iterator.cancel();
-        await sink.close();
-      }
-      if (cancelled) return original;
-      final port = ReceivePort();
-      Isolate? worker;
-      Object? extension;
-      try {
-        final reply = port.first;
-        worker = await Isolate.spawn(
-          _encode,
-          (
-            port: port.sendPort,
-            inputPath: input.path,
-            outputPath: output.path,
-            resizeThreshold: settings.resizeDimensionsThreshold,
-            resizeTarget: settings.resizeWidthTarget,
-            quality: settings.quality,
-            allowJpeg: allowJpeg,
-            allowWebp: allowWebp,
-          ),
-          onError: port.sendPort,
-          onExit: port.sendPort,
-        );
-        extension = await Future.any<Object?>([
-          reply,
-          aborted.then((_) => null),
-        ]).timeout(workerTimeout);
-      } finally {
-        worker?.kill(priority: Isolate.immediate);
-        port.close();
-      }
-      if (cancelled || extension is! String) return original;
-      await input.delete();
-      final ownedDirectory = directory;
-      retained = true;
-      return PreparedComposerUpload(
-        ComposerUploadFile(
-          name: '$baseName.$extension',
-          length: output.length,
-          openRead: output.openRead,
-          imageOptimizationApplied: true,
-        ),
-        release: () => _removeDirectory(ownedDirectory),
+      return await _lane.run(
+        aborted: aborted,
+        cancelled: original,
+        action: () async {
+          Directory? directory;
+          var retained = false;
+          try {
+            if (cancelled) return original;
+            final root = await _temporaryDirectory();
+            if (cancelled) return original;
+            directory = await root.createTemp('composer-image-');
+            final input = File('${directory.path}/source');
+            final output = File('${directory.path}/optimized');
+            if (!await stageComposerMedia(
+              source: file.openRead(),
+              input: input,
+              length: length,
+              maximumBytes: composerImageMaxInputBytes,
+              aborted: aborted,
+              timeout: workerTimeout,
+            )) {
+              return original;
+            }
+            if (cancelled) return original;
+            final port = ReceivePort();
+            Isolate? worker;
+            Object? extension;
+            try {
+              final reply = port.first;
+              worker = await Isolate.spawn(
+                _encode,
+                (
+                  port: port.sendPort,
+                  inputPath: input.path,
+                  outputPath: output.path,
+                  resizeThreshold: settings.resizeDimensionsThreshold,
+                  resizeTarget: settings.resizeWidthTarget,
+                  quality: settings.quality,
+                  allowJpeg: allowJpeg,
+                  allowWebp: allowWebp,
+                ),
+                onError: port.sendPort,
+                onExit: port.sendPort,
+              );
+              extension = await Future.any<Object?>([
+                reply,
+                aborted.then((_) => null),
+              ]).timeout(workerTimeout);
+            } finally {
+              worker?.kill(priority: Isolate.immediate);
+              port.close();
+            }
+            if (cancelled || extension is! String) return original;
+            await input.delete();
+            if (cancelled) return original;
+            final ownedDirectory = directory;
+            retained = true;
+            return PreparedComposerUpload(
+              ComposerUploadFile(
+                name: '$baseName.$extension',
+                length: output.length,
+                openRead: output.openRead,
+                imageOptimizationApplied: true,
+              ),
+              release: () => _removeDirectory(ownedDirectory),
+            );
+          } catch (_) {
+            // Optimization is optional; read/codec/cache failures must not prevent
+            // the normal upload path from trying the original file.
+            return original;
+          } finally {
+            if (!retained && directory != null) {
+              await _removeDirectory(directory);
+            }
+          }
+        },
       );
     } catch (_) {
-      // Optimization is optional; read/codec/cache failures must not prevent
-      // the normal upload path from trying the original file.
       return original;
-    } finally {
-      if (!retained && directory != null) await _removeDirectory(directory);
-      slot?.complete();
     }
   }
 }
