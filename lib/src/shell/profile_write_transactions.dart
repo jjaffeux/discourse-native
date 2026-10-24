@@ -125,7 +125,12 @@ final class _ProfileWriteTransactions {
         });
         return;
       }
-      await _shell._sessionUser(siteUrl, apiKey, lease: lease, force: true);
+      await _shell._currentUsers.refresh(
+        siteUrl,
+        apiKey,
+        lease: lease,
+        force: true,
+      );
     } catch (error) {
       if (_shell.accountSessionDisposed || !lease.isCurrent) return;
 
@@ -156,7 +161,7 @@ final class _ProfileWriteTransactions {
     final state = _stateFor(siteUrl);
     state.presence = write;
     state.presenceError = null;
-    _shell._currentUserReconcilerFor(siteUrl).presenceWriteStarted();
+    _shell._currentUsers.reconcilerFor(siteUrl).presenceWriteStarted();
     _shell._notify();
 
     try {
@@ -202,7 +207,7 @@ final class _ProfileWriteTransactions {
       final state = _sites[siteUrl]!;
       state.presence = null;
       state.presenceError = error;
-      _shell._currentUserReconcilerFor(siteUrl).presenceWriteSettled();
+      _shell._currentUsers.reconcilerFor(siteUrl).presenceWriteSettled();
       if (error == null) {
         final instance = _shell._instanceAt(siteUrl);
         final user = instance?.user;
