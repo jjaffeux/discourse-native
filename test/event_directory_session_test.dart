@@ -197,6 +197,60 @@ void main() {
     },
   );
 
+  test('withdrawal removes an event from the loaded My Events directory', () async {
+    var current = eventJson(overrides: {
+      'is_public': true,
+      'is_private': false,
+      'watching_invitee': watching(),
+    });
+    transport.responders['GET /discourse-post-event/events/42.json'] =
+        (_) => {'event': current};
+    transport.responses['DELETE /discourse-post-event/events/42/invitees/83.json'] = {};
+    final handle = ports.controller.acquire(eventSite, PostEvent.decode(current)!);
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    final session = open(mine: true);
+    await transport.waitFor(1);
+    transport.pending[0].complete({'events': [current]});
+    await flush();
+    expect(session.occurrences.single.watching?.status, 'going');
+    current = {...current, 'watching_invitee': null};
+    await handle.withdraw();
+    expect(handle.event!.watching, isNull);
+    expect(handle.error, isNull);
+    await transport.waitFor(2);
+    transport.pending[1].complete({'events': <Object?>[]});
+    await flush();
+    expect(session.occurrences, isEmpty);
+    expect(session.loading, isFalse);
+    await flush();
+    expect(transport.queries, hasLength(2));
+  });
+
+  test('authoritative event date changes replace the loaded calendar dates', () async {
+    var current = eventJson();
+    transport.responders['GET /discourse-post-event/events/42.json'] =
+        (_) => {'event': current};
+    final handle = ports.controller.acquire(eventSite, PostEvent.decode(current)!);
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    final session = open();
+    await transport.waitFor(1);
+    transport.pending[0].complete({'events': [current]});
+    await flush();
+    expect(session.occurrences.single.fields['starts_at'], current['starts_at']);
+    current = {...current, 'starts_at': '2026-09-15T23:00:00+02:00'};
+    await handle.refresh();
+    expect(handle.event!.fields['starts_at'], current['starts_at']);
+    await transport.waitFor(2);
+    transport.pending[1].complete({'events': [current]});
+    await flush();
+    expect(session.occurrences.single.fields['starts_at'], current['starts_at']);
+    await handle.refresh();
+    await flush();
+    expect(transport.queries, hasLength(2));
+  });
+
   test('first weekday changes replace the visible month query', () async {
     var firstDay = 1;
     final controller = EventController(
@@ -327,6 +381,9 @@ final class _Transport extends RecordingPluginTransport {
     required String? apiKey,
     String? clientId,
   }) {
+    if (Uri.parse(path).path != '/discourse-post-event/events.json') {
+      return super.pluginGetJson(siteUrl: siteUrl, path: path, apiKey: apiKey, clientId: clientId);
+    }
     sites.add(siteUrl);
     queries.add(Uri.parse(path));
     final response = Completer<Map<String, dynamic>>();
