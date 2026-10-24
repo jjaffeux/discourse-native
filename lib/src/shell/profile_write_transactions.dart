@@ -1,4 +1,25 @@
-part of 'shell_controller.dart';
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/current_user_reconciler.dart';
+import '../data/discourse_api_contracts.dart';
+import '../data/site_lifecycle.dart';
+import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
+import '../models/do_not_disturb.dart';
+import '../models/user_status.dart';
+import 'do_not_disturb_controller.dart';
+import 'user_status_overrides.dart';
+
+abstract interface class ProfileCurrentUser {
+  DiscourseInstance? instanceFor(String siteUrl);
+  CurrentUserReconciler reconcilerFor(String siteUrl);
+  Future<void> refresh(String siteUrl, String apiKey, SiteLease lease);
+  void confirmPresence(String siteUrl, bool hidden);
+  void confirmStatus(String siteUrl, int userId, UserStatus? status);
+  void persist();
+}
 
 sealed class _ProfileStatusIntent {
   const _ProfileStatusIntent();
@@ -59,10 +80,75 @@ final class _ProfileWriteState {
   _ProfileStatusWrite? status;
 }
 
-final class _ProfileWriteTransactions {
-  _ProfileWriteTransactions(this._shell);
+final class ProfileWriteTransactions {
+  ProfileWriteTransactions({
+    required this.currentUser,
+    required this.api,
+    required this.credentials,
+    required this.lifecycle,
+    required this.userStatuses,
+    required this.doNotDisturb,
+    required this.changed,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
-  final ShellController _shell;
+  final ProfileCurrentUser currentUser;
+  final ShellSiteApi api;
+  final ApiCredentialReader credentials;
+  final SiteLifecycle lifecycle;
+  final UserStatusOverrides userStatuses;
+  final DoNotDisturbController doNotDisturb;
+  final void Function() changed;
+  final DateTime Function() _clock;
+  bool _disposed = false;
+
+  Future<
+    ({
+      String? apiKey,
+      AccountRequestCredentials? request,
+      WriteException? failure,
+    })
+  >
+  _credentialForWrite(String siteUrl, {required SiteLease lease}) async {
+    try {
+      final request = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).credentials(credentials);
+      return request.apiKey == null
+          ? (
+              apiKey: null,
+              request: null,
+              failure: const WriteException(WriteFailure.forbidden),
+            )
+          : (apiKey: request.apiKey, request: request, failure: null);
+    } catch (error) {
+      return (
+        apiKey: null,
+        request: null,
+        failure: const WriteException(WriteFailure.unreachable),
+      );
+    }
+  }
+
+  Future<String?> setStatus(
+    String siteUrl, {
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+    bool? pauseNotifications,
+  }) async => (await _writeStatus(
+    siteUrl,
+    _SetProfileStatus(
+      description: description,
+      emoji: emoji,
+      endsAt: endsAt,
+      pauseNotifications: pauseNotifications,
+    ),
+  )).message;
+
+  Future<String?> clearStatus(String siteUrl) async =>
+      (await _writeStatus(siteUrl, const _ClearProfileStatus())).message;
   final Map<String, _ProfileWriteState> _sites = {};
 
   _ProfileWriteState _stateFor(String siteUrl) =>
@@ -70,7 +156,7 @@ final class _ProfileWriteTransactions {
 
   bool? hidePresenceFor(String siteUrl) => switch (_sites[siteUrl]?.presence) {
     _ProfilePresenceWrite(:final desired) => desired,
-    _ => _shell._instanceAt(siteUrl)?.user?.hidePresence,
+    _ => currentUser.instanceFor(siteUrl)?.user?.hidePresence,
   };
 
   bool presenceInFlight(String siteUrl) =>
@@ -82,13 +168,13 @@ final class _ProfileWriteTransactions {
       _sites[siteUrl]?.status?.lease.isCurrent ?? false;
 
   void currentUserReadFailed(String siteUrl) {
-    if (_shell._instanceAt(siteUrl)?.user?.hidePresence != null ||
+    if (currentUser.instanceFor(siteUrl)?.user?.hidePresence != null ||
         presenceInFlight(siteUrl)) {
       return;
     }
     _stateFor(siteUrl).presenceError =
         appL10n.couldnTLoadThePresenceSettingTryAgain;
-    _shell._notify();
+    changed();
   }
 
   /// A site whose current user carries no presence setting has answered, so
@@ -103,80 +189,71 @@ final class _ProfileWriteTransactions {
   }
 
   Future<void> retryPresence(String siteUrl) async {
-    final instance = _shell._instanceAt(siteUrl);
+    final instance = currentUser.instanceFor(siteUrl);
     if (instance?.user == null || hidePresenceFor(siteUrl) != null) return;
-    final lease = _shell.lifecycle.capture(siteUrl);
+    final lease = lifecycle.capture(siteUrl);
     final state = _stateFor(siteUrl);
     state.presenceError = null;
-    _shell._notify();
+    changed();
 
     try {
       final credential = await AccountRequestSession(
         siteUrl,
         lease,
-      ).keyCredentials(_shell.credentials);
+      ).keyCredentials(credentials);
       if (!lease.isCurrent) return;
       final apiKey = credential.apiKey;
       if (apiKey == null) {
         lease.commit(() {
           state.presenceError =
               appL10n.reconnectThisAccountToLoadItsPresenceSetting;
-          _shell._notify();
+          changed();
         });
         return;
       }
-      await _shell._currentUsers.refresh(
-        siteUrl,
-        apiKey,
-        lease: lease,
-        force: true,
-      );
+      await currentUser.refresh(siteUrl, apiKey, lease);
     } catch (error) {
-      if (_shell.accountSessionDisposed || !lease.isCurrent) return;
+      if (_disposed || !lease.isCurrent) return;
 
       lease.commit(() {
         state.presenceError = appL10n.couldnTLoadThePresenceSettingTryAgain;
-        _shell._notify();
+        changed();
       });
     }
   }
 
   bool _ownsPresence(String siteUrl, _ProfilePresenceWrite write) =>
-      !_shell.accountSessionDisposed &&
+      !_disposed &&
       write.lease.isCurrent &&
       identical(_sites[siteUrl]?.presence, write);
 
   Future<void> togglePresence(String siteUrl) async {
-    final instance = _shell._instanceAt(siteUrl);
+    final instance = currentUser.instanceFor(siteUrl);
     final user = instance?.user;
     final held = hidePresenceFor(siteUrl);
     if (instance == null || user == null || held == null) return;
     if (presenceInFlight(siteUrl)) return;
 
     final write = _ProfilePresenceWrite(
-      _shell.lifecycle.capture(siteUrl),
+      lifecycle.capture(siteUrl),
       user.username,
       !held,
     );
     final state = _stateFor(siteUrl);
     state.presence = write;
     state.presenceError = null;
-    _shell._currentUsers.reconcilerFor(siteUrl).presenceWriteStarted();
-    _shell._notify();
+    currentUser.reconcilerFor(siteUrl).presenceWriteStarted();
+    changed();
 
     try {
-      final credential = await _shell._credentialForWrite(
-        siteUrl,
-        lease: write.lease,
-        withClientId: true,
-      );
+      final credential = await _credentialForWrite(siteUrl, lease: write.lease);
       if (!_ownsPresence(siteUrl, write)) return;
       if (credential.failure case final failure?) {
         _settlePresence(siteUrl, write, error: _presenceError(failure));
         return;
       }
       await credential.request!.run(
-        () => _shell.api.site.updateHidePresence(
+        () => api.updateHidePresence(
           siteUrl: siteUrl,
           apiKey: credential.apiKey!,
           username: write.username,
@@ -207,19 +284,16 @@ final class _ProfileWriteTransactions {
       final state = _sites[siteUrl]!;
       state.presence = null;
       state.presenceError = error;
-      _shell._currentUsers.reconcilerFor(siteUrl).presenceWriteSettled();
+      currentUser.reconcilerFor(siteUrl).presenceWriteSettled();
       if (error == null) {
-        final instance = _shell._instanceAt(siteUrl);
+        final instance = currentUser.instanceFor(siteUrl);
         final user = instance?.user;
         if (instance != null && user != null && confirmed != null) {
-          _shell._replaceInstance(
-            instance,
-            instance.copyWith(user: user.withHidePresence(confirmed)),
-          );
-          _shell.instanceStore.save(List.of(_shell._instances)).ignore();
+          currentUser.confirmPresence(siteUrl, confirmed);
+          currentUser.persist();
         }
       }
-      _shell._notify();
+      changed();
     });
   }
 
@@ -243,15 +317,15 @@ final class _ProfileWriteTransactions {
   }
 
   bool _ownsStatus(String siteUrl, _ProfileStatusWrite write) =>
-      !_shell.accountSessionDisposed &&
+      !_disposed &&
       write.lease.isCurrent &&
       identical(_sites[siteUrl]?.status, write);
 
-  Future<_ProfileStatusResult> writeStatus(
+  Future<_ProfileStatusResult> _writeStatus(
     String siteUrl,
     _ProfileStatusIntent submittedIntent,
   ) async {
-    final instance = _shell._instanceAt(siteUrl);
+    final instance = currentUser.instanceFor(siteUrl);
     final userId = instance?.user?.id;
     if (instance == null ||
         userId == null ||
@@ -266,23 +340,19 @@ final class _ProfileWriteTransactions {
       );
     }
     final write = _ProfileStatusWrite(
-      _shell.lifecycle.capture(siteUrl),
+      lifecycle.capture(siteUrl),
       userId,
       submittedIntent,
     );
     final intent = write.intent;
     final state = _stateFor(siteUrl);
     state.status = write;
-    _shell._notify();
+    changed();
     try {
       if (!_ownsStatus(siteUrl, write)) {
         return const _ProfileStatusUnconfirmed(null);
       }
-      final credential = await _shell._credentialForWrite(
-        siteUrl,
-        lease: write.lease,
-        withClientId: true,
-      );
+      final credential = await _credentialForWrite(siteUrl, lease: write.lease);
       if (!_ownsStatus(siteUrl, write)) {
         return const _ProfileStatusUnconfirmed(null);
       }
@@ -291,13 +361,13 @@ final class _ProfileWriteTransactions {
       }
       final clientId = credential.request!.clientId;
       if (intent case _SetProfileStatus(:final endsAt?)) {
-        if (!endsAt.isAfter(_shell._clock())) {
+        if (!endsAt.isAfter(_clock())) {
           return _ProfileStatusUnconfirmed(appL10n.chooseATimeInTheFuture);
         }
       }
       await credential.request!.run(
         () => switch (intent) {
-          _SetProfileStatus() => _shell.api.site.setUserStatus(
+          _SetProfileStatus() => api.setUserStatus(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             description: intent.description,
@@ -305,7 +375,7 @@ final class _ProfileWriteTransactions {
             endsAt: intent.endsAt,
             clientId: clientId,
           ),
-          _ClearProfileStatus() => _shell.api.site.clearUserStatus(
+          _ClearProfileStatus() => api.clearUserStatus(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             clientId: clientId,
@@ -327,10 +397,10 @@ final class _ProfileWriteTransactions {
         _ClearProfileStatus() => null,
       };
       write.lease.commit(() {
-        _shell.userStatuses.record(siteUrl, write.userId, status);
-        _shell._applyOwnUserStatus(siteUrl, write.userId, status);
-        _shell._notify();
-        _shell.instanceStore.save(List.of(_shell._instances)).ignore();
+        userStatuses.record(siteUrl, write.userId, status);
+        currentUser.confirmStatus(siteUrl, write.userId, status);
+        changed();
+        currentUser.persist();
       });
       if (!_ownsStatus(siteUrl, write)) {
         return const _ProfileStatusUnconfirmed(null);
@@ -344,19 +414,19 @@ final class _ProfileWriteTransactions {
         _SetProfileStatus() => intent.endsAt,
         _ClearProfileStatus() => null,
       };
-      final now = _shell._clock();
+      final now = _clock();
       if (pause && endsAt != null && !endsAt.isAfter(now)) {
         return const _ProfileStatusSaved();
       }
       final error = pause
-          ? await _shell.doNotDisturb.pause(
+          ? await doNotDisturb.pause(
               siteUrl,
               doNotDisturbDurationUntil(
                 endsAt ?? eternalDoNotDisturbUntil,
                 now: now,
               ),
             )
-          : await _shell.doNotDisturb.resume(siteUrl);
+          : await doNotDisturb.resume(siteUrl);
       if (!_ownsStatus(siteUrl, write)) {
         return const _ProfileStatusUnconfirmed(null);
       }
@@ -376,8 +446,8 @@ final class _ProfileWriteTransactions {
     } finally {
       if (identical(_sites[siteUrl]?.status, write)) {
         state.status = null;
-        if (write.lease.isCurrent && !_shell.accountSessionDisposed) {
-          _shell._notify();
+        if (write.lease.isCurrent && !_disposed) {
+          changed();
         }
       }
     }
@@ -385,5 +455,8 @@ final class _ProfileWriteTransactions {
 
   void forget(String siteUrl) => _sites.remove(siteUrl);
 
-  void dispose() => _sites.clear();
+  void dispose() {
+    _disposed = true;
+    _sites.clear();
+  }
 }
