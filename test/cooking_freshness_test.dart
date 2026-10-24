@@ -297,6 +297,173 @@ void main() {
     },
   );
 
+  test('consumer watch survives account replacement until release', () async {
+    final shell = _shell(
+      instances: [
+        const DiscourseInstance(url: _site, title: 'A', loginRequired: true),
+      ],
+    );
+    await shell.load();
+    await pumpEventQueue();
+    final first = shell.cookingRequest(siteUrl: _site, raw: '@Alice');
+    var calls = 0;
+    final stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: first.raw,
+      onChanged: () => calls++,
+    );
+    final held = shell.accountSessionInstance(_site)!;
+    shell.applyAccountSessionInstance(
+      held.copyWith(user: const DiscourseUser(id: 7, username: 'Reader')),
+      AccountSessionPhase.connecting,
+    );
+    expect(shell.cookingRequestIsCurrent(first), isFalse);
+    expect(calls, 0);
+    await pumpEventQueue();
+    expect(calls, 1);
+    final next = shell.cookingRequest(siteUrl: _site, raw: first.raw);
+    expect(next.snapshot.accountId, '7');
+    expect(shell.cookingRequestIsCurrent(next), isTrue);
+    shell.store.put(_site, const UserCard(username: 'Alice'));
+    await pumpEventQueue();
+    expect(calls, 2);
+    shell.cooking.contextChanged(_site);
+    stop();
+    stop();
+    await pumpEventQueue();
+    expect(calls, 2);
+  });
+
+  test(
+    'consumer watch follows canonical refs after account state clears',
+    () async {
+      final shell = _shell();
+      const raw = '@Alice topic:12';
+      final before = shell.cookingRequest(siteUrl: _site, raw: raw);
+      var calls = 0;
+      var otherCalls = 0;
+      final stop = shell.watchCooking(
+        siteUrl: _site,
+        raw: raw,
+        onChanged: () => calls++,
+      );
+      final stopOther = shell.watchCooking(
+        siteUrl: _site,
+        raw: raw,
+        onChanged: () => otherCalls++,
+      );
+      shell.clearAccountSessionState(_site);
+      expect(shell.cookingRequestIsCurrent(before), isFalse);
+      expect(calls, 0);
+      await pumpEventQueue();
+      expect(calls, 1);
+      expect(otherCalls, 1);
+      final after = shell.cookingRequest(siteUrl: _site, raw: raw);
+      expect(shell.cookingRequestIsCurrent(after), isTrue);
+      shell.store.put(_site, const UserCard(username: 'Alice'));
+      await pumpEventQueue();
+      expect(calls, 2);
+      expect(otherCalls, 2);
+      expect(shell.cookingRequestIsCurrent(after), isFalse);
+      stop();
+      stop();
+      shell.store.put(
+        _site,
+        const TopicDetail(id: 12, title: 'New account title', stream: []),
+      );
+      await pumpEventQueue();
+      expect(calls, 2);
+      expect(otherCalls, 3);
+      shell.store.put(_site, const UserCard(username: 'Unrelated'));
+      await pumpEventQueue();
+      expect(otherCalls, 3);
+      stopOther();
+      expect(shell.store.statisticsForTesting.observedEntries, 0);
+    },
+  );
+
+  test('source scans cap matches before deduplication', () async {
+    final shell = _shell();
+    shell.store.put(_site, const UserCard(username: 'Alice'));
+    shell.store.put(_site, const UserCard(username: 'Bob'));
+    shell.store.put(_site, const TopicDetail(id: 12, title: 'A', stream: []));
+    shell.store.put(_site, const TopicDetail(id: 13, title: 'B', stream: []));
+    final raw =
+        '${List.filled(128, '@Alice topic:12').join(' ')} @Bob topic:13';
+    final request = shell.cookingRequest(siteUrl: _site, raw: raw);
+    expect(request.snapshot.mentions.keys, ['alice']);
+    expect(request.snapshot.topics.keys, ['12']);
+    var calls = 0;
+    final stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: raw,
+      onChanged: () => calls++,
+    );
+    expect(shell.store.statisticsForTesting.observedEntries, 2);
+    shell.store.put(
+      _site,
+      const UserCard(username: 'Bob', avatarUrl: '/b.png'),
+    );
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 13, title: 'Changed', stream: []),
+    );
+    await pumpEventQueue();
+    expect(calls, 0);
+    stop();
+    expect(shell.store.statisticsForTesting.observedEntries, 0);
+  });
+
+  test('oversized raw skips enrichment and canonical reference watches', () {
+    final shell = _shell();
+    final raw = '@Alice topic:12${'x' * 65536}';
+    final request = shell.cookingRequest(
+      siteUrl: _site,
+      raw: raw,
+      profile: CookingProfile.chat,
+      context: const CookingContext(locale: 'fr'),
+      cachedMetadata: CookingCachedMetadata(
+        topics: {'12': const CookingTopic(title: 'Skipped', href: '/t/12')},
+      ),
+    );
+    expect(request.profile, CookingProfile.chat);
+    expect(request.snapshot.context.locale, isNot('fr'));
+    expect(request.snapshot.topics, isEmpty);
+    final stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: raw,
+      onChanged: () => fail('no canonical reference should be observed'),
+    );
+    expect(shell.store.statisticsForTesting.observedEntries, 0);
+    stop();
+  });
+
+  test('consumer callbacks coalesce and can release reentrantly', () async {
+    final shell = _shell();
+    var calls = 0;
+    late void Function() stop;
+    stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: '@Alice topic:12',
+      onChanged: () {
+        calls++;
+        stop();
+      },
+    );
+    shell.store.put(_site, const UserCard(username: 'Alice'));
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 12, title: 'Title', stream: []),
+    );
+    expect(calls, 0);
+    await pumpEventQueue();
+    expect(calls, 1);
+    shell.cooking.contextChanged(_site);
+    await pumpEventQueue();
+    expect(calls, 1);
+    stop();
+  });
+
   test('device timezone fallback changes invalidate and notify', () async {
     final environment = TimezoneEnvironment.instance;
     final previous = environment.deviceTimezone;
