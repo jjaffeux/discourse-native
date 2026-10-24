@@ -11,13 +11,16 @@ List<ChatChannel> projectChatChannelList(
   int? activeChannelId,
   int? limit,
   bool retainActiveAtLimit = false,
+  int Function(ChatChannel)? unreadCountFor,
 }) {
   // Filtering and priority comparisons share one calculation per channel.
   // Keep this local so changed tracking and last-viewed times are read next time.
   // Identity keys avoid hashing the channel's complete thread collection.
   final unreadCounts = Map<ChatChannel, int>.identity();
-  int unread(ChatChannel channel) =>
-      unreadCounts.putIfAbsent(channel, () => _unread(channel));
+  int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
+    channel,
+    () => (unreadCountFor ?? _unread)(channel),
+  );
   final priorities = Map<ChatChannel, int>.identity();
   int priority(ChatChannel channel) => priorities.putIfAbsent(
     channel,

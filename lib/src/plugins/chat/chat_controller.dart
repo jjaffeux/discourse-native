@@ -35,6 +35,7 @@ import 'chat_wire.dart';
 
 part 'chat_conversation_stream.dart';
 part 'chat_channel_directory.dart';
+part 'chat_channel_projections.dart';
 part 'chat_thread_catalog.dart';
 part 'chat_message_write_owner.dart';
 part 'chat_reaction_owner.dart';
@@ -885,19 +886,31 @@ class ChatController extends FrameSafeNotifier {
         siteUrl,
       ).where((channel) => !sidebar || !channel.membership.starred),
     };
-    return projectChatChannelList(
-      source,
-      section: section,
-      filter: channelListPreferences.bypassed(siteUrl, section)
-          ? ChatChannelListFilter.all
-          : preferences.filterFor(section),
-      sort: preferences.sortFor(section),
-      now: _clock(),
-      activeChannelId: activeChannelId,
-      limit: section == ChatChannelListSection.directMessages ? 50 : null,
-      retainActiveAtLimit: sidebar,
-    );
+    return _heldDirectory(siteUrl)?._preferenceChannelList(
+          source.toList(),
+          section: section,
+          filter: channelListPreferences.bypassed(siteUrl, section)
+              ? ChatChannelListFilter.all
+              : preferences.filterFor(section),
+          sort: preferences.sortFor(section),
+          now: _clock(),
+          activeChannelId: activeChannelId,
+          sidebar: sidebar,
+        ) ??
+        const [];
   }
+
+  List<ChatChannel> inboxConversations(
+    String siteUrl,
+    ChatInboxFilter filter,
+  ) =>
+      _heldDirectory(siteUrl)?._inboxConversations(
+        filter,
+        publicChannelsEnabled: siteConfigFor(
+          siteUrl,
+        ).chatSettings.publicChannelsEnabled,
+      ) ??
+      <ChatChannel>[];
 
   List<ChatChannel> publicChannels(String siteUrl) =>
       _heldDirectory(siteUrl)?.publicChannels() ?? [];

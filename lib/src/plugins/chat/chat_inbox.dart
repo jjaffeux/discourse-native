@@ -12,48 +12,18 @@ import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_inbox_rooms.dart';
-import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
+
+export 'chat_controller.dart' show chatInboxActivityAt;
 
 /// One mixed list of channels and direct messages, most recent activity first.
 List<ChatChannel> chatInboxConversations(
   ChatController chat,
   String siteUrl,
   ChatInboxFilter filter,
-) {
-  if (filter.kind == ChatInboxKind.voiceRooms) return const [];
-  final settings = chat.siteConfigFor(siteUrl).chatSettings;
-  final channels = [
-    if (settings.publicChannelsEnabled &&
-        filter.kind != ChatInboxKind.directMessages)
-      ...chat.publicChannels(siteUrl),
-    if (filter.kind != ChatInboxKind.channels) ...chat.directChannels(siteUrl),
-  ].where((channel) => !filter.unreadOnly || channel.badge.isVisible).toList();
-  if (channels.length < 2) return channels;
-  final ranked =
-      [
-        for (final channel in channels)
-          (
-            channel: channel,
-            activityAt: chatInboxActivityAt(channel),
-            title: channel.title.toLowerCase(),
-          ),
-      ]..sort((a, b) {
-        final aTime = a.activityAt;
-        final bTime = b.activityAt;
-        final recent = aTime == null
-            ? (bTime == null ? 0 : 1)
-            : bTime == null
-            ? -1
-            : bTime.compareTo(aTime);
-        if (recent != 0) return recent;
-        final title = a.title.compareTo(b.title);
-        return title != 0 ? title : a.channel.id.compareTo(b.channel.id);
-      });
-  return [for (final entry in ranked) entry.channel];
-}
+) => chat.inboxConversations(siteUrl, filter);
 
 String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
     ? appL10n.noUnreadConversations
@@ -63,16 +33,6 @@ String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
         ChatInboxKind.directMessages => appL10n.youHaveNoDirectMessagesYet,
         ChatInboxKind.voiceRooms => appL10n.noVoiceRoomsYet,
       };
-
-DateTime? chatInboxActivityAt(ChatChannel channel) {
-  // Empty channels can carry a timestamp without an actual last message.
-  // Ignore it for both inbox ordering and the displayed activity time.
-  var latest = (channel.lastMessageId ?? 0) > 0 ? channel.lastMessageAt : null;
-  for (final replyAt in channel.unreadThreadOverview.values) {
-    if (latest == null || replyAt.isAfter(latest)) latest = replyAt;
-  }
-  return latest;
-}
 
 /// The activity and conversation-type dropdowns, plus the reader's presence.
 ///

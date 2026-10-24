@@ -31,6 +31,7 @@ final class _ChatChannelDirectory {
   final void Function(bool, bool) replaceHasThreads;
   final void Function(int) advanceLastViewedAt;
   final Map<int, _ChatChannelDirectoryEntry> _channels = {};
+  final Map<Object, _ChatChannelProjection> _projections = {};
 
   _ChatChannelDirectoryEntry _entry(int id) =>
       _channels.putIfAbsent(id, _ChatChannelDirectoryEntry.new);
@@ -101,6 +102,7 @@ final class _ChatChannelDirectory {
   void retire() {
     _retired = true;
     _channels.clear();
+    _projections.clear();
     _refresh = null;
     _loadRequest = null;
     _loadRun = null;
@@ -111,12 +113,43 @@ final class _ChatChannelDirectory {
   List<ChatChannel> directChannels() => _resolve(_directIds);
 
   List<ChatChannel> activitySortedPublicChannels() {
-    final channels = [...publicChannels()];
+    final channels = publicChannels();
+    if (channels.length < 2) return List.unmodifiable(channels);
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    return _projectChannels('publicActivity', [
+      for (final channel in channels)
+        _publicActivityDependencies(channel, unreadCounts),
+    ], () => _activitySortedPublicChannels(channels, unreadCounts));
+  }
+
+  Object _publicActivityDependencies(
+    ChatChannel channel,
+    Map<ChatChannel, int> unreadCounts,
+  ) {
+    final urgent =
+        channel.tracking.mentionCount +
+            channel.tracking.watchedThreadsUnreadCount >
+        0;
+    return (
+      channel.id,
+      channel.slug ?? channel.title,
+      urgent,
+      !urgent &&
+          (unreadCounts[channel] =
+                  channel.tracking.unreadCount +
+                  channel.unreadThreadsCountSinceLastViewed) >
+              0,
+    );
+  }
+
+  List<ChatChannel> _activitySortedPublicChannels(
+    List<ChatChannel> channels,
+    Map<ChatChannel, int> unreadCounts,
+  ) {
     final originalPositions = <int, int>{};
     for (final channel in channels) {
       originalPositions[channel.id] = originalPositions.length;
     }
-    final unreadCounts = Map<ChatChannel, int>.identity();
     int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
       channel,
       () =>
@@ -1041,14 +1074,37 @@ final class _ChatChannelDirectory {
   }
 
   List<ChatChannel> starredChannels() {
-    final direct = directChannels()
+    final public = publicChannels();
+    final direct = directChannels();
+    return _projectChannels(
+      'starred',
+      [
+        for (final channel in public) (channel.id, channel.membership.starred),
+        null,
+        for (final channel in direct)
+          (
+            channel.id,
+            channel.membership.starred,
+            channel.membership.starred ? channel.title : null,
+          ),
+      ],
+      () => _starredChannels(public, direct),
+      mutable: true,
+    );
+  }
+
+  List<ChatChannel> _starredChannels(
+    List<ChatChannel> public,
+    List<ChatChannel> directChannels,
+  ) {
+    final direct = directChannels
         .where((channel) => channel.membership.starred)
         .toList();
     direct.sort(
       (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
     );
     return [
-      for (final channel in publicChannels())
+      for (final channel in public)
         if (channel.membership.starred) channel,
       ...direct,
     ];
@@ -1064,14 +1120,74 @@ final class _ChatChannelDirectory {
       for (final channel in directChannels())
         if (!channel.membership.starred) channel,
     ];
-    return List.unmodifiable(_sortDirectMessageActivity(channels));
+    return _directMessageProjection('unstarredDirect', channels);
   }
 
   List<ChatChannel> activitySortedDirectChannels() =>
-      List.unmodifiable(_sortDirectMessageActivity([...directChannels()]));
+      _directMessageProjection('directActivity', directChannels());
+
+  List<ChatChannel> _directMessageProjection(
+    Object slot,
+    List<ChatChannel> channels,
+  ) {
+    if (channels.length < 2) return List.unmodifiable(channels);
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    final oldestThreads = Map<ChatChannel, DateTime?>.identity();
+    return _projectChannels(slot, [
+      for (final channel in channels)
+        _directMessageDependencies(channel, unreadCounts, oldestThreads),
+    ], () => _sortDirectMessageActivity(channels, unreadCounts, oldestThreads));
+  }
+
+  Object _directMessageDependencies(
+    ChatChannel channel,
+    Map<ChatChannel, int> unreadCounts,
+    Map<ChatChannel, DateTime?> oldestThreads,
+  ) {
+    final urgent =
+        channel.tracking.unreadCount +
+        channel.tracking.mentionCount +
+        channel.tracking.watchedThreadsUnreadCount;
+    final unreadThreads = urgent > 0
+        ? 0
+        : channel.unreadThreadsCountSinceLastViewed;
+    unreadCounts[channel] = unreadThreads;
+    final oldest = unreadThreads > 0 ? channel.lastUnreadThreadAt : null;
+    oldestThreads[channel] = oldest;
+    return (
+      channel.id,
+      channel.lastMessageId,
+      channel.lastMessageAt,
+      urgent > 0,
+      unreadThreads > 0,
+      oldest,
+    );
+  }
 
   List<ChatChannel> activitySortedStarredChannels() {
-    final channels = [...starredChannels()];
+    final channels = starredChannels();
+    if (channels.length < 2) return List.unmodifiable(channels);
+    final unreadCounts = Map<ChatChannel, int>.identity();
+    return _projectChannels('starredActivity', [
+      for (final channel in channels)
+        (
+          channel.id,
+          channel.isDirectMessage,
+          channel.urgentCount > 0,
+          (unreadCounts[channel] =
+                  channel.tracking.unreadCount +
+                  channel.unreadThreadsCountSinceLastViewed) >
+              0,
+          channel.lastMessageId,
+          channel.lastMessageAt,
+        ),
+    ], () => _activitySortedStarredChannels(channels, unreadCounts));
+  }
+
+  List<ChatChannel> _activitySortedStarredChannels(
+    List<ChatChannel> channels,
+    Map<ChatChannel, int> unreadCounts,
+  ) {
     final originalPositions = <int, int>{};
     for (final channel in channels) {
       originalPositions[channel.id] = originalPositions.length;
@@ -1083,7 +1199,6 @@ final class _ChatChannelDirectory {
               channel.tracking.watchedThreadsUnreadCount
         : channel.tracking.mentionCount +
               channel.tracking.watchedThreadsUnreadCount;
-    final unreadCounts = Map<ChatChannel, int>.identity();
     int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
       channel,
       () =>
@@ -1119,13 +1234,15 @@ final class _ChatChannelDirectory {
     return List.unmodifiable(channels);
   }
 
-  List<ChatChannel> _sortDirectMessageActivity(List<ChatChannel> channels) {
-    final unreadCounts = Map<ChatChannel, int>.identity();
+  List<ChatChannel> _sortDirectMessageActivity(
+    List<ChatChannel> channels,
+    Map<ChatChannel, int> unreadCounts,
+    Map<ChatChannel, DateTime?> oldestThreads,
+  ) {
     int unreadThreads(ChatChannel channel) => unreadCounts.putIfAbsent(
       channel,
       () => channel.unreadThreadsCountSinceLastViewed,
     );
-    final oldestThreads = Map<ChatChannel, DateTime?>.identity();
     DateTime? oldestThread(ChatChannel channel) =>
         oldestThreads.putIfAbsent(channel, () => channel.lastUnreadThreadAt);
     // Mirrors core's activity ordering for unstarred direct messages.
