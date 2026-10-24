@@ -56,4 +56,75 @@ void main() {
       expect(last.nextPagePath, isNull);
     },
   );
+  for (final prefix in ['', '/forum', '/forum%20space', '/caf%C3%A9']) {
+    test('search follows page two under site prefix "$prefix"', () async {
+      final requests = <Uri>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request.url);
+          final page = int.parse(request.url.queryParameters['page']!);
+          return http.Response(
+            jsonEncode({
+              'posts': [
+                {
+                  'id': 70 + page,
+                  'topic_id': 7 + page,
+                  'post_number': 4,
+                  'username': 'sam',
+                  'blurb': 'Search excerpt $page.',
+                },
+              ],
+              'topics': [
+                {
+                  'id': 7 + page,
+                  'title': 'Search result $page',
+                  'slug': 'search-result-$page',
+                  'posts_count': 12,
+                  'category_id': 3,
+                },
+              ],
+              'grouped_search_result': {'more_full_page_results': page == 1},
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      final siteUrl = 'https://example.com$prefix';
+      final path = Uri(
+        path: '/search.json',
+        queryParameters: {
+          'q': 'in:messages @sam "design keyboard"',
+          'page': '1',
+          'search_context[type]': 'user',
+          'search_context[id]': 'sam',
+        },
+      ).toString();
+      final first = await api.topicList(siteUrl: siteUrl, path: path);
+
+      expect(first.topics.single.id, 8);
+      expect(first.topics.single.excerpt, 'Search excerpt 1.');
+      expect(first.nextPagePath, isNotNull);
+      final next = Uri.parse(first.nextPagePath!);
+      expect(next.path, '/search.json');
+      expect(next.queryParameters, {
+        ...Uri.parse(path).queryParameters,
+        'page': '2',
+      });
+
+      final second = await api.topicList(
+        siteUrl: siteUrl,
+        path: first.nextPagePath!,
+      );
+      expect(second.topics.single.id, 9);
+      expect(second.topics.single.excerpt, 'Search excerpt 2.');
+      expect(second.nextPagePath, isNull);
+      expect(requests.map((uri) => uri.path), [
+        '$prefix/search.json',
+        '$prefix/search.json',
+      ]);
+      expect(requests.first.queryParameters, Uri.parse(path).queryParameters);
+      expect(requests.last.queryParameters, next.queryParameters);
+    });
+  }
 }
