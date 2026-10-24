@@ -65,6 +65,107 @@ void main() {
   );
 
   test(
+    'named items are distinct from accounts and validate identity scope',
+    () async {
+      const items = OwnedSitePreferences(
+        id: 'test.owned',
+        scope: SitePreferenceScope.namedItem,
+        value: SitePreferenceValue.boolean,
+      );
+      const identity = SitePreferenceIdentity.namedItem(_short, 'c.d');
+      const siteData = OwnedSitePreferences(
+        id: 'test.owned',
+        scope: SitePreferenceScope.site,
+        value: SitePreferenceValue.boolean,
+      );
+      expect(identity.account, isNull);
+      expect(identity.itemName, 'c.d');
+      expect(items.keyFor(identity), isNot(_data.keyFor(_identity)));
+      expect(
+        items.keyFor(identity),
+        isNot(siteData.keyFor(const SitePreferenceIdentity.site(_short))),
+      );
+      await items.write(identity, false);
+      await _data.write(_identity, 'account');
+      expect(await items.read(identity), isFalse);
+      expect(await _data.read(_identity), 'account');
+      for (final wrong in [
+        _identity,
+        const SitePreferenceIdentity.site(_short),
+      ]) {
+        expect(() => items.keyFor(wrong), throwsArgumentError);
+        expect(() => items.read(wrong), throwsArgumentError);
+        expect(() => items.write(wrong, true), throwsArgumentError);
+      }
+      expect(() => _data.keyFor(identity), throwsArgumentError);
+    },
+  );
+
+  test('cold cleanup finds exact named items without a live store', () async {
+    const items = OwnedSitePreferences(
+      id: 'unknown.named.items',
+      scope: SitePreferenceScope.namedItem,
+      value: SitePreferenceValue.boolean,
+    );
+    final forgotten = items.keyFor(
+      const SitePreferenceIdentity.namedItem(_short, 'c.d'),
+    );
+    final kept = items.keyFor(
+      const SitePreferenceIdentity.namedItem(_long, 'd'),
+    );
+    SharedPreferences.setMockInitialValues({forgotten: true, kept: false});
+    await forgetSitePreferences(
+      [],
+      () => ForgottenSites.removed(_short, keeping: [_long]),
+    );
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.reload();
+    expect(preferences.containsKey(forgotten), isFalse);
+    expect(preferences.getBool(kept), isFalse);
+  });
+
+  for (final freshWrite in [false, true]) {
+    test(
+      'named item retirement fences admitted and queued choices with re-add $freshWrite',
+      () async {
+        const items = OwnedSitePreferences(
+          id: 'test.named.items',
+          scope: SitePreferenceScope.namedItem,
+          value: SitePreferenceValue.boolean,
+        );
+        const identity = SitePreferenceIdentity.namedItem(_short, 'c.d');
+        final backend = _ControlledPreferences({})..holdWrites = true;
+        SharedPreferencesStorePlatform.instance = backend;
+        addTearDown(() {
+          if (!backend.release.isCompleted) backend.release.complete();
+        });
+        final admitted = items.write(identity, true);
+        await backend.started.future;
+        final queued = items.write(identity, true);
+        final retired = Completer<void>();
+        final marker = SitePreferenceKey(
+          'test.named.retirement',
+          onForget: (_) => retired.complete(),
+        );
+        final removal = forgetSitePreferences([
+          marker,
+        ], () => ForgottenSites.removed(_short, keeping: []));
+        await retired.future;
+        final fresh = freshWrite
+            ? items.write(identity, false)
+            : Future<void>.value();
+        backend.holdWrites = false;
+        backend.release.complete();
+        await Future.wait([admitted, queued, removal, fresh]);
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.reload();
+        expect(await items.read(identity), freshWrite ? false : isNull);
+        expect(backend.values, freshWrite ? [true, false] : [true]);
+      },
+    );
+  }
+
+  test(
     'both stores migrate twice without overwriting newer exact values',
     () async {
       const bookmark = BookmarkReminderStore();
