@@ -45,6 +45,164 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  for (final scope in [
+    GlobalSearchScope.users,
+    GlobalSearchScope.groups,
+    GlobalSearchScope.tags,
+    GlobalSearchScope.categories,
+    GlobalSearchScope.messages,
+    chatSearchScope,
+  ]) {
+    for (final term in [
+      'l',
+      'r',
+      'f',
+      't',
+      'l club',
+      'club r',
+      'f club',
+      'club t',
+    ]) {
+      testWidgets('${scope.name} keeps "$term" literal on submission', (
+        tester,
+      ) async {
+        final api = _EngineApi();
+        final controller = _controller(api)
+          ..setScope(scope)
+          ..setQuery(term);
+        addTearDown(controller.dispose);
+        await tester.pump(const Duration(seconds: 1));
+        final preview = api.requests.last;
+        expect(preview.scope, scope);
+        expect(preview.query, term);
+        expect(preview.conditions, isEmpty);
+        controller.submit();
+        await tester.pump(const Duration(seconds: 1));
+        expect(controller.error, isNull);
+        expect(controller.phase, GlobalSearchPhase.empty);
+        expect(controller.scope, scope);
+        expect(controller.query, term);
+        final submitted = api.requests.last;
+        expect(submitted.scope, preview.scope);
+        expect(submitted.query, preview.query);
+        expect(submitted.conditions, isEmpty);
+        expect(submitted.order, preview.order);
+      });
+    }
+  }
+
+  for (final scope in [GlobalSearchScope.all, GlobalSearchScope.forum]) {
+    for (final (alias, condition, value, order) in [
+      ('l', null, null, 'latest'),
+      ('r', null, null, 'read'),
+      ('f', 'searchIn', 'first', 'relevance'),
+      ('t', 'searchIn', 'title', 'relevance'),
+      ('in:mine', 'activity', 'created', 'relevance'),
+      ('in:messages', 'privateMessages', 'personal', 'relevance'),
+      ('in:whispers', 'whispers', 'whispers', 'relevance'),
+      ('in:bots', 'postType', 'bot', 'relevance'),
+      ('in:humans', 'postType', 'human', 'relevance'),
+      ('include:invisible', 'visibility', 'include', 'relevance'),
+    ]) {
+      testWidgets('${scope.name} retains forum alias $alias', (tester) async {
+        final api = _EngineApi();
+        final controller = _controller(api)
+          ..setScope(scope)
+          ..setQuery('$alias club');
+        addTearDown(controller.dispose);
+        await tester.pump(const Duration(seconds: 1));
+        final preview = api.requests.last;
+        expect(preview.scope, GlobalSearchScope.forum);
+        expect(preview.query, 'club');
+        expect(preview.order, order);
+        expect(preview.conditions.map((c) => (c.filterId, c.text)), [
+          if (condition != null) (condition, value),
+        ]);
+        controller.submit();
+        await tester.pump(const Duration(seconds: 1));
+        expect(controller.error, isNull);
+        final submitted = api.requests.last;
+        expect(submitted.scope, preview.scope);
+        expect(submitted.query, preview.query);
+        expect(submitted.order, preview.order);
+        expect(
+          submitted.conditions.map((c) => (c.filterId, c.operator, c.text)),
+          preview.conditions.map((c) => (c.filterId, c.operator, c.text)),
+        );
+      });
+    }
+  }
+
+  for (final (scope, expression, query, expected, order) in [
+    (
+      GlobalSearchScope.users,
+      'l group=team period=weekly club',
+      'l club',
+      [('userGroup', 'team'), ('userPeriod', 'weekly')],
+      'username',
+    ),
+    (
+      GlobalSearchScope.groups,
+      'r type=public username=mira club',
+      'r club',
+      [('groupType', 'public'), ('groupMember', 'mira')],
+      'name',
+    ),
+    (
+      GlobalSearchScope.messages,
+      'f in:messages @mira with:images filetypes:png club',
+      'f club',
+      [
+        ('messageKind', 'personal'),
+        ('messageAuthor', 'mira'),
+        ('messageContent', 'images'),
+        ('messageFiles', 'png'),
+      ],
+      'relevance',
+    ),
+    (
+      chatSearchScope,
+      't @mira #design exclude_threads=true club',
+      't club',
+      [
+        ('chatAuthor', 'mira'),
+        ('chatChannel', 'design'),
+        ('chatThreads', 'exclude'),
+      ],
+      'latest',
+    ),
+  ]) {
+    testWidgets(
+      '${scope.name} preserves explicit operators beside literal shorthand',
+      (tester) async {
+        final api = _EngineApi();
+        final controller = _controller(api)
+          ..setScope(scope)
+          ..setOrder(order)
+          ..setQuery(expression);
+        addTearDown(controller.dispose);
+        await tester.pump(const Duration(seconds: 1));
+        final preview = api.requests.last;
+        expect(controller.scope, scope);
+        expect(preview.scope, scope);
+        expect(preview.query, query);
+        expect(preview.conditions.map((c) => (c.filterId, c.text)), expected);
+        expect(preview.order, order);
+        controller.submit();
+        await tester.pump(const Duration(seconds: 1));
+        expect(controller.error, isNull);
+        final submitted = api.requests.last;
+        expect(submitted.scope, scope);
+        expect(submitted.query, preview.query);
+        expect(submitted.order, preview.order);
+        expect(
+          submitted.conditions.map((c) => (c.filterId, c.operator, c.text)),
+          preview.conditions.map((c) => (c.filterId, c.operator, c.text)),
+        );
+      },
+    );
+  }
+
   testWidgets(
     'recent terms keep exact identity, newest order and five entries',
     (tester) async {
