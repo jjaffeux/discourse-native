@@ -87,6 +87,65 @@ void main() {
     return shell.visibleComposer!;
   }
 
+  test(
+    'editing a published post preserves the unfinished reply draft',
+    () async {
+      final reply = openReply(7);
+      await shell.finishComposerDraftRestore(reply);
+      reply.text.text = 'An unfinished reply';
+      await reply.flushDraft();
+      await reply.finishDraftSaves();
+      final saved = await drafts.read(_firstSite, 'topic_7');
+
+      shell.openEdit(
+        const Post(
+          id: 9,
+          postNumber: 2,
+          username: 'sam',
+          cooked: '',
+          raw: '  Published post  ',
+          canEdit: true,
+        ),
+      );
+      final edit = shell.visibleComposer!;
+      expect(edit, isNot(same(reply)));
+      expect(edit.canSaveDraft, isFalse);
+      expect(edit.originalRaw, '  Published post  ');
+      edit.text.text = 'Edited published post';
+      await edit.flushDraft();
+      await edit.finishDraftSaves();
+
+      expect(await drafts.read(_firstSite, 'topic_7'), saved);
+      shell.selectComposer(reply);
+      expect(shell.visibleComposer, same(reply));
+      expect(reply.raw, 'An unfinished reply');
+    },
+  );
+
+  test('edit publication cannot load raw into a retired account editor', () {
+    openReply(7);
+    var retired = false;
+    shell.addListener(() {
+      final composer = shell.visibleComposer;
+      if (retired || composer?.target is! PostEditingComposerTarget) return;
+      retired = true;
+      shell.lifecycle.invalidate(_firstSite);
+    });
+    shell.openEdit(
+      const Post(
+        id: 9,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '',
+        raw: 'Retired account body',
+        canEdit: true,
+      ),
+    );
+    expect(retired, isTrue);
+    expect(shell.visibleComposer!.originalRaw, isNull);
+    expect(api.postFetches, isEmpty);
+  });
+
   test('keeps the same composer visible while its tab changes route', () {
     final composer = shell.visibleComposer!;
     composer.text.text = 'An unfinished topic';

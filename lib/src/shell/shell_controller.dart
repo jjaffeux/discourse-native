@@ -122,6 +122,7 @@ import 'composer/autocomplete.dart';
 import 'composer/components/quote.dart';
 import 'composer/controller.dart';
 import 'composer/draft_coordinator.dart';
+import 'composer/existing_topic_opening_owner.dart';
 import 'composer/opening_owner.dart';
 import 'composer/pills.dart';
 import 'composer/triggers.dart';
@@ -5615,6 +5616,14 @@ class ShellController extends FrameSafeNotifier
     queries: api.topicComposerQueries,
   );
 
+  late final _existingTopicOpening = ExistingTopicComposerOpeningOwner(
+    editors: _ShellExistingTopicOpeningEditors(this),
+    store: store,
+    drafts: _composerDrafts,
+    credentials: credentials,
+    content: api.topicContent,
+  );
+
   late final _ComposerSubmissionOwner _composerSubmissions =
       _ComposerSubmissionOwner(this);
 
@@ -6299,6 +6308,25 @@ class ShellController extends FrameSafeNotifier
     int? categoryId,
   ) => _composerOpening.changeCategory(composer, categoryId);
 
+  ExistingTopicOpeningOrigin? _existingTopicOpeningOrigin(
+    ShellTabContext? context,
+  ) {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent || !identical(document.shell, this)) return null;
+    final siteUrl = currentInstance?.url;
+    final route = document.currentContent;
+    if (siteUrl == null || route?.topicId == null) return null;
+    return ExistingTopicOpeningOrigin(
+      siteUrl: siteUrl,
+      lease: document.lease!,
+      tabId: document.tabId,
+      reader: _ShellExistingTopicOpeningReader(document),
+      route: route!,
+      topic: document.currentTopic,
+      canReply: document.canReplyHere,
+    );
+  }
+
   void openReply({
     int? replyToPostNumber,
     String? replyToUsername,
@@ -6306,68 +6334,32 @@ class ShellController extends FrameSafeNotifier
     UserDraft? listedDraft,
     ShellTabContext? context,
   }) {
-    final document = context ?? focusedTabContext;
-    if (!document.isCurrent || !identical(document.shell, this)) return;
-    final instance = currentInstance;
-    final route = document.currentContent;
-    final topicId = route?.topicId;
-    if (instance == null || topicId == null || !document.canReplyHere) return;
-    final targetsWhisper =
-        replyingToWhisper ??
-        _replyTargetsWhisper(replyToPostNumber, topic: document.currentTopic);
-
-    final existing =
-        _composerRegistry.forSite(instance.url).where((composer) {
-          final target = composer.target;
-          return target is ReplyComposerTarget && target.topicId == topicId;
-        }).firstOrNull ??
-        _composer;
-    if (existing?.discarding == true) return;
-    final existingTarget = existing?.target;
-    if (existing != null &&
-        !existing.closing &&
-        existingTarget is ReplyComposerTarget &&
-        existingTarget.topicId == topicId &&
-        existingTarget.siteUrl == instance.url) {
-      selectComposer(existing);
-      existing.retarget(
-        replyToPostNumber: replyToPostNumber,
-        replyToUsername: replyToUsername,
-        replyingToWhisper: targetsWhisper,
-      );
-      existing.focus.requestFocus();
-      return;
-    }
-
-    if (!_replaceComposer()) return;
-    final target = ReplyComposerTarget(
-      siteUrl: instance.url,
-      tabId: document.tabId,
-      topicId: topicId,
-      slug: route?.slug ?? '',
-      topicTitle: document.currentTopic?.title ?? route?.title ?? '',
+    final origin = _existingTopicOpeningOrigin(context);
+    if (origin == null) return;
+    final plan = _existingTopicOpening.prepareReply(
+      origin,
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
-      replyingToWhisper: targetsWhisper,
-      privateMessageTopic: document.currentTopic?.privateMessage ?? false,
+      replyingToWhisper: replyingToWhisper,
+      listedDraft: listedDraft,
     );
-    final composer = _buildTextComposer(target, persistsDraft: true);
-    _composerRegistry.add(composer);
-    _notify();
-
-    _composerDrafts.startRestore(composer, listedDraft: listedDraft);
+    if (plan != null) _presentReplyOpening(plan);
   }
 
-  bool _replyTargetsWhisper(int? postNumber, {TopicDetail? topic}) {
-    if (postNumber == null) return false;
-    final instance = currentInstance;
-    topic ??= currentTopic;
-    if (instance == null || topic == null) return false;
-    for (final postId in topic.stream) {
-      final post = store.read<Post>(instance.url, postId);
-      if (post?.postNumber == postNumber) return post!.isWhisper;
+  ComposerController? _presentReplyOpening(ReplyOpeningPlan plan) {
+    switch (plan) {
+      case ReuseReplyOpeningPlan():
+        selectComposer(plan.composer);
+        _existingTopicOpening.reuseReply(plan);
+        return plan.composer;
+      case CreateReplyOpeningPlan():
+        if (!_replaceComposer()) return null;
+        final composer = _buildTextComposer(plan.target, persistsDraft: true);
+        _composerRegistry.add(composer);
+        _notify();
+        _existingTopicOpening.startReply(plan, composer);
+        return composer;
     }
-    return false;
   }
 
   Future<void> openQuote(
@@ -6375,111 +6367,36 @@ class ShellController extends FrameSafeNotifier
     String quote, {
     ShellTabContext? context,
   }) async {
-    final document = context ?? focusedTabContext;
-    if (!document.isCurrent || !identical(document.shell, this)) return;
-    final instance = currentInstance;
-    final route = document.currentContent;
-    final topicId = route?.topicId;
-    if (instance == null ||
-        topicId == null ||
-        !document.canReplyHere ||
-        quote.trim().isEmpty) {
-      return;
+    final origin = _existingTopicOpeningOrigin(context);
+    if (origin == null) return;
+    final plan = _existingTopicOpening.prepareQuote(origin, post, quote);
+    if (plan == null) return;
+    final composer = plan.composer ?? _presentReplyOpening(plan.reply!);
+    if (composer != null) {
+      await _existingTopicOpening.insertQuote(plan, composer, quote);
     }
-
-    var composer = _composer;
-    final target = composer?.target;
-    final reusesOpenReply =
-        target is ReplyComposerTarget &&
-        target.topicId == topicId &&
-        target.siteUrl == instance.url;
-
-    if (!reusesOpenReply) {
-      openReply(
-        context: document,
-        replyToPostNumber: post.postNumber == 1 ? null : post.postNumber,
-        replyToUsername: post.postNumber == 1 ? null : post.username,
-        replyingToWhisper: post.postNumber != 1 && post.isWhisper,
-      );
-      composer = _composer;
-    }
-    if (composer == null) return;
-
-    final restore = _composerRegistry.owns(composer)
-        ? _composerDrafts.restoreTaskFor(composer)
-        : null;
-    if (restore != null) {
-      try {
-        await restore;
-      } catch (_) {}
-    }
-
-    if (isDisposed ||
-        !_composerRegistry.owns(composer) ||
-        currentInstance?.url != instance.url ||
-        !document.isCurrent ||
-        !identical(document.currentContent, route)) {
-      return;
-    }
-    if (!composer.insertBlock(expectedValue: composer.value, markdown: quote)) {
-      return;
-    }
-    composer.focus.requestFocus();
   }
 
   void openEdit(Post post, {String? focusText, ShellTabContext? context}) {
-    final document = context ?? focusedTabContext;
-    if (!document.isCurrent || !identical(document.shell, this)) return;
-    final instance = currentInstance;
-    final route = document.currentContent;
-    final topicId = route?.topicId;
-    if (instance == null || topicId == null || !post.canEdit) return;
-    unawaited(_ensureTopicComposerCapabilities(instance.url));
-
+    final origin = _existingTopicOpeningOrigin(context);
+    if (origin == null) return;
+    final plan = _existingTopicOpening.prepareEdit(
+      origin,
+      post,
+      category: categoryFor(origin.topic?.categoryId, siteUrl: origin.siteUrl),
+      focusText: focusText,
+    );
+    if (plan == null) return;
+    unawaited(_ensureTopicComposerCapabilities(origin.siteUrl));
     if (!_replaceComposer()) return;
-    final detail = document.currentTopic;
-    final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
-    // The site's original_title must use its stored title, before route text.
-    final title = detail?.title ?? route?.title ?? '';
-    final target = editsTopic
-        ? TopicEditComposerTarget(
-            siteUrl: instance.url,
-            tabId: document.tabId,
-            topicId: topicId,
-            slug: route?.slug ?? '',
-            topicTitle: title,
-            editingPostId: post.id,
-            initialCategoryId: detail?.categoryId,
-            initialTags: detail?.tags ?? const [],
-            privateMessageTopic: detail?.privateMessage ?? false,
-          )
-        : PostEditComposerTarget(
-            siteUrl: instance.url,
-            tabId: document.tabId,
-            topicId: topicId,
-            slug: route?.slug ?? '',
-            topicTitle: title,
-            editingPostId: post.id,
-            editingPostNumber: post.postNumber,
-            privateMessageTopic: detail?.privateMessage ?? false,
-          );
-    // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
-    // saving here would overwrite an unfinished reply with the text of a post
-    // that is already published.
+    // Published edits must never overwrite an unfinished reply's draft key.
     final composer = _buildTextComposer(
-      target,
-      minimumRequiredTags: editsTopic
-          ? categoryFor(
-                  detail?.categoryId,
-                  siteUrl: instance.url,
-                )?.minimumRequiredTags ??
-                0
-          : 0,
+      plan.target,
+      minimumRequiredTags: plan.minimumRequiredTags,
     );
     _composerRegistry.add(composer);
     _notify();
-
-    unawaited(_loadEditBody(composer, post, focusText: focusText));
+    unawaited(_existingTopicOpening.loadEditBody(plan, composer));
   }
 
   Future<String?> saveFastEdit({
@@ -6801,77 +6718,6 @@ class ShellController extends FrameSafeNotifier
       },
     );
   }
-
-  Future<void> _loadEditBody(
-    ComposerController composer,
-    Post post, {
-    String? focusText,
-  }) async {
-    final target = composer.target;
-    if (target is! PostEditingComposerTarget) return;
-    if (post.raw case final raw?) {
-      composer.loadedBody(raw, caretOffset: _editCaretOffset(raw, focusText));
-      return;
-    }
-
-    composer.beginLoadingBody();
-    final lease = lifecycle.capture(target.siteUrl);
-    try {
-      final credential = await AccountRequestSession(
-        target.siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent || !_composerRegistry.owns(composer)) {
-        return;
-      }
-      final fetched = await credential.run(
-        () => api.topicContent.posts(
-          siteUrl: target.siteUrl,
-          topicId: target.topicId,
-          ids: [post.id],
-          includeRaw: true,
-          apiKey: credential.apiKey,
-        ),
-      );
-      final raw = fetched.firstWhere((p) => p.id == post.id).raw;
-      lease.commit(() {
-        if (raw == null) {
-          composer.bodyLoadFailed();
-        } else {
-          composer.loadedBody(
-            raw,
-            caretOffset: _editCaretOffset(raw, focusText),
-          );
-        }
-      });
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return;
-
-      lease.commit(composer.bodyLoadFailed);
-    }
-  }
-
-  static int? _editCaretOffset(String raw, String? focusText) {
-    final selection = focusText?.trim();
-    if (selection == null || selection.isEmpty) return null;
-    final firstLine = selection
-        .split(RegExp(r'[\r\n]'))
-        .firstWhere((line) => line.trim().isNotEmpty, orElse: () => '')
-        .trim()
-        .replaceFirst(RegExp(r'^\*\s+'), '');
-    if (firstLine.isEmpty) return 0;
-
-    var match = raw.indexOf(firstLine);
-    if (match < 0) {
-      match = _plainQuoteCharacters(
-        raw,
-      ).indexOf(_plainQuoteCharacters(firstLine));
-    }
-    return match < 0 ? 0 : raw.lastIndexOf('\n', match - 1) + 1;
-  }
-
-  static String _plainQuoteCharacters(String value) =>
-      value.replaceAll(RegExp('[“”]'), '"').replaceAll(RegExp('[‘’]'), "'");
 
   late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
     store: store,
@@ -9083,6 +8929,7 @@ class ShellController extends FrameSafeNotifier
   @override
   void dispose() {
     _composerOpening.dispose();
+    _existingTopicOpening.dispose();
     _instanceRail.retire();
     _bookmarks.dispose();
     _checklists.dispose();
@@ -9917,4 +9764,33 @@ final class _ShellComposerOpeningHost
   @override
   Future<TopicTagSearch> searchTags(ComposerController composer, String term) =>
       _shell.searchComposerTags(composer, term);
+}
+
+final class _ShellExistingTopicOpeningReader
+    implements ExistingTopicOpeningReader {
+  _ShellExistingTopicOpeningReader(this._document);
+
+  final ShellTabContext _document;
+
+  @override
+  bool isCurrentRoute(ContentRoute route) =>
+      _document.isCurrent && identical(_document.currentContent, route);
+}
+
+final class _ShellExistingTopicOpeningEditors
+    implements ExistingTopicOpeningEditors {
+  _ShellExistingTopicOpeningEditors(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  ComposerController? get selectedComposer => _shell._composer;
+
+  @override
+  Iterable<ComposerController> forSite(String siteUrl) =>
+      _shell._composerRegistry.forSite(siteUrl);
+
+  @override
+  bool owns(ComposerController composer) =>
+      _shell._composerRegistry.owns(composer);
 }
