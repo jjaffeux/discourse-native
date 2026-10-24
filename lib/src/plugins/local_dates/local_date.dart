@@ -11,6 +11,8 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'local_date_environment.dart';
 
+part 'local_date_week_rules.dart';
+
 final RegExp _wallDatePattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
 final RegExp _wallTimePattern = RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$');
 final RegExp _recurrencePattern = RegExp(
@@ -447,23 +449,50 @@ class LocalDateFormatter {
       'MMMM' => intl('MMMM'),
       'D' => '${value.day}',
       'DD' => intl('dd'),
-      'Do' => _ordinal(value.day),
+      'Do' => _ordinal(value.day, 'D', locale),
       'DDD' => '${_dayOfYear(value)}',
       'DDDD' => _dayOfYear(value).toString().padLeft(3, '0'),
-      'DDDo' => _ordinal(_dayOfYear(value)),
+      'DDDo' => _ordinal(_dayOfYear(value), 'DDD', locale),
       'd' => '${value.weekday % 7}',
-      'dd' => intl('EEEEE'),
+      'dd' => _minimalWeekday(value, locale),
       'ddd' => intl('EEE'),
       'dddd' => intl('EEEE'),
-      'e' => '${value.weekday % 7}',
+      'e' =>
+        '${(value.weekday % 7 - _momentWeekRules(locale).firstWeekday + 7) % 7}',
       'E' => '${value.weekday}',
-      'w' || 'W' => '${_isoWeek(value)}',
-      'ww' || 'WW' => _isoWeek(value).toString().padLeft(2, '0'),
-      'wo' || 'Wo' => _ordinal(_isoWeek(value)),
-      'gg' || 'GG' => '${_isoWeekYear(value) % 100}'.padLeft(2, '0'),
-      'gggg' || 'GGGG' => '${_isoWeekYear(value)}',
+      'w' => '${_calendarWeek(value, _momentWeekRules(locale)).number}',
+      'ww' => _calendarWeek(
+        value,
+        _momentWeekRules(locale),
+      ).number.toString().padLeft(2, '0'),
+      'wo' => _ordinal(
+        _calendarWeek(value, _momentWeekRules(locale)).number,
+        'w',
+        locale,
+      ),
+      'gg' =>
+        '${_calendarWeek(value, _momentWeekRules(locale)).year % 100}'.padLeft(
+          2,
+          '0',
+        ),
+      'gggg' => '${_calendarWeek(value, _momentWeekRules(locale)).year}',
+      'W' => '${_calendarWeek(value, _WeekRules.iso).number}',
+      'WW' => _calendarWeek(
+        value,
+        _WeekRules.iso,
+      ).number.toString().padLeft(2, '0'),
+      'Wo' => _ordinal(
+        _calendarWeek(value, _WeekRules.iso).number,
+        'W',
+        locale,
+      ),
+      'GG' => '${_calendarWeek(value, _WeekRules.iso).year % 100}'.padLeft(
+        2,
+        '0',
+      ),
+      'GGGG' => '${_calendarWeek(value, _WeekRules.iso).year}',
       'Q' => '${((value.month - 1) ~/ 3) + 1}',
-      'Qo' => _ordinal(((value.month - 1) ~/ 3) + 1),
+      'Qo' => _ordinal(((value.month - 1) ~/ 3) + 1, 'Q', locale),
       'H' => '${value.hour}',
       'HH' => value.hour.toString().padLeft(2, '0'),
       'h' => '${value.hour % 12 == 0 ? 12 : value.hour % 12}',
@@ -772,26 +801,66 @@ class LocalDateFormatter {
       ).difference(DateTime.utc(value.year)).inDays +
       1;
 
-  static int _isoWeek(DateTime value) {
-    final thursday = DateTime.utc(
-      value.year,
-      value.month,
-      value.day,
-    ).add(Duration(days: 4 - value.weekday));
-    final firstThursday = DateTime.utc(thursday.year, 1, 4);
-    return 1 +
-        (thursday.difference(firstThursday).inDays -
-                (4 - firstThursday.weekday)) ~/
-            7;
+  static _WeekRules _momentWeekRules(String locale) {
+    var candidate = locale.toLowerCase().replaceAll('_', '-');
+    while (true) {
+      final rules = _momentWeekRuleTable[candidate];
+      if (rules != null) return rules;
+      final separator = candidate.lastIndexOf('-');
+      if (separator == -1) return _WeekRules.english;
+      candidate = candidate.substring(0, separator);
+    }
   }
 
-  static int _isoWeekYear(DateTime value) => DateTime.utc(
-    value.year,
-    value.month,
-    value.day,
-  ).add(Duration(days: 4 - value.weekday)).year;
+  static ({int year, int number}) _calendarWeek(
+    DateTime value,
+    _WeekRules rules,
+  ) {
+    final date = DateTime.utc(value.year, value.month, value.day);
+    var year = value.year;
+    var start = _firstWeekStart(year, rules);
+    if (date.isBefore(start)) {
+      year -= 1;
+      start = _firstWeekStart(year, rules);
+    } else {
+      final nextStart = _firstWeekStart(year + 1, rules);
+      if (!date.isBefore(nextStart)) {
+        year += 1;
+        start = nextStart;
+      }
+    }
+    return (year: year, number: 1 + date.difference(start).inDays ~/ 7);
+  }
 
-  static String _ordinal(int value) {
+  static DateTime _firstWeekStart(int year, _WeekRules rules) {
+    final anchor = DateTime.utc(year, 1, rules.januaryAnchorDay);
+    final precedingDays = (anchor.weekday % 7 - rules.firstWeekday + 7) % 7;
+    return anchor.subtract(Duration(days: precedingDays));
+  }
+
+  static String _minimalWeekday(DateTime value, String locale) {
+    final language = locale.toLowerCase().replaceAll('_', '-').split('-').first;
+    final names = switch (language) {
+      'en' => const ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+      'fr' => const ['di', 'lu', 'ma', 'me', 'je', 've', 'sa'],
+      _ => null,
+    };
+    return names?[value.weekday % 7] ??
+        DateFormat('EEEEE', locale).format(value);
+  }
+
+  static String _ordinal(int value, String period, String locale) {
+    final normalized = locale.toLowerCase().replaceAll('_', '-');
+    if (normalized == 'fr' || normalized.startsWith('fr-')) {
+      if (period == 'w' || period == 'W') {
+        return value == 1 ? '1re' : '${value}e';
+      }
+      if (value == 1) return '1er';
+      if (period == 'D' && normalized != 'fr-ca' && normalized != 'fr-ch') {
+        return '$value';
+      }
+      return '${value}e';
+    }
     final mod100 = value % 100;
     if (mod100 >= 11 && mod100 <= 13) return '${value}th';
     return switch (value % 10) {
@@ -851,6 +920,16 @@ class LocalDateFormatter {
   static String _localeName(Locale locale) => locale.countryCode == null
       ? locale.languageCode
       : '${locale.languageCode}_${locale.countryCode}';
+}
+
+class _WeekRules {
+  const _WeekRules(this.firstWeekday, this.januaryAnchorDay);
+
+  static const iso = _WeekRules(1, 4);
+  static const english = _WeekRules(0, 1);
+
+  final int firstWeekday;
+  final int januaryAnchorDay;
 }
 
 @immutable

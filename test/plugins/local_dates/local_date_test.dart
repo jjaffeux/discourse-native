@@ -706,6 +706,277 @@ void main() {
       );
     });
 
+    test('week numbers and years follow both sides of calendar boundaries', () {
+      final cases = [
+        (
+          const Locale('en'),
+          DateTime.utc(2025, 12, 27),
+          '52 52 25 2025 | 52 52 25 2025 | 6 6 6',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2025, 12, 28),
+          '1 01 26 2026 | 52 52 25 2025 | 0 0 7',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2027, 1, 1),
+          '1 01 27 2027 | 53 53 26 2026 | 5 5 5',
+        ),
+        (
+          const Locale('fr'),
+          DateTime.utc(2027, 1, 1),
+          '53 53 26 2026 | 53 53 26 2026 | 5 4 5',
+        ),
+        (
+          const Locale('fr'),
+          DateTime.utc(2027, 1, 4),
+          '1 01 27 2027 | 1 01 27 2027 | 1 0 1',
+        ),
+        (
+          const Locale('fr'),
+          DateTime.utc(2021, 1, 1),
+          '53 53 20 2020 | 53 53 20 2020 | 5 4 5',
+        ),
+        (
+          const Locale('fr'),
+          DateTime.utc(2022, 1, 1),
+          '52 52 21 2021 | 52 52 21 2021 | 6 5 6',
+        ),
+        (
+          const Locale('fr'),
+          DateTime.utc(2024, 12, 31),
+          '1 01 25 2025 | 1 01 25 2025 | 2 1 2',
+        ),
+      ];
+      for (final (locale, date, expected) in cases) {
+        expect(
+          LocalDateFormatter.formatMoment(
+            date,
+            'w ww gg gggg | W WW GG GGGG | d e E',
+            locale,
+          ),
+          expected,
+          reason: '$locale $date',
+        );
+      }
+    });
+
+    test(
+      'regional week rules override language defaults and normalize locale separators',
+      () {
+        final cases = [
+          (
+            const Locale('en', 'AU'),
+            DateTime.utc(2026, 1, 1),
+            '1 2026 1 2026 4',
+          ),
+          (
+            const Locale('en-au'),
+            DateTime.utc(2026, 12, 31),
+            '53 2026 53 2026 4',
+          ),
+          (
+            const Locale('en', 'AU'),
+            DateTime.utc(2027, 1, 1),
+            '53 2026 53 2026 5',
+          ),
+          (
+            const Locale('en', 'AU'),
+            DateTime.utc(2027, 1, 3),
+            '1 2027 53 2026 0',
+          ),
+          (
+            const Locale('en', 'GB'),
+            DateTime.utc(2025, 12, 28),
+            '52 2025 52 2025 6',
+          ),
+          (
+            const Locale('en', 'NZ'),
+            DateTime.utc(2025, 12, 28),
+            '52 2025 52 2025 6',
+          ),
+          (
+            const Locale('en', 'SG'),
+            DateTime.utc(2025, 12, 28),
+            '52 2025 52 2025 6',
+          ),
+          (
+            const Locale('zh', 'CN'),
+            DateTime.utc(2025, 12, 28),
+            '52 2025 52 2025 6',
+          ),
+          (
+            const Locale('fr', 'CA'),
+            DateTime.utc(2026, 12, 31),
+            '1 2027 53 2026 4',
+          ),
+          (
+            const Locale('fr', 'XX'),
+            DateTime.utc(2026, 12, 31),
+            '53 2026 53 2026 3',
+          ),
+          (
+            const Locale('unknown', 'XX'),
+            DateTime.utc(2026, 12, 31),
+            '1 2027 53 2026 4',
+          ),
+          (
+            const Locale('ar', 'KW'),
+            DateTime.utc(2026, 12, 31),
+            '2 2027 53 2026 4',
+          ),
+          (const Locale('dv'), DateTime.utc(2022, 1, 1), '53 2021 52 2021 6'),
+        ];
+        for (final (locale, date, expected) in cases) {
+          expect(
+            LocalDateFormatter.formatMoment(date, 'w gggg W GGGG e', locale),
+            expected,
+            reason: '$locale $date',
+          );
+        }
+      },
+    );
+
+    test(
+      'minimal and numeric weekdays retain their distinct locale meanings',
+      () {
+        final cases = [
+          (DateTime.utc(2026, 8, 9), const Locale('en'), '0 0 7 Su'),
+          (DateTime.utc(2026, 8, 9), const Locale('fr'), '0 6 7 di'),
+          (DateTime.utc(2026, 8, 10), const Locale('en'), '1 1 1 Mo'),
+          (DateTime.utc(2026, 8, 10), const Locale('fr'), '1 0 1 lu'),
+          (DateTime.utc(2026, 8, 11), const Locale('en'), '2 2 2 Tu'),
+          (DateTime.utc(2026, 8, 11), const Locale('fr'), '2 1 2 ma'),
+          (DateTime.utc(2026, 8, 12), const Locale('en'), '3 3 3 We'),
+          (DateTime.utc(2026, 8, 12), const Locale('fr'), '3 2 3 me'),
+          (DateTime.utc(2026, 8, 13), const Locale('en'), '4 4 4 Th'),
+          (DateTime.utc(2026, 8, 13), const Locale('fr'), '4 3 4 je'),
+          (DateTime.utc(2026, 8, 14), const Locale('en'), '5 5 5 Fr'),
+          (DateTime.utc(2026, 8, 14), const Locale('fr'), '5 4 5 ve'),
+          (DateTime.utc(2026, 8, 15), const Locale('en'), '6 6 6 Sa'),
+          (DateTime.utc(2026, 8, 15), const Locale('fr'), '6 5 6 sa'),
+        ];
+        for (final (date, locale, expected) in cases) {
+          expect(
+            LocalDateFormatter.formatMoment(date, 'd e E dd', locale),
+            expected,
+          );
+        }
+      },
+    );
+
+    test('French ordinals distinguish days, weeks, and other periods', () {
+      final cases = [
+        (const Locale('fr'), DateTime.utc(2027, 1, 1), '1er 1er 1er 53e 53e'),
+        (const Locale('fr'), DateTime.utc(2027, 1, 4), '4 4e 1er 1re 1re'),
+        (const Locale('fr'), DateTime.utc(2027, 4, 21), '21 111e 2e 16e 16e'),
+        (
+          const Locale('fr', 'CA'),
+          DateTime.utc(2027, 1, 1),
+          '1er 1er 1er 1re 53e',
+        ),
+        (
+          const Locale('fr', 'CA'),
+          DateTime.utc(2027, 1, 4),
+          '4e 4e 1er 2e 1re',
+        ),
+        (
+          const Locale('fr', 'CH'),
+          DateTime.utc(2027, 1, 4),
+          '4e 4e 1er 1re 1re',
+        ),
+        (
+          const Locale('fr', 'XX'),
+          DateTime.utc(2027, 1, 4),
+          '4 4e 1er 1re 1re',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2027, 1, 11),
+          '11th 11th 1st 3rd 2nd',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2027, 1, 12),
+          '12th 12th 1st 3rd 2nd',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2027, 1, 13),
+          '13th 13th 1st 3rd 2nd',
+        ),
+        (
+          const Locale('en'),
+          DateTime.utc(2027, 4, 21),
+          '21st 111th 2nd 17th 16th',
+        ),
+      ];
+      for (final (locale, date, expected) in cases) {
+        expect(
+          LocalDateFormatter.formatMoment(date, 'Do DDDo Qo wo Wo', locale),
+          expected,
+          reason: '$locale $date',
+        );
+      }
+    });
+
+    test(
+      'locale weeks retain the displayed date across UTC and DST boundaries',
+      () {
+        final cases = [
+          (
+            tz.TZDateTime(
+              tz.getLocation('America/New_York'),
+              2026,
+              12,
+              31,
+              23,
+              30,
+            ),
+            const Locale('en'),
+            '1 2027 53 2026 4',
+          ),
+          (
+            tz.TZDateTime(
+              tz.getLocation('Pacific/Auckland'),
+              2027,
+              1,
+              4,
+              0,
+              30,
+            ),
+            const Locale('fr'),
+            '1 2027 1 2027 0',
+          ),
+          (
+            tz.TZDateTime(
+              tz.getLocation('Australia/Sydney'),
+              2026,
+              10,
+              4,
+              3,
+              30,
+            ),
+            const Locale('en', 'AU'),
+            '41 2026 40 2026 0',
+          ),
+          (
+            tz.TZDateTime(tz.getLocation('Europe/Paris'), 2026, 10, 25, 3, 30),
+            const Locale('fr'),
+            '43 2026 43 2026 6',
+          ),
+        ];
+        for (final (date, locale, expected) in cases) {
+          expect(
+            LocalDateFormatter.formatMoment(date, 'w gggg W GGGG e', locale),
+            expected,
+            reason: '$locale $date',
+          );
+        }
+      },
+    );
+
     test('day-of-year and ISO week follow the displayed wall clock', () {
       const locale = Locale('en');
       final newYork = tz.getLocation('America/New_York');

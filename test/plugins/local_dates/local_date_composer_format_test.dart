@@ -2,7 +2,7 @@ import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_editor.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_date_composer_parser.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_sheet.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
@@ -27,6 +27,26 @@ void main() {
     environment.ensureDatabase();
     environment.setDeviceTimezone('Etc/UTC');
     await initializeDateFormatting('en');
+  });
+
+  test('composer summary renders author locale week and weekday formats', () {
+    final yearEnd = parseLocalDateComposerBlocks(
+      '[date=2026-12-31 timezone=UTC format="w ww wo gg gggg | W WW Wo GG GGGG"]',
+      environment: environment,
+    ).single;
+    expect(
+      localDateComposerSummary(yearEnd, locale: const Locale('en')),
+      '1 01 1st 27 2027 | 53 53 53rd 26 2026',
+    );
+
+    final sunday = parseLocalDateComposerBlocks(
+      '[date=2026-08-09 timezone=UTC format="dd d e E"]',
+      environment: environment,
+    ).single;
+    expect(
+      localDateComposerSummary(sunday, locale: const Locale('fr')),
+      'di 0 6 7',
+    );
   });
 
   test('new quote delimiters preserve format through actual cooking', () async {
