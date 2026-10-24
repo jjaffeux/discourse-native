@@ -4,7 +4,18 @@
 watches, and device preferences. Each account's private
 `_VoiceRoomDirectory` owns room snapshots, linked rooms, request identity,
 HTTP/live precedence, capability state, cursors, and directory/room subscriptions.
-The facade coordinates directory updates with retained calls and embedded Chat.
+`_VoiceRoomEvents` reduces the sealed room events and coordinates directory and
+active-call updates, notices, and incoming signal envelopes. It borrows the
+existing directory and call manager without retaining another room or call copy.
+The directory keeps subscription, cursor, and account delivery guards. The
+session keeps roster removal, stage publication, and media reconciliation policy.
+The facade coordinates retained calls with embedded Chat.
+
+Open-room offers can introduce an attested sender before the roster arrives.
+That provisional update reaches the listed room and active call. Stage rooms
+wait for the roster. Signal delivery rechecks active media after provisional
+roster synchronization and before its ordered batch. An admitted batch finishes
+on its captured media even if a call is replaced while a signal is awaited.
 `roomListenable` publishes listed-room and join-loading changes independently of
 call controls, incoming rings, embedded Chat, and device preferences.
 `_VoiceCallManager` serializes room transitions and coalesces matching pending

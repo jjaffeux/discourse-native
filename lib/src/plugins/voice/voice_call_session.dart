@@ -503,7 +503,7 @@ final class _VoiceCallSession {
 
     final userId = controller._userIdFor(call.siteUrl);
     if (userId != null) {
-      controller._updateRoom(
+      controller._roomEvents.updateRoom(
         call.siteUrl,
         call.room.id,
         (room) => room.withParticipants([
