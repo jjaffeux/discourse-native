@@ -311,6 +311,114 @@ void main() {
       }
     });
 
+    final relativeCases = <({String source, bool active})>[
+      for (final (marker, indent, closers) in const [
+        ('- a', '  ', [4, 5]),
+        ('1. a', '   ', [4, 5, 6]),
+      ])
+        for (final closer in closers)
+          (
+            source:
+                '$marker\n\n$indent[code]\n'
+                '${indent}[poll name=live]\n$indent* A\n$indent* B\n'
+                '$indent[/poll]\n${' ' * closer}[/code]',
+            active: false,
+          ),
+      for (final tag in const ['quote', 'excerpt', 'grid', 'wrap'])
+        (
+          source:
+              '- a\n\n  [$tag]\n  [code]\n    [/$tag]\n'
+              '  [poll name=live]\n  * A\n  * B\n  [/poll]\n  [/code]',
+          active: true,
+        ),
+    ];
+    for (var index = 0; index < relativeCases.length; index++) {
+      test('matches list-relative BBCode case $index', () {
+        final example = relativeCases[index];
+        final blocks = parsePollComposerBlocks(example.source);
+        expect(blocks, hasLength(example.active ? 1 : 0));
+        expect(
+          pollNamesInComposerSource(example.source),
+          example.active ? {'live'} : <String>{},
+        );
+        if (example.active) {
+          final block = blocks.single;
+          expect(block.start, example.source.indexOf('  [poll'));
+          expect(block.end, example.source.indexOf('  [/poll]') + 9);
+          expect(
+            block.source,
+            example.source.substring(block.start, block.end),
+          );
+          expect(block.openingIndent, '  ');
+          expect(block.closingIndent, '  ');
+        }
+      });
+    }
+
+    test('list-relative BBCode agrees with the bundled cooker', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      const poll = '[poll name=live]\n* A\n* B\n[/poll]';
+      final cases = [
+        ...relativeCases,
+        (
+          source:
+              '- a\n\n  [code]\n  <!--\n  [poll name=example]\n'
+              '  * C\n  * D\n  [/poll]\n    [/code]\n\n'
+              '- b\n\n  [code]\n$poll\n[/code]',
+          active: true,
+        ),
+        (
+          source:
+              '[code]\n    [/code]\n<!--\n[/code]\n'
+              '- a\n\n  [code]\n$poll\n[/code]',
+          active: true,
+        ),
+        (source: '- a\n\n  [code]\n<!--\n$poll\n[/code]', active: false),
+        (source: '    [code]\n\n$poll\n    [/code]', active: true),
+      ];
+      for (final example in cases) {
+        final result = await service.cook(
+          CookingRequest(
+            raw: example.source,
+            snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+            configuration: CookingConfiguration(
+              modules: [CookingModule(id: 'poll', owner: 'poll', version: '1')],
+            ),
+          ),
+        );
+        expect(result.failure, isNull, reason: example.source);
+        expect(
+          RegExp('class="poll"').allMatches(result.html).length,
+          example.active ? 1 : 0,
+          reason: example.source,
+        );
+        final blocks = parsePollComposerBlocks(example.source);
+        expect(
+          blocks,
+          hasLength(example.active ? 1 : 0),
+          reason: example.source,
+        );
+        expect(
+          pollNamesInComposerSource(example.source),
+          example.active ? {'live'} : <String>{},
+          reason: example.source,
+        );
+        if (example.active) {
+          final block = blocks.single;
+          expect(
+            block.start,
+            example.source.lastIndexOf('[poll name=live]') -
+                block.openingIndent.length,
+          );
+          expect(
+            block.source,
+            example.source.substring(block.start, block.end),
+          );
+        }
+      }
+    });
+
     test('list boundaries agree with the bundled cooker', () async {
       final service = OfflineCookingService();
       addTearDown(service.dispose);

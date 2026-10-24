@@ -194,6 +194,32 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
+    test('projects polls using list-relative BBCode boundaries', () {
+      const policy = PollComposerSyntaxPolicy();
+      for (final (marker, indent, closers) in const [
+        ('- a', '  ', [4, 5]),
+        ('1. a', '   ', [4, 5, 6]),
+      ]) {
+        for (final closer in closers) {
+          final document =
+              '$marker\n\n$indent[code]\n'
+              '${indent}[poll name=example]\n$indent* A\n$indent* B\n'
+              '$indent[/poll]\n${' ' * closer}[/code]';
+          expect(policy.parse(document), isEmpty, reason: document);
+        }
+      }
+      for (final tag in const ['quote', 'excerpt', 'grid', 'wrap']) {
+        const poll = '  [poll name=live]\n  * A\n  * B\n  [/poll]';
+        final document =
+            '- a\n\n  [$tag]\n  [code]\n    [/$tag]\n'
+            '$poll\n  [/code]';
+        final occurrence = policy.parse(document).single;
+        expect(occurrence.start, document.indexOf(poll));
+        expect(occurrence.end, occurrence.start + poll.length);
+        expect(occurrence.source, poll);
+      }
+    });
+
     testWidgets('projects only active polls across core wrapper boundaries', (
       tester,
     ) async {
