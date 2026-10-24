@@ -3,6 +3,11 @@ part of 'chat_controller.dart';
 typedef _ChatReactionWriteKey = ({int messageId, String emoji});
 typedef _ChatReactorsKey = ({int channelId, int messageId, String? filter});
 
+final class _ChatReactionWrite {
+  bool dispatched = false;
+  ({bool reacted, bool afterDispatch})? liveReaction;
+}
+
 final class _AccountChatReactions {
   _AccountChatReactions(
     this.chat,
@@ -15,7 +20,7 @@ final class _AccountChatReactions {
   final String siteUrl;
   final PluginSiteLease lease;
   final VoidCallback onChanged;
-  final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
+  final Map<_ChatReactionWriteKey, _ChatReactionWrite> _reactionWrites = {};
   final Map<_ChatReactorsKey, Object> _reactorRequests = {};
   final Map<_ChatReactorsKey, String> _reactorErrors = {};
   bool _retired = false;
@@ -78,7 +83,7 @@ final class _AccountChatReactions {
 
     final key = (messageId: messageId, emoji: emoji);
     if (_reactionWrites.containsKey(key)) return null;
-    final request = Object();
+    final request = _ChatReactionWrite();
     _reactionWrites[key] = request;
 
     final readerId = chat._currentUserFor(siteUrl)?.id;
@@ -88,7 +93,12 @@ final class _AccountChatReactions {
 
     void rollback() {
       if (ownsRequest()) {
-        _projectReader(messageId, emoji, reacted: !adding, userId: readerId);
+        _projectReader(
+          messageId,
+          emoji,
+          reacted: request.liveReaction?.reacted ?? !adding,
+          userId: readerId,
+        );
       }
     }
 
@@ -109,8 +119,9 @@ final class _AccountChatReactions {
         rollback();
         return null;
       }
-      await requestCredentials.run(
-        () => chat.api.setChatMessageReaction(
+      await requestCredentials.run(() {
+        request.dispatched = true;
+        return chat.api.setChatMessageReaction(
           siteUrl: siteUrl,
           apiKey: apiKey,
           clientId: clientId,
@@ -118,16 +129,34 @@ final class _AccountChatReactions {
           messageId: message.id,
           emoji: emoji,
           action: adding ? ChatReactionAction.add : ChatReactionAction.remove,
-        ),
-      );
+        );
+      });
       if (!ownsRequest()) return null;
-      _projectReader(messageId, emoji, reacted: adding, userId: readerId);
+      _projectReader(
+        messageId,
+        emoji,
+        reacted: switch (request.liveReaction) {
+          (afterDispatch: true, reacted: final reacted) => reacted,
+          _ => adding,
+        },
+        userId: readerId,
+      );
       return null;
     } on WriteException catch (error) {
       rollback();
+      if (ownsRequest() &&
+          !error.notSent &&
+          error.failure == WriteFailure.unreachable &&
+          request.liveReaction == (reacted: adding, afterDispatch: true)) {
+        return null;
+      }
       return error.message;
     } catch (error) {
       rollback();
+      if (ownsRequest() &&
+          request.liveReaction == (reacted: adding, afterDispatch: true)) {
+        return null;
+      }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_reactionWrites[key], request)) {
@@ -221,6 +250,13 @@ final class _AccountChatReactions {
           existing == null &&
           reactions.length >= ChatMessage.maximumReactionsPerMessage) {
         return;
+      }
+      final request = _reactionWrites[(messageId: messageId, emoji: emoji)];
+      if (request != null) {
+        request.liveReaction = (
+          reacted: action == 'add',
+          afterDispatch: request.dispatched,
+        );
       }
       _projectReader(
         messageId,
