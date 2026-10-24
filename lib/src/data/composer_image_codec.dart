@@ -116,7 +116,6 @@ final _jpegIccSignature = 'ICC_PROFILE\x00'.codeUnits;
 
 /// package:image keeps only the last source ICC part and writes one output
 /// part verbatim. Read the complete source sequence before decoding pixels.
-/// Outer null retains the original; a record with no profile allows encoding.
 ({img.IccProfile? profile, Uint8List? lastPart})? _jpegSourceIccProfile(
   Uint8List bytes,
 ) {

@@ -19,10 +19,11 @@ it on success, removal, cancellation, or disposal.
 - Bake EXIF orientation before evaluating dimensions. Strip camera/EXIF and PNG
   text metadata, retaining ICC colour profiles.
 - A JPEG output carries its profile in one APP2 segment numbered 1 of 1. Complete
-  source profiles split across APP2 segments are reassembled in sequence order,
+  profiles carried before the first image scan are reassembled from their APP2
+  segments in sequence order,
   even if the source segments are reordered. The encoder cannot split output
   profiles, so profiles over 65,519 bytes retain the original upload. Incomplete,
-  duplicate, or inconsistent JPEG profile sequences also retain the original.
+  duplicate, or inconsistent sequences in those segments also retain the original.
   If decoding discovers different profile data after the first image scan, the
   original upload is retained.
 - Expand palette and grayscale PNGs to RGB before encoding. A grayscale PNG's
