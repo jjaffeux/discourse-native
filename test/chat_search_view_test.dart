@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -192,6 +193,7 @@ void main() {
           );
           final api = _DelayedChannelApi(gate, hit);
           final original = await _createController(api);
+          final chat = original.pluginSession.require(chatControllerService);
           final other = await _createController(
             FakeDiscourseApi(
               user: const DiscourseUser(id: 8, username: 'replacement'),
@@ -213,6 +215,8 @@ void main() {
           );
           await tester.pump(const Duration(milliseconds: 400));
           await tester.pumpAndSettle();
+          expect(find.text('deploy 1'), findsOneWidget);
+          expect(chat.message(_site, hit.message.id), isNull);
           await tester.tap(find.text('Ops'));
           await tester.pump();
           expect(api.chatChannelDetailsRequested, [9]);
@@ -247,6 +251,32 @@ void main() {
               ChatRoute.parse(sourceShell.currentContent?.id ?? '')?.threadId,
               threaded ? 12 : null,
             );
+            expect(chat.message(_site, hit.message.id), isNull);
+            if (threaded) {
+              await chat.openThread(
+                _site,
+                const ChatThreadTarget(channelId: 9, threadId: 12),
+                targetMessageId: hit.message.id,
+              );
+              expect(api.chatThreadsRequested, [(channelId: 9, threadId: 12)]);
+              expect(api.chatThreadMessagesRequested.single.channelId, 9);
+              expect(api.chatThreadMessagesRequested.single.threadId, 12);
+              expect(
+                api.chatThreadMessagesRequested.single.targetMessageId,
+                hit.message.id,
+              );
+              expect(api.chatMessagesRequested, isEmpty);
+            } else {
+              await chat.openChannel(_site, 9, targetMessageId: hit.message.id);
+              expect(api.chatMessagesRequested.single.channelId, 9);
+              expect(
+                api.chatMessagesRequested.single.targetMessageId,
+                hit.message.id,
+              );
+              expect(api.chatMessagesRequested.single.fromLastRead, isFalse);
+              expect(api.chatThreadMessagesRequested, isEmpty);
+            }
+            expect(chat.message(_site, hit.message.id)?.pinned, isTrue);
           }
           expect(find.text('Could not open this chat message.'), findsNothing);
           expect(tester.takeException(), isNull);
@@ -492,6 +522,34 @@ class _DelayedChannelApi extends FakeDiscourseApi {
         chatChannelsById: {9: hit.channel},
         chatChannelsBySite: const {_site: ChatChannels()},
         chatChannelThreadPagesByKey: threads ? _threadPages : const {},
+        chatMessagesByKey: {
+          if (hit.message.threadId case final threadId?)
+            'thread-9-$threadId~target~${hit.message.id}': (
+              messages: [hit.message.withPinned(true)],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: hit.message.id,
+            )
+          else
+            FakeDiscourseApi.chatMessagesKey(
+              9,
+              targetMessageId: hit.message.id,
+            ): (
+              messages: [hit.message.withPinned(true)],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: hit.message.id,
+            ),
+        },
+        chatThreadsByKey: {
+          if (hit.message.threadId case final threadId?)
+            FakeDiscourseApi.chatThreadKey(9, threadId): ChatThread(
+              id: threadId,
+              channelId: 9,
+              status: 'open',
+              replyCount: 1,
+            ),
+        },
       );
 
   final Completer<void> completion;

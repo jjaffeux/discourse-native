@@ -107,7 +107,6 @@ final class ChatModule implements PluginModule {
         final searchController = ChatSearchController(
           api: chatApi,
           requests: requests,
-          store: store,
         );
         final bookmarkHost = bindings
             .require(corePluginBookmarkPort)
