@@ -415,8 +415,6 @@ final class _ComposerSubmissionOwner {
           switch (landed) {
             case ReplyIndeterminate():
               return _unresolved(attempt);
-            case ReplyAbsent():
-              return _refuse(attempt, failure, checked: true);
             case ReplyFound():
               break;
           }

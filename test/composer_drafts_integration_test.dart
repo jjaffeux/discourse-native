@@ -967,26 +967,49 @@ void _registerTopicReplyTests() {
       );
     }
 
-    testWidgets('a check that finds nothing lets the reply be sent again', (
+    testWidgets('a reply omitted from the posts response stays unresolved', (
       tester,
     ) async {
+      final gate = Completer<void>();
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
+        createPostGate: gate,
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
       await openTopic(tester, api);
       await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
-      await tester.enterText(_composerField, 'Never arrived.');
+      await tester.enterText(_composerField, 'Unknown fate.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
+      await tester.pump();
+      expect(api.created, hasLength(1));
+
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A real topic',
+        posts: [detail().posts.first],
+        stream: const [1, 2],
+        postsCount: 2,
+        canCreatePost: true,
+      );
+      gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.text("Couldn't reach the site."), findsOneWidget);
-      expect(find.text('Never arrived.'), findsOneWidget);
-      expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
+      for (var check = 0; check < 2; check++) {
+        expect(find.textContaining('may have posted'), findsOneWidget);
+        expect(find.text('Unknown fate.'), findsOneWidget);
+        expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+        expect(api.created, hasLength(1));
+      }
+      expect(api.postFetches.last, contains(2));
+      expect(find.text('Unknown fate.'), findsOneWidget);
+      expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that cannot be made holds sending back', (
