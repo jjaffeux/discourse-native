@@ -35,6 +35,32 @@ const _flag = PostFlagType(
 final _trigger = find.byKey(const ValueKey('topic-status-button'));
 
 void main() {
+  testWidgets('accepted close survives a delayed topic refresh', (
+    tester,
+  ) async {
+    final api = _DelayedMenuApi();
+    final shell = await _fixture(tester, api);
+    final obsolete = await api.original();
+    api.held = Completer<TopicPayload>();
+    final refreshing = shell.loadTopic(7, 'topic', force: true);
+    await tester.pump();
+    expect(api.waiting, isTrue);
+
+    expect(
+      await shell.updateTopicStatus(_site, 7, TopicStatusProperty.closed, true),
+      isNull,
+    );
+    expect(shell.currentTopic!.closed, isTrue);
+    api.held!.complete(obsolete);
+    await refreshing;
+    expect(shell.currentTopic!.closed, isTrue);
+    expect(shell.store.read<Topic>(_site, 7)!.closed, isTrue);
+
+    api.held = null;
+    await shell.loadTopic(7, 'topic', force: true);
+    expect(shell.currentTopic!.closed, isFalse);
+  });
+
   testWidgets('topic dropdown supports keyboard selection and restores focus', (
     tester,
   ) async {
@@ -645,6 +671,42 @@ class _MenuApi extends FakeDiscourseApi {
   }) async {
     writes.add(
       _write('deleted', false, site: siteUrl, key: apiKey, id: topicId),
+    );
+  }
+}
+
+class _DelayedMenuApi extends _MenuApi {
+  Completer<TopicPayload>? held;
+  bool waiting = false;
+
+  Future<TopicPayload> original() =>
+      super.topic(siteUrl: _site, slug: 'topic', id: 7);
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) {
+    final pending = held;
+    if (pending != null) {
+      waiting = true;
+      return pending.future;
+    }
+    return super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
     );
   }
 }
