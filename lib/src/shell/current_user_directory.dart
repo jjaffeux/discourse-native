@@ -152,8 +152,9 @@ final class _CurrentUserDirectory {
         );
         if (published) {
           committed = accepted.user;
-          if (accepted.statusChanged && ownsAcceptance())
+          if (accepted.statusChanged && ownsAcceptance()) {
             statuses.snapshotAccepted();
+          }
         }
       } finally {
         if (!published &&

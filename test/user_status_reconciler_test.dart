@@ -187,4 +187,21 @@ void main() {
       expect(statuses.contains(8), isFalse);
     },
   );
+  test('a current user with no id keeps the incoming snapshot status', () {
+    final lifecycle = SiteLifecycle();
+    final statuses = UserStatusReconciler(capacity: 1);
+    final users = CurrentUserReconciler(
+      lease: lifecycle.capture('site'),
+      models: const DiscourseModelCodec.core(),
+      statuses: statuses,
+    );
+    statuses.record(7, _old);
+    final accepted = users.reconcile(
+      users.beginSnapshot(),
+      previous: const DiscourseUser(username: 'sam', status: _old),
+      incoming: const DiscourseUser(username: 'sam', status: _fresh),
+    )!;
+    expect(accepted.user.status, _fresh);
+    expect(statuses.read(7), _old);
+  });
 }

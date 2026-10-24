@@ -54,7 +54,7 @@ class _StatusApi extends FakeDiscourseApi {
   }
 }
 
-Future<ShellController> makeShell(_StatusApi api) async {
+Future<ShellController> _makeShell(_StatusApi api) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(
@@ -76,7 +76,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('fresh profile status replaces an earlier live clear', () async {
     final api = _StatusApi();
-    final shell = await makeShell(api);
+    final shell = await _makeShell(api);
     addTearDown(shell.dispose);
     shell.userStatuses.applyMessage(site, {'42': null});
     api.cards['bob'] = const UserCard(
@@ -99,7 +99,7 @@ void main() {
     'startup current-user snapshot preserves an accepted new status',
     () async {
       final api = _StatusApi()..currentGate = Completer<DiscourseUser>();
-      final shell = await makeShell(api);
+      final shell = await _makeShell(api);
       addTearDown(shell.dispose);
       expect(api.currentUserRequests, isNotEmpty);
       expect(
@@ -126,7 +126,7 @@ void main() {
       'old startup preserves a newer own live ${clear ? 'clear' : 'status'}',
       () async {
         final api = _StatusApi()..currentGate = Completer<DiscourseUser>();
-        final shell = await makeShell(api);
+        final shell = await _makeShell(api);
         addTearDown(shell.dispose);
         FakeSiteTracker.built.single.deliverPluginMessage('/user-status', {
           '7': clear ? null : {'description': 'Live now', 'emoji': 'house'},
@@ -155,7 +155,7 @@ void main() {
 
   test('old startup preserves a confirmed own clear', () async {
     final api = _StatusApi()..currentGate = Completer<DiscourseUser>();
-    final shell = await makeShell(api);
+    final shell = await _makeShell(api);
     addTearDown(shell.dispose);
     expect(await shell.clearUserStatus(site), isNull);
     api.currentGate!.complete(
@@ -181,7 +181,7 @@ void main() {
     'card dispatched before a live delivery keeps the live status',
     () async {
       final api = _StatusApi()..cardGate = Completer<UserCard>();
-      final shell = await makeShell(api);
+      final shell = await _makeShell(api);
       addTearDown(shell.dispose);
       final read = shell.loadUserCard('bob', siteUrl: site, force: true);
       await pumpEventQueue();
@@ -208,7 +208,7 @@ void main() {
       'fresh own card synchronizes canonical and badge ${clear ? 'clear' : 'status'}',
       () async {
         final api = _StatusApi()..currentGate = Completer<DiscourseUser>();
-        final shell = await makeShell(api);
+        final shell = await _makeShell(api);
         addTearDown(shell.dispose);
         await shell.setUserStatus(
           site,
@@ -251,7 +251,7 @@ void main() {
 
   test('expired fresh card replaces a live status and stays hidden', () async {
     final api = _StatusApi();
-    final shell = await makeShell(api);
+    final shell = await _makeShell(api);
     addTearDown(shell.dispose);
     shell.userStatuses.record(
       site,
@@ -282,7 +282,7 @@ void main() {
     'retirement during card status publication prevents card storage',
     () async {
       final api = _StatusApi();
-      final shell = await makeShell(api);
+      final shell = await _makeShell(api);
       addTearDown(shell.dispose);
       api.cards['bob'] = const UserCard(
         id: 42,
@@ -298,7 +298,7 @@ void main() {
     'newer status during card notification is also stored on the card',
     () async {
       final api = _StatusApi();
-      final shell = await makeShell(api);
+      final shell = await _makeShell(api);
       addTearDown(shell.dispose);
       api.cards['bob'] = const UserCard(
         id: 42,

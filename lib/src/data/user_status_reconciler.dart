@@ -1,12 +1,10 @@
-import 'dart:collection';
-
 import '../models/user_status.dart';
 
 final class UserStatusReconciler {
   UserStatusReconciler({required this.capacity}) : assert(capacity > 0);
 
   final int capacity;
-  final _entries = LinkedHashMap<int, _StatusEntry>();
+  final Map<int, _StatusEntry> _entries = {};
   int _sequence = 0;
   int _evictedThrough = 0;
   bool _retired = false;

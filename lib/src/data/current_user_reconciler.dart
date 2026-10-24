@@ -127,22 +127,24 @@ final class CurrentUserReconciler {
     } else {
       _pluginUpdates.clear();
     }
-    final status = statuses.acceptSnapshot(
-      ticket._status,
-      user.id,
-      user.status,
-    );
-    user = user.withStatus(
-      status == null
-          ? (statuses.contains(user.id)
-                ? statuses.read(user.id)
-                : accountChanged
-                ? incoming.status
-                : previous?.status)
-          : status.status,
-    );
+    final userId = user.id;
+    var statusChanged = false;
+    if (userId != null) {
+      final status = statuses.acceptSnapshot(
+        ticket._status,
+        userId,
+        user.status,
+      );
+      final fallback = accountChanged ? incoming.status : previous?.status;
+      user = user.withStatus(
+        status == null
+            ? (statuses.contains(userId) ? statuses.read(userId) : fallback)
+            : status.status,
+      );
+      statusChanged = status?.changed ?? false;
+    }
     return CurrentUserReconciliation._(
-      statusChanged: status?.changed ?? false,
+      statusChanged: statusChanged,
       user: user,
       accountChanged: accountChanged,
       seedGroupedUnreadCounts: accountChanged || groupedUnreadIsCurrent,
