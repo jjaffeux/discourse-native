@@ -65,6 +65,39 @@ void main() {
     expect(parseComposerImages(source), isEmpty);
   });
 
+  testWidgets(
+    'balanced video destinations reach the player and remove as a whole',
+    (tester) async {
+      const token =
+          '![clip|video|640x360](https://example.test/clip_(1).mp4 "Title")';
+      const source = 'Before\n\n$token\n\nAfter';
+      final composer = _composer(source);
+      final video = parseComposerVideos(source).single;
+      expect(video.url, 'https://example.test/clip_(1).mp4');
+      expect(video.source, token);
+      expect((video.start, video.end), (8, 8 + token.length));
+      await _pump(tester, composer);
+      expect(
+        tester
+            .widget<InlineVideo>(find.byType(InlineVideo))
+            .data
+            .source
+            .toString(),
+        video.url,
+      );
+      composer.text.selection = const TextSelection(
+        baseOffset: 8,
+        extentOffset: 8 + token.length,
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await tester.pump();
+      expect(composer.raw, 'Before\n\n\n\nAfter');
+      expect(find.byType(InlineVideo), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('uses core media suffix ordering and leaves audio to its owner', () {
     for (final label in [
       'clip|video',

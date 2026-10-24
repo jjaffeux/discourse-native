@@ -4,6 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +29,55 @@ ComposerImageBlock _image({
 );
 
 void main() {
+  testWidgets('editor previews and removes complete balanced image tokens', (
+    tester,
+  ) async {
+    const token =
+        '![photo|640x480](https://example.test/photo_(1).png "Title")';
+    final composer = ComposerController(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
+        siteUrl: 'https://example.test',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'before\n$token\nafter',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: 760,
+            height: 600,
+            child: ComposerEditor(
+              composer: composer,
+              hintText: 'Reply',
+              textStyle: const TextStyle(fontSize: 16, height: 1.5),
+              hintStyle: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final preview = tester.widget<ComposerImagePreview>(
+      find.byType(ComposerImagePreview),
+    );
+    expect(preview.url, 'https://example.test/photo_(1).png');
+    expect(preview.image.source, token);
+    composer.removeImage(composer.text.imageBlocks.single);
+    await tester.pump();
+    expect(composer.raw, 'before\n\nafter');
+    expect(find.byType(ComposerImagePreview), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   group('preview sizing', () {
     test('fits declared dimensions within the preview bounds', () {
       expect(

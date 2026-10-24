@@ -32,6 +32,22 @@ after''';
       );
     });
 
+    test('keeps gallery-shaped text inside complete image destinations', () {
+      const token =
+          '![one|640x480](https://cdn.example/photo_(1)/[/grid].png "Title")';
+      const source = 'before [grid]\n$token\n[/grid] after';
+      final gallery = parseComposerImageGalleries(source).single;
+      expect(gallery.images.single.source, token);
+      expect(
+        gallery.images.single.url,
+        'https://cdn.example/photo_(1)/[/grid].png',
+      );
+      expect(
+        unwrapComposerImageGallery(source, gallery),
+        'before $token after',
+      );
+    });
+
     test('accepts default, explicit-grid, one-image, and empty galleries', () {
       const source = '''[grid]
 ![one](upload://one)
