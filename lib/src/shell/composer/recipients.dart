@@ -37,10 +37,13 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
   }
 
   void _bindLookup() {
-    if (_lookup?.matches(widget.composer, _shell) ?? false) return;
+    final search = _shell.messageRecipientSearch(
+      widget.composer.target.siteUrl,
+    );
+    if (_lookup?.matches(widget.composer, search) ?? false) return;
     _lookup?.removeListener(_lookupChanged);
     _lookup?.dispose();
-    _lookup = ComposerRecipientLookup(composer: widget.composer, shell: _shell)
+    _lookup = ComposerRecipientLookup(composer: widget.composer, search: search)
       ..addListener(_lookupChanged);
   }
 

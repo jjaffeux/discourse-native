@@ -21,6 +21,52 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'recipient capability cannot reacquire a successor account lease',
+    () async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      final search = fixture.shell.messageRecipientSearch(_siteUrl);
+      fixture.shell.lifecycle.invalidate(_siteUrl);
+      fixture.authenticator.keys[_siteUrl] = 'replacement-key';
+      final replacement = fixture.shell.messageRecipientSearch(_siteUrl);
+
+      final result = await search.search('sam');
+
+      expect(search.isCurrent, isFalse);
+      expect(replacement.isCurrent, isTrue);
+      expect(result.users, isEmpty);
+      expect(fixture.api.userSearchesRequested, isEmpty);
+      await replacement.search('sam');
+      expect(fixture.api.userSearchesRequested, [(term: 'sam', topicId: null)]);
+    },
+  );
+
+  for (final apiKey in [true, false]) {
+    test('recipient capability retains its account across '
+        '${apiKey ? 'key' : 'client ID'} credential IO', () async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      final search = fixture.shell.messageRecipientSearch(_siteUrl);
+      final gate = apiKey
+          ? fixture.authenticator.gateNextApiKey()
+          : fixture.authenticator.gateNextClientId();
+      addTearDown(() {
+        if (!gate.release.isCompleted) gate.release.complete();
+      });
+      final pending = search.search('sam');
+      await gate.started.future;
+      fixture.shell.lifecycle.invalidate(_siteUrl);
+      fixture.authenticator.keys[_siteUrl] = 'replacement-key';
+      fixture.shell.lifecycle.capture(_siteUrl);
+      gate.release.complete();
+      final result = await pending;
+
+      expect(result.users, isEmpty);
+      expect(fixture.api.userSearchesRequested, isEmpty);
+    });
+  }
+
+  test(
     'retired tracker startup cannot open bootstrap after credential IO',
     () async {
       const reader = DiscourseUser(id: 7, username: 'reader');
