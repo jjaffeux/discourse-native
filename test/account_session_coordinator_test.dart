@@ -521,7 +521,7 @@ void main() {
         ]) {
       test('failed disconnect preserves $name boundaries', () async {
         const prefix = 'discourse_native.draft::$_siteUrl::';
-        final key = '${prefix}topic_42';
+        const key = '${prefix}topic_42';
         SharedPreferences.setMockInitialValues({key: 'Legacy writing'});
         final storage = LinuxFileStorage(directory: directory);
         final persistence = PrivateDraftPersistence(storage: storage);
