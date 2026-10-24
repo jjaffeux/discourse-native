@@ -3870,37 +3870,40 @@ void _writeGroups() {
       expect(sequence, 5);
     });
 
-    test('forces the save when the sequence moved under it', () async {
+    test('preserves a newer server draft when the sequence moved', () async {
       final bodies = <Map<String, dynamic>>[];
+      var serverText = 'Newer writing on another device';
       final api = DiscourseApi(
         client: MockClient((request) async {
-          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
-          if (bodies.length == 1) {
-            return http.Response(
-              jsonEncode({
-                'errors': ['Draft has been updated elsewhere'],
-              }),
-              409,
-            );
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          bodies.add(body);
+          if (body['force_save'] == true) {
+            serverText = body['data'] as String;
+            return http.Response(jsonEncode({'draft_sequence': 9}), 200);
           }
-          return http.Response(jsonEncode({'draft_sequence': 9}), 200);
+          return http.Response(
+            jsonEncode({'errors': ['Draft has been updated elsewhere']}),
+            409,
+          );
         }),
       );
 
-      final sequence = await api.saveDraft(
-        siteUrl: 'https://meta.discourse.org',
-        apiKey: 'the-key',
-        draftKey: 'topic_12',
-        sequence: 4,
-        data: '{"reply":"hi"}',
+      await expectLater(
+        api.saveDraft(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          draftKey: 'topic_12',
+          sequence: 4,
+          data: '{"reply":"Local writing"}',
+        ),
+        throwsA(isA<WriteException>().having(
+          (error) => error.failure,
+          'failure',
+          WriteFailure.conflict,
+        )),
       );
-
-      // The text in front of the user is the one they are looking at, so it
-      // wins — the same thing the web composer does.
-      expect(bodies, hasLength(2));
-      expect(bodies.first.containsKey('force_save'), isFalse);
-      expect(bodies.last['force_save'], true);
-      expect(sequence, 9);
+      expect(bodies, hasLength(1));
+      expect(serverText, 'Newer writing on another device');
     });
 
     test('does not force a save past any other refusal', () async {
