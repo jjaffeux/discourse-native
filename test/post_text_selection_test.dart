@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -245,6 +246,25 @@ void main() {
   });
 
   group('cooked selection reconstruction', () {
+    test('quotes literal Markdown without changing its cooked meaning', () async {
+      final cooker = OfflineCookingService();
+      addTearDown(cooker.dispose);
+      const cooked = '<p>Use *literal* markers and `ticks`.</p>';
+      final resolver = PostQuoteSelectionResolver(cooked);
+      for (final contents in [
+        resolver.contentsFor('Use *literal* markers and `ticks`.'),
+        resolver.entirePost,
+      ]) {
+        final result = await cooker.cook(
+          CookingRequest(
+            raw: contents,
+            snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+          ),
+        );
+        expect(result.html, cooked);
+      }
+    });
+
     test('restores paragraphs and inline formatting', () {
       expect(
         postQuoteContentsFromSelection(
