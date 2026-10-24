@@ -8540,6 +8540,175 @@ void main() {
       },
     );
 
+    for (final adding in [true, false]) {
+      test(
+        'confirmed reaction ${adding ? 'add' : 'remove'} survives response loss',
+        () async {
+          final gate = Completer<void>();
+          final subject = build(
+            currentUser: currentUser,
+            reactionGate: gate,
+            reactionFailure: const WriteException(WriteFailure.unreachable),
+            messages: {
+              key(9): page([
+                message(
+                  1,
+                  reactions: [
+                    ChatReaction(
+                      emoji: 'clap',
+                      count: adding ? 1 : 2,
+                      reacted: !adding,
+                      reactorIds: adding ? [8] : [8, currentUser.id!],
+                    ),
+                  ],
+                ),
+              ]),
+            },
+          );
+          addTearDown(subject.chat.dispose);
+          subject.store.put(site, channel(9));
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.openChannel(site, 9);
+          final view = subject.chat.beginViewingChannel(site, 9);
+          addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+          final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            subject.api.chatReactionsSet.single.action,
+            adding ? ChatReactionAction.add : ChatReactionAction.remove,
+          );
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'reaction',
+            'chat_message_id': 1,
+            'emoji': 'clap',
+            'action': adding ? 'add' : 'remove',
+            'user': {'id': currentUser.id},
+          });
+          gate.complete();
+          await writing;
+
+          expect(
+            subject.chat.message(site, 1)!.reactions.single,
+            ChatReaction(
+              emoji: 'clap',
+              count: adding ? 2 : 1,
+              reacted: adding,
+              reactorIds: adding ? [8, currentUser.id!] : [8],
+            ),
+          );
+          await subject.chat.toggleMessageReaction(site, 1, 'clap');
+          expect(
+            subject.api.chatReactionsSet.last.action,
+            adding ? ChatReactionAction.remove : ChatReactionAction.add,
+          );
+        },
+      );
+    }
+
+    for (final adding in [true, false]) {
+      for (final failure in [
+        const WriteException(WriteFailure.unreachable, notSent: true),
+        const WriteException(WriteFailure.forbidden),
+        const WriteException(WriteFailure.unreachable),
+      ]) {
+        test('unconfirmed reaction ${adding ? 'add' : 'remove'} rolls back '
+            '${failure.failure.name} notSent=${failure.notSent}', () async {
+          final gate = Completer<void>();
+          final subject = build(
+            currentUser: currentUser,
+            reactionGate: gate,
+            reactionFailure: failure,
+            messages: {
+              key(9): page([
+                message(
+                  1,
+                  reactions: [
+                    ChatReaction(
+                      emoji: 'clap',
+                      count: adding ? 1 : 2,
+                      reacted: !adding,
+                      reactorIds: adding ? [8] : [8, currentUser.id!],
+                    ),
+                  ],
+                ),
+              ]),
+            },
+          );
+          addTearDown(subject.chat.dispose);
+          subject.store.put(site, channel(9));
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.openChannel(site, 9);
+          final view = subject.chat.beginViewingChannel(site, 9);
+          addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+          final writing = subject.chat.toggleMessageReaction(site, 1, 'clap');
+          await Future<void>.delayed(Duration.zero);
+          expect(subject.api.chatReactionsSet, hasLength(1));
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'reaction',
+            'chat_message_id': 1,
+            'emoji': 'clap',
+            'action': 'add',
+            'user': {'id': 11},
+          });
+          gate.complete();
+
+          expect(await writing, failure.message);
+          expect(
+            subject.chat.message(site, 1)!.reactions.single,
+            ChatReaction(
+              emoji: 'clap',
+              count: adding ? 2 : 3,
+              reacted: !adding,
+              reactorIds: adding ? [8, 11] : [8, 11, currentUser.id!],
+            ),
+          );
+        });
+      }
+    }
+
+    for (final failure in [
+      null,
+      const WriteException(WriteFailure.unreachable),
+    ]) {
+      test(
+        'latest own reaction event survives ${failure == null ? 'success' : 'response loss'}',
+        () async {
+          final gate = Completer<void>();
+          final subject = build(
+            currentUser: currentUser,
+            reactionGate: gate,
+            reactionFailure: failure,
+            messages: {
+              key(9): page([message(1)]),
+            },
+          );
+          addTearDown(subject.chat.dispose);
+          subject.store.put(site, channel(9));
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.openChannel(site, 9);
+          final view = subject.chat.beginViewingChannel(site, 9);
+          addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+          final writing = subject.chat.addMessageReaction(site, 1, 'clap');
+          await Future<void>.delayed(Duration.zero);
+          expect(subject.api.chatReactionsSet, hasLength(1));
+          for (final action in ['add', 'remove']) {
+            tracker.deliverPluginMessage('/chat/9', {
+              'type': 'reaction',
+              'chat_message_id': 1,
+              'emoji': 'clap',
+              'action': action,
+              'user': {'id': currentUser.id},
+            });
+          }
+          gate.complete();
+          await writing;
+
+          expect(subject.chat.message(site, 1)!.reactions, isEmpty);
+        },
+      );
+    }
+
     test(
       'removes this reader and drops the row when its count reaches zero',
       () async {
