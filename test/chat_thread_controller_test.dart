@@ -428,7 +428,30 @@ final class _SequencedThreadListApi extends FakeDiscourseApi {
   _SequencedThreadListApi({
     super.chatChannelsBySite,
     super.createdChatThreadsByKey,
+    super.chatThreadsByKey,
   });
+
+  Object? titleFailure;
+
+  @override
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  }) async {
+    await super.updateChatThreadTitle(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      threadId: threadId,
+      title: title,
+      clientId: clientId,
+    );
+    if (titleFailure case final failure?) throw failure;
+  }
 
   final List<Completer<ChatThreadPage>> myThreadPages = [];
   final List<Completer<ChatThreadPage>> channelThreadPages = [];
@@ -519,6 +542,114 @@ FakeSiteTracker attachTracker(ChatController chat) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final personal in [true, false]) {
+    final listName = personal ? 'personal' : 'channel';
+    for (final (label, edits, staleTitle) in [
+      ('rename', ['After'], 'Before'),
+      ('clear', [''], 'Before'),
+      ('return to original', ['After', 'Before'], 'Intermediate'),
+      ('accepted same value', ['Before'], 'Stale'),
+    ]) {
+      test(
+        '$listName list retains a $label accepted during its request',
+        () async {
+          final api = _SequencedThreadListApi();
+          final before = threadDetail(title: 'Before', originalAuthorId: 7);
+          final subject = _controllerFor(
+            api,
+            store: Store()..put(site, before),
+          );
+          Future<void> load() => personal
+              ? subject.chat.loadMyThreads(site, force: true)
+              : subject.chat.loadChannelThreads(site, 9, force: true);
+          final pages = personal ? api.myThreadPages : api.channelThreadPages;
+          final refreshing = load();
+          await waitUntil(() => pages.length == 1);
+
+          for (final title in edits) {
+            expect(
+              await subject.chat.updateThreadTitle(site, target, title),
+              isTrue,
+            );
+          }
+          pages.single.complete(
+            ChatThreadPage(threads: [before.copyWith(title: staleTitle)]),
+          );
+          await refreshing;
+
+          expect(subject.chat.thread(site, 22)?.title, edits.last);
+          final projected = personal
+              ? subject.chat.myThreads(site)
+              : subject.chat.channelThreads(site, 9);
+          expect(projected.single.title, edits.last);
+
+          final fresh = load();
+          await waitUntil(() => pages.length == 2);
+          pages.last.complete(
+            ChatThreadPage(threads: [before.copyWith(clearTitle: true)]),
+          );
+          await fresh;
+          expect(subject.chat.thread(site, 22)?.title, isNull);
+        },
+      );
+    }
+
+    for (final title in ['Live title', null]) {
+      test('$listName list retains a live detail title of $title', () async {
+        final before = threadDetail(title: 'Before');
+        final live = before.copyWith(title: title, clearTitle: title == null);
+        final api = _SequencedThreadListApi(
+          chatThreadsByKey: {FakeDiscourseApi.chatThreadKey(9, 22): live},
+        );
+        final subject = _controllerFor(api, store: Store()..put(site, before));
+        final tracker = attachTracker(subject.chat);
+        final viewing = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, viewing));
+        final pages = personal ? api.myThreadPages : api.channelThreadPages;
+        final refreshing = personal
+            ? subject.chat.loadMyThreads(site)
+            : subject.chat.loadChannelThreads(site, 9);
+        await waitUntil(() => pages.length == 1);
+
+        tracker.deliverPluginMessage('/chat/9', authoritativePreviewEvent());
+        await waitUntil(() => subject.chat.thread(site, 22)?.title == title);
+        pages.single.complete(ChatThreadPage(threads: [before]));
+        await refreshing;
+
+        expect(subject.chat.thread(site, 22)?.title, title);
+        final projected = personal
+            ? subject.chat.myThreads(site)
+            : subject.chat.channelThreads(site, 9);
+        expect(projected.single.title, title);
+        expect(await subject.chat.refreshThreadDetail(site, target), isNotNull);
+        expect(subject.chat.thread(site, 22)?.title, title);
+      });
+    }
+
+    test('$listName list accepts a title after a refused rename', () async {
+      final before = threadDetail(title: 'Before', originalAuthorId: 7);
+      final api = _SequencedThreadListApi()
+        ..titleFailure = const WriteException(WriteFailure.forbidden);
+      final subject = _controllerFor(api, store: Store()..put(site, before));
+      final pages = personal ? api.myThreadPages : api.channelThreadPages;
+      final refreshing = personal
+          ? subject.chat.loadMyThreads(site)
+          : subject.chat.loadChannelThreads(site, 9);
+      await waitUntil(() => pages.length == 1);
+
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'Refused'),
+        isFalse,
+      );
+      pages.single.complete(
+        ChatThreadPage(threads: [before.copyWith(title: 'Server')]),
+      );
+      await refreshing;
+
+      expect(subject.chat.thread(site, 22)?.title, 'Server');
+    });
+  }
 
   test(
     'a kick clears cached previews and rejects a late my-threads page',

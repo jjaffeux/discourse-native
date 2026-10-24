@@ -71,6 +71,7 @@ final class _MetadataEvents implements ChatThreadMetadataEvents {
   final subscriptions = <ChatThreadTarget>[];
   final created = <ChatThread>[];
   final changes = <({ChatThread before, ChatThread after})>[];
+  final storedTitles = <int>[];
 
   @override
   void detailLoading(String siteUrl, ChatThreadTarget target) {
@@ -103,6 +104,10 @@ final class _MetadataEvents implements ChatThreadMetadataEvents {
   @override
   void threadCreated(String siteUrl, ChatThread detail, int originalMessageId) {
     created.add(detail);
+  }
+
+  void threadTitleStored(String siteUrl, int threadId) {
+    storedTitles.add(threadId);
   }
 
   @override
@@ -164,6 +169,8 @@ void main() {
       expect(subject.owner.preventsEviction(_site, _target), isFalse);
       expect(subject.events.loading, [_target]);
       expect(subject.events.stored.single.title, 'Current');
+      expect(subject.events.storedTitles, [22]);
+      expect(subject.events.changes, isEmpty);
       expect(subject.events.subscriptions, [_target]);
       expect(subject.events.failures, isEmpty);
     },
@@ -180,6 +187,7 @@ void main() {
         isTrue,
       );
       expect(subject.store.read<ChatThread>(_site, 22)?.title, 'After');
+      expect(subject.events.storedTitles, [22]);
       expect(subject.owner.preventsEviction(_site, _target), isTrue);
       expect(api.chatThreadTitlesUpdated, [
         (channelId: 9, threadId: 22, title: 'After'),
@@ -193,6 +201,42 @@ void main() {
       expect((await refreshed)?.title, 'After');
       expect(subject.owner.preventsEviction(_site, _target), isFalse);
       expect(subject.events.stored.single.title, 'After');
+      expect(subject.events.storedTitles, [22]);
+    },
+  );
+
+  test(
+    'accepted same-value title writes still publish title authority',
+    () async {
+      final api = _MetadataApi();
+      final subject = _ownerFor(api, held: _detail('Before'));
+
+      expect(
+        await subject.owner.updateThreadTitle(_site, _target, 'Before'),
+        isTrue,
+      );
+      expect(
+        await subject.owner.updateThreadTitle(_site, _target, 'Before'),
+        isTrue,
+      );
+
+      expect(subject.events.storedTitles, [22, 22]);
+      expect(subject.events.changes, isEmpty);
+    },
+  );
+
+  test(
+    'first null detail title publishes authority without personal changes',
+    () async {
+      final api = _MetadataApi();
+      final subject = _ownerFor(api);
+      final refreshing = subject.owner.refreshThreadDetail(_site, _target);
+      await _waitUntil(() => api.details.length == 1);
+      api.details.single.complete(_detail('Before').copyWith(clearTitle: true));
+
+      expect((await refreshing)?.title, isNull);
+      expect(subject.events.storedTitles, [22]);
+      expect(subject.events.changes, isEmpty);
     },
   );
 
@@ -212,6 +256,7 @@ void main() {
       expect(await refreshing, isNull);
       expect(subject.store.read<ChatThread>(_site, 22)?.title, 'Held');
       expect(subject.events.stored, isEmpty);
+      expect(subject.events.storedTitles, isEmpty);
       expect(subject.events.subscriptions, isEmpty);
       expect(subject.events.failures, isEmpty);
       expect(subject.owner.preventsEviction(_site, _target), isFalse);
