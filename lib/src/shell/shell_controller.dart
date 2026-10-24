@@ -8044,7 +8044,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool topicFlagWriteInFlight(String siteUrl, int topicId) =>
-      _topicFlagWrites.contains(_topicKey(siteUrl, topicId));
+      _topicFlagWrites.containsKey(_topicKey(siteUrl, topicId));
 
   Future<String?> createTopicFlag(
     String siteUrl,
@@ -8080,10 +8080,19 @@ class ShellController extends FrameSafeNotifier
     }
 
     final key = _topicKey(siteUrl, held.id);
-    if (!_topicFlagWrites.add(key)) {
+    if (_topicFlagWrites.containsKey(key)) {
       return appL10n.anotherFlagOnThisTopicIsStillBeingSaved;
     }
     final lease = lifecycle.capture(siteUrl);
+    final attempt = Object();
+    _topicFlagWrites[key] = attempt;
+    void release() {
+      if (identical(_topicFlagWrites[key], attempt)) {
+        _topicFlagWrites.remove(key);
+      }
+    }
+
+    final detach = lease.onRetire(release);
     _notify();
     try {
       final credential = await _credentialForWrite(siteUrl, lease: lease);
@@ -8120,10 +8129,11 @@ class ShellController extends FrameSafeNotifier
         return const WriteException(WriteFailure.unreachable).message;
       }
     } finally {
-      lease.commit(() {
-        _topicFlagWrites.remove(key);
-        _notify();
-      });
+      detach();
+      if (identical(_topicFlagWrites[key], attempt)) {
+        release();
+        lease.commit(_notify);
+      }
     }
   }
 
@@ -8293,7 +8303,7 @@ class ShellController extends FrameSafeNotifier
         _topicData.forSite(targetSite).postWriting(postId);
   }
 
-  final Set<String> _topicFlagWrites = {};
+  final Map<String, Object> _topicFlagWrites = {};
 
   @override
   BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) =>
@@ -9224,7 +9234,7 @@ class ShellController extends FrameSafeNotifier
     userCardRequests.forget(siteUrl);
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _selectedPostModeration.forget(siteUrl);
-    _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicFlagWrites.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _notificationPreferences.forget(siteUrl);
     _currentUsers.forget(siteUrl);
     _topicActions.forget(siteUrl);
