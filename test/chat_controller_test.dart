@@ -4617,6 +4617,144 @@ void main() {
     );
 
     test(
+      'reacquires message pins after overlapping viewing tokens end',
+      () async {
+        final subject = build(
+          store: Store(maxEntries: 2),
+          messages: {
+            key(9): page([message(1), message(2, minute: 1)]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.openChannel(site, 9);
+        final first = subject.chat.beginViewingChannel(site, 9);
+        final second = subject.chat.beginViewingChannel(site, 9);
+
+        subject.chat.endViewingChannel(site, 9, first);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+        subject.chat.endViewingChannel(site, 9, second);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+
+        final reacquired = subject.chat.beginViewingChannel(site, 9);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+        subject.store.put(site, message(3, minute: 2));
+        expect(subject.store.containsRecord<ChatMessage>(site, 1), isTrue);
+        expect(subject.store.containsRecord<ChatMessage>(site, 2), isTrue);
+        subject.chat.endViewingChannel(site, 9, reacquired);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+      },
+    );
+
+    test('retries missing message pins without changing window IDs', () async {
+      final subject = build(
+        store: Store(maxEntries: 2),
+        messages: {
+          key(9): page([message(1), message(2, minute: 1)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.openChannel(site, 9);
+      final ids = subject.chat.stream(site, 9).messageIds;
+      subject.store.remove<ChatMessage>(site, 1);
+      final incomplete = subject.chat.beginViewingChannel(site, 9);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 1);
+      subject.chat.endViewingChannel(site, 9, incomplete);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+
+      final first = subject.chat.beginViewingChannel(site, 9);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 1);
+      subject.store.put(site, message(1));
+      final second = subject.chat.beginViewingChannel(site, 9);
+      expect(subject.chat.stream(site, 9).messageIds, same(ids));
+      expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+      subject.store.put(site, message(3, minute: 2));
+      expect(subject.store.containsRecord<ChatMessage>(site, 1), isTrue);
+      expect(subject.store.containsRecord<ChatMessage>(site, 2), isTrue);
+      subject.chat.endViewingChannel(site, 9, first);
+      subject.chat.endViewingChannel(site, 9, second);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+    });
+
+    test('reconciles message pins when viewed window IDs change', () async {
+      final pages = {
+        key(9): page([message(1), message(2, minute: 1)]),
+      };
+      final subject = build(store: Store(maxEntries: 3), messages: pages);
+      addTearDown(subject.chat.dispose);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      await subject.chat.openChannel(site, 9);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+
+      pages[key(9)] = page([message(2, minute: 1), message(3, minute: 2)]);
+      await subject.chat.openChannel(site, 9, force: true);
+      expect(subject.chat.stream(site, 9).messageIds, [2, 3]);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 2);
+      subject.store.put(site, message(4, minute: 3));
+      expect(subject.store.containsRecord<ChatMessage>(site, 1), isFalse);
+      expect(subject.store.containsRecord<ChatMessage>(site, 2), isTrue);
+      expect(subject.store.containsRecord<ChatMessage>(site, 3), isTrue);
+      subject.chat.endViewingChannel(site, 9, view);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+    });
+
+    test(
+      'keeps message pin observation through unchanged IDs and live edits',
+      () async {
+        final subject = build(
+          messages: {
+            key(9): page([message(1)]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        final before = subject.chat.stream(site, 9);
+        final row = subject.chat.messageRef(site, 1);
+        var notifications = 0;
+        void observeRow() => notifications++;
+        row.addListener(observeRow);
+
+        for (final isAction in [true, false]) {
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'edit',
+            'chat_message': {
+              'id': 1,
+              'chat_channel_id': 9,
+              'is_action': isAction,
+              'cooked': '<p>edited $isAction</p>',
+              'created_at': '2026-05-05T10:00:00.000Z',
+              'user': {'id': 2, 'username': 'sam'},
+            },
+          });
+          expect(row.value?.isAction, isAction);
+          expect(
+            subject.chat.stream(site, 9).messageIds,
+            same(before.messageIds),
+          );
+          expect(subject.chat.pinnedMessageCountForTesting(site), 1);
+        }
+        expect(subject.chat.stream(site, 9).revision, before.revision + 2);
+        expect(notifications, 2);
+        subject.store.remove<ChatMessage>(site, 1);
+        expect(row.value, isNull);
+        subject.store.put(site, message(1, raw: 'restored'));
+        expect(subject.chat.messageRef(site, 1), same(row));
+        expect(row.value?.raw, 'restored');
+        expect(notifications, 4);
+        row.removeListener(observeRow);
+        final observed = subject.store.statisticsForTesting.observedEntries;
+        subject.chat.endViewingChannel(site, 9, view);
+        expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+        expect(
+          subject.store.statisticsForTesting.observedEntries,
+          observed - 1,
+        );
+      },
+    );
+
+    test(
       'preserves a non-empty draft while reclaiming its empty shell',
       () async {
         final subject = build(

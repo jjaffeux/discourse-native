@@ -28,6 +28,8 @@ final class _ChatConversationStream {
   ChatStreamState? _window;
   FrameSafeValueNotifier<ChatStreamState>? _ref;
   _ChatMessagePinSet? _messagePins;
+  ({List<int> messageIds, List<int> localMessageIds, bool viewing})?
+  _completePinInputs;
   _ChatWindowGeneration? _generation;
   _ChatPageRequest? _olderRequest;
   _ChatPageRequest? _newerRequest;
@@ -92,19 +94,37 @@ final class _ChatConversationStream {
   void syncMessagePins() {
     if (!isCurrent) return;
     final stream = snapshot;
+    final viewing = _controller._liveSync.isViewingTarget(siteUrl, target);
+    final previous = _completePinInputs;
+    if (previous != null &&
+        identical(previous.messageIds, stream.messageIds) &&
+        identical(previous.localMessageIds, stream.localMessageIds) &&
+        previous.viewing == viewing) {
+      return;
+    }
+    _completePinInputs = null;
+    final inputs = (
+      messageIds: stream.messageIds,
+      localMessageIds: stream.localMessageIds,
+      viewing: viewing,
+    );
     final desired = <int>{...stream.localMessageIds};
-    if (_controller._liveSync.isViewingTarget(siteUrl, target)) {
+    if (viewing) {
       desired.addAll(stream.messageIds);
     }
     if (desired.isEmpty) {
       _messagePins?.release();
       _messagePins = null;
+      _completePinInputs = inputs;
       return;
     }
     (_messagePins ??= _ChatMessagePinSet(
       _controller._store,
       siteUrl,
     )).retain(desired);
+    if (_messagePins!.length == desired.length) {
+      _completePinInputs = inputs;
+    }
   }
 
   void _clearNoticeTimer() {
@@ -124,6 +144,7 @@ final class _ChatConversationStream {
 
   void retire() {
     _retired = true;
+    _completePinInputs = null;
     abandonWindowWork();
     _window = null;
     _queuedReadReceipt = null;
