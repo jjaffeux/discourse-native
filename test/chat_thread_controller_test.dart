@@ -558,7 +558,9 @@ void main() {
           final before = threadDetail(title: 'Before', originalAuthorId: 7);
           final subject = _controllerFor(
             api,
-            store: Store()..put(site, before),
+            store: Store()
+              ..put(site, followedChannel())
+              ..put(site, before),
           );
           Future<void> load() => personal
               ? subject.chat.loadMyThreads(site, force: true)
@@ -602,7 +604,12 @@ void main() {
         final api = _SequencedThreadListApi(
           chatThreadsByKey: {FakeDiscourseApi.chatThreadKey(9, 22): live},
         );
-        final subject = _controllerFor(api, store: Store()..put(site, before));
+        final subject = _controllerFor(
+          api,
+          store: Store()
+            ..put(site, followedChannel())
+            ..put(site, before),
+        );
         final tracker = attachTracker(subject.chat);
         final viewing = subject.chat.beginViewingChannel(site, 9);
         addTearDown(() => subject.chat.endViewingChannel(site, 9, viewing));
@@ -631,7 +638,12 @@ void main() {
       final before = threadDetail(title: 'Before', originalAuthorId: 7);
       final api = _SequencedThreadListApi()
         ..titleFailure = const WriteException(WriteFailure.forbidden);
-      final subject = _controllerFor(api, store: Store()..put(site, before));
+      final subject = _controllerFor(
+        api,
+        store: Store()
+          ..put(site, followedChannel())
+          ..put(site, before),
+      );
       final pages = personal ? api.myThreadPages : api.channelThreadPages;
       final refreshing = personal
           ? subject.chat.loadMyThreads(site)
