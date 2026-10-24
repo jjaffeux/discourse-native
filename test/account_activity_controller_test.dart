@@ -605,6 +605,44 @@ void main() {
       expect(api.calls, 2);
     });
 
+    test(
+      'forget retires both history feeds before publishing either',
+      () async {
+        final controller = _controller(
+          _AccountApi(
+            bookmarkPages: const {
+              0: BookmarkListPage(bookmarks: [_bookmark]),
+            },
+            activityPages: const {
+              0: UserActivityPage(items: [_activityTopic], rawItemCount: 1),
+            },
+          ),
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+        await controller.loadBookmarkList(_connectedInstance());
+        await controller.loadUserActivity(_connectedInstance());
+        final publications = <String>[];
+        void record(String aspect) {
+          expect(controller.bookmarkListFor(_siteUrl).loaded, isFalse);
+          expect(controller.userActivityFor(_siteUrl).loaded, isFalse);
+          publications.add(aspect);
+        }
+
+        controller.bookmarkListListenable.addListener(
+          () => record('bookmarks'),
+        );
+        controller.userActivityListenable.addListener(() => record('activity'));
+        controller.addListener(() => record('facade'));
+
+        controller.forget(_siteUrl);
+
+        expect(publications, ['bookmarks', 'activity', 'facade']);
+        controller.forget(_siteUrl);
+        expect(publications, ['bookmarks', 'activity', 'facade']);
+      },
+    );
+
     test('each activity aspect notifies only its own consumers', () async {
       final api = _AccountApi(
         notificationList: const [_notification],
