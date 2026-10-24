@@ -78,45 +78,15 @@ final class _TopicActionTransactions {
     final heldRow = store.read<Topic>(siteUrl, topicId);
     final lease = lifecycle.capture(siteUrl);
 
-    void project(bool nextPinned, bool nextUnpinned) {
-      lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.copyWith(pinned: nextPinned, unpinned: nextUnpinned),
-        );
-        store.update<Topic>(
-          siteUrl,
-          topicId,
-          (topic) => topic.copyWith(pinned: nextPinned),
-        );
-        changed();
-      });
-    }
+    final data = topicData.forLease(siteUrl, lease)!;
 
     void rollback() {
-      lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.pinned == pinned && topic.unpinned == !pinned
-              ? topic.copyWith(pinned: held.pinned, unpinned: held.unpinned)
-              : topic,
-        );
-        if (heldRow != null) {
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) => topic.pinned == pinned
-                ? topic.copyWith(pinned: heldRow.pinned)
-                : topic,
-          );
-        }
-        changed();
-      });
+      data.settlePinPreference(topicId, rollback: held, rollbackRow: heldRow);
+      if (lease.isCurrent) changed();
     }
 
-    project(pinned, !pinned);
+    data.projectPinPreference(topicId, pinned);
+    if (lease.isCurrent) changed();
     try {
       final credential = await _topicActionCredential(
         credentials,
@@ -139,6 +109,7 @@ final class _TopicActionTransactions {
           clientId: clientId,
         ),
       );
+      if (lease.isCurrent && !_disposed) data.settlePinPreference(topicId);
       return null;
     } on WriteException catch (error) {
       if (lease.isCurrent && !_disposed) rollback();
@@ -202,18 +173,9 @@ final class _TopicActionTransactions {
       );
       if (!lease.isCurrent || _disposed) return null;
       lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.withStatus(status, enabled),
-        );
-        if (status == TopicStatusProperty.closed) {
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) => topic.copyWith(closed: enabled),
-          );
-        }
+        topicData
+            .forLease(siteUrl, lease)
+            ?.projectAcceptedStatus(topicId, status, enabled);
         changed();
       });
       return null;
@@ -320,20 +282,12 @@ final class _TopicActionTransactions {
   ) {
     final data = topicData.forLease(siteUrl, lease);
     if (data == null) return;
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (held == null) return;
-    final next = deleted
-        ? held.afterDeletion(DateTime.now().toUtc())
-        : held.afterRecovery();
-    if (identical(next, held)) return;
-    store.update<TopicDetail>(siteUrl, topicId, (_) => next);
-    if (!lease.isCurrent) return;
-    if (next.closed != held.closed) {
-      store.update<Topic>(
-        siteUrl,
-        topicId,
-        (row) => row.copyWith(closed: next.closed),
-      );
+    if (!data.projectAcceptedDeletion(
+      topicId,
+      deleted,
+      DateTime.now().toUtc(),
+    )) {
+      return;
     }
     if (!deleted) {
       // Only the server knows whether the recovered topic takes replies again.

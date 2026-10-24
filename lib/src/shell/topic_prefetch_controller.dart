@@ -19,12 +19,14 @@ final class PrefetchedTopic {
     this.bookmarkVersion,
     this.archiveVersion,
     this.postRemovalVersion,
+    this.actionVersion,
   );
 
   final TopicPayload payload;
   final int bookmarkVersion;
   final int archiveVersion;
   final int postRemovalVersion;
+  final int actionVersion;
 }
 
 final class TopicPrefetchCancellation {

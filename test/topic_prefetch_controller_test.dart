@@ -14,7 +14,7 @@ void main() {
     postNumber: postNumber,
   );
   PrefetchedTopic result(int id) =>
-      PrefetchedTopic(topicPayload(id: id), 0, 0, 0);
+      PrefetchedTopic(topicPayload(id: id), 0, 0, 0, 0);
 
   testWidgets(
     'confirmed trajectory skips dwell and stale releases cannot cancel a handoff',

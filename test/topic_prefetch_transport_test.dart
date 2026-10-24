@@ -82,7 +82,7 @@ void main() {
               id: 2,
               abortTrigger: cancellation.trigger,
             );
-            return PrefetchedTopic(payload, 0, 0, 0);
+            return PrefetchedTopic(payload, 0, 0, 0, 0);
           },
         );
         if (!duringCredentials) {

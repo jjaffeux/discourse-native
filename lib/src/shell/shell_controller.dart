@@ -1031,8 +1031,10 @@ class ShellController extends FrameSafeNotifier
               ),
             );
           },
-      readPersonalizationVersion: (siteUrl) =>
-          _bookmarks.forSite(siteUrl).epoch,
+      readPersonalizationStamp: (siteUrl) => (
+        bookmarks: _bookmarks.forSite(siteUrl).epoch,
+        actions: _topicData.forSite(siteUrl).actionEpoch,
+      ),
       prepareTopicForStore: _prepareTopicForStore,
       incomingFilterFor: _incomingTopicsFilter,
       onFeedLoaded: (instance, _, _, _) => _trackIncomingLists(instance.url),
@@ -7328,15 +7330,20 @@ class ShellController extends FrameSafeNotifier
   Topic _prepareTopicForStore(
     String siteUrl,
     Topic incoming,
-    int? versionAtDispatch,
-  ) => _bookmarks
+    TopicFeedReadStamp? versionAtDispatch,
+  ) => _topicData
       .forSite(siteUrl)
-      .prepareRow(
-        _topicTracking
-                .existing(siteUrl)
-                ?.project(_topicReads.project(siteUrl, incoming)) ??
-            _topicReads.project(siteUrl, incoming),
-        versionAtDispatch,
+      .actionRowFromRead(
+        versionAtDispatch?.actions ?? _topicData.forSite(siteUrl).actionEpoch,
+        _bookmarks
+            .forSite(siteUrl)
+            .prepareRow(
+              _topicTracking
+                      .existing(siteUrl)
+                      ?.project(_topicReads.project(siteUrl, incoming)) ??
+                  _topicReads.project(siteUrl, incoming),
+              versionAtDispatch?.bookmarks,
+            ),
       );
 
   bool bookmarkWriteInFlight({

@@ -40,6 +40,10 @@ void main() {
   ) async {
     final api = _DelayedMenuApi();
     final shell = await _fixture(tester, api);
+    shell.store.put(
+      _site,
+      const Topic(id: 7, title: 'A real topic', slug: 'topic'),
+    );
     final obsolete = await api.original();
     api.held = Completer<TopicPayload>();
     final refreshing = shell.loadTopic(7, 'topic', force: true);
@@ -59,7 +63,169 @@ void main() {
     api.held = null;
     await shell.loadTopic(7, 'topic', force: true);
     expect(shell.currentTopic!.closed, isFalse);
+    expect(shell.store.read<Topic>(_site, 7)!.closed, isFalse);
   });
+
+  for (final status in TopicStatusProperty.values) {
+    for (final enabled in [false, true]) {
+      for (final duringWrite in [false, true]) {
+        testWidgets(
+          '${status.name}=$enabled survives a read launched ${duringWrite ? 'during' : 'before'} the write',
+          (tester) async {
+            final api = _DelayedMenuApi();
+            final shell = await _fixture(tester, api);
+            final initial = shell.currentTopic!.withStatus(status, !enabled);
+            shell.store.put(_site, initial);
+            shell.store.put(
+              _site,
+              Topic(
+                id: 7,
+                title: initial.title,
+                slug: 'topic',
+                closed: initial.closed,
+              ),
+            );
+            final gate = Completer<void>();
+            api.statusGate = gate;
+            Future<String?>? writing;
+            if (duringWrite) {
+              writing = shell.updateTopicStatus(_site, 7, status, enabled);
+              await tester.pump();
+            }
+            api.held = Completer<TopicPayload>();
+            final reading = shell.loadTopic(7, 'topic', force: true);
+            await tester.pump();
+            writing ??= shell.updateTopicStatus(_site, 7, status, enabled);
+            gate.complete();
+            expect(await writing, isNull);
+            api.held!.complete((detail: initial, posts: const <Post>[]));
+            await reading;
+            expect(shell.currentTopic!.statusValue(status), enabled);
+            if (status == TopicStatusProperty.closed) {
+              expect(shell.store.read<Topic>(_site, 7)!.closed, enabled);
+            }
+            api.held = Completer<TopicPayload>();
+            final reconciling = shell.loadTopic(7, 'topic', force: true);
+            await tester.pump();
+            api.held!.complete((detail: initial, posts: const <Post>[]));
+            await reconciling;
+            expect(shell.currentTopic!.statusValue(status), !enabled);
+            if (status == TopicStatusProperty.closed) {
+              expect(shell.store.read<Topic>(_site, 7)!.closed, !enabled);
+            }
+          },
+        );
+      }
+    }
+  }
+
+  for (final pinned in [false, true]) {
+    for (final fails in [false, true]) {
+      for (final timing in ['before', 'pending', 'settled']) {
+        testWidgets(
+          'pin=$pinned ${fails ? 'rollback' : 'acceptance'} fences $timing read',
+          (tester) async {
+            final api = _DelayedMenuApi();
+            final shell = await _fixture(tester, api);
+            final initial = shell.currentTopic!.copyWith(
+              pinned: !pinned,
+              unpinned: pinned,
+            );
+            shell.store.put(_site, initial);
+            shell.store.put(
+              _site,
+              Topic(
+                id: 7,
+                title: initial.title,
+                slug: 'topic',
+                pinned: !pinned,
+              ),
+            );
+            final gate = Completer<void>();
+            api.pinGate = gate;
+            api.pinFailure = fails ? StateError('not sent') : null;
+            Future<String?>? writing;
+            if (timing != 'before') {
+              writing = shell.updateTopicPinPreference(_site, 7, pinned);
+              await tester.pump();
+            }
+            api.held = Completer<TopicPayload>();
+            final reading = shell.loadTopic(7, 'topic', force: true);
+            await tester.pump();
+            writing ??= shell.updateTopicPinPreference(_site, 7, pinned);
+            await tester.pump();
+            expect(shell.currentTopic!.pinned, pinned);
+            if (timing == 'settled') {
+              gate.complete();
+              expect(await writing, fails ? isNotNull : isNull);
+            }
+            api.held!.complete((
+              detail: initial.copyWith(closed: true),
+              posts: const <Post>[],
+            ));
+            await reading;
+            expect(
+              shell.currentTopic!.pinned,
+              timing == 'settled' && fails ? !pinned : pinned,
+            );
+            expect(shell.currentTopic!.closed, isTrue);
+            if (timing != 'settled') {
+              gate.complete();
+              expect(await writing, fails ? isNotNull : isNull);
+            }
+            expect(shell.currentTopic!.pinned, fails ? !pinned : pinned);
+            expect(shell.currentTopic!.unpinned, fails ? pinned : !pinned);
+            expect(shell.currentTopic!.closed, isTrue);
+            expect(
+              shell.store.read<Topic>(_site, 7)!.pinned,
+              fails ? !pinned : pinned,
+            );
+            api.held = Completer<TopicPayload>();
+            final reconciling = shell.loadTopic(7, 'topic', force: true);
+            await tester.pump();
+            api.held!.complete((detail: initial, posts: const <Post>[]));
+            await reconciling;
+            expect(shell.currentTopic!.pinned, !pinned);
+            expect(shell.store.read<Topic>(_site, 7)!.pinned, !pinned);
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets(
+    'an accepted personal pin cannot restore a pin removed by staff',
+    (tester) async {
+      final api = _DelayedMenuApi();
+      final shell = await _fixture(tester, api);
+      shell.store.put(
+        _site,
+        shell.currentTopic!.copyWith(pinned: false, unpinned: true),
+      );
+      shell.store.put(_site, const Topic(id: 7, title: 'Topic', slug: 'topic'));
+      api.pinGate = Completer<void>();
+      final writing = shell.updateTopicPinPreference(_site, 7, true);
+      await tester.pump();
+      api.held = Completer<TopicPayload>();
+      final reading = shell.loadTopic(7, 'topic', force: true);
+      await tester.pump();
+      api.held!.complete((
+        detail: shell.currentTopic!.copyWith(pinned: false, unpinned: false),
+        posts: const <Post>[],
+      ));
+      await reading;
+      expect(shell.currentTopic!.hasPinPreference, isFalse);
+      expect(shell.store.read<Topic>(_site, 7)!.pinned, isFalse);
+      api.pinGate!.complete();
+      expect(await writing, isNull);
+      expect(shell.currentTopic!.hasPinPreference, isFalse);
+      expect(shell.store.read<Topic>(_site, 7)!.pinned, isFalse);
+      api.held = null;
+      await shell.loadTopic(7, 'topic', force: true);
+      expect(shell.currentTopic!.pinned, isTrue);
+      expect(shell.store.read<Topic>(_site, 7)!.pinned, isTrue);
+    },
+  );
 
   testWidgets('topic dropdown supports keyboard selection and restores focus', (
     tester,
@@ -584,6 +750,8 @@ class _MenuApi extends FakeDiscourseApi {
   final bool initiallyDeleted;
   bool closed = false;
   Completer<void>? statusGate;
+  Completer<void>? pinGate;
+  Object? pinFailure;
   final writes = <_Write>[];
 
   @override
@@ -648,6 +816,8 @@ class _MenuApi extends FakeDiscourseApi {
     writes.add(
       _write('pinned', pinned, site: siteUrl, key: apiKey, id: topicId),
     );
+    await pinGate?.future;
+    if (pinFailure case final failure?) throw failure;
   }
 
   @override

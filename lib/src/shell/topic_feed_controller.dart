@@ -392,6 +392,8 @@ final class _FeedSession {
   }
 }
 
+typedef TopicFeedReadStamp = ({int bookmarks, int actions});
+
 final class TopicFeedController extends FrameSafeNotifier {
   TopicFeedController({
     required this.api,
@@ -400,7 +402,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     required this.store,
     this.onFeedLoaded,
     this.prepareFeed,
-    this.readPersonalizationVersion,
+    this.readPersonalizationStamp,
     this.prepareTopicForStore,
     this.incomingFilterFor,
     this.readerTopics,
@@ -422,8 +424,12 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Store store;
   final TopicFeedLoaded? onFeedLoaded;
   final TopicFeedPreparation? prepareFeed;
-  final int Function(String siteUrl)? readPersonalizationVersion;
-  final Topic Function(String siteUrl, Topic incoming, int? versionAtDispatch)?
+  final TopicFeedReadStamp Function(String siteUrl)? readPersonalizationStamp;
+  final Topic Function(
+    String siteUrl,
+    Topic incoming,
+    TopicFeedReadStamp? stampAtDispatch,
+  )?
   prepareTopicForStore;
 
   /// Which arrivals a list announces, read from its path and the response
@@ -643,9 +649,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final existing = session.feed;
 
     final lease = lifecycle.capture(instance.url);
-    final personalizationVersion = readPersonalizationVersion?.call(
-      instance.url,
-    );
+    final personalizationStamp = readPersonalizationStamp?.call(instance.url);
     final revision = Object();
     session.revision = revision;
     session.cancelPaging();
@@ -681,7 +685,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (!_putTopics(
           instance.url,
           list.topics,
-          personalizationVersion,
+          personalizationStamp,
           requestIsCurrent,
         )) {
           return;
@@ -808,9 +812,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final ids = incoming.topicIds(destinationId, limit: incomingPageSize);
     if (ids.isEmpty) return;
     final lease = lifecycle.capture(instance.url);
-    final personalizationVersion = readPersonalizationVersion?.call(
-      instance.url,
-    );
+    final personalizationStamp = readPersonalizationStamp?.call(instance.url);
     final feedRevision = session.revision;
     final incomingRequest = Object();
     session.incomingRequests.add(incomingRequest);
@@ -852,7 +854,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (!_putTopics(
           instance.url,
           list.topics,
-          personalizationVersion,
+          personalizationStamp,
           requestIsCurrent,
         )) {
           return;
@@ -943,9 +945,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (feed.error != null && !feed.pageError) return;
 
     final lease = lifecycle.capture(instance.url);
-    final personalizationVersion = readPersonalizationVersion?.call(
-      instance.url,
-    );
+    final personalizationStamp = readPersonalizationStamp?.call(instance.url);
     final feedRevision = session.revision;
     final pageRequest = Completer<void>();
     session.pageRequest = pageRequest;
@@ -987,7 +987,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (!_putTopics(
           instance.url,
           next.topics,
-          personalizationVersion,
+          personalizationStamp,
           requestIsCurrent,
         )) {
           return;
@@ -1131,7 +1131,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   ) async {
     final lease = lifecycle.capture(instance.url);
     final revision = session.revision;
-    final version = readPersonalizationVersion?.call(instance.url);
+    final version = readPersonalizationStamp?.call(instance.url);
     bool feedIsCurrent() =>
         lease.isCurrent && _sessionIsCurrent(session, revision);
     bool requestIsCurrent() =>
@@ -1196,9 +1196,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final window = session.window;
     final lease = lifecycle.capture(instance.url);
     final revision = session.revision;
-    final personalizationVersion = readPersonalizationVersion?.call(
-      instance.url,
-    );
+    final personalizationStamp = readPersonalizationStamp?.call(instance.url);
     bool feedIsCurrent() =>
         lease.isCurrent && _sessionIsCurrent(session, revision);
     bool requestIsCurrent() =>
@@ -1253,7 +1251,7 @@ final class TopicFeedController extends FrameSafeNotifier {
             _putTopics(
               instance.url,
               topics,
-              personalizationVersion,
+              personalizationStamp,
               requestIsCurrent,
             );
           });
@@ -1345,7 +1343,7 @@ final class TopicFeedController extends FrameSafeNotifier {
               if (!_putTopics(
                 instance.url,
                 list.topics,
-                personalizationVersion,
+                personalizationStamp,
                 requestIsCurrent,
               )) {
                 return;
@@ -1471,14 +1469,13 @@ final class TopicFeedController extends FrameSafeNotifier {
   bool _putTopics(
     String siteUrl,
     Iterable<Topic> topics,
-    int? versionAtDispatch,
+    TopicFeedReadStamp? stampAtDispatch,
     bool Function() requestIsCurrent,
   ) {
     final prepare = prepareTopicForStore;
     for (final topic in topics) {
       if (!requestIsCurrent()) return false;
-      final incoming =
-          prepare?.call(siteUrl, topic, versionAtDispatch) ?? topic;
+      final incoming = prepare?.call(siteUrl, topic, stampAtDispatch) ?? topic;
       if (!requestIsCurrent()) return false;
       // Record refs notify independently of the feed. An observer may forget
       // the site, in which case the remaining rows must not repopulate it.

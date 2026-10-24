@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
+import 'package:discourse_native/src/shell/topic_feed_controller.dart';
 import 'package:discourse_native/src/shell/topic_prefetch_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -138,6 +139,22 @@ Future<void> _until(bool Function() ready) async {
 Future<void> _drain() async {
   for (var index = 0; index < 4; index++) {
     await Future<void>.delayed(Duration.zero);
+  }
+}
+
+final class _FeedApi extends FakeDiscourseApi {
+  final reads = <Completer<TopicList>>[];
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) {
+    final read = Completer<TopicList>();
+    reads.add(read);
+    return read.future;
   }
 }
 
@@ -271,6 +288,268 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  for (final pinRemoved in [false, true]) {
+    test(
+      'delayed lists preserve the newest row reconciliation after pin ${pinRemoved ? 'removal' : 'preference'}',
+      () async {
+        final f = _Fixture()..seed();
+        final data = f.data;
+        f.store.put(
+          _site,
+          const Topic(id: 7, title: 'Topic', slug: 'topic', pinned: true),
+        );
+        f.store.put(
+          _site,
+          f.store.read<TopicDetail>(_site, 7)!.copyWith(pinned: true),
+        );
+        final api = _FeedApi();
+        final feeds = TopicFeedController(
+          api: api,
+          credentials: f.credentials,
+          lifecycle: f.lifecycle,
+          store: f.store,
+          readPersonalizationStamp: (site) => (
+            bookmarks: f.bookmarks.forSite(site).epoch,
+            actions: data.actionEpoch,
+          ),
+          prepareTopicForStore: (site, topic, stamp) => data.actionRowFromRead(
+            stamp!.actions,
+            f.bookmarks.forSite(site).prepareRow(topic, stamp.bookmarks),
+          ),
+        );
+        addTearDown(feeds.dispose);
+        Future<void> load(String destination) => feeds.load(
+          instance: instance('topic.example'),
+          destinationId: destination,
+          path: '/$destination.json',
+          incoming: null,
+          force: true,
+        );
+        final oldList = load('latest');
+        await _until(() => api.reads.length == 1);
+        final oldDetail = data.refresh(7);
+        await f.api.waitTopics(1);
+        data.projectAcceptedStatus(7, TopicStatusProperty.closed, true);
+        data.projectPinPreference(7, false);
+        data.settlePinPreference(7);
+        if (pinRemoved) {
+          f.api.topicReads.single.result.complete(_payload([]));
+          await oldDetail;
+          expect(
+            f.store.read<TopicDetail>(_site, 7)!.hasPinPreference,
+            isFalse,
+          );
+          expect(f.store.read<Topic>(_site, 7)!.pinned, isFalse);
+        }
+        final nextList = load('new');
+        await _until(() => api.reads.length == 2);
+        api.reads[1].complete(
+          const TopicList(
+            topics: [
+              Topic(
+                id: 7,
+                title: 'Newest',
+                slug: 'topic',
+                closed: false,
+                pinned: true,
+              ),
+            ],
+          ),
+        );
+        await nextList;
+        expect(f.store.read<Topic>(_site, 7)!.closed, isFalse);
+        expect(f.store.read<Topic>(_site, 7)!.pinned, isTrue);
+        api.reads[0].complete(
+          const TopicList(
+            topics: [
+              Topic(
+                id: 7,
+                title: 'Delayed',
+                slug: 'topic',
+                closed: true,
+                pinned: false,
+              ),
+            ],
+          ),
+        );
+        await oldList;
+        expect(f.store.read<Topic>(_site, 7)!.closed, isFalse);
+        expect(f.store.read<Topic>(_site, 7)!.pinned, isTrue);
+        expect(f.store.read<Topic>(_site, 7)!.title, 'Delayed');
+        if (!pinRemoved) {
+          f.api.topicReads.single.result.complete((
+            detail: _payload([]).detail.copyWith(pinned: true),
+            posts: const <Post>[],
+          ));
+          await oldDetail;
+        }
+        expect(f.store.read<TopicDetail>(_site, 7)!.closed, isTrue);
+        expect(f.store.read<TopicDetail>(_site, 7)!.pinned, isFalse);
+        expect(f.store.read<Topic>(_site, 7)!.closed, isFalse);
+        expect(f.store.read<Topic>(_site, 7)!.pinned, isTrue);
+      },
+    );
+  }
+
+  for (final deleted in [false, true]) {
+    test(
+      '${deleted ? 'withdrawal' : 'recovery'} fences its accepted closed state',
+      () async {
+        final f = _Fixture()..seed();
+        final initial = f.store
+            .read<TopicDetail>(_site, 7)!
+            .copyWith(closed: !deleted, canRecoverTopic: !deleted);
+        f.store.put(_site, initial);
+        f.store.put(
+          _site,
+          Topic(id: 7, title: 'Topic', slug: 'topic', closed: !deleted),
+        );
+        final data = f.data;
+        final reading = data.refresh(7);
+        await f.api.waitTopics(1);
+        expect(
+          data.projectAcceptedDeletion(7, deleted, DateTime.utc(2026)),
+          isTrue,
+        );
+        expect(f.store.read<TopicDetail>(_site, 7)!.canRecoverTopic, deleted);
+        f.api.topicReads.single.result.complete((
+          detail: initial,
+          posts: const <Post>[],
+        ));
+        await reading;
+        expect(f.store.read<TopicDetail>(_site, 7)!.closed, deleted);
+        expect(f.store.read<Topic>(_site, 7)!.closed, deleted);
+      },
+    );
+  }
+
+  test('status and pin fencing preserve only the changed fields', () async {
+    final f = _Fixture()..seed();
+    final data = f.data;
+    f.store.put(
+      _site,
+      f.store.read<TopicDetail>(_site, 7)!.copyWith(pinned: true),
+    );
+    final reading = data.refresh(7);
+    await f.api.waitTopics(1);
+    data.projectAcceptedStatus(7, TopicStatusProperty.archived, true);
+    data.projectPinPreference(7, false);
+    data.settlePinPreference(7);
+    final incoming = _payload([_post(1, 'incoming')]);
+    f.api.topicReads.single.result.complete((
+      detail: const TopicDetail(
+        id: 7,
+        title: 'Topic',
+        stream: [1, 2],
+        closed: true,
+        visible: false,
+        pinned: true,
+        pinnedGlobally: true,
+      ),
+      posts: incoming.posts,
+    ));
+    await reading;
+    final detail = f.store.read<TopicDetail>(_site, 7)!;
+    expect(detail.archived, isTrue);
+    expect(detail.closed, isTrue);
+    expect(detail.visible, isFalse);
+    expect(detail.pinned, isFalse);
+    expect(detail.unpinned, isTrue);
+    expect(detail.pinnedGlobally, isTrue);
+    expect(f.store.read<Post>(_site, 1)!.cooked, '<p>incoming</p>');
+  });
+
+  test(
+    'prefetch carries the action stamp from launch through navigation',
+    () async {
+      final f = _Fixture();
+      final data = f.data;
+      final release = data.prefetch(
+        const Topic(
+          id: 7,
+          title: 'Topic',
+          slug: 'topic',
+          highestPostNumber: 100,
+          lastReadPostNumber: 89,
+        ),
+        intent: TopicPrefetchIntent.trajectory,
+        isInterested: () => true,
+      );
+      addTearDown(release);
+      await f.api.waitTopics(1);
+      f.seed();
+      f.store.put(_site, const Topic(id: 7, title: 'Topic', slug: 'topic'));
+      data.projectAcceptedStatus(7, TopicStatusProperty.closed, true);
+      f.api.topicReads.single.result.complete(
+        _payload([_post(90, 'prefetched')], stream: [1, 90]),
+      );
+      await _drain();
+      await data.open(7, slug: 'topic', postNumber: 90, opening: f.opening);
+      expect(f.api.topicReads, hasLength(1));
+      expect(f.store.read<TopicDetail>(_site, 7)!.closed, isTrue);
+      expect(f.store.read<Topic>(_site, 7)!.closed, isTrue);
+    },
+  );
+
+  test(
+    'detail row projection reads canonical status after synchronous listeners',
+    () async {
+      final f = _Fixture()..seed();
+      f.store.put(_site, const Topic(id: 7, title: 'Topic', slug: 'topic'));
+      final data = f.data;
+      var changed = false;
+      final ref = f.store.ref<TopicDetail>(_site, 7);
+      void acceptStatus() {
+        if (changed) return;
+        changed = true;
+        data.projectAcceptedStatus(7, TopicStatusProperty.closed, true);
+      }
+
+      ref.addListener(acceptStatus);
+      addTearDown(() => ref.removeListener(acceptStatus));
+      final reading = data.refresh(7);
+      await f.api.waitTopics(1);
+      f.api.topicReads.single.result.complete((
+        detail: _payload([]).detail.copyWith(title: 'Fresh topic'),
+        posts: const <Post>[],
+      ));
+      await reading;
+      expect(changed, isTrue);
+      expect(f.store.read<TopicDetail>(_site, 7)!.closed, isTrue);
+      expect(f.store.read<Topic>(_site, 7)!.closed, isTrue);
+    },
+  );
+
+  test(
+    'retired action fences and delayed reads cannot affect a successor',
+    () async {
+      final f = _Fixture()..seed();
+      final old = f.data;
+      final reading = old.refresh(7);
+      await f.api.waitTopics(1);
+      old.projectPinPreference(7, true);
+      f.lifecycle.invalidate(_site);
+      f.store.forget(_site);
+      f.seed();
+      final successor = f.data;
+      old.projectAcceptedStatus(7, TopicStatusProperty.closed, true);
+      old.settlePinPreference(7);
+      f.api.topicReads.single.result.complete(_payload([]));
+      await reading;
+      expect(successor.actionEpoch, 0);
+      expect(f.store.read<TopicDetail>(_site, 7)!.closed, isFalse);
+      expect(f.store.read<TopicDetail>(_site, 7)!.pinned, isFalse);
+      final fresh = successor.refresh(7);
+      await f.api.waitTopics(2);
+      f.api.topicReads.last.result.complete((
+        detail: _payload([]).detail.copyWith(closed: true),
+        posts: const <Post>[],
+      ));
+      await fresh;
+      expect(f.store.read<TopicDetail>(_site, 7)!.closed, isTrue);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(

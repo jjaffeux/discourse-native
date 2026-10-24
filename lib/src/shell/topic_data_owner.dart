@@ -140,6 +140,9 @@ final class _TopicState {
   Object? summaryRead;
   List<int>? summary;
   final Map<(int, bool), Object> gaps = {};
+  final Map<TopicStatusProperty, int> statuses = {};
+  int pin = 0;
+  bool pinPending = false;
   int archive = 0;
   int removals = 0;
   int streams = 0;
@@ -158,7 +161,13 @@ final class _PostState {
   bool deletion = false;
 }
 
-typedef _ReadStamp = ({int bookmarks, int archive, int removals, int streams});
+typedef _ReadStamp = ({
+  int bookmarks,
+  int actions,
+  int archive,
+  int removals,
+  int streams,
+});
 
 final class _LiveBatch {
   _LiveBatch(this.topicId);
@@ -186,6 +195,9 @@ final class TopicDataSession implements BookmarkTopicData {
   final Set<_ModerationRecovery> _moderationRecoveries = {};
   void Function()? _detach;
   bool _retired = false;
+  int _actionEpoch = 0;
+
+  int get actionEpoch => _actionEpoch;
 
   bool get isCurrent => !_retired && !_owner._disposed && lease.isCurrent;
   Store get _store => _owner.store;
@@ -241,10 +253,136 @@ final class TopicDataSession implements BookmarkTopicData {
     final state = _topic(topicId);
     return (
       bookmarks: _bookmarks.revision(topicId),
+      actions: actionEpoch,
       archive: state.archive,
       removals: state.removals,
       streams: state.streams,
     );
+  }
+
+  void projectAcceptedStatus(
+    int topicId,
+    TopicStatusProperty status,
+    bool enabled,
+  ) {
+    if (!isCurrent) return;
+    _topic(topicId).statuses[status] = ++_actionEpoch;
+    _update<TopicDetail>(
+      topicId,
+      (detail) => detail.withStatus(status, enabled),
+    );
+    if (status == TopicStatusProperty.closed) {
+      _update<Topic>(
+        topicId,
+        (row) => row.copyWith(
+          closed: _store.read<TopicDetail>(siteUrl, topicId)?.closed ?? enabled,
+        ),
+      );
+    }
+  }
+
+  bool projectAcceptedDeletion(int topicId, bool deleted, DateTime at) {
+    if (!isCurrent) return false;
+    final held = _store.read<TopicDetail>(siteUrl, topicId);
+    if (held == null) return false;
+    final next = deleted ? held.afterDeletion(at) : held.afterRecovery();
+    if (identical(next, held)) return false;
+    if (next.closed != held.closed) {
+      _topic(topicId).statuses[TopicStatusProperty.closed] = ++_actionEpoch;
+    }
+    _update<TopicDetail>(topicId, (_) => next);
+    if (next.closed != held.closed) {
+      _update<Topic>(
+        topicId,
+        (row) => row.copyWith(
+          closed:
+              _store.read<TopicDetail>(siteUrl, topicId)?.closed ?? next.closed,
+        ),
+      );
+    }
+    return isCurrent;
+  }
+
+  void projectPinPreference(int topicId, bool pinned) {
+    if (!isCurrent) return;
+    final state = _topic(topicId);
+    state.pin = ++_actionEpoch;
+    state.pinPending = true;
+    _update<TopicDetail>(
+      topicId,
+      (detail) => detail.copyWith(pinned: pinned, unpinned: !pinned),
+    );
+    _update<Topic>(
+      topicId,
+      (row) => row.copyWith(
+        pinned: _store.read<TopicDetail>(siteUrl, topicId)?.pinned ?? pinned,
+      ),
+    );
+  }
+
+  void settlePinPreference(
+    int topicId, {
+    TopicDetail? rollback,
+    Topic? rollbackRow,
+  }) {
+    if (!isCurrent) return;
+    final state = _topic(topicId);
+    state.pin = ++_actionEpoch;
+    state.pinPending = false;
+    if (rollback == null) return;
+    _update<TopicDetail>(
+      topicId,
+      (detail) =>
+          detail.pinned == !rollback.pinned &&
+              detail.unpinned == rollback.pinned
+          ? detail.copyWith(
+              pinned: rollback.pinned,
+              unpinned: rollback.unpinned,
+            )
+          : detail,
+    );
+    if (rollbackRow != null) {
+      _update<Topic>(
+        topicId,
+        (row) => row.pinned == !rollback.pinned
+            ? row.copyWith(pinned: rollbackRow.pinned)
+            : row,
+      );
+    }
+  }
+
+  TopicDetail _actionsFromRead(int atDispatch, TopicDetail incoming) {
+    final held = _store.read<TopicDetail>(siteUrl, incoming.id);
+    if (held == null) return incoming;
+    final state = _topic(incoming.id);
+    for (final entry in state.statuses.entries) {
+      if (entry.value > atDispatch) {
+        incoming = incoming.withStatus(entry.key, held.statusValue(entry.key));
+      }
+    }
+    if (incoming.hasPinPreference &&
+        (state.pinPending || state.pin > atDispatch)) {
+      incoming = incoming.copyWith(
+        pinned: held.pinned,
+        unpinned: held.unpinned,
+      );
+    }
+    return incoming;
+  }
+
+  Topic actionRowFromRead(int atDispatch, Topic incoming) {
+    if (!isCurrent) return incoming;
+    final state = _topics[incoming.id];
+    if (state == null) return incoming;
+    final held = _store.read<TopicDetail>(siteUrl, incoming.id);
+    final row = _store.read<Topic>(siteUrl, incoming.id);
+    if ((state.statuses[TopicStatusProperty.closed] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(closed: row?.closed ?? held?.closed);
+    }
+    if (state.pinPending || state.pin > atDispatch) {
+      incoming = incoming.copyWith(pinned: row?.pinned ?? held?.pinned);
+    }
+    return incoming;
   }
 
   Set<int> _removedSince(int topicId, int version) {
@@ -320,7 +458,10 @@ final class TopicDataSession implements BookmarkTopicData {
     if (!_publishPosts(topicId, payload.posts, stamp)) return null;
     final held = _store.read<TopicDetail>(siteUrl, topicId);
     final latest = _withoutRemoved(response, stamp.removals);
-    var incoming = _bookmarks.detailFromRead(stamp.bookmarks, latest.detail);
+    var incoming = _actionsFromRead(
+      stamp.actions,
+      _bookmarks.detailFromRead(stamp.bookmarks, latest.detail),
+    );
     if (held != null && stamp.archive != state.archive) {
       incoming = incoming.copyWith(messageArchived: held.messageArchived);
     }
@@ -343,15 +484,25 @@ final class TopicDataSession implements BookmarkTopicData {
     }
     if (!isCurrent) return null;
     state.stale = false;
-    final accepted = detail;
-    _update<Topic>(
-      topicId,
-      (row) => _bookmarks.projectTopicRow(
-        row
-            .copyWith(title: accepted.title, postsCount: accepted.postsCount)
-            .withPlugins(accepted.plugins),
-      ),
-    );
+    _update<Topic>(topicId, (row) {
+      final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
+      final projected = actionRowFromRead(
+        stamp.actions,
+        _bookmarks.projectTopicRow(
+          row
+              .copyWith(
+                title: accepted.title,
+                postsCount: accepted.postsCount,
+                closed: accepted.closed,
+                pinned: accepted.pinned,
+              )
+              .withPlugins(accepted.plugins),
+        ),
+      );
+      return accepted.hasPinPreference
+          ? projected
+          : projected.copyWith(pinned: false);
+    });
     if (!isCurrent) return null;
     detail = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
     _owner.published(siteUrl, detail);
@@ -450,6 +601,7 @@ final class TopicDataSession implements BookmarkTopicData {
             stamp.bookmarks,
             stamp.archive,
             stamp.removals,
+            stamp.actions,
           );
         } catch (_) {
           cancellation.cancel();
@@ -565,6 +717,7 @@ final class TopicDataSession implements BookmarkTopicData {
       if (warmed != null) {
         stamp = (
           bookmarks: warmed.bookmarkVersion,
+          actions: warmed.actionVersion,
           archive: warmed.archiveVersion,
           removals: warmed.postRemovalVersion,
           streams: stamp.streams,
