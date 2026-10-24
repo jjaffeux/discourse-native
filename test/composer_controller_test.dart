@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/edit_history.dart';
 import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/services.dart';
@@ -233,7 +234,8 @@ void main() {
         ).copyWith(composing: const TextRange(start: 1, end: 4));
         composer.autocomplete.update(_typed(':smi'));
         final before = composer.value;
-        expect(composer.autocomplete.isOpen, isTrue);
+        final open = composer.autocomplete.trigger;
+        expect(open, isNotNull);
         composer.acceptSuggestion(
           const ComposerSuggestion(
             kind: ComposerTriggerKind.emoji,
@@ -242,7 +244,7 @@ void main() {
           ),
         );
         expect(composer.value, before);
-        expect(composer.autocomplete.isOpen, isTrue);
+        expect(composer.autocomplete.trigger, open);
         expect(accepted, 0);
       },
     );
@@ -2434,6 +2436,7 @@ void main() {
         'upload://existing',
         'upload://late',
       ]);
+      await tester.pump(ComposerEditHistory.typingDelay);
     });
 
     testWidgets('ambiguous duplicate member URLs do not retarget a picker', (
@@ -2543,6 +2546,7 @@ void main() {
         composer.text.text.indexOf('upload://three'),
         lessThan(composer.text.text.indexOf('Following prose.')),
       );
+      await tester.pump(ComposerEditHistory.typingDelay);
     });
 
     test('a cancelled stale gallery picker returns without a notice', () {
@@ -2645,6 +2649,7 @@ void main() {
               ['upload://other', 'upload://late'],
             );
           }
+          await tester.pump(ComposerEditHistory.typingDelay);
         },
       );
     }
@@ -2677,6 +2682,7 @@ void main() {
         ).single.images.map((image) => image.url),
         ['upload://existing', 'upload://standalone', 'upload://late'],
       );
+      await tester.pump(ComposerEditHistory.typingDelay);
     });
 
     testWidgets('stale Add selected resolves a gallery changed by an upload', (
@@ -2763,6 +2769,7 @@ void main() {
         'upload://existing',
         'upload://late',
       ]);
+      await tester.pump(ComposerEditHistory.typingDelay);
     });
 
     testWidgets(
@@ -2787,6 +2794,7 @@ void main() {
 
         expect(parseComposerImageGalleries(composer.text.text), isEmpty);
         expect(composer.text.imageBlocks.single.url, 'upload://late');
+        await tester.pump(ComposerEditHistory.typingDelay);
       },
     );
 

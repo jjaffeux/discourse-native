@@ -221,7 +221,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         );
     text.onRemoveQuote = removeQuote;
     text.onTodoChanged = (value) {
-      if (isEditing) history.transact(() => text.value = value);
+      _runCommand(() => text.value = value);
     };
     blocks = ComposerBlockController(
       text: text,
@@ -898,12 +898,25 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool get rateLimited => _rateLimited;
 
+  bool _runCommand(VoidCallback edit) {
+    if (!isEditing ||
+        (text.value.composing.isValid && !text.value.composing.isCollapsed)) {
+      return false;
+    }
+    var admitted = false;
+    history.transactCommand(() {
+      admitted = true;
+      edit();
+    });
+    return admitted;
+  }
+
   void toggleMark(ComposerMark mark) {
     if (!isEditing ||
         selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
       return;
     }
-    text.value = toggleMarkdownMark(text.value, mark.marker);
+    _runCommand(() => text.value = toggleMarkdownMark(text.value, mark.marker));
   }
 
   void toggleSelectedInlineCode() {
@@ -920,7 +933,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         selectionTouchesComposerQuote(text.quoteBlocks, text.selection)) {
       return;
     }
-    history.transact(() => text.value = format(text.value));
+    _runCommand(() => text.value = format(text.value));
   }
 
   /// Applies an ATX heading to the caret's line, preserving its text.
@@ -936,13 +949,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     ).firstMatch(old.text.substring(start));
     final end = start + (prefix?.end ?? 0);
     final marker = '${'#' * level} ';
-    text.value = old.copyWith(
-      text: old.text.replaceRange(start, end, marker),
-      selection: TextSelection.collapsed(
-        offset: (caret < end ? start : caret - (end - start)) + marker.length,
-      ),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(start, end, marker),
+        selection: TextSelection.collapsed(
+          offset: (caret < end ? start : caret - (end - start)) + marker.length,
+        ),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   void insertText(String insertion) {
@@ -952,11 +967,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         ? old.selection
         : TextSelection.collapsed(offset: old.text.length);
     final start = selection.start;
-    text.value = old.copyWith(
-      text: old.text.replaceRange(start, selection.end, insertion),
-      selection: TextSelection.collapsed(offset: start + insertion.length),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(start, selection.end, insertion),
+        selection: TextSelection.collapsed(offset: start + insertion.length),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   void insertMention() {
@@ -964,8 +981,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final old = text.value;
     // Reopen a dismissed mention without adding a second @ to its query.
     if (composerTriggerAt(old)?.kind == ComposerTriggerKind.mention) {
-      autocomplete.close();
-      autocomplete.update(old);
+      _runCommand(() {
+        autocomplete.close();
+        autocomplete.update(old);
+      });
       return;
     }
     final selection = old.selection.isValid
@@ -978,11 +997,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             !RegExp(r'\s').hasMatch(old.text[selection.end])
         ? ' '
         : '';
-    text.value = old.copyWith(
-      text: old.text.replaceRange(start, selection.end, '$prefix@$suffix'),
-      selection: TextSelection.collapsed(offset: start + prefix.length + 1),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(start, selection.end, '$prefix@$suffix'),
+        selection: TextSelection.collapsed(offset: start + prefix.length + 1),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   void insertEmoji(String bareCode) {
@@ -1022,12 +1043,14 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       insertion = ' $insertion';
     }
 
-    text.value = old.copyWith(
-      text: old.text.replaceRange(start, end, insertion),
-      selection: TextSelection.collapsed(offset: start + insertion.length),
-      composing: TextRange.empty,
-    );
-    autocomplete.close();
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(start, end, insertion),
+        selection: TextSelection.collapsed(offset: start + insertion.length),
+        composing: TextRange.empty,
+      );
+      autocomplete.close();
+    });
   }
 
   static bool _emojiSigilOpensWord(String text, int sigil) {
@@ -1043,8 +1066,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!isEditing || text.value != expectedValue || markdown.trim().isEmpty) {
       return false;
     }
-    _insertBlock(markdown);
-    return true;
+    return _runCommand(() => _insertBlock(markdown));
   }
 
   void _insertBlock(String markdown) {
@@ -1073,8 +1095,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void prependBlock(String markdown) {
     if (!isEditing || markdown.trim().isEmpty) return;
-    text.selection = const TextSelection.collapsed(offset: 0);
-    _insertBlock(markdown);
+    _runCommand(() {
+      text.selection = const TextSelection.collapsed(offset: 0);
+      _insertBlock(markdown);
+    });
   }
 
   static String _separatorAfter(String before, [String lineEnding = '\n']) {
@@ -1250,13 +1274,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final after = withoutImage.substring(destination);
     final insertion =
         '${_separatorAfter(before)}${image.source}${_separatorBefore(after)}';
-    text.value = old.copyWith(
-      text: withoutImage.replaceRange(destination, destination, insertion),
-      selection: TextSelection.collapsed(
-        offset: destination + insertion.length,
-      ),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: withoutImage.replaceRange(destination, destination, insertion),
+        selection: TextSelection.collapsed(
+          offset: destination + insertion.length,
+        ),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   void moveImageOutOfGallery(
@@ -1288,7 +1314,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           )) {
         return;
       }
-      final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
       final replacement = remaining.isEmpty
           ? ''
           : _galleryMarkdown(current.mode, remaining);
@@ -1307,22 +1332,25 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       final galleryStart = destination <= current.start
           ? current.start + insertion.length
           : current.start;
-      text.value = old.copyWith(
-        text: withoutImage.replaceRange(destination, destination, insertion),
-        selection: TextSelection.collapsed(
-          offset: destination + insertion.length,
-        ),
-        composing: TextRange.empty,
-      );
-      final updated = remaining.isEmpty
-          ? null
-          : text.galleryBlocks
-                .where((block) => block.start == galleryStart)
-                .firstOrNull;
-      uploadEdit.complete(
-        updated,
-        fallbackAnchor: destination + insertion.length,
-      );
+      _runCommand(() {
+        final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
+        text.value = old.copyWith(
+          text: withoutImage.replaceRange(destination, destination, insertion),
+          selection: TextSelection.collapsed(
+            offset: destination + insertion.length,
+          ),
+          composing: TextRange.empty,
+        );
+        final updated = remaining.isEmpty
+            ? null
+            : text.galleryBlocks
+                  .where((block) => block.start == galleryStart)
+                  .firstOrNull;
+        uploadEdit.complete(
+          updated,
+          fallbackAnchor: destination + insertion.length,
+        );
+      });
       return;
     }
     final replacement = remaining.isEmpty
@@ -1386,7 +1414,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     selected.sort((a, b) => a.start.compareTo(b.start));
 
-    final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
     final members = current.images.toList();
     members.insertAll(
       (insertionIndex ?? members.length).clamp(0, members.length),
@@ -1415,15 +1442,18 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       cursor = edit.end;
     }
     buffer.write(old.text.substring(cursor));
-    text.value = old.copyWith(
-      text: buffer.toString(),
-      selection: TextSelection.collapsed(offset: galleryEnd),
-      composing: TextRange.empty,
-    );
-    final updated = parseComposerImageGalleries(
-      text.text,
-    ).where((candidate) => candidate.start == galleryStart).firstOrNull;
-    uploadEdit.complete(updated, fallbackAnchor: galleryEnd);
+    _runCommand(() {
+      final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
+      text.value = old.copyWith(
+        text: buffer.toString(),
+        selection: TextSelection.collapsed(offset: galleryEnd),
+        composing: TextRange.empty,
+      );
+      final updated = parseComposerImageGalleries(
+        text.text,
+      ).where((candidate) => candidate.start == galleryStart).firstOrNull;
+      uploadEdit.complete(updated, fallbackAnchor: galleryEnd);
+    });
   }
 
   void removeImage(ComposerImageBlock image) {
@@ -1457,13 +1487,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       return;
     }
     final old = text.value;
-    text.value = old.copyWith(
-      text: old.text.replaceRange(quote.start, quote.end, replacement),
-      selection: TextSelection.collapsed(
-        offset: quote.start + replacement.length,
-      ),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(quote.start, quote.end, replacement),
+        selection: TextSelection.collapsed(
+          offset: quote.start + replacement.length,
+        ),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   void _replaceImage(ComposerImageBlock image, String replacement) {
@@ -1474,13 +1506,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       return;
     }
     final old = text.value;
-    text.value = old.copyWith(
-      text: old.text.replaceRange(image.start, image.end, replacement),
-      selection: TextSelection.collapsed(
-        offset: image.start + replacement.length,
-      ),
-      composing: TextRange.empty,
-    );
+    _runCommand(() {
+      text.value = old.copyWith(
+        text: old.text.replaceRange(image.start, image.end, replacement),
+        selection: TextSelection.collapsed(
+          offset: image.start + replacement.length,
+        ),
+        composing: TextRange.empty,
+      );
+    });
   }
 
   bool _stillContainsImage(ComposerImageBlock image) =>
@@ -1590,24 +1624,26 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!isEditing) return;
     final current = _currentGallery(gallery);
     if (current == null) return;
-    final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
-    final old = text.value;
-    text.value = old.copyWith(
-      text: old.text.replaceRange(current.start, current.end, replacement),
-      selection: TextSelection.collapsed(
-        offset: current.start + replacement.length,
-      ),
-      composing: TextRange.empty,
-    );
-    final updated = preservePendingTarget
-        ? parseComposerImageGalleries(
-            text.text,
-          ).where((candidate) => candidate.start == current.start).firstOrNull
-        : null;
-    uploadEdit.complete(
-      updated,
-      fallbackAnchor: current.start + replacement.length,
-    );
+    _runCommand(() {
+      final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
+      final old = text.value;
+      text.value = old.copyWith(
+        text: old.text.replaceRange(current.start, current.end, replacement),
+        selection: TextSelection.collapsed(
+          offset: current.start + replacement.length,
+        ),
+        composing: TextRange.empty,
+      );
+      final updated = preservePendingTarget
+          ? parseComposerImageGalleries(
+              text.text,
+            ).where((candidate) => candidate.start == current.start).firstOrNull
+          : null;
+      uploadEdit.complete(
+        updated,
+        fallbackAnchor: current.start + replacement.length,
+      );
+    });
   }
 
   static String _galleryMarkdown(
@@ -1628,11 +1664,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final open = autocomplete.trigger;
     if (open == null) return;
 
-    text.value = applyComposerCompletion(text.value, open, suggestion.value);
-    autocomplete.close();
-    if (suggestion.kind == ComposerTriggerKind.emoji) {
-      onEmojiAccepted?.call(suggestion.value);
-    }
+    _runCommand(() {
+      text.value = applyComposerCompletion(text.value, open, suggestion.value);
+      autocomplete.close();
+      if (suggestion.kind == ComposerTriggerKind.emoji) {
+        onEmojiAccepted?.call(suggestion.value);
+      }
+    });
   }
 
   bool get isDisposed => _disposed;

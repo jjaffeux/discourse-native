@@ -111,6 +111,15 @@ class ComposerEditHistory extends ChangeNotifier {
     return before.text != text.text;
   }
 
+  /// Records a command separately, or joins its caller's active transaction.
+  bool transactCommand(VoidCallback edit) {
+    if (composing || _restoring) return false;
+    if (!_transaction) return transact(edit);
+    final before = text.text;
+    edit();
+    return before != text.text;
+  }
+
   /// Applies [edit] as a correction of the current value rather than an edit
   /// of its own. A value restored by undo or redo that its owner must then
   /// normalise would otherwise become the newest entry, discarding redo and

@@ -37,6 +37,40 @@ void main() {
     expect(text.value, first);
   });
 
+  test(
+    'commands join an outer transaction without changing nested transaction refusal',
+    () {
+      final original = text.value;
+      var nestedRan = false;
+      history.transact(() {
+        expect(history.transact(() => nestedRan = true), isFalse);
+        expect(history.transactCommand(() => edit('First')), isTrue);
+        expect(history.transactCommand(() => edit('Final')), isTrue);
+      });
+      expect(nestedRan, isFalse);
+      expect(text.text, 'Final');
+      expect(history.undo(), isTrue);
+      expect(text.value, original);
+      expect(history.canUndo, isFalse);
+      expect(history.redo(), isTrue);
+      expect(text.text, 'Final');
+    },
+  );
+
+  test('command admission refuses composition and amendments', () {
+    var ran = false;
+    text.value = text.value.copyWith(
+      composing: const TextRange(start: 0, end: 3),
+    );
+    expect(history.transactCommand(() => ran = true), isFalse);
+    text.value = text.value.copyWith(composing: TextRange.empty);
+    history.amend(() {
+      expect(history.transactCommand(() => ran = true), isFalse);
+    });
+    expect(ran, isFalse);
+    expect(history.canUndo, isFalse);
+  });
+
   test('typing either side of a move never joins the move undo entry', () {
     edit('One!\n\nTwo');
     history.transact(() => edit('Two\n\nOne!'));
