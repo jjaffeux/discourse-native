@@ -737,7 +737,7 @@ final class DiscourseTopicApi {
       clientId: clientId,
       body: {'post_ids': postIds, 'username': trimmedUsername},
     );
-    if (body['success'] != true) {
+    if (body['success'] != 'OK') {
       throw const WriteException(WriteFailure.unreachable);
     }
   }
