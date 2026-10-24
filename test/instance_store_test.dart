@@ -494,6 +494,219 @@ void main() {
       expect((await controlledStore.load()).single.title, 'revision-100');
     });
 
+    test('encodes only changed identities in admitted snapshots', () async {
+      final serializedTitles = <String>[];
+      final persistence = ControlledInstancePersistence();
+      final controlledStore = InstanceStore(persistence: persistence);
+      final instances = List<DiscourseInstance>.generate(
+        40,
+        (index) => _SerializationProbeInstance(
+          serializedTitles,
+          'Forum $index with "quotes", \\ and \n',
+          url: 'https://forum-$index.example.com',
+        ),
+      );
+      final expected = jsonEncode(
+        instances.map((value) => value.toJson()).toList(),
+      );
+      serializedTitles.clear();
+
+      await controlledStore.save(instances);
+      final counts = [serializedTitles.length];
+      expect(persistence.stored, expected);
+
+      await controlledStore.save(List.of(instances));
+      counts.add(serializedTitles.length);
+      expect(persistence.stored, expected);
+
+      instances[17] = _SerializationProbeInstance(
+        serializedTitles,
+        'Changed forum',
+        url: instances[17].url,
+      );
+      final changedExpected = jsonDecode(expected) as List<dynamic>;
+      (changedExpected[17] as Map<String, dynamic>)['title'] = 'Changed forum';
+      await controlledStore.save(instances);
+
+      counts.add(serializedTitles.length);
+      expect(persistence.stored, jsonEncode(changedExpected));
+      expect(persistence.writeCount, 3);
+      expect(counts, [40, 40, 41]);
+    });
+
+    test('reorders cached instances and evicts removed identities', () async {
+      final serializedTitles = <String>[];
+      final persistence = ControlledInstancePersistence();
+      final controlledStore = InstanceStore(persistence: persistence);
+      final first = _SerializationProbeInstance(serializedTitles, 'First');
+      final second = _SerializationProbeInstance(
+        serializedTitles,
+        'Second',
+        url: 'https://two.example.com',
+      );
+
+      await controlledStore.save([first, second]);
+      await controlledStore.save([second, first]);
+      expect(serializedTitles, ['First', 'Second']);
+      expect((await controlledStore.load()).map((value) => value.title), [
+        'Second',
+        'First',
+      ]);
+
+      await controlledStore.save([first]);
+      await controlledStore.save([first, second]);
+      expect(serializedTitles, ['First', 'Second', 'Second']);
+
+      await controlledStore.save([]);
+      expect(persistence.stored, '[]');
+      await controlledStore.save([first, second]);
+      expect(serializedTitles, [
+        'First',
+        'Second',
+        'Second',
+        'First',
+        'Second',
+      ]);
+    });
+
+    test(
+      'same-URL account replacement never reuses the old encoding',
+      () async {
+        final serializedTitles = <String>[];
+        final persistence = ControlledInstancePersistence();
+        final controlledStore = InstanceStore(persistence: persistence);
+        final oldAccount = _SerializationProbeInstance(
+          serializedTitles,
+          'Connected',
+          user: const DiscourseUser(id: 7, username: 'old-account'),
+        );
+        final signedOut = _SerializationProbeInstance(
+          serializedTitles,
+          'Signed out',
+        );
+        final replacementAccount = _SerializationProbeInstance(
+          serializedTitles,
+          'New account',
+          user: const DiscourseUser(id: 8, username: 'new-account'),
+        );
+
+        await controlledStore.save([oldAccount]);
+        await controlledStore.save([signedOut]);
+        expect((await controlledStore.load()).single.user, isNull);
+        expect(persistence.stored, isNot(contains('old-account')));
+        await controlledStore.save([replacementAccount]);
+        expect((await controlledStore.load()).single.user?.id, 8);
+        expect(persistence.stored, isNot(contains('old-account')));
+        await controlledStore.save([oldAccount]);
+        expect(serializedTitles, [
+          'Connected',
+          'Signed out',
+          'New account',
+          'Connected',
+        ]);
+      },
+    );
+
+    test(
+      'retries a failed storage write with the same current encoding',
+      () async {
+        final serializedTitles = <String>[];
+        final failure = StateError('storage failed');
+        final persistence = ControlledInstancePersistence(
+          firstWriteError: failure,
+        );
+        final controlledStore = InstanceStore(persistence: persistence);
+        final instance = _SerializationProbeInstance(serializedTitles, 'Retry');
+
+        await expectLater(
+          controlledStore.save([instance]),
+          throwsA(same(failure)),
+        );
+        expect(await controlledStore.load(), isEmpty);
+        await controlledStore.save([instance]);
+
+        expect(serializedTitles, ['Retry']);
+        expect((await controlledStore.load()).single.title, 'Retry');
+        expect(persistence.writeCount, 2);
+      },
+    );
+
+    test(
+      'a failed replacement encoding still evicts removed accounts',
+      () async {
+        final serializedTitles = <String>[];
+        final persistence = ControlledInstancePersistence();
+        final controlledStore = InstanceStore(persistence: persistence);
+        final old = _SerializationProbeInstance(
+          serializedTitles,
+          'Old account',
+        );
+        final failure = StateError('conversion failed');
+        final invalid = _SerializationProbeInstance(
+          serializedTitles,
+          'Invalid replacement',
+          serialize: () => throw failure,
+        );
+        await controlledStore.save([old]);
+
+        await expectLater(
+          controlledStore.save([invalid]),
+          throwsA(same(failure)),
+        );
+        expect((await controlledStore.load()).single.title, 'Old account');
+        await controlledStore.save([old]);
+
+        expect(serializedTitles, [
+          'Old account',
+          'Invalid replacement',
+          'Old account',
+        ]);
+        expect(persistence.writeCount, 2);
+      },
+    );
+
+    test('each store encodes with its own plugin codec', () async {
+      final persistence = ControlledInstancePersistence();
+      final pluginStore = InstanceStore(
+        persistence: persistence,
+        models: installedPlugins.models,
+      );
+      final coreStore = InstanceStore(persistence: persistence);
+      final instance = DiscourseInstance(
+        url: 'https://plugins.example.com',
+        title: 'Plugins',
+        config: SiteConfig(
+          plugins:
+              PluginData.preserveNamespaces(const {
+                'future-plugin/settings': {
+                  'nested': ['quoted "value"', null],
+                },
+              }).withValue(
+                reactionsSettingsDataKey,
+                const ReactionsSettings(
+                  mainReaction: 'heart',
+                  offeredReactions: ['heart', '+1'],
+                  allowAnyEmoji: true,
+                  desaturatedPanel: true,
+                ),
+              ),
+        ),
+      );
+      final pluginExpected = jsonEncode([
+        installedPlugins.models.storeInstance(instance),
+      ]);
+      final coreExpected = jsonEncode([instance.toJson()]);
+      expect(pluginExpected, isNot(coreExpected));
+
+      await pluginStore.save([instance]);
+      expect(persistence.stored, pluginExpected);
+      await coreStore.save([instance]);
+      expect(persistence.stored, coreExpected);
+      await pluginStore.save([instance]);
+      expect(persistence.stored, pluginExpected);
+      expect(persistence.writeCount, 3);
+    });
+
     for (final jsonFailure in [false, true]) {
       test(
         'a ${jsonFailure ? 'JSON encoding' : 'model conversion'} failure rejects save and allows recovery',
@@ -676,7 +889,9 @@ final class _SerializationProbeInstance extends DiscourseInstance {
     this.serializedTitles,
     String title, {
     this.serialize,
-  }) : super(url: 'https://one.example.com', title: title);
+    super.url = 'https://one.example.com',
+    super.user,
+  }) : super(title: title);
 
   final List<String> serializedTitles;
   final Map<String, dynamic> Function()? serialize;

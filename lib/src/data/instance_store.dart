@@ -46,6 +46,7 @@ class InstanceStore {
 
   final InstancePersistence _persistence;
   final DiscourseModelCodec _models;
+  Map<DiscourseInstance, String> _encodedInstances = Map.identity();
   late final CoalescingSnapshotWriter<List<DiscourseInstance>> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
@@ -90,11 +91,24 @@ class InstanceStore {
   }
 
   Future<void> _persistSnapshot(List<DiscourseInstance> instances) async {
-    try {
-      final encoded = jsonEncode(instances.map(_models.storeInstance).toList());
-      await _persistence.write(encoded);
-    } catch (error) {
-      rethrow;
+    // Instances are immutable, but equality compares URLs rather than revisions.
+    // Keep encodings with this store's codec and discard removed identities even
+    // if conversion or persistence of the replacement snapshot fails.
+    final retained = Map<DiscourseInstance, String>.identity();
+    for (final instance in instances) {
+      if (_encodedInstances[instance] case final encoded?) {
+        retained[instance] = encoded;
+      }
     }
+    _encodedInstances = retained;
+
+    final entries = [
+      for (final instance in instances)
+        _encodedInstances.putIfAbsent(
+          instance,
+          () => jsonEncode(_models.storeInstance(instance)),
+        ),
+    ];
+    await _persistence.write('[${entries.join(',')}]');
   }
 }
