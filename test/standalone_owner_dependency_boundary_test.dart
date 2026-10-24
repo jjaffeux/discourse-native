@@ -10,6 +10,7 @@ const _owners = {
   'lib/src/shell/account_history_feed_owners.dart',
   'lib/src/shell/bookmark_link_resolver.dart',
   'lib/src/shell/topic_list_transitions.dart',
+  'lib/src/shell/site_live_sessions.dart',
   'lib/src/shell/checklist_transactions.dart',
   'lib/src/shell/flag_transactions.dart',
   'lib/src/shell/account_new_topic_dismissals.dart',

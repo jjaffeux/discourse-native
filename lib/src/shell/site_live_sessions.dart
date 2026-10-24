@@ -1,7 +1,68 @@
-part of 'shell_controller.dart';
+import 'dart:async';
 
-final class _SiteLiveDemand {
-  const _SiteLiveDemand({
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/current_user_reconciler.dart';
+import '../data/discourse_api_contracts.dart';
+import '../data/request_intent.dart';
+import '../data/site_lifecycle.dart';
+import '../data/site_message_bus_bootstrap.dart';
+import '../data/site_tracker.dart';
+import '../data/topic_tracking_reconciler.dart';
+import '../models/discourse_instance.dart';
+import '../models/discourse_user.dart';
+import '../plugin_api/live_channels.dart';
+import '../plugin_api/plugin_manifest.dart';
+import 'topic_tracking_directory.dart';
+
+abstract interface class SiteLiveCurrentUsers {
+  DiscourseInstance? instanceAt(String siteUrl);
+  CurrentUserReconciler reconcilerFor(String siteUrl);
+  DiscourseUser? acceptSnapshot(
+    String siteUrl,
+    DiscourseUser user,
+    SiteLease lease,
+    CurrentUserSnapshot ticket,
+  );
+  Future<int?> accountId(
+    String siteUrl, {
+    required String apiKey,
+    required SiteLease lease,
+  });
+}
+
+enum SiteLiveMessage {
+  notifications,
+  reviewableCounts,
+  userStatus,
+  userDrafts,
+  doNotDisturb,
+  refreshSidebar,
+}
+
+enum SiteLiveChange { tracking, incomingTopics }
+
+typedef SiteLivePluginAttachment = ({
+  Set<PluginLiveChannelScope> scopes,
+  void Function(String siteUrl, PluginLiveChannelHandle channels) attach,
+});
+
+abstract interface class SiteLiveComposition {
+  void bootstrapReceived(String siteUrl, SiteMessageBusBootstrap bootstrap);
+  void changed(String siteUrl, SiteLiveChange change);
+  void acceptMessage(
+    String siteUrl,
+    SiteLease lease,
+    SiteLiveMessage kind,
+    Object? data,
+  );
+  void trackIncomingLists(String siteUrl);
+  void synchronizeVisibleTopics(String siteUrl, SiteTracker tracker);
+  Iterable<SiteLivePluginAttachment> get pluginAttachments;
+}
+
+final class SiteLiveDemand {
+  const SiteLiveDemand({
     required this.foreground,
     required this.selected,
     required this.connected,
@@ -22,32 +83,46 @@ final class _SiteLiveDemand {
   bool get watchesVisibleTopics => shouldPoll && foreground && selected;
 }
 
-final class _SiteLiveSessions {
-  _SiteLiveSessions(this._shell);
+final class SiteLiveSessions {
+  SiteLiveSessions({
+    required this._lifecycle,
+    required this._credentials,
+    required this._api,
+    required this._trackers,
+    required this._topicTracking,
+    required this._currentUsers,
+    required this._composition,
+    required this._demandSnapshot,
+  });
 
-  final ShellController _shell;
+  final SiteLifecycle _lifecycle;
+  final ApiCredentialReader _credentials;
+  final ShellSiteApi _api;
+  final SiteTrackerFactory _trackers;
+  final TopicTrackingDirectory _topicTracking;
+  final SiteLiveCurrentUsers _currentUsers;
+  final SiteLiveComposition _composition;
+  final Map<String, SiteLiveDemand> Function() _demandSnapshot;
   final Map<String, _SiteLiveSession> _sessions = {};
   bool _disposed = false;
 
-  _SiteLiveDemand demandFor(String siteUrl) {
-    final site = _shell._instanceAt(siteUrl);
-    return _SiteLiveDemand(
-      foreground: _shell._foreground,
-      selected: site != null && _shell.currentInstance?.url == siteUrl,
-      connected: site?.isConnected ?? false,
-      loginRequired: site?.loginRequired ?? true,
-      retained: _shell._backgroundRetention.retains(siteUrl),
-    );
-  }
+  SiteLiveDemand demandFor(String siteUrl) =>
+      _demandSnapshot()[siteUrl] ??
+      const SiteLiveDemand(
+        foreground: false,
+        selected: false,
+        connected: false,
+        loginRequired: true,
+        retained: false,
+      );
 
   _SiteLiveSession _forSite(String siteUrl) {
     final held = _sessions[siteUrl];
     if (held != null && held.isCurrent) return held;
     held?.retire();
     return _sessions[siteUrl] = _SiteLiveSession(
-      _shell,
       siteUrl,
-      _shell.lifecycle.capture(siteUrl),
+      _lifecycle.capture(siteUrl),
       this,
     );
   }
@@ -60,8 +135,8 @@ final class _SiteLiveSessions {
     for (final session in _sessions.values.toList()) {
       session.synchronize();
     }
-    for (final site in List.of(_shell._instances)) {
-      if (demandFor(site.url).shouldPoll) _forSite(site.url).synchronize();
+    for (final siteUrl in _demandSnapshot().keys.toList()) {
+      if (demandFor(siteUrl).shouldPoll) _forSite(siteUrl).synchronize();
     }
   }
 
@@ -98,7 +173,7 @@ final class _SiteLiveSessions {
     AccountRequestCredentials? requestCredentials,
   }) async {
     if (_disposed || !lease.isCurrent) return;
-    final account = _shell._topicTracking.matching(siteUrl, lease, tracking);
+    final account = _topicTracking.matching(siteUrl, lease, tracking);
     if (account == null) return;
     await _forSite(siteUrl).loadTracking(
       username: username,
@@ -137,14 +212,13 @@ final class _SiteLiveReady extends _SiteLiveState {
 final class _SiteLiveRetired extends _SiteLiveState {}
 
 final class _SiteLiveSession {
-  _SiteLiveSession(this._shell, this.siteUrl, this.lease, this._owner) {
+  _SiteLiveSession(this.siteUrl, this.lease, this._owner) {
     _unobserveRetirement = lease.onRetire(retire);
   }
 
-  final ShellController _shell;
   final String siteUrl;
   final SiteLease lease;
-  final _SiteLiveSessions _owner;
+  final SiteLiveSessions _owner;
   _SiteLiveState _state = _SiteLiveIdle();
   void Function() _unobserveRetirement = () {};
   ({
@@ -155,7 +229,7 @@ final class _SiteLiveSession {
 
   bool get isCurrent =>
       _state is! _SiteLiveRetired && !_owner._disposed && lease.isCurrent;
-  _SiteLiveDemand get demand => _owner.demandFor(siteUrl);
+  SiteLiveDemand get demand => _owner.demandFor(siteUrl);
   Future<void>? get starting => switch (_state) {
     _SiteLiveStarting(:final settled) => settled.future,
     _ => null,
@@ -174,7 +248,7 @@ final class _SiteLiveSession {
     if (_state case _SiteLiveReady(:final tracker)) {
       if (!desired.selected) tracker.unwatchTopic();
       if (desired.watchesVisibleTopics) {
-        _shell._syncTopicWatch(siteUrl, tracker);
+        _owner._composition.synchronizeVisibleTopics(siteUrl, tracker);
       }
       if (!isCurrent) return;
       if (demand.shouldPoll) {
@@ -183,7 +257,7 @@ final class _SiteLiveSession {
         tracker.stop();
       }
     } else if (_state is _SiteLiveIdle && desired.shouldPoll) {
-      final instance = _shell._instanceAt(siteUrl);
+      final instance = _owner._currentUsers.instanceAt(siteUrl);
       if (instance == null) return;
       final attempt = _SiteLiveStarting();
       _state = attempt;
@@ -246,7 +320,7 @@ final class _SiteLiveSession {
       // to delete, decides whether this session may open private channels.
       final requestSession = AccountRequestSession(siteUrl, lease);
       requestCredentials = instance.isConnected
-          ? await requestSession.credentials(_shell.credentials)
+          ? await requestSession.credentials(_owner._credentials)
           : requestSession.anonymousCredentials();
       apiKey = requestCredentials.apiKey;
       // An anonymous bus sends no client id, and a signed-out forum must not
@@ -260,11 +334,11 @@ final class _SiteLiveSession {
 
     if (!isCurrent) return;
 
-    final currentUserOwner = _shell._currentUsers.reconcilerFor(siteUrl);
+    final currentUserOwner = _owner._currentUsers.reconcilerFor(siteUrl);
     final userSnapshot = currentUserOwner.beginSnapshot();
     final bootstrapTrackingAccount = apiKey == null || clientId == null
         ? null
-        : _shell._topicTracking.capture(siteUrl, lease: lease);
+        : _owner._topicTracking.capture(siteUrl, lease: lease);
     final bootstrapTrackingOwner = bootstrapTrackingAccount?.reconciler;
     final bootstrapTicket = bootstrapTrackingOwner?.beginBootstrap();
     final bootstrap = apiKey == null || clientId == null
@@ -274,7 +348,7 @@ final class _SiteLiveSession {
     final bootstrapUser = bootstrap?.currentUser;
     final freshBootstrapUser = bootstrapUser == null
         ? null
-        : _shell._currentUsers.acceptSnapshot(
+        : _owner._currentUsers.acceptSnapshot(
             siteUrl,
             bootstrapUser,
             lease,
@@ -284,13 +358,17 @@ final class _SiteLiveSession {
     final userId = apiKey == null
         ? null
         : freshBootstrapUser?.id ??
-              await _shell._accountId(siteUrl, apiKey: apiKey, lease: lease);
+              await _owner._currentUsers.accountId(
+                siteUrl,
+                apiKey: apiKey,
+                lease: lease,
+              );
     if (!isCurrent) return;
     final initialLastIds =
         bootstrap?.initialLastIds(userId: userId) ?? const {};
 
     lease.commit(() {
-      final current = _shell._instanceAt(siteUrl);
+      final current = _owner._currentUsers.instanceAt(siteUrl);
       if (!isCurrent || current == null) {
         if (bootstrapTicket != null) {
           bootstrapTrackingOwner?.cancelBootstrap(bootstrapTicket);
@@ -320,14 +398,24 @@ final class _SiteLiveSession {
         if (ownsTracker()) lease.commit(mutation);
       }
 
-      final account = _shell._topicTracking.capture(siteUrl, lease: lease);
+      final account = _owner._topicTracking.capture(siteUrl, lease: lease);
       if (account == null) return;
       final tracking = account.reconciler;
       final bootstrapState = bootstrap?.currentUserState;
       if (bootstrapState != null) {
-        _shell._acceptLiveNotificationState(siteUrl, bootstrapState, lease);
+        _owner._composition.acceptMessage(
+          siteUrl,
+          lease,
+          SiteLiveMessage.notifications,
+          bootstrapState,
+        );
         if (!isCurrent || !account.isCurrent) return;
-        _shell.accountActivity.applyReviewableCounts(siteUrl, bootstrapState);
+        _owner._composition.acceptMessage(
+          siteUrl,
+          lease,
+          SiteLiveMessage.reviewableCounts,
+          bootstrapState,
+        );
       }
       if (!isCurrent || !account.isCurrent) return;
 
@@ -349,7 +437,7 @@ final class _SiteLiveSession {
             bootstrapTracking,
           )) {
         clearRetry();
-        if (_shell.currentInstance?.url == siteUrl) _shell._notify();
+        _owner._composition.changed(siteUrl, SiteLiveChange.tracking);
       } else if (currentBootstrapTicket != null) {
         tracking.cancelBootstrap(currentBootstrapTicket);
       }
@@ -364,7 +452,7 @@ final class _SiteLiveSession {
       if (!isCurrent || !account.isCurrent) return;
       final SiteTracker tracker;
       try {
-        tracker = _shell.trackers(
+        tracker = _owner._trackers(
           siteUrl: siteUrl,
           userId: userId,
           apiKey: apiKey,
@@ -372,19 +460,27 @@ final class _SiteLiveSession {
           initialLastIds: initialLastIds,
           shouldLongPoll: () => ownsTracker() && demand.shouldPoll,
           onIncomingTopics: () => commit(() {
-            if (_shell.currentInstance?.url == siteUrl) {
-              _shell._notifyLiveChange();
-            }
+            _owner._composition.changed(siteUrl, SiteLiveChange.incomingTopics);
           }),
           // A superseded account's tracker must not judge by, or leave hints
           // in, the filter its successor now owns at the same URL.
           admitIncoming: (data) =>
               ownsTracker() && account.admitsIncoming(data),
           onNotifications: (data) => commit(
-            () => _shell._acceptLiveNotificationState(siteUrl, data, lease),
+            () => _owner._composition.acceptMessage(
+              siteUrl,
+              lease,
+              SiteLiveMessage.notifications,
+              data,
+            ),
           ),
           onReviewableCounts: (data) => commit(
-            () => _shell.accountActivity.applyReviewableCounts(siteUrl, data),
+            () => _owner._composition.acceptMessage(
+              siteUrl,
+              lease,
+              SiteLiveMessage.reviewableCounts,
+              data,
+            ),
           ),
         );
       } catch (error) {
@@ -398,7 +494,7 @@ final class _SiteLiveSession {
         return;
       }
       attempt.tracker = tracker;
-      _shell._trackIncomingLists(siteUrl);
+      _owner._composition.trackIncomingLists(siteUrl);
       if (apiKey != null && clientId != null) {
         if (userId != null) {
           try {
@@ -425,18 +521,33 @@ final class _SiteLiveSession {
         try {
           tracker.watchPluginChannel(
             '/user-status',
-            (data) =>
-                commit(() => _shell._applyUserStatusMessage(siteUrl, data)),
+            (data) => commit(
+              () => _owner._composition.acceptMessage(
+                siteUrl,
+                lease,
+                SiteLiveMessage.userStatus,
+                data,
+              ),
+            ),
             lastId:
                 bootstrap?.currentUser?.status?.messageBusLastId ??
-                _shell._instanceAt(siteUrl)?.user?.status?.messageBusLastId,
+                _owner._currentUsers
+                    .instanceAt(siteUrl)
+                    ?.user
+                    ?.status
+                    ?.messageBusLastId,
           );
         } catch (_) {}
         try {
           tracker.watchPluginChannel(
             '/refresh-sidebar-sections',
             (_) => commit(
-              () => _shell._customSidebar.invalidate(siteUrl, account: lease),
+              () => _owner._composition.acceptMessage(
+                siteUrl,
+                lease,
+                SiteLiveMessage.refreshSidebar,
+                null,
+              ),
             ),
           );
         } catch (_) {}
@@ -444,16 +555,28 @@ final class _SiteLiveSession {
           try {
             tracker.watchPluginChannel(
               '/user-drafts/$userId',
-              (data) =>
-                  commit(() => _shell._applyUserDraftsMessage(siteUrl, data)),
+              (data) => commit(
+                () => _owner._composition.acceptMessage(
+                  siteUrl,
+                  lease,
+                  SiteLiveMessage.userDrafts,
+                  data,
+                ),
+              ),
             );
           } catch (_) {}
           try {
-            final user = _shell._instanceAt(siteUrl)?.user;
+            final user = _owner._currentUsers.instanceAt(siteUrl)?.user;
             tracker.watchPluginChannel(
               '/do-not-disturb/$userId',
-              (data) =>
-                  commit(() => _shell.doNotDisturb.applyMessage(siteUrl, data)),
+              (data) => commit(
+                () => _owner._composition.acceptMessage(
+                  siteUrl,
+                  lease,
+                  SiteLiveMessage.doNotDisturb,
+                  data,
+                ),
+              ),
               lastId:
                   bootstrap?.currentUser?.doNotDisturbChannelPosition ??
                   user?.doNotDisturbChannelPosition,
@@ -462,21 +585,19 @@ final class _SiteLiveSession {
         }
       }
       if (!isCurrent || !account.isCurrent) return;
-      for (final owned
-          in _shell._pluginSession
-              .ownedCapabilities<PluginTrackerAttachment>()) {
+      for (final attachment in _owner._composition.pluginAttachments) {
         if (!isCurrent || !account.isCurrent) return;
         try {
-          owned.capability.attachPluginTracker(
+          attachment.attach(
             siteUrl,
-            tracker.pluginLiveChannels(
-              _shell.plugins.liveChannelScopesFor(owned.owner),
-            ),
+            tracker.pluginLiveChannels(attachment.scopes),
           );
         } catch (_) {}
       }
       if (!isCurrent || !account.isCurrent) return;
-      if (demand.watchesVisibleTopics) _shell._syncTopicWatch(siteUrl, tracker);
+      if (demand.watchesVisibleTopics) {
+        _owner._composition.synchronizeVisibleTopics(siteUrl, tracker);
+      }
       if (!isCurrent || !account.isCurrent) return;
       _state = _SiteLiveReady(tracker);
       synchronize();
@@ -489,7 +610,7 @@ final class _SiteLiveSession {
     try {
       final bootstrap = await RequestIntent.background().run(
         () => requestCredentials.run(
-          () => _shell.api.site.messageBusBootstrap(
+          () => _owner._api.messageBusBootstrap(
             siteUrl: siteUrl,
             apiKey: requestCredentials.apiKey!,
             clientId: requestCredentials.clientId,
@@ -498,8 +619,7 @@ final class _SiteLiveSession {
       );
       if (!isCurrent) return null;
       if (bootstrap != null) {
-        _shell._serverPluginNames[siteUrl] = bootstrap.serverPluginNames;
-        _shell._notify();
+        _owner._composition.bootstrapReceived(siteUrl, bootstrap);
       }
       return bootstrap;
     } catch (error) {
@@ -528,7 +648,7 @@ final class _SiteLiveSession {
           await AccountRequestSession(
             siteUrl,
             lease,
-          ).credentials(_shell.credentials);
+          ).credentials(_owner._credentials);
       heldCredentials = credential;
       if (!ownsLoad()) return;
       if (credential.apiKey == null) {
@@ -537,7 +657,7 @@ final class _SiteLiveSession {
       }
       final snapshot = await RequestIntent.background().run(
         () => credential.run(
-          () => _shell.api.site.topicTrackingState(
+          () => _owner._api.topicTrackingState(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             username: username,
@@ -546,12 +666,15 @@ final class _SiteLiveSession {
         ),
       );
       if (!ownsLoad()) return;
-      final currentUsername = _shell._instanceAt(siteUrl)?.user?.username;
+      final currentUsername = _owner._currentUsers
+          .instanceAt(siteUrl)
+          ?.user
+          ?.username;
       if (currentUsername?.toLowerCase() != username.toLowerCase()) return;
       lease.commit(() {
         if (ownsLoad() && tracking.completeSnapshot(ticket, snapshot)) {
           clearRetry();
-          if (_shell.currentInstance?.url == siteUrl) _shell._notify();
+          _owner._composition.changed(siteUrl, SiteLiveChange.tracking);
         }
       });
     } catch (error) {
@@ -575,8 +698,8 @@ final class _SiteLiveSession {
 
   void resyncTracking() {
     if (!isCurrent) return;
-    final username = _shell._instanceAt(siteUrl)?.user?.username;
-    final account = _shell._topicTracking.existing(siteUrl);
+    final username = _owner._currentUsers.instanceAt(siteUrl)?.user?.username;
+    final account = _owner._topicTracking.existing(siteUrl);
     if (username == null || account?.reconciler.hasSnapshot != true) return;
     final tracking = account!.reconciler;
     final ticket = tracking.beginSnapshot();
@@ -588,7 +711,7 @@ final class _SiteLiveSession {
         final requestCredentials = await AccountRequestSession(
           siteUrl,
           lease,
-        ).credentials(_shell.credentials);
+        ).credentials(_owner._credentials);
         if (!ownsResync()) return;
         if (requestCredentials.apiKey == null) {
           tracking.cancelSnapshot(ticket);

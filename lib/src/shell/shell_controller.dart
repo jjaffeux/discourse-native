@@ -43,7 +43,6 @@ import '../data/site_tracker.dart';
 import '../data/site_video_thumbnail_repository.dart';
 import '../data/store.dart';
 import '../data/topic_sidebar_store.dart';
-import '../data/topic_tracking_reconciler.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
@@ -148,6 +147,7 @@ import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
+import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
@@ -181,7 +181,7 @@ part 'topic_navigation_attempts.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
-part 'site_live_sessions.dart';
+part 'site_live_composition.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -2860,7 +2860,7 @@ class ShellController extends FrameSafeNotifier
     changed: (siteUrl) {
       if (currentInstance?.url == siteUrl) _notifyLiveChange();
     },
-    retryBeforeAccept: _liveSessions.retryTracking,
+    retryBeforeAccept: (siteUrl) => _liveSessions.retryTracking(siteUrl),
     clock: _clock,
   );
   bool _liveChangeNotifyPending = false;
@@ -3499,7 +3499,25 @@ class ShellController extends FrameSafeNotifier
     _workspace.schedulePersistAnchors();
   }
 
-  late final _liveSessions = _SiteLiveSessions(this);
+  late final SiteLiveSessions _liveSessions = SiteLiveSessions(
+    lifecycle: lifecycle,
+    credentials: credentials,
+    api: api.site,
+    trackers: trackers,
+    topicTracking: _topicTracking,
+    currentUsers: _ShellSiteLiveCurrentUsers(this),
+    composition: _ShellSiteLiveComposition(this),
+    demandSnapshot: () => {
+      for (final site in _instances)
+        site.url: SiteLiveDemand(
+          foreground: _foreground,
+          selected: currentInstance?.url == site.url,
+          connected: site.isConnected,
+          loginRequired: site.loginRequired,
+          retained: _backgroundRetention.retains(site.url),
+        ),
+    },
+  );
   late final _profileWrites = ProfileWriteTransactions(
     currentUser: _ShellProfileCurrentUser(this),
     api: api.site,
