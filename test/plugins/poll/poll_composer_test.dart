@@ -429,6 +429,13 @@ void main() {
     });
 
     final fixedBaseExamples = <String>[
+      for (final task in const ['[ ]', '[x]'])
+        for (final (opening, closing) in const [
+          ('[code]', '[/code]'),
+          ('<!--', '-->'),
+        ])
+          '- $task - a\n\n    $opening\n'
+          '  [poll name=example]\n  * A\n  * B\n  [/poll]\n  $closing',
       for (final (marker, indent, openings) in const [
         ('- a', '  ', [4, 5]),
         ('1. a', '   ', [4, 5, 6]),
