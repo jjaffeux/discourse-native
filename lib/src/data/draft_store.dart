@@ -42,20 +42,38 @@ final class PrivateDraftPersistence implements DraftPersistence {
   PrivateDraftPersistence({EnumerablePrivateStorage? storage})
     : _storage = storage ?? platformEnumerablePrivateStorage;
 
+  static const _retiredKeyPrefix = 'discourse_native.retired_draft_key::';
+  static const _retiredPrefixPrefix = 'discourse_native.retired_draft_prefix::';
+
   final EnumerablePrivateStorage _storage;
 
   @override
-  Future<DraftPersistenceRead> read(String key) async =>
-      (value: await _storage.read(key), allowPreferenceFallback: true);
+  Future<DraftPersistenceRead> read(String key) async {
+    final values = await _storage.readAll();
+    final retired =
+        values.containsKey('$_retiredKeyPrefix$key') ||
+        values.keys.any(
+          (storedKey) =>
+              storedKey.startsWith(_retiredPrefixPrefix) &&
+              key.startsWith(storedKey.substring(_retiredPrefixPrefix.length)),
+        );
+    return (value: values[key], allowPreferenceFallback: !retired);
+  }
 
   @override
   Future<void> write(String key, String value) => _storage.write(key, value);
 
   @override
-  Future<void> delete(String key) => _storage.delete(key);
+  Future<void> delete(String key) async {
+    await _storage.write('$_retiredKeyPrefix$key', '');
+    await _storage.delete(key);
+  }
 
   @override
-  Future<void> deletePrefix(String prefix) => _storage.deletePrefix(prefix);
+  Future<void> deletePrefix(String prefix) async {
+    await _storage.write('$_retiredPrefixPrefix$prefix', '');
+    await _storage.deletePrefix(prefix);
+  }
 }
 
 DraftPersistence _platformDraftPersistence() {

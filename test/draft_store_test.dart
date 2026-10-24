@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/src/data/draft_store.dart';
+import 'package:discourse_native/src/data/linux_preferences_store.dart';
+import 'package:discourse_native/src/data/private_storage.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -214,6 +218,188 @@ void main() {
     });
   });
 
+  group('Linux legacy retirement across restarts', () {
+    late Directory directory;
+    late File preferencesFile;
+
+    DraftStore reopenDrafts() => DraftStore(
+      persistence: PrivateDraftPersistence(
+        storage: LinuxFileStorage(
+          directory: Directory('${directory.path}/private'),
+        ),
+      ),
+    );
+
+    Future<SharedPreferences> restartPreferences() async {
+      SharedPreferencesStorePlatform.instance = LinuxPreferencesStore(
+        file: () => preferencesFile,
+      );
+      SharedPreferences.resetStatic();
+      return SharedPreferences.getInstance();
+    }
+
+    setUp(() async {
+      directory = await Directory.systemTemp.createTemp(
+        'linux-draft-retirement-',
+      );
+      preferencesFile = File('${directory.path}/shared_preferences.json');
+      store = reopenDrafts();
+      await restartPreferences();
+    });
+
+    tearDown(() async {
+      SharedPreferences.setMockInitialValues({});
+      await directory.delete(recursive: true);
+    });
+
+    for (final throwsOnRemoval in [false, true]) {
+      final failure = throwsOnRemoval ? 'throws' : 'returns false';
+
+      test(
+        'site clear survives restart when legacy removal $failure',
+        () async {
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.setString(storageKey, 'account A private text');
+          const uncachedKey =
+              'discourse_native.draft::https://meta.discourse.org::topic_43';
+          const otherSiteKey =
+              'discourse_native.draft::https://other.example.com::topic_42';
+          final elsewhere = LinuxPreferencesStore(file: () => preferencesFile);
+          expect(
+            await elsewhere.setValue(
+              'String',
+              'flutter.$uncachedKey',
+              'account A uncached private text',
+            ),
+            isTrue,
+          );
+          expect(
+            await elsewhere.setValue(
+              'String',
+              'flutter.$otherSiteKey',
+              'other site legacy text',
+            ),
+            isTrue,
+          );
+          final failedDisk = _FailPreferenceWrites(
+            preferencesFile.path,
+            throwsOnRemoval: throwsOnRemoval,
+          );
+
+          await IOOverrides.runWithIOOverrides(
+            () => store.clearSite(siteUrl),
+            failedDisk,
+          );
+
+          expect(failedDisk.failedWrites, greaterThan(0));
+          expect(preferences.containsKey(storageKey), isFalse);
+          expect(
+            await preferences.setString(
+              'discourse_native.instances',
+              '[{"url":"https://meta.discourse.org","username":"B"}]',
+            ),
+            isTrue,
+          );
+          final reloaded = await restartPreferences();
+          expect(reloaded.getString(storageKey), 'account A private text');
+          expect(
+            reloaded.getString(uncachedKey),
+            'account A uncached private text',
+          );
+          store = reopenDrafts();
+
+          expect(await store.read(siteUrl, draftKey), isNull);
+          expect(await store.read(siteUrl, 'topic_43'), isNull);
+          expect(
+            await store.read('https://other.example.com', draftKey),
+            'other site legacy text',
+          );
+          await store.write(siteUrl, draftKey, 'account B new text');
+          expect(
+            await reopenDrafts().read(siteUrl, draftKey),
+            'account B new text',
+          );
+        },
+      );
+
+      test('key clear survives restart when legacy removal $failure', () async {
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(storageKey, 'cleared private text');
+        const keptKey =
+            'discourse_native.draft::https://meta.discourse.org::topic_43';
+        await preferences.setString(keptKey, 'kept legacy text');
+        final failedDisk = _FailPreferenceWrites(
+          preferencesFile.path,
+          throwsOnRemoval: throwsOnRemoval,
+        );
+
+        await IOOverrides.runWithIOOverrides(
+          () => store.clear(siteUrl, draftKey),
+          failedDisk,
+        );
+
+        expect(failedDisk.failedWrites, greaterThan(0));
+        expect(preferences.containsKey(storageKey), isFalse);
+        expect(
+          await preferences.setString('discourse_native.instances', '[]'),
+          isTrue,
+        );
+        final reloaded = await restartPreferences();
+        expect(reloaded.getString(storageKey), 'cleared private text');
+        store = reopenDrafts();
+
+        expect(await store.read(siteUrl, draftKey), isNull);
+        expect(await store.read(siteUrl, 'topic_43'), 'kept legacy text');
+        await store.write(siteUrl, draftKey, 'replacement text');
+        expect(
+          await reopenDrafts().read(siteUrl, draftKey),
+          'replacement text',
+        );
+      });
+    }
+
+    test('site clear fails when Linux retirement cannot be saved', () async {
+      await store.write(siteUrl, draftKey, 'recoverable private text');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(storageKey, 'older legacy text');
+      final failedDisk = _FailPreferenceWrites(
+        '${directory.path}/private/private-storage.json',
+        throwsOnRemoval: false,
+      );
+
+      await expectLater(
+        IOOverrides.runWithIOOverrides(
+          () => store.clearSite(siteUrl),
+          failedDisk,
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(failedDisk.failedWrites, greaterThan(0));
+      expect(preferences.getString(storageKey), 'older legacy text');
+      expect(
+        await reopenDrafts().read(siteUrl, draftKey),
+        'recoverable private text',
+      );
+    });
+
+    test('untouched legacy drafts migrate and survive restart', () async {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(storageKey, 'recoverable legacy text');
+
+      expect(await store.read(siteUrl, draftKey), 'recoverable legacy text');
+      await restartPreferences();
+      expect(
+        await reopenDrafts().read(siteUrl, draftKey),
+        'recoverable legacy text',
+      );
+      expect(
+        (await SharedPreferences.getInstance()).containsKey(storageKey),
+        isFalse,
+      );
+    });
+  });
+
   group('legacy preference migration', () {
     for (final (type, legacyValue) in <(String, Object)>[
       ('int', 42),
@@ -378,5 +564,57 @@ final class MemoryDraftPersistence implements DraftPersistence {
     }
     if (failWrites) throw StateError('secure storage unavailable');
     values[key] = value;
+  }
+}
+
+final class _FailPreferenceWrites extends IOOverrides {
+  _FailPreferenceWrites(this.document, {required this.throwsOnRemoval});
+
+  final String document;
+  final bool throwsOnRemoval;
+  int failedWrites = 0;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path.startsWith('$document.') &&
+            path.endsWith('.private-document.tmp')
+        ? _FailedPreferenceStage(file, this)
+        : file;
+  }
+}
+
+final class _FailedPreferenceStage extends Fake implements File {
+  _FailedPreferenceStage(this.file, this.failure);
+
+  final File file;
+  final _FailPreferenceWrites failure;
+
+  @override
+  String get path => file.path;
+
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) async {
+    await file.create(recursive: recursive, exclusive: exclusive);
+    return this;
+  }
+
+  @override
+  Future<bool> exists() => file.exists();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      file.delete(recursive: recursive);
+
+  @override
+  Future<File> writeAsString(
+    String contents, {
+    FileMode mode = FileMode.write,
+    Encoding encoding = utf8,
+    bool flush = false,
+  }) async {
+    failure.failedWrites++;
+    if (failure.throwsOnRemoval) throw StateError('legacy cleanup unavailable');
+    throw FileSystemException('legacy cleanup unavailable', path);
   }
 }
