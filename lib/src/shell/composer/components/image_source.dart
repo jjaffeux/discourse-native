@@ -117,7 +117,7 @@ List<ComposerImageBlock> parseComposerImages(
   if (!source.contains('![')) return const [];
   final images = <ComposerImageBlock>[];
   for (final token in _imageTokens(source, codeRanges: codeRanges)) {
-    if (_playableMediaLabel(token.label) != null) continue;
+    if (token.escaped || _playableMediaLabel(token.label) != null) continue;
     final label = _labelPattern.firstMatch(token.label);
     if (label == null) continue;
     final width = int.tryParse(label.group(2) ?? '');
