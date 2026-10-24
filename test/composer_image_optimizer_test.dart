@@ -139,7 +139,7 @@ void main() {
   );
 
   test('a PNG profile becomes one complete JPEG ICC segment', () async {
-    final profile = _profile(536);
+    final profile = _displayP3();
     final source = img.encodePng(
       _image()
         ..iccProfile = img.IccProfile(
@@ -157,74 +157,197 @@ void main() {
     await result.dispose();
   });
 
-  test(
-    'a JPEG profile keeps one sequence prefix and a split one is dropped',
-    () async {
-      final profile = _profile(536);
-      final first = Uint8List.sublistView(profile, 0, 300);
-      final second = Uint8List.sublistView(profile, 300);
-      for (final (name, segments, expected) in [
-        (
-          'single.jpg',
-          [
+  for (final layout in ['single', 'split', 'reordered', 'after-frame']) {
+    test(
+      'a $layout JPEG profile retains the complete Display P3 profile',
+      () async {
+        final profile = _displayP3();
+        final first = profile.sublist(0, 300);
+        final second = profile.sublist(300);
+        final segments = switch (layout) {
+          'single' => [
             [1, 1, ...profile],
           ],
-          [
-            [1, 1, ...profile],
-          ],
-        ),
-        (
-          'split.jpg',
-          [
+          'split' || 'after-frame' => [
             [1, 2, ...first],
             [2, 2, ...second],
           ],
-          <List<int>>[],
-        ),
-        (
-          'reordered.jpg',
-          [
+          _ => [
             [2, 2, ...second],
             [1, 2, ...first],
           ],
-          <List<int>>[],
-        ),
-      ]) {
-        final source = _file(name, _jpegWithIcc(_image(), segments));
+        };
+        final source = _file(
+          '$layout.jpg',
+          _jpegWithIcc(_image(), segments, afterFrame: layout == 'after-frame'),
+        );
         final result = await prepare(source);
-        expect(result.file, isNot(same(source)), reason: name);
-        expect(_iccSegments(await _read(result.file)), expected, reason: name);
+        expect(result.file, isNot(same(source)));
+        expect(_iccSegments(await _read(result.file)), [
+          [1, 1, ...profile],
+        ]);
         await result.dispose();
-      }
-    },
-  );
+      },
+    );
+  }
 
-  test('a profile too large for one JPEG segment is dropped', () async {
-    for (final (length, kept) in [(65519, true), (65520, false)]) {
-      final profile = _profile(length);
-      final source = img.encodePng(
-        _image()
+  for (final withHeader in [false, true]) {
+    test(
+      'a JPEG with a later ICC profile and header=$withHeader keeps the original',
+      () async {
+        final image = _image();
+        if (withHeader) {
+          image.iccProfile = img.IccProfile(
+            '',
+            img.IccProfileCompression.none,
+            Uint8List.fromList([1, 1, ..._displayP3()]),
+          );
+        }
+        final lateProfile = _profile(1000);
+        final bytes = _jpegWithIcc(image, [
+          [1, 1, ...lateProfile],
+        ], afterScan: true);
+        expect(img.decodeJpg(bytes)!.iccProfile!.decompressed(), [
+          1,
+          1,
+          ...lateProfile,
+        ]);
+        final source = _file('late.jpg', bytes);
+        final result = await prepare(source);
+        expect(result.file, same(source));
+        expect(await temporary.list().length, 0);
+        await result.dispose();
+      },
+    );
+  }
+
+  test('transparent PNG retains its raw Display P3 profile in WebP', () async {
+    final profile = _displayP3();
+    final source = _file(
+      'alpha.png',
+      img.encodePng(
+        _image(alpha: true)
           ..iccProfile = img.IccProfile(
-            'Large',
+            'Display P3',
             img.IccProfileCompression.none,
             profile,
           ),
         level: 0,
-      );
-      final result = await prepare(_file('large.png', source));
-      expect(result.file.name, 'large.jpg', reason: '$length');
-      expect(
-        _iccSegments(await _read(result.file)),
-        kept
-            ? [
-                [1, 1, ...profile],
-              ]
-            : isEmpty,
-        reason: '$length',
-      );
-      await result.dispose();
-    }
+      ),
+    );
+    final result = await prepare(source);
+    expect(result.file.name, 'alpha.webp');
+    final decoded = img.decodeWebP(await _read(result.file))!;
+    expect(decoded.iccProfile!.decompressed(), profile);
+    expect(decoded.getPixel(5, 5).a, 128);
+    await result.dispose();
   });
+
+  for (final (name, segments) in [
+    (
+      'missing',
+      [
+        [1, 2, ..._displayP3().sublist(0, 300)],
+      ],
+    ),
+    (
+      'duplicate',
+      [
+        [1, 1, ..._displayP3()],
+        [1, 1, ..._displayP3()],
+      ],
+    ),
+    (
+      'conflicting',
+      [
+        [1, 2, ..._displayP3().sublist(0, 300)],
+        [2, 3, ..._displayP3().sublist(300)],
+      ],
+    ),
+    (
+      'zero-sequence',
+      [
+        [0, 1, ..._displayP3()],
+      ],
+    ),
+    (
+      'zero-count',
+      [
+        [1, 0, ..._displayP3()],
+      ],
+    ),
+    (
+      'out-of-range',
+      [
+        [2, 1, ..._displayP3()],
+      ],
+    ),
+    (
+      'missing-prefix',
+      [
+        [1],
+      ],
+    ),
+    (
+      'empty',
+      [
+        [1, 1],
+      ],
+    ),
+    (
+      'single-after-split',
+      [
+        [1, 2, ..._displayP3().sublist(0, 300)],
+        [1, 1, ..._displayP3()],
+      ],
+    ),
+  ]) {
+    test('a JPEG with a $name ICC sequence keeps the original', () async {
+      final source = _file('$name.jpg', _jpegWithIcc(_image(), segments));
+      final result = await prepare(source);
+      expect(result.file, same(source));
+      expect(await temporary.list().length, 0);
+      await result.dispose();
+    });
+  }
+
+  for (final length in [65519, 65520]) {
+    for (final format in ['png', 'jpg']) {
+      test(
+        'a $format with a $length-byte profile respects the JPEG limit',
+        () async {
+          final profile = _profile(length);
+          final bytes = format == 'png'
+              ? img.encodePng(
+                  _image()
+                    ..iccProfile = img.IccProfile(
+                      'Large P3',
+                      img.IccProfileCompression.none,
+                      profile,
+                    ),
+                  level: 0,
+                )
+              : _jpegWithIcc(_image(), [
+                  [1, 2, ...profile.sublist(0, 300)],
+                  [2, 2, ...profile.sublist(300)],
+                ]);
+          final source = _file('large.$format', bytes);
+          final result = await prepare(source);
+          if (length == 65519) {
+            expect(result.file.name, 'large.jpg');
+            expect(result.file, isNot(same(source)));
+            expect(_iccSegments(await _read(result.file)), [
+              [1, 1, ...profile],
+            ]);
+          } else {
+            expect(result.file, same(source));
+            expect(await temporary.list().length, 0);
+          }
+          await result.dispose();
+        },
+      );
+    }
+  }
 
   test(
     'JPEG orientation is baked before resizing and EXIF is removed',
@@ -634,15 +757,39 @@ img.Image _gray({img.Format format = img.Format.uint8, int? alpha}) {
   return image;
 }
 
-/// Incompressible bytes behind a big-endian size header, so a PNG carrying
-/// the profile stays larger than the JPEG made from it.
+Uint8List _displayP3() =>
+    File('test/fixtures/color_profiles/display_p3.icc').readAsBytesSync();
+
+/// Add a private ICC data tag without changing the color transform. Random
+/// binary tag data keeps the PNG larger than its optimized JPEG.
 Uint8List _profile(int length) {
+  final original = _displayP3();
+  final originalView = ByteData.sublistView(original);
+  final count = originalView.getUint32(128);
+  final tableEnd = 132 + count * 12;
+  final dataOffset = (original.length + 12 + 3) & ~3;
+  final profile = Uint8List(length)
+    ..setRange(0, tableEnd, original)
+    ..setRange(tableEnd + 12, original.length + 12, original.sublist(tableEnd));
+  final view = ByteData.sublistView(profile)
+    ..setUint32(0, length)
+    ..setUint32(128, count + 1);
+  for (var i = 0; i < count; i++) {
+    view.setUint32(
+      132 + i * 12 + 4,
+      originalView.getUint32(132 + i * 12 + 4) + 12,
+    );
+  }
+  profile.setAll(tableEnd, 'tst0'.codeUnits);
+  view
+    ..setUint32(tableEnd + 4, dataOffset)
+    ..setUint32(tableEnd + 8, length - dataOffset);
+  profile.setAll(dataOffset, 'data'.codeUnits);
+  view.setUint32(dataOffset + 8, 1);
   final random = math.Random(length);
-  final profile = Uint8List(length);
-  for (var i = 4; i < length; i++) {
+  for (var i = dataOffset + 12; i < length; i++) {
     profile[i] = random.nextInt(256);
   }
-  ByteData.sublistView(profile).setUint32(0, length);
   return profile;
 }
 
@@ -650,10 +797,24 @@ final _iccSignature = 'ICC_PROFILE\x00'.codeUnits;
 
 /// A quality-100 JPEG whose APP2 segments carry [segments], each written after
 /// `ICC_PROFILE\0` exactly as given.
-Uint8List _jpegWithIcc(img.Image image, List<List<int>> segments) {
+Uint8List _jpegWithIcc(
+  img.Image image,
+  List<List<int>> segments, {
+  bool afterFrame = false,
+  bool afterScan = false,
+}) {
   final jpeg = img.encodeJpg(image, quality: 100);
-  final afterApp0 = 4 + ByteData.sublistView(jpeg).getUint16(4);
-  final bytes = BytesBuilder(copy: false)..add(jpeg.sublist(0, afterApp0));
+  final view = ByteData.sublistView(jpeg);
+  var insertion = 4 + view.getUint16(4);
+  if (afterScan) {
+    insertion = jpeg.length - 2;
+  } else if (afterFrame) {
+    while (jpeg[insertion + 1] != 0xc0) {
+      insertion += 2 + view.getUint16(insertion + 2);
+    }
+    insertion += 2 + view.getUint16(insertion + 2);
+  }
+  final bytes = BytesBuilder(copy: false)..add(jpeg.sublist(0, insertion));
   for (final segment in segments) {
     final length = 2 + _iccSignature.length + segment.length;
     bytes
@@ -661,7 +822,7 @@ Uint8List _jpegWithIcc(img.Image image, List<List<int>> segments) {
       ..add(_iccSignature)
       ..add(segment);
   }
-  bytes.add(jpeg.sublist(afterApp0));
+  bytes.add(jpeg.sublist(insertion));
   return bytes.takeBytes();
 }
 
