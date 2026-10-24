@@ -358,6 +358,31 @@ void main() {
       });
     }
 
+    test('site clear fails when Linux retirement cannot be saved', () async {
+      await store.write(siteUrl, draftKey, 'recoverable private text');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(storageKey, 'older legacy text');
+      final failedDisk = _FailPreferenceWrites(
+        '${directory.path}/private/private-storage.json',
+        throwsOnRemoval: false,
+      );
+
+      await expectLater(
+        IOOverrides.runWithIOOverrides(
+          () => store.clearSite(siteUrl),
+          failedDisk,
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(failedDisk.failedWrites, greaterThan(0));
+      expect(preferences.getString(storageKey), 'older legacy text');
+      expect(
+        await reopenDrafts().read(siteUrl, draftKey),
+        'recoverable private text',
+      );
+    });
+
     test('untouched legacy drafts migrate and survive restart', () async {
       final preferences = await SharedPreferences.getInstance();
       await preferences.setString(storageKey, 'recoverable legacy text');
