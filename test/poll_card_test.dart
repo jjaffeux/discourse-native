@@ -451,6 +451,106 @@ void main() {
       expect(cast, ['a', 'b']);
     });
 
+    testWidgets('keeps an uncast ballot through count updates and resets it '
+        'when personal selection changes', (tester) async {
+      List<String>? cast;
+      void vote(Poll _, List<String> ids) => cast = ids;
+      Poll value({int? votes, PollSelection selection = PollSelection.none}) =>
+          poll(
+            type: PollType.multiple,
+            selection: selection,
+            options: [
+              PollOption(id: 'a', html: 'Alpha', votes: votes),
+              PollOption(id: 'b', html: 'Beta', votes: votes),
+            ],
+          );
+      await pumpPoll(tester, value(), onVote: vote);
+      await tester.tap(find.byKey(const ValueKey('poll-poll-option-b')));
+      await tester.pump();
+      await pumpPoll(tester, value(votes: 3), onVote: vote);
+      await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
+      await tester.pump();
+      expect(cast, ['b']);
+
+      await pumpPoll(
+        tester,
+        value(selection: const PollSelection(optionIds: ['a'])),
+        onVote: vote,
+      );
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Alpha')),
+        isSemantics(hasCheckedState: true, isChecked: true),
+      );
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Beta')),
+        isSemantics(hasCheckedState: true, isChecked: false),
+      );
+    });
+
+    testWidgets(
+      'count updates during a pending vote keep the submitted choices',
+      (tester) async {
+        final completion = Completer<void>();
+        Future<void> vote(Poll _, List<String> ids) => completion.future;
+        await pumpPoll(tester, poll(type: PollType.multiple), onVote: vote);
+        await tester.tap(find.byKey(const ValueKey('poll-poll-option-b')));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
+        await tester.pump();
+        await pumpPoll(
+          tester,
+          poll(
+            type: PollType.multiple,
+            options: const [
+              PollOption(id: 'a', html: 'Alpha', votes: 1),
+              PollOption(id: 'b', html: 'Beta', votes: 2),
+            ],
+          ),
+          onVote: vote,
+        );
+        completion.complete();
+        await tester.pump();
+        expect(
+          tester.getSemantics(find.bySemanticsLabel(RegExp(r'^Beta'))),
+          isSemantics(hasCheckedState: true, isChecked: true),
+        );
+      },
+    );
+
+    for (final replacePoll in [false, true]) {
+      testWidgets('vote completion retains a newer '
+          '${replacePoll ? 'poll identity' : 'personal selection'}', (
+        tester,
+      ) async {
+        final completion = Completer<void>();
+        Future<void> vote(Poll _, List<String> ids) => completion.future;
+        await pumpPoll(tester, poll(type: PollType.multiple), onVote: vote);
+        await tester.tap(find.byKey(const ValueKey('poll-poll-option-b')));
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('poll-poll-cast')));
+        await tester.pump();
+        await pumpPoll(
+          tester,
+          poll(
+            name: replacePoll ? 'replacement' : 'poll',
+            type: PollType.multiple,
+            selection: const PollSelection(optionIds: ['a']),
+          ),
+          onVote: vote,
+        );
+        completion.complete();
+        await tester.pump();
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Alpha')),
+          isSemantics(hasCheckedState: true, isChecked: true),
+        );
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Beta')),
+          isSemantics(hasCheckedState: true, isChecked: false),
+        );
+      });
+    }
+
     testWidgets('removes an existing multiple-choice ballot', (tester) async {
       var removals = 0;
       await pumpPoll(

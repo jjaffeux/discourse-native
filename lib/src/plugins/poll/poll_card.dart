@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 import 'poll.dart';
+import 'poll_ballot_draft.dart';
 
 typedef PollVoteCallback =
     FutureOr<void> Function(Poll poll, List<String> optionIds);
@@ -67,13 +68,11 @@ class PollCard extends StatefulWidget {
 }
 
 class _PollCardState extends State<PollCard> {
-  late Set<String> _selection;
+  late PollBallotDraft _draft;
   Timer? _closeTimer;
   var _submitting = false;
 
   Poll get _poll => widget.poll;
-
-  Set<String> get _savedSelection => _poll.selectedOptionIds.toSet();
 
   bool get _isMultiple => _poll.type == PollType.multiple;
 
@@ -90,21 +89,10 @@ class _PollCardState extends State<PollCard> {
       _poll.options.isNotEmpty &&
       _poll.options.every((option) => option.votes != null);
 
-  int get _multipleMin {
-    final value = _poll.min ?? 1;
-    return value < 1 ? 1 : value;
-  }
-
-  int get _multipleMax {
-    final value = _poll.max ?? _poll.options.length;
-    if (value < 1) return 1;
-    return value > _poll.options.length ? _poll.options.length : value;
-  }
-
   @override
   void initState() {
     super.initState();
-    _selection = _savedSelection;
+    _draft = PollBallotDraft(_poll);
     _scheduleCloseRefresh();
   }
 
@@ -119,22 +107,7 @@ class _PollCardState extends State<PollCard> {
       _scheduleCloseRefresh();
     }
 
-    final oldSaved = oldWidget.poll.selectedOptionIds.toSet();
-    final newSaved = _savedSelection;
-    final oldOptions = oldWidget.poll.options
-        .map((option) => option.id)
-        .toSet();
-    final newOptions = _poll.options.map((option) => option.id).toSet();
-
-    // Count-only live updates must not erase an uncast multiple-choice draft.
-    if (oldWidget.poll.name != _poll.name ||
-        oldWidget.poll.type != _poll.type ||
-        !_sameSet(oldSaved, newSaved) ||
-        !_sameSet(oldOptions, newOptions)) {
-      _selection = newSaved;
-    } else {
-      _selection.removeWhere((id) => !newOptions.contains(id));
-    }
+    _draft = _draft.reconcile(_poll);
   }
 
   @override
@@ -213,27 +186,31 @@ class _PollCardState extends State<PollCard> {
   Future<void> _chooseSingle(String optionId) async {
     if (!_canVote) return;
 
-    final saved = _savedSelection;
-    final removing = saved.contains(optionId);
-    final previous = Set<String>.of(_selection);
+    final previous = _draft;
+    final next = _draft.chooseSingle(optionId);
+    final submission = next.submission;
+    if (submission == null) return;
     setState(() {
-      _selection = removing ? <String>{} : <String>{optionId};
+      _draft = next;
       _submitting = true;
     });
 
     try {
-      if (removing) {
-        final remove = widget.onRemoveVote;
-        if (remove == null) {
-          setState(() => _selection = previous);
-          return;
-        }
-        await Future<void>.sync(() => remove(_poll));
-      } else {
-        await Future<void>.sync(() => widget.onVote!(_poll, [optionId]));
+      switch (submission) {
+        case PollBallotWithdrawal():
+          final remove = widget.onRemoveVote;
+          if (remove == null) {
+            setState(() {
+              _draft = PollBallotDraft(_poll, selection: previous.selection);
+            });
+            return;
+          }
+          await Future<void>.sync(() => remove(_poll));
+        case PollBallotCast(:final optionIds):
+          await Future<void>.sync(() => widget.onVote!(_poll, optionIds));
       }
     } catch (error) {
-      if (mounted) setState(() => _selection = _savedSelection);
+      if (mounted) setState(() => _draft = PollBallotDraft(_poll));
       widget.onVoteError?.call(error);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -243,66 +220,42 @@ class _PollCardState extends State<PollCard> {
   void _toggleMultiple(String optionId) {
     if (!_canVote) return;
 
-    setState(() {
-      if (!_selection.remove(optionId) && _selection.length < _multipleMax) {
-        _selection.add(optionId);
-      }
-    });
-  }
-
-  bool get _multipleChanged => !_sameSet(_selection, _savedSelection);
-
-  bool get _multipleSelectionValid {
-    if (!_multipleChanged) return false;
-    // The minimum applies to casting, not withdrawing, a ballot.
-    if (_selection.isEmpty) return _savedSelection.isNotEmpty;
-    return _selection.length >= _multipleMin &&
-        _selection.length <= _multipleMax;
+    setState(() => _draft = _draft.toggleMultiple(optionId));
   }
 
   Future<void> _castMultiple() async {
-    if (!_canVote || !_multipleSelectionValid) return;
+    if (!_canVote) return;
+    final submission = _draft.submission;
+    if (submission == null) return;
 
-    final previous = Set<String>.of(_selection);
-    var succeeded = false;
     setState(() => _submitting = true);
     try {
-      if (_selection.isEmpty) {
-        final remove = widget.onRemoveVote;
-        if (remove == null) {
-          if (mounted) setState(() => _selection = _savedSelection);
-          return;
-        }
-        await Future<void>.sync(() => remove(_poll));
-      } else {
-        final ordered = [
-          for (final option in _poll.options)
-            if (_selection.contains(option.id)) option.id,
-        ];
-        await Future<void>.sync(() => widget.onVote!(_poll, ordered));
+      switch (submission) {
+        case PollBallotWithdrawal():
+          final remove = widget.onRemoveVote;
+          if (remove == null) {
+            if (mounted) setState(() => _draft = PollBallotDraft(_poll));
+            return;
+          }
+          await Future<void>.sync(() => remove(_poll));
+        case PollBallotCast(:final optionIds):
+          await Future<void>.sync(() => widget.onVote!(_poll, optionIds));
       }
-      succeeded = true;
     } catch (error) {
-      if (mounted) setState(() => _selection = _savedSelection);
+      if (mounted) setState(() => _draft = PollBallotDraft(_poll));
       widget.onVoteError?.call(error);
     } finally {
-      if (mounted) {
-        // Keep selection responsive until the owner applies its personalized response.
-        setState(() {
-          if (succeeded) _selection = previous;
-          _submitting = false;
-        });
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
   Widget _selectionGroup({required Widget child}) => _isMultiple
       ? child
       : DRadioGroup<String>.controlled(
-          groupValue: _selection.firstOrNull,
+          groupValue: _draft.selection.firstOrNull,
           enabled: _canVote,
           onChanged: (value) {
-            final next = value ?? _selection.firstOrNull;
+            final next = value ?? _draft.selection.firstOrNull;
             if (next != null) unawaited(_chooseSingle(next));
           },
           child: child,
@@ -314,6 +267,7 @@ class _PollCardState extends State<PollCard> {
     final unavailableType = !_poll.supportsNativeVoting;
     final disabled = widget.pending || _submitting;
     final hasVisibleResults = _hasVisibleResults;
+    final submission = _draft.submission;
     final percentages = hasVisibleResults && !_isRankedChoice
         ? calculatePollPercentages(_poll)
         : null;
@@ -379,17 +333,16 @@ class _PollCardState extends State<PollCard> {
                                   'poll-${_poll.name}-option-${_poll.options[index].id}',
                                 ),
                                 option: _poll.options[index],
-                                selected: _selection.contains(
+                                selected: _draft.selection.contains(
                                   _poll.options[index].id,
                                 ),
                                 multiple: _isMultiple,
                                 canSelect:
                                     _canVote &&
                                     (!_isMultiple ||
-                                        _selection.contains(
+                                        _draft.canToggleMultiple(
                                           _poll.options[index].id,
-                                        ) ||
-                                        _selection.length < _multipleMax),
+                                        )),
                                 percentage: percentages?[index],
                                 siteUrl: widget.siteUrl,
                                 onTap: _isMultiple
@@ -409,13 +362,13 @@ class _PollCardState extends State<PollCard> {
                         restriction == null) ...[
                       const SizedBox(height: 10),
                       Text(
-                        _multipleMin == _multipleMax
+                        _draft.minimum == _draft.maximum
                             ? context.l10n.chooseExactly(
-                                (_multipleMin).toString(),
+                                (_draft.minimum).toString(),
                               )
                             : context.l10n.chooseBetweenAndOptions(
-                                (_multipleMin).toString(),
-                                (_multipleMax).toString(),
+                                (_draft.minimum).toString(),
+                                (_draft.maximum).toString(),
                               ),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
@@ -425,11 +378,11 @@ class _PollCardState extends State<PollCard> {
                         child: DButton(
                           size: DButtonSize.post,
                           key: ValueKey<String>('poll-${_poll.name}-cast'),
-                          onPressed: _canVote && _multipleSelectionValid
+                          onPressed: _canVote && submission != null
                               ? _castMultiple
                               : null,
                           label: Text(
-                            _selection.isEmpty && _savedSelection.isNotEmpty
+                            submission is PollBallotWithdrawal
                                 ? context.l10n.removeVotes
                                 : context.l10n.castVotes,
                           ),
@@ -1138,6 +1091,3 @@ String _humanList(Iterable<String> values) {
     (names.last).toString(),
   );
 }
-
-bool _sameSet(Set<String> a, Set<String> b) =>
-    a.length == b.length && a.containsAll(b);
