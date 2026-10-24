@@ -241,8 +241,8 @@ void main() {
       await tester.enterText(search, 'reader');
       await tester.pump(const Duration(milliseconds: 350));
       api.pendingSearches['reader']!.complete(
-        ChatDirectMessageSearchResults([
-          const ChatDirectMessageUser(
+        ChatDirectMessageSearchResults(const [
+          ChatDirectMessageUser(
             identifier: 'u-7',
             matchQuality: 1,
             enabled: true,
