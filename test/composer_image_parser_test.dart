@@ -2,9 +2,9 @@ import 'dart:math';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
-import 'package:html/parser.dart' as html;
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html;
 
 import 'support/scaling_benchmark.dart';
 
@@ -78,7 +78,7 @@ void main() {
           );
           expect(cooked.failure, isNull, reason: raw);
           final cookedImage = html
-              .parseFragment(cooked.html!)
+              .parseFragment(cooked.html)
               .querySelector('img');
           expect(cookedImage?.attributes['src'], url, reason: raw);
           final image = parseComposerImages('😀 $raw tail').single;
@@ -109,6 +109,54 @@ void main() {
       }
     });
 
+    test(
+      'blank lines terminate destinations while later images recover',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        const later = '![later](https://example.test/later.png)';
+        for (final newline in ['\n', '\r\n', '\r']) {
+          final blank = '$newline \t$newline';
+          for (final raw in [
+            '![x](${blank}https://example.test/a)',
+            '![x](https://example.test/a$blank)',
+            '![x](https://example.test/a "title${blank}continues")',
+          ]) {
+            for (final source in [raw, '$raw$blank$later']) {
+              final expected = source.endsWith(later)
+                  ? ['https://example.test/later.png']
+                  : <String>[];
+              final cooked = await cooker.cook(
+                CookingRequest(
+                  raw: source,
+                  snapshot: CookingSnapshot(
+                    siteId: 'destination',
+                    accountId: 'destination',
+                  ),
+                ),
+              );
+              expect(cooked.failure, isNull, reason: source);
+              expect(
+                html
+                    .parseFragment(cooked.html)
+                    .querySelectorAll('img')
+                    .map((image) => image.attributes['src']),
+                expected,
+                reason: source,
+              );
+              final images = parseComposerImages(source);
+              expect(
+                images.map((image) => image.url),
+                expected,
+                reason: source,
+              );
+              if (images.isNotEmpty) expect(images.single.source, later);
+            }
+          }
+        }
+      },
+    );
+
     test('uses the cooker nesting limit without truncating deeper input', () {
       for (final depth in [32, 33]) {
         final raw = '![x](https://example.test/${'(' * depth}a${')' * depth})';
@@ -127,6 +175,7 @@ void main() {
         r'![x](https://example.test/a?a=1&amp;b=2)',
         r'![x](https://example.test/a\&amp;b)',
         r'![x](<https://example.test/a b.png>)',
+        '![x]( \n<https://example.test/a_(b).png> "Title" \n)',
       ]) {
         final image = parseComposerImages(raw).single;
         final edited = parseComposerImages(
@@ -134,6 +183,10 @@ void main() {
         ).single;
         expect(edited.url, image.url, reason: raw);
         expect((edited.alt, edited.width, edited.height), ('edited', 20, 10));
+        expect(
+          edited.source.substring(edited.source.indexOf('](') + 2),
+          raw.substring(raw.indexOf('](') + 2),
+        );
       }
     });
 
@@ -473,8 +526,6 @@ int _expectLegacyUnescapedImages(String source) {
   return expected.length;
 }
 
-// This oracle covers only complete tokens in the unchanged simple grammar.
-// Parentheses, escapes, and title variants use cooker-backed expectations.
 final _legacyImagePattern = RegExp(
   r'!\[((?:\\.|[^\\\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
   caseSensitive: false,

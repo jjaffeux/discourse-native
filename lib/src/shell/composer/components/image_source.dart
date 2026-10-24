@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:html/parser.dart' as html;
 
 import '../../../models/composer_upload.dart';
 import '../../../models/site_config.dart';
@@ -15,6 +16,7 @@ class ComposerImageBlock {
     this.width,
     this.height,
     this.scale,
+    this.markdownDestination,
   });
 
   final int start;
@@ -25,6 +27,7 @@ class ComposerImageBlock {
   final int? width;
   final int? height;
   final int? scale;
+  final String? markdownDestination;
 
   bool get hasDimensions => width != null && height != null;
 
@@ -35,7 +38,8 @@ class ComposerImageBlock {
     final dimensions = nextWidth != null && nextHeight != null
         ? '|${nextWidth}x$nextHeight${nextScale == null ? '' : ', $nextScale%'}'
         : '';
-    return '![${composerImageAlt(alt ?? this.alt)}$dimensions]($url)';
+    return '![${composerImageAlt(alt ?? this.alt)}$dimensions]'
+        '(${markdownDestination ?? url})';
   }
 }
 
@@ -59,12 +63,13 @@ final class ComposerVideoBlock {
 // Let `\\.` own backslashes. Matching them in both branches causes explosive
 // backtracking and misreads CommonMark's escaped `\]`.
 final RegExp _imageAltPattern = RegExp(r'!\[((?:\\.|[^\\\]\n])*)');
+final _imageParagraphBreak = RegExp(
+  r'(?:\r\n|\r(?!\n)|\n)[ \t]*(?:\r\n|\r(?!\n)|\n)',
+);
 final RegExp _imageSchemePattern = RegExp(
-  r'\]\((?:upload://|https?://)',
+  r'(?:upload://|https?://)',
   caseSensitive: false,
 );
-final RegExp _imageUrlEndPattern = RegExp(r'[)\s]');
-final RegExp _imageTitlePattern = RegExp(r'\s+"[^"]*"\)');
 
 // The ", N%" scale is only syntax after "|WxH", mirroring Discourse's own
 // image-scale pattern; without dimensions the suffix is the author's alt text.
@@ -132,6 +137,7 @@ List<ComposerImageBlock> parseComposerImages(
         source: token.source,
         alt: unescapeImageAlt(label.group(1)!),
         url: token.url,
+        markdownDestination: token.destination,
         width: hasValidDimensions ? width : null,
         height: hasValidDimensions ? height : null,
         scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
@@ -167,6 +173,7 @@ typedef _ImageToken = ({
   String source,
   String label,
   String url,
+  String destination,
   bool escaped,
 });
 
@@ -178,8 +185,8 @@ Iterable<_ImageToken> _imageTokens(
   if (!source.contains('![')) return;
   final code = codeRanges ?? markdownCodeRanges(source);
   var offset = 0;
-  var urlEnd = -1;
-  var end = -1;
+  var paragraphEnd = -1;
+  final destinationEnds = <int, int>{};
   while (offset < source.length) {
     final start = source.indexOf('![', offset);
     if (start < 0) break;
@@ -190,22 +197,20 @@ Iterable<_ImageToken> _imageTokens(
     final alt = _imageAltPattern.matchAsPrefix(source, start)!;
     final bracket = alt.end;
     offset = bracket + 1;
-    final scheme = _imageSchemePattern.matchAsPrefix(source, bracket);
-    if (scheme == null) continue;
-
-    // A failed URL/title can itself contain image openers. Retain the boundary
-    // and title result while their URLs share the same non-whitespace run.
-    if (scheme.end > urlEnd) {
-      final boundary = source.indexOf(_imageUrlEndPattern, scheme.end);
-      urlEnd = boundary < 0 ? source.length : boundary;
-      end = -1;
-      if (urlEnd < source.length) {
-        end = source.codeUnitAt(urlEnd) == 0x29
-            ? urlEnd + 1
-            : _imageTitlePattern.matchAsPrefix(source, urlEnd)?.end ?? -1;
-      }
+    if (!source.startsWith('](', bracket)) continue;
+    if (start >= paragraphEnd) {
+      paragraphEnd =
+          _imageParagraphBreak.allMatches(source, start).firstOrNull?.start ??
+          source.length;
     }
-    if (scheme.end == urlEnd || end < 0) continue;
+    final destination = _imageDestination(
+      source,
+      bracket + 2,
+      paragraphEnd,
+      destinationEnds,
+    );
+    if (destination == null) continue;
+    final (:urlStart, :urlEnd, :end) = destination;
 
     offset = end;
     if (code.overlaps(start, end)) continue;
@@ -218,11 +223,133 @@ Iterable<_ImageToken> _imageTokens(
       end: end,
       source: source.substring(start, end),
       label: alt.group(1)!,
-      url: source.substring(bracket + 2, urlEnd),
+      url: _unescapeImageDestination(source.substring(urlStart, urlEnd)),
+      destination: source.substring(bracket + 2, end - 1),
       escaped: slashes.isOdd,
     );
   }
 }
+
+typedef _ImageDestination = ({int urlStart, int urlEnd, int end});
+
+_ImageDestination? _imageDestination(
+  String source,
+  int start,
+  int paragraphEnd,
+  Map<int, int> destinationEnds,
+) {
+  var at = start;
+  while (at < paragraphEnd && _imageDestinationSpace(source.codeUnitAt(at))) {
+    at++;
+  }
+  final angle = at < paragraphEnd && source.codeUnitAt(at) == 0x3c;
+  if (angle) at++;
+  final urlStart = at;
+  final scheme = _imageSchemePattern.matchAsPrefix(source, urlStart);
+  if (scheme == null) return null;
+  var nesting = 0;
+  while (at < paragraphEnd) {
+    final unit = source.codeUnitAt(at);
+    if (angle) {
+      if (unit == 0x0a || unit == 0x0d || unit == 0x3c) return null;
+      if (unit == 0x3e) break;
+    } else {
+      if (unit <= 0x20 || unit == 0x7f) break;
+      if (unit == 0x28) {
+        nesting++;
+        // Match the cooker and bound retries of nested malformed images.
+        if (nesting > 32) return null;
+      } else if (unit == 0x29) {
+        if (nesting == 0) break;
+        nesting--;
+      }
+    }
+    if (unit == 0x5c && at + 1 < paragraphEnd) {
+      // A backslash cannot escape a space in a bare destination.
+      at += !angle && source.codeUnitAt(at + 1) == 0x20 ? 1 : 2;
+    } else {
+      at++;
+    }
+  }
+  final urlEnd = at;
+  if (urlEnd <= scheme.end || nesting != 0) return null;
+  if (angle) {
+    if (at >= paragraphEnd || source.codeUnitAt(at) != 0x3e) return null;
+    at++;
+  }
+  final end = destinationEnds.putIfAbsent(
+    at,
+    () => _imageDestinationEnd(source, at, paragraphEnd),
+  );
+  if (end < 0) return null;
+  return (urlStart: urlStart, urlEnd: urlEnd, end: end);
+}
+
+int _imageDestinationEnd(String source, int start, int paragraphEnd) {
+  var at = start;
+  while (at < paragraphEnd && _imageDestinationSpace(source.codeUnitAt(at))) {
+    at++;
+  }
+  if (at >= paragraphEnd) return -1;
+  if (source.codeUnitAt(at) == 0x29) return at + 1;
+  if (at == start) return -1;
+  var marker = source.codeUnitAt(at);
+  if (marker != 0x22 && marker != 0x27 && marker != 0x28) return -1;
+  if (marker == 0x28) marker = 0x29;
+  at++;
+  while (at < paragraphEnd) {
+    final unit = source.codeUnitAt(at++);
+    if (unit == marker) {
+      while (at < paragraphEnd &&
+          _imageDestinationSpace(source.codeUnitAt(at))) {
+        at++;
+      }
+      return at < paragraphEnd && source.codeUnitAt(at) == 0x29 ? at + 1 : -1;
+    }
+    if (unit == 0x28 && marker == 0x29) return -1;
+    if (unit == 0x5c && at < paragraphEnd) at++;
+  }
+  return -1;
+}
+
+bool _imageDestinationSpace(int unit) =>
+    unit == 0x20 || unit == 0x09 || unit == 0x0a || unit == 0x0d;
+
+final _imageDestinationEscape = RegExp(
+  r'\\([!-/:-@\[-`{-~])|&([a-z#][a-z0-9]{1,31});',
+  caseSensitive: false,
+);
+
+String _unescapeImageDestination(String value) =>
+    value.replaceAllMapped(_imageDestinationEscape, (match) {
+      if (match[1] case final escaped?) return escaped;
+      final entity = match[2]!;
+      if (entity.startsWith('#')) {
+        final hex = entity.length > 1 && entity[1].toLowerCase() == 'x';
+        final code = int.tryParse(
+          entity.substring(hex ? 2 : 1),
+          radix: hex ? 16 : 10,
+        );
+        if (code == null ||
+            code <= 8 ||
+            code == 11 ||
+            code >= 14 && code <= 31 ||
+            code >= 127 && code <= 159 ||
+            code >= 0xd800 && code <= 0xdfff ||
+            code >= 0xfdd0 && code <= 0xfdef ||
+            (code & 0xffff) >= 0xfffe ||
+            code > 0x10ffff) {
+          return match[0]!;
+        }
+        return String.fromCharCode(code);
+      }
+      // Attribute parsing leaves unknown named entities intact instead of
+      // accepting a legacy semicolon-free prefix from their name.
+      return html
+          .parseFragment('<i data-url="${match[0]}"></i>')
+          .querySelector('i')!
+          .attributes['data-url']!;
+    });
 
 ComposerImageBlock? imageAtComposerOffset(
   Iterable<ComposerImageBlock> images,

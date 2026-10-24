@@ -1,10 +1,9 @@
 import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
-import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
