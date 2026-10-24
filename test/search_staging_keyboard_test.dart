@@ -1,8 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
+import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

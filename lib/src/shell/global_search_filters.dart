@@ -1011,24 +1011,28 @@ GlobalSearchExpression parseGlobalSearchExpression(
 ) {
   final plain = <String>[], conditions = <GlobalSearchCondition>[];
   String? order;
-  final aliases = {
-    'l': 'order:latest',
-    'r': 'order:read',
-    'f': 'in:first',
-    't': 'in:title',
-    'in:mine': 'in:created',
-    'in:messages': 'in:personal',
-    'in:whispers': 'in:whisper',
-    'in:bots': 'in:bot',
-    'in:humans': 'in:human',
-    'include:invisible': 'include:unlisted',
-  };
   final target = scope == GlobalSearchScope.all
       ? GlobalSearchScope.forum
       : scope;
+  final aliases = switch (target) {
+    GlobalSearchScope.forum => {
+      'l': 'order:latest',
+      'r': 'order:read',
+      'f': 'in:first',
+      't': 'in:title',
+      'in:mine': 'in:created',
+      'in:messages': 'in:personal',
+      'in:whispers': 'in:whisper',
+      'in:bots': 'in:bot',
+      'in:humans': 'in:human',
+      'include:invisible': 'include:unlisted',
+    },
+    GlobalSearchScope.messages => {'in:messages': 'in:personal'},
+    _ => const <String, String>{},
+  };
   for (final match in RegExp(r'(?:[^\s"]+|"[^"]*")+').allMatches(text)) {
     final raw = match.group(0)!;
-    var token = !scope.isCore ? raw : aliases[raw] ?? raw;
+    var token = aliases[raw] ?? raw;
     if (scope.isCore && token.contains(':')) {
       final colon = token.indexOf(':');
       token =
