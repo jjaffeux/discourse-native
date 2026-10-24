@@ -34,6 +34,15 @@ void main() {
     );
   });
 
+  test('later snapshot replaces an earlier response that completed first', () {
+    final statuses = UserStatusReconciler(capacity: 3);
+    final first = statuses.beginSnapshot();
+    final second = statuses.beginSnapshot();
+    expect(statuses.acceptSnapshot(first, 7, _old)?.status, _old);
+    expect(statuses.acceptSnapshot(second, 7, _fresh)?.status, _fresh);
+    expect(statuses.read(7), _fresh);
+  });
+
   test('a later failed read does not suppress an earlier successful read', () {
     final statuses = UserStatusReconciler(capacity: 3);
     final first = statuses.beginSnapshot();
