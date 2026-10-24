@@ -12,7 +12,6 @@ import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/group.dart';
-import '../models/group_route.dart';
 import 'group_write.dart';
 
 export 'group_write.dart';
@@ -407,6 +406,7 @@ final class GroupsController extends FrameSafeNotifier {
   final Map<_DirectoryKey, GroupDirectoryState> _directories = {};
   final Map<_GroupKey, GroupDetailState> _details = {};
   final Map<_GroupKey, _GroupUpdateAttempt> _pendingUpdates = {};
+  final Map<_GroupKey, Group> _unreconciledUpdates = {};
   final Expando<_GroupUpdateAttempt> _confirmationAttempts = Expando();
   final Map<_MemberListKey, GroupMembersState> _members = {};
   final Map<_FilterListKey, GroupRequestersState> _requesters = {};
@@ -598,12 +598,17 @@ final class GroupsController extends FrameSafeNotifier {
     DiscourseInstance instance,
     String groupName, {
     bool refresh = false,
+    void Function(Group group)? onReconciled,
   }) async {
     if (isDisposed) return false;
     final key = _groupKey(instance.url, groupName);
     _touchQuery(_details, key);
     final held = detailState(instance.url, groupName);
-    if (_requests.containsKey(key) || (!refresh && held.loaded)) return false;
+    final pendingUpdate = _unreconciledUpdates[key];
+    if (_requests.containsKey(key) ||
+        (!refresh && held.loaded && pendingUpdate == null)) {
+      return false;
+    }
     final token = _start(key, instance.url, groupName: groupName);
     _details[key] = GroupDetailState(
       detail: held.detail,
@@ -626,21 +631,41 @@ final class GroupsController extends FrameSafeNotifier {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return false;
       final detail = await auth.run(
-        () => api.detail(
-          siteUrl: instance.url,
-          groupName: groupName,
-          apiKey: auth.apiKey,
-          clientId: auth.apiKey == null ? null : auth.clientId,
-        ),
+        () => pendingUpdate == null
+            ? api.detail(
+                siteUrl: instance.url,
+                groupName: groupName,
+                apiKey: auth.apiKey,
+                clientId: auth.apiKey == null ? null : auth.clientId,
+              )
+            : api.detailById(
+                siteUrl: instance.url,
+                groupId: pendingUpdate.id,
+                apiKey: auth.apiKey,
+                clientId: auth.apiKey == null ? null : auth.clientId,
+              ),
       );
       _commit(token, () {
-        _details[key] = GroupDetailState(detail: detail, loaded: true);
+        if (pendingUpdate != null) {
+          _unreconciledUpdates.remove(key);
+          _projectUpdatedGroup(instance.url, pendingUpdate, detail.group);
+        }
+        final detailKey = pendingUpdate == null
+            ? key
+            : _groupKey(instance.url, detail.group.name);
+        _details[detailKey] = GroupDetailState(detail: detail, loaded: true);
         committed = true;
+        if (pendingUpdate != null) onReconciled?.call(detail.group);
       });
     } catch (error) {
       _fail(token, () {
         _details[key] = GroupDetailState(
-          detail: held.detail,
+          detail:
+              pendingUpdate != null &&
+                  error is SiteLookupException &&
+                  error.statusCode == 404
+              ? null
+              : held.detail,
           loaded: true,
           error: appL10n.couldnTLoadThisGroup,
         );
@@ -1483,38 +1508,130 @@ final class GroupsController extends FrameSafeNotifier {
   Future<GroupWriteOutcome<Group>> _writeUpdate(
     _GroupUpdateAttempt attempt, {
     bool? updateExistingUsers,
-  }) => _mutate(
-    attempt.instance,
-    attempt.group,
-    (apiKey, clientId) async => _acceptedUpdateGroup(
+  }) {
+    late GroupUpdateAcknowledgment acknowledgment;
+    return _mutate(
+      attempt.instance,
       attempt.group,
-      await api.updateGroup(
-        siteUrl: attempt.instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        groupId: attempt.group.id,
-        values: attempt.command.values,
-        updateExistingUsers: updateExistingUsers,
+      (apiKey, clientId) async {
+        acknowledgment = await api.updateGroup(
+          siteUrl: attempt.instance.url,
+          apiKey: apiKey,
+          clientId: clientId,
+          groupId: attempt.group.id,
+          values: attempt.command.values,
+          updateExistingUsers: updateExistingUsers,
+        );
+        return acknowledgment.returnedGroup ?? attempt.group;
+      },
+      reconcileAccepted: (value, auth, current) => _reconcileUpdate(
+        attempt.instance,
+        attempt.group,
+        acknowledgment,
+        auth,
+        current,
       ),
-    ),
-    updatedGroup: (group) => group,
-    lease: attempt.lease,
-    updateAttempt: updateExistingUsers == null ? attempt : null,
-  );
+      lease: attempt.lease,
+      updateAttempt: updateExistingUsers == null ? attempt : null,
+    );
+  }
 
-  Group _acceptedUpdateGroup(Group original, Group returned) {
-    if (returned.id <= 0 || returned.id != original.id) return original;
-    try {
-      GroupRoute.detail(returned.name);
-      return returned;
-    } on ArgumentError {
-      return original;
+  Future<({Group value, GroupProjectionFreshness freshness})> _reconcileUpdate(
+    DiscourseInstance instance,
+    Group original,
+    GroupUpdateAcknowledgment acknowledgment,
+    AccountRequestCredentials auth,
+    bool Function() current,
+  ) async {
+    final returned = acknowledgment.returnedGroup;
+    if (returned != null) {
+      _unreconciledUpdates.remove(_groupKey(instance.url, original.name));
+      _projectUpdatedGroup(instance.url, original, returned);
+      final refreshed = await loadDetail(
+        instance,
+        returned.name,
+        refresh: true,
+      );
+      return (
+        value: returned,
+        freshness: refreshed
+            ? GroupProjectionFreshness.refreshed
+            : GroupProjectionFreshness.stale,
+      );
     }
+    final key = _groupKey(instance.url, original.name);
+    try {
+      if (!current()) {
+        return (value: original, freshness: GroupProjectionFreshness.retired);
+      }
+      final detail = await auth.run(
+        () => api.detailById(
+          siteUrl: instance.url,
+          groupId: acknowledgment.groupId,
+          apiKey: auth.apiKey,
+          clientId: auth.clientId,
+        ),
+      );
+      if (!current()) {
+        return (value: original, freshness: GroupProjectionFreshness.retired);
+      }
+      _unreconciledUpdates.remove(key);
+      _projectUpdatedGroup(instance.url, original, detail.group);
+      _details[_groupKey(instance.url, detail.group.name)] = GroupDetailState(
+        detail: detail,
+        loaded: true,
+      );
+      return (
+        value: detail.group,
+        freshness: GroupProjectionFreshness.refreshed,
+      );
+    } catch (error) {
+      if (current()) {
+        final held = _details[key]?.detail;
+        _invalidateUnknownUpdate(instance.url, original);
+        _unreconciledUpdates[key] = original;
+        _trimQueries(
+          _unreconciledUpdates,
+          instance.url,
+          siteOf: (key) => key.siteUrl,
+        );
+        _details[key] = GroupDetailState(
+          detail: error is SiteLookupException && error.statusCode == 404
+              ? null
+              : held ?? GroupDetail(group: original),
+          loaded: true,
+          error: appL10n.couldnTLoadThisGroup,
+        );
+      }
+      return (value: original, freshness: GroupProjectionFreshness.stale);
+    }
+  }
+
+  void _invalidateUnknownUpdate(String siteUrl, Group original) {
+    final name = _normalize(original.name);
+    _requests.removeWhere(
+      (_, request) =>
+          request.siteUrl == siteUrl &&
+          (request.groupName == name || request.key is _DirectoryKey),
+    );
+    _members.removeWhere(
+      (key, _) => key.siteUrl == siteUrl && key.groupName == name,
+    );
+    _requesters.removeWhere(
+      (key, _) => key.siteUrl == siteUrl && key.groupName == name,
+    );
+    _activities.removeWhere(
+      (key, _) => key.siteUrl == siteUrl && key.groupName == name,
+    );
+    _permissions.remove(_groupKey(siteUrl, name));
+    _logs.remove(_groupKey(siteUrl, name));
+    _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
   }
 
   void _projectUpdatedGroup(String siteUrl, Group original, Group updated) {
     final oldKey = _groupKey(siteUrl, original.name);
     final newKey = _groupKey(siteUrl, updated.name);
+    _requests.remove(newKey);
     final held = _details[oldKey];
     if (oldKey != newKey) {
       final names = {oldKey.groupName, newKey.groupName};
@@ -1580,7 +1697,12 @@ final class GroupsController extends FrameSafeNotifier {
     Group group,
     Future<T> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
-    Group Function(T value)? updatedGroup,
+    Future<({T value, GroupProjectionFreshness freshness})> Function(
+      T value,
+      AccountRequestCredentials auth,
+      bool Function() current,
+    )?
+    reconcileAccepted,
     VoidCallback? removeCachedRows,
     SiteLease? lease,
     _GroupUpdateAttempt? updateAttempt,
@@ -1629,26 +1751,26 @@ final class GroupsController extends FrameSafeNotifier {
       if (current()) {
         removeCachedRows?.call();
         token.finishRemoval();
-        final acceptedGroup = updatedGroup?.call(value);
-        if (acceptedGroup != null) {
-          _projectUpdatedGroup(instance.url, group, acceptedGroup);
+        if (reconcileAccepted != null) {
+          final reconciled = await reconcileAccepted(value, auth, current);
+          value = reconciled.value;
+          projection = reconciled.freshness;
         } else {
           _details[key] = GroupDetailState(
             detail: held.detail,
             loaded: held.loaded,
           );
-        }
-        if (refreshDetail) {
-          final refreshName = acceptedGroup?.name ?? group.name;
-          _requests.remove(_groupKey(instance.url, refreshName));
-          final refreshed = await loadDetail(
-            instance,
-            refreshName,
-            refresh: true,
-          );
-          projection = refreshed
-              ? GroupProjectionFreshness.refreshed
-              : GroupProjectionFreshness.stale;
+          if (refreshDetail) {
+            _requests.remove(key);
+            final refreshed = await loadDetail(
+              instance,
+              group.name,
+              refresh: true,
+            );
+            projection = refreshed
+                ? GroupProjectionFreshness.refreshed
+                : GroupProjectionFreshness.stale;
+          }
         }
       }
     } catch (error) {
@@ -1714,6 +1836,7 @@ final class GroupsController extends FrameSafeNotifier {
     _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
     _details.removeWhere((key, _) => key.siteUrl == siteUrl);
     _pendingUpdates.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _unreconciledUpdates.removeWhere((key, _) => key.siteUrl == siteUrl);
     _members.removeWhere((key, _) => key.siteUrl == siteUrl);
     _requesters.removeWhere((key, _) => key.siteUrl == siteUrl);
     _activities.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -1837,6 +1960,7 @@ final class GroupsController extends FrameSafeNotifier {
   @override
   void dispose() {
     _pendingUpdates.clear();
+    _unreconciledUpdates.clear();
     _requests.clear();
     for (final mutation in _mutations.values) {
       mutation.finishRemoval();

@@ -335,7 +335,6 @@ void main() {
     );
 
     for (final response in [
-      {'success': 'OK'},
       {
         'group': {'id': 8, 'name': 'someone-else'},
       },
@@ -344,15 +343,10 @@ void main() {
       },
     ]) {
       test(
-        'unusable update identity refreshes the opening group $response',
+        'unacknowledged update identity fails without projection $response',
         () async {
           final transport = _ControlledGroupTransport()
-            ..onWrite = ((_) => response)
-            ..objects.add(
-              _completed({
-                'group': {'id': 7, 'name': 'support'},
-              }),
-            );
+            ..onWrite = (_) => response;
           final controller = _controller(
             transport,
             credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
@@ -363,18 +357,274 @@ void main() {
             original,
             GroupUpdateCommand(const {'name': 'requested'}),
           );
-          expect(
-            result,
-            isA<GroupWriteAccepted<Group>>().having(
-              (result) => result.value.name,
-              'name',
-              'support',
-            ),
-          );
-          expect(transport.gets.single.path, '/groups/support.json');
+          expect(result, isA<GroupWriteFailed<Group>>());
+          expect(transport.gets, isEmpty);
+          expect(controller.detailState(_site, 'requested').detail, isNull);
         },
       );
     }
+
+    for (final name in ['canonical', 'support']) {
+      test(
+        'success-only acknowledgment resolves canonical $name and extras by ID',
+        () async {
+          final transport = _ControlledGroupTransport()
+            ..onWrite = ((_) => {'success': 'OK'})
+            ..objects.add(
+              _completed({
+                'group': {'id': 7, 'name': name, 'full_name': 'Saved'},
+                'extras': {
+                  'visible_group_names': ['staff'],
+                },
+              }),
+            );
+          final controller = _controller(
+            transport,
+            credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+          );
+          addTearDown(controller.dispose);
+          final result = await controller.updateGroup(
+            _connectedInstance,
+            original,
+            GroupUpdateCommand(const {'name': ' requested '}),
+          );
+          expect(
+            result,
+            isA<GroupWriteAccepted<Group>>()
+                .having((value) => value.value.name, 'canonical', name)
+                .having(
+                  (value) => value.projection,
+                  'freshness',
+                  GroupProjectionFreshness.refreshed,
+                ),
+          );
+          expect(transport.gets.single.path, '/groups/by-id/7.json');
+          expect(
+            controller.detailState(_site, name).detail?.visibleGroupNames,
+            ['staff'],
+          );
+          expect(
+            controller.detailState(_site, name).detail?.group.fullName,
+            'Saved',
+          );
+        },
+      );
+    }
+
+    test(
+      'same-name acknowledgment revokes a pre-save detail snapshot',
+      () async {
+        final oldResponse = Completer<Map<String, dynamic>>();
+        final transport = _ControlledGroupTransport()
+          ..onWrite = ((_) => {'success': 'OK'})
+          ..objects.add(oldResponse);
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        final oldRead = controller.loadDetail(_connectedInstance, 'support');
+        await pumpEventQueue();
+        transport.objects.add(
+          _completed({
+            'group': {'id': 7, 'name': 'support', 'full_name': 'Saved'},
+            'extras': {
+              'visible_group_names': ['new-visible'],
+            },
+          }),
+        );
+        final result = await controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {'full_name': 'Saved'}),
+        );
+        expect(result.canApplyLocally, isTrue);
+        oldResponse.complete({
+          'group': {'id': 7, 'name': 'support', 'full_name': 'Old'},
+          'extras': {
+            'visible_group_names': ['old-visible'],
+          },
+        });
+        await oldRead;
+        final detail = controller.detailState(_site, 'support').detail!;
+        expect(detail.group.fullName, 'Saved');
+        expect(detail.visibleGroupNames, ['new-visible']);
+      },
+    );
+
+    for (final unavailable in [false, true]) {
+      test(
+        'accepted ID read failure stays stale and retries by ID, unavailable=$unavailable',
+        () async {
+          final transport = _ControlledGroupTransport()
+            ..onWrite = ((_) => {'success': 'OK'})
+            ..objects.add(
+              _completed({
+                'group': {'id': 7, 'name': 'support'},
+              }),
+            );
+          final controller = _controller(
+            transport,
+            credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+          );
+          addTearDown(controller.dispose);
+          await controller.loadDetail(_connectedInstance, original.name);
+          final pendingDirectory = Completer<Map<String, dynamic>>();
+          transport.objects.add(pendingDirectory);
+          final directory = controller.loadDirectory(
+            _connectedInstance,
+            const GroupDirectoryQuery(),
+          );
+          await pumpEventQueue();
+          transport.onGet = (_) {
+            if (unavailable) {
+              throw const SiteLookupException(
+                SiteLookupFailure.unreachable,
+                _site,
+                statusCode: 404,
+              );
+            }
+            throw StateError('offline');
+          };
+          final result = await controller.updateGroup(
+            _connectedInstance,
+            original,
+            GroupUpdateCommand(const {'name': 'requested'}),
+          );
+          expect(
+            result,
+            isA<GroupWriteAccepted<Group>>()
+                .having((value) => value.value.id, 'stable ID', 7)
+                .having(
+                  (value) => value.value.name,
+                  'last known name',
+                  'support',
+                )
+                .having(
+                  (value) => value.projection,
+                  'freshness',
+                  GroupProjectionFreshness.stale,
+                ),
+          );
+          expect(
+            controller.detailState(_site, 'support').detail == null,
+            unavailable,
+          );
+          expect(controller.detailState(_site, 'support').error, isNotNull);
+          pendingDirectory.complete({
+            'groups': [
+              {'id': 7, 'name': 'support'},
+            ],
+            'total_rows_groups': 1,
+          });
+          await directory;
+          expect(
+            controller
+                .directoryState(_site, const GroupDirectoryQuery())
+                .groups,
+            isEmpty,
+          );
+          transport.onGet = null;
+          transport.objects.add(_completed(canonical));
+          expect(
+            await controller.loadDetail(
+              _connectedInstance,
+              'support',
+              refresh: true,
+            ),
+            isTrue,
+          );
+          expect(
+            controller.detailState(_site, 'canonical').detail?.group.name,
+            'canonical',
+          );
+          expect(transport.gets.map((request) => request.path), [
+            '/groups/support.json',
+            '/groups.json?asc=true',
+            '/groups/by-id/7.json',
+            '/groups/by-id/7.json',
+          ]);
+          expect(transport.writes, hasLength(1));
+        },
+      );
+    }
+
+    test(
+      'retirement after success-only acknowledgment prevents the ID read',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..onWrite = ((_) => {'success': 'OK'});
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          transport,
+          lifecycle: lifecycle,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        final write = transport.holdWrite();
+        final pending = controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {'name': 'requested'}),
+        );
+        await write.started.future;
+        lifecycle.invalidate(_site);
+        controller.forget(_site);
+        write.release.complete();
+        final result = await pending;
+        expect(
+          result,
+          isA<GroupWriteAccepted<Group>>()
+              .having((value) => value.value.id, 'stable ID', 7)
+              .having(
+                (value) => value.projection,
+                'freshness',
+                GroupProjectionFreshness.retired,
+              ),
+        );
+        expect(result.canApplyLocally, isFalse);
+        expect(transport.gets, isEmpty);
+      },
+    );
+
+    test(
+      'retirement during accepted ID read prevents all projection',
+      () async {
+        final response = Completer<Map<String, dynamic>>();
+        final transport = _ControlledGroupTransport()
+          ..onWrite = ((_) => {'success': 'OK'})
+          ..objects.add(response);
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          transport,
+          lifecycle: lifecycle,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {'name': 'requested'}),
+        );
+        await pumpEventQueue();
+        expect(transport.gets.single.path, '/groups/by-id/7.json');
+        lifecycle.invalidate(_site);
+        controller.forget(_site);
+        response.complete(canonical);
+        final result = await pending;
+        expect(
+          result,
+          isA<GroupWriteAccepted<Group>>().having(
+            (value) => value.projection,
+            'freshness',
+            GroupProjectionFreshness.retired,
+          ),
+        );
+        expect(result.canApplyLocally, isFalse);
+        expect(controller.detailState(_site, 'canonical').detail, isNull);
+        expect(controller.detailState(_site, 'support').detail, isNull);
+      },
+    );
 
     test('retirement blocks canonical projection after acceptance', () async {
       final transport = _ControlledGroupTransport()..onWrite = (_) => canonical;
@@ -2243,6 +2493,7 @@ void main() {
 
     test('server acceptance survives a failed detail refresh', () async {
       final transport = _ControlledGroupTransport()
+        ..onWrite = ((_) => {'success': 'OK'})
         ..objects.add(
           _completed({
             'group': {'id': 7, 'name': 'support'},

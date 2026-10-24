@@ -99,7 +99,20 @@ final class ShellGroupPagesPort implements GroupPagesPort {
     final instance = _instance(owner);
     final groupName = route.groupName;
     if (instance == null || groupName == null) return;
-    await _shell.groups.loadDetail(instance, groupName, refresh: refresh);
+    await _shell.groups.loadDetail(
+      instance,
+      groupName,
+      refresh: refresh,
+      onReconciled: (group) {
+        if (!isCurrent(owner)) return;
+        _shell.replaceOpeningGroupName(
+          siteUrl: owner.siteUrl,
+          tabId: owner.tabId,
+          previousName: groupName,
+          group: group,
+        );
+      },
+    );
   }
 
   @override

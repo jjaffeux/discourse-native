@@ -1,8 +1,16 @@
 import '../models/group.dart';
+import '../models/group_route.dart';
 import '../models/json.dart';
 import '../models/topic.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'plugin_transport.dart';
+
+final class GroupUpdateAcknowledgment {
+  const GroupUpdateAcknowledgment({required this.groupId, this.returnedGroup});
+
+  final int groupId;
+  final Group? returnedGroup;
+}
 
 final class GroupsApi {
   const GroupsApi(this._transport, this._models);
@@ -68,6 +76,28 @@ final class GroupsApi {
     siteUrl,
     extensions: _models.extensions,
   );
+
+  Future<GroupDetail> detailById({
+    required String siteUrl,
+    required int groupId,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final detail = GroupDetail.fromWire(
+      await _get(
+        siteUrl: siteUrl,
+        path: '/groups/by-id/${_positiveId(groupId, 'groupId')}.json',
+        apiKey: apiKey,
+        clientId: clientId,
+      ),
+      siteUrl,
+      extensions: _models.extensions,
+    );
+    if (!_validGroupIdentity(detail.group, groupId)) {
+      throw const FormatException('Invalid group identity in group detail.');
+    }
+    return detail;
+  }
 
   Future<GroupMembersPage> members({
     required String siteUrl,
@@ -553,7 +583,7 @@ final class GroupsApi {
     );
   }
 
-  Future<Group> updateGroup({
+  Future<GroupUpdateAcknowledgment> updateGroup({
     required String siteUrl,
     required String apiKey,
     required int groupId,
@@ -575,11 +605,29 @@ final class GroupsApi {
       },
     );
     final groupJson = jsonObject(body['group']);
-    return Group.fromWire(
+    final returned = Group.fromWire(
       groupJson.isEmpty ? body : groupJson,
       siteUrl,
       extensions: _models.extensions,
     );
+    final valid = _validGroupIdentity(returned, groupId);
+    if (body['success'] != 'OK' && !valid) {
+      throw const FormatException('Missing group update acknowledgment.');
+    }
+    return GroupUpdateAcknowledgment(
+      groupId: groupId,
+      returnedGroup: valid ? returned : null,
+    );
+  }
+
+  static bool _validGroupIdentity(Group group, int groupId) {
+    if (group.id != groupId || group.id <= 0) return false;
+    try {
+      GroupRoute.detail(group.name);
+      return true;
+    } on ArgumentError {
+      return false;
+    }
   }
 
   Future<void> deleteGroup({

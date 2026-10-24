@@ -544,7 +544,8 @@ void main() {
         );
 
         expect(created.name, 'new-group');
-        expect(updated.fullName, 'Support Team');
+        expect(updated.returnedGroup?.fullName, 'Support Team');
+        expect(updated.groupId, 7);
         expect(transport.writes.first.path, '/admin/groups.json');
         expect(transport.writes.first.body, {
           'group': {'name': 'new-group'},
@@ -558,7 +559,8 @@ void main() {
     );
 
     test('update says no to existing users in a form core reads', () async {
-      final transport = _RecordingTransport();
+      final transport = _RecordingTransport()
+        ..writeResponse = {'success': 'OK'};
       final api = GroupsApi(transport, const DiscourseModelCodec.core());
 
       for (final answer in [false, null]) {
@@ -582,6 +584,113 @@ void main() {
         },
       ]);
     });
+
+    test(
+      'real success-only response is an acknowledgment and ID show is canonical',
+      () async {
+        final requests = <http.Request>[];
+        final transport = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            if (request.method == 'PUT') {
+              return http.Response('{"success":"OK"}', 200);
+            }
+            return http.Response(
+              '{"group":{"id":7,"name":"canonical"},'
+              '"extras":{"visible_group_names":["staff"]}}',
+              200,
+            );
+          }),
+        );
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+        final acknowledgment = await api.updateGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          clientId: 'client',
+          groupId: 7,
+          values: const {'name': ' requested '},
+        );
+        expect(acknowledgment.groupId, 7);
+        expect(acknowledgment.returnedGroup, isNull);
+        final detail = await api.detailById(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          clientId: 'client',
+          groupId: 7,
+        );
+        expect(detail.group.name, 'canonical');
+        expect(detail.visibleGroupNames, ['staff']);
+        expect(requests.map((request) => request.url.path), [
+          '/groups/7.json',
+          '/groups/by-id/7.json',
+        ]);
+        for (final request in requests) {
+          expect(request.headers['User-Api-Key'], 'secret');
+          expect(request.headers['User-Api-Client-Id'], 'client');
+        }
+      },
+    );
+
+    for (final response in <Map<String, dynamic>>[
+      {},
+      {'success': 'not-OK'},
+      {
+        'group': {'id': 8, 'name': 'other'},
+      },
+      {
+        'group': {'id': 7, 'name': '../unsafe'},
+      },
+      {
+        'group': {'id': 7, 'name': ''},
+      },
+    ]) {
+      test('rejects malformed acknowledgment $response', () async {
+        final transport = _RecordingTransport()..writeResponse = response;
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+        await expectLater(
+          api.updateGroup(
+            siteUrl: siteUrl,
+            apiKey: 'secret',
+            groupId: 7,
+            values: const {},
+          ),
+          throwsFormatException,
+        );
+      });
+      test('rejects malformed stable-ID detail $response', () async {
+        final transport = _RecordingTransport()..getResponse = response;
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+        await expectLater(
+          api.detailById(siteUrl: siteUrl, apiKey: 'secret', groupId: 7),
+          throwsFormatException,
+        );
+      });
+    }
+
+    test(
+      'explicit acknowledgment ignores an unusable optional group identity',
+      () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {
+            'success': 'OK',
+            'group': {'id': 8, 'name': 'other'},
+          };
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+        final acknowledgment = await api.updateGroup(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          values: const {},
+        );
+        expect(acknowledgment.groupId, 7);
+        expect(acknowledgment.returnedGroup, isNull);
+        await expectLater(
+          api.detailById(siteUrl: siteUrl, groupId: 0),
+          throwsRangeError,
+        );
+        expect(transport.gets, isEmpty);
+      },
+    );
 
     test('SMTP check sends every connection field', () async {
       final transport = _RecordingTransport();

@@ -25,18 +25,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final (destination, acknowledgmentOnly) in [
+  for (final (destination, acknowledgmentOnly, retryHydration) in [
     for (final destination in ['opening', 'other tab', 'directory', 'retired'])
       for (final acknowledgmentOnly in [false, true])
-        (destination, acknowledgmentOnly),
+        (destination, acknowledgmentOnly, false),
+    ('opening', true, true),
   ]) {
     for (final confirmed in [false, true]) {
       test(
-        'rename ${acknowledgmentOnly ? 'acknowledgment' : 'full group'} ${confirmed ? 'confirmation' : 'save'} preserves $destination navigation',
+        'rename ${acknowledgmentOnly ? 'acknowledgment' : 'full group'} ${retryHydration ? 'retry' : 'immediate'} ${confirmed ? 'confirmation' : 'save'} preserves $destination navigation',
         () async {
           final server = _Server(
             confirm: confirmed,
             acknowledgmentOnly: acknowledgmentOnly,
+            idFailures: retryHydration ? 1 : 0,
           );
           addTearDown(server.api.close);
           final store = FakeForumTabStore([_workspace()]);
@@ -141,6 +143,23 @@ void main() {
           final openingBefore = shell.currentWorkspace!.tabById('opening')!;
           server.release.complete();
           final result = await pending;
+          if (retryHydration) {
+            expect(
+              result,
+              isA<GroupWriteAccepted<Group>>().having(
+                (result) => result.projection,
+                'freshness',
+                GroupProjectionFreshness.stale,
+              ),
+            );
+            expect(shell.currentContent?.groupRoute?.groupName, 'support');
+            await port.loadDetail(
+              owner,
+              GroupRoute.detail('support', section: GroupRoute.manage),
+              refresh: true,
+            );
+            expect(server.idLoads, 2);
+          }
           if (destination == 'directory') {
             await directoryCoordinator.requestLoad();
             final directory = port.directoryState(
@@ -167,7 +186,7 @@ void main() {
               'projection',
               destination == 'retired'
                   ? GroupProjectionFreshness.retired
-                  : acknowledgmentOnly
+                  : acknowledgmentOnly && !retryHydration
                   ? GroupProjectionFreshness.refreshed
                   : GroupProjectionFreshness.stale,
             ),
@@ -302,7 +321,13 @@ ForumWorkspace _workspace() => ForumWorkspace(
 );
 
 final class _Server {
-  _Server({required this.confirm, required this.acknowledgmentOnly});
+  _Server({
+    required this.confirm,
+    required this.acknowledgmentOnly,
+    this.idFailures = 0,
+  });
+  int idFailures;
+  int idLoads = 0;
   final bool acknowledgmentOnly;
   final bool confirm;
   int writes = 0;
@@ -339,9 +364,12 @@ final class _Server {
           200,
         );
       }
-      if (saved && request.url.path == '/groups/support.json')
+      if (saved && request.url.path == '/groups/support.json') {
         return http.Response('{}', 404);
+      }
       if (request.url.path == '/groups/by-id/9.json') {
+        idLoads++;
+        if (idFailures-- > 0) return http.Response('{}', 500);
         return http.Response(
           jsonEncode({
             'group': {
