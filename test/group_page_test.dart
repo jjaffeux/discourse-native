@@ -1069,7 +1069,7 @@ void main() {
         ),
         onSaveManage: (update) async {
           saved = update;
-          return true;
+          return const GroupWriteAccepted<void>(null);
         },
       ),
     );
@@ -1121,7 +1121,7 @@ void main() {
           onOpenMember: _ignoreMember,
           data: const GroupPageData(detail: _detail, taggingEnabled: true),
           onSelectRoute: (selected) => update(() => route = selected),
-          onSaveManage: (_) async => true,
+          onSaveManage: (_) async => const GroupWriteAccepted<void>(null),
         );
       },
     );
@@ -1205,7 +1205,7 @@ void main() {
           smtpEnabled: true,
           taggingEnabled: false,
         ),
-        onSaveManage: (_) async => true,
+        onSaveManage: (_) async => const GroupWriteAccepted<void>(null),
       ),
     );
 
@@ -1248,7 +1248,7 @@ void main() {
           data: const GroupPageData(detail: _detail, currentUserStaff: true),
           onSaveManage: (_) async {
             submissions += 1;
-            return true;
+            return const GroupWriteAccepted<void>(null);
           },
         ),
       );
@@ -1303,7 +1303,7 @@ void main() {
         registry: PluginRegistry.empty,
         onOpenMember: _ignoreMember,
         data: const GroupPageData(detail: _detail, currentUserStaff: true),
-        onSaveManage: (_) async => true,
+        onSaveManage: (_) async => const GroupWriteAccepted<void>(null),
       ),
     );
 

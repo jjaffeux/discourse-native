@@ -230,7 +230,8 @@ final class GroupManageController extends ChangeNotifier {
 
     try {
       if (!_isCurrent(generation)) return false;
-      final saved = await submit(update);
+      final result = await submit(update);
+      final saved = result.canApplyLocally;
       if (!_isCurrent(generation)) return false;
       if (saved) {
         _savedValues = update.values;

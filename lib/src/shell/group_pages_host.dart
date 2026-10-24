@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../data/discourse_api_contracts.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -11,7 +12,6 @@ import 'adaptive_dialog_action.dart';
 import 'group_page.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_port.dart';
-import 'groups_controller.dart';
 import 'groups_page.dart';
 import 'topic_list_view.dart';
 
@@ -182,20 +182,30 @@ class _GroupDetailView extends StatelessWidget {
         );
         if (reason == null || reason.trim().isEmpty) return;
         final result = await port.requestMembership(owner, group, reason);
-        if (!context.mounted) return;
+        if (!context.mounted || !port.isCurrent(owner)) return;
         switch (result) {
           // Discourse files the request as a private message to the group's
           // owners; the web client routes there, and so does the page that
           // sent it, unless it has since been left.
-          case GroupMembershipRequestSent(:final messageUrl?)
+          case GroupWriteAccepted<String?>(
+                value: final messageUrl?,
+                isCurrent: true,
+              )
               when identical(
                 coordinator.navigationIdentity,
                 navigationIdentity,
               ):
             port.openMembershipRequest(owner, messageUrl);
-          case GroupMembershipRequestFailed(:final message):
+          case GroupWriteFailed<String?>(:final error):
+            final message = switch (error) {
+              WriteException(errors: final errors, :final message)
+                  when errors.isNotEmpty =>
+                message,
+              _ => appL10n.couldnTSaveThatGroupChange,
+            };
             DToast.show(context, message, type: DToastType.error);
-          case GroupMembershipRequestSent() || null:
+          case GroupWriteAccepted<String?>() ||
+              GroupWriteNotAdmitted<String?>():
             break;
         }
     }
@@ -262,7 +272,8 @@ class _GroupDetailView extends StatelessWidget {
           onDeleteGroup: group == null
               ? null
               : () async {
-                  final deleted = await port.deleteGroup(owner, group);
+                  final result = await port.deleteGroup(owner, group);
+                  final deleted = result.canApplyLocally;
                   if (deleted) {
                     coordinator.showDirectory(from: navigationIdentity);
                   }
@@ -288,25 +299,51 @@ class _GroupDetailView extends StatelessWidget {
           onSearchUsers: (query) => port.searchUsers(owner, query),
           onAddMembers: group == null
               ? null
-              : (usernames, emails) => port.addMembers(
-                  owner,
-                  group,
-                  usernames,
-                  emails,
-                  coordinator.memberQuery,
-                ),
+              : (usernames, emails) async {
+                  final result = await port.addMembers(
+                    owner,
+                    group,
+                    GroupAddMembersCommand(
+                      usernames: usernames,
+                      emails: emails,
+                    ),
+                    coordinator.memberQuery,
+                  );
+                  return switch (result) {
+                    GroupWriteAccepted<GroupMembershipMutationResult>(
+                      :final value,
+                      isCurrent: true,
+                    ) =>
+                      value,
+                    _ => null,
+                  };
+                },
           onCreateInvite: group == null
               ? null
-              : ({String? email, String? customMessage}) => port.createInvite(
-                  owner,
-                  group,
-                  email: email,
-                  customMessage: customMessage,
-                ),
+              : ({String? email, String? customMessage}) async {
+                  final result = await port.createInvite(
+                    owner,
+                    group,
+                    email: email,
+                    customMessage: customMessage,
+                  );
+                  return switch (result) {
+                    GroupWriteAccepted<GroupInvite>(
+                      :final value,
+                      isCurrent: true,
+                    ) =>
+                      value,
+                    _ => null,
+                  };
+                },
           onMemberAction: group == null
               ? null
-              : (member, action) =>
-                    port.memberAction(owner, group, member, action),
+              : (member, action) async => (await port.memberAction(
+                  owner,
+                  group,
+                  member,
+                  action,
+                )).canApplyLocally,
           // Core answers `messageable` with the reader's permission to
           // message this group. It is independent of membership and of
           // whether the group has any messages yet, which decide only the
@@ -323,17 +360,36 @@ class _GroupDetailView extends StatelessWidget {
           onOpenActivityPost: (post) => port.openActivityPost(owner, post),
           onRequestAction: group == null
               ? null
-              : (requester, action) =>
-                    port.handleRequest(owner, group, requester, action),
+              : (requester, action) async {
+                  await port.handleRequest(owner, group, requester, action);
+                },
           onSaveManage: group == null
               ? null
-              : (update) => port.saveManage(
-                  owner,
-                  group,
-                  update,
-                  applyToExistingUsers: (userCount) =>
-                      _applyToExistingUsers(context, userCount),
-                ),
+              : (update) async {
+                  final result = await port.saveManage(owner, group, update);
+                  if (result is! GroupUpdateConfirmation) return result;
+                  if (!context.mounted || !port.isCurrent(owner)) {
+                    port.cancelManage(result);
+                    return const GroupWriteNotAdmitted<void>(
+                      GroupWriteAdmission.inactive,
+                    );
+                  }
+                  final apply = await _applyToExistingUsers(
+                    context,
+                    result.affectedUserCount,
+                  );
+                  if (apply == null || !context.mounted) {
+                    port.cancelManage(result);
+                    return const GroupWriteNotAdmitted<void>(
+                      GroupWriteAdmission.expiredConfirmation,
+                    );
+                  }
+                  return port.confirmManage(
+                    owner,
+                    result,
+                    applyToExistingUsers: apply,
+                  );
+                },
         );
       },
     );

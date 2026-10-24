@@ -477,7 +477,7 @@ void main() {
               onOpenMember: (_, _) {},
               onSaveManage: (update) async {
                 submitted = update.values;
-                return true;
+                return const GroupWriteAccepted<void>(null);
               },
             ),
           ),
@@ -862,7 +862,7 @@ class _GroupServer {
                 groupId: 9,
                 values: update.values,
               );
-              return true;
+              return const GroupWriteAccepted<void>(null);
             },
           ),
         ),

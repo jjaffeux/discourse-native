@@ -319,7 +319,7 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
   }) async {}
 
   @override
-  Future<bool> memberAction(
+  Future<GroupWriteOutcome<void>> memberAction(
     GroupPagesOwner owner,
     Group group,
     GroupMember member,
@@ -333,7 +333,7 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
       username: member.username,
       action: action,
     ));
-    return true;
+    return const GroupWriteAccepted(null);
   }
 
   @override

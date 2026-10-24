@@ -165,7 +165,7 @@ void main() {
 
       expect(transport.writes, hasLength(1));
       expect(replaced, isTrue);
-      expect(deleted, isFalse);
+      expect(deleted.canApplyLocally, isFalse);
     },
   );
 
@@ -372,7 +372,7 @@ void main() {
 
       detail.respond(transport, 2);
       write.release.complete();
-      expect(await joining, isTrue);
+      expect((await joining).canApplyLocally, isTrue);
 
       expect(detail.ids(controller, _site, 'busy'), [2]);
       expect(detail.ids(controller, _site, 'group-0'), isEmpty);
@@ -461,7 +461,7 @@ void main() {
           await removal.load(controller, filter: 'bravo');
           final unrelated = removal.state(controller, filter: 'alpha');
 
-          expect(await removal.remove(controller, 7), isTrue);
+          expect((await removal.remove(controller, 7)).canApplyLocally, isTrue);
 
           expect(removal.state(controller).ids, [91, 204]);
           expect(removal.state(controller).total, 9);
@@ -513,7 +513,10 @@ void main() {
             final loading = removal.load(controller, more: true);
             await pending.started.future;
 
-            expect(await removal.remove(controller, 7), isTrue);
+            expect(
+              (await removal.remove(controller, 7)).canApplyLocally,
+              isTrue,
+            );
             expect(removal.state(controller).ids, [91, 204]);
             expect(removal.state(controller).total, 9);
             expect(removal.state(controller).nextOffset, 2);
@@ -540,8 +543,8 @@ void main() {
         final loading = removal.load(controller, more: true);
         await pending.started.future;
 
-        expect(await removal.remove(controller, 7), isTrue);
-        expect(await removal.remove(controller, 91), isTrue);
+        expect((await removal.remove(controller, 7)).canApplyLocally, isTrue);
+        expect((await removal.remove(controller, 91)).canApplyLocally, isTrue);
         expect(removal.state(controller).ids, [204]);
         expect(removal.state(controller).nextOffset, 1);
         pending.release.complete();
@@ -567,7 +570,7 @@ void main() {
           pending.release.complete();
           await pumpEventQueue();
           writing.release.complete();
-          expect(await removing, isTrue);
+          expect((await removing).canApplyLocally, isTrue);
           await loading;
           await drain();
 
@@ -592,7 +595,7 @@ void main() {
           pending.release.complete();
           await pumpEventQueue();
           writing.release.complete();
-          expect(await removing, isFalse);
+          expect((await removing).canApplyLocally, isFalse);
           await loading;
           await drain();
 
@@ -618,7 +621,7 @@ void main() {
         expect(removal.state(controller).ids, isEmpty);
         expect(transport.pages, hasLength(2));
         writing.release.complete();
-        expect(await removing, isFalse);
+        expect((await removing).canApplyLocally, isFalse);
       });
 
       test('a refresh cannot resurrect a removed row', () async {
@@ -626,7 +629,7 @@ void main() {
         final pending = transport.holdPage();
         final loading = removal.load(controller, refresh: true);
         await pending.started.future;
-        expect(await removal.remove(controller, 7), isTrue);
+        expect((await removal.remove(controller, 7)).canApplyLocally, isTrue);
         final observed = <int>[];
         controller.addListener(
           () => observed.addAll(removal.state(controller).ids),
@@ -649,7 +652,7 @@ void main() {
         final loading = removal.load(controller, filter: 'alpha', more: true);
         await pending.started.future;
 
-        expect(await removal.remove(controller, 7), isTrue);
+        expect((await removal.remove(controller, 7)).canApplyLocally, isTrue);
         final state = removal.state(controller, filter: 'alpha');
         expect(state.total, 5);
         expect(state.nextOffset, 3);
@@ -1137,7 +1140,7 @@ void main() {
         owner: true,
       );
 
-      expect(saved, isTrue);
+      expect(saved.canApplyLocally, isTrue);
       expect(
         controller
             .membersState(
@@ -1306,7 +1309,7 @@ void main() {
       group,
       held.members.first,
     );
-    expect(removed, isTrue);
+    expect(removed.canApplyLocally, isTrue);
     expect(
       controller.membersState(_site, group.name).members.map((m) => m.id),
       [2],
@@ -1374,9 +1377,9 @@ void main() {
       final added = await controller.addMembers(
         _connectedInstance,
         group,
-        usernames: ['ada'],
+        GroupAddMembersCommand(usernames: const ['ada']),
       );
-      expect(added, isNotNull);
+      expect(added.canApplyLocally, isTrue);
       expect(transport.gets, hasLength(4));
       expect(
         controller.membersState(_site, group.name).members.map((m) => m.id),
@@ -1429,11 +1432,11 @@ void main() {
     );
     await pumpEventQueue();
     expect(
-      await controller.removeMember(
+      (await controller.removeMember(
         _connectedInstance,
         group,
         held.members.first,
-      ),
+      )).canApplyLocally,
       isTrue,
     );
 
@@ -1491,10 +1494,10 @@ void main() {
       await pageStarted.future;
       expect(transport.gets, hasLength(2));
       expect(
-        await controller.deleteGroup(
+        (await controller.deleteGroup(
           _connectedInstance,
           const Group(id: 7, name: 'support'),
-        ),
+        )).canApplyLocally,
         isTrue,
       );
 
@@ -1549,10 +1552,10 @@ void main() {
       expect(transport.listGets, hasLength(1));
 
       expect(
-        await controller.deleteGroup(
+        (await controller.deleteGroup(
           _connectedInstance,
           const Group(id: 7, name: 'Support'),
-        ),
+        )).canApplyLocally,
         isTrue,
       );
       detail.complete({
@@ -1597,7 +1600,7 @@ void main() {
       final mutation = controller.addMembers(
         _connectedInstance,
         const Group(id: 7, name: 'support'),
-        usernames: ['lee'],
+        GroupAddMembersCommand(usernames: const ['lee']),
       );
       await detailStarted.future;
       expect(transport.writes, hasLength(1));
@@ -1611,7 +1614,7 @@ void main() {
         'group': {'id': 7, 'name': 'support'},
       });
 
-      expect(await mutation, isNull);
+      expect((await mutation).canApplyLocally, isFalse);
       expect(transport.gets, [
         (
           path: '/groups/support.json',
@@ -1665,7 +1668,7 @@ void main() {
       held.requesters.first,
       accept: true,
     );
-    expect(handled, isTrue);
+    expect(handled.canApplyLocally, isTrue);
 
     nextPage.complete({
       'members': [
@@ -1703,8 +1706,8 @@ void main() {
 
       expect(
         result,
-        isA<GroupMembershipRequestSent>().having(
-          (sent) => sent.messageUrl,
+        isA<GroupWriteAccepted<String?>>().having(
+          (sent) => sent.value,
           'messageUrl',
           '/t/membership-request-from-sam-to-support/42',
         ),
@@ -1758,8 +1761,12 @@ void main() {
 
       expect(
         result,
-        isA<GroupMembershipRequestFailed>().having(
-          (failed) => failed.message,
+        isA<GroupWriteFailed<String?>>().having(
+          (failed) =>
+              failed.error is WriteException &&
+                  (failed.error as WriteException).errors.isNotEmpty
+              ? (failed.error as WriteException).message
+              : "Couldn't save that group change.",
           'message',
           message,
         ),
@@ -1796,7 +1803,175 @@ void main() {
     controller.forget(_site);
     write.release.complete();
 
-    expect(await request, isNull);
+    expect(await request, isA<GroupWriteFailed<String?>>());
+  });
+
+  group('group write outcomes', () {
+    const target = Group(id: 7, name: 'support');
+
+    test('server acceptance survives a failed detail refresh', () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.add(
+          _completed({
+            'group': {'id': 7, 'name': 'support'},
+          }),
+        )
+        ..onGet = (_) => throw StateError('refresh failed');
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      final result = await controller.updateGroup(
+        _connectedInstance,
+        target,
+        GroupUpdateCommand(const {'full_name': 'Saved'}),
+      );
+      expect(
+        result,
+        isA<GroupWriteAccepted<void>>().having(
+          (value) => value.projection,
+          'projection',
+          GroupProjectionFreshness.stale,
+        ),
+      );
+      expect(result.canApplyLocally, isTrue);
+      expect(controller.detailState(_site, target.name).error, isNotNull);
+      expect(transport.writes, hasLength(1));
+    });
+
+    for (final notSent in [true, false]) {
+      test('unreachable retains notSent=$notSent without a retry', () async {
+        final transport = _ControlledGroupTransport()
+          ..onWrite = (_) =>
+              throw WriteException(WriteFailure.unreachable, notSent: notSent);
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        final result = await controller.requestMembership(
+          _connectedInstance,
+          target,
+          'reason',
+        );
+        expect(
+          result,
+          isA<GroupWriteFailed<String?>>().having(
+            (value) => value.delivery,
+            'delivery',
+            notSent ? GroupWriteDelivery.notSent : GroupWriteDelivery.uncertain,
+          ),
+        );
+        expect(transport.writes, hasLength(1));
+      });
+    }
+
+    test(
+      'an accepted answer after retirement keeps its server truth',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..onWrite = (_) => {'relative_url': '/t/request/42'};
+        final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          transport,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        final write = transport.holdWrite();
+        final pending = controller.requestMembership(
+          _connectedInstance,
+          target,
+          'reason',
+        );
+        await write.started.future;
+        lifecycle.invalidate(_site);
+        controller.forget(_site);
+        write.release.complete();
+        final result = await pending;
+        expect(
+          result,
+          isA<GroupWriteAccepted<String?>>()
+              .having((value) => value.value, 'message', '/t/request/42')
+              .having(
+                (value) => value.projection,
+                'projection',
+                GroupProjectionFreshness.retired,
+              ),
+        );
+        expect(result.canApplyLocally, isFalse);
+        expect(controller.detailState(_site, target.name).detail, isNull);
+      },
+    );
+
+    test('admission reports missing credentials and busy separately', () async {
+      final transport = _ControlledGroupTransport();
+      final credentials = FakeApiCredentialReader();
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      expect(
+        await controller.join(_connectedInstance, target),
+        isA<GroupWriteNotAdmitted<void>>().having(
+          (value) => value.reason,
+          'reason',
+          GroupWriteAdmission.noCredentials,
+        ),
+      );
+      expect(controller.detailState(_site, target.name).mutating, isFalse);
+      credentials.keys[_site] = 'secret';
+      final write = transport.holdWrite();
+      final first = controller.requestMembership(
+        _connectedInstance,
+        target,
+        'reason',
+      );
+      await write.started.future;
+      expect(
+        await controller.join(_connectedInstance, target),
+        isA<GroupWriteNotAdmitted<void>>().having(
+          (value) => value.reason,
+          'reason',
+          GroupWriteAdmission.busy,
+        ),
+      );
+      write.release.complete();
+      await first;
+      expect(transport.writes, hasLength(1));
+    });
+
+    test(
+      'member command snapshots lazy inputs before credential loading',
+      () async {
+        final usernames = ['lee'];
+        final emails = ['lee@example.com'];
+        final credentials = _HeldGroupCredentials();
+        final transport = _ControlledGroupTransport()
+          ..objects.addAll([
+            _completed({
+              'group': {'id': 7, 'name': 'support'},
+            }),
+            _completed({'members': <Object?>[]}),
+          ]);
+        final controller = _controller(transport, credentials: credentials);
+        addTearDown(controller.dispose);
+        final pending = controller.addMembers(
+          _connectedInstance,
+          target,
+          GroupAddMembersCommand(
+            usernames: usernames.where((_) => true),
+            emails: emails,
+          ),
+        );
+        usernames.add('changed');
+        emails.clear();
+        credentials.key.complete('secret');
+        final result = await pending;
+        expect(result.canApplyLocally, isTrue);
+        expect(transport.writes.single.body, {
+          'usernames': 'lee',
+          'emails': 'lee@example.com',
+          'notify_users': true,
+        });
+      },
+    );
   });
 
   group('a save core holds for existing members', () {
@@ -1833,25 +2008,27 @@ void main() {
       return (transport: transport, controller: controller);
     }
 
-    // Core answers 422 with `user_count` until the save says whether the
-    // change applies to them, and reads a JSON false as not having said.
     for (final (answer, sent) in [(true, 'true'), (false, 'false')]) {
       test('is sent again with the answer $answer', () async {
         final (:transport, :controller) = heldSave();
-        final asked = <int>[];
-
-        final saved = await controller.updateGroup(
+        final result = await controller.updateGroup(
           _connectedInstance,
           const Group(id: 7, name: 'support'),
-          values,
-          applyToExistingUsers: (count) async {
-            asked.add(count);
-            return answer;
-          },
+          GroupUpdateCommand(values),
         );
-
-        expect(saved, isTrue);
-        expect(asked, [3]);
+        expect(
+          result,
+          isA<GroupUpdateConfirmation>().having(
+            (value) => value.affectedUserCount,
+            'affected users',
+            3,
+          ),
+        );
+        final saved = await controller.confirmUpdate(
+          result as GroupUpdateConfirmation,
+          applyToExistingUsers: answer,
+        );
+        expect(saved.canApplyLocally, isTrue);
         expect(transport.writes.map((write) => write.body), [
           {'group': values},
           {'group': values, 'update_existing_users': sent},
@@ -1860,62 +2037,188 @@ void main() {
       });
     }
 
+    Future<GroupUpdateConfirmation> confirmation(
+      GroupsController controller, [
+      Map<String, Object?> input = values,
+    ]) async =>
+        await controller.updateGroup(
+              _connectedInstance,
+              const Group(id: 7, name: 'support'),
+              GroupUpdateCommand(input),
+            )
+            as GroupUpdateConfirmation;
+
     test('is abandoned when the question is dismissed', () async {
       final (:transport, :controller) = heldSave();
-
-      final saved = await controller.updateGroup(
-        _connectedInstance,
-        const Group(id: 7, name: 'support'),
-        values,
-        applyToExistingUsers: (_) async => null,
+      final pending = await confirmation(controller);
+      controller.cancelUpdate(pending);
+      expect(
+        (await controller.confirmUpdate(
+          pending,
+          applyToExistingUsers: true,
+        )).canApplyLocally,
+        isFalse,
       );
-
-      expect(saved, isFalse);
       expect(transport.writes, hasLength(1));
     });
 
     test('is not sent again for another account', () async {
       final lifecycle = SiteLifecycle();
       final (:transport, :controller) = heldSave(lifecycle: lifecycle);
-
-      final saved = await controller.updateGroup(
-        _connectedInstance,
-        const Group(id: 7, name: 'support'),
-        values,
-        applyToExistingUsers: (_) async {
-          lifecycle.invalidate(_site);
-          return true;
-        },
+      final pending = await confirmation(controller);
+      lifecycle.invalidate(_site);
+      expect(
+        (await controller.confirmUpdate(
+          pending,
+          applyToExistingUsers: true,
+        )).canApplyLocally,
+        isFalse,
       );
-
-      expect(saved, isFalse);
       expect(transport.writes, hasLength(1));
     });
 
-    test('asks nothing about a refusal without a member count', () async {
-      final (:transport, :controller) = heldSave(
-        first: const WriteException(
-          WriteFailure.validation,
-          errors: ['Name has already been taken'],
-          statusCode: 422,
+    test(
+      'a refusal without a member count does not create a continuation',
+      () async {
+        final (:transport, :controller) = heldSave(
+          first: const WriteException(
+            WriteFailure.validation,
+            errors: ['Name has already been taken'],
+            statusCode: 422,
+          ),
+        );
+        final result = await controller.updateGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          GroupUpdateCommand(values),
+        );
+        expect(
+          result,
+          isA<GroupWriteFailed<void>>().having(
+            (value) => value.delivery,
+            'delivery',
+            GroupWriteDelivery.refused,
+          ),
+        );
+        expect(transport.writes, hasLength(1));
+      },
+    );
+
+    test(
+      'confirmation preserves original nested input across both attempts',
+      () async {
+        final (:transport, :controller) = heldSave();
+        final ids = [1, 2];
+        final input = <String, Object?>{
+          'watching_category_ids': ids,
+          'bio_raw': '  original\n',
+        };
+        final saving = controller.updateGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          GroupUpdateCommand(input),
+        );
+        ids.add(3);
+        input['bio_raw'] = 'changed before credentials';
+        final pending = await saving as GroupUpdateConfirmation;
+        ids.clear();
+        input.clear();
+        expect(
+          (await controller.confirmUpdate(
+            pending,
+            applyToExistingUsers: false,
+          )).canApplyLocally,
+          isTrue,
+        );
+        for (final write in transport.writes) {
+          expect(write.body['group'], {
+            'watching_category_ids': [1, 2],
+            'bio_raw': '  original\n',
+          });
+        }
+      },
+    );
+
+    test('another admitted write expires a pending confirmation', () async {
+      final (:transport, :controller) = heldSave();
+      final pending = await confirmation(controller);
+      await controller.createInvite(
+        _connectedInstance,
+        const Group(id: 7, name: 'support'),
+      );
+      final result = await controller.confirmUpdate(
+        pending,
+        applyToExistingUsers: true,
+      );
+      expect(
+        result,
+        isA<GroupWriteNotAdmitted<void>>().having(
+          (value) => value.reason,
+          'reason',
+          GroupWriteAdmission.expiredConfirmation,
         ),
       );
-      var asked = false;
-
-      final saved = await controller.updateGroup(
-        _connectedInstance,
-        const Group(id: 7, name: 'support'),
-        values,
-        applyToExistingUsers: (_) async {
-          asked = true;
-          return true;
-        },
-      );
-
-      expect(saved, isFalse);
-      expect(asked, isFalse);
-      expect(transport.writes, hasLength(1));
+      expect(transport.writes, hasLength(2));
     });
+
+    test(
+      'confirmation belongs to its controller and can only be used once',
+      () async {
+        final (:transport, :controller) = heldSave();
+        final other = _controller(_ControlledGroupTransport());
+        addTearDown(other.dispose);
+        final pending = await confirmation(controller);
+        expect(
+          (await other.confirmUpdate(
+            pending,
+            applyToExistingUsers: true,
+          )).canApplyLocally,
+          isFalse,
+        );
+        expect(
+          (await controller.confirmUpdate(
+            pending,
+            applyToExistingUsers: true,
+          )).canApplyLocally,
+          isTrue,
+        );
+        expect(
+          (await controller.confirmUpdate(
+            pending,
+            applyToExistingUsers: true,
+          )).canApplyLocally,
+          isFalse,
+        );
+        expect(transport.writes, hasLength(2));
+      },
+    );
+
+    test(
+      'a completion observer cannot attach an old confirmation to a newer attempt',
+      () async {
+        final (:transport, :controller) = heldSave();
+        Future<GroupWriteOutcome<GroupInvite>>? intervening;
+        controller.addListener(() {
+          if (intervening != null ||
+              transport.writes.isEmpty ||
+              controller.detailState(_site, 'support').mutating) {
+            return;
+          }
+          intervening = controller.createInvite(
+            _connectedInstance,
+            const Group(id: 7, name: 'support'),
+          );
+        });
+        final result = await controller.updateGroup(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          GroupUpdateCommand(values),
+        );
+        expect(result, isA<GroupWriteFailed<void>>());
+        await intervening;
+        expect(transport.writes, hasLength(2));
+      },
+    );
   });
 }
 
@@ -1963,7 +2266,8 @@ enum _GroupListRemoval {
           refresh: refresh,
         );
 
-  Future<bool> remove(GroupsController controller, int id) => this == member
+  Future<GroupWriteOutcome<void>> remove(GroupsController controller, int id) =>
+      this == member
       ? controller.removeMember(
           _connectedInstance,
           const Group(id: 7, name: 'support'),
@@ -2326,4 +2630,11 @@ enum _GroupPageCache {
 
   void respond(_ControlledGroupTransport transport, int id) =>
       hold(transport)(id);
+}
+
+final class _HeldGroupCredentials extends FakeApiCredentialReader {
+  final key = Completer<String?>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) => key.future;
 }
