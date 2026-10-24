@@ -761,6 +761,93 @@ void _registerTopicReplyTests() {
       expect(renderedText('It landed.'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('an older identical reply does not confirm a failed send', (
+      tester,
+    ) async {
+      const previousReply = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'joffreyj',
+        cooked: '<p>Repeated reply.</p>',
+        raw: '  Repeated\u00a0reply.  ',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [detail().posts.first, previousReply],
+            stream: const [1, 2],
+            postsCount: 2,
+            canCreatePost: true,
+          ),
+        },
+        postsById: {2: previousReply},
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      );
+
+      await openTopic(tester, api);
+      expect(renderedText('Repeated reply.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+      await tester.pumpAndSettle();
+      await tester.enterText(_composerField, 'Repeated reply.');
+      await tester.pumpAndSettle();
+      await tester.tap(sendButton());
+      await tester.pumpAndSettle();
+
+      expect(api.created, hasLength(1));
+      expect(find.byType(ComposerPanel), findsOneWidget);
+      expect(
+        tester.widget<TextField>(_composerField).controller!.text,
+        'Repeated reply.',
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets(
+      'an older identical reply does not confirm a failed send when absent from cached stream',
+      (tester) async {
+        const previousReply = Post(
+          id: 2,
+          postNumber: 2,
+          username: 'joffreyj',
+          cooked: '<p>Repeated reply.</p>',
+          raw: 'Repeated reply.',
+        );
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          postsById: {2: previousReply},
+          writeFailure: const WriteException(WriteFailure.unreachable),
+        );
+
+        await openTopic(tester, api);
+        expect(renderedText('Repeated reply.'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField, 'Repeated reply.');
+        await tester.pumpAndSettle();
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [detail().posts.first, previousReply],
+          stream: const [1, 2],
+          postsCount: 2,
+          canCreatePost: true,
+        );
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+
+        expect(api.created, hasLength(1));
+        expect(find.byType(ComposerPanel), findsOneWidget);
+        expect(
+          tester.widget<TextField>(_composerField).controller!.text,
+          'Repeated reply.',
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
     testWidgets('a check that finds nothing lets the reply be sent again', (
       tester,
     ) async {
