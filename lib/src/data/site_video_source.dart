@@ -87,6 +87,7 @@ final class SiteVideoSourceResolver {
         current,
         account.headersFor(current),
         elapsed,
+        lease,
       );
       _requireCurrent(lease);
 
@@ -123,6 +124,7 @@ final class SiteVideoSourceResolver {
     Uri url,
     Map<String, String> headers,
     Stopwatch elapsed,
+    SiteLease lease,
   ) async {
     if (_closed) throw StateError('Video source resolver is closed.');
     final abort = Completer<void>();
@@ -138,7 +140,7 @@ final class SiteVideoSourceResolver {
     try {
       late final http.StreamedResponse response;
       try {
-        response = await _guard(pending, elapsed);
+        response = await _guard(pending, elapsed, lease: lease);
       } on Object {
         // Closing or timing out can win just before the transport delivers
         // headers. The abandoned response still needs its body cancelled.
@@ -149,7 +151,11 @@ final class SiteVideoSourceResolver {
       }
       // Only status and redirect headers are needed. Do not wait for or buffer
       // a broken server's HEAD body, and release the connection promptly.
-      await _guard(response.stream.listen(null).cancel(), elapsed);
+      await _guard(
+        response.stream.listen(null).cancel(),
+        elapsed,
+        lease: lease,
+      );
       return response;
     } on Object {
       if (!abort.isCompleted) abort.complete();
@@ -171,7 +177,11 @@ final class SiteVideoSourceResolver {
     return remaining;
   }
 
-  Future<T> _guard<T>(Future<T> operation, Stopwatch elapsed) async {
+  Future<T> _guard<T>(
+    Future<T> operation,
+    Stopwatch elapsed, {
+    SiteLease? lease,
+  }) async {
     // Even an already-expired deadline must observe a failure from work the
     // caller has started. Successful work detaches its shutdown callback so
     // this long-lived resolver does not retain every completed probe.
@@ -184,6 +194,13 @@ final class SiteVideoSourceResolver {
       }
     }
 
+    final removeRetirement = lease?.onRetire(() {
+      if (!cancelled.isCompleted) {
+        cancelled.completeError(
+          StateError('Video source belongs to an expired account session.'),
+        );
+      }
+    });
     _closeCallbacks.add(onClose);
     final timer = Timer(remaining, () {
       if (!cancelled.isCompleted) {
@@ -196,6 +213,7 @@ final class SiteVideoSourceResolver {
       return await Future.any<T>([operation, cancelled.future]);
     } finally {
       timer.cancel();
+      removeRetirement?.call();
       _closeCallbacks.remove(onClose);
     }
   }

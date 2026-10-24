@@ -90,6 +90,11 @@ class SiteThumbnailRepository {
       if (_jobs.length >= maxPending) return _empty();
       job = _ThumbnailJob(key, lifecycle.capture(siteUrl));
       _jobs[key] = job;
+      final owned = job;
+      owned.removeRetirement = owned.lease.onRetire(() {
+        _cancel(owned);
+        _pump();
+      });
     }
     final current = job;
     current.consumers++;
@@ -142,6 +147,8 @@ class SiteThumbnailRepository {
       // Unavailable uploads, failed rendering and missing platform bridges
       // retain the caller's fallback. Failed extraction is briefly cached.
     } finally {
+      job.removeRetirement?.call();
+      job.removeRetirement = null;
       if (_current(job)) {
         _remember(job, bytes);
       }
@@ -171,6 +178,8 @@ class SiteThumbnailRepository {
   }
 
   void _cancel(_ThumbnailJob job) {
+    job.removeRetirement?.call();
+    job.removeRetirement = null;
     if (identical(_jobs[job.key], job)) _jobs.remove(job.key);
     if (!job.result.isCompleted) job.result.complete(null);
     job.resolver?.close();
@@ -209,6 +218,7 @@ final class _ThumbnailJob {
   final result = Completer<Uint8List?>();
   int consumers = 0;
   bool active = false;
+  VoidCallback? removeRetirement;
   SiteVideoSourceResolver? resolver;
   ThumbnailRequest? extraction;
 }
