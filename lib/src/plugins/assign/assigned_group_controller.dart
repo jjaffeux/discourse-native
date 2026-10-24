@@ -40,8 +40,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
   final Store _topics;
   final bool _ownsTopicStore;
 
-  final Map<_MemberKey, AssignedGroupMembersState> _memberStates = {};
-  final Map<_MemberKey, Object> _memberRequests = {};
+  final Map<_MemberKey, _AssignedMemberQuery> _memberQueries = {};
 
   final Map<_TopicKey, _AssignedTopicQuery> _topicQueries = {};
 
@@ -50,7 +49,10 @@ final class AssignedGroupController extends FrameSafeNotifier {
     String groupName, {
     String search = '',
   }) =>
-      _touchQuery(_memberStates, _memberKey(siteUrl, groupName, search)) ??
+      _touchQuery(
+        _memberQueries,
+        _memberKey(siteUrl, groupName, search),
+      )?.state ??
       const AssignedGroupMembersState();
 
   TopicFeed topicFeedFor(
@@ -78,15 +80,12 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }
 
   void _trimMemberQueries(String siteUrl) {
-    final keys = _memberStates.keys
+    final keys = _memberQueries.keys
         .where((key) => key.siteUrl == siteUrl)
         .toList(growable: false);
     if (keys.length <= _cachedQueriesPerSite) return;
     for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
-      _memberStates.remove(key);
-      // Invalidate delayed responses and their finally blocks, including when
-      // a new request has since started for this same key.
-      _memberRequests.remove(key);
+      _memberQueries.remove(key)?.retire();
     }
   }
 
@@ -108,58 +107,16 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _memberKey(siteUrl, groupName, search);
-    final held =
-        _touchQuery(_memberStates, key) ?? const AssignedGroupMembersState();
-    if (!refresh &&
-        (_memberRequests.containsKey(key) ||
-            (held.loaded && held.error == null))) {
-      return;
-    }
-
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _memberRequests[key] = request;
-    _memberStates[key] = held.loadingFirst();
+    final owner =
+        _touchQuery(_memberQueries, key) ??
+        (_memberQueries[key] = _AssignedMemberQuery(
+          key: key,
+          api: api,
+          requests: _requests,
+          notify: notifySafely,
+        ));
     _trimMemberQueries(siteUrl);
-    notifySafely();
-    if (!_memberRequestCurrent(lease, key, request)) return;
-
-    try {
-      final credentials = await _requests.credentialsFor(siteUrl);
-      if (!_memberRequestCurrent(lease, key, request)) return;
-      final apiKey = credentials.apiKey;
-      if (apiKey == null) {
-        _commitMember(lease, key, request, () {
-          _memberStates[key] = held.withError(
-            appL10n.reconnectToViewGroupAssignments,
-          );
-        });
-        return;
-      }
-
-      final page = await credentials.run(
-        () => api.members(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: credentials.clientId,
-          groupName: key.groupName,
-          search: key.search,
-        ),
-      );
-      _commitMember(lease, key, request, () {
-        _memberStates[key] = (_memberStates[key] ?? held).withPage(page);
-      });
-    } catch (error) {
-      if (!_memberRequestCurrent(lease, key, request)) return;
-
-      _commitMember(lease, key, request, () {
-        _memberStates[key] = held.withError(
-          appL10n.couldnTLoadThisGroupSAssignedMembers,
-        );
-      });
-    } finally {
-      _finishMemberRequest(key, request);
-    }
+    await owner.load(refresh: refresh);
   }
 
   Future<void> loadMoreMembers({
@@ -168,64 +125,11 @@ final class AssignedGroupController extends FrameSafeNotifier {
     String search = '',
   }) async {
     if (isDisposed) return;
-    final key = _memberKey(siteUrl, groupName, search);
-    final held =
-        _touchQuery(_memberStates, key) ?? const AssignedGroupMembersState();
-    if (_memberRequests.containsKey(key) ||
-        held.loading ||
-        held.loadingMore ||
-        !held.loaded ||
-        !held.hasMore ||
-        (held.error != null && !held.pageError)) {
-      return;
-    }
-
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _memberRequests[key] = request;
-    _memberStates[key] = held.loadingNextPage();
-    notifySafely();
-    if (!_memberRequestCurrent(lease, key, request)) return;
-
-    try {
-      final credentials = await _requests.credentialsFor(siteUrl);
-      if (!_memberRequestCurrent(lease, key, request)) return;
-      final apiKey = credentials.apiKey;
-      if (apiKey == null) {
-        _commitMember(lease, key, request, () {
-          _memberStates[key] = held.withError(
-            appL10n.reconnectToLoadMoreAssignedMembers,
-            page: true,
-          );
-        });
-        return;
-      }
-
-      final page = await credentials.run(
-        () => api.members(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: credentials.clientId,
-          groupName: key.groupName,
-          search: key.search,
-          offset: held.nextOffset,
-        ),
-      );
-      _commitMember(lease, key, request, () {
-        _memberStates[key] = held.withPage(page);
-      });
-    } catch (error) {
-      if (!_memberRequestCurrent(lease, key, request)) return;
-
-      _commitMember(lease, key, request, () {
-        _memberStates[key] = held.withError(
-          appL10n.couldnTLoadMoreAssignedMembers,
-          page: true,
-        );
-      });
-    } finally {
-      _finishMemberRequest(key, request);
-    }
+    final owner = _touchQuery(
+      _memberQueries,
+      _memberKey(siteUrl, groupName, search),
+    );
+    await owner?.loadMore();
   }
 
   Future<void> loadTopics({
@@ -265,16 +169,19 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
-    final before = _memberStates.length + _topicQueries.length;
-    _memberStates.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _memberRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
+    final before = _memberQueries.length + _topicQueries.length;
+    _memberQueries.removeWhere((key, owner) {
+      if (key.siteUrl != siteUrl) return false;
+      owner.retire();
+      return true;
+    });
     _topicQueries.removeWhere((key, owner) {
       if (key.siteUrl != siteUrl) return false;
       owner.retire();
       return true;
     });
     if (_ownsTopicStore) _topics.forget(siteUrl);
-    if (before != _memberStates.length + _topicQueries.length) notifySafely();
+    if (before != _memberQueries.length + _topicQueries.length) notifySafely();
   }
 
   // Reads and load attempts count as access; asynchronous completions do not
@@ -307,45 +214,132 @@ final class AssignedGroupController extends FrameSafeNotifier {
     ),
   );
 
-  bool _memberRequestCurrent(
-    PluginSiteLease lease,
-    _MemberKey key,
-    Object request,
-  ) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      identical(_memberRequests[key], request);
-
-  void _commitMember(
-    PluginSiteLease lease,
-    _MemberKey key,
-    Object request,
-    void Function() mutation,
-  ) {
-    if (!_memberRequestCurrent(lease, key, request)) return;
-    lease.commit(() {
-      if (!identical(_memberRequests[key], request)) return;
-      mutation();
-      notifySafely();
-    });
-  }
-
-  void _finishMemberRequest(_MemberKey key, Object request) {
-    if (!isDisposed && identical(_memberRequests[key], request)) {
-      _memberRequests.remove(key);
-      notifySafely();
-    }
-  }
-
   @override
   void dispose() {
-    _memberStates.clear();
-    _memberRequests.clear();
+    for (final owner in _memberQueries.values) {
+      owner.retire();
+    }
+    _memberQueries.clear();
     for (final owner in _topicQueries.values) {
       owner.retire();
     }
     _topicQueries.clear();
     super.dispose();
+  }
+}
+
+final class _AssignedMemberQuery {
+  _AssignedMemberQuery({
+    required this.key,
+    required this.api,
+    required this.requests,
+    required this.notify,
+  });
+
+  final _MemberKey key;
+  final AssignedGroupApi api;
+  final PluginRequestHost requests;
+  final void Function() notify;
+
+  AssignedGroupMembersState state = const AssignedGroupMembersState();
+  Object? _request;
+  bool _retired = false;
+
+  Future<void> load({bool refresh = false}) =>
+      _load(page: false, refresh: refresh);
+
+  Future<void> loadMore() => _load(page: true);
+
+  Future<void> _load({required bool page, bool refresh = false}) async {
+    if (_retired) return;
+    final held = state;
+    if (page) {
+      if (_request != null ||
+          held.loading ||
+          held.loadingMore ||
+          !held.loaded ||
+          !held.hasMore ||
+          (held.error != null && !held.pageError)) {
+        return;
+      }
+    } else if (!refresh &&
+        (_request != null || (held.loaded && held.error == null))) {
+      return;
+    }
+
+    final request = Object();
+    final lease = requests.capture(key.siteUrl);
+    _request = request;
+    state = page ? held.loadingNextPage() : held.loadingFirst();
+    notify();
+    if (!_current(lease, request)) return;
+
+    try {
+      final credentials = await requests.credentialsFor(key.siteUrl);
+      if (!_current(lease, request)) return;
+      final apiKey = credentials.apiKey;
+      if (apiKey == null) {
+        _commit(lease, request, () {
+          state = held.withError(
+            page
+                ? appL10n.reconnectToLoadMoreAssignedMembers
+                : appL10n.reconnectToViewGroupAssignments,
+            page: page,
+          );
+        });
+        return;
+      }
+
+      final result = await credentials.run(
+        () => api.members(
+          siteUrl: key.siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          groupName: key.groupName,
+          search: key.search,
+          offset: page ? held.nextOffset : 0,
+        ),
+      );
+      _commit(lease, request, () {
+        state = (page ? held : state).withPage(result);
+      });
+    } catch (error) {
+      if (!_current(lease, request)) return;
+      _commit(lease, request, () {
+        state = held.withError(
+          page
+              ? appL10n.couldnTLoadMoreAssignedMembers
+              : appL10n.couldnTLoadThisGroupSAssignedMembers,
+          page: page,
+        );
+      });
+    } finally {
+      if (!_retired && identical(_request, request)) {
+        _request = null;
+        notify();
+      }
+    }
+  }
+
+  bool _current(PluginSiteLease lease, Object request) =>
+      !_retired && lease.isCurrent && identical(_request, request);
+
+  void _commit(
+    PluginSiteLease lease,
+    Object request,
+    void Function() mutation,
+  ) {
+    if (!_current(lease, request)) return;
+    lease.commit(() {
+      if (!identical(_request, request)) return;
+      mutation();
+      notify();
+    });
+  }
+
+  void retire() {
+    _retired = true;
+    _request = null;
   }
 }
 
