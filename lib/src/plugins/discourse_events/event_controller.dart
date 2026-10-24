@@ -47,6 +47,8 @@ final class EventController extends FrameSafeNotifier
   int get foregroundRevision => _foregroundRevision;
   final _accountRevisions = <String, int>{};
   int accountRevision(String site) => _accountRevisions[site] ?? 0;
+  final _directoryRevisions = <String, int>{};
+  int directoryRevision(String site) => _directoryRevisions[site] ?? 0;
   bool isAccountCurrent(String site, int revision) =>
       !isDisposed && accountRevision(site) == revision;
 
@@ -167,6 +169,9 @@ final class EventController extends FrameSafeNotifier
           if (entry.topicId != value.topicId) {
             entry.subscription?.cancel();
             entry.subscription = null;
+          }
+          if (entry.value != value) {
+            _directoryRevisions[entry.site] = directoryRevision(entry.site) + 1;
           }
           entry.value = value;
           entry.authoritative = true;

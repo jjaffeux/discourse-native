@@ -17,6 +17,7 @@ typedef _DirectoryQuery = ({
   tz.Location location,
   int firstDay,
   int accountRevision,
+  int directoryRevision,
   int foregroundRevision,
 });
 
@@ -71,6 +72,7 @@ final class EventDirectorySession extends ChangeNotifier {
       location: controller.zones.location(timezone)!,
       firstDay: firstDay,
       accountRevision: controller.accountRevision(site),
+      directoryRevision: controller.directoryRevision(site),
       foregroundRevision: controller.foregroundRevision,
     );
   }
