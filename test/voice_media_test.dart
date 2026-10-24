@@ -2169,6 +2169,38 @@ void main() {
       },
     );
 
+    test('undeafening restores audio after a delayed deafen write', () async {
+      final gate = Completer<void>();
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        audioPublishingAllowed: false,
+        setTrackVolume: (volume, track) async {
+          if (volume == 0) await gate.future;
+          (track as _FakeTrack).volume = volume;
+        },
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      final track = _FakeTrack('remote-mic', 'audio');
+      peer.onTrack!.call(
+        rtc.RTCTrackEvent(
+          streams: [_FakeStream('remote', [track])],
+          track: track,
+        ),
+      );
+      await _pumpEventQueue();
+
+      await media.setDeafened(true);
+      expect(track.enabled, isFalse);
+      await media.setDeafened(false);
+      expect(track.enabled, isTrue);
+      gate.complete();
+      await _pumpEventQueue();
+
+      expect(track.volume, 1);
+    });
+
     test(
       'contains detached remote volume failures without exposing raw cause',
       () async {
