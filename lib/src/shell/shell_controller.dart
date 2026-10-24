@@ -4271,6 +4271,7 @@ class ShellController extends FrameSafeNotifier
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
           badges.forget(siteUrl);
+          _notificationPreferences.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl)?.retire();
           _liveSessions.clearRetry(siteUrl);
         }

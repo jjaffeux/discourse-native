@@ -393,6 +393,60 @@ void main() {
   });
 
   test(
+    'bootstrap account replacement retires preferences within the same lease',
+    () async {
+      final gate = Completer<void>();
+      const replacement = DiscourseUser(
+        id: 8,
+        username: 'replacement',
+        unifiedNewEnabled: true,
+        sidebarShowCountOfNewItems: true,
+      );
+      final tracking = TopicTrackingState([_tracked]);
+      final api = _NotificationApi(
+        messageBusBootstrapGate: gate,
+        messageBusBootstrapResult: SiteMessageBusBootstrap(
+          currentUser: replacement,
+          currentUserState: null,
+          topicTrackingState: tracking,
+          topicTrackingLastIds: const {
+            '/latest': 1,
+            '/new': 1,
+            '/unread': 1,
+            '/unread/8': 1,
+            '/delete': 1,
+            '/recover': 1,
+            '/destroy': 1,
+          },
+          notificationChannelPosition: null,
+        ),
+      )..accounts['reader-key'] = replacement;
+      final fixture = await _Fixture.load(api: api);
+      final lease = fixture.shell.lifecycle.capture(_site);
+      final oldWrite = fixture.select(TopicNotificationLevel.normal);
+      await pumpEventQueue();
+
+      gate.complete();
+      await pumpEventQueue();
+      expect(lease.isCurrent, isTrue);
+      expect(fixture.shell.currentInstance!.user!.id, 8);
+      expect(fixture.shell.newReplyCount, 1);
+      final fresh = fixture.select(TopicNotificationLevel.muted);
+      expect(fixture.shell.newReplyCount, 0);
+      await pumpEventQueue();
+      expect(api.requests, hasLength(2));
+
+      api.requests.first.result.complete();
+      expect(await oldWrite, isFalse);
+      fixture.finish();
+      expect(await fresh, isTrue);
+      fixture.bus(TopicNotificationLevel.tracking);
+      expect(fixture.shell.newReplyCount, 1);
+      expect(tracking.topics.single.notificationLevel, 2);
+    },
+  );
+
+  test(
     'retired account writes and topic callbacks cannot alter its replacement',
     () async {
       final fixture = await _Fixture.load();
