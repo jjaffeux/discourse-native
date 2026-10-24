@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -7,6 +8,8 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -18,6 +21,35 @@ enum _Field { title, category, tags }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('category change retains an allowed existing tag', () async {
+    final fixture = await _fixture();
+    fixture.api.tagSearchResponse = (request) {
+      expect(request.url.path, '/tags/filter/search.json');
+      expect(request.url.queryParameters['categoryId'], '2');
+      final selected =
+          request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+      return _tagResults(
+        selected.contains('7')
+            ? []
+            : [
+                {'id': 7, 'name': 'design'},
+              ],
+      );
+    };
+    fixture.shell.store.update<TopicDetail>(
+      _site,
+      1,
+      (detail) => detail.copyWith(tags: [_tag]),
+    );
+    final saving = _save(fixture.shell, _Field.category);
+    await pumpEventQueue();
+    expect(fixture.api.requests, hasLength(1));
+    fixture.api.pending.single.complete(const TopicUpdate());
+    expect(await saving, isNull);
+    expect(fixture.api.requests.single['tags'], [_tag]);
+    expect(fixture.shell.currentTopic?.tags, [_tag]);
+  });
 
   for (final field in _Field.values) {
     test(
@@ -286,9 +318,8 @@ _fixture() async {
   final auth = _HeldAuthenticator()..keys[_site] = 'key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance(
-        'meta.example',
-      ).copyWith(user: const DiscourseUser(id: 7, username: 'sam')),
+      instance('meta.example')
+          .copyWith(user: const DiscourseUser(id: 7, username: 'sam')),
     ]),
     api: api,
     authenticator: auth,
@@ -353,6 +384,7 @@ final class _MetadataApi extends FakeDiscourseApi {
   final requests = <Map<String, Object?>>[];
   Completer<TopicTagSearch>? tagSearch;
   int tagSearches = 0;
+  http.Response Function(http.Request)? tagSearchResponse;
 
   Future<TopicUpdate> _write(String apiKey) {
     keys.add(apiKey);
@@ -406,6 +438,33 @@ final class _MetadataApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     tagSearches++;
-    return await tagSearch?.future ?? const TopicTagSearch(tags: [_tag]);
+    if (tagSearch != null) return await tagSearch!.future;
+    final response = tagSearchResponse;
+    if (response == null) return const TopicTagSearch(tags: [_tag]);
+    final api = DiscourseApi(
+      client: MockClient((request) async => response(request)),
+    );
+    try {
+      return await api.searchTopicTags(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        term: term,
+        categoryId: categoryId,
+        selectedTagIds: selectedTagIds,
+        limit: limit,
+        clientId: clientId,
+      );
+    } finally {
+      api.close();
+    }
   }
 }
+
+http.Response _tagResults(
+  List<Map<String, Object?>> tags, {
+  bool forbidden = false,
+}) => http.Response(
+  jsonEncode({'results': tags, 'forbidden': forbidden}),
+  200,
+  headers: {'content-type': 'application/json'},
+);
