@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
 
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -190,6 +191,8 @@ final class _Fixture {
 
       loadTimeout: const Duration(seconds: 5),
       bookmarkReads: (siteUrl, lease) => bookmarks.forLease(siteUrl, lease)!,
+      notificationReads: (siteUrl, lease, topicId) =>
+          tracking.beginNotificationRead(topicId),
     );
     addTearDown(owner.dispose);
     addTearDown(bookmarks.dispose);
@@ -217,6 +220,7 @@ final class _Fixture {
     refreshMenu: (_) async {},
     refreshList: (_) async {},
   );
+  TopicTrackingReconciler tracking = TopicTrackingReconciler();
   final api = _Api();
   final store = Store();
   final lifecycle = SiteLifecycle();
@@ -518,6 +522,127 @@ void main() {
     expect(detail.pinnedGlobally, isTrue);
     expect(f.store.read<Post>(_site, 1)!.cooked, '<p>incoming</p>');
   });
+
+  test(
+    'prefetch carries notification authority from dispatch through adoption',
+    () async {
+      final f = _Fixture();
+      final data = f.data;
+      final release = data.prefetch(
+        const Topic(
+          id: 7,
+          title: 'Topic',
+          slug: 'topic',
+          highestPostNumber: 100,
+          lastReadPostNumber: 89,
+        ),
+        intent: TopicPrefetchIntent.trajectory,
+        isInterested: () => true,
+      );
+      addTearDown(release);
+      await f.api.waitTopics(1);
+      final choice = f.tracking.chooseNotificationLevel(
+        7,
+        TopicNotificationLevel.watching,
+        confirmed: TopicNotificationLevel.tracking,
+      );
+      f.tracking.settleNotificationLevel(choice, succeeded: true);
+      f.tracking.releaseNotificationChoice(choice);
+      f.api.topicReads.single.result.complete(
+        _payload([_post(90, 'prefetched')], stream: [1, 90]),
+      );
+      await _drain();
+      await data.open(7, slug: 'topic', postNumber: 90, opening: f.opening);
+      expect(f.api.topicReads, hasLength(1));
+      expect(
+        f.store.read<TopicDetail>(_site, 7)!.notificationLevel,
+        TopicNotificationLevel.watching,
+      );
+      expect(f.tracking.notificationLevel(7), TopicNotificationLevel.watching);
+    },
+  );
+
+  test(
+    'retired tracking ticket blocks publication across same-lease replacement',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final session = data.lease.session;
+      final reading = data.refresh(7);
+      await f.api.waitTopics(1);
+      f.tracking.retire();
+      f.tracking = TopicTrackingReconciler();
+      f.tracking.observeNotificationLevel(7, TopicNotificationLevel.watching);
+      final held = f.store.read<TopicDetail>(_site, 7)!;
+      f.api.topicReads.single.result.complete((
+        detail: _payload([]).detail.copyWith(title: 'Retired account topic'),
+        posts: [_post(99, 'Retired account post')],
+      ));
+      await reading;
+      expect(data.lease.session, same(session));
+      expect(data.isCurrent, isTrue);
+      expect(f.store.read<TopicDetail>(_site, 7), same(held));
+      expect(f.store.read<Post>(_site, 99), isNull);
+      expect(f.tracking.notificationLevel(7), TopicNotificationLevel.watching);
+      final fresh = data.refresh(7);
+      await f.api.waitTopics(2);
+      f.api.topicReads.last.result.complete(_payload([]));
+      await fresh;
+      expect(f.tracking.notificationLevel(7), TopicNotificationLevel.normal);
+    },
+  );
+
+  test(
+    'same-lease retirement during post publication stops remaining records',
+    () async {
+      final f = _Fixture()..seed();
+      final held = f.store.read<TopicDetail>(_site, 7)!;
+      final ref = f.store.ref<Post>(_site, 90);
+      void replaceAccount() {
+        f.tracking.retire();
+        f.tracking = TopicTrackingReconciler();
+      }
+
+      ref.addListener(replaceAccount);
+      addTearDown(() => ref.removeListener(replaceAccount));
+      final reading = f.data.refresh(7);
+      await f.api.waitTopics(1);
+      f.api.topicReads.single.result.complete(
+        _payload([_post(90, 'first'), _post(91, 'second')], stream: [90, 91]),
+      );
+      await reading;
+      expect(f.store.read<Post>(_site, 90), isNotNull);
+      expect(f.store.read<Post>(_site, 91), isNull);
+      expect(f.store.read<TopicDetail>(_site, 7), same(held));
+    },
+  );
+
+  test(
+    'same-lease retirement during detail publication stops row projection',
+    () async {
+      final f = _Fixture()..seed();
+      final row = f.store.put(
+        _site,
+        const Topic(id: 7, title: 'Original row', slug: 'topic'),
+      );
+      final ref = f.store.ref<TopicDetail>(_site, 7);
+      void replaceAccount() {
+        f.tracking.retire();
+        f.tracking = TopicTrackingReconciler();
+      }
+
+      ref.addListener(replaceAccount);
+      addTearDown(() => ref.removeListener(replaceAccount));
+      final reading = f.data.refresh(7);
+      await f.api.waitTopics(1);
+      f.api.topicReads.single.result.complete((
+        detail: _payload([]).detail.copyWith(title: 'Fresh detail'),
+        posts: <Post>[],
+      ));
+      await reading;
+      expect(f.store.read<Topic>(_site, 7), same(row));
+    },
+  );
 
   test(
     'prefetch carries the action stamp from launch through navigation',

@@ -126,14 +126,19 @@ final class NotificationPreferenceTransactions {
     final account = _session(siteUrl);
     if (account == null) return Future.value(false);
     final key = topicId;
-    if (held.notificationLevel == level && !account.topics.containsKey(key)) {
-      return Future.value(true);
-    }
     final tracking = account.tracking;
+    final confirmed =
+        tracking.notificationLevel(topicId) ?? held.notificationLevel;
+    if (confirmed == level && !account.topics.containsKey(key)) {
+      if (held.notificationLevel != level) {
+        _setTopicNotificationLevel(siteUrl, topicId, level, account.lease);
+      }
+      return Future.value(account.isCurrent);
+    }
     final choice = tracking.chooseNotificationLevel(
       topicId,
       level,
-      confirmed: held.notificationLevel,
+      confirmed: confirmed,
     );
     final heldQueue = account.topics[key];
     final queue = heldQueue != null && heldQueue.isCurrent

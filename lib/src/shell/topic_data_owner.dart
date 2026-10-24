@@ -8,6 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/topic_tracking_reconciler.dart';
 
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
@@ -69,6 +70,7 @@ final class TopicDataOwner {
 
     required this.loadTimeout,
     required this.bookmarkReads,
+    this.notificationReads,
   });
 
   final TopicContentApi content;
@@ -87,6 +89,8 @@ final class TopicDataOwner {
 
   final Duration loadTimeout;
   final BookmarkReadProjection Function(String, SiteLease) bookmarkReads;
+  final TopicNotificationRead? Function(String, SiteLease, int)?
+  notificationReads;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -166,6 +170,7 @@ final class _PostState {
 }
 
 typedef _ReadStamp = ({
+  TopicNotificationRead? notification,
   int bookmarks,
   int actions,
   int archive,
@@ -256,6 +261,7 @@ final class TopicDataSession implements BookmarkTopicData {
   _ReadStamp _stamp(int topicId) {
     final state = _topic(topicId);
     return (
+      notification: _owner.notificationReads?.call(siteUrl, lease, topicId),
       bookmarks: _bookmarks.revision(topicId),
       actions: actionEpoch,
       archive: state.archive,
@@ -431,6 +437,9 @@ final class TopicDataSession implements BookmarkTopicData {
     );
   }
 
+  bool _readIsCurrent(_ReadStamp stamp) =>
+      isCurrent && stamp.notification?.isCurrent != false;
+
   bool _publishPosts(
     int topicId,
     Iterable<Post> incoming,
@@ -438,7 +447,7 @@ final class TopicDataSession implements BookmarkTopicData {
     bool onlyUnloaded = false,
   }) {
     for (final post in incoming) {
-      if (!isCurrent) return false;
+      if (!_readIsCurrent(stamp)) return false;
       final state = _topic(topicId);
       if ((state.removedAt[post.id] ?? 0) > stamp.removals ||
           (onlyUnloaded && _store.containsRecord<Post>(siteUrl, post.id))) {
@@ -446,7 +455,7 @@ final class TopicDataSession implements BookmarkTopicData {
       }
       _put(_bookmarks.postFromRead(topicId, stamp.bookmarks, post));
     }
-    return isCurrent;
+    return _readIsCurrent(stamp);
   }
 
   TopicDetail? _publishTopic(
@@ -454,7 +463,7 @@ final class TopicDataSession implements BookmarkTopicData {
     _ReadStamp stamp, {
     bool positioned = false,
   }) {
-    if (!isCurrent) return null;
+    if (!_readIsCurrent(stamp)) return null;
     final payload = _withoutRemoved(response, stamp.removals);
     final topicId = payload.detail.id;
     final state = _topic(topicId);
@@ -469,8 +478,14 @@ final class TopicDataSession implements BookmarkTopicData {
     if (held != null && stamp.archive != state.archive) {
       incoming = incoming.copyWith(messageArchived: held.messageArchived);
     }
+    final notification = stamp.notification;
+    if (notification != null) {
+      final level = notification.reconcile(incoming.notificationLevel);
+      if (level == null) return null;
+      incoming = incoming.copyWith(notificationLevel: level);
+    }
     final stored = _put(incoming);
-    if (!isCurrent || stored == null) return null;
+    if (!_readIsCurrent(stamp) || stored == null) return null;
     var detail = _store.read<TopicDetail>(siteUrl, topicId) ?? stored;
     final positionedStream = _withoutRemoved(
       response,
@@ -486,7 +501,7 @@ final class TopicDataSession implements BookmarkTopicData {
         detail = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
       }
     }
-    if (!isCurrent) return null;
+    if (!_readIsCurrent(stamp)) return null;
     state.stale = false;
     _update<Topic>(topicId, (row) {
       final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
@@ -507,10 +522,12 @@ final class TopicDataSession implements BookmarkTopicData {
           ? projected
           : projected.copyWith(pinned: false);
     });
-    if (!isCurrent) return null;
+    if (!_readIsCurrent(stamp)) return null;
     detail = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
     _owner.published(siteUrl, detail);
-    return isCurrent ? _store.read<TopicDetail>(siteUrl, topicId) : null;
+    return _readIsCurrent(stamp)
+        ? _store.read<TopicDetail>(siteUrl, topicId)
+        : null;
   }
 
   void refreshWhenOpened(int topicId) {
@@ -642,6 +659,7 @@ final class TopicDataSession implements BookmarkTopicData {
             stamp.archive,
             stamp.removals,
             stamp.actions,
+            notificationRead: stamp.notification,
           );
         } catch (_) {
           cancellation.cancel();
@@ -767,6 +785,7 @@ final class TopicDataSession implements BookmarkTopicData {
       if (!isCurrent) return;
       if (warmed != null) {
         stamp = (
+          notification: warmed.notificationRead,
           bookmarks: warmed.bookmarkVersion,
           actions: warmed.actionVersion,
           archive: warmed.archiveVersion,

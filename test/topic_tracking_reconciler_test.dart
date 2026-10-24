@@ -24,6 +24,266 @@ Map<String, Object?> _newTopic(int id, {int category = 5}) => {
 };
 
 void main() {
+  test('report started before a full read cannot supersede its preference', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row]),
+    );
+    final report = tracking.beginSnapshot()!;
+    final read = tracking.beginNotificationRead(7);
+    tracking.completeSnapshot(report, TopicTrackingState([_row]));
+    expect(
+      read.reconcile(TopicNotificationLevel.normal),
+      TopicNotificationLevel.normal,
+    );
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.normal);
+  });
+
+  for (final seeded in [false, true]) {
+    test('accepted tracking preference fences topic read, seeded=$seeded', () {
+      final tracking = TopicTrackingReconciler();
+      if (seeded) {
+        tracking.completeSnapshot(
+          tracking.beginSnapshot()!,
+          TopicTrackingState([_row]),
+        );
+      }
+      final read = tracking.beginNotificationRead(7);
+      tracking.accept(const {
+        'topic_id': 7,
+        'message_type': 'notification_level_change',
+        'payload': {'notification_level': 3},
+      });
+      expect(
+        read.reconcile(TopicNotificationLevel.normal),
+        TopicNotificationLevel.watching,
+      );
+      expect(tracking.notificationLevel(7), TopicNotificationLevel.watching);
+      expect(tracking.topic(7)?.notificationLevel, seeded ? 3 : isNull);
+    });
+  }
+
+  test('accepted tracking preference updates pending rollback baseline', () {
+    final tracking = TopicTrackingReconciler();
+    final choice = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    final read = tracking.beginNotificationRead(7);
+    tracking.accept(const {
+      'topic_id': 7,
+      'message_type': 'notification_level_change',
+      'payload': {'notification_level': 1},
+    });
+    expect(
+      read.reconcile(TopicNotificationLevel.muted),
+      TopicNotificationLevel.watching,
+    );
+    expect(
+      tracking.settleNotificationLevel(choice, succeeded: false),
+      TopicNotificationLevel.normal,
+    );
+  });
+
+  for (final seeded in [false, true]) {
+    test(
+      'notification reads preserve settlement without pinning, seeded=$seeded',
+      () {
+        final tracking = TopicTrackingReconciler();
+        if (seeded) {
+          tracking.completeSnapshot(
+            tracking.beginSnapshot()!,
+            TopicTrackingState([_row]),
+          );
+        }
+        final older = tracking.beginNotificationRead(7);
+        final choice = tracking.chooseNotificationLevel(
+          7,
+          TopicNotificationLevel.watching,
+          confirmed: TopicNotificationLevel.tracking,
+        );
+        tracking.settleNotificationLevel(choice, succeeded: true);
+        tracking.releaseNotificationChoice(choice);
+        expect(
+          older.reconcile(TopicNotificationLevel.tracking),
+          TopicNotificationLevel.watching,
+        );
+        expect(tracking.notificationLevel(7), TopicNotificationLevel.watching);
+        final fresh = tracking.beginNotificationRead(7);
+        expect(
+          fresh.reconcile(TopicNotificationLevel.normal),
+          TopicNotificationLevel.normal,
+        );
+        expect(tracking.notificationLevel(7), TopicNotificationLevel.normal);
+        expect(tracking.topic(7)?.notificationLevel, seeded ? 1 : isNull);
+        if (seeded) {
+          expect(tracking.topic(7)?.lastReadPostNumber, 80);
+          expect(tracking.topic(7)?.highestPostNumber, 100);
+          expect(tracking.topic(7)?.categoryId, 5);
+          expect(tracking.topic(7)?.tagIds, {9});
+        }
+      },
+    );
+  }
+
+  for (final fresh in [false, true]) {
+    test(
+      'only a fresh pending read can update rollback baseline, fresh=$fresh',
+      () {
+        final tracking = TopicTrackingReconciler();
+        final older = tracking.beginNotificationRead(7);
+        final choice = tracking.chooseNotificationLevel(
+          7,
+          TopicNotificationLevel.watching,
+          confirmed: TopicNotificationLevel.tracking,
+        );
+        final read = fresh ? tracking.beginNotificationRead(7) : older;
+        expect(
+          read.reconcile(TopicNotificationLevel.normal),
+          TopicNotificationLevel.watching,
+        );
+        expect(
+          tracking.settleNotificationLevel(choice, succeeded: false),
+          fresh
+              ? TopicNotificationLevel.normal
+              : TopicNotificationLevel.tracking,
+        );
+      },
+    );
+  }
+
+  test('older serialized success fences pending read baseline', () {
+    final tracking = TopicTrackingReconciler();
+    final first = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.muted,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    final latest = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: TopicNotificationLevel.muted,
+    );
+    final older = tracking.beginNotificationRead(7);
+    expect(tracking.settleNotificationLevel(first, succeeded: true), isNull);
+    expect(
+      older.reconcile(TopicNotificationLevel.normal),
+      TopicNotificationLevel.watching,
+    );
+    expect(
+      tracking.settleNotificationLevel(latest, succeeded: false),
+      TopicNotificationLevel.muted,
+    );
+  });
+
+  test(
+    'live observation fences an older pending read and supplies rollback',
+    () {
+      final tracking = TopicTrackingReconciler();
+      final choice = tracking.chooseNotificationLevel(
+        7,
+        TopicNotificationLevel.watching,
+        confirmed: TopicNotificationLevel.tracking,
+      );
+      final older = tracking.beginNotificationRead(7);
+      tracking.observeNotificationLevel(7, TopicNotificationLevel.normal);
+      expect(
+        older.reconcile(TopicNotificationLevel.muted),
+        TopicNotificationLevel.watching,
+      );
+      expect(
+        tracking.settleNotificationLevel(choice, succeeded: false),
+        TopicNotificationLevel.normal,
+      );
+    },
+  );
+
+  test(
+    'read completion and unrelated activity do not supersede another read',
+    () {
+      final tracking = TopicTrackingReconciler();
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState([_row]),
+      );
+      final first = tracking.beginNotificationRead(7);
+      final later = tracking.beginNotificationRead(7);
+      tracking.markRead(7, 95);
+      tracking.observeNotificationLevel(8, TopicNotificationLevel.watching);
+      expect(
+        first.reconcile(TopicNotificationLevel.watching),
+        TopicNotificationLevel.watching,
+      );
+      expect(
+        later.reconcile(TopicNotificationLevel.normal),
+        TopicNotificationLevel.normal,
+      );
+      expect(tracking.topic(7)?.lastReadPostNumber, 95);
+    },
+  );
+
+  test(
+    'fresh detail preference is replayed over an in-flight tracking report',
+    () {
+      final tracking = TopicTrackingReconciler();
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState([_row]),
+      );
+      final report = tracking.beginSnapshot()!;
+      final read = tracking.beginNotificationRead(7);
+      expect(
+        read.reconcile(TopicNotificationLevel.normal),
+        TopicNotificationLevel.normal,
+      );
+      tracking.completeSnapshot(report, TopicTrackingState([_row]));
+      expect(tracking.topic(7)?.notificationLevel, 1);
+    },
+  );
+
+  test(
+    'a later report replaces retained preference without resurrecting rows',
+    () {
+      final tracking = TopicTrackingReconciler();
+      tracking.observeNotificationLevel(7, TopicNotificationLevel.watching);
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState([_row]),
+      );
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState([_row.copyWith(notificationLevel: 1)]),
+      );
+      expect(tracking.notificationLevel(7), TopicNotificationLevel.normal);
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState(),
+      );
+      expect(tracking.notificationLevel(7), TopicNotificationLevel.normal);
+      expect(tracking.topic(7)?.notificationLevel, 1);
+      tracking.observeNotificationLevel(8, TopicNotificationLevel.watching);
+      tracking.completeSnapshot(
+        tracking.beginSnapshot()!,
+        TopicTrackingState(),
+      );
+      expect(tracking.notificationLevel(8), TopicNotificationLevel.watching);
+      expect(tracking.topic(8), isNull);
+    },
+  );
+
+  test('retired notification tickets cannot mutate a replacement account', () {
+    final tracking = TopicTrackingReconciler();
+    final read = tracking.beginNotificationRead(7);
+    tracking.retire();
+    final successor = TopicTrackingReconciler();
+    successor.observeNotificationLevel(7, TopicNotificationLevel.watching);
+    expect(read.isCurrent, isFalse);
+    expect(read.reconcile(TopicNotificationLevel.normal), isNull);
+    expect(successor.notificationLevel(7), TopicNotificationLevel.watching);
+  });
+
   test('delayed report replays events, reads, then pending choice', () {
     final tracking = TopicTrackingReconciler();
     final load = tracking.beginSnapshot()!;

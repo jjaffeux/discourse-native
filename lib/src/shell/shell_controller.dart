@@ -4285,6 +4285,10 @@ class ShellController extends FrameSafeNotifier
 
     loadTimeout: topicLoadTimeout,
     bookmarkReads: (siteUrl, lease) => _bookmarks.forLease(siteUrl, lease)!,
+    notificationReads: (siteUrl, lease, topicId) => _topicTracking
+        .capture(siteUrl, lease: lease)
+        ?.reconciler
+        .beginNotificationRead(topicId),
   );
   late final _notificationPreferences = NotificationPreferenceTransactions(
     store: store,

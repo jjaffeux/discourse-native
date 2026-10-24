@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../data/request_intent.dart';
+import '../data/topic_tracking_reconciler.dart';
 
 import '../models/post.dart';
 
@@ -19,10 +20,12 @@ final class PrefetchedTopic {
     this.bookmarkVersion,
     this.archiveVersion,
     this.postRemovalVersion,
-    this.actionVersion,
-  );
+    this.actionVersion, {
+    this.notificationRead,
+  });
 
   final TopicPayload payload;
+  final TopicNotificationRead? notificationRead;
   final int bookmarkVersion;
   final int archiveVersion;
   final int postRemovalVersion;

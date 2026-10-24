@@ -17,6 +17,47 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  test('canonical equal choice repairs stale detail without writing', () async {
+    final fixture = _Fixture();
+    fixture.tracking.observeNotificationLevel(7, TopicNotificationLevel.normal);
+    expect(
+      await fixture.owner.updateTopic(_site, 7, TopicNotificationLevel.normal),
+      isTrue,
+    );
+    expect(fixture.api.topicNotificationLevelsUpdated, isEmpty);
+    expect(
+      fixture.store.read<TopicDetail>(_site, 7)?.notificationLevel,
+      TopicNotificationLevel.normal,
+    );
+  });
+
+  test(
+    'choice equal to stale detail still writes against canonical state',
+    () async {
+      final fixture = _Fixture();
+      fixture.tracking.observeNotificationLevel(
+        7,
+        TopicNotificationLevel.watching,
+      );
+      expect(
+        await fixture.owner.updateTopic(
+          _site,
+          7,
+          TopicNotificationLevel.tracking,
+        ),
+        isTrue,
+      );
+      expect(
+        fixture.api.topicNotificationLevelsUpdated.single.notificationLevel,
+        TopicNotificationLevel.tracking,
+      );
+      expect(
+        fixture.tracking.notificationLevel(7),
+        TopicNotificationLevel.tracking,
+      );
+    },
+  );
+
   test(
     'reentrant topic selection owns admission before Store publication',
     () async {

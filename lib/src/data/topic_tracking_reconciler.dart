@@ -27,6 +27,7 @@ final class TopicTrackingReconciler {
   final List<Object?> _events = [];
   final Map<int, int> _localReads = {};
   final Map<int, TopicTrackingChoice> _choices = {};
+  final Map<int, _NotificationAuthority> _notificationAuthorities = {};
   bool _retired = false;
   bool _hasSnapshot = false;
   bool _retrying = false;
@@ -141,6 +142,12 @@ final class TopicTrackingReconciler {
     }
     report.keepOmitted(_state, complete: complete);
     _state = report;
+    for (final entry in _notificationAuthorities.entries) {
+      final level = report.topic(entry.key)?.notificationLevel;
+      if (level != null) {
+        entry.value.level = TopicNotificationLevel.fromJson(level);
+      }
+    }
     _hasSnapshot = true;
     _load = null;
     _bootstrap = null;
@@ -179,9 +186,23 @@ final class TopicTrackingReconciler {
     if (!_current || !_filter.accepts(data, user: user, config: config)) {
       return null;
     }
+    final topicId = data is Map ? jsonIntOrNull(data['topic_id']) : null;
+    if (topicId != null &&
+        topicId > 0 &&
+        data is Map &&
+        data['message_type'] == 'notification_level_change') {
+      final level = jsonObject(data['payload'])['notification_level'];
+      if (level is int && level >= 0 && level <= 3) {
+        final before = _revision;
+        observeNotificationLevel(
+          topicId,
+          TopicNotificationLevel.fromJson(level),
+        );
+        return before != _revision;
+      }
+    }
     _capture(data);
     var changed = _state.applyMessage(data);
-    final topicId = data is Map ? jsonIntOrNull(data['topic_id']) : null;
     if (topicId != null) changed = _overlay(_state, topicId) || changed;
     if (changed) _revision++;
     return changed;
@@ -221,6 +242,41 @@ final class TopicTrackingReconciler {
     _revision++;
   }
 
+  TopicNotificationLevel? notificationLevel(int topicId) {
+    final choice = _choices[topicId];
+    if (choice != null && choice._pending) return choice.level;
+    final level = _state.topic(topicId)?.notificationLevel;
+    return level == null
+        ? _notificationAuthorities[topicId]?.level
+        : TopicNotificationLevel.fromJson(level);
+  }
+
+  TopicNotificationRead beginNotificationRead(int topicId) {
+    final authority = _notificationAuthorities.putIfAbsent(
+      topicId,
+      _NotificationAuthority.new,
+    );
+    return TopicNotificationRead._(this, topicId, authority.revision);
+  }
+
+  TopicNotificationLevel? _notificationLevelFromRead(
+    TopicNotificationRead read,
+    TopicNotificationLevel incoming,
+  ) {
+    if (!_current) return null;
+    final authority = _notificationAuthorities[read.topicId]!;
+    if (authority.revision != read._revision) {
+      return notificationLevel(read.topicId) ?? incoming;
+    }
+    return _observeLevel(read.topicId, incoming);
+  }
+
+  void _advanceNotificationAuthority(int topicId) {
+    _notificationAuthorities
+        .putIfAbsent(topicId, _NotificationAuthority.new)
+        .revision++;
+  }
+
   TopicTrackingChoice chooseNotificationLevel(
     int topicId,
     TopicNotificationLevel level, {
@@ -234,6 +290,7 @@ final class TopicTrackingReconciler {
     );
     if (!_current) return choice;
     _choices[topicId] = choice;
+    _advanceNotificationAuthority(topicId);
     _setLevel(topicId, level);
     return choice;
   }
@@ -247,8 +304,12 @@ final class TopicTrackingReconciler {
     if (!_current || !identical(choice._owner, this)) return null;
     final latest = _choices[choice.topicId];
     if (latest == null) return null;
-    if (succeeded) latest._confirmed = choice.level;
+    if (succeeded) {
+      latest._confirmed = choice.level;
+      _advanceNotificationAuthority(choice.topicId);
+    }
     if (!identical(latest, choice)) return null;
+    if (!succeeded) _advanceNotificationAuthority(choice.topicId);
     latest._pending = false;
     final level = succeeded ? latest.level : latest._confirmed;
     _setLevel(choice.topicId, level);
@@ -260,6 +321,14 @@ final class TopicTrackingReconciler {
     TopicNotificationLevel level,
   ) {
     if (!_current) return level;
+    _advanceNotificationAuthority(topicId);
+    return _observeLevel(topicId, level);
+  }
+
+  TopicNotificationLevel _observeLevel(
+    int topicId,
+    TopicNotificationLevel level,
+  ) {
     final choice = _choices[topicId];
     if (choice != null && choice._pending) {
       choice._confirmed = level;
@@ -276,6 +345,10 @@ final class TopicTrackingReconciler {
   }
 
   void _setLevel(int topicId, TopicNotificationLevel level) {
+    _notificationAuthorities
+            .putIfAbsent(topicId, _NotificationAuthority.new)
+            .level =
+        level;
     final message = _levelMessage(topicId, level);
     _capture(message);
     if (_state.applyMessage(message)) _revision++;
@@ -296,6 +369,7 @@ final class TopicTrackingReconciler {
     _bootstrap = null;
     _events.clear();
     _choices.clear();
+    _notificationAuthorities.clear();
     _localReads.clear();
   }
 }
@@ -316,4 +390,22 @@ final class TopicTrackingChoice {
   final TopicNotificationLevel level;
   TopicNotificationLevel _confirmed;
   bool _pending = true;
+}
+
+final class _NotificationAuthority {
+  int revision = 0;
+  TopicNotificationLevel? level;
+}
+
+final class TopicNotificationRead {
+  TopicNotificationRead._(this._owner, this.topicId, this._revision);
+
+  final TopicTrackingReconciler _owner;
+  final int topicId;
+  final int _revision;
+
+  bool get isCurrent => _owner._current;
+
+  TopicNotificationLevel? reconcile(TopicNotificationLevel incoming) =>
+      _owner._notificationLevelFromRead(this, incoming);
 }

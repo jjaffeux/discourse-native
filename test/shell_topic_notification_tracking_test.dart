@@ -81,6 +81,172 @@ void main() {
     );
   });
 
+  for (final fresh in [false, true]) {
+    test(
+      'pending write rollback admits only fresh topic reads, fresh=$fresh',
+      () async {
+        final fixture = await _Fixture.load();
+        fixture.api.topics[7] = (
+          detail: _detail.copyWith(
+            notificationLevel: TopicNotificationLevel.normal,
+          ),
+          posts: const [_firstPost],
+        );
+        fixture.api.olderTopicGate = Completer<void>();
+        Future<void>? refreshing;
+        if (!fresh) {
+          refreshing = fixture.shell.refreshCurrentTab();
+          await fixture.api.olderTopicStarted.future;
+        }
+        final saving = fixture.select(TopicNotificationLevel.watching);
+        await pumpEventQueue();
+        if (fresh) {
+          refreshing = fixture.shell.refreshCurrentTab();
+          await fixture.api.olderTopicStarted.future;
+        }
+        fixture.api.olderTopicGate!.complete();
+        await refreshing;
+        expect(
+          fixture.shell.currentTopic!.notificationLevel,
+          TopicNotificationLevel.watching,
+        );
+        fixture.finish(succeeds: false);
+        expect(await saving, isFalse);
+        final expected = fresh
+            ? TopicNotificationLevel.normal
+            : TopicNotificationLevel.tracking;
+        expect(fixture.shell.currentTopic!.notificationLevel, expected);
+        expect(fixture.tracking.topic(7)?.notificationLevel, expected.value);
+      },
+    );
+  }
+
+  test(
+    'live preference fences an old detail read and pending rollback',
+    () async {
+      final fixture = await _Fixture.load();
+      final saving = fixture.select(TopicNotificationLevel.watching);
+      await pumpEventQueue();
+      fixture.api.olderTopicGate = Completer<void>();
+      final refreshing = fixture.shell.refreshCurrentTab();
+      await fixture.api.olderTopicStarted.future;
+      fixture.bus(TopicNotificationLevel.normal);
+      fixture.api.olderTopicGate!.complete();
+      await refreshing;
+      expect(
+        fixture.shell.currentTopic!.notificationLevel,
+        TopicNotificationLevel.watching,
+      );
+      fixture.finish(succeeds: false);
+      expect(await saving, isFalse);
+      expect(
+        fixture.shell.currentTopic!.notificationLevel,
+        TopicNotificationLevel.normal,
+      );
+      expect(fixture.tracking.topic(7)?.notificationLevel, 1);
+    },
+  );
+
+  testWidgets(
+    'menu and admission follow canonical preference after stale and fresh reads',
+    (tester) async {
+      final tracking = TopicTrackingState([_tracked]);
+      final api = _NotificationApi(trackingState: tracking);
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('meta.discourse.org').copyWith(user: _reader)],
+        api: api,
+        authenticator: FakeAuthenticator()..keys[_site] = 'reader-key',
+      );
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
+      await tester.pumpAndSettle();
+      api.olderTopicGate = Completer<void>();
+      final refreshing = shell.refreshCurrentTab();
+      await tester.pump();
+      await api.olderTopicStarted.future;
+      final saving = shell.updateTopicNotificationLevel(
+        _site,
+        7,
+        TopicNotificationLevel.watching,
+      );
+      await tester.pump();
+      api.requests.single.result.complete();
+      await tester.pump();
+      expect(await saving, isTrue);
+      api.olderTopicGate!.complete();
+      await tester.pumpAndSettle();
+      await refreshing;
+      expect(
+        shell.currentTopic?.notificationLevel,
+        TopicNotificationLevel.watching,
+      );
+      expect(tracking.topic(7)?.notificationLevel, 3);
+      final menu = find.byWidgetPredicate(
+        (widget) => widget is DNotificationLevelMenu<TopicNotificationLevel>,
+      );
+      expect(menu, findsWidgets);
+      expect(
+        tester
+            .widgetList<DNotificationLevelMenu<TopicNotificationLevel>>(menu)
+            .map((widget) => widget.value),
+        everyElement(TopicNotificationLevel.watching),
+      );
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton &&
+              widget.tooltip?.startsWith('Topic notifications:') == true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DDropdownMenuRadioItem<TopicNotificationLevel> &&
+              widget.value == TopicNotificationLevel.tracking,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.level, TopicNotificationLevel.tracking);
+      api.requests.last.result.complete();
+      await tester.pumpAndSettle();
+      api.olderTopicGate = null;
+      api.topics[7] = (
+        detail: _detail.copyWith(
+          notificationLevel: TopicNotificationLevel.normal,
+        ),
+        posts: const [_firstPost],
+      );
+      final fresh = shell.refreshCurrentTab();
+      await tester.pumpAndSettle();
+      await fresh;
+      expect(
+        shell.currentTopic?.notificationLevel,
+        TopicNotificationLevel.normal,
+      );
+      expect(tracking.topic(7)?.notificationLevel, 1);
+      expect(
+        tester
+            .widgetList<DNotificationLevelMenu<TopicNotificationLevel>>(menu)
+            .map((widget) => widget.value),
+        everyElement(TopicNotificationLevel.normal),
+      );
+      expect(
+        await shell.updateTopicNotificationLevel(
+          _site,
+          7,
+          TopicNotificationLevel.normal,
+        ),
+        isTrue,
+      );
+      expect(api.requests, hasLength(2));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
   test('dismissal stops when a Store listener retires its account', () async {
     final fixture = await _Fixture.load();
     const successor = Topic(
@@ -474,6 +640,9 @@ void main() {
       )..accounts['reader-key'] = replacement;
       final fixture = await _Fixture.load(api: api);
       final lease = fixture.shell.lifecycle.capture(_site);
+      api.olderTopicGate = Completer<void>();
+      final oldRefresh = fixture.shell.refreshCurrentTab();
+      await api.olderTopicStarted.future;
       final oldWrite = fixture.select(TopicNotificationLevel.normal);
       await pumpEventQueue();
 
@@ -491,6 +660,13 @@ void main() {
       expect(await oldWrite, isFalse);
       fixture.finish();
       expect(await fresh, isTrue);
+      api.olderTopicGate!.complete();
+      await oldRefresh;
+      expect(
+        fixture.shell.currentTopic!.notificationLevel,
+        TopicNotificationLevel.muted,
+      );
+      expect(tracking.topic(7)?.notificationLevel, 0);
       fixture.bus(TopicNotificationLevel.tracking);
       expect(fixture.shell.newReplyCount, 1);
       expect(tracking.topics.single.notificationLevel, 2);
