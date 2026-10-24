@@ -370,6 +370,21 @@ void main() {
     ('inline code grid opener', '`[grid]`\n[/grid]', false),
     ('comment grid opener', '<!--\n[grid]\n-->\n[/grid]', false),
     ('plain details tags', '[details=x]\nbody\n[/details]', false),
+    (
+      'prose after table and code',
+      '| A |\n| --- |\n[code]\nx\n[/code]\nprose',
+      false,
+    ),
+    (
+      'prose after table and grid',
+      '| A |\n| --- |\n[grid]\n[/grid]\nprose',
+      false,
+    ),
+    (
+      'prose after table and unclosed grid',
+      '| A |\n| --- |\n[grid]\nprose',
+      false,
+    ),
     ('prose after table', '| A |\n| --- |\n\nprose', false),
     ('prose after grid', '[grid]\n[/grid]\nprose', false),
   ]) {
@@ -392,8 +407,8 @@ void main() {
           ),
         );
         expect(result.failure, isNull);
-        expect(result.html!.contains('alt="active"'), active);
-        expect(result.html!.contains('<pre><code>&lt;!--'), active);
+        expect(result.html.contains('alt="active"'), active);
+        expect(result.html.contains('<pre><code>&lt;!--'), active);
         final images = parseComposerImages(
           source,
         ).where((block) => block.alt == 'active');
