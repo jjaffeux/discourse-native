@@ -59,6 +59,28 @@ const _firstPost = Post(
 );
 
 void main() {
+  test('accepted topic notification survives older topic read', () async {
+    final fixture = await _Fixture.load();
+    fixture.api.olderTopicGate = Completer<void>();
+    final refreshing = fixture.shell.refreshCurrentTab();
+    await fixture.api.olderTopicStarted.future;
+    final saving = fixture.select(TopicNotificationLevel.watching);
+    await pumpEventQueue();
+    fixture.finish();
+    expect(await saving, isTrue);
+    expect(
+      fixture.shell.currentTopic!.notificationLevel,
+      TopicNotificationLevel.watching,
+    );
+    fixture.api.olderTopicGate!.complete();
+    await refreshing;
+    await pumpEventQueue();
+    expect(
+      fixture.shell.currentTopic!.notificationLevel,
+      TopicNotificationLevel.watching,
+    );
+  });
+
   test('dismissal stops when a Store listener retires its account', () async {
     final fixture = await _Fixture.load();
     const successor = Topic(
@@ -708,6 +730,37 @@ final class _NotificationApi extends FakeDiscourseApi {
            7: (detail: _detail, posts: const [_firstPost]),
          },
        );
+
+  Completer<void>? olderTopicGate;
+  final olderTopicStarted = Completer<void>();
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    final snapshot = await super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+    final gate = olderTopicGate;
+    if (gate != null) {
+      if (!olderTopicStarted.isCompleted) olderTopicStarted.complete();
+      await gate.future;
+    }
+    return snapshot;
+  }
 
   final requests = <_Request>[];
   final snapshots = <String, TopicTrackingState>{};
