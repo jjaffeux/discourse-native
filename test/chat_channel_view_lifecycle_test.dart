@@ -21,6 +21,7 @@ import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -3432,12 +3433,15 @@ void main() {
           chatScroll(tester).jumpTo(distance);
           await tester.pumpAndSettle();
           final seen = _visibleMessageTops(tester);
+          final heldHtml = find.byType(CookedHtml).evaluate().toSet();
+          expect(heldHtml, isNotEmpty);
           expect(seen.keys, isNot(contains(40)));
 
           await deliverArrival();
           await tester.pumpAndSettle();
 
           _expectSameTops(_visibleMessageTops(tester), seen);
+          expect(heldHtml.every((element) => element.mounted), isTrue);
           expect(
             find.bySemanticsLabel('Jump to latest messages, 1 new'),
             findsOneWidget,

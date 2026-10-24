@@ -26,6 +26,7 @@ import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
+import 'chat_viewport_transitions.dart';
 
 class ChatChannelView extends StatelessWidget {
   const ChatChannelView({
@@ -873,16 +874,7 @@ class _StreamState extends State<ChatMessageStream>
   /// Includes target identity because the dwell timer may outlive the route.
   ({String siteUrl, ChatStreamTarget target, int messageId})? _seen;
 
-  /// Null requires the next frame to choose a deliberate landing point.
-  ({String siteUrl, ChatStreamTarget target, int fetches})? _anchored;
-
-  bool _awayFromPresent = false;
-  int _boundaryJumpRevision = 0;
-  int _unseenLiveMessages = 0;
-
-  /// Where a reader away from the present was when live arrivals joined the
-  /// window below them. Any scroll before it is applied supersedes it.
-  ({_RetainedChatMessageState row, double top, double pixels})? _arrivalHold;
+  final _viewport = ChatViewportTransitions();
 
   final _floatingDay = FrameSafeValueNotifier<DateTime?>(null);
   final _floatingDayOffset = FrameSafeValueNotifier<double>(0);
@@ -896,8 +888,6 @@ class _StreamState extends State<ChatMessageStream>
 
   bool get _readerActive => _tickerEnabled && (_shell?.forumActive ?? false);
 
-  /// Suppresses pre-layout visibility while an anchor moves.
-  bool _anchoring = false;
   bool _adjustingArrival = false;
 
   @override
@@ -914,24 +904,20 @@ class _StreamState extends State<ChatMessageStream>
   void didUpdateWidget(ChatMessageStream oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final changedStream =
-        oldWidget.target != widget.target ||
-        oldWidget.siteUrl != widget.siteUrl;
+    final change = _viewport.observeWindow(
+      _viewportWindow(oldWidget),
+      _viewportWindow(widget),
+    );
+    final changedStream = change.changedRoute;
 
     // A route/pane transition before the dwell completes is not a read. Clear
     // the old target rather than flushing it during teardown.
     if (changedStream) {
-      _dayJumpToken = null;
       _cancelReadDwell();
       _recheckVisibleRead = false;
       _seen = null;
-      _anchored = null;
       _filled = null;
       _olderFilled = null;
-      _anchoring = false;
-      _awayFromPresent = false;
-      _unseenLiveMessages = 0;
-      _arrivalHold = null;
       _dayExtents.clear();
       _floatingDay.value = null;
       _floatingDayOffset.value = 0;
@@ -945,21 +931,10 @@ class _StreamState extends State<ChatMessageStream>
       _acceptHighlightRequest();
     }
 
-    if (!changedStream &&
-        _awayFromPresent &&
-        oldWidget.stream.fetches == widget.stream.fetches &&
-        oldWidget.stream.atPresent &&
-        widget.stream.atPresent &&
-        oldWidget.stream.newestId != widget.stream.newestId) {
-      // Within one fetch generation, present-window growth is live arrivals.
-      _unseenLiveMessages += _messagesAfterHeldNewest(
-        oldWidget.stream.messageIds,
-        widget.stream.messageIds,
-      );
-      _holdStillThroughArrival();
+    if (change.holdArrival) _holdStillThroughArrival();
+    if (change.forwardAnchorId case final messageId?) {
+      _holdStillThroughForwardPage(messageId);
     }
-
-    _holdStillThroughForwardPage(oldWidget);
     _publishPresentState();
     _scheduleLook();
   }
@@ -971,8 +946,8 @@ class _StreamState extends State<ChatMessageStream>
   /// that also decides whether an arrival counts as unseen, the list follows
   /// its live edge instead.
   void _holdStillThroughArrival() {
-    _arrivalHold = null;
-    if (_anchoring || !_list.isAttached || !_scroll.hasClients) return;
+    _viewport.cancelArrivalHold();
+    if (_viewport.anchoring || !_list.isAttached || !_scroll.hasClients) return;
     // Correcting is a jump, and a jump ends a drag or fling. A moving reader
     // keeps the gesture and sees the shift.
     if (_scroll.position.isScrollingNotifier.value) return;
@@ -982,28 +957,28 @@ class _StreamState extends State<ChatMessageStream>
     if (row == null || top == null) return;
 
     final hold = (row: row, top: top, pixels: _scroll.position.pixels);
-    _arrivalHold = hold;
+    final token = _viewport.beginArrivalHold();
     // The sliver estimates offscreen rows. A correction can bring a row into
     // layout and refine that estimate, so retain the same anchor until settled.
     void restore(int attemptsLeft) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !identical(_arrivalHold, hold)) return;
+        if (!mounted || !_viewport.isCurrentArrival(token)) return;
         if (!_scroll.hasClients ||
             _scroll.position.isScrollingNotifier.value ||
             !_list.isAttached ||
             !hold.row.mounted) {
-          _arrivalHold = null;
+          _viewport.cancelArrivalHold();
           return;
         }
         final range = _list.visibleRange;
         final index = hold.row.widget.index;
         if (range == null || index < range.$1 || index > range.$2) {
-          _arrivalHold = null;
+          _viewport.cancelArrivalHold();
           return;
         }
         final top = _topScrollOffsetOf(hold.row);
         if (top == null) {
-          _arrivalHold = null;
+          _viewport.cancelArrivalHold();
           return;
         }
         final position = _scroll.position;
@@ -1012,7 +987,7 @@ class _StreamState extends State<ChatMessageStream>
           position.maxScrollExtent,
         );
         if ((target - position.pixels).abs() <= precisionErrorTolerance) {
-          _arrivalHold = null;
+          _viewport.cancelArrivalHold();
           return;
         }
         _adjustingArrival = true;
@@ -1024,7 +999,7 @@ class _StreamState extends State<ChatMessageStream>
         if (attemptsLeft > 1) {
           restore(attemptsLeft - 1);
         } else {
-          _arrivalHold = null;
+          _viewport.cancelArrivalHold();
         }
       });
     }
@@ -1044,39 +1019,25 @@ class _StreamState extends State<ChatMessageStream>
     return viewport?.getOffsetToReveal(box, 1).offset;
   }
 
-  int _messagesAfterHeldNewest(List<int> held, List<int> current) {
-    final newest = held.lastOrNull;
-    if (newest == null) return current.length;
-    final seam = current.lastIndexOf(newest);
-    if (seam >= 0) return current.length - seam - 1;
-    final previouslyHeld = held.toSet();
-    return current.where((id) => !previouslyHeld.contains(id)).length;
-  }
+  ChatViewportWindow _viewportWindow(ChatMessageStream view) =>
+      ChatViewportWindow(
+        revision: view.stream,
+        route: (siteUrl: view.siteUrl, target: view.target),
+        fetches: view.stream.fetches,
+        messageIds: view.stream.messageIds,
+        atPresent: view.stream.atPresent,
+        canLoadMoreFuture: view.stream.canLoadMoreFuture,
+      );
 
-  void _holdStillThroughForwardPage(ChatMessageStream oldWidget) {
-    if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.target != widget.target) {
-      return;
-    }
-    if (!oldWidget.stream.canLoadMoreFuture) return;
-    final was = oldWidget.stream.newestId;
-    if (oldWidget.stream.fetches != widget.stream.fetches) return;
-    if (was == null || widget.stream.newestId == was) return;
-
+  void _holdStillThroughForwardPage(int was) {
     final row = _rowOf(was);
     if (row == null) return;
 
-    final identity = (siteUrl: widget.siteUrl, target: widget.target);
-    final stream = widget.stream;
-    _anchoring = true;
+    final window = _viewportWindow(widget);
+    _viewport.beginLanding();
     // New row heights exist only after layout.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          widget.siteUrl != identity.siteUrl ||
-          widget.target != identity.target ||
-          !identical(widget.stream, stream)) {
-        return;
-      }
+      if (!mounted || !_viewport.isCurrentWindow(window)) return;
       _landOn(row, alignment: 0);
     });
   }
@@ -1181,21 +1142,17 @@ class _StreamState extends State<ChatMessageStream>
 
   bool _anchorIfFresh() {
     final stream = widget.stream;
-    final token = (
-      siteUrl: widget.siteUrl,
-      target: widget.target,
-      fetches: stream.fetches,
-    );
-    if (_anchored == token) return false;
+    final anchor = _viewportWindow(widget).anchor;
+    if (!_viewport.needsAnchor(anchor)) return false;
     if (!_list.isAttached || !_scroll.hasClients) return false;
-    _anchored = token;
-
-    final target = stream.anchorMessageId ?? stream.lastReadOnOpen;
-    final index = target == null || target == stream.newestId
-        ? null
-        : _rowOf(target);
-
-    _anchoring = true;
+    final landing = _viewport.beginAnchor(
+      anchor,
+      anchorMessageId: stream.anchorMessageId,
+      lastReadOnOpen: stream.lastReadOnOpen,
+      newestId: stream.newestId,
+    );
+    final target = landing.messageId;
+    final index = target == null ? null : _rowOf(target);
 
     if (index == null) {
       // Reversed offset zero is the present; discard offsets from replaced history.
@@ -1206,7 +1163,7 @@ class _StreamState extends State<ChatMessageStream>
     }
 
     // Seed from the known landing point; layout still reports the old range.
-    final canonicalId = target ?? stream.newestId;
+    final canonicalId = landing.seenId;
     _cancelReadDwell();
     _seen = canonicalId == null
         ? null
@@ -1221,12 +1178,11 @@ class _StreamState extends State<ChatMessageStream>
 
   /// The second jump uses measured rather than estimated row heights.
   void _landOn(int row, {required double alignment}) {
-    final token = _anchored;
-    _anchoring = true;
+    final token = _viewport.beginLanding();
     _jumpToRow(row, alignment);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _anchored != token) return;
+      if (!mounted || !_viewport.isCurrentLanding(token)) return;
       _jumpToRow(row, alignment);
       _settleAnchor();
     });
@@ -1234,10 +1190,10 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   void _settleAnchor() {
-    final token = _anchored;
+    final token = _viewport.beginLanding();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _anchored != token) return;
-      _anchoring = false;
+      if (!mounted || !_viewport.isCurrentLanding(token)) return;
+      _viewport.settleLanding(token);
       _syncFloatingDay();
       _fillTowardsPresent();
       if (_seen != null) _startReadDwell(_readInterval);
@@ -1258,7 +1214,7 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   void _jumpToOldestLoadedMessage() {
-    final revision = ++_boundaryJumpRevision;
+    final revision = _viewport.beginBoundaryJump();
     if (!_list.isAttached || !_scroll.hasClients || _list.numberOfItems == 0) {
       return;
     }
@@ -1266,7 +1222,7 @@ class _StreamState extends State<ChatMessageStream>
     final target = _list.numberOfItems - 1;
     void correctToOldestEdge({bool repeat = true}) {
       if (!mounted ||
-          revision != _boundaryJumpRevision ||
+          !_viewport.isCurrentBoundaryJump(revision) ||
           !_list.isAttached ||
           !_scroll.hasClients) {
         return;
@@ -1287,7 +1243,7 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   void _noteWhatIsOnScreen({bool recheckVisibleRead = false}) {
-    if (_anchoring) return;
+    if (_viewport.anchoring) return;
 
     final messageId = _newestVisibleMessageId();
     if (messageId == null) return;
@@ -1508,18 +1464,15 @@ class _StreamState extends State<ChatMessageStream>
     _floatingDay.value = day;
   }
 
-  Object? _dayJumpToken;
-
   Future<void> _jumpToDayStart(DateTime day) async {
     final chat = _chat;
     if (chat == null) return;
     final siteUrl = widget.siteUrl;
     final target = widget.target;
-    final token = Object();
-    _dayJumpToken = token;
+    final token = _viewport.beginDayJump();
     bool isCurrent() =>
         mounted &&
-        identical(_dayJumpToken, token) &&
+        _viewport.isCurrentDayJump(token) &&
         widget.siteUrl == siteUrl &&
         widget.target == target;
 
@@ -1601,20 +1554,17 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   void _syncAwayFromPresent() {
-    final away =
-        !widget.stream.atPresent ||
-        (_scroll.hasClients && _scroll.position.pixels > _presentSlack);
-    if (away == _awayFromPresent) return;
-    _awayFromPresent = away;
-    if (!away) _unseenLiveMessages = 0;
-
+    _viewport.observePresent(
+      atPresent: widget.stream.atPresent,
+      beyondSlack:
+          _scroll.hasClients && _scroll.position.pixels > _presentSlack,
+    );
     _publishPresentState();
   }
 
   void _publishPresentState() {
-    _presentState.value = (
-      away: _awayFromPresent,
-      pendingCount: widget.stream.pendingNewMessages + _unseenLiveMessages,
+    _presentState.value = _viewport.presentState(
+      widget.stream.pendingNewMessages,
     );
   }
 
@@ -1748,7 +1698,7 @@ class _StreamState extends State<ChatMessageStream>
                     scrollController: controller,
                     onStart: _jumpToOldestLoadedMessage,
                     onEnd: () {
-                      _boundaryJumpRevision++;
+                      _viewport.cancelBoundaryJump();
                       if (_chat case final chat?) {
                         unawaited(
                           _jumpToPresent(
@@ -1767,7 +1717,7 @@ class _StreamState extends State<ChatMessageStream>
                 // the position a pending arrival hold would restore.
                 if (notification is ScrollUpdateNotification &&
                     !_adjustingArrival) {
-                  _arrivalHold = null;
+                  _viewport.cancelArrivalHold();
                 }
 
                 // In the reversed list, extentAfter points toward older messages
@@ -2024,7 +1974,7 @@ class _StreamState extends State<ChatMessageStream>
           widget.channelId != channelId) {
         return;
       }
-      _unseenLiveMessages = 0;
+      _viewport.clearUnseen();
       _publishPresentState();
       return;
     }
