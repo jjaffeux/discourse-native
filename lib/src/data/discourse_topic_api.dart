@@ -90,6 +90,16 @@ final class DiscourseTopicApi {
     String? apiKey,
     String? clientId,
   }) async {
+    if (Uri.parse(path).path != '/search.json') {
+      return _getTopicModel(
+        Uri.parse('$siteUrl$path'),
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        project: _models.topicList,
+        workerProjection: _topicListProjection,
+      );
+    }
     final body = await _getObject(
       Uri.parse('$siteUrl$path'),
       siteUrl: siteUrl,
@@ -174,7 +184,7 @@ final class DiscourseTopicApi {
       if (postNumber != null) 'post_number': '$postNumber',
       if (summary) 'summary': 'true',
     };
-    final body = await _getObject(
+    return _getTopicModel(
       // Topic ids are stable; slugs are presentation metadata and can become
       // stale after a title change. Discourse redirects `/t/{old-slug}/{id}`
       // to the current slug, while the authenticated transport deliberately
@@ -188,9 +198,9 @@ final class DiscourseTopicApi {
       apiKey: apiKey,
       abortTrigger: abortTrigger,
       clientId: clientId,
+      project: _models.topic,
+      workerProjection: _topicProjection,
     );
-
-    return _models.topic(body, siteUrl);
   }
 
   Future<void> recordTopicReads({
@@ -1001,6 +1011,85 @@ final class DiscourseTopicApi {
     abortTrigger: abortTrigger,
   );
 
+  Future<T> _getTopicModel<T>(
+    Uri url, {
+    required String siteUrl,
+    required T Function(Map<String, dynamic>, String) project,
+    required _TopicModelProjection<T> Function(
+      TopicModelCodecRecipe,
+      String,
+      String,
+      String,
+    )
+    workerProjection,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    final recipe = _models.topicModelRecipe;
+    if (recipe == null) {
+      return project(
+        await _getObject(
+          url,
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          abortTrigger: abortTrigger,
+        ),
+        siteUrl,
+      );
+    }
+    final response = await _transport.get(
+      url,
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+    final invalidRootMessage = appL10n.expectedAJSONObject;
+    if (response.bodyBytes.length < backgroundJsonDecodeThreshold) {
+      final Map<String, dynamic> body;
+      try {
+        body = _topicResponseObject(
+          await decodeJsonHttpResponse(response),
+          invalidRootMessage,
+        );
+      } catch (error, stackTrace) {
+        throw SiteLookupException(
+          SiteLookupFailure.unreachable,
+          siteUrl,
+          cause: error,
+          causeStackTrace: stackTrace,
+        );
+      }
+      return project(body, siteUrl);
+    }
+    final _TopicModelResult<T> result;
+    try {
+      result = await decodeAndProjectJsonHttpResponse(
+        response,
+        project: workerProjection(
+          recipe,
+          siteUrl,
+          Intl.getCurrentLocale(),
+          invalidRootMessage,
+        ),
+      );
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
+    return switch (result) {
+      _ProjectedTopicModel<T>(:final value) => value,
+      _FailedTopicModel<T>(:final error, :final stackTrace) =>
+        Error.throwWithStackTrace(error, stackTrace),
+    };
+  }
+
   static void _requirePositiveId(int value, String name) {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
   }
@@ -1032,3 +1121,67 @@ final class DiscourseTopicApi {
     }
   }
 }
+
+sealed class _TopicModelResult<T> {
+  const _TopicModelResult();
+}
+
+final class _ProjectedTopicModel<T> extends _TopicModelResult<T> {
+  const _ProjectedTopicModel(this.value);
+
+  final T value;
+}
+
+final class _FailedTopicModel<T> extends _TopicModelResult<T> {
+  const _FailedTopicModel(this.error, this.stackTrace);
+
+  final Object error;
+  final StackTrace stackTrace;
+}
+
+typedef _TopicModelProjection<T> = _TopicModelResult<T> Function(Object?);
+
+Map<String, dynamic> _topicResponseObject(
+  Object? decoded,
+  String invalidRootMessage,
+) {
+  if (decoded is Map<String, dynamic>) return decoded;
+  throw FormatException(invalidRootMessage);
+}
+
+_TopicModelProjection<TopicPayload> _topicProjection(
+  TopicModelCodecRecipe recipe,
+  String siteUrl,
+  String locale,
+  String invalidRootMessage,
+) => (decoded) {
+  final body = _topicResponseObject(decoded, invalidRootMessage);
+  try {
+    return _ProjectedTopicModel(
+      Intl.withLocale(locale, () => recipe.createCodec().topic(body, siteUrl))
+          as TopicPayload,
+    );
+  } catch (error, stackTrace) {
+    return _FailedTopicModel(error, stackTrace);
+  }
+};
+
+_TopicModelProjection<TopicList> _topicListProjection(
+  TopicModelCodecRecipe recipe,
+  String siteUrl,
+  String locale,
+  String invalidRootMessage,
+) => (decoded) {
+  final body = _topicResponseObject(decoded, invalidRootMessage);
+  try {
+    return _ProjectedTopicModel(
+      Intl.withLocale(
+            locale,
+            () => recipe.createCodec().topicList(body, siteUrl),
+          )
+          as TopicList,
+    );
+  } catch (error, stackTrace) {
+    return _FailedTopicModel(error, stackTrace);
+  }
+};

@@ -29,6 +29,111 @@ final RegExp _notificationWireNamePattern = RegExp(
   r'^[a-z0-9]+(?:_[a-z0-9]+)*$',
 );
 
+typedef _TopicRecordDecoderRecipe = ({
+  SitePlugin Function() factory,
+  PluginDataKey<Object> key,
+});
+
+typedef _TopicRecommendationCodecDeclaration = ({
+  TopicRecommendationSourceDefinition definition,
+  Set<String> legacyStoredIds,
+});
+
+typedef _TopicRecommendationDecoderRecipe = ({
+  SitePlugin Function() factory,
+  List<_TopicRecommendationCodecDeclaration> sources,
+});
+
+PluginDataDecoder Function() _topicPluginDataDecoderFactory(
+  List<_TopicRecordDecoderRecipe> recipes,
+) =>
+    () => PluginRegistry([
+      for (final recipe in recipes)
+        _TopicRecordDecoderPlugin(recipe.factory(), recipe.key),
+    ]);
+
+TopicRecommendationSourceDecoder Function() _topicRecommendationDecoderFactory(
+  List<_TopicRecommendationDecoderRecipe> recipes,
+) =>
+    () => PluginRegistry([
+      for (final recipe in recipes)
+        _TopicRecommendationDecoderPlugin(recipe.factory(), recipe.sources),
+    ]);
+
+final class _TopicRecordDecoderPlugin
+    implements SitePlugin, PostRecordPlugin<Object>, TopicRecordPlugin<Object> {
+  const _TopicRecordDecoderPlugin(this._source, this.record);
+
+  final SitePlugin _source;
+
+  @override
+  final PluginDataKey<Object> record;
+
+  @override
+  String get name => record.owner;
+
+  @override
+  Object? readPost(Map<String, dynamic> json, String siteUrl) =>
+      _source is PostRecordPlugin<Object>
+      ? (_source as PostRecordPlugin<Object>).readPost(json, siteUrl)
+      : null;
+
+  @override
+  Object? readTopic(Map<String, dynamic> json, String siteUrl) =>
+      _source is TopicRecordPlugin<Object>
+      ? (_source as TopicRecordPlugin<Object>).readTopic(json, siteUrl)
+      : null;
+
+  @override
+  Object? mergeAfterPostEdit(Object? held, Object? incoming) =>
+      _source is PostRecordPlugin<Object>
+      ? (_source as PostRecordPlugin<Object>).mergeAfterPostEdit(held, incoming)
+      : incoming;
+}
+
+final class _TopicRecommendationDecoderPlugin
+    implements SitePlugin, TopicRecommendationSourcePlugin {
+  _TopicRecommendationDecoderPlugin(
+    SitePlugin source,
+    List<_TopicRecommendationCodecDeclaration> declarations,
+  ) : name = source.name {
+    final codecs = (source as TopicRecommendationSourcePlugin)
+        .topicRecommendationSourceCodecs;
+    if (codecs.length != declarations.length) {
+      throw StateError('$name reconstructed different recommendation sources.');
+    }
+    topicRecommendationSourceCodecs = List.unmodifiable([
+      for (var index = 0; index < codecs.length; index++)
+        _TopicRecommendationDecoderCodec(codecs[index], declarations[index]),
+    ]);
+  }
+
+  @override
+  final String name;
+
+  @override
+  late final List<TopicRecommendationSourceCodec>
+  topicRecommendationSourceCodecs;
+}
+
+final class _TopicRecommendationDecoderCodec
+    extends TopicRecommendationSourceCodec {
+  const _TopicRecommendationDecoderCodec(this._source, this._declaration);
+
+  final TopicRecommendationSourceCodec _source;
+  final _TopicRecommendationCodecDeclaration _declaration;
+
+  @override
+  TopicRecommendationSourceDefinition get definition => _declaration.definition;
+
+  @override
+  Set<String> get legacyStoredIds => _declaration.legacyStoredIds;
+
+  @override
+  List<Map<String, dynamic>>? decodeTopicRows(Map<String, dynamic> json) =>
+      _source.decodeTopicRows(json);
+}
+
 typedef _OwnedNotificationFeedDeclaration = ({
   String owner,
   PluginNotificationFeedSource source,
@@ -105,8 +210,10 @@ PluginNotificationFeedSource _freezeNotificationFeedSource(
 final class PluginRegistry
     implements
         PluginDataDecoder,
+        TopicPluginDataDecoderRecipe,
         IconNameDecoder,
         TopicRecommendationSourceDecoder,
+        TopicRecommendationSourceDecoderRecipe,
         TopicRecommendationSourceMigrationRegistry,
         PluginNotificationCounterCodec {
   const PluginRegistry(this.plugins) : _installed = null;
@@ -114,6 +221,48 @@ final class PluginRegistry
   const PluginRegistry._validated(this.plugins, this._installed);
 
   static const PluginRegistry empty = PluginRegistry([]);
+
+  @override
+  PluginDataDecoder Function()? get topicPluginDataDecoderFactory {
+    final recipes = <_TopicRecordDecoderRecipe>[];
+    for (final plugin in plugins) {
+      if (plugin is! PostRecordPlugin<Object> &&
+          plugin is! TopicRecordPlugin<Object>) {
+        continue;
+      }
+      if (plugin is! IsolateTopicDecoderPlugin) return null;
+      final factory = plugin.isolateTopicDecoderFactory;
+      if (factory == null) return null;
+      recipes.add((
+        factory: factory,
+        key: _recordKeyFor(plugin as PluginRecord<Object>),
+      ));
+    }
+    return _topicPluginDataDecoderFactory(List.unmodifiable(recipes));
+  }
+
+  @override
+  TopicRecommendationSourceDecoder Function()?
+  get topicRecommendationSourceDecoderFactory {
+    final recipes = <_TopicRecommendationDecoderRecipe>[];
+    for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
+      if (plugin is! IsolateTopicDecoderPlugin) return null;
+      final factory =
+          (plugin as IsolateTopicDecoderPlugin).isolateTopicDecoderFactory;
+      if (factory == null) return null;
+      recipes.add((
+        factory: factory,
+        sources: List.unmodifiable([
+          for (final codec in _recommendationCodecsFor(plugin))
+            (
+              definition: codec.definition,
+              legacyStoredIds: Set<String>.unmodifiable(codec.legacyStoredIds),
+            ),
+        ]),
+      ));
+    }
+    return _topicRecommendationDecoderFactory(List.unmodifiable(recipes));
+  }
 
   /// Captures installation metadata once while retaining live plugin hooks.
   /// [modules] ties host registration claims to those same captured identities.

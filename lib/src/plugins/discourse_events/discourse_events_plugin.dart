@@ -20,6 +20,7 @@ import 'event_topic_title.dart';
 final class DiscourseEventsPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         IconCatalogPlugin,
         SiteSettingsPlugin<EventSettings>,
         CurrentUserPlugin<EventUserPermissions>,
@@ -34,6 +35,10 @@ final class DiscourseEventsPlugin
         ContentPlugin,
         ContentChromePlugin {
   const DiscourseEventsPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == DiscourseEventsPlugin ? DiscourseEventsPlugin.new : null;
   @override
   String get name => 'discourse-events';
   @override
@@ -236,9 +241,14 @@ final class DiscourseEventsPlugin
 final class EventTopicPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         TopicRecordPlugin<EventTopicData>,
         TopicListTitlePlugin {
   const EventTopicPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == EventTopicPlugin ? EventTopicPlugin.new : null;
   @override
   String get name => 'discourse-events';
   @override

@@ -20,6 +20,7 @@ export 'poll_data.dart';
 class PollPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         CompactEmojiPlugin,
         GlobalSearchPlugin,
         IconCatalogPlugin,
@@ -37,6 +38,10 @@ class PollPlugin
   ];
 
   const PollPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == PollPlugin ? PollPlugin.new : null;
 
   @override
   bool compactEmojiAncestor(dom.Element element) =>

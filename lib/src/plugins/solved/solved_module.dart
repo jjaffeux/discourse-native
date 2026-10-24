@@ -59,12 +59,17 @@ final class _Lifecycle extends PluginSessionLifecycle {
 final class SolvedPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         GlobalSearchPlugin,
         PostRecordPlugin<SolvedPost>,
         PostMenuPlugin,
         PostHeaderPlugin,
         PostCardTonePlugin {
   const SolvedPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == SolvedPlugin ? SolvedPlugin.new : null;
   @override
   String get name => 'discourse-solved';
   @override

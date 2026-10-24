@@ -19,6 +19,7 @@ export 'reactions_settings.dart';
 class ReactionsPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         SiteSettingsPlugin<ReactionsSettings>,
         PostRecordPlugin<Reactions>,
         PostFooterPlugin,
@@ -26,6 +27,10 @@ class ReactionsPlugin
         NotificationTypePlugin,
         TopicLivePlugin {
   const ReactionsPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == ReactionsPlugin ? ReactionsPlugin.new : null;
 
   @override
   String get name => 'discourse-reactions';

@@ -23,10 +23,17 @@ const alertEmojiService = PluginServiceKey<PluginEmojiHost>(
 final class PrometheusAlertReceiverPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         TopicRecordPlugin<AlertData>,
         SiteSettingsPlugin<AlertLinkSettings>,
         PostDecorationPlugin {
   const PrometheusAlertReceiverPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == PrometheusAlertReceiverPlugin
+      ? PrometheusAlertReceiverPlugin.new
+      : null;
 
   @override
   String get name => prometheusAlertReceiverPluginId.value;

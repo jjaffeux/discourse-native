@@ -88,9 +88,23 @@ abstract interface class TopicRecommendationSourceDecoder {
   );
 }
 
+/// Factories may capture only immutable constructor recipes and must
+/// reconstruct pure decoders whose returned source data is sendable.
+abstract interface class TopicRecommendationSourceDecoderRecipe {
+  TopicRecommendationSourceDecoder Function()?
+  get topicRecommendationSourceDecoderFactory;
+}
+
 final class EmptyTopicRecommendationSourceDecoder
-    implements TopicRecommendationSourceDecoder {
+    implements
+        TopicRecommendationSourceDecoder,
+        TopicRecommendationSourceDecoderRecipe {
   const EmptyTopicRecommendationSourceDecoder();
+
+  @override
+  TopicRecommendationSourceDecoder Function()
+  get topicRecommendationSourceDecoderFactory =>
+      EmptyTopicRecommendationSourceDecoder.new;
 
   @override
   List<TopicRecommendationSourceDefinition> get topicRecommendationSources =>

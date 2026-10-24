@@ -188,8 +188,20 @@ abstract interface class PluginDataDecoder {
   });
 }
 
-final class EmptyPluginDataDecoder implements PluginDataDecoder {
+/// Opts topic and post decoding into worker reconstruction. Factories may
+/// capture only immutable constructor recipes and must create pure decoders
+/// whose returned records are sendable.
+abstract interface class TopicPluginDataDecoderRecipe {
+  PluginDataDecoder Function()? get topicPluginDataDecoderFactory;
+}
+
+final class EmptyPluginDataDecoder
+    implements PluginDataDecoder, TopicPluginDataDecoderRecipe {
   const EmptyPluginDataDecoder();
+
+  @override
+  PluginDataDecoder Function() get topicPluginDataDecoderFactory =>
+      EmptyPluginDataDecoder.new;
 
   @override
   Set<String> get userPreferenceFields => const {};

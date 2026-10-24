@@ -13,11 +13,16 @@ import 'discourse_ai_services.dart';
 final class AiSummaryPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         IconCatalogPlugin,
         TopicRecordPlugin<AiSummaryAvailability>,
         TopicMapActionPlugin,
         TopicRecommendationSourcePlugin {
   const AiSummaryPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == AiSummaryPlugin ? AiSummaryPlugin.new : null;
 
   @override
   String get name => 'discourse-ai';

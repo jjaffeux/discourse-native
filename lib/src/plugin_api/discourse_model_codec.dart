@@ -16,6 +16,23 @@ import 'notification_counters.dart';
 import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
 
+/// Contains only explicit worker factories, never a live codec or registry.
+final class TopicModelCodecRecipe {
+  const TopicModelCodecRecipe({
+    required this.extensionsFactory,
+    required this.recommendationSourcesFactory,
+  });
+
+  final PluginDataDecoder Function() extensionsFactory;
+  final TopicRecommendationSourceDecoder Function()
+  recommendationSourcesFactory;
+
+  DiscourseModelCodec createCodec() => DiscourseModelCodec(
+    extensions: extensionsFactory(),
+    recommendationSources: recommendationSourcesFactory(),
+  );
+}
+
 final class DiscourseModelCodec {
   const DiscourseModelCodec({
     required this.extensions,
@@ -31,6 +48,24 @@ final class DiscourseModelCodec {
   final PluginDataDecoder extensions;
   final TopicRecommendationSourceDecoder recommendationSources;
   final IconNameDecoder icons;
+
+  TopicModelCodecRecipe? get topicModelRecipe {
+    final extensions = this.extensions;
+    final sources = recommendationSources;
+    if (extensions is! TopicPluginDataDecoderRecipe ||
+        sources is! TopicRecommendationSourceDecoderRecipe) {
+      return null;
+    }
+    final extensionsFactory = (extensions as TopicPluginDataDecoderRecipe)
+        .topicPluginDataDecoderFactory;
+    final sourcesFactory = (sources as TopicRecommendationSourceDecoderRecipe)
+        .topicRecommendationSourceDecoderFactory;
+    if (extensionsFactory == null || sourcesFactory == null) return null;
+    return TopicModelCodecRecipe(
+      extensionsFactory: extensionsFactory,
+      recommendationSourcesFactory: sourcesFactory,
+    );
+  }
 
   PluginNotificationCounterCodec get _notificationCounterCodec =>
       extensions is PluginNotificationCounterCodec

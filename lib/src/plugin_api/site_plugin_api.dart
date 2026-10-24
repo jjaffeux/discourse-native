@@ -52,6 +52,14 @@ abstract interface class SitePlugin implements PluginCapability {
   String get name;
 }
 
+/// Opts a plugin's topic, post and recommendation decoders into a worker.
+/// Return a capture-free constructor tearoff for stateless, pure decoding.
+/// Returned records must be sendable. A subclass which changes decoding must
+/// opt in itself rather than inherit a factory that reconstructs its base.
+abstract interface class IsolateTopicDecoderPlugin implements SitePlugin {
+  SitePlugin Function()? get isolateTopicDecoderFactory;
+}
+
 abstract interface class IconCatalogPlugin {
   PluginIconCatalog get iconCatalog;
 }

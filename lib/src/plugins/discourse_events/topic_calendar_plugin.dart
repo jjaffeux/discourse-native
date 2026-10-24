@@ -16,12 +16,17 @@ import 'topic_calendar_data.dart';
 final class TopicCalendarPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         PostRecordPlugin<TopicCalendarData>,
         SiteSettingsPlugin<TopicCalendarSettings>,
         PostBodyPlugin,
         CookedElementPlugin,
         TopicLiveReloadPlugin {
   const TopicCalendarPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == TopicCalendarPlugin ? TopicCalendarPlugin.new : null;
   @override
   String get name => 'discourse-events';
   @override

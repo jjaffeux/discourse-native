@@ -27,6 +27,7 @@ export 'assign_data.dart';
 final class AssignPlugin
     implements
         SitePlugin,
+        IsolateTopicDecoderPlugin,
         GlobalSearchPlugin,
         IconCatalogPlugin,
         SiteSettingsPlugin<AssignSettings>,
@@ -54,6 +55,10 @@ final class AssignPlugin
   ];
 
   const AssignPlugin();
+
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      runtimeType == AssignPlugin ? AssignPlugin.new : null;
 
   static const String assignmentChannel = '/staff/topic-assignment';
   static const PluginUserMenuSectionId notificationsSection =
