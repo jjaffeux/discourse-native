@@ -73,6 +73,32 @@ void main() {
     });
   }
 
+  test(
+    'canonical recipient ID overrides the captured sender username',
+    () async {
+      final (editor, _, api) = await _fixture(maximum: 2);
+      const namesake = ChatDirectMessageUser(
+        identifier: 'u-8',
+        matchQuality: 1,
+        enabled: true,
+        username: 'reader',
+      );
+      expect(editor.startGroup(editor.revision), isTrue);
+      await editor.select(namesake, editor.revision);
+      expect(editor.membersCount, 1);
+      await editor.select(startChattingPeople.first, editor.revision);
+      expect(editor.membersCount, 2);
+      expect(editor.canAddMember(startChattingPeople[1]), isFalse);
+      await editor.select(startChattingPeople[1], editor.revision);
+      expect(editor.members, [namesake, startChattingPeople.first]);
+      expect(await editor.createGroup('Distinct account'), isNotNull);
+      expect(api.directMessageChannelRequests.single.usernames, [
+        'reader',
+        'maya',
+      ]);
+    },
+  );
+
   test('ordinary recipients still enforce the other-user limit', () async {
     final (editor, _, api) = await _fixture(maximum: 2);
     expect(editor.startGroup(editor.revision), isTrue);
