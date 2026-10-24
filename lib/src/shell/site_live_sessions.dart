@@ -74,6 +74,20 @@ final class _SiteLiveSessions {
   void retryTracking(String siteUrl) => _sessions[siteUrl]?.retryTracking();
   void clearRetry(String siteUrl) => _sessions[siteUrl]?.clearRetry();
 
+  void accountChanged(String siteUrl, SiteLease lease) {
+    if (_disposed || !lease.isCurrent) return;
+    final session = _sessions[siteUrl];
+    if (session == null || !identical(session.lease.session, lease.session)) {
+      return;
+    }
+    session.clearRetry();
+    if (session._state is! _SiteLiveReady) return;
+    forget(siteUrl);
+    if (lease.isCurrent && demandFor(siteUrl).shouldPoll) {
+      _forSite(siteUrl).synchronize();
+    }
+  }
+
   Future<void> loadTracking({
     required String siteUrl,
     required String username,

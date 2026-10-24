@@ -3982,6 +3982,10 @@ class ShellController extends FrameSafeNotifier
           ),
         );
         if (!ownsPublication()) return true;
+        if (accepted.accountChanged) {
+          _liveSessions.accountChanged(siteUrl, lease);
+        }
+        if (!ownsPublication()) return true;
       }
       if (accepted.seedGroupedUnreadCounts) {
         _seedGroupedUnreadNotifications(siteUrl, user);

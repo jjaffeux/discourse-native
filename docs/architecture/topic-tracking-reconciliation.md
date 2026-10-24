@@ -8,6 +8,8 @@
 
 A current-user account change closes tracking admission before reentrant cleanup and publication. Its completion reopens admission only for that exact transition. Notification transactions and pending new-topic dismissals retire with the old tracking account, including when the lease remains current.
 
+A same-lease account replacement restarts a ready live connection so its private channels use the accepted user ID. A starting connection keeps its bootstrap attempt and selects the accepted account before channel registration.
+
 Transport callbacks retain the account captured when their channels were registered. Snapshot acceptance, failure, cancellation, and retry check that account rather than looking up a successor by site URL. Incoming filtering and tracking events share its reconciler. Retry opens a report before admission of its triggering event.
 
 The account projects admitted dismissals into canonical Store rows even when tracking has no matching row. It checks its original authority before every Store effect and after synchronous listeners return. Topic-list projection preserves seen markers, local read coverage, sparse rows, and replies newer than that coverage. Local read and mark-unread operations capture tracking before their own reentrant publication.

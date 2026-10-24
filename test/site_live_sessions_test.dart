@@ -21,6 +21,48 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'same-lease account replacement reconnects private tracking authority',
+    () async {
+      final api = _ReplacementUserApi();
+      final shell = _shell(api: api);
+      addTearDown(shell.dispose);
+      addTearDown(() {
+        if (!api.response.isCompleted) api.response.complete(_reader);
+      });
+      await shell.load();
+      await api.started.future;
+      await pumpEventQueue();
+      final original = FakeSiteTracker.built.single;
+      final lease = shell.lifecycle.capture(_site);
+      const next = DiscourseUser(id: 8, username: 'next-reader');
+
+      api.response.complete(next);
+      await pumpEventQueue();
+
+      expect(lease.isCurrent, isTrue);
+      expect(shell.currentInstance?.user?.id, 8);
+      expect(original.disposed, isTrue);
+      final replacement = FakeSiteTracker.built.last;
+      expect(replacement.userId, 8);
+      expect(replacement.disposed, isFalse);
+      expect(replacement.polling, isTrue);
+      final revision = shell.topicTrackingRevisionFor(_site);
+      original.deliverTopicTracking(const {
+        'message_type': 'new_topic',
+        'topic_id': 20,
+        'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+      });
+      expect(shell.topicTrackingRevisionFor(_site), revision);
+      replacement.deliverTopicTracking(const {
+        'message_type': 'new_topic',
+        'topic_id': 21,
+        'payload': {'highest_post_number': 1, 'created_in_new_period': true},
+      });
+      expect(shell.topicTrackingRevisionFor(_site), greaterThan(revision));
+    },
+  );
+
+  test(
     'retention acquired during attachment cannot start a partial poll',
     () async {
       final polls = <Map<String, String>>[];
@@ -339,4 +381,21 @@ final class _FailingTopicTracker extends FakeSiteTracker {
     void Function(String channel, Object? data) onMessage, {
     Map<String, int?> lastIds = const {},
   }) => throw _SubscriptionFailure();
+}
+
+final class _ReplacementUserApi extends FakeDiscourseApi {
+  _ReplacementUserApi() : super(user: _reader);
+  final started = Completer<void>();
+  final response = Completer<DiscourseUser>();
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) {
+    currentUserRequests.add(siteUrl);
+    if (!started.isCompleted) started.complete();
+    return response.future;
+  }
 }
