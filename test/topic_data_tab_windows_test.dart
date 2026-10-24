@@ -1,9 +1,21 @@
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+
+final class _CountingStore extends Store {
+  int postReads = 0;
+
+  @override
+  T? read<T extends Storable<T>>(String siteUrl, Object id) {
+    if (T == Post) postReads++;
+    return super.read<T>(siteUrl, id);
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +37,9 @@ void main() {
         feeds: const {'/latest.json': []},
         postsById: posts,
       );
+      final store = _CountingStore();
       final controller = ShellController(
+        store: store,
         instanceStore: FakeInstanceStore([site]),
         api: api,
         authenticator: FakeAuthenticator.signedIn([site], site: api),
@@ -74,6 +88,32 @@ void main() {
       expect(first.currentPostIds, [for (var id = 20; id <= 39; id++) id]);
       expect(second.currentPostIds, [for (var id = 70; id <= 89; id++) id]);
 
+      final firstSnapshot = TopicViewportSnapshot.from(controller, tab: first);
+      final secondSnapshot = TopicViewportSnapshot.from(
+        controller,
+        tab: second,
+      );
+      expect(firstSnapshot.initialPostIndex, 6);
+      expect(secondSnapshot.initialPostIndex, 6);
+      store.postReads = 0;
+      for (var i = 0; i < 10; i++) {
+        expect(
+          TopicViewportSnapshot.from(controller, tab: first).initialPostIndex,
+          6,
+        );
+        expect(
+          TopicViewportSnapshot.from(controller, tab: second).initialPostIndex,
+          6,
+        );
+      }
+      expect(store.postReads, 0);
+      expect(first.currentPostIds, same(firstSnapshot.postIds));
+      expect(second.currentPostIds, same(secondSnapshot.postIds));
+      expect(
+        first.initialPostIndexFor(firstSnapshot.postIds, 26, hasEarlier: true),
+        7,
+      );
+
       await controller.loadMorePosts(batchSize: 5, tabId: firstId);
 
       expect(api.postFetches, [
@@ -88,6 +128,18 @@ void main() {
       expect(controller.topicScrollPostNumber(7, tabId: secondId), 75);
       expect(controller.topicScrollPostOffset(7, tabId: firstId), -12);
       expect(controller.topicScrollPostOffset(7, tabId: secondId), -4);
+
+      final held = first.currentPostIds;
+      controller.closeTab(firstId);
+      expect(first.isCurrent, isFalse);
+      expect(controller.reopenClosedTab(firstId), isTrue);
+      final reopened = controller.tabContext(firstId);
+      expect(reopened.isCurrent, isTrue);
+      expect(first.isCurrent, isFalse);
+      expect(first.currentPostIds, isEmpty);
+      expect(reopened.currentPostIds, held);
+      expect(reopened.currentPostIds, isNot(same(held)));
+      expect(second.isCurrent, isTrue);
     },
   );
 }

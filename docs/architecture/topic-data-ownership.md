@@ -28,7 +28,8 @@ another copy of canonical entities.
 | --- | --- |
 | `TopicDataSession` | Open, refresh, ID paging, mega paging, gap expansion, summary, jump hydration, live invalidation, after-write repair and ambiguous-write lookup publication. |
 | `Store` and model merge methods | Canonical `Post`, `TopicDetail` and list-row records, record merge and retention. |
-| `ShellTabContext` and shell navigation | Route targets, ordinary-topic loaded windows, saved scroll anchors, highlights and originating-tab presentation. |
+| `ShellTabContext` and shell navigation | Route targets, saved scroll anchors, highlights and originating-tab presentation. |
+| `TopicReaderProjections` | Derived loaded windows, initial indexes, pending ID scans and their account/tab cache lifetime. |
 | `TopicReadController` | Read observations, timing requests and read-position lifecycle. |
 | `TopicTrackingReconciler` | Tracking snapshots, unread/read precedence and row projection. |
 | Feature mutation adapters | Request validation, mutation endpoints, typed write outcomes, title/category/tag/status projections, folder policy and route changes. |
@@ -38,6 +39,30 @@ another copy of canonical entities.
 parent and eligible resume position. The data owner decides cache admission,
 request sharing, replay and dispatch freshness. Category enrichment is an
 injected operation within the original opening deadline.
+
+## Reader data projections
+
+`TopicReaderProjections` retains one derived window and one initial-index memo
+per live tab. A captured `ShellTabContext` holds its original projection handle.
+Workspace changes retire closed handles. Lease retirement removes original
+account projections automatically, with identity checks protecting successors.
+The owner keeps IDs and structural keys, and reads canonical posts from `Store`.
+It does not fetch, publish records or coordinate navigation.
+
+The effective ordinary or summary stream comes from `TopicDataSession`.
+Stream identity, route target and Store post structural generation invalidate
+the window. Content edits keep its IDs list stable. The selected contiguous run
+contains the first loaded post at or after the route target. If no loaded post
+matches, it falls back to the first loaded run while hydration completes.
+Initial-index resolution also uses the next visible post for deleted targets.
+Newer paging collects at most one page plus one missing-ID lookahead, skipping
+already loaded IDs. Earlier paging examines the immediately preceding
+page-width slice.
+
+A separate projection directory keeps Store calculation out of workspace
+navigation and persistence. Making ephemeral tab contexts persistent would add
+navigation ownership to this extraction. Reader geometry and viewport
+restoration remain in their existing owners.
 
 ## Read admission
 
@@ -98,3 +123,7 @@ listener retirement, resume replay and full-stream authority. The shell tests
 cover independent inactive-tab windows and retirement during accepted-reply
 notification. Existing ordering, selected repair, bookmark, archive, prefetch,
 summary, composer and reader suites pin the migrated behavior.
+`topic_reader_projections_test.dart` pins cache identity, bounded scans, summary
+streams, mega edges and account/tab retirement without a Flutter binding.
+`topic_data_tab_windows_test.dart` also pins alternating-tab snapshot reuse and
+closed-tab handle retirement when the same ID is reopened.

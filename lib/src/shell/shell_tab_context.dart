@@ -6,13 +6,21 @@ final class ShellTabContext {
       accountIdentity = shell.currentAccountIdentity,
       lease = shell.currentInstance == null
           ? null
-          : shell.lifecycle.capture(shell.currentInstance!.url);
+          : shell.lifecycle.capture(shell.currentInstance!.url) {
+    _reader =
+        tabId != null &&
+            lease != null &&
+            shell.currentWorkspace?.tabById(tabId!) != null
+        ? shell._readerProjections.forTab(siteUrl!, tabId!, lease!)
+        : null;
+  }
 
   final ShellController shell;
   final String? tabId;
   final String? siteUrl;
   final String? accountIdentity;
   final SiteLease? lease;
+  late final TopicReaderProjection? _reader;
 
   bool get isCurrent =>
       !shell._tabContextDisposed &&
@@ -20,6 +28,7 @@ final class ShellTabContext {
       shell.currentInstance?.url == siteUrl &&
       shell.currentAccountIdentity == accountIdentity &&
       lease?.isCurrent == true &&
+      _reader?.isCurrent == true &&
       shell.currentWorkspace?.tabById(tabId!) != null;
   ForumTab? get tab =>
       isCurrent ? shell.currentWorkspace?.tabById(tabId!) : null;
@@ -307,119 +316,30 @@ final class ShellTabContext {
         : shell.categoryFor(selected.parentCategoryId);
   }
 
-  _PostWindow _currentPostWindow() {
+  TopicReaderWindow _currentPostWindow() {
     final instance = _instance;
     final detail = currentTopic;
     if (instance == null || detail == null) {
-      return ShellController._emptyPostWindow;
+      return TopicReaderProjection.emptyWindow;
     }
-    final stream = shell._topicData.forSite(instance.url).streamFor(detail);
-    final key = (
-      instance.url,
-      stream,
+    return _reader!.project(
+      shell._topicData.forSite(instance.url).streamFor(detail),
       currentContent?.postNumber,
-      shell.store.structureGenerationOf<Post>(instance.url),
-    );
-    final cacheId = (instance.url, activeTabId);
-    final cachedKey = shell._postWindowCacheKeys[cacheId];
-    if (cachedKey != null &&
-        cachedKey.$1 == key.$1 &&
-        identical(cachedKey.$2, key.$2) &&
-        cachedKey.$3 == key.$3 &&
-        identical(cachedKey.$4, key.$4)) {
-      return shell._postWindowCaches[cacheId]!;
-    }
-    final range = _loadedPostRange(instance.url, detail, stream: stream);
-    shell._postWindowCacheKeys[cacheId] = key;
-    return shell._postWindowCaches[cacheId] = (
-      stream: stream,
-      range: range,
-      ids: range == null
-          ? const []
-          : [for (final id in stream.sublist(range.$1, range.$2 + 1)) id],
     );
   }
 
-  (int, int)? _loadedPostRange(
-    String siteUrl,
-    TopicDetail detail, {
-    List<int>? stream,
-  }) {
-    final effectiveStream =
-        stream ?? shell._topicData.forSite(siteUrl).streamFor(detail);
-    if (effectiveStream.isEmpty) return null;
-
-    final target = currentContent?.postNumber;
-    var anchor = -1;
-    if (target != null) {
-      for (var i = 0; i < effectiveStream.length; i++) {
-        final post = shell.store.read<Post>(siteUrl, effectiveStream[i]);
-        if (post != null && post.postNumber >= target) {
-          anchor = i;
-          break;
-        }
-      }
-    } else {
-      anchor = effectiveStream.indexWhere(
-        (id) => shell.store.read<Post>(siteUrl, id) != null,
-      );
-    }
-    // A stale cache or a deliberately minimal test payload may not contain
-    // the requested post yet. Keep showing the contiguous data in hand until
-    // the around-post request lands instead of flashing an empty topic.
-    if (anchor < 0 && target != null) {
-      anchor = effectiveStream.indexWhere(
-        (id) => shell.store.read<Post>(siteUrl, id) != null,
-      );
-    }
-    if (anchor < 0) return null;
-
-    var first = anchor;
-    while (first > 0 &&
-        shell.store.read<Post>(siteUrl, effectiveStream[first - 1]) != null) {
-      first--;
-    }
-    var last = anchor;
-    while (last + 1 < effectiveStream.length &&
-        shell.store.read<Post>(siteUrl, effectiveStream[last + 1]) != null) {
-      last++;
-    }
-    return (first, last);
-  }
-
-  List<int> _pendingEarlierPostIds(
-    String siteUrl,
-    TopicDetail detail,
-    int batchSize,
-  ) {
-    final stream = shell._topicData.forSite(siteUrl).streamFor(detail);
-    final range = _loadedPostRange(siteUrl, detail, stream: stream);
-    if (range == null || range.$1 == 0) return const [];
-    final start = range.$1 > batchSize ? range.$1 - batchSize : 0;
-    return [
-      for (final id in stream.sublist(start, range.$1))
-        if (shell.store.read<Post>(siteUrl, id) == null) id,
-    ];
-  }
+  int? initialPostIndexFor(
+    List<int> postIds,
+    int target, {
+    required bool hasEarlier,
+  }) => isCurrent
+      ? _reader!.initialIndex(postIds, target, hasEarlier: hasEarlier)
+      : null;
 
   Post? _currentMegaTopicEdge({required bool newer}) {
-    final instance = _instance;
     final detail = currentTopic;
-    if (instance == null || detail == null || !detail.isMegaTopic) return null;
-    final window = _currentPostWindow();
-    final stream = window.stream;
-    final range = window.range;
-    if (range == null || !identical(stream, detail.stream)) return null;
-    if (newer) {
-      if (range.$2 + 1 < stream.length ||
-          stream[range.$2] == detail.lastPostId) {
-        return null;
-      }
-      return shell.store.read<Post>(instance.url, stream[range.$2]);
-    }
-    if (range.$1 > 0) return null;
-    final first = shell.store.read<Post>(instance.url, stream.first);
-    return first != null && first.postNumber > 1 ? first : null;
+    if (detail == null) return null;
+    return _reader!.megaEdge(_currentPostWindow(), detail, newer: newer);
   }
 
   Future<void> loadFeed(String destinationId, {bool force = false}) async {

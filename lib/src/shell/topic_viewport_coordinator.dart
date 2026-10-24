@@ -1295,12 +1295,7 @@ final class TopicViewportSnapshot {
         : controller.topicScrollPostNumber(topicId, tabId: tab.tabId);
     final hasEarlier = tab.currentTopicHasEarlier;
     final initialPostIndex = siteUrl != null && target != null
-        ? controller.initialPostIndexFor(
-            siteUrl,
-            postIds,
-            target,
-            hasEarlier: hasEarlier,
-          )
+        ? tab.initialPostIndexFor(postIds, target, hasEarlier: hasEarlier)
         : null;
 
     return TopicViewportSnapshot(

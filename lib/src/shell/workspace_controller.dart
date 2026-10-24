@@ -46,6 +46,13 @@ final class _WorkspaceController {
   void consumeHomepage(String? id) => _pendingHomepageTabs.remove(id);
 
   bool restore(Iterable<ForumWorkspace> workspaces) {
+    for (final workspace in _forumWorkspaces.values) {
+      _shell._readerProjections.retainTabs(
+        workspace.siteUrl,
+        _shell.lifecycle.capture(workspace.siteUrl),
+        {},
+      );
+    }
     _forumWorkspaces.clear();
     var workspacesNormalized = false;
     for (final workspace in workspaces) {
@@ -59,7 +66,7 @@ final class _WorkspaceController {
         _forumWorkspaces[workspace.siteUrl] = normalized;
       }
     }
-    _retainSearchTabState();
+    _retainTabState();
     return workspacesNormalized;
   }
 
@@ -150,7 +157,7 @@ final class _WorkspaceController {
     _forgetPluginPaneTabs(instance.url);
     final workspace = _normalize(_newWorkspace(instance));
     _forumWorkspaces[instance.url] = workspace;
-    _retainSearchTabState();
+    _retainTabState();
     if (persist) this.persist();
     return workspace;
   }
@@ -158,14 +165,8 @@ final class _WorkspaceController {
   void put(ForumWorkspace workspace, {bool persist = true}) {
     final normalized = _normalize(workspace);
     _forumWorkspaces[normalized.siteUrl] = normalized;
-    _retainSearchTabState();
+    _retainTabState();
     final liveTabIds = {for (final tab in normalized.tabs) tab.id};
-    _shell._postWindowCaches.removeWhere(
-      (key, _) => key.$1 == normalized.siteUrl && !liveTabIds.contains(key.$2),
-    );
-    _shell._postWindowCacheKeys.removeWhere(
-      (key, _) => key.$1 == normalized.siteUrl && !liveTabIds.contains(key.$2),
-    );
     _mainPaneTabs.removeWhere(
       (key, _) =>
           key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
@@ -185,15 +186,29 @@ final class _WorkspaceController {
     if (persist) this.persist();
   }
 
-  void _retainSearchTabState() => _shell.search.retainTabs({
-    for (final workspace in _forumWorkspaces.values)
-      for (final tab in workspace.tabs)
-        (siteUrl: workspace.siteUrl, tabId: tab.id),
-    for (final closed in _closedForumTabs)
-      (siteUrl: closed.siteUrl, tabId: closed.tab.id),
-  });
+  void _retainTabState() {
+    for (final workspace in _forumWorkspaces.values) {
+      _shell._readerProjections.retainTabs(
+        workspace.siteUrl,
+        _shell.lifecycle.capture(workspace.siteUrl),
+        {for (final tab in workspace.tabs) tab.id},
+      );
+    }
+    _shell.search.retainTabs({
+      for (final workspace in _forumWorkspaces.values)
+        for (final tab in workspace.tabs)
+          (siteUrl: workspace.siteUrl, tabId: tab.id),
+      for (final closed in _closedForumTabs)
+        (siteUrl: closed.siteUrl, tabId: closed.tab.id),
+    });
+  }
 
   void remove(String siteUrl, {bool persist = true}) {
+    _shell._readerProjections.retainTabs(
+      siteUrl,
+      _shell.lifecycle.capture(siteUrl),
+      {},
+    );
     _forgetPluginPaneTabs(siteUrl);
     final removed = _forumWorkspaces.remove(siteUrl);
     if (removed == null) return;
