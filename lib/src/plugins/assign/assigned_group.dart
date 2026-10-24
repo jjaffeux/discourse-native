@@ -175,6 +175,7 @@ final class AssignedGroupMembersPage {
     required this.offset,
     required this.limit,
     required this.hasMore,
+    this.membersComplete = true,
   }) : members = List.unmodifiable(members);
 
   factory AssignedGroupMembersPage.fromJson(
@@ -184,20 +185,23 @@ final class AssignedGroupMembersPage {
     required int limit,
   }) {
     final rawMembers = jsonArray(json['members']).take(limit).toList();
+    final members = [
+      for (final value in rawMembers)
+        if (value is Map<String, dynamic>)
+          ?AssignedGroupMember.fromJson(value, siteUrl),
+    ];
     final assignmentCount = jsonIntOrNull(json['assignment_count']);
     final groupAssignmentCount = jsonIntOrNull(json['group_assignment_count']);
     return AssignedGroupMembersPage(
-      members: [
-        for (final value in rawMembers)
-          if (value is Map<String, dynamic>)
-            ?AssignedGroupMember.fromJson(value, siteUrl),
-      ],
+      members: members,
+      membersComplete:
+          json['members'] is List && members.length == rawMembers.length,
       assignmentCount: assignmentCount == null || assignmentCount < 0
           ? 0
           : assignmentCount,
       groupAssignmentCount:
           groupAssignmentCount == null || groupAssignmentCount < 0
-          ? 0
+          ? null
           : groupAssignmentCount,
       offset: offset,
       limit: limit,
@@ -209,7 +213,8 @@ final class AssignedGroupMembersPage {
 
   final List<AssignedGroupMember> members;
   final int assignmentCount;
-  final int groupAssignmentCount;
+  final int? groupAssignmentCount;
+  final bool membersComplete;
   final int offset;
   final int limit;
   final bool hasMore;
@@ -219,8 +224,9 @@ final class AssignedGroupMembersPage {
 final class AssignedGroupMembersState {
   const AssignedGroupMembersState({
     this.members = const [],
-    this.assignmentCount = 0,
-    this.groupAssignmentCount = 0,
+    this.groupAssignmentCount,
+    this.membersComplete = true,
+    this.filtered = false,
     this.nextOffset = 0,
     this.hasMore = false,
     this.loading = false,
@@ -231,8 +237,9 @@ final class AssignedGroupMembersState {
   });
 
   final List<AssignedGroupMember> members;
-  final int assignmentCount;
-  final int groupAssignmentCount;
+  final int? groupAssignmentCount;
+  final bool membersComplete;
+  final bool filtered;
   final int nextOffset;
   final bool hasMore;
   final bool loading;
@@ -241,10 +248,28 @@ final class AssignedGroupMembersState {
   final String? error;
   final bool pageError;
 
+  /// The loaded member subtotal plus known direct-group assignments.
+  int get assignmentCount => members.fold(
+    groupAssignmentCount ?? 0,
+    (total, member) => total + (member.assignmentsCount ?? 0),
+  );
+
+  int? get exactAssignmentCount =>
+      loaded &&
+          !loading &&
+          !hasMore &&
+          !filtered &&
+          membersComplete &&
+          groupAssignmentCount != null &&
+          members.every((member) => member.assignmentsCount != null)
+      ? assignmentCount
+      : null;
+
   AssignedGroupMembersState loadingFirst() => AssignedGroupMembersState(
     members: members,
-    assignmentCount: assignmentCount,
     groupAssignmentCount: groupAssignmentCount,
+    membersComplete: membersComplete,
+    filtered: filtered,
     nextOffset: nextOffset,
     hasMore: hasMore,
     loading: true,
@@ -253,15 +278,19 @@ final class AssignedGroupMembersState {
 
   AssignedGroupMembersState loadingNextPage() => AssignedGroupMembersState(
     members: members,
-    assignmentCount: assignmentCount,
     groupAssignmentCount: groupAssignmentCount,
+    membersComplete: membersComplete,
+    filtered: filtered,
     nextOffset: nextOffset,
     hasMore: hasMore,
     loadingMore: true,
     loaded: loaded,
   );
 
-  AssignedGroupMembersState withPage(AssignedGroupMembersPage page) {
+  AssignedGroupMembersState withPage(
+    AssignedGroupMembersPage page, {
+    bool filtered = false,
+  }) {
     final first = page.offset == 0;
     final next = first ? <AssignedGroupMember>[] : [...members];
     final seen = {for (final member in next) member.id};
@@ -270,10 +299,9 @@ final class AssignedGroupMembersState {
     }
     return AssignedGroupMembersState(
       members: List.unmodifiable(next),
-      assignmentCount: first ? page.assignmentCount : assignmentCount,
-      groupAssignmentCount: first
-          ? page.groupAssignmentCount
-          : groupAssignmentCount,
+      groupAssignmentCount: page.groupAssignmentCount,
+      membersComplete: page.membersComplete && (first || membersComplete),
+      filtered: filtered,
       nextOffset: page.offset + page.limit,
       hasMore: page.hasMore,
       loaded: true,
@@ -283,8 +311,9 @@ final class AssignedGroupMembersState {
   AssignedGroupMembersState withError(String message, {bool page = false}) =>
       AssignedGroupMembersState(
         members: members,
-        assignmentCount: assignmentCount,
         groupAssignmentCount: groupAssignmentCount,
+        membersComplete: membersComplete,
+        filtered: filtered,
         nextOffset: nextOffset,
         hasMore: hasMore,
         loaded: true,

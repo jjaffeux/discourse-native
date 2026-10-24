@@ -119,6 +119,7 @@ AssignedGroupMembersPage _members(
       id: id,
       username: 'member-$id',
       usernameLower: 'member-$id',
+      assignmentsCount: assignmentCount - 2,
     ),
   ],
   assignmentCount: assignmentCount,
@@ -156,18 +157,23 @@ Future<void> _loadQueries(
 void main() {
   test('complete assignment totals include every loaded member page', () async {
     AssignedGroupMembersPage page(int offset, int count) =>
-        AssignedGroupMembersPage.fromJson({
-          'members': [
-            for (var index = 0; index < count; index++)
-              {
-                'id': offset + index + 1,
-                'username': 'member${offset + index + 1}',
-                'assignments_count': 1,
-              },
-          ],
-          'assignment_count': count + 2,
-          'group_assignment_count': 2,
-        }, _site, offset: offset, limit: 50);
+        AssignedGroupMembersPage.fromJson(
+          {
+            'members': [
+              for (var index = 0; index < count; index++)
+                {
+                  'id': offset + index + 1,
+                  'username': 'member${offset + index + 1}',
+                  'assignments_count': 1,
+                },
+            ],
+            'assignment_count': count + 2,
+            'group_assignment_count': 2,
+          },
+          _site,
+          offset: offset,
+          limit: 50,
+        );
     final api = _ControlledAssignedGroupApi()
       ..memberResults.addAll([
         _completed(page(0, 50)),
@@ -180,13 +186,57 @@ void main() {
     addTearDown(controller.dispose);
 
     await controller.loadMembers(siteUrl: _site, groupName: 'support');
+    expect(
+      controller.membersStateFor(_site, 'support').exactAssignmentCount,
+      isNull,
+    );
     await controller.loadMoreMembers(siteUrl: _site, groupName: 'support');
 
     final state = controller.membersStateFor(_site, 'support');
     expect(state.members, hasLength(51));
     expect(state.hasMore, isFalse);
     expect(state.assignmentCount, 53);
+    expect(state.exactAssignmentCount, 53);
     expect(api.memberCalls.map((call) => call.offset), [0, 50]);
+  });
+
+  test('exhausted member searches do not expose an Everyone count', () async {
+    final api = _ControlledAssignedGroupApi()
+      ..memberResults.addAll([
+        _completed(_members(1)),
+        _completed(_members(2)),
+      ]);
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadMembers(siteUrl: _site, groupName: 'support');
+    await controller.loadMembers(
+      siteUrl: _site,
+      groupName: 'support',
+      search: ' member2 ',
+    );
+
+    expect(
+      controller.membersStateFor(_site, 'support').exactAssignmentCount,
+      10,
+    );
+    final filtered = controller.membersStateFor(
+      _site,
+      'support',
+      search: 'member2',
+    );
+    expect(filtered.assignmentCount, 10);
+    expect(filtered.hasMore, isFalse);
+    expect(filtered.exactAssignmentCount, isNull);
+    await controller.loadMoreMembers(
+      siteUrl: _site,
+      groupName: 'support',
+      search: 'member2',
+    );
+    expect(api.memberCalls, hasLength(2));
   });
 
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1029,7 +1079,7 @@ void main() {
     // Paging an older query makes it recent even without reading its state.
     await _loadQueries(controller, api, count: 15);
     api.memberResults.add(
-      _completed(_members(2, offset: 50, assignmentCount: 1)),
+      _completed(_members(2, offset: 50, assignmentCount: 3)),
     );
     await controller.loadMoreMembers(siteUrl: _site, groupName: 'support');
     await controller.loadMoreTopics(
@@ -1041,7 +1091,7 @@ void main() {
 
     final members = controller.membersStateFor(_site, 'support');
     expect(members.members.map((member) => member.id), [1, 2]);
-    expect(members.assignmentCount, 10, reason: 'first page owns totals');
+    expect(members.assignmentCount, 11);
     expect(
       api.memberCalls
           .where((call) => call.search.isEmpty)
@@ -1149,7 +1199,7 @@ void main() {
           state().members.map((member) => member.id),
           refreshing ? [3] : [3, 4],
         );
-        expect(state().assignmentCount, 20);
+        expect(state().assignmentCount, refreshing ? 20 : 28);
         expect(state().loading, isFalse);
         expect(state().loadingMore, isFalse);
       });

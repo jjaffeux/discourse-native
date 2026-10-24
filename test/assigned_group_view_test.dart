@@ -379,6 +379,83 @@ void main() {
       expect(find.text('Try again'), findsNothing);
     });
 
+    testWidgets('Everyone count appears only for a complete unfiltered load', (
+      tester,
+    ) async {
+      final presentation = _FakeAssignedGroupPresentation(
+        _state(feed: const TopicFeed(loaded: true)),
+      );
+      await _pumpView(tester, presentation);
+      await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
+      await tester.pumpAndSettle();
+      final everyone = find.byKey(const ValueKey('assigned-person-everyone'));
+      final direct = find.byKey(const ValueKey('assigned-person-direct-group'));
+      Finder countIn(Finder row, String count) =>
+          find.descendant(of: row, matching: find.text(count));
+      void expectNoEveryoneCount() {
+        expect(
+          find.descendant(of: everyone, matching: find.byType(Text)),
+          findsOneWidget,
+        );
+      }
+
+      Future<void> show(AssignedGroupMembersState members) async {
+        presentation.show(
+          _state(members: members, feed: const TopicFeed(loaded: true)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      AssignedGroupMembersPage page({
+        int offset = 0,
+        bool empty = false,
+        bool known = true,
+        int limit = 1,
+      }) => AssignedGroupMembersPage.fromJson(
+        {
+          'members': [
+            if (!empty)
+              {'id': 7, 'username': 'Sam', if (known) 'assignments_count': 4},
+          ],
+          'assignment_count': empty ? 2 : 6,
+          'group_assignment_count': 2,
+        },
+        _siteUrl,
+        offset: offset,
+        limit: limit,
+      );
+
+      expectNoEveryoneCount();
+      expect(countIn(direct, '0'), findsNothing);
+      final first = const AssignedGroupMembersState().withPage(page());
+      await show(first);
+      expectNoEveryoneCount();
+      expect(countIn(direct, '2'), findsOneWidget);
+      await show(first.withError('Try again', page: true));
+      expectNoEveryoneCount();
+      final complete = first.withPage(page(offset: 1, empty: true));
+      await show(complete);
+      expect(countIn(everyone, '6'), findsOneWidget);
+      expect(countIn(direct, '2'), findsOneWidget);
+      await show(complete.loadingFirst());
+      expectNoEveryoneCount();
+      await show(
+        const AssignedGroupMembersState().withPage(
+          page(limit: 50),
+          filtered: true,
+        ),
+      );
+      expectNoEveryoneCount();
+      await show(
+        const AssignedGroupMembersState().withPage(
+          page(limit: 50, known: false),
+        ),
+      );
+      expectNoEveryoneCount();
+      expect(countIn(direct, '2'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('exposes member rail, search, and semantics', (tester) async {
       final semantics = tester.ensureSemantics();
       final presentation = _FakeAssignedGroupPresentation(
@@ -393,7 +470,6 @@ void main() {
                 assignmentsCount: 4,
               ),
             ],
-            assignmentCount: 8,
             groupAssignmentCount: 2,
             hasMore: true,
             loaded: true,
@@ -490,7 +566,6 @@ void main() {
                 usernameLower: 'ten',
               ),
             ],
-            assignmentCount: 55,
             groupAssignmentCount: 2,
             hasMore: true,
             loaded: true,

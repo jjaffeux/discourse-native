@@ -400,7 +400,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
     final options = <_AssignedPersonOption>[
       _AssignedPersonOption(
         label: context.l10n.everyone,
-        count: widget.members.assignmentCount,
+        count: widget.members.exactAssignmentCount,
         filter: const AssignedGroupFilter.everyone(),
         icon: DIcons.users,
       ),

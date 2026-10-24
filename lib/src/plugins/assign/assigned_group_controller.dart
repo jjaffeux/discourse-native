@@ -301,7 +301,10 @@ final class _AssignedMemberQuery {
         ),
       );
       _commit(lease, request, () {
-        state = (page ? held : state).withPage(result);
+        state = (page ? held : state).withPage(
+          result,
+          filtered: key.search.isNotEmpty,
+        );
       });
     } catch (error) {
       if (!_current(lease, request)) return;
