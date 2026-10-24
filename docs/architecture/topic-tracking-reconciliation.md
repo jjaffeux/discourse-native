@@ -19,6 +19,23 @@ A native notification choice has an opaque `TopicTrackingChoice`. The notificati
 
 The owner merges category membership lists against the latest user and sends the result through a narrow current-user publication port. Taxonomy still owns category publication. The owner opens the replacement tracking ticket and constructs the fenced preference-read callback. The live session retains snapshot transport and retry state. Confirmed category POSTs remain successful when subsequent persistence or refresh fails.
 
+## New-topic dismissal lifetime
+
+`NewTopicDismissals` owns the dismissal directory, per-account admission and busy
+state, credential acquisition, complete multi-tag pagination, and bulk-write
+ordering. Each private account session holds its original `SiteLease` and a
+detachable retirement observer. Forgetting an account, replacing its lease or
+disposing the owner retires that session. A late completion cannot release a
+successor's admission or publish more effects.
+
+`ShellTabContext` captures an immutable `DismissNewTopicsCommand` from the
+rendered route and listed topics, including the server's exact tag spelling.
+The owner accepts tracking messages through a guarded shell capability, then
+forces a reload of the captured source feed through a second capability. Store,
+`TopicTrackingReconciler` and `TopicFeedController` remain authoritative. Feed
+reload errors remain feed state after an accepted write. Dismissal does not
+retry writes automatically or introduce a notifier.
+
 ## Live connection lifetime
 
 Each live session holds startup completion until HTML bootstrap settles, so later JSON account refreshes run second. An assembling tracker is available for scoped plugin handles, while polling requires a ready tracker with all core, plugin, and visible-topic channels registered. One desired-state policy governs startup, foreground changes, retention, and resume. Anonymous readers on private forums never qualify, even with retention. Retirement closes the assembling or ready tracker and releases its retry capability. Callbacks require the captured startup attempt or exact ready tracker as well as the account lease.

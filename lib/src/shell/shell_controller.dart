@@ -5,7 +5,7 @@ import 'dart:ui' show Color, Rect;
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, Listenable, ValueListenable, immutable, listEquals;
+    show ChangeNotifier, Listenable, ValueListenable, listEquals;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
@@ -115,6 +115,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../site_preference_inventory.g.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
+import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
 import 'badges_controller.dart';
 import 'bookmark_transactions.dart';
@@ -159,7 +160,6 @@ import 'user_directory_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
-part 'account_new_topic_dismissals.dart';
 part 'composer_identity_resolution.dart';
 part 'composer_registry.dart';
 part 'composer_submission.dart';
@@ -3318,19 +3318,29 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadFeed(replacement.id));
   }
 
-  final Map<String, _AccountNewTopicDismissals> _newTopicDismissals = {};
-
-  _AccountNewTopicDismissals _newTopicDismissalsFor(String siteUrl) {
-    final held = _newTopicDismissals[siteUrl];
-    if (held != null && held._session.lease.isCurrent) return held;
-    return _newTopicDismissals[siteUrl] = _AccountNewTopicDismissals(
-      this,
-      AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
-    );
-  }
+  late final _newTopicDismissals = NewTopicDismissals(
+    api: api.topicFeeds,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    acceptTracking: (siteUrl, lease, message) {
+      if (!lease.isCurrent || isDisposed) return;
+      _applyTopicTrackingMessage(siteUrl, message);
+    },
+    reloadSource: (command, lease) async {
+      if (!lease.isCurrent || isDisposed) return;
+      await topicFeeds.load(
+        instance: command.instance,
+        destinationId: command.route.id,
+        path: command.route.feedPath!,
+        incoming: _liveSessions.trackerFor(command.instance.url)?.incoming,
+        force: true,
+      );
+    },
+    changed: _notify,
+  );
 
   bool get dismissingNewTopics =>
-      _newTopicDismissals[currentInstance?.url]?.isBusy ?? false;
+      _newTopicDismissals.isBusy(currentInstance?.url);
 
   bool get canDismissNewTopics => focusedTabContext.canDismissNewTopics;
 
@@ -9002,7 +9012,7 @@ class ShellController extends FrameSafeNotifier
     _topicData.clearPrefetch();
     cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
-    _newTopicDismissals.remove(siteUrl);
+    _newTopicDismissals.forget(siteUrl);
     _bookmarks.forget(siteUrl);
     _checklists.forget(siteUrl);
     _topicData.forget(siteUrl);
@@ -9952,6 +9962,7 @@ class ShellController extends FrameSafeNotifier
     _currentUsers.dispose();
     _topicActions.dispose();
     _messageArchives.dispose();
+    _newTopicDismissals.dispose();
     _profileWrites.dispose();
     for (final timer in _pluginNotificationFeedRefreshTimers.values) {
       timer.cancel();

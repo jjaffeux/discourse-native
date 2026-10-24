@@ -694,19 +694,17 @@ final class ShellTabContext {
   Future<String?> dismissNewTopics() async {
     final scope = _dismissNewScope;
     if (scope == null) return null;
-    return switch (await shell
-        ._newTopicDismissalsFor(scope.instance.url)
-        .dismiss(scope)) {
+    return switch (await shell._newTopicDismissals.dismiss(scope)) {
       null => null,
-      _DismissNewTopicsFailure.reconnect => appL10n.reconnectToDismissNewTopics,
-      _DismissNewTopicsFailure.failed =>
+      DismissNewTopicsFailure.reconnect => appL10n.reconnectToDismissNewTopics,
+      DismissNewTopicsFailure.failed =>
         appL10n.couldNotDismissNewTopicsPleaseTryAgain,
     };
   }
 
   bool get canDismissNewTopics => _dismissNewScope != null;
 
-  _DismissNewTopicsScope? get _dismissNewScope {
+  DismissNewTopicsCommand? get _dismissNewScope {
     final instance = _instance;
     final route = topicListContent;
     final mode = currentTopicListMode;
@@ -740,7 +738,7 @@ final class ShellTabContext {
       }
       if (tagName == null) return null;
     }
-    return _DismissNewTopicsScope(
+    return DismissNewTopicsCommand(
       instance: instance,
       route: route,
       mode: mode,
