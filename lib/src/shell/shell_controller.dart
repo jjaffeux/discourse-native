@@ -167,6 +167,8 @@ part 'post_commands.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
 part 'post_mutation_policy.dart';
+part 'topic_action_transactions.dart';
+part 'message_archive_transactions.dart';
 part 'topic_metadata_transactions.dart';
 part 'topic_navigation_attempts.dart';
 part 'shell_tab_context.dart';
@@ -4490,9 +4492,32 @@ class ShellController extends FrameSafeNotifier
     },
     changed: _notify,
   );
-  final Set<String> _topicPinWrites = {};
-  final Set<String> _topicStatusWrites = {};
-  final Set<String> _topicDeletionWrites = {};
+  late final _topicActions = _TopicActionTransactions(
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    topics: api.topicMutations,
+    topicData: _topicData,
+    instanceAt: _instanceAt,
+    changed: _notify,
+    topicRemoved: (siteUrl, topicId) {
+      if (currentInstance?.url == siteUrl &&
+          currentContent?.topicId == topicId) {
+        handleBack(canReturnToSidebar: false);
+      }
+    },
+    mutationProblem: _postMutationPolicy.problem,
+    failedMutation: _postMutationPolicy.failed,
+  );
+  late final _messageArchives = _MessageArchiveTransactions(
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    topics: api.topicMutations,
+    topicData: _topicData,
+    instanceAt: _instanceAt,
+    topicFeeds: topicFeeds,
+  );
   late final _topicNavigation = _TopicNavigationAttempts(
     focusedContext: () => focusedTabContext,
     store: store,
@@ -5823,428 +5848,35 @@ class ShellController extends FrameSafeNotifier
   ) => _notificationPreferences.updateCategory(siteUrl, categoryId, level);
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
-      _topicPinWrites.contains(_topicKey(siteUrl, topicId));
+      _topicActions.topicPinWriteInFlight(siteUrl, topicId);
 
   Future<String?> updateTopicPinPreference(
     String siteUrl,
     int topicId,
     bool pinned,
-  ) async {
-    if (isDisposed || topicId <= 0) {
-      return appL10n.thisTopicCanNoLongerBeChanged;
-    }
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (held == null || !held.hasPinPreference) {
-      return appL10n.thisTopicDoesNotOfferAPinPreference;
-    }
-    if (held.pinned == pinned) return null;
-
-    final key = _topicKey(siteUrl, topicId);
-    if (!_topicPinWrites.add(key)) {
-      return appL10n.anotherPinChangeIsStillFinishing;
-    }
-    final heldRow = store.read<Topic>(siteUrl, topicId);
-    final lease = lifecycle.capture(siteUrl);
-
-    void project(bool nextPinned, bool nextUnpinned) {
-      lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.copyWith(pinned: nextPinned, unpinned: nextUnpinned),
-        );
-        store.update<Topic>(
-          siteUrl,
-          topicId,
-          (topic) => topic.copyWith(pinned: nextPinned),
-        );
-        _notify();
-      });
-    }
-
-    void rollback() {
-      lease.commit(() {
-        // Undo only this write's own guess, and only where it still stands.
-        // Reading, status writes and re-reads move the same records while the
-        // request is out; the tap-time copies would rewind them.
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.pinned == pinned && topic.unpinned == !pinned
-              ? topic.copyWith(pinned: held.pinned, unpinned: held.unpinned)
-              : topic,
-        );
-        if (heldRow != null) {
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) => topic.pinned == pinned
-                ? topic.copyWith(pinned: heldRow.pinned)
-                : topic,
-          );
-        }
-        _notify();
-      });
-    }
-
-    project(pinned, !pinned);
-    try {
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!lease.isCurrent || isDisposed) return null;
-      if (credential.failure case final failure?) {
-        rollback();
-        return failure.message;
-      }
-      final clientId = credential.request!.clientId;
-      if (!lease.isCurrent || isDisposed) return null;
-      await credential.request!.run(
-        () => api.topicMutations.updateTopicPinForUser(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          pinned: pinned,
-          clientId: clientId,
-        ),
-      );
-      return null;
-    } on WriteException catch (error) {
-      if (lease.isCurrent && !isDisposed) rollback();
-      return error.message;
-    } catch (error) {
-      if (lease.isCurrent && !isDisposed) {
-        rollback();
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      lease.commit(() {
-        _topicPinWrites.remove(key);
-        if (!isDisposed) _notify();
-      });
-    }
-  }
-
-  final Set<String> _messageArchiveWrites = {};
+  ) => _topicActions.updateTopicPinPreference(siteUrl, topicId, pinned);
 
   Future<String?> updateMessageArchived(
     String siteUrl,
     int topicId,
     bool archived,
-  ) async {
-    final instance = instanceFor(siteUrl);
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (isDisposed ||
-        instance?.isConnected != true ||
-        instance?.user?.canSendPrivateMessages != true ||
-        held?.privateMessage != true) {
-      return appL10n.thisMessageCanNoLongerBeMoved;
-    }
-    if (held!.messageArchived == archived) return null;
-    final key = _topicKey(siteUrl, topicId);
-    if (!_messageArchiveWrites.add(key)) {
-      return appL10n.anotherInboxActionIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
-      if (credential.failure case final failure?) return failure.message;
-      final clientId = credential.request!.clientId;
-      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
-      await credential.request!.run(
-        () => api.topicMutations.updateMessageArchived(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          archived: archived,
-          clientId: clientId,
-        ),
-      );
-      if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
-      _topicData.forLease(siteUrl, lease)?.acceptArchive(topicId, archived);
-      // Core moves it for the user and each of its groups they belong to. The
-      // account's message groups can predate a group's first message; the
-      // topic names its groups as they are.
-      _refreshMessageFolders(
-        siteUrl,
-        personal: MessageListMode.values,
-        group: MessageListMode.values,
-        groupNames: {
-          ...instance!.user!.messageGroupNames,
-          ...held.allowedMessageGroups,
-        },
-      );
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error) {
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      lease.commit(() => _messageArchiveWrites.remove(key));
-    }
-  }
-
-  /// Re-reads the folders on [siteUrl] a message may just have entered or
-  /// left: the [personal] ones, and the [group] ones of each of [groupNames],
-  /// both under Messages and on the group's page, whose Inbox and Archive tabs
-  /// are cached apart. A folder not yet loaded is left to load when opened.
-  void _refreshMessageFolders(
-    String siteUrl, {
-    SiteLease? lease,
-    required Iterable<MessageListMode> personal,
-    required Iterable<MessageListMode> group,
-    required Iterable<String> groupNames,
-  }) {
-    final instance = _instanceAt(siteUrl);
-    final username = instance?.user?.username;
-    if (instance == null || username == null) return;
-    void refresh(String destinationId, String path) {
-      if (isDisposed || (lease != null && !lease.isCurrent)) return;
-      if (topicFeeds.feedFor(siteUrl, destinationId) == null) return;
-      unawaited(
-        topicFeeds.load(
-          instance: instance,
-          destinationId: destinationId,
-          path: path,
-          incoming: null,
-          force: true,
-        ),
-      );
-    }
-
-    for (final mode in personal) {
-      refresh(ContentRoute.messages(mode: mode).id, mode.feedPathFor(username));
-    }
-    final groupModes = [
-      for (final mode in group)
-        if (mode.supportsGroup) mode,
-    ];
-    final pageTabs = <String?>[
-      if (groupModes.contains(MessageListMode.inbox)) ...[
-        null,
-        GroupRoute.inbox,
-      ],
-      if (groupModes.contains(MessageListMode.archive)) GroupRoute.archive,
-    ];
-    for (final name in groupNames) {
-      try {
-        for (final mode in groupModes) {
-          refresh(
-            ContentRoute.messages(groupName: name, mode: mode).id,
-            mode.feedPathFor(username, groupName: name),
-          );
-        }
-        for (final subsection in pageTabs) {
-          final route = GroupRoute.detail(
-            name,
-            section: GroupRoute.messages,
-            subsection: subsection,
-          );
-          refresh(route.id, route.topicFeedPath(username)!);
-        }
-      } on ArgumentError {
-        // A recipient no group route can name has no group folders.
-        continue;
-      }
-    }
-  }
+  ) => _messageArchives.update(siteUrl, topicId, archived);
 
   bool topicStatusWriteInFlight(String siteUrl, int topicId) =>
-      _topicStatusWrites.contains(_topicKey(siteUrl, topicId));
+      _topicActions.topicStatusWriteInFlight(siteUrl, topicId);
 
   Future<String?> updateTopicStatus(
     String siteUrl,
     int topicId,
     TopicStatusProperty status,
     bool enabled,
-  ) async {
-    if (isDisposed || topicId <= 0) {
-      return appL10n.thisTopicCanNoLongerBeChanged;
-    }
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (held == null || !held.canChangeStatus(status)) {
-      return appL10n.thisTopicCanNoLongerBeChangedThatWay;
-    }
-    if (held.statusValue(status) == enabled) return null;
-
-    final key = _topicKey(siteUrl, topicId);
-    if (!_topicStatusWrites.add(key)) {
-      return appL10n.anotherTopicActionIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    _notify();
-    try {
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!lease.isCurrent || isDisposed) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final clientId = credential.request!.clientId;
-      if (!lease.isCurrent || isDisposed) return null;
-      await credential.request!.run(
-        () => api.topicMutations.updateTopicStatus(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          status: status,
-          enabled: enabled,
-          clientId: clientId,
-        ),
-      );
-      if (!lease.isCurrent || isDisposed) return null;
-      lease.commit(() {
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (topic) => topic.withStatus(status, enabled),
-        );
-        if (status == TopicStatusProperty.closed) {
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) => topic.copyWith(closed: enabled),
-          );
-        }
-        _notify();
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error) {
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      lease.commit(() {
-        _topicStatusWrites.remove(key);
-        if (!isDisposed) _notify();
-      });
-    }
-  }
+  ) => _topicActions.updateTopicStatus(siteUrl, topicId, status, enabled);
 
   bool topicDeletionWriteInFlight(String siteUrl, int topicId) =>
-      _topicDeletionWrites.contains(_topicKey(siteUrl, topicId));
+      _topicActions.topicDeletionWriteInFlight(siteUrl, topicId);
 
-  Future<String?> setTopicDeleted(
-    String siteUrl,
-    int topicId,
-    bool deleted,
-  ) async {
-    if (isDisposed || topicId <= 0) {
-      return appL10n.thisTopicCanNoLongerBeChanged;
-    }
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    final allowed = deleted
-        ? held?.canDeleteTopic == true
-        : held?.canRecoverTopic == true;
-    if (held == null || !allowed) {
-      return deleted
-          ? appL10n.thisTopicCannotBeDeleted
-          : appL10n.thisTopicCannotBeRecovered;
-    }
-    if (_topicData
-            .forSite(siteUrl)
-            .moderationRecoveryFor(topicId, const [], wholeTopic: true) !=
-        null) {
-      return appL10n.postMutationRecoveryRequired;
-    }
-    final key = _topicKey(siteUrl, topicId);
-    if (!_topicDeletionWrites.add(key)) {
-      return appL10n.anotherTopicActionIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    _notify();
-    try {
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!lease.isCurrent || isDisposed) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final clientId = credential.request!.clientId;
-      if (!lease.isCurrent || isDisposed) return null;
-      if (deleted) {
-        await credential.request!.run(
-          () => api.topicMutations.deleteTopic(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            topicId: topicId,
-            clientId: clientId,
-          ),
-        );
-      } else {
-        await credential.request!.run(
-          () => api.topicMutations.recoverTopic(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            topicId: topicId,
-            clientId: clientId,
-          ),
-        );
-      }
-      if (!lease.isCurrent || isDisposed) return null;
-      lease.commit(() {
-        _applyTopicDeletion(siteUrl, topicId, deleted, lease);
-        _notify();
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error) {
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      lease.commit(() {
-        _topicDeletionWrites.remove(key);
-        if (!isDisposed) _notify();
-      });
-    }
-  }
-
-  /// Applies an accepted deletion or recovery of a topic. Neither endpoint
-  /// answers with the topic, so the held one takes what PostDestroyer is known
-  /// to do to it, its list row follows the closed state, and it is read again
-  /// for what that leaves to the server.
-  void _applyTopicDeletion(
-    String siteUrl,
-    int topicId,
-    bool deleted,
-    SiteLease lease,
-  ) {
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null) return;
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    if (held == null) return;
-    final next = deleted
-        ? held.afterDeletion(DateTime.now().toUtc())
-        : held.afterRecovery();
-    if (identical(next, held)) return;
-    store.update<TopicDetail>(siteUrl, topicId, (_) => next);
-    if (!lease.isCurrent) return;
-    if (next.closed != held.closed) {
-      store.update<Topic>(
-        siteUrl,
-        topicId,
-        (row) => row.copyWith(closed: next.closed),
-      );
-    }
-    if (!deleted) {
-      // Only the server knows whether the recovered topic takes replies again.
-      unawaited(data.refresh(topicId, slug: ''));
-      return;
-    }
-    // Site settings decide whether an author's deletion withdrew or trashed
-    // the topic, and a deleter may no longer be allowed to read a trashed
-    // one, so it is read when next opened rather than now.
-    data.refreshWhenOpened(topicId);
-  }
+  Future<String?> setTopicDeleted(String siteUrl, int topicId, bool deleted) =>
+      _topicActions.setTopicDeleted(siteUrl, topicId, deleted);
 
   bool topicUnreadWriteInFlight(String siteUrl, int topicId) =>
       _topicReads.resetInFlight(siteUrl, topicId);
@@ -8187,11 +7819,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _canPermanentlyDeletePost(TopicDetail topic, Post post) =>
-      post.isDeleted &&
-      topic.stream.contains(post.id) &&
-      (post.postNumber == 1
-          ? topic.deletedAt != null && topic.canPermanentlyDelete
-          : post.canPermanentlyDelete);
+      _topicActions._canPermanentlyDeletePost(topic, post);
 
   PostPermanentDeleteTarget capturePostPermanentDeleteTarget({
     required String siteUrl,
@@ -8210,25 +7838,7 @@ class ShellController extends FrameSafeNotifier
 
   PostMutationOutcome? _permanentPostDeletionBlock(
     PostPermanentDeleteTarget target,
-  ) {
-    if (isDisposed || !target._lease.isCurrent) {
-      return const PostMutationRetired();
-    }
-    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
-    final post = store.read<Post>(target.siteUrl, target.postId);
-    if (_instanceAt(target.siteUrl)?.isConnected != true ||
-        topic == null ||
-        post == null ||
-        post.postNumber != target.postNumber ||
-        !_canPermanentlyDeletePost(topic, post)) {
-      return const PostMutationNotSent(
-        PostMutationProblem(
-          PostMutationProblemKind.permanentDeletionUnavailable,
-        ),
-      );
-    }
-    return null;
-  }
+  ) => _topicActions._permanentPostDeletionBlock(target);
 
   String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) =>
       switch (_permanentPostDeletionBlock(target)) {
@@ -8279,89 +7889,7 @@ class ShellController extends FrameSafeNotifier
     if (!target.deletesTopic) {
       return _postCommands.run(_PermanentlyDeleteReply(target));
     }
-    if (_permanentPostDeletionBlock(target) case final refusal?) return refusal;
-    final siteUrl = target.siteUrl;
-    final topicId = target.topicId;
-    final postId = target.postId;
-    final lease = target._lease;
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null) return const PostMutationRetired();
-    final unresolved = data.moderationRecoveryFor(topicId, [
-      postId,
-    ], wholeTopic: target.deletesTopic);
-    if (unresolved != null) {
-      return PostMutationNotSent.recoveryRequired(unresolved);
-    }
-    final topicKey = _topicKey(siteUrl, topicId);
-    if (!_topicDeletionWrites.add(topicKey)) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.busyTopic),
-      );
-    }
-    final ids = List<int>.unmodifiable(
-      store.read<TopicDetail>(siteUrl, topicId)?.stream ?? [postId],
-    );
-    _notify();
-    try {
-      if (_permanentPostDeletionBlock(target) case final refusal?) {
-        return refusal;
-      }
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (_permanentPostDeletionBlock(target) case final refusal?) {
-        return refusal;
-      }
-      if (credential.failure case final failure?) {
-        return PostMutationNotSent(_postMutationPolicy.problem(failure));
-      }
-      var sent = false;
-      try {
-        await credential.request!.run(() {
-          sent = true;
-          return api.topicMutations.permanentlyDeleteTopic(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            topicId: topicId,
-            clientId: credential.request!.clientId,
-          );
-        });
-      } catch (error, stackTrace) {
-        return await _postMutationPolicy.failed(
-          data,
-          topicId,
-          ids,
-          credential.apiKey,
-          error,
-          stackTrace,
-          sent: sent,
-          wholeTopic: true,
-          alreadyHeld: false,
-        );
-      }
-      if (!data.isCurrent || isDisposed) {
-        return const PostMutationAccepted.retired();
-      }
-      data.removeTopicPermanently(topicId);
-      _notify();
-      if (!data.isCurrent || isDisposed) {
-        return const PostMutationAccepted.retired();
-      }
-      if (currentInstance?.url == siteUrl &&
-          currentContent?.topicId == topicId) {
-        handleBack(canReturnToSidebar: false);
-      }
-      return data.isCurrent && !isDisposed
-          ? const PostMutationAccepted.fresh()
-          : const PostMutationAccepted.retired();
-    } finally {
-      lease.commit(() {
-        _topicDeletionWrites.remove(topicKey);
-        _notify();
-      });
-    }
+    return _topicActions.permanentlyDeleteTopic(target);
   }
 
   Future<PostMutationOutcome> recoverPost(Post post) =>
@@ -9169,7 +8697,7 @@ class ShellController extends FrameSafeNotifier
       case _SubmissionTopic(:final topicId, :final slug, :final title):
         if (target is! TopicCreationComposerTarget) return;
         if (target.isPrivateMessage) {
-          _refreshMessageFolders(
+          _messageArchives.refreshFolders(
             target.siteUrl,
             lease: lease,
             personal: const [MessageListMode.sent],
@@ -9741,10 +9269,8 @@ class ShellController extends FrameSafeNotifier
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _notificationPreferences.forget(siteUrl);
     _currentUserReconcilers.remove(siteUrl)?.retire();
-    _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _messageArchiveWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _topicActions.forget(siteUrl);
+    _messageArchives.forget(siteUrl);
     _topicNavigation.forgetSite(siteUrl);
     _topicReads.forget(siteUrl);
 
@@ -10671,9 +10197,8 @@ class ShellController extends FrameSafeNotifier
       refresh.retire();
     }
     _sessionUserRequests.clear();
-    _topicPinWrites.clear();
-    _topicStatusWrites.clear();
-    _messageArchiveWrites.clear();
+    _topicActions.dispose();
+    _messageArchives.dispose();
     _profileWrites.dispose();
     for (final timer in _pluginNotificationFeedRefreshTimers.values) {
       timer.cancel();
@@ -10684,7 +10209,6 @@ class ShellController extends FrameSafeNotifier
       request.ignore();
     }
     _siteNotificationTypeRequests.clear();
-    _topicDeletionWrites.clear();
     _selectedPostModeration.dispose();
     _topicFlagWrites.clear();
     _topicReads.dispose();

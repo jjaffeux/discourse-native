@@ -255,7 +255,12 @@ final class _PostCommandOwner {
       if (command case _RecoverPost(:final post) when post.postNumber == 1) {
         // PostDestroyer recovers the topic but only publishes its stats.
         lease.commit(() {
-          shell._applyTopicDeletion(siteUrl, topicId, false, lease);
+          shell._topicActions._applyTopicDeletion(
+            siteUrl,
+            topicId,
+            false,
+            lease,
+          );
           shell._notify();
         });
       }
