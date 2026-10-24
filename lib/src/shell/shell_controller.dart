@@ -926,11 +926,19 @@ class ShellController extends FrameSafeNotifier
 
   late final UserStatusOverrides userStatuses = UserStatusOverrides();
 
+  late final PreviewLoadingOwner _previews = PreviewLoadingOwner(
+    site: api.site,
+    topicContent: api.topicContent,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    store: store,
+  );
+
   /// Profile-card fetches by lowercase username; the cards live in [store].
-  late final PreviewRequests<String> userCardRequests = PreviewRequests();
+  PreviewRequests<String> get userCardRequests => _previews.userCardRequests;
 
   /// Post-likers fetches by post ID; the likers live in [store].
-  late final PreviewRequests<int> likerRequests = PreviewRequests();
+  PreviewRequests<int> get likerRequests => _previews.likerRequests;
 
   late final DraftListController draftList = DraftListController(
     api: api.drafts,
@@ -8018,59 +8026,12 @@ class ShellController extends FrameSafeNotifier
     return likerRequests.errorFor(targetSite, postId);
   }
 
-  // Every hover-open of a like count lands here, so progress and failures
-  // go to [likerRequests] and the likers to [store], never to the facade.
   Future<void> loadLikers(int postId, {String? siteUrl}) async {
     final targetSite = siteUrl ?? currentInstance?.url;
     if (targetSite == null) return;
     final instance = _instanceAt(targetSite);
     if (instance == null) return;
-
-    // Captured before the fetch is announced, so a listener that replaces
-    // the account cannot hand this fetch the new one.
-    final lease = lifecycle.capture(targetSite);
-    if (!likerRequests.begin(targetSite, postId)) return;
-    String? failure;
-
-    try {
-      final credential = await AccountRequestSession(
-        targetSite,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final fetched = await credential.run(
-        () => api.topicContent.postLikers(
-          siteUrl: targetSite,
-          postId: postId,
-          // Keep credential reads inside the guarded try: macOS entitlement
-          // failures must not strand the fetch in [likerRequests].
-          apiKey: credential.apiKey,
-        ),
-      );
-      lease.commit(() => store.put(targetSite, fetched));
-    } on SiteLookupException catch (e) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !likerRequests.isPending(targetSite, postId)) {
-        return;
-      }
-
-      failure = e.failure == SiteLookupFailure.notDiscourse
-          ? appL10n.couldnTSeeWhoLikedThis
-          : appL10n.couldnTReach((instance.host).toString());
-    } catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !likerRequests.isPending(targetSite, postId)) {
-        return;
-      }
-
-      failure = appL10n.couldnTLoadWhoLikedThis;
-    } finally {
-      lease.commit(
-        () => likerRequests.finish(targetSite, postId, error: failure),
-      );
-    }
+    await _previews.loadLikers(instance, postId);
   }
 
   Future<PostRevision?> loadPostRevision({
@@ -8364,70 +8325,16 @@ class ShellController extends FrameSafeNotifier
     return userCardRequests.errorFor(targetSite, username.toLowerCase());
   }
 
-  // Every newly hovered name lands here, so progress and failures go to
-  // [userCardRequests] and the card to [store], never to the facade.
   Future<void> loadUserCard(
     String username, {
     bool force = false,
     String? siteUrl,
   }) async {
     final targetSite = siteUrl ?? currentInstance?.url;
-    if (targetSite == null || username.isEmpty) return;
+    if (targetSite == null) return;
     final instance = _instanceAt(targetSite);
     if (instance == null) return;
-
-    final key = username.toLowerCase();
-    if (userCardRequests.isPending(targetSite, key)) return;
-    if (!force) {
-      if (userCardRequests.errorFor(targetSite, key) != null) return;
-      if (store.read<UserCard>(targetSite, key) != null) return;
-    }
-
-    // Captured before the fetch is announced, so a listener that replaces
-    // the account cannot hand this fetch the new one.
-    final lease = lifecycle.capture(targetSite);
-    userCardRequests.begin(targetSite, key);
-    String? failure;
-
-    try {
-      final credential = await AccountRequestSession(
-        targetSite,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final card = await credential.run(
-        () => api.site.userCard(
-          siteUrl: targetSite,
-          username: username,
-          // Read inside the guard, the way `loadLikers` does: storage that
-          // throws would otherwise strand the fetch in [userCardRequests].
-          apiKey: credential.apiKey,
-        ),
-      );
-      lease.commit(() => store.put(targetSite, card));
-    } on SiteLookupException catch (e) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !userCardRequests.isPending(targetSite, key)) {
-        return;
-      }
-
-      failure = e.failure == SiteLookupFailure.notDiscourse
-          ? appL10n.couldnTSeeThatProfile
-          : appL10n.couldnTReach((instance.host).toString());
-    } catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !userCardRequests.isPending(targetSite, key)) {
-        return;
-      }
-
-      failure = appL10n.couldnTLoadShellcontroller((username).toString());
-    } finally {
-      lease.commit(
-        () => userCardRequests.finish(targetSite, key, error: failure),
-      );
-    }
+    await _previews.loadUserCard(instance, username, force: force);
   }
 
   Future<void> loadMoreFeed(String destinationId) async {
@@ -8849,8 +8756,6 @@ class ShellController extends FrameSafeNotifier
     store.forget(siteUrl);
     _cookingContextOwner?.rebindStoreReferences(siteUrl);
 
-    likerRequests.forget(siteUrl);
-    userCardRequests.forget(siteUrl);
     _selectedPostModeration.forget(siteUrl);
     _flags.forget(siteUrl);
     _notificationPreferences.forget(siteUrl);
@@ -9796,8 +9701,7 @@ class ShellController extends FrameSafeNotifier
     accountActivity.dispose();
     doNotDisturb.dispose();
     userStatuses.dispose();
-    userCardRequests.dispose();
-    likerRequests.dispose();
+    _previews.dispose();
     draftList.dispose();
     userSummary.dispose();
     groups.dispose();

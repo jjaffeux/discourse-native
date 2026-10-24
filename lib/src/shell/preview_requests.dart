@@ -1,4 +1,15 @@
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../data/account_request_session.dart';
+import '../data/api_credentials.dart';
+import '../data/discourse_api_contracts.dart';
+import '../data/site_lifecycle.dart';
+import '../data/store.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../models/discourse_instance.dart';
+import '../models/user_card.dart';
+
+part 'preview_loading.dart';
 
 /// Which on-demand previews of one kind (a profile card, a post's likers) are
 /// being fetched on each site, and why the last fetch of each failed.
@@ -36,9 +47,13 @@ final class PreviewRequests<K extends Object> extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _clearSite(siteUrl)?.call();
+  }
+
+  void Function()? _clearSite(String siteUrl) {
     final hadPending = _pending.remove(siteUrl) != null;
     final hadErrors = _errors.remove(siteUrl) != null;
-    if (hadPending || hadErrors) notifySafely();
+    return hadPending || hadErrors ? notifySafely : null;
   }
 
   void _removeError(String siteUrl, K key) {
