@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -12,6 +14,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
@@ -146,6 +149,7 @@ final class _SessionApi extends FakeDiscourseApi {
   Completer<void>? firstRevocationGate;
   final lookupStarted = Completer<void>();
   final firstRevocationStarted = Completer<void>();
+  DiscourseUser connectedUser = _accountB;
   int revocationCount = 0;
   final revocationScopes = <AccountRequestScope?>[];
 
@@ -161,7 +165,7 @@ final class _SessionApi extends FakeDiscourseApi {
     if (failures.contains(_Failure.lookup)) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    return _accountB;
+    return connectedUser;
   }
 
   @override
@@ -239,14 +243,17 @@ final class _SessionHost implements AccountSessionHost {
 }
 
 final class _Fixture {
-  _Fixture({this.failures = const {}, Set<int> failingSaveCalls = const {}}) {
-    const initial = DiscourseInstance(
-      url: _siteUrl,
-      title: 'Meta',
-      user: _accountA,
-    );
+  _Fixture({
+    this.failures = const {},
+    Set<int> failingSaveCalls = const {},
+    DraftStore? draftStore,
+    DiscourseInstance? initialInstance,
+  }) {
+    final initial =
+        initialInstance ??
+        const DiscourseInstance(url: _siteUrl, title: 'Meta', user: _accountA);
     authenticator = _SessionAuthenticator(events, failures);
-    drafts = _SessionDraftStore(events, failures);
+    drafts = draftStore ?? _SessionDraftStore(events, failures);
     instances = _SessionInstanceStore(
       [initial],
       events,
@@ -269,7 +276,7 @@ final class _Fixture {
   final List<String> reportedOperations = [];
   final SiteLifecycle lifecycle = SiteLifecycle();
   late final _SessionAuthenticator authenticator;
-  late final _SessionDraftStore drafts;
+  late final DraftStore drafts;
   late final _SessionInstanceStore instances;
   late final _SessionApi api;
   late final _SessionHost host;
@@ -368,6 +375,107 @@ final class _RealStoreFixture {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('AccountSessionCoordinator saved writing', () {
+    late Directory directory;
+    late File file;
+    late DraftStore drafts;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      directory = await Directory.systemTemp.createTemp('account-drafts-');
+      file = File('${directory.path}/drafts.json');
+      drafts = DraftStore(persistence: AppleFileDraftPersistence(file: file));
+      await drafts.write(_siteUrl, 'topic_42', 'My only unsent writing');
+    });
+
+    tearDown(() async => directory.delete(recursive: true));
+
+    Future<String?> restoredWriting() => DraftStore(
+      persistence: AppleFileDraftPersistence(file: file),
+    ).read(_siteUrl, 'topic_42');
+
+    for (final failure in [_Failure.lookup, _Failure.persistCredential]) {
+      test(
+        'preserves saved writing when reconnect ${failure.name} fails',
+        () async {
+          final fixture = _Fixture(draftStore: drafts, failures: {failure});
+          final result = await fixture.coordinator.connect(_siteUrl);
+          expect(result.outcome, AccountConnectionOutcome.failed);
+          expect(fixture.current.user, _accountA);
+          expect(await restoredWriting(), 'My only unsent writing');
+        },
+      );
+    }
+
+    test(
+      'preserves saved writing when reconnect boundary save fails',
+      () async {
+        final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {1});
+        final result = await fixture.coordinator.connect(_siteUrl);
+        expect(result.outcome, AccountConnectionOutcome.failed);
+        expect(fixture.current.user, _accountA);
+        expect(await restoredWriting(), 'My only unsent writing');
+      },
+    );
+
+    test('preserves saved writing when disconnect rolls back', () async {
+      final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {1, 2});
+      final result = await fixture.coordinator.disconnect(_siteUrl);
+      expect(result.outcome, AccountDisconnectionOutcome.failed);
+      expect(fixture.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('preserves saved writing after expiry and process restart', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      final expired = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+      expect(expired.outcome, AccountDisconnectionOutcome.disconnected);
+      final restarted = _Fixture(
+        draftStore: DraftStore(
+          persistence: AppleFileDraftPersistence(file: file),
+        ),
+        initialInstance: DiscourseInstance.fromJson(
+          (await fixture.durable).toJson(),
+        ),
+      );
+      restarted.api.connectedUser = _accountA;
+      final result = await restarted.coordinator.connect(_siteUrl);
+      expect(result.outcome, AccountConnectionOutcome.connected);
+      expect(restarted.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('keeps original writing when the connected snapshot fails', () async {
+      final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {2});
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result.outcome, AccountConnectionOutcome.failed);
+      expect(fixture.current.user, isNull);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('preserves saved writing when the same account reconnects', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      fixture.api.connectedUser = _accountA;
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result.outcome, AccountConnectionOutcome.connected);
+      expect(fixture.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('does not expose saved writing to a replacement account', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result.outcome, AccountConnectionOutcome.connected);
+      expect(fixture.current.user, _accountB);
+      expect(await restoredWriting(), isNull);
+    });
+  });
   test('revocation leaves the retired ambient request scope', () async {
     final fixture = _Fixture();
     final snapshot = await AccountRequestSession(
