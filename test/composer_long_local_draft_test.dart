@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
+const _writer = DiscourseUser(id: 1, username: 'reader');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -22,17 +23,7 @@ void main() {
 
   for (final shape in ['plain', 'escaped', 'unicode']) {
     test('offline $shape draft survives a shell and storage restart', () async {
-      final directory = await Directory.systemTemp.createTemp('long-draft-');
-      addTearDown(() => directory.delete(recursive: true));
-      final file = File('${directory.path}/drafts.json');
-      await file.writeAsString(
-        jsonEncode({
-          'version': 1,
-          'values': <String, String>{},
-          'blockedLegacyKeys': <String>[],
-          'blockedLegacyPrefixes': ['discourse_native.draft::$_siteUrl::'],
-        }),
-      );
+      final file = await _draftFile();
       final reply = switch (shape) {
         'escaped' => List.filled(25000, r'"\text').join(),
         'unicode' => List.filled(150001, '😀').join(),
@@ -59,18 +50,125 @@ void main() {
       expect(await reopened.store.read(_siteUrl, 'topic_7'), stored);
     });
   }
+
+  test('a long draft restores from its new account namespace', () async {
+    final file = await _draftFile();
+    final reply = '😀' * 150001;
+    final original = await _open(file, accountNamespace: true);
+    original.composer.text.text = reply;
+    await original.composer.flushDraft();
+    expect(original.composer.localDraftFailed, isFalse);
+    final localSite = DraftStore.accountSiteKey(_siteUrl, 'id:1');
+    final stored = await original.store.read(localSite, 'topic_7');
+    expect(stored, isNotNull);
+    expect(await original.store.read(_siteUrl, 'topic_7'), isNull);
+    original.shell.dispose();
+
+    final reopened = await _open(
+      file,
+      accountNamespace: true,
+      olderServerDraft: true,
+    );
+    addTearDown(reopened.shell.dispose);
+    expect(reopened.composer.raw == reply, isTrue);
+    expect(await reopened.store.read(localSite, 'topic_7'), stored);
+    expect(await reopened.store.read(_siteUrl, 'topic_7'), isNull);
+  });
+
+  test(
+    'an excessive local save keeps the text and previous recovery copy',
+    () async {
+      final file = await _draftFile();
+      final opened = await _open(file);
+      addTearDown(opened.shell.dispose);
+      opened.composer.text.text = 'Previous recovery copy';
+      await opened.composer.flushDraft();
+      final previous = await opened.store.read(_siteUrl, 'topic_7');
+      final reply = '"' * (ComposerDraft.maximumLocalEncodedCodeUnits ~/ 2);
+      expect(
+        reply.length,
+        lessThan(ComposerDraft.maximumLocalEncodedCodeUnits),
+      );
+
+      opened.composer.text.text = reply;
+      await opened.composer.flushDraft();
+
+      expect(opened.composer.localDraftFailed, isTrue);
+      expect(opened.composer.draftStatus, DraftStatus.failing);
+      expect(
+        await opened.shell.prepareComposerForClose(opened.composer),
+        isFalse,
+      );
+      expect(opened.shell.visibleComposer, same(opened.composer));
+      expect(opened.composer.raw == reply, isTrue);
+      expect(await opened.store.read(_siteUrl, 'topic_7'), previous);
+    },
+  );
+
+  test(
+    'an excessive stored copy blocks fallback and stays recoverable',
+    () async {
+      final file = await _draftFile();
+      final store = DraftStore(
+        persistence: AppleFileDraftPersistence(file: file),
+      );
+      final encoded = ComposerDraft(
+        reply: 'x' * ComposerDraft.maximumLocalEncodedCodeUnits,
+      ).encode();
+      await store.write(_siteUrl, 'topic_7', encoded);
+
+      final reopened = await _open(
+        file,
+        olderServerDraft: true,
+        restored: false,
+      );
+      addTearDown(reopened.shell.dispose);
+
+      expect(reopened.composer.raw, isEmpty);
+      expect(
+        await reopened.shell.prepareComposerForClose(reopened.composer),
+        isFalse,
+      );
+      expect(await reopened.store.read(_siteUrl, 'topic_7'), encoded);
+    },
+  );
+}
+
+Future<File> _draftFile() async {
+  final directory = await Directory.systemTemp.createTemp('long-draft-');
+  addTearDown(() => directory.delete(recursive: true));
+  final file = File('${directory.path}/drafts.json');
+  await file.writeAsString(
+    jsonEncode({
+      'version': 1,
+      'values': <String, String>{},
+      'blockedLegacyKeys': <String>[],
+      'blockedLegacyPrefixes': [
+        'discourse_native.draft::$_siteUrl::',
+        'discourse_native.account_draft::${Uri.encodeComponent(_siteUrl)}::',
+      ],
+    }),
+  );
+  return file;
 }
 
 Future<({ShellController shell, ComposerController composer, DraftStore store})>
-_open(File file, {bool olderServerDraft = false}) async {
+_open(
+  File file, {
+  bool olderServerDraft = false,
+  bool restored = true,
+  bool accountNamespace = false,
+}) async {
   final store = DraftStore(persistence: AppleFileDraftPersistence(file: file));
   final api = FakeDiscourseApi(
+    user: _writer,
     draftFailure: const WriteException(WriteFailure.unreachable),
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org')
-          .copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+      accountNamespace
+          ? instance('meta.discourse.org').copyWith(user: _writer)
+          : instance('meta.discourse.org', user: _writer),
     ]),
     api: api,
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
@@ -95,6 +193,6 @@ _open(File file, {bool olderServerDraft = false}) async {
   );
   shell.openReply();
   final composer = shell.visibleComposer!;
-  expect(await shell.finishComposerDraftRestore(composer), isTrue);
+  expect(await shell.finishComposerDraftRestore(composer), restored);
   return (shell: shell, composer: composer, store: store);
 }
