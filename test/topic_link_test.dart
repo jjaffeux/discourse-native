@@ -14,14 +14,34 @@ void main() {
       expect(link.uri.host, 'meta.discourse.org');
     });
 
-    test('reads a numbered post and ignores named positions', () {
+    test('reads numbered and final post positions', () {
       final numbered = parse('https://meta.discourse.org/t/a/12/34');
       expect(numbered?.topicId, 12);
       expect(numbered?.postNumber, 34);
 
       final named = parse('https://meta.discourse.org/t/a/12/last');
       expect(named?.topicId, 12);
-      expect(named?.postNumber, isNull);
+      expect(named?.postNumber, 99999999);
+    });
+
+    test('reads final positions for root and subfolder permalink shapes', () {
+      for (final prefix in ['', '/forum']) {
+        for (final path in ['t/12/last', 't/topic/12/last']) {
+          final link = TopicLink.parse(
+            'https://example.com$prefix/$path',
+            siteUrl: 'https://example.com$prefix',
+          );
+          expect(link?.topicId, 12);
+          expect(link?.postNumber, 99999999);
+        }
+      }
+    });
+
+    test('declines malformed and unsupported post targets', () {
+      for (final suffix in ['lastly', 'LAST', '0', '-1', 'last/extra']) {
+        expect(parse('/t/topic/12/$suffix'), isNull, reason: suffix);
+        expect(parse('/t/12/$suffix'), isNull, reason: suffix);
+      }
     });
 
     test('ignores the query and fragment', () {
@@ -54,7 +74,7 @@ void main() {
 
       final named = parse('https://meta.discourse.org/t/123/last')!;
       expect(named.topicId, 123);
-      expect(named.postNumber, isNull);
+      expect(named.postNumber, 99999999);
       expect(named.slug, isEmpty);
 
       final slugged = parse('/t/some-slug/123')!;

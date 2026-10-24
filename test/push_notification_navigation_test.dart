@@ -113,6 +113,53 @@ void main() {
     },
   );
 
+  test(
+    'a last-post notification opens and settles the final visible post',
+    () async {
+      const post = Post(
+        id: 120,
+        postNumber: 12,
+        username: 'author',
+        cooked: '<p>Last</p>',
+      );
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        topics: const {
+          42: (
+            detail: TopicDetail(
+              id: 42,
+              title: 'Native push',
+              stream: [120],
+              postsCount: 3,
+            ),
+            posts: [post],
+          ),
+        },
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: _readerKeys(api),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(
+        await controller.openNotificationUrl(
+          'https://one.example/t/native-push/42/last',
+        ),
+        isTrue,
+      );
+      await _waitForTopic(controller);
+      expect(controller.currentContent?.postNumber, 12);
+      expect(api.topicPostNumbersOpened, [99999999]);
+      await controller.loadTopic(42, 'native-push');
+      expect(api.topicPostNumbersOpened, [99999999]);
+    },
+  );
+
   for (final rootFirst in [true, false]) {
     test(
       'notification chooses the subfolder forum (root first: $rootFirst)',

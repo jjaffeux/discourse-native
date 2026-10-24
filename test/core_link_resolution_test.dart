@@ -1,6 +1,7 @@
 import 'dart:ui' show Color;
 
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -10,6 +11,34 @@ import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('last-post intent survives link decoding and route persistence', () {
+    for (final prefix in ['', '/forum']) {
+      final site = DiscourseInstance(
+        url: 'https://example.com$prefix',
+        title: 'Site',
+      );
+      for (final path in [
+        't/12/last',
+        't/topic/12/last',
+        't/topic/12/99999999',
+      ]) {
+        final route = ContentRouteCodec.fromUrl(
+          '${site.url}/$path',
+          instance: site,
+          config: const SiteConfig(),
+          defaultTopPeriod: TopPeriod.yearly,
+        )!;
+        expect(route.topicId, 12);
+        expect(route.postNumber, 99999999);
+        final restored = ContentRouteCodec.decode(
+          ContentRouteCodec.encode(route),
+        );
+        expect(restored.postNumber, 99999999);
+        expect(restored.id, route.id);
+      }
+    }
+  });
 
   test(
     'background links select the deepest forum and its canonical color',

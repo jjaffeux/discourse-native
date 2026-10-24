@@ -40,6 +40,125 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('topic jump navigation ownership', () {
+    for (final suffix in ['last', '99999999']) {
+      for (final cold in [false, true]) {
+        test(
+          '$suffix opens the final visible post ${cold ? 'from another page' : 'in place'}',
+          () async {
+            final (:shell, :api, authenticator: _) = await _fixture();
+            shell.openCurrentTopicPost(2);
+            await pumpEventQueue();
+            shell.saveTopicScrollPost(1, 2, viewportOffset: -48);
+            if (cold) {
+              shell.createTab();
+              shell.store.remove<TopicDetail>(_siteUrl, 1);
+              expect(shell.store.read<TopicDetail>(_siteUrl, 1), isNull);
+            }
+            final revision = shell.topicNavigationRevision;
+            expect(shell.openTopicUrl('$_siteUrl/t/one/1/$suffix'), isTrue);
+            await pumpEventQueue();
+            expect(shell.currentContent?.postNumber, 12);
+            expect(shell.topicScrollPostNumber(1), 12);
+            expect(shell.currentContent?.id, 'topic-1');
+            expect(shell.activeTab!.anchors[shell.currentContent!.id], isNull);
+            if (!cold) expect(shell.topicNavigationRevision, revision + 1);
+            expect(api.topicPostNumbersOpened, [2, 99999999]);
+            await shell.loadTopic(1, 'one');
+            expect(api.topicPostNumbersOpened, [2, 99999999]);
+          },
+        );
+      }
+    }
+
+    test(
+      'a cached complete topic settles last without an impossible fetch',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        shell.store.put(_siteUrl, _lastPost);
+        expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 12);
+        expect(api.topicPostNumbersOpened, isEmpty);
+      },
+    );
+
+    test('a partial mega-topic cache cannot supply the final post', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      shell.store.put(
+        _siteUrl,
+        const TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [100],
+          isMegaTopic: true,
+          highestPostNumber: 12,
+          lastPostId: 300,
+        ),
+      );
+      expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 12);
+      expect(api.topicPostNumbersOpened, [99999999]);
+    });
+
+    test(
+      'an empty accepted topic settles last to its opening position',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        api.finalPayload = (
+          detail: const TopicDetail(id: 1, title: 'One', stream: []),
+          posts: const [],
+        );
+        expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 1);
+        await shell.loadTopic(1, 'one');
+        expect(api.topicPostNumbersOpened, [99999999, 1]);
+      },
+    );
+
+    test('a queued last request settles after the older topic read', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final gate = api.gateTopic(2);
+      shell.openCurrentTopicPost(2);
+      await gate.started.future.timeout(const Duration(seconds: 2));
+      expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+      gate.release.complete();
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 12);
+      expect(api.topicPostNumbersOpened, [2, 99999999]);
+    });
+
+    test(
+      'an older last response cannot replace a newer explicit target',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        final gate = api.gateTopic(99999999);
+        expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+        await gate.started.future.timeout(const Duration(seconds: 2));
+        shell.openCurrentTopicPost(1);
+        final revision = shell.topicNavigationRevision;
+        shell.saveTopicScrollPost(1, 1, viewportOffset: -24);
+        gate.release.complete();
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 1);
+        expect(shell.topicScrollPostOffset(1), -24);
+        expect(shell.topicNavigationRevision, revision);
+      },
+    );
+
+    test('a last response cannot settle a retired account', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final gate = api.gateTopic(99999999);
+      expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+      await gate.started.future.timeout(const Duration(seconds: 2));
+      expect(await shell.removeInstance(shell.currentInstance!), isTrue);
+      gate.release.complete();
+      await pumpEventQueue();
+      expect(shell.currentInstance, isNull);
+      expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+    });
+
     for (final stage in ['credential', 'post lookup']) {
       for (final navigation in ['direct', 'search']) {
         test(
@@ -439,6 +558,50 @@ final class _JumpApi extends FakeDiscourseApi {
         },
         postsById: const {200: _secondPost, 300: _lastPost},
       );
+
+  TopicPayload finalPayload = (
+    detail: _topic,
+    posts: const [_secondPost, _lastPost],
+  );
+  final _topicGates = <int, _Gate>{};
+  _Gate gateTopic(int number) => _topicGates[number] = _Gate();
+
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async {
+    final gate = _topicGates.remove(postNumber);
+    if (postNumber == 99999999) {
+      topicsOpened.add(id);
+      topicPostNumbersOpened.add(postNumber);
+      if (gate != null) {
+        gate.started.complete();
+        await gate.release.future;
+      }
+      return finalPayload;
+    }
+    if (gate != null) {
+      gate.started.complete();
+      await gate.release.future;
+    }
+    return super.topic(
+      siteUrl: siteUrl,
+      slug: slug,
+      id: id,
+      postNumber: postNumber,
+      summary: summary,
+      apiKey: apiKey,
+      clientId: clientId,
+      abortTrigger: abortTrigger,
+    );
+  }
 
   final _gates = <int, _Gate>{};
 
