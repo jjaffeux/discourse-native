@@ -64,17 +64,17 @@ final class AssignmentRestorePermit {
   final PluginSiteLease _lease;
   final Object _session;
   final DateTime expiresAt;
-  bool _used = false;
 
   bool _take(AssignmentController owner) {
-    if (_used ||
+    final key = (siteUrl: siteUrl, type: target.type, id: target.id);
+    if (!identical(owner._restorePermits[key], this) ||
         !identical(_owner, owner) ||
         !_lease.isCurrent ||
         !identical(owner._restoreSessions[siteUrl], _session) ||
         !DateTime.now().isBefore(expiresAt)) {
       return false;
     }
-    _used = true;
+    owner._restorePermits.remove(key);
     return true;
   }
 }
@@ -111,6 +111,8 @@ class AssignmentController extends FrameSafeNotifier
 
   final Map<({String siteUrl, AssignmentTarget target}), Object> _writes = {};
   final Map<String, Object> _restoreSessions = {};
+  final Map<({String siteUrl, AssignmentTargetType type, int id}), Object>
+  _restorePermits = {};
   final Set<String> _legacyFallbackUnavailable = {};
   final Map<String, _PermissionChanges> _permissionChanges = {};
 
@@ -182,6 +184,7 @@ class AssignmentController extends FrameSafeNotifier
     final before = _writes.length;
     _writes.removeWhere((key, _) => key.siteUrl == siteUrl);
     _restoreSessions.remove(siteUrl);
+    _restorePermits.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_legacyFallbackUnavailable.remove(siteUrl)) {
       _permissionChanged(siteUrl);
     } else if (_writes.length != before) {
@@ -258,6 +261,8 @@ class AssignmentController extends FrameSafeNotifier
   ) async {
     final lease = _requests.capture(siteUrl);
     final session = _restoreSessions.putIfAbsent(siteUrl, Object.new);
+    final key = (siteUrl: siteUrl, type: target.type, id: target.id);
+    final candidate = Object();
     final outcome = await _mutate(
       siteUrl,
       target,
@@ -267,21 +272,33 @@ class AssignmentController extends FrameSafeNotifier
         clientId: session.clientId,
         target: target,
       ),
+      onAccepted: () => _restorePermits[key] = candidate,
     );
-    final permit =
-        outcome.accepted &&
-            _isCurrent(lease) &&
-            identical(_restoreSessions[siteUrl], session)
-        ? AssignmentRestorePermit._(
-            owner: this,
-            siteUrl: siteUrl,
-            target: target,
-            assignment: assignment,
-            lease: lease,
-            session: session,
-            expiresAt: DateTime.now().add(_restorePermitDuration),
-          )
-        : null;
+    if (!outcome.accepted ||
+        !_isCurrent(lease) ||
+        !identical(_restoreSessions[siteUrl], session) ||
+        !identical(_restorePermits[key], candidate)) {
+      if (identical(_restorePermits[key], candidate)) {
+        _restorePermits.remove(key);
+      }
+      return (outcome: outcome, permit: null);
+    }
+    final now = DateTime.now();
+    _restorePermits.removeWhere(
+      (_, value) =>
+          value is AssignmentRestorePermit &&
+          (!value._lease.isCurrent || !now.isBefore(value.expiresAt)),
+    );
+    final permit = AssignmentRestorePermit._(
+      owner: this,
+      siteUrl: siteUrl,
+      target: target,
+      assignment: assignment,
+      lease: lease,
+      session: session,
+      expiresAt: now.add(_restorePermitDuration),
+    );
+    _restorePermits[key] = permit;
     return (outcome: outcome, permit: permit);
   }
 
@@ -313,6 +330,7 @@ class AssignmentController extends FrameSafeNotifier
     AssignmentTarget target,
     Future<void> Function(PluginRequestCredentials session) write, {
     bool permissionAlreadyEstablished = false,
+    VoidCallback? onAccepted,
   }) async {
     if (isDisposed) return const AssignmentWriteResult.inactive();
     if (!permissionAlreadyEstablished && !canAssign(siteUrl, target)) {
@@ -373,6 +391,12 @@ class AssignmentController extends FrameSafeNotifier
             : AssignmentWriteResult.notSent(failure);
       }
       if (!current()) return const AssignmentWriteResult.acceptedRetired();
+      _restorePermits.remove((
+        siteUrl: siteUrl,
+        type: target.type,
+        id: target.id,
+      ));
+      onAccepted?.call();
 
       try {
         // Assign returns no assignment snapshot and can also change tracking.
@@ -474,6 +498,7 @@ class AssignmentController extends FrameSafeNotifier
   void dispose() {
     _writes.clear();
     _restoreSessions.clear();
+    _restorePermits.clear();
     _legacyFallbackUnavailable.clear();
     for (final changes in _permissionChanges.values) {
       changes.dispose();

@@ -81,6 +81,405 @@ void main() {
     expect(transport.writes.last.body['status'], 'In progress');
   });
 
+  group('Undo target authority', () {
+    const original = Assignment(
+      assignee: AssignmentUser(username: 'sam'),
+      note: 'Original note',
+      status: 'New',
+    );
+
+    test('acceptance revokes Undo before a pending refresh', () async {
+      final removal = await controller.unassignForUndo(_site, _topic, original);
+      final gate = Completer<void>();
+      reloadGate = gate;
+      reloadStarted = Completer<void>();
+      final pending = controller.assign(
+        _site,
+        _topic,
+        const AssignmentUser(username: 'alex'),
+      );
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await pending;
+      });
+      await reloadStarted.future;
+
+      expect(controller.isWriting(_site, _topic), isTrue);
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, hasLength(2));
+      gate.complete();
+      expect((await pending).kind, AssignmentWriteKind.applied);
+    });
+
+    test('accepted refresh failure still revokes old Undo', () async {
+      final removal = await controller.unassignForUndo(_site, _topic, original);
+      reloadFailure = StateError('refresh failed');
+
+      expect(
+        (await controller.assign(
+          _site,
+          _topic,
+          const AssignmentUser(username: 'alex'),
+        )).kind,
+        AssignmentWriteKind.acceptedRefreshFailed,
+      );
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, hasLength(2));
+    });
+
+    test('a newer plain removal revokes old Undo', () async {
+      final removal = await controller.unassignForUndo(_site, _topic, original);
+      expect(
+        (await controller.unassign(_site, _topic)).kind,
+        AssignmentWriteKind.applied,
+      );
+
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, hasLength(2));
+    });
+
+    test('only the latest removal can restore its own assignment', () async {
+      final first = await controller.unassignForUndo(_site, _topic, original);
+      final second = await controller.unassignForUndo(
+        _site,
+        _topic,
+        const Assignment(
+          assignee: AssignmentUser(username: 'alex'),
+          note: 'New note',
+          status: 'In progress',
+        ),
+      );
+
+      expect(
+        (await controller.restoreAssignment(first.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(
+        (await controller.restoreAssignment(second.permit!)).kind,
+        AssignmentWriteKind.applied,
+      );
+      expect(transport.writes, hasLength(3));
+      expect(transport.writes.last.body['username'], 'alex');
+      expect(transport.writes.last.body['note'], 'New note');
+      expect(transport.writes.last.body['status'], 'In progress');
+      expect(transport.writes.last.body['should_notify'], 'false');
+      expect(
+        (await controller.restoreAssignment(second.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+    });
+
+    for (final newer in [
+      (siteUrl: _site, target: const AssignmentTarget.topic(8)),
+      (siteUrl: _site, target: const AssignmentTarget.post(7, topicId: 7)),
+      (siteUrl: 'https://other.example', target: _topic),
+    ]) {
+      test('a write to $newer preserves unrelated Undo', () async {
+        final removal = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        expect(
+          (await controller.assign(
+            newer.siteUrl,
+            newer.target,
+            const AssignmentUser(username: 'alex'),
+          )).kind,
+          AssignmentWriteKind.applied,
+        );
+
+        expect(
+          (await controller.restoreAssignment(removal.permit!)).kind,
+          AssignmentWriteKind.applied,
+        );
+        expect(transport.writes, hasLength(3));
+        expect(transport.writes.last.siteUrl, _site);
+        expect(transport.writes.last.body['target_type'], 'Topic');
+        expect(transport.writes.last.body['target_id'], 7);
+        expect(transport.writes.last.body['username'], 'sam');
+      });
+    }
+
+    test('another post in the same topic preserves post Undo', () async {
+      final removal = await controller.unassignForUndo(
+        _site,
+        const AssignmentTarget.post(12, topicId: 7),
+        original,
+      );
+      await controller.assign(
+        _site,
+        const AssignmentTarget.post(13, topicId: 7),
+        const AssignmentUser(username: 'alex'),
+      );
+
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.applied,
+      );
+      expect(transport.writes.last.body['target_id'], 12);
+    });
+
+    test(
+      'a moved post cannot mint Undo after a newer accepted write',
+      () async {
+        final gate = Completer<void>();
+        reloadGate = gate;
+        final pending = controller.unassignForUndo(
+          _site,
+          const AssignmentTarget.post(12, topicId: 7),
+          original,
+        );
+        addTearDown(() async {
+          if (!gate.isCompleted) gate.complete();
+          await pending;
+        });
+        await reloadStarted.future;
+        reloadGate = null;
+        expect(
+          (await controller.assign(
+            _site,
+            const AssignmentTarget.post(12, topicId: 8),
+            const AssignmentUser(username: 'alex'),
+          )).kind,
+          AssignmentWriteKind.applied,
+        );
+        gate.complete();
+
+        final result = await pending;
+        expect(result.outcome.kind, AssignmentWriteKind.applied);
+        expect(result.permit, isNull);
+        expect(transport.writes, hasLength(2));
+      },
+    );
+
+    for (final (name, failure, kind) in [
+      (
+        'server refusal',
+        const WriteException(WriteFailure.validation, statusCode: 400),
+        AssignmentWriteKind.refused,
+      ),
+      (
+        'write not sent',
+        const WriteException(WriteFailure.unreachable, notSent: true),
+        AssignmentWriteKind.notSent,
+      ),
+      (
+        'uncertain response',
+        const WriteException(WriteFailure.unreachable),
+        AssignmentWriteKind.uncertain,
+      ),
+    ]) {
+      test('an unaccepted write preserves Undo after $name', () async {
+        final removal = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        transport.writeFailure = failure;
+        final result = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        expect(result.outcome.kind, kind);
+        expect(result.outcome.accepted, isFalse);
+        expect(result.permit, isNull);
+        transport.writeFailure = null;
+
+        expect(
+          (await controller.restoreAssignment(removal.permit!)).kind,
+          AssignmentWriteKind.applied,
+        );
+        expect(transport.writes, hasLength(3));
+      });
+    }
+
+    test(
+      'permission refusal preserves the established Undo authority',
+      () async {
+        final removal = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        allowed = false;
+        expect(
+          (await controller.assign(
+            _site,
+            _topic,
+            const AssignmentUser(username: 'alex'),
+          )).kind,
+          AssignmentWriteKind.refused,
+        );
+
+        expect(
+          (await controller.restoreAssignment(removal.permit!)).kind,
+          AssignmentWriteKind.applied,
+        );
+        expect(transport.writes, hasLength(2));
+      },
+    );
+
+    test('a busy Undo attempt remains one use without dispatch', () async {
+      final removal = await controller.unassignForUndo(_site, _topic, original);
+      final gate = Completer<void>();
+      transport
+        ..writeGate = gate
+        ..writeFailure = const WriteException(WriteFailure.validation);
+      final pending = controller.assign(
+        _site,
+        _topic,
+        const AssignmentUser(username: 'alex'),
+      );
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await pending;
+      });
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.busy,
+      );
+      gate.complete();
+      expect((await pending).kind, AssignmentWriteKind.refused);
+      transport.writeFailure = null;
+
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, hasLength(2));
+    });
+
+    test(
+      'a completion listener can start a write that supersedes Undo',
+      () async {
+        Future<AssignmentWriteResult>? newer;
+        var started = false;
+        controller.addListener(() {
+          if (started || controller.isWriting(_site, _topic)) return;
+          started = true;
+          newer = controller.assign(
+            _site,
+            _topic,
+            const AssignmentUser(username: 'alex'),
+          );
+        });
+        final removal = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        expect(newer, isNotNull);
+        expect((await newer!).kind, AssignmentWriteKind.applied);
+
+        if (removal.permit case final permit?) {
+          expect(
+            (await controller.restoreAssignment(permit)).kind,
+            AssignmentWriteKind.inactive,
+          );
+        }
+        expect(transport.writes, hasLength(2));
+      },
+    );
+
+    test('credential failure preserves an existing Undo permit', () async {
+      final removal = await controller.unassignForUndo(_site, _topic, original);
+      requests.credentialsGate = Completer<PluginRequestCredentials>();
+      final pending = controller.unassignForUndo(_site, _topic, original);
+      requests.credentialsGate!.completeError(StateError('credentials failed'));
+      final result = await pending;
+      expect(result.outcome.kind, AssignmentWriteKind.notSent);
+      expect(result.permit, isNull);
+      requests.credentialsGate = null;
+
+      expect(
+        (await controller.restoreAssignment(removal.permit!)).kind,
+        AssignmentWriteKind.applied,
+      );
+      expect(transport.writes, hasLength(2));
+    });
+
+    test(
+      'a busy removal preserves Undo when the pending write fails',
+      () async {
+        final removal = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        final gate = Completer<void>();
+        transport
+          ..writeGate = gate
+          ..writeFailure = const WriteException(WriteFailure.validation);
+        final pending = controller.assign(
+          _site,
+          _topic,
+          const AssignmentUser(username: 'alex'),
+        );
+        addTearDown(() async {
+          if (!gate.isCompleted) gate.complete();
+          await pending;
+        });
+        final duplicate = await controller.unassignForUndo(
+          _site,
+          _topic,
+          original,
+        );
+        expect(duplicate.outcome.kind, AssignmentWriteKind.busy);
+        expect(duplicate.permit, isNull);
+        gate.complete();
+        expect((await pending).kind, AssignmentWriteKind.refused);
+        transport.writeFailure = null;
+
+        expect(
+          (await controller.restoreAssignment(removal.permit!)).kind,
+          AssignmentWriteKind.applied,
+        );
+        expect(transport.writes, hasLength(3));
+      },
+    );
+
+    test('a permit expires ten seconds after the removal returns', () async {
+      final gate = Completer<void>();
+      reloadGate = gate;
+      final pending = controller.unassignForUndo(_site, _topic, original);
+      addTearDown(() async {
+        if (!gate.isCompleted) gate.complete();
+        await pending;
+      });
+      await reloadStarted.future;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      final refreshReleasedAt = DateTime.now();
+      gate.complete();
+      final removal = await pending;
+      final permit = removal.permit!;
+      expect(
+        permit.expiresAt.isBefore(
+          refreshReleasedAt.add(const Duration(seconds: 10)),
+        ),
+        isFalse,
+      );
+      final remaining = permit.expiresAt.difference(DateTime.now());
+      await Future<void>.delayed(remaining + const Duration(milliseconds: 1));
+
+      expect(
+        (await controller.restoreAssignment(permit)).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, hasLength(1));
+    });
+  });
+
   group('permission enforcement', () {
     test('rejects suggestions before transport access', () async {
       allowed = false;
