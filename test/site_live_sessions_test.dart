@@ -22,6 +22,28 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'ready connection survives background stop and foreground resume',
+    () async {
+      final shell = _shell(api: FakeDiscourseApi(user: _reader));
+      addTearDown(shell.dispose);
+      await shell.load();
+      await pumpEventQueue();
+      final tracker = FakeSiteTracker.built.single;
+      expect(tracker.polling, isTrue);
+
+      shell.setForeground(false);
+      expect(tracker.polling, isFalse);
+      expect(tracker.disposed, isFalse);
+      shell.setForeground(true);
+      await pumpEventQueue();
+
+      expect(FakeSiteTracker.built, [tracker]);
+      expect(tracker.polling, isTrue);
+      expect(tracker.pollNowCalls, greaterThan(0));
+    },
+  );
+
+  test(
     'same-lease account replacement reconnects private tracking authority',
     () async {
       final api = _ReplacementUserApi();
