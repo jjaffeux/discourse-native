@@ -2,9 +2,16 @@ import '../models/discourse_user.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/plugin_data.dart';
 import 'site_lifecycle.dart';
+import 'user_status_reconciler.dart';
 
 final class CurrentUserReconciler {
-  CurrentUserReconciler({required this._lease, required this._models});
+  CurrentUserReconciler({
+    required this._lease,
+    required this._models,
+    UserStatusReconciler? statuses,
+  }) : statuses = statuses ?? UserStatusReconciler(capacity: 1024);
+
+  final UserStatusReconciler statuses;
 
   final SiteLease _lease;
   final DiscourseModelCodec _models;
@@ -120,7 +127,22 @@ final class CurrentUserReconciler {
     } else {
       _pluginUpdates.clear();
     }
+    final status = statuses.acceptSnapshot(
+      ticket._status,
+      user.id,
+      user.status,
+    );
+    user = user.withStatus(
+      status == null
+          ? (statuses.contains(user.id)
+                ? statuses.read(user.id)
+                : accountChanged
+                ? incoming.status
+                : previous?.status)
+          : status.status,
+    );
     return CurrentUserReconciliation._(
+      statusChanged: status?.changed ?? false,
       user: user,
       accountChanged: accountChanged,
       seedGroupedUnreadCounts: accountChanged || groupedUnreadIsCurrent,
@@ -136,6 +158,7 @@ final class CurrentUserReconciler {
 final class CurrentUserSnapshot {
   CurrentUserSnapshot._(CurrentUserReconciler owner)
     : _owner = owner,
+      _status = owner.statuses.beginSnapshot(),
       _presenceRevision = owner._presenceRevision,
       _doNotDisturbRevision = owner._doNotDisturbRevision,
       _groupedUnreadRevision = owner._groupedUnreadRevision,
@@ -144,6 +167,7 @@ final class CurrentUserSnapshot {
       _pluginOptionsRevision = owner._pluginOptionsRevision;
 
   final CurrentUserReconciler _owner;
+  final UserStatusSnapshot _status;
   final int _presenceRevision;
   final int _doNotDisturbRevision;
   final int _groupedUnreadRevision;
@@ -155,11 +179,13 @@ final class CurrentUserSnapshot {
 final class CurrentUserReconciliation {
   const CurrentUserReconciliation._({
     required this.user,
+    required this.statusChanged,
     required this.accountChanged,
     required this.seedGroupedUnreadCounts,
   });
 
   final DiscourseUser user;
+  final bool statusChanged;
   final bool accountChanged;
   final bool seedGroupedUnreadCounts;
 }

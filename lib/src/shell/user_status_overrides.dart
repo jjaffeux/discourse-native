@@ -1,9 +1,9 @@
-import '../foundation/bounded_lru_cache.dart';
+import '../data/user_status_reconciler.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/user_status.dart';
 
-/// Live custom statuses from each site's `/user-status` channel, folded over
-/// the status snapshot a surface was serialized with.
+/// Statuses reconciled from live deliveries, confirmed writes and fresh reads,
+/// folded over the status snapshot a surface was serialized with.
 ///
 /// Every account on a site publishes to that channel when it sets or clears a
 /// status, so this state has its own notifier rather than the shell's: a busy
@@ -19,13 +19,39 @@ final class UserStatusOverrides extends FrameSafeNotifier {
   static const int defaultCapacity = 1024;
 
   final int capacity;
-  final Map<String, BoundedLruCache<int, UserStatus?>> _bySite = {};
+  final Map<String, UserStatusReconciler> _bySite = {};
 
-  /// The status to draw for [userId]: the latest live one when the channel
-  /// has delivered any, otherwise [snapshot]; null once it has expired.
+  UserStatusReconciler reconcilerFor(String siteUrl) => _bySite.putIfAbsent(
+    siteUrl,
+    () => UserStatusReconciler(capacity: capacity),
+  );
+
+  UserStatusSnapshot beginSnapshot(String siteUrl) =>
+      reconcilerFor(siteUrl).beginSnapshot();
+
+  UserStatus? acceptSnapshot(
+    String siteUrl,
+    UserStatusSnapshot ticket,
+    int userId,
+    UserStatus? status, {
+    void Function(UserStatus?)? onAccepted,
+  }) {
+    if (isDisposed) return null;
+    final reconciler = reconcilerFor(siteUrl);
+    final accepted = reconciler.acceptSnapshot(ticket, userId, status);
+    if (accepted == null) return reconciler.read(userId);
+    onAccepted?.call(accepted.status);
+    if (accepted.changed) notifySafely();
+    return reconciler.read(userId);
+  }
+
+  void snapshotAccepted() => notifySafely();
+
+  /// The latest reconciled status for [userId], otherwise [snapshot].
+  /// Expired statuses are hidden.
   UserStatus? statusFor(String siteUrl, int? userId, UserStatus? snapshot) {
     final overrides = _bySite[siteUrl];
-    final status = userId != null && (overrides?.containsKey(userId) ?? false)
+    final status = userId != null && (overrides?.contains(userId) ?? false)
         ? overrides!.read(userId)
         : snapshot;
     return status?.isActiveAt(DateTime.now()) == true ? status : null;
@@ -65,26 +91,26 @@ final class UserStatusOverrides extends FrameSafeNotifier {
 
   void _record(String siteUrl, Map<int, UserStatus?> statuses) {
     if (isDisposed || statuses.isEmpty) return;
-    final overrides = _bySite.putIfAbsent(
-      siteUrl,
-      () => BoundedLruCache(capacity),
-    );
+    final reconciler = reconcilerFor(siteUrl);
     var changed = false;
     for (final MapEntry(key: userId, value: status) in statuses.entries) {
-      if (!overrides.containsKey(userId) || overrides.read(userId) != status) {
-        changed = true;
-      }
-      overrides.put(userId, status);
+      changed = reconciler.record(userId, status) || changed;
     }
     if (changed) notifySafely();
   }
 
   void forget(String siteUrl) {
-    if (_bySite.remove(siteUrl) != null) notifySafely();
+    final reconciler = _bySite.remove(siteUrl);
+    if (reconciler == null) return;
+    reconciler.retire();
+    notifySafely();
   }
 
   @override
   void dispose() {
+    for (final reconciler in _bySite.values) {
+      reconciler.retire();
+    }
     _bySite.clear();
     super.dispose();
   }

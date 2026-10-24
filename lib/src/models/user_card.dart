@@ -112,6 +112,32 @@ class UserCard with Storable<UserCard> {
 
   final PluginData plugins;
 
+  UserCard withStatus(UserStatus? status) => UserCard(
+    username: username,
+    id: id,
+    name: name,
+    title: title,
+    bioExcerpt: bioExcerpt,
+    avatarUrl: avatarUrl,
+    cardBackgroundUrl: cardBackgroundUrl,
+    location: location,
+    website: website,
+    websiteName: websiteName,
+    createdAt: createdAt,
+    lastPostedAt: lastPostedAt,
+    timeRead: timeRead,
+    badgeCount: badgeCount,
+    featuredBadges: featuredBadges,
+    timezone: timezone,
+    canSendPrivateMessage: canSendPrivateMessage,
+    isStaff: isStaff,
+    isAdmin: isAdmin,
+    isModerator: isModerator,
+    suspendedTill: suspendedTill,
+    plugins: plugins,
+    status: status,
+  );
+
   String get displayName => name ?? username;
 
   String get path => '/u/$username';

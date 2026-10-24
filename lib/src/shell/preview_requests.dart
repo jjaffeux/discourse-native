@@ -8,6 +8,8 @@ import '../data/store.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
+import '../models/user_status.dart';
+import 'user_status_overrides.dart';
 
 part 'preview_loading.dart';
 

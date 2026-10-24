@@ -939,6 +939,14 @@ class ShellController extends FrameSafeNotifier
     credentials: credentials,
     lifecycle: lifecycle,
     store: store,
+    userStatuses: userStatuses,
+    onStatusAccepted: (siteUrl, userId, status) {
+      final lease = lifecycle.capture(siteUrl);
+      if (_applyOwnUserStatus(siteUrl, userId, status)) {
+        _notify();
+        if (lease.isCurrent) instanceStore.save(List.of(_instances)).ignore();
+      }
+    },
   );
 
   /// Profile-card fetches by lowercase username; the cards live in [store].
@@ -3540,6 +3548,7 @@ class ShellController extends FrameSafeNotifier
   late final _currentUsers = _CurrentUserDirectory(
     lifecycle: lifecycle,
     models: plugins.models,
+    statuses: userStatuses,
     host: this,
   );
 

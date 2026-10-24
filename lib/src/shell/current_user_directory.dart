@@ -25,11 +25,13 @@ final class _CurrentUserDirectory {
   _CurrentUserDirectory({
     required this.lifecycle,
     required this.models,
+    required this.statuses,
     required this._host,
   });
 
   final SiteLifecycle lifecycle;
   final DiscourseModelCodec models;
+  final UserStatusOverrides statuses;
   final _CurrentUserRefreshHost _host;
   final Map<String, _CurrentUserAccount> _accounts = {};
   bool _disposed = false;
@@ -41,12 +43,19 @@ final class _CurrentUserDirectory {
     final session = lease ?? lifecycle.capture(siteUrl);
     final account = _CurrentUserAccount(
       session,
-      CurrentUserReconciler(lease: session, models: models),
+      CurrentUserReconciler(
+        lease: session,
+        models: models,
+        statuses: statuses.reconcilerFor(siteUrl),
+      ),
     );
     _accounts[siteUrl] = account;
     account.detach = session.onRetire(() {
       account.retire();
-      if (identical(_accounts[siteUrl], account)) _accounts.remove(siteUrl);
+      if (identical(_accounts[siteUrl], account)) {
+        _accounts.remove(siteUrl);
+        statuses.forget(siteUrl);
+      }
     });
     return account;
   }
@@ -129,7 +138,7 @@ final class _CurrentUserDirectory {
         previous: previous.user,
         incoming: user,
       );
-      if (accepted == null) return;
+      if (accepted == null || !ownsAcceptance()) return;
       final previousConfirmation = account.confirmation;
       final confirmation = Object();
       account.confirmation = confirmation;
@@ -141,7 +150,11 @@ final class _CurrentUserDirectory {
           previous,
           accepted,
         );
-        if (published) committed = accepted.user;
+        if (published) {
+          committed = accepted.user;
+          if (accepted.statusChanged && ownsAcceptance())
+            statuses.snapshotAccepted();
+        }
       } finally {
         if (!published &&
             account.isCurrent &&

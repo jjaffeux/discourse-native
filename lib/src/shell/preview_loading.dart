@@ -7,6 +7,8 @@ final class PreviewLoadingOwner {
     required this._credentials,
     required this._lifecycle,
     required this._store,
+    this.userStatuses,
+    this.onStatusAccepted,
   });
 
   final ShellSiteApi _site;
@@ -14,6 +16,9 @@ final class PreviewLoadingOwner {
   final SiteApiKeyReader _credentials;
   final SiteLifecycle _lifecycle;
   final Store _store;
+  final UserStatusOverrides? userStatuses;
+  final void Function(String siteUrl, int userId, UserStatus? status)?
+  onStatusAccepted;
   final PreviewRequests<String> userCardRequests = PreviewRequests();
   final PreviewRequests<int> likerRequests = PreviewRequests();
   final Map<String, _PreviewAccount> _accounts = {};
@@ -119,6 +124,7 @@ final class PreviewLoadingOwner {
         account.lease,
       ).keyCredentials(_credentials);
       if (!_ownsCard(account, key, request)) return;
+      final statusTicket = userStatuses?.beginSnapshot(targetSite);
       final card = await credential.run(
         () => _site.userCard(
           siteUrl: targetSite,
@@ -127,7 +133,25 @@ final class PreviewLoadingOwner {
         ),
       );
       if (!_ownsCard(account, key, request)) return;
-      _store.put(targetSite, card);
+      final userId = card.id;
+      final status = userId != null && statusTicket != null
+          ? userStatuses!.acceptSnapshot(
+              targetSite,
+              statusTicket,
+              userId,
+              card.status,
+              onAccepted: (status) {
+                if (_ownsCard(account, key, request)) {
+                  onStatusAccepted?.call(targetSite, userId, status);
+                }
+              },
+            )
+          : card.status;
+      if (!_ownsCard(account, key, request)) return;
+      _store.put(
+        targetSite,
+        card.status == status ? card : card.withStatus(status),
+      );
     } on SiteLookupException catch (e) {
       if (!_ownsCard(account, key, request)) return;
       failure = e.failure == SiteLookupFailure.notDiscourse
