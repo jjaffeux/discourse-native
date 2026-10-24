@@ -35,11 +35,11 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
 
   void createGroup(GroupPagesOwner owner);
 
-  Future<bool> join(GroupPagesOwner owner, Group group);
+  Future<GroupWriteOutcome<void>> join(GroupPagesOwner owner, Group group);
 
-  Future<bool> leave(GroupPagesOwner owner, Group group);
+  Future<GroupWriteOutcome<void>> leave(GroupPagesOwner owner, Group group);
 
-  Future<GroupMembershipRequestResult?> requestMembership(
+  Future<GroupWriteOutcome<String?>> requestMembership(
     GroupPagesOwner owner,
     Group group,
     String reason,
@@ -49,26 +49,28 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
   /// client does once the request is sent.
   void openMembershipRequest(GroupPagesOwner owner, String messageUrl);
 
-  Future<bool> deleteGroup(GroupPagesOwner owner, Group group);
+  Future<GroupWriteOutcome<void>> deleteGroup(
+    GroupPagesOwner owner,
+    Group group,
+  );
 
   Future<List<FoundUser>> searchUsers(GroupPagesOwner owner, String query);
 
-  Future<GroupMembershipMutationResult?> addMembers(
+  Future<GroupWriteOutcome<GroupMembershipMutationResult>> addMembers(
     GroupPagesOwner owner,
     Group group,
-    List<String> usernames,
-    List<String> emails,
+    GroupAddMembersCommand command,
     GroupPagesMemberQuery memberQuery,
   );
 
-  Future<GroupInvite?> createInvite(
+  Future<GroupWriteOutcome<GroupInvite>> createInvite(
     GroupPagesOwner owner,
     Group group, {
     String? email,
     String? customMessage,
   });
 
-  Future<bool> memberAction(
+  Future<GroupWriteOutcome<void>> memberAction(
     GroupPagesOwner owner,
     Group group,
     GroupMember member,
@@ -85,19 +87,24 @@ abstract interface class GroupPagesPort implements GroupPagesCoordinatorPort {
 
   void openActivityPost(GroupPagesOwner owner, GroupActivityPost post);
 
-  Future<void> handleRequest(
+  Future<GroupWriteOutcome<void>> handleRequest(
     GroupPagesOwner owner,
     Group group,
     GroupRequester requester,
     GroupRequestAction action,
   );
 
-  /// [applyToExistingUsers] decides, as in [GroupsController.updateGroup],
-  /// whether a change to notification defaults reaches existing members.
-  Future<bool> saveManage(
+  Future<GroupWriteOutcome<void>> saveManage(
     GroupPagesOwner owner,
     Group group,
-    GroupManageUpdate update, {
-    Future<bool?> Function(int userCount)? applyToExistingUsers,
+    GroupManageUpdate update,
+  );
+
+  Future<GroupWriteOutcome<void>> confirmManage(
+    GroupPagesOwner owner,
+    GroupUpdateConfirmation confirmation, {
+    required bool applyToExistingUsers,
   });
+
+  void cancelManage(GroupUpdateConfirmation confirmation);
 }

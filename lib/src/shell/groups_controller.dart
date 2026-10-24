@@ -12,6 +12,9 @@ import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/group.dart';
+import 'group_write.dart';
+
+export 'group_write.dart';
 
 @immutable
 final class GroupDirectoryQuery {
@@ -334,25 +337,18 @@ final class GroupLogsState {
   final bool pageError;
 }
 
-/// How a membership request the site answered ended.
-sealed class GroupMembershipRequestResult {
-  const GroupMembershipRequestResult();
-}
+final class _GroupUpdateAttempt {
+  const _GroupUpdateAttempt(
+    this.instance,
+    this.group,
+    this.command,
+    this.lease,
+  );
 
-final class GroupMembershipRequestSent extends GroupMembershipRequestResult {
-  const GroupMembershipRequestSent({this.messageUrl});
-
-  /// The private message Discourse opened with the group's owners, as the
-  /// site wrote it. Its path already carries a subfolder forum's prefix.
-  final String? messageUrl;
-}
-
-final class GroupMembershipRequestFailed extends GroupMembershipRequestResult {
-  const GroupMembershipRequestFailed(this.message);
-
-  /// The site's own refusal, such as a request already pending, when it gave
-  /// one; otherwise the generic failure.
-  final String message;
+  final DiscourseInstance instance;
+  final Group group;
+  final GroupUpdateCommand command;
+  final SiteLease lease;
 }
 
 typedef _DirectoryKey = ({String siteUrl, GroupDirectoryQuery query});
@@ -408,6 +404,8 @@ final class GroupsController extends FrameSafeNotifier {
 
   final Map<_DirectoryKey, GroupDirectoryState> _directories = {};
   final Map<_GroupKey, GroupDetailState> _details = {};
+  final Map<_GroupKey, _GroupUpdateAttempt> _pendingUpdates = {};
+  final Expando<_GroupUpdateAttempt> _confirmationAttempts = Expando();
   final Map<_MemberListKey, GroupMembersState> _members = {};
   final Map<_FilterListKey, GroupRequestersState> _requesters = {};
   final Map<_ActivityKey, GroupActivityState> _activities = {};
@@ -593,16 +591,16 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> loadDetail(
+  Future<bool> loadDetail(
     DiscourseInstance instance,
     String groupName, {
     bool refresh = false,
   }) async {
-    if (isDisposed) return;
+    if (isDisposed) return false;
     final key = _groupKey(instance.url, groupName);
     _touchQuery(_details, key);
     final held = detailState(instance.url, groupName);
-    if (_requests.containsKey(key) || (!refresh && held.loaded)) return;
+    if (_requests.containsKey(key) || (!refresh && held.loaded)) return false;
     final token = _start(key, instance.url, groupName: groupName);
     _details[key] = GroupDetailState(
       detail: held.detail,
@@ -620,9 +618,10 @@ final class GroupsController extends FrameSafeNotifier {
       pinned: _mutations.containsKey,
     );
     notifySafely();
+    var committed = false;
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null || !_current(token)) return;
+      if (auth == null || !_current(token)) return false;
       final detail = await auth.run(
         () => api.detail(
           siteUrl: instance.url,
@@ -633,6 +632,7 @@ final class GroupsController extends FrameSafeNotifier {
       );
       _commit(token, () {
         _details[key] = GroupDetailState(detail: detail, loaded: true);
+        committed = true;
       });
     } catch (error) {
       _fail(token, () {
@@ -645,9 +645,10 @@ final class GroupsController extends FrameSafeNotifier {
     } finally {
       _finish(token);
     }
+    return committed;
   }
 
-  Future<void> loadMembers(
+  Future<bool> loadMembers(
     DiscourseInstance instance,
     String groupName, {
     String filter = '',
@@ -656,7 +657,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool refresh = false,
     bool more = false,
   }) async {
-    if (isDisposed) return;
+    if (isDisposed) return false;
     final key = _memberListKey(
       instance.url,
       groupName,
@@ -679,7 +680,7 @@ final class GroupsController extends FrameSafeNotifier {
     if ((_requests.containsKey(key) && !refresh) ||
         (!refresh && !more && held.loaded) ||
         (more && (!held.loaded || !held.hasMore))) {
-      return;
+      return false;
     }
     final token = _start(key, instance.url, groupName: groupName);
     _members[key] = GroupMembersState._(
@@ -693,9 +694,10 @@ final class GroupsController extends FrameSafeNotifier {
     );
     _trimQueries(_members, instance.url, siteOf: (key) => key.siteUrl);
     notifySafely();
+    var committed = false;
     try {
       final auth = await _credentialsFor(instance, token);
-      if (auth == null || !_current(token)) return;
+      if (auth == null || !_current(token)) return false;
       var base = held;
       while (_current(token)) {
         final page = await auth.run(
@@ -715,7 +717,7 @@ final class GroupsController extends FrameSafeNotifier {
         final removal = _mutations[_groupKey(instance.url, groupName)]?.removal;
         if (removal != null) await removal.future;
         final current = _members[key];
-        if (!_current(token) || current == null) return;
+        if (!_current(token) || current == null) return false;
         if (_removedDuringLoad(
           base.members,
           current.members,
@@ -728,6 +730,7 @@ final class GroupsController extends FrameSafeNotifier {
           continue;
         }
         _commit(token, () {
+          committed = true;
           final rows = more ? [...current.members] : <GroupMember>[];
           final seen = {for (final member in rows) member.id};
           for (final member in page.members) {
@@ -742,7 +745,7 @@ final class GroupsController extends FrameSafeNotifier {
             loaded: true,
           );
         });
-        return;
+        return committed;
       }
     } catch (error) {
       _fail(token, () {
@@ -763,6 +766,7 @@ final class GroupsController extends FrameSafeNotifier {
     } finally {
       _finish(token);
     }
+    return committed;
   }
 
   Future<void> loadRequesters(
@@ -1083,7 +1087,10 @@ final class GroupsController extends FrameSafeNotifier {
     }
   }
 
-  Future<bool> join(DiscourseInstance instance, Group group) => _mutate(
+  Future<GroupWriteOutcome<void>> join(
+    DiscourseInstance instance,
+    Group group,
+  ) => _mutate(
     instance,
     group,
 
@@ -1095,7 +1102,10 @@ final class GroupsController extends FrameSafeNotifier {
     ),
   );
 
-  Future<bool> leave(DiscourseInstance instance, Group group) => _mutate(
+  Future<GroupWriteOutcome<void>> leave(
+    DiscourseInstance instance,
+    Group group,
+  ) => _mutate(
     instance,
     group,
 
@@ -1107,44 +1117,24 @@ final class GroupsController extends FrameSafeNotifier {
     ),
   );
 
-  /// Null when there is no answer to show: another change to the group was
-  /// still in flight, no account could send it, or the site or account
-  /// changed before the site answered.
-  Future<GroupMembershipRequestResult?> requestMembership(
+  Future<GroupWriteOutcome<String?>> requestMembership(
     DiscourseInstance instance,
     Group group,
     String reason,
-  ) async {
-    String? messageUrl;
-    Object? failure;
-    final sent = await _mutate(
-      instance,
-      group,
+  ) => _mutate(
+    instance,
+    group,
+    (apiKey, clientId) => api.requestMembership(
+      siteUrl: instance.url,
+      apiKey: apiKey,
+      clientId: clientId,
+      groupName: group.name,
+      reason: reason,
+    ),
+    refreshDetail: false,
+  );
 
-      (apiKey, clientId) async {
-        messageUrl = await api.requestMembership(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          clientId: clientId,
-          groupName: group.name,
-          reason: reason,
-        );
-      },
-      // A request changes nothing the group payload reports, so the message
-      // it produced opens without waiting on a re-read.
-      refreshDetail: false,
-      onFailure: (error) => failure = error,
-    );
-    if (sent) return GroupMembershipRequestSent(messageUrl: messageUrl);
-    return switch (failure) {
-      null => null,
-      final WriteException error when error.errors.isNotEmpty =>
-        GroupMembershipRequestFailed(error.message),
-      _ => GroupMembershipRequestFailed(_saveFailureMessage),
-    };
-  }
-
-  Future<bool> handleRequest(
+  Future<GroupWriteOutcome<void>> handleRequest(
     DiscourseInstance instance,
     Group group,
     GroupRequester requester, {
@@ -1190,28 +1180,28 @@ final class GroupsController extends FrameSafeNotifier {
     },
   );
 
-  Future<GroupMembershipMutationResult?> addMembers(
+  Future<GroupWriteOutcome<GroupMembershipMutationResult>> addMembers(
     DiscourseInstance instance,
-    Group group, {
-    Iterable<String> usernames = const [],
-    Iterable<String> emails = const [],
+    Group group,
+    GroupAddMembersCommand command, {
     String filter = '',
     String? order,
     bool ascending = true,
   }) async {
-    GroupMembershipMutationResult? output;
-    final saved = await _mutate(instance, group, (apiKey, clientId) async {
-      output = await api.addMembers(
+    final result = await _mutate(
+      instance,
+      group,
+      (apiKey, clientId) => api.addMembers(
         siteUrl: instance.url,
         apiKey: apiKey,
         clientId: clientId,
         groupId: group.id,
-        usernames: usernames,
-        emails: emails,
-      );
-    });
-    if (!saved) return null;
-    await loadMembers(
+        usernames: command.usernames,
+        emails: command.emails,
+      ),
+    );
+    if (!result.canApplyLocally) return result;
+    final membersRefreshed = await loadMembers(
       instance,
       group.name,
       filter: filter,
@@ -1219,34 +1209,43 @@ final class GroupsController extends FrameSafeNotifier {
       ascending: ascending,
       refresh: true,
     );
-    return output;
+    final accepted =
+        result as GroupWriteAccepted<GroupMembershipMutationResult>;
+    return accepted.withProjection(
+      (isDisposed || !accepted.isCurrent)
+          ? GroupProjectionFreshness.retired
+          : membersRefreshed &&
+                accepted.projection == GroupProjectionFreshness.refreshed
+          ? GroupProjectionFreshness.refreshed
+          : GroupProjectionFreshness.stale,
+      current: !isDisposed && accepted.isCurrent,
+    );
   }
 
-  Future<GroupInvite?> createInvite(
+  Future<GroupWriteOutcome<GroupInvite>> createInvite(
     DiscourseInstance instance,
     Group group, {
     String? email,
     String? customMessage,
     int maxRedemptionsAllowed = 1,
     DateTime? expiresAt,
-  }) async {
-    GroupInvite? output;
-    final saved = await _mutate(instance, group, (apiKey, clientId) async {
-      output = await api.createInvite(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        groupId: group.id,
-        email: email,
-        customMessage: customMessage,
-        maxRedemptionsAllowed: maxRedemptionsAllowed,
-        expiresAt: expiresAt,
-      );
-    }, refreshDetail: false);
-    return saved ? output : null;
-  }
+  }) => _mutate(
+    instance,
+    group,
+    (apiKey, clientId) => api.createInvite(
+      siteUrl: instance.url,
+      apiKey: apiKey,
+      clientId: clientId,
+      groupId: group.id,
+      email: email,
+      customMessage: customMessage,
+      maxRedemptionsAllowed: maxRedemptionsAllowed,
+      expiresAt: expiresAt,
+    ),
+    refreshDetail: false,
+  );
 
-  Future<bool> removeMember(
+  Future<GroupWriteOutcome<void>> removeMember(
     DiscourseInstance instance,
     Group group,
     GroupMember member,
@@ -1287,7 +1286,7 @@ final class GroupsController extends FrameSafeNotifier {
     },
   );
 
-  Future<bool> setMemberOwner(
+  Future<GroupWriteOutcome<void>> setMemberOwner(
     DiscourseInstance instance,
     Group group,
     GroupMember member, {
@@ -1314,11 +1313,13 @@ final class GroupsController extends FrameSafeNotifier {
             ),
       refreshDetail: false,
     );
-    if (saved) _updateMember(instance, group, member, owner: owner);
+    if (saved.canApplyLocally) {
+      _updateMember(instance, group, member, owner: owner);
+    }
     return saved;
   }
 
-  Future<bool> setMemberPrimary(
+  Future<GroupWriteOutcome<void>> setMemberPrimary(
     DiscourseInstance instance,
     Group group,
     GroupMember member, {
@@ -1338,11 +1339,16 @@ final class GroupsController extends FrameSafeNotifier {
       ),
       refreshDetail: false,
     );
-    if (saved) _updateMember(instance, group, member, primary: primary);
+    if (saved.canApplyLocally) {
+      _updateMember(instance, group, member, primary: primary);
+    }
     return saved;
   }
 
-  Future<bool> deleteGroup(DiscourseInstance instance, Group group) async {
+  Future<GroupWriteOutcome<void>> deleteGroup(
+    DiscourseInstance instance,
+    Group group,
+  ) async {
     final saved = await _mutate(
       instance,
       group,
@@ -1355,7 +1361,7 @@ final class GroupsController extends FrameSafeNotifier {
       ),
       refreshDetail: false,
     );
-    if (!saved) return false;
+    if (!saved.canApplyLocally) return saved;
     final normalized = _normalize(group.name);
     _requests.removeWhere(
       (_, request) =>
@@ -1379,7 +1385,7 @@ final class GroupsController extends FrameSafeNotifier {
     // after deletion fetch authoritative totals and rows.
     _directories.removeWhere((key, _) => key.siteUrl == instance.url);
     notifySafely();
-    return true;
+    return saved;
   }
 
   void _updateMember(
@@ -1411,74 +1417,101 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  /// Core refuses a change to notification defaults that members already
-  /// hold until told whether it applies to them. [applyToExistingUsers]
-  /// answers with how many it reaches: true updates them, false leaves them
-  /// as they are, and null abandons the save.
-  Future<bool> updateGroup(
+  Future<GroupWriteOutcome<void>> updateGroup(
     DiscourseInstance instance,
     Group group,
-    Map<String, Object?> values, {
-    Future<bool?> Function(int userCount)? applyToExistingUsers,
-  }) async {
-    final lease = lifecycle.capture(instance.url);
-    int? affectedUsers;
-    final saved = await _updateGroup(
+    GroupUpdateCommand command,
+  ) async {
+    final attempt = _GroupUpdateAttempt(
       instance,
       group,
-      values,
-      onFailure: (error) => affectedUsers = switch (error) {
-        WriteException(statusCode: 422, :final affectedUserCount?)
-            when affectedUserCount > 0 =>
-          affectedUserCount,
-        _ => null,
-      },
+      command,
+      lifecycle.capture(instance.url),
     );
-    final userCount = affectedUsers;
-    if (saved || userCount == null || applyToExistingUsers == null) {
-      return saved;
+    final result = await _writeUpdate(attempt);
+    final key = _groupKey(instance.url, group.name);
+    if (identical(_pendingUpdates[key], attempt)) {
+      if (result case GroupWriteFailed<void>(
+        error: WriteException(statusCode: 422, :final affectedUserCount?),
+      ) when affectedUserCount > 0 && !isDisposed && attempt.lease.isCurrent) {
+        final confirmation = GroupUpdateConfirmation(affectedUserCount);
+        _confirmationAttempts[confirmation] = attempt;
+        return confirmation;
+      }
+      _pendingUpdates.remove(key);
     }
-    final apply = await applyToExistingUsers(userCount);
-    // The answer was given for this account's save, not for whichever one
-    // the site holds by the time it arrives.
-    if (apply == null || isDisposed || !lease.isCurrent) return false;
-    return _updateGroup(instance, group, values, updateExistingUsers: apply);
+    return result;
   }
 
-  Future<bool> _updateGroup(
-    DiscourseInstance instance,
-    Group group,
-    Map<String, Object?> values, {
-    bool? updateExistingUsers,
-    ValueSetter<Object>? onFailure,
-  }) => _mutate(
-    instance,
-    group,
+  Future<GroupWriteOutcome<void>> confirmUpdate(
+    GroupUpdateConfirmation confirmation, {
+    required bool applyToExistingUsers,
+  }) {
+    final attempt = _confirmationAttempts[confirmation];
+    if (attempt == null) {
+      return Future.value(
+        const GroupWriteNotAdmitted(GroupWriteAdmission.expiredConfirmation),
+      );
+    }
+    final key = _groupKey(attempt.instance.url, attempt.group.name);
+    if (isDisposed ||
+        !attempt.lease.isCurrent ||
+        !identical(_pendingUpdates[key], attempt)) {
+      return Future.value(
+        const GroupWriteNotAdmitted(GroupWriteAdmission.expiredConfirmation),
+      );
+    }
+    _pendingUpdates.remove(key);
+    return _writeUpdate(attempt, updateExistingUsers: applyToExistingUsers);
+  }
 
+  void cancelUpdate(GroupUpdateConfirmation confirmation) {
+    final attempt = _confirmationAttempts[confirmation];
+    if (attempt == null) return;
+    final key = _groupKey(attempt.instance.url, attempt.group.name);
+    if (identical(_pendingUpdates[key], attempt)) {
+      _pendingUpdates.remove(key);
+    }
+  }
+
+  Future<GroupWriteOutcome<void>> _writeUpdate(
+    _GroupUpdateAttempt attempt, {
+    bool? updateExistingUsers,
+  }) => _mutate(
+    attempt.instance,
+    attempt.group,
     (apiKey, clientId) => api.updateGroup(
-      siteUrl: instance.url,
+      siteUrl: attempt.instance.url,
       apiKey: apiKey,
       clientId: clientId,
-      groupId: group.id,
-      values: values,
+      groupId: attempt.group.id,
+      values: attempt.command.values,
       updateExistingUsers: updateExistingUsers,
     ),
-    onFailure: onFailure,
+    lease: attempt.lease,
+    updateAttempt: updateExistingUsers == null ? attempt : null,
   );
 
-  Future<bool> _mutate(
+  Future<GroupWriteOutcome<T>> _mutate<T>(
     DiscourseInstance instance,
     Group group,
-
-    Future<void> Function(String apiKey, String clientId) write, {
+    Future<T> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
     VoidCallback? removeCachedRows,
-    ValueSetter<Object>? onFailure,
+    SiteLease? lease,
+    _GroupUpdateAttempt? updateAttempt,
   }) async {
     final key = _groupKey(instance.url, group.name);
-    if (isDisposed || _mutations.containsKey(key)) return false;
+    final account = lease ?? lifecycle.capture(instance.url);
+    if (isDisposed || !account.isCurrent) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
+    if (_mutations.containsKey(key)) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.busy);
+    }
+    _pendingUpdates.remove(key);
+    if (updateAttempt != null) _pendingUpdates[key] = updateAttempt;
     final token = _GroupMutation(removesRows: removeCachedRows != null);
-    final lease = lifecycle.capture(instance.url);
     _mutations[key] = token;
     final held = detailState(instance.url, group.name);
     _details[key] = GroupDetailState(
@@ -1487,63 +1520,79 @@ final class GroupsController extends FrameSafeNotifier {
       mutating: true,
     );
     notifySafely();
-    var saved = false;
+    var dispatched = false;
+    var ownsCompletion = false;
+    late T value;
+    var projection = GroupProjectionFreshness.notRequested;
+    bool current() =>
+        !isDisposed && account.isCurrent && identical(_mutations[key], token);
     try {
       final auth = await AccountRequestSession(
         instance.url,
-        lease,
+        account,
       ).credentials(credentials);
+      if (!current()) {
+        return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+      }
       final apiKey = auth.apiKey;
-      if (apiKey == null ||
-          isDisposed ||
-          !lease.isCurrent ||
-          !identical(_mutations[key], token)) {
-        return false;
+      if (apiKey == null) {
+        return const GroupWriteNotAdmitted(GroupWriteAdmission.noCredentials);
       }
-      final clientId = auth.clientId;
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_mutations[key], token)) {
-        return false;
+      value = await auth.run(() {
+        dispatched = true;
+        return write(apiKey, auth.clientId);
+      });
+      if (current()) {
+        removeCachedRows?.call();
+        token.finishRemoval();
+        _details[key] = GroupDetailState(
+          detail: held.detail,
+          loaded: held.loaded,
+        );
+        if (refreshDetail) {
+          _requests.remove(key);
+          final refreshed = await loadDetail(
+            instance,
+            group.name,
+            refresh: true,
+          );
+          projection = refreshed
+              ? GroupProjectionFreshness.refreshed
+              : GroupProjectionFreshness.stale;
+        }
       }
-      await auth.run(() => write(apiKey, clientId));
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_mutations[key], token)) {
-        return false;
-      }
-      removeCachedRows?.call();
-      token.finishRemoval();
-      _details[key] = GroupDetailState(
-        detail: held.detail,
-        loaded: held.loaded,
-      );
-      if (refreshDetail) {
-        _requests.remove(key);
-        await loadDetail(instance, group.name, refresh: true);
-      }
-      saved =
-          !isDisposed && lease.isCurrent && identical(_mutations[key], token);
     } catch (error) {
-      if (lease.isCurrent && identical(_mutations[key], token)) {
+      if (current()) {
         _details[key] = GroupDetailState(
           detail: held.detail,
           loaded: held.loaded,
           error: _saveFailureMessage,
         );
-        onFailure?.call(error);
       }
-      return false;
+      return GroupWriteFailed(error, dispatched: dispatched);
     } finally {
       token.finishRemoval();
+      ownsCompletion = identical(_mutations[key], token);
       if (!isDisposed && identical(_mutations[key], token)) {
         _mutations.remove(key);
+        final state = detailState(instance.url, group.name);
+        if (state.mutating) {
+          _details[key] = GroupDetailState(
+            detail: state.detail,
+            loaded: state.loaded,
+            error: state.error,
+          );
+        }
         notifySafely();
       }
     }
-    // Completion observers can replace the account before callers update
-    // member caches or navigate away from a deleted group.
-    return saved && !isDisposed && lease.isCurrent;
+    final active = ownsCompletion && !isDisposed && account.isCurrent;
+    return GroupWriteAccepted(
+      value,
+      projection: active ? projection : GroupProjectionFreshness.retired,
+      current: active,
+      account: account,
+    );
   }
 
   void _touchQuery<K, V>(Map<K, V> states, K key) {
@@ -1574,6 +1623,7 @@ final class GroupsController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
     _details.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _pendingUpdates.removeWhere((key, _) => key.siteUrl == siteUrl);
     _members.removeWhere((key, _) => key.siteUrl == siteUrl);
     _requesters.removeWhere((key, _) => key.siteUrl == siteUrl);
     _activities.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -1696,6 +1746,7 @@ final class GroupsController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _pendingUpdates.clear();
     _requests.clear();
     for (final mutation in _mutations.values) {
       mutation.finishRemoval();

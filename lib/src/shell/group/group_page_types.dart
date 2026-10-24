@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 import '../../models/group.dart';
+import '../group_write.dart';
+
+export '../group_write.dart';
 
 enum GroupMembershipAction { join, leave, request }
 
@@ -24,11 +27,15 @@ typedef GroupCreateInvite =
     Future<GroupInvite?> Function({String? email, String? customMessage});
 typedef GroupMemberActionCallback =
     Future<bool> Function(GroupMember member, GroupMemberAction action);
-typedef GroupManageSubmit = Future<bool> Function(GroupManageUpdate update);
+typedef GroupManageSubmit =
+    Future<GroupWriteOutcome<void>> Function(GroupManageUpdate update);
 
 @immutable
 final class GroupManageUpdate {
-  const GroupManageUpdate({required this.subsection, required this.values});
+  GroupManageUpdate({
+    required this.subsection,
+    required Map<String, Object?> values,
+  }) : values = freezeGroupValues(values);
 
   final String subsection;
   final Map<String, Object?> values;

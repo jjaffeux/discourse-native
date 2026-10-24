@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
@@ -460,9 +461,7 @@ void main() {
 
     testWidgets('a sent request opens the message it produced', (tester) async {
       final host = _MembershipHost(requestable)
-        ..port.requestResult = const GroupMembershipRequestSent(
-          messageUrl: messageUrl,
-        );
+        ..port.requestResult = const GroupWriteAccepted<String?>(messageUrl);
       addTearDown(host.dispose);
       await host.pump(tester);
 
@@ -485,9 +484,7 @@ void main() {
         allowMembershipRequests: true,
       );
       final host = _MembershipHost(untemplated)
-        ..port.requestResult = const GroupMembershipRequestSent(
-          messageUrl: messageUrl,
-        );
+        ..port.requestResult = const GroupWriteAccepted<String?>(messageUrl);
       addTearDown(host.dispose);
       await host.pump(tester);
 
@@ -519,7 +516,10 @@ void main() {
     testWidgets('a refused request shows what the site said', (tester) async {
       const refusal = 'You have already requested membership for this group.';
       final host = _MembershipHost(requestable)
-        ..port.requestResult = const GroupMembershipRequestFailed(refusal);
+        ..port.requestResult = GroupWriteFailed<String?>(
+          const WriteException(WriteFailure.validation, errors: [refusal]),
+          dispatched: true,
+        );
       addTearDown(host.dispose);
       await host.pump(tester);
 
@@ -537,14 +537,14 @@ void main() {
       final host = _MembershipHost(requestable);
       addTearDown(host.dispose);
       final gate = host.port.requestGate =
-          Completer<GroupMembershipRequestResult?>();
+          Completer<GroupWriteOutcome<String?>>();
       await host.pump(tester);
 
       await sendRequest(tester);
       expect(host.port.membershipRequests, hasLength(1));
       host.route = GroupRoute.detail('moderators');
       await host.pump(tester);
-      gate.complete(const GroupMembershipRequestSent(messageUrl: messageUrl));
+      gate.complete(const GroupWriteAccepted<String?>(messageUrl));
       await tester.pumpAndSettle();
 
       expect(host.port.openedRequests, isEmpty);
@@ -825,21 +825,24 @@ final class _Port implements GroupPagesPort {
   final messagedGroups = <String>[];
   final leaves = <Group>[];
   final membershipRequests = <({Group group, String reason})>[];
-  GroupMembershipRequestResult? requestResult;
-  Completer<GroupMembershipRequestResult?>? requestGate;
+  GroupWriteOutcome<String?> requestResult = const GroupWriteAccepted(null);
+  Completer<GroupWriteOutcome<String?>>? requestGate;
   final openedRequests = <({GroupPagesOwner owner, String messageUrl})>[];
 
   @override
   Listenable get changes => _changes;
 
   @override
-  Future<bool> leave(GroupPagesOwner owner, Group group) async {
+  Future<GroupWriteOutcome<void>> leave(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
     leaves.add(group);
-    return true;
+    return const GroupWriteAccepted(null);
   }
 
   @override
-  Future<GroupMembershipRequestResult?> requestMembership(
+  Future<GroupWriteOutcome<String?>> requestMembership(
     GroupPagesOwner owner,
     Group group,
     String reason,
@@ -856,16 +859,25 @@ final class _Port implements GroupPagesPort {
   final existingUserAnswers = <bool?>[];
 
   @override
-  Future<bool> saveManage(
+  Future<GroupWriteOutcome<void>> saveManage(
     GroupPagesOwner owner,
     Group group,
-    GroupManageUpdate update, {
-    Future<bool?> Function(int userCount)? applyToExistingUsers,
+    GroupManageUpdate update,
+  ) async => const GroupUpdateConfirmation(3);
+
+  @override
+  Future<GroupWriteOutcome<void>> confirmManage(
+    GroupPagesOwner owner,
+    GroupUpdateConfirmation confirmation, {
+    required bool applyToExistingUsers,
   }) async {
-    final answer = await applyToExistingUsers?.call(3);
-    existingUserAnswers.add(answer);
-    return answer != null;
+    existingUserAnswers.add(applyToExistingUsers);
+    return const GroupWriteAccepted(null);
   }
+
+  @override
+  void cancelManage(GroupUpdateConfirmation confirmation) =>
+      existingUserAnswers.add(null);
 
   @override
   bool isCurrent(GroupPagesOwner value) => value == owner;
@@ -905,13 +917,20 @@ final class _Port implements GroupPagesPort {
       );
 
   @override
-  Future<bool> deleteGroup(GroupPagesOwner owner, Group group) async {
-    if (!isCurrent(owner)) return false;
+  Future<GroupWriteOutcome<void>> deleteGroup(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
+    if (!isCurrent(owner)) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     final request = (owner: owner, group: group);
     deleteRequests.add(request);
     final deleted = await deleteGate!.future;
     if (deleted) deletions.add(request);
-    return deleted;
+    return deleted
+        ? const GroupWriteAccepted(null)
+        : const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
   }
 
   @override

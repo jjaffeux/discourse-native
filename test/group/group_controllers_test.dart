@@ -431,7 +431,7 @@ void main() {
           subsection: GroupRoute.categories,
           onSubmit: (_) async {
             writes++;
-            return true;
+            return const GroupWriteAccepted<void>(null);
           },
         );
         addTearDown(controller.dispose);
@@ -476,7 +476,7 @@ void main() {
             subsection: GroupRoute.membership,
             onSubmit: (update) async {
               saved = update;
-              return true;
+              return const GroupWriteAccepted<void>(null);
             },
           );
           addTearDown(controller.dispose);
@@ -504,7 +504,7 @@ void main() {
           subsection: GroupRoute.email,
           onSubmit: (_) async {
             writes++;
-            return true;
+            return const GroupWriteAccepted<void>(null);
           },
         );
         addTearDown(controller.dispose);
@@ -534,7 +534,7 @@ void main() {
         ),
         currentUserAdmin: true,
         subsection: GroupRoute.email,
-        onSubmit: (_) async => true,
+        onSubmit: (_) async => const GroupWriteAccepted<void>(null),
       );
       addTearDown(controller.dispose);
       controller.textController('smtp_port').text = '587x';
@@ -551,7 +551,7 @@ void main() {
           group: const Group(id: 9, name: 'support'),
           currentUserStaff: staff,
           subsection: GroupRoute.membership,
-          onSubmit: (_) async => true,
+          onSubmit: (_) async => const GroupWriteAccepted<void>(null),
         );
         addTearDown(controller.dispose);
         controller.setVisibility(1);
@@ -583,7 +583,7 @@ void main() {
             group: Group(id: 9, name: 'support', automatic: automatic),
             currentUserStaff: staff,
             subsection: GroupRoute.interaction,
-            onSubmit: (_) async => true,
+            onSubmit: (_) async => const GroupWriteAccepted<void>(null),
           );
           addTearDown(controller.dispose);
           controller.setPublishReadState(true);
@@ -643,7 +643,7 @@ void main() {
         final controller = GroupManageController(
           group: Group(id: 9, name: 'support', automatic: automatic),
           currentUserStaff: staff,
-          onSubmit: (_) async => true,
+          onSubmit: (_) async => const GroupWriteAccepted<void>(null),
         );
         addTearDown(controller.dispose);
         expect(controller.buildUpdate().values.keys, unorderedEquals(editable));
@@ -671,7 +671,7 @@ void main() {
           currentUserAdmin: true,
           onSubmit: (update) async {
             submitted = update.values;
-            return true;
+            return const GroupWriteAccepted<void>(null);
           },
         );
         addTearDown(controller.dispose);
@@ -717,7 +717,7 @@ void main() {
         group: const Group(id: 9, name: 'support'),
         onSubmit: (_) async {
           calls++;
-          return true;
+          return const GroupWriteAccepted<void>(null);
         },
       );
       controller.textController('full_name').text = 'Support';
@@ -858,7 +858,7 @@ void main() {
           currentUserAdmin: admin,
           onSubmit: (update) async {
             submitted = update.values;
-            return true;
+            return const GroupWriteAccepted<void>(null);
           },
         );
         addTearDown(controller.dispose);
@@ -895,7 +895,7 @@ void main() {
         currentUserStaff: true,
         onSubmit: (_) async {
           submissions += 1;
-          return true;
+          return const GroupWriteAccepted<void>(null);
         },
       );
       addTearDown(controller.dispose);
@@ -912,7 +912,7 @@ void main() {
     test(
       'reports progress and accepts the submitted values on success',
       () async {
-        final completion = Completer<bool>();
+        final completion = Completer<GroupWriteOutcome<void>>();
         GroupManageUpdate? submitted;
         final controller = GroupManageController(
           group: const Group(id: 9, name: 'support'),
@@ -929,13 +929,50 @@ void main() {
         expect(controller.snapshot.canSubmit, isFalse);
         expect(submitted?.values['full_name'], 'Support Team');
 
-        completion.complete(true);
+        completion.complete(const GroupWriteAccepted<void>(null));
         expect(await save, isTrue);
         expect(controller.snapshot.submitting, isFalse);
         expect(controller.snapshot.dirty, isFalse);
         expect(controller.snapshot.error, isNull);
       },
     );
+
+    test(
+      'accepted save advances the baseline even when projection refresh fails',
+      () async {
+        final controller = GroupManageController(
+          group: const Group(id: 9, name: 'support'),
+          onSubmit: (_) async => const GroupWriteAccepted<void>(
+            null,
+            projection: GroupProjectionFreshness.stale,
+          ),
+        );
+        addTearDown(controller.dispose);
+        controller.textController('full_name').text = 'Saved';
+        expect(await controller.submit(), isTrue);
+        expect(controller.snapshot.dirty, isFalse);
+        expect(controller.snapshot.error, isNull);
+      },
+    );
+
+    test('manage update freezes the map and nested list at construction', () {
+      final ids = [1, 2];
+      final values = <String, Object?>{'watching_category_ids': ids};
+      final update = GroupManageUpdate(
+        subsection: GroupRoute.categories,
+        values: values,
+      );
+      ids.clear();
+      values.clear();
+      expect(update.values, {
+        'watching_category_ids': [1, 2],
+      });
+      expect(() => update.values['name'] = 'changed', throwsUnsupportedError);
+      expect(
+        () => (update.values['watching_category_ids'] as List).add(3),
+        throwsUnsupportedError,
+      );
+    });
 
     test('maps thrown submission failures and keeps the form dirty', () async {
       final controller = GroupManageController(
@@ -957,7 +994,8 @@ void main() {
       () async {
         final controller = GroupManageController(
           group: const Group(id: 9, name: 'support'),
-          onSubmit: (_) async => false,
+          onSubmit: (_) async =>
+              const GroupWriteNotAdmitted<void>(GroupWriteAdmission.inactive),
         );
         addTearDown(controller.dispose);
         controller.textController('full_name').text = 'Support Team';
@@ -970,7 +1008,7 @@ void main() {
     test(
       'stale failure does not overwrite edits made during submission',
       () async {
-        final completion = Completer<bool>();
+        final completion = Completer<GroupWriteOutcome<void>>();
         final controller = GroupManageController(
           group: const Group(id: 9, name: 'support'),
           onSubmit: (_) => completion.future,
@@ -980,7 +1018,9 @@ void main() {
 
         final save = controller.submit();
         controller.textController('full_name').text = 'Newer value';
-        completion.complete(false);
+        completion.complete(
+          const GroupWriteNotAdmitted<void>(GroupWriteAdmission.inactive),
+        );
 
         expect(await save, isFalse);
         expect(controller.snapshot.error, isNull);

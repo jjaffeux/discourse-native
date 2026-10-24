@@ -354,25 +354,37 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       _shell.handleBack(canReturnToSidebar: canReturnToSidebar);
 
   @override
-  Future<bool> join(GroupPagesOwner owner, Group group) async {
+  Future<GroupWriteOutcome<void>> join(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
     final instance = _instance(owner);
-    return instance != null && await _shell.groups.join(instance, group);
+    return instance == null
+        ? const GroupWriteNotAdmitted(GroupWriteAdmission.inactive)
+        : _shell.groups.join(instance, group);
   }
 
   @override
-  Future<bool> leave(GroupPagesOwner owner, Group group) async {
+  Future<GroupWriteOutcome<void>> leave(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
     final instance = _instance(owner);
-    return instance != null && await _shell.groups.leave(instance, group);
+    return instance == null
+        ? const GroupWriteNotAdmitted(GroupWriteAdmission.inactive)
+        : _shell.groups.leave(instance, group);
   }
 
   @override
-  Future<GroupMembershipRequestResult?> requestMembership(
+  Future<GroupWriteOutcome<String?>> requestMembership(
     GroupPagesOwner owner,
     Group group,
     String reason,
   ) async {
     final instance = _instance(owner);
-    if (instance == null) return null;
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     return _shell.groups.requestMembership(instance, group, reason);
   }
 
@@ -383,9 +395,14 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<bool> deleteGroup(GroupPagesOwner owner, Group group) async {
+  Future<GroupWriteOutcome<void>> deleteGroup(
+    GroupPagesOwner owner,
+    Group group,
+  ) async {
     final instance = _instance(owner);
-    return instance != null && await _shell.groups.deleteGroup(instance, group);
+    return instance == null
+        ? const GroupWriteNotAdmitted(GroupWriteAdmission.inactive)
+        : _shell.groups.deleteGroup(instance, group);
   }
 
   @override
@@ -395,20 +412,20 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       : Future.value(const []);
 
   @override
-  Future<GroupMembershipMutationResult?> addMembers(
+  Future<GroupWriteOutcome<GroupMembershipMutationResult>> addMembers(
     GroupPagesOwner owner,
     Group group,
-    List<String> usernames,
-    List<String> emails,
+    GroupAddMembersCommand command,
     GroupPagesMemberQuery memberQuery,
   ) async {
     final instance = _instance(owner);
-    if (instance == null) return null;
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     return _shell.groups.addMembers(
       instance,
       group,
-      usernames: usernames,
-      emails: emails,
+      command,
       filter: memberQuery.filter,
       order: memberQuery.order,
       ascending: memberQuery.ascending,
@@ -416,14 +433,16 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<GroupInvite?> createInvite(
+  Future<GroupWriteOutcome<GroupInvite>> createInvite(
     GroupPagesOwner owner,
     Group group, {
     String? email,
     String? customMessage,
   }) async {
     final instance = _instance(owner);
-    if (instance == null) return null;
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     return _shell.groups.createInvite(
       instance,
       group,
@@ -433,14 +452,16 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<bool> memberAction(
+  Future<GroupWriteOutcome<void>> memberAction(
     GroupPagesOwner owner,
     Group group,
     GroupMember member,
     GroupMemberAction action,
   ) async {
     final instance = _instance(owner);
-    if (instance == null) return false;
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     return switch (action) {
       GroupMemberAction.remove => _shell.groups.removeMember(
         instance,
@@ -507,15 +528,17 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<void> handleRequest(
+  Future<GroupWriteOutcome<void>> handleRequest(
     GroupPagesOwner owner,
     Group group,
     GroupRequester requester,
     GroupRequestAction action,
   ) async {
     final instance = _instance(owner);
-    if (instance == null) return;
-    await _shell.groups.handleRequest(
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
+    return _shell.groups.handleRequest(
       instance,
       group,
       requester,
@@ -524,24 +547,41 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   }
 
   @override
-  Future<bool> saveManage(
+  Future<GroupWriteOutcome<void>> saveManage(
     GroupPagesOwner owner,
     Group group,
-    GroupManageUpdate update, {
-    Future<bool?> Function(int userCount)? applyToExistingUsers,
-  }) async {
+    GroupManageUpdate update,
+  ) async {
     final instance = _instance(owner);
-    if (instance == null) return false;
+    if (instance == null) {
+      return const GroupWriteNotAdmitted(GroupWriteAdmission.inactive);
+    }
     return _shell.groups.updateGroup(
       instance,
       group,
-      update.values,
-      applyToExistingUsers: applyToExistingUsers == null
-          ? null
-          : (userCount) async {
-              final apply = await applyToExistingUsers(userCount);
-              return isCurrent(owner) ? apply : null;
-            },
+      GroupUpdateCommand(update.values),
     );
   }
+
+  @override
+  Future<GroupWriteOutcome<void>> confirmManage(
+    GroupPagesOwner owner,
+    GroupUpdateConfirmation confirmation, {
+    required bool applyToExistingUsers,
+  }) {
+    if (!isCurrent(owner)) {
+      _shell.groups.cancelUpdate(confirmation);
+      return Future.value(
+        const GroupWriteNotAdmitted(GroupWriteAdmission.inactive),
+      );
+    }
+    return _shell.groups.confirmUpdate(
+      confirmation,
+      applyToExistingUsers: applyToExistingUsers,
+    );
+  }
+
+  @override
+  void cancelManage(GroupUpdateConfirmation confirmation) =>
+      _shell.groups.cancelUpdate(confirmation);
 }
