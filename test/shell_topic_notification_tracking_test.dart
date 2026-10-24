@@ -59,6 +59,35 @@ const _firstPost = Post(
 );
 
 void main() {
+  test('dismissal stops when a Store listener retires its account', () async {
+    final fixture = await _Fixture.load();
+    const successor = Topic(
+      id: 8,
+      title: 'Successor topic',
+      slug: 'successor',
+      seen: false,
+    );
+    fixture.shell.store.put(_site, _topicRow.copyWith(seen: false));
+    fixture.shell.store.put(_site, successor);
+    final original = fixture.shell.store.ref<Topic>(_site, 7);
+    void replaceAccount() {
+      fixture.shell.lifecycle.invalidate(_site);
+      fixture.shell.store.put(_site, successor);
+    }
+
+    original.addListener(replaceAccount);
+    addTearDown(() => original.removeListener(replaceAccount));
+
+    fixture.tracker.deliverTopicTracking(const {
+      'message_type': 'dismiss_new',
+      'payload': {
+        'topic_ids': [7, 8],
+      },
+    });
+
+    expect(fixture.shell.store.read<Topic>(_site, 8)?.seen, isFalse);
+  });
+
   test(
     'late report keeps local reads through pending-choice rollback',
     () async {

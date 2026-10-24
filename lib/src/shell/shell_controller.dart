@@ -3810,16 +3810,22 @@ class ShellController extends FrameSafeNotifier
   void _applyTopicTrackingMessage(String siteUrl, Object? data) {
     // A message proves the site reachable again. A snapshot whose load failed
     // is fetched before this message is buffered, so the replay covers it.
-    _liveSessions.retryTracking(siteUrl);
+    final lease = lifecycle.capture(siteUrl);
     final tracking = _trackingFor(siteUrl);
+    _liveSessions.retryTracking(siteUrl);
+    if (!lease.isCurrent || !identical(_topicTrackingBySite[siteUrl], tracking))
+      return;
     final changed = tracking.accept(
       data,
       user: _instanceAt(siteUrl)?.user,
       config: siteConfigFor(siteUrl),
     );
     if (changed == null) return;
-    _applyTopicDismissal(siteUrl, data, tracking);
-    if (changed && currentInstance?.url == siteUrl) {
+    _applyTopicDismissal(siteUrl, data, tracking, lease);
+    if (lease.isCurrent &&
+        identical(_topicTrackingBySite[siteUrl], tracking) &&
+        changed &&
+        currentInstance?.url == siteUrl) {
       _notifyLiveChange();
     }
   }
@@ -3834,11 +3840,16 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     Object? data,
     TopicTrackingReconciler tracking,
+    SiteLease lease,
   ) {
     if (data is! Map) return;
     final type = data['message_type'];
     if (type != 'dismiss_new' && type != 'dismiss_new_posts') return;
     for (final value in jsonArray(jsonObject(data['payload'])['topic_ids'])) {
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_topicTrackingBySite[siteUrl], tracking))
+        return;
       final topicId = jsonIntOrNull(value);
       if (topicId == null) continue;
       store.update<Topic>(siteUrl, topicId, (row) {
