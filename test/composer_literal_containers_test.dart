@@ -183,6 +183,150 @@ void main() {
     },
   );
 
+  for (final (context, prefix, continuation, suffix) in [
+    ('plain', 'prose\n    ', '', '\n'),
+    ('list', '- prose\n      ', '  ', '\n\n'),
+    ('quote', '> prose\n>     ', '> ', '\n\n'),
+  ]) {
+    for (final (name, literal) in [
+      ('multiline comment', '<!--\n![hidden](https://example.test/a.png)\n-->'),
+      ('same-line comment', '<!-- ![hidden](https://example.test/a.png) -->'),
+      ('inline BBCode', '[code]![hidden](https://example.test/a.png)[/code]'),
+      (
+        'multiline BBCode',
+        '[code]\n![hidden](https://example.test/a.png)\n[/code]',
+      ),
+    ]) {
+      test(
+        'four-space paragraph continuation in $context owns $name inline',
+        () async {
+          const active = '![active](https://example.test/b.png)';
+          final source =
+              '$prefix${literal.replaceAll('\n', '\n$continuation')}$suffix$active';
+          final service = OfflineCookingService();
+          addTearDown(service.dispose);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(
+                siteId: 'test-site',
+                accountId: 'test-account',
+              ),
+            ),
+          );
+          expect(result.failure, isNull);
+          expect(result.html, isNot(contains('alt="hidden"')));
+          expect(result.html, contains('alt="active"'));
+          final images = parseComposerImages(source);
+          expect(images.map((block) => block.alt), ['active']);
+          expect(images.single.start, source.indexOf(active));
+          expect(images.single.source, active);
+          final containers = ComposerLiteralContainers(source);
+          expect(containers.contains(source.indexOf(literal)), isTrue);
+          expect(containers.containsBlock(source.indexOf(literal)), isFalse);
+        },
+      );
+    }
+  }
+
+  for (final (name, literal) in [
+    ('unclosed comment', '<!--'),
+    ('paragraph-limited BBCode', '[code]\n'),
+  ]) {
+    test('four-space paragraph continuation keeps $name literal', () async {
+      const active = '![active](https://example.test/b.png)';
+      final source =
+          'prose\n    $literal\n\n$active${name == 'paragraph-limited BBCode' ? '\n[/code]' : ''}';
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      final result = await service.cook(
+        CookingRequest(
+          raw: source,
+          snapshot: CookingSnapshot(
+            siteId: 'test-site',
+            accountId: 'test-account',
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      expect(result.html, contains('alt="active"'));
+      final block = parseComposerImages(source).single;
+      expect(block.start, source.indexOf(active));
+      expect(block.source, active);
+      expect(
+        ComposerLiteralContainers(source).contains(source.indexOf(literal)),
+        isFalse,
+      );
+    });
+  }
+
+  test(
+    'four-space paragraph continuation BBCode takes its first closer',
+    () async {
+      const active = '![active](https://example.test/b.png)';
+      const source =
+          'prose\n    [code]![hidden](https://example.test/a.png)[/code] $active[/code]';
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      final result = await service.cook(
+        CookingRequest(
+          raw: source,
+          snapshot: CookingSnapshot(
+            siteId: 'test-site',
+            accountId: 'test-account',
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      expect(result.html, isNot(contains('alt="hidden"')));
+      expect(result.html, contains('alt="active"'));
+      final images = parseComposerImages(source);
+      expect(images.map((block) => block.alt), ['active']);
+      final block = images.single;
+      expect(block.start, source.indexOf(active));
+      expect(block.source, active);
+    },
+  );
+
+  for (final (name, prefix, indentation, tail) in [
+    ('document start', '', '    ', '\n'),
+    ('blank line', 'prose\n\n', '    ', '\n'),
+    ('new list', 'prose\n', '-     ', '\n\n'),
+    ('new quote', 'prose\n', '>     ', '\n\n'),
+    ('quote separator', '> prose\n>\n', '>     ', '\n\n'),
+    ('heading', '# Heading\n', '    ', '\n'),
+    ('thematic break', '---\n', '    ', '\n'),
+    ('closed fence', '```\ncode\n```\n', '    ', '\n'),
+    ('closed comment', '<!-- closed -->\n', '    ', '\n'),
+    ('closed BBCode', '[code]code[/code]\n', '    ', '\n'),
+  ]) {
+    test(
+      'four-space paragraph continuation preserves code after $name',
+      () async {
+        const active = '![active](https://example.test/b.png)';
+        final source = '$prefix$indentation<!--$tail$active\n-->';
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        final result = await service.cook(
+          CookingRequest(
+            raw: source,
+            snapshot: CookingSnapshot(
+              siteId: 'test-site',
+              accountId: 'test-account',
+            ),
+          ),
+        );
+        expect(result.failure, isNull);
+        expect(result.html, contains('<pre><code>&lt;!--'));
+        expect(result.html, contains('alt="active"'));
+        final images = parseComposerImages(source);
+        expect(images.map((block) => block.alt), ['active']);
+        expect(images.single.start, source.indexOf(active));
+        expect(images.single.source, active);
+      },
+    );
+  }
+
   test('table edits preserve original inline comment and inline code cells', () {
     const source =
         '| `code` <!-- | hidden --> | B |\r\n| --- | --- | --- |\r\n| x | y |';
