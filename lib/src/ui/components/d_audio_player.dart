@@ -54,6 +54,7 @@ class DAudioPlayer extends StatelessWidget {
             ),
             max: duration.inMilliseconds.toDouble().clamp(1, double.infinity),
             step: 1000,
+            largeStep: 10000,
             semanticLabel: context.l10n.audioPosition,
             semanticFormatterCallback: (value) =>
                 timeLabel(Duration(milliseconds: value.round())),
