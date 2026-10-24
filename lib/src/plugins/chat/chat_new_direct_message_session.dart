@@ -207,17 +207,20 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     final identifiers = <String>{};
     final usernames = <String>{};
     final senderUsername = _sender?.username.toLowerCase();
-    final senderIdentifier = _sender?.id == null ? null : 'u-${_sender!.id}';
+    final senderId = _sender?.id;
     var groupMembers = 0;
     for (final item in selection) {
       if (!identifiers.add(item.identifier)) continue;
       switch (item) {
         case ChatDirectMessageUser(:final username):
           final normalized = username.toLowerCase();
-          if (item.identifier != senderIdentifier &&
-              normalized != senderUsername) {
-            usernames.add(normalized);
-          }
+          final userId = item.identifier.startsWith('u-')
+              ? int.tryParse(item.identifier.substring(2))
+              : null;
+          final isSender = senderId != null && userId != null
+              ? userId == senderId
+              : normalized == senderUsername;
+          if (!isSender) usernames.add(normalized);
         case ChatDirectMessageGroup(:final memberCount):
           groupMembers += memberCount;
         case ChatDirectMessageChannel():
