@@ -1,7 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../plugin_api/composer_syntax.dart';
 import 'blocks.dart';
 import 'edit_history.dart';
 import 'markdown_editing_controller.dart';
@@ -37,22 +36,10 @@ class ComposerBlockController extends ChangeNotifier {
       ? index.atOffset(text.selection.extentOffset)
       : index.byId(_selectedId!) ?? index.atOffset(text.selection.extentOffset);
 
-  ComposerBlockIndex _parse() => ComposerBlockIndex.parse(
-    _source,
+  ComposerBlockIndex _parse() => ComposerBlockIndex.fromStructure(
+    text.blockStructure(),
     revision: _revision,
     previous: _index,
-    analysis: text.sourceAnalysisFor(_source),
-    atoms: [
-      for (final block in text.syntaxBlocks)
-        if (block.projection is ComposerBlockSyntaxProjection)
-          ComposerBlockAtom(block.start, block.end, label: block.kind.label),
-      for (final block in text.quoteBlocks)
-        ComposerBlockAtom(block.start, block.end, label: appL10n.quote),
-      for (final block in text.galleryBlocks)
-        ComposerBlockAtom(block.start, block.end, label: appL10n.gallery),
-      for (final block in text.imageBlocks)
-        ComposerBlockAtom(block.start, block.end, label: appL10n.image),
-    ],
   );
 
   void _remember(ComposerBlockIndex index) {

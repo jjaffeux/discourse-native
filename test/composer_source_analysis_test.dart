@@ -1,12 +1,151 @@
+import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
 import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/details.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/composer/components/todo_source.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/composer/source_analysis.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final spacingFirst in [false, true]) {
+    test(
+      'compatible block structures share in either order: $spacingFirst',
+      () {
+        const source = 'Before\r\n\r\n![Photo](upload://photo)\r\n\r\nAfter';
+        final controller = MarkdownEditingController(
+          text: source,
+          enableBlockSeparators: true,
+        );
+        final other = MarkdownEditingController(text: source);
+        addTearDown(controller.dispose);
+        addTearDown(other.dispose);
+        final first = controller.blockStructure(forSpacing: spacingFirst);
+        expect(
+          controller.blockStructure(forSpacing: !spacingFirst),
+          same(first),
+        );
+        expect(other.blockStructure(), isNot(same(first)));
+        expect(
+          ComposerBlockIndex.fromStructure(first).blocks[1].label,
+          'Image',
+        );
+        controller.blockGaps;
+        controller.text = '$source!';
+        final edited = controller.blockStructure(forSpacing: !spacingFirst);
+        expect(edited, isNot(same(first)));
+        expect(edited.source, '$source!');
+        expect(
+          controller.blockStructure(forSpacing: spacingFirst),
+          same(edited),
+        );
+        expect(first.source, source);
+        expect(() => first.atoms.clear(), throwsUnsupportedError);
+      },
+    );
+  }
+
+  test('list spacing and block controls retain their different atoms', () {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.text = 'Before\n\n- First\n- Second\n\nAfter';
+    final full = composer.text.blockStructure();
+    final spacing = composer.text.blockStructure(forSpacing: true);
+    expect(full, isNot(same(spacing)));
+    expect(full.atoms, hasLength(2));
+    expect(spacing.atoms, isEmpty);
+    for (final structure in [full, spacing]) {
+      expect(
+        _blockState(ComposerBlockIndex.fromStructure(structure)),
+        _blockState(
+          ComposerBlockIndex.parse(structure.source, atoms: structure.atoms),
+        ),
+      );
+    }
+    expect(composer.text.blockStructure(), same(full));
+    expect(composer.text.blockStructure(forSpacing: true), same(spacing));
+    expect(composer.text.blockSeparators, [
+      const TextRange(start: 6, end: 8),
+      const TextRange(start: 24, end: 26),
+    ]);
+  });
+
+  test('same-source syntax invalidation updates structures and spacing', () {
+    final host = ComposerController(_target);
+    addTearDown(host.dispose);
+    final policy = _SwitchablePolicy(ComposerDetailsPolicy(host));
+    const source = 'Before\n\n[details]\nBody\n[/details]\n\nAfter';
+    final controller = MarkdownEditingController(
+      text: source,
+      syntaxPolicies: [policy],
+      enableBlockSeparators: true,
+    );
+    addTearDown(controller.dispose);
+    final full = controller.blockStructure();
+    expect(full.atoms, hasLength(1));
+    expect(controller.blockSeparators, isEmpty);
+    policy.enabled = false;
+    controller.updateMarkdownLinkify(enabled: false, tlds: []);
+    final changed = controller.blockStructure();
+    expect(changed, isNot(same(full)));
+    expect(changed.atoms, isEmpty);
+    expect(controller.blockSeparators, hasLength(2));
+    expect(controller.blockStructure(forSpacing: true), same(changed));
+    controller.rawMarkdown = true;
+    expect(controller.blockSeparators, isEmpty);
+    expect(controller.blockGaps, isEmpty);
+    controller.rawMarkdown = false;
+    expect(controller.blockSeparators, hasLength(2));
+    expect(controller.text, source);
+  });
+
+  for (final newline in ['\n', '\r\n']) {
+    test(
+      'compact spacing updates with unchanged source: ${newline.length}',
+      () {
+        final controller = MarkdownEditingController(
+          text: 'Before$newline- First',
+          enableBlockSeparators: true,
+        );
+        addTearDown(controller.dispose);
+        final expected = TextRange(start: 6, end: 6 + newline.length);
+        expect(controller.blockGaps, [expected]);
+        controller.compactListSpacing = true;
+        expect(controller.blockGaps, isEmpty);
+        controller.compactListSpacing = false;
+        expect(controller.blockGaps, [expected]);
+      },
+    );
+  }
+
+  test('shared structures preserve IDs when reconciled after edits', () {
+    final controller = MarkdownEditingController(text: 'One\n\nTwo\n\nThree');
+    addTearDown(controller.dispose);
+    final previous = ComposerBlockIndex.fromStructure(
+      controller.blockStructure(),
+    );
+    controller.text = 'One\n\nTwo edited\n\nThree';
+    final shared = ComposerBlockIndex.fromStructure(
+      controller.blockStructure(forSpacing: true),
+      previous: previous,
+      revision: 9,
+    );
+    final standalone = ComposerBlockIndex.parse(
+      controller.text,
+      previous: previous,
+      revision: 9,
+    );
+    expect(shared.revision, 9);
+    expect(_blockState(shared), _blockState(standalone));
+    expect(
+      shared.blocks.map((block) => block.id),
+      previous.blocks.map((block) => block.id),
+    );
+  });
+
   test(
     'marker sets reuse matching results and retain a structural default',
     () {
@@ -197,3 +336,26 @@ List<Object> _blockState(ComposerBlockIndex index) => [
       block.componentLabel,
     ),
 ];
+
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
+  siteUrl: 'https://example.test',
+  topicId: 1,
+  slug: 'topic',
+  topicTitle: 'Topic',
+);
+
+final class _SwitchablePolicy implements ComposerSyntaxPolicy {
+  _SwitchablePolicy(this.delegate);
+  final ComposerSyntaxPolicy delegate;
+  bool enabled = true;
+  @override
+  ComposerSyntaxKind get kind => delegate.kind;
+  @override
+  Object? get projectionState => enabled;
+  @override
+  TextInputFormatter? get inputFormatter => null;
+  @override
+  List<ComposerSyntaxProjection> parse(String source) =>
+      enabled ? delegate.parse(source) : [];
+}

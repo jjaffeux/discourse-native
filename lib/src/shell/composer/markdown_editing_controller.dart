@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show listEquals, setEquals, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -117,7 +118,14 @@ class MarkdownEditingController extends TextEditingController {
   /// A list body keeps child blocks beside their surrounding prose without
   /// adding paragraph spacing to a single source newline.
   bool compactListSpacing = false;
-  String? _separatorSource;
+  Object? _blockStructureDependencies;
+  ComposerBlockStructure? _fullBlockStructure;
+  ComposerBlockStructure? _spacingBlockStructure;
+  ComposerBlockStructure? _separatorStructure;
+  bool? _separatorCompactListSpacing;
+  Set<TextRange> _separatorMembership = const {};
+  String? _todoEndsSource;
+  Set<int> _todoEndOffsets = const {};
   List<TextRange> _separators = const [];
   List<TextRange> _blockGaps = const [];
   final _componentGapStarts = <int>{};
@@ -145,25 +153,60 @@ class MarkdownEditingController extends TextEditingController {
     return _separators;
   }
 
+  ComposerBlockStructure blockStructure({bool forSpacing = false}) {
+    final source = text;
+    final syntax = _syntaxBlocksFor(source);
+    final quotes = _quoteBlocksFor(source);
+    final galleries = _galleryBlocksFor(source);
+    final images = _imageBlocksFor(source);
+    final dependencies = (source, syntax, quotes, galleries, images, appL10n);
+    if (_blockStructureDependencies != dependencies) {
+      _blockStructureDependencies = dependencies;
+      _fullBlockStructure = null;
+      _spacingBlockStructure = null;
+      _separatorStructure = null;
+    }
+    final cached = forSpacing ? _spacingBlockStructure : _fullBlockStructure;
+    if (cached != null) return cached;
+    final atoms = [
+      for (final block in syntax)
+        if (block.projection is ComposerBlockSyntaxProjection &&
+            (!forSpacing ||
+                block.projection is! ComposerParagraphSpacingProjection))
+          ComposerBlockAtom(block.start, block.end, label: block.kind.label),
+      for (final block in quotes)
+        ComposerBlockAtom(block.start, block.end, label: appL10n.quote),
+      for (final block in galleries)
+        ComposerBlockAtom(block.start, block.end, label: appL10n.gallery),
+      for (final block in images)
+        ComposerBlockAtom(block.start, block.end, label: appL10n.image),
+    ];
+    final other = forSpacing ? _fullBlockStructure : _spacingBlockStructure;
+    final structure = other != null && other.matchesAtoms(atoms)
+        ? other
+        : ComposerBlockStructure.parse(
+            source,
+            atoms: atoms,
+            analysis: sourceAnalysisFor(source),
+          );
+    if (forSpacing) {
+      _spacingBlockStructure = structure;
+    } else {
+      _fullBlockStructure = structure;
+    }
+    return structure;
+  }
+
   void _updateBlockGaps() {
-    if (!enableBlockSeparators || _separatorSource == text) return;
-    _separatorSource = text;
-    final index = ComposerBlockIndex.parse(
-      text,
-      analysis: sourceAnalysisFor(text),
-      atoms: [
-        for (final block in syntaxBlocks)
-          if (block.projection is ComposerBlockSyntaxProjection &&
-              block.projection is! ComposerParagraphSpacingProjection)
-            ComposerBlockAtom(block.start, block.end),
-        for (final block in quoteBlocks)
-          ComposerBlockAtom(block.start, block.end),
-        for (final block in galleryBlocks)
-          ComposerBlockAtom(block.start, block.end),
-        for (final block in imageBlocks)
-          ComposerBlockAtom(block.start, block.end),
-      ],
-    );
+    if (!enableBlockSeparators) return;
+    final structure = blockStructure(forSpacing: true);
+    if (identical(_separatorStructure, structure) &&
+        _separatorCompactListSpacing == compactListSpacing) {
+      return;
+    }
+    _separatorStructure = structure;
+    _separatorCompactListSpacing = compactListSpacing;
+    final index = ComposerBlockIndex.fromStructure(structure);
     _separators = [
       for (final (i, block) in index.blocks.indexed)
         // Embedded components own their projected boundary carets and deletion.
@@ -175,6 +218,7 @@ class MarkdownEditingController extends TextEditingController {
                     !(compactListSpacing && _isListRow(index.blocks[i + 1])))))
           ?_paragraphBreakAt(block.end),
     ];
+    _separatorMembership = _separators.toSet();
     _blockGaps = [
       for (final (i, block) in index.blocks.indexed)
         if (_paragraphBreakAt(block.end) case final separator?)
@@ -219,10 +263,17 @@ class MarkdownEditingController extends TextEditingController {
   /// Whether [separator] is drawn as space below the previous paragraph,
   /// which puts every offset inside it at the end of that paragraph's last
   /// line.
-  bool _projectsParagraphSpacing(TextRange separator) =>
-      blockSeparators.contains(separator) &&
-      !_componentGapStarts.contains(separator.start) &&
-      !todos.any((todo) => todo.end == separator.start);
+  bool _projectsParagraphSpacing(TextRange separator) {
+    if (rawMarkdown || !enableBlockSeparators) return false;
+    _updateBlockGaps();
+    if (_todoEndsSource != text) {
+      _todoEndsSource = text;
+      _todoEndOffsets = {for (final todo in todos) todo.end};
+    }
+    return _separatorMembership.contains(separator) &&
+        !_componentGapStarts.contains(separator.start) &&
+        !_todoEndOffsets.contains(separator.start);
+  }
 
   bool _isListRow(ComposerBodyBlock block) =>
       block.kind == ComposerBlockKind.list ||
@@ -235,6 +286,7 @@ class MarkdownEditingController extends TextEditingController {
   set todoReferenceMarkers(Set<String> value) {
     if (setEquals(_todoReferenceMarkers, value)) return;
     _todoReferenceMarkers = Set.unmodifiable(value);
+    _todoEndsSource = null;
     _syntaxScanned = null;
     _cachedSpan = null;
   }

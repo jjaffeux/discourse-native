@@ -70,6 +70,58 @@ class ComposerBodyBlock {
   }
 }
 
+/// Immutable structural parsing shared by consumers with compatible atoms.
+final class ComposerBlockStructure {
+  ComposerBlockStructure._(this.source, this.atoms, this._spans);
+
+  factory ComposerBlockStructure.parse(
+    String source, {
+    List<ComposerBlockAtom> atoms = const [],
+    ComposerSourceAnalysis? analysis,
+  }) {
+    final normalized = _normalizedBlockAtoms(source, atoms);
+    return ComposerBlockStructure._(
+      source,
+      List.unmodifiable(normalized),
+      List.unmodifiable(
+        _BlockScanner(source, normalized, analysis: analysis).scan(),
+      ),
+    );
+  }
+
+  final String source;
+  final List<ComposerBlockAtom> atoms;
+  final List<_Span> _spans;
+
+  bool matchesAtoms(List<ComposerBlockAtom> atoms) {
+    final normalized = _normalizedBlockAtoms(source, atoms);
+    if (this.atoms.length != normalized.length) return false;
+    for (var i = 0; i < normalized.length; i++) {
+      final held = this.atoms[i];
+      final next = normalized[i];
+      if (held.start != next.start ||
+          held.end != next.end ||
+          held.label != next.label) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+List<ComposerBlockAtom> _normalizedBlockAtoms(
+  String source,
+  List<ComposerBlockAtom> atoms,
+) => [
+  for (final atom in atoms)
+    if (atom.start >= 0 && atom.end <= source.length && atom.end > atom.start)
+      ComposerBlockAtom(
+        atom.start,
+        _trimLineEndings(source, atom.start, atom.end),
+        label: atom.label,
+      ),
+];
+
 /// A lossless, conservative top-level index. It does not serialize Markdown.
 ///
 /// Unclosed/ambiguous containers are indexed but cannot themselves be moved.
@@ -84,18 +136,21 @@ class ComposerBlockIndex {
     ComposerBlockIndex? previous,
     ComposerSourceAnalysis? analysis,
   }) {
-    atoms = [
-      for (final atom in atoms)
-        if (atom.start >= 0 &&
-            atom.end <= source.length &&
-            atom.end > atom.start)
-          ComposerBlockAtom(
-            atom.start,
-            _trimLineEndings(source, atom.start, atom.end),
-            label: atom.label,
-          ),
-    ];
-    final spans = _BlockScanner(source, atoms, analysis: analysis).scan();
+    return ComposerBlockIndex.fromStructure(
+      ComposerBlockStructure.parse(source, atoms: atoms, analysis: analysis),
+      revision: revision,
+      previous: previous,
+    );
+  }
+
+  factory ComposerBlockIndex.fromStructure(
+    ComposerBlockStructure structure, {
+    int revision = 0,
+    ComposerBlockIndex? previous,
+  }) {
+    final source = structure.source;
+    final atoms = structure.atoms;
+    final spans = structure._spans;
     final old = previous?.blocks ?? const <ComposerBodyBlock>[];
     var nextId = old.fold(0, (n, b) => math.max(n, b.id + 1));
     var prefix = 0;
@@ -170,7 +225,7 @@ class ComposerBlockIndex {
       source,
       revision,
       List.unmodifiable(blocks),
-      List.unmodifiable(atoms),
+      atoms,
     );
   }
 
