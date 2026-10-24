@@ -448,6 +448,231 @@ void main() {
     },
   );
 
+  for (final streamFirst in [true, false]) {
+    testWidgets(
+      'completed stream survives a lost HTTP reply with streamFirst=$streamFirst',
+      (tester) async {
+        final api = _DelayedSummaryApi();
+        final fixture = _SummaryFixture(api: api);
+        final request = _Settled(fixture.load().result);
+        await tester.pump();
+
+        if (streamFirst) {
+          fixture.deliver(
+            summaryResponse(done: true, text: 'First completion'),
+          );
+          fixture.deliver(summaryResponse(done: true, text: 'Duplicate'));
+          await tester.pump();
+          expect(request.done, isFalse);
+        }
+        api.response.completeError(
+          const WriteException(WriteFailure.unreachable),
+        );
+        await tester.pump();
+        if (!streamFirst) {
+          expect(request.done, isFalse);
+          expect(fixture.callbacks, hasLength(1));
+          fixture.deliver(
+            summaryResponse(done: true, text: 'First completion'),
+          );
+          await tester.pump();
+        }
+
+        expect(request.error, isNull);
+        expect(request.value?.text, 'First completion');
+        expect(fixture.callbacks, isEmpty);
+      },
+    );
+  }
+
+  testWidgets(
+    'the dialog renders a completed summary after a lost HTTP reply',
+    (tester) async {
+      final api = _DelayedSummaryApi();
+      final fixture = _SummaryFixture(api: api);
+      await fixture.openDialog(tester);
+      fixture.deliver(summaryResponse(done: true, text: 'Delivered summary'));
+      api.response.completeError(
+        const WriteException(WriteFailure.unreachable),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Delivered summary', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.text("Couldn't generate this summary."), findsNothing);
+      expect(fixture.callbacks, isEmpty);
+    },
+  );
+
+  for (final (label, payload) in <(String, Object?)>[
+    ('absent', null),
+    ('partial', summaryResponse()),
+    ('malformed', {'done': true}),
+  ]) {
+    testWidgets(
+      'a lost HTTP reply with $label output reaches its stream deadline',
+      (tester) async {
+        final api = _DelayedSummaryApi();
+        final fixture = _SummaryFixture(api: api);
+        final request = _Settled(fixture.load().result);
+        await tester.pump();
+        if (payload != null) fixture.deliver(payload);
+        api.response.completeError(
+          const WriteException(WriteFailure.unreachable),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(minutes: 2, seconds: 59));
+        expect(request.done, isFalse);
+        expect(fixture.callbacks, hasLength(1));
+
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(request.error, isA<TimeoutException>());
+        expect(request.value, isNull);
+        expect(fixture.callbacks, isEmpty);
+      },
+    );
+  }
+
+  for (final failureFirst in [true, false]) {
+    testWidgets(
+      'stream error wins around lost HTTP reply with failureFirst=$failureFirst',
+      (tester) async {
+        final api = _DelayedSummaryApi();
+        final fixture = _SummaryFixture(api: api);
+        final request = _Settled(fixture.load().result);
+        await tester.pump();
+        if (failureFirst) {
+          fixture.deliver(summaryResponse(done: true));
+          fixture.deliver(creditLimitPayload());
+        }
+        api.response.completeError(
+          const WriteException(WriteFailure.unreachable),
+        );
+        await tester.pump();
+        if (!failureFirst) fixture.deliver(creditLimitPayload());
+        await tester.pump();
+
+        expect(request.error, isA<AiSummaryStreamFailure>());
+        expect(request.value, isNull);
+        expect(fixture.callbacks, isEmpty);
+      },
+    );
+  }
+
+  for (final (label, error) in <(String, Object)>[
+    ('not sent', const WriteException(WriteFailure.unreachable, notSent: true)),
+    (
+      'HTTP 404',
+      const WriteException(WriteFailure.unreachable, statusCode: 404),
+    ),
+    (
+      'HTTP 500',
+      const WriteException(WriteFailure.unreachable, statusCode: 500),
+    ),
+    for (final failure in WriteFailure.values)
+      if (failure != WriteFailure.unreachable)
+        (failure.name, WriteException(failure)),
+    ('arbitrary exception', StateError('Network failure')),
+  ]) {
+    testWidgets('$label rejects a retained completed summary', (tester) async {
+      final api = _DelayedSummaryApi();
+      final fixture = _SummaryFixture(api: api);
+      final request = _Settled(fixture.load().result);
+      await tester.pump();
+      fixture.deliver(summaryResponse(done: true));
+      api.response.completeError(error);
+      await tester.pump();
+
+      expect(request.error, same(error));
+      expect(request.value, isNull);
+      expect(fixture.callbacks, isEmpty);
+    });
+  }
+
+  for (final retire in [true, false]) {
+    for (final beforeHttp in [true, false]) {
+      testWidgets(
+        'retire=$retire beforeHttp=$beforeHttp prevents late stream settlement',
+        (tester) async {
+          final api = _DelayedSummaryApi();
+          final fixture = _SummaryFixture(api: api);
+          final request = fixture.load();
+          final result = _Settled(request.result);
+          await tester.pump();
+          final callback = fixture.callbacks.single;
+          if (beforeHttp) {
+            fixture.deliver(summaryResponse(done: true));
+          } else {
+            api.response.completeError(
+              const WriteException(WriteFailure.unreachable),
+            );
+            await tester.pump();
+            expect(result.done, isFalse);
+          }
+          if (retire) {
+            fixture.requests.lifecycle.invalidate(_siteUrl);
+            await fixture.session.forget(_siteUrl);
+          } else {
+            request.cancel();
+          }
+          if (beforeHttp) {
+            api.response.completeError(
+              const WriteException(WriteFailure.unreachable),
+            );
+          }
+          callback(summaryResponse(done: true, text: 'Late output'));
+          await tester.pump();
+
+          expect(
+            result.error,
+            retire ? isStateError : isA<AiSummaryCancelled>(),
+          );
+          expect(result.value, isNull);
+          expect(fixture.callbacks, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'an invalidated lease cannot consume a retained completed summary',
+    (tester) async {
+      final api = _DelayedSummaryApi();
+      final fixture = _SummaryFixture(api: api);
+      final request = _Settled(fixture.load().result);
+      await tester.pump();
+      fixture.deliver(summaryResponse(done: true));
+      fixture.requests.lifecycle.invalidate(_siteUrl);
+      api.response.completeError(
+        const WriteException(WriteFailure.unreachable),
+      );
+      await tester.pump();
+
+      expect(request.error, isStateError);
+      expect(request.value, isNull);
+      expect(fixture.callbacks, isEmpty);
+    },
+  );
+
+  testWidgets('a lost non-streaming reply still fails immediately', (
+    tester,
+  ) async {
+    final api = _DelayedSummaryApi();
+    final fixture = _SummaryFixture(api: api, streaming: false);
+    final request = _Settled(fixture.load().result);
+    await tester.pump();
+    const error = WriteException(WriteFailure.unreachable);
+    api.response.completeError(error);
+    await tester.pump();
+
+    expect(request.error, same(error));
+    expect(fixture.callbacks, isEmpty);
+  });
+
   testWidgets(
     'HTTP can return a cached summary while streaming is subscribed',
     (tester) async {
@@ -492,9 +717,9 @@ void main() {
   ) async {
     final site = _HeldSite();
     final request = _Settled(
-      _heldSummaries(
-        site,
-      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+      _heldSummaries(site)
+          .load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false)
+          .result,
     );
     await tester.pump();
     expect(site.requests.single.url.path, _summaryPath);
@@ -514,9 +739,9 @@ void main() {
   ) async {
     final site = _HeldSite();
     final request = _Settled(
-      _heldSummaries(
-        site,
-      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+      _heldSummaries(site)
+          .load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false)
+          .result,
     );
     await tester.pump();
     await tester.pump(aiGenerationTimeout - const Duration(seconds: 1));
@@ -527,7 +752,7 @@ void main() {
     expect(request.error, _timedOut);
   });
 
-  testWidgets('a streamed summary request keeps the ordinary write deadline', (
+  testWidgets('a streamed POST deadline starts a bounded stream wait', (
     tester,
   ) async {
     final site = _HeldSite();
@@ -551,9 +776,60 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
 
-    expect(request.error, _timedOut);
+    expect(request.done, isFalse);
+    expect(tracker.pluginChannelCallbacks[_summaryChannel], hasLength(1));
+    await tester.pump(const Duration(minutes: 2, seconds: 59));
+    expect(request.done, isFalse);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(request.error, isA<TimeoutException>());
     expect(tracker.pluginChannelCallbacks[_summaryChannel], isEmpty);
   });
+
+  for (final streamFirst in [true, false]) {
+    testWidgets(
+      'completed stream survives the real POST timeout with streamFirst=$streamFirst',
+      (tester) async {
+        final site = _HeldSite();
+        final tracker = FakeSiteTracker(
+          siteUrl: _siteUrl,
+          onIncomingTopics: () {},
+          onNotifications: (_) {},
+          onReviewableCounts: (_) {},
+          apiKey: 'api-key',
+        );
+        final request = _Settled(
+          _heldSummaries(
+            site,
+            tracker: tracker,
+          ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
+        );
+        await tester.pump();
+        if (streamFirst) {
+          tracker.deliverPluginMessage(
+            _summaryChannel,
+            summaryResponse(done: true),
+          );
+        }
+        await tester.pump(const Duration(seconds: 10));
+        if (!streamFirst) {
+          expect(request.done, isFalse);
+          tracker.deliverPluginMessage(
+            _summaryChannel,
+            summaryResponse(done: true),
+          );
+          await tester.pump();
+        }
+
+        expect(request.error, isNull);
+        expect(request.value?.text, 'The important parts of the discussion.');
+        expect(tracker.pluginChannelCallbacks[_summaryChannel], isEmpty);
+        site.reply({});
+        await tester.pump();
+        expect(request.error, isNull);
+      },
+    );
+  }
 
   testWidgets(
     'regenerate starts a new request after a cached outdated summary',
