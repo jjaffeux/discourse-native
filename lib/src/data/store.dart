@@ -85,6 +85,26 @@ class Ref<T extends Object> extends ChangeNotifier
   }
 }
 
+/// Tracks structural changes to a fixed set of record IDs without holding refs.
+/// Dispose when the owner no longer needs those IDs.
+final class StoreStructureDependency {
+  StoreStructureDependency._(this._store, this._keys);
+
+  Store? _store;
+  final Set<(String, Type, Object)> _keys;
+  Object _token = Object();
+
+  Object get token => _token;
+
+  void dispose() {
+    final store = _store;
+    if (store == null) return;
+    _store = null;
+    store._releaseStructureDependency(this);
+    _keys.clear();
+  }
+}
+
 /// A held ref's place in its `(site, record type)` partition, linked in
 /// least-recently-used order so the partition's oldest ref is its first.
 final class _Slot extends LinkedListEntry<_Slot> {
@@ -127,6 +147,8 @@ class Store {
   final Map<(String, Type), int> _generations = {};
   final Map<(String, Type), Object> _structureGenerations = {};
   final Map<String, int> _entriesBySite = {};
+  final Map<(String, Type, Object), Set<StoreStructureDependency>>
+  _structureDependencies = {};
 
   int _evictions = 0;
   int _recordEvictions = 0;
@@ -138,8 +160,35 @@ class Store {
   Object? structureGenerationOf<T extends Storable<T>>(String siteUrl) =>
       _structureGenerations[(siteUrl, T)];
 
-  void _bumpStructure(String siteUrl, Type type) {
+  /// Includes missing IDs so a later arrival invalidates the dependency.
+  /// Registration does not allocate, observe, or touch any record refs.
+  StoreStructureDependency trackStructure<T extends Storable<T>>(
+    String siteUrl,
+    Iterable<Object> ids,
+  ) {
+    final keys = {for (final id in ids) (siteUrl, T, id)};
+    final dependency = StoreStructureDependency._(this, keys);
+    for (final key in keys) {
+      (_structureDependencies[key] ??= {}).add(dependency);
+    }
+    return dependency;
+  }
+
+  void _releaseStructureDependency(StoreStructureDependency dependency) {
+    for (final key in dependency._keys) {
+      final dependencies = _structureDependencies[key]!;
+      dependencies.remove(dependency);
+      if (dependencies.isEmpty) _structureDependencies.remove(key);
+    }
+  }
+
+  void _bumpStructure(String siteUrl, Type type, Object id) {
     _structureGenerations[(siteUrl, type)] = Object();
+    final dependencies = _structureDependencies[(siteUrl, type, id)];
+    if (dependencies == null) return;
+    for (final dependency in dependencies) {
+      dependency._token = Object();
+    }
   }
 
   void _bump(String siteUrl, Type type) {
@@ -185,7 +234,7 @@ class Store {
     if (!identical(held, merged)) {
       _bump(siteUrl, T);
       if (held == null || !held.hasSameStoreStructure(merged)) {
-        _bumpStructure(siteUrl, T);
+        _bumpStructure(siteUrl, T, record.storeId);
       }
     }
     cell._set(merged);
@@ -208,7 +257,7 @@ class Store {
     if (!identical(held, next)) {
       _bump(siteUrl, T);
       if (!held.hasSameStoreStructure(next)) {
-        _bumpStructure(siteUrl, T);
+        _bumpStructure(siteUrl, T, id);
       }
     }
     cell._set(next);
@@ -219,7 +268,7 @@ class Store {
     final cell = _refs[key]?.ref as Ref<T>?;
     if (cell?.value != null) {
       _bump(siteUrl, T);
-      _bumpStructure(siteUrl, T);
+      _bumpStructure(siteUrl, T, id);
     }
     cell?._set(null);
     if (cell != null && !cell._isObserved) _removeRef(key);
@@ -367,7 +416,7 @@ class Store {
     if (evicted.value != null) {
       _recordEvictions++;
       _bump(key.$1, key.$2);
-      _bumpStructure(key.$1, key.$2);
+      _bumpStructure(key.$1, key.$2, key.$3);
     }
     return true;
   }
@@ -397,6 +446,13 @@ class Store {
   }
 
   void forget(String siteUrl) {
+    final dependencies = <StoreStructureDependency>{
+      for (final entry in _structureDependencies.entries)
+        if (entry.key.$1 == siteUrl) ...entry.value,
+    };
+    for (final dependency in dependencies) {
+      dependency._token = Object();
+    }
     final _ = _generations.removeWhere((key, _) => key.$1 == siteUrl);
     _structureGenerations.removeWhere((key, _) => key.$1 == siteUrl);
     _entriesBySite.remove(siteUrl);
@@ -416,6 +472,15 @@ class Store {
 
   @visibleForTesting
   int get length => _refs.length;
+
+  @visibleForTesting
+  ({int keys, int registrations}) get structureDependenciesForTesting => (
+    keys: _structureDependencies.length,
+    registrations: _structureDependencies.values.fold(
+      0,
+      (total, dependencies) => total + dependencies.length,
+    ),
+  );
 
   @visibleForTesting
   StoreStatistics get statisticsForTesting {

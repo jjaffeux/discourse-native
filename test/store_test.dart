@@ -265,6 +265,170 @@ void main() {
       expect(store.generationOf<_Record>(_site), 1);
     });
 
+    group('structure dependencies', () {
+      test(
+        'tracks only matching site, type, and IDs including missing IDs',
+        () {
+          final store = Store();
+          final dependency = store.trackStructure<Post>(_site, [1, 2, 2]);
+          addTearDown(dependency.dispose);
+          final empty = dependency.token;
+          expect(store.length, 0);
+          expect(store.structureDependenciesForTesting, (
+            keys: 2,
+            registrations: 2,
+          ));
+
+          store.put(
+            _site,
+            const Post(id: 3, postNumber: 3, username: 'a', cooked: ''),
+          );
+          store.remove<Post>(_site, 3);
+          store.put(
+            _otherSite,
+            const Post(id: 1, postNumber: 1, username: 'a', cooked: ''),
+          );
+          store.put(_site, const _OtherRecord(1));
+          expect(dependency.token, same(empty));
+
+          store.put(
+            _site,
+            const Post(id: 2, postNumber: 2, username: 'a', cooked: ''),
+          );
+          final arrived = dependency.token;
+          expect(arrived, isNot(same(empty)));
+          store.remove<Post>(_site, 2);
+          final removed = dependency.token;
+          expect(removed, isNot(same(arrived)));
+          store.remove<Post>(_site, 2);
+          expect(dependency.token, same(removed));
+        },
+      );
+
+      test('changes before ref notification for structural updates only', () {
+        final store = Store();
+        final dependency = store.trackStructure<Post>(_site, [1]);
+        addTearDown(dependency.dispose);
+        final beforeArrival = dependency.token;
+        final ref = store.ref<Post>(_site, 1);
+        final notified = <Object>[];
+        void listener() => notified.add(dependency.token);
+        ref.addListener(listener);
+        addTearDown(() => ref.removeListener(listener));
+
+        const first = Post(id: 1, postNumber: 1, username: 'a', cooked: 'one');
+        store.put(_site, first);
+        final arrived = dependency.token;
+        expect(arrived, isNot(same(beforeArrival)));
+        expect(notified.last, same(arrived));
+        store.put(_site, first.copyWith(cooked: 'two'));
+        store.update<Post>(_site, 1, (post) => post.withLike(true));
+        expect(dependency.token, same(arrived));
+        expect(notified, [arrived, arrived, arrived]);
+
+        store.put(
+          _site,
+          const Post(id: 1, postNumber: 2, username: 'a', cooked: 'two'),
+        );
+        final renumbered = dependency.token;
+        expect(renumbered, isNot(same(arrived)));
+        expect(notified.last, same(renumbered));
+        store.update<Post>(
+          _site,
+          1,
+          (_) => const Post(id: 1, postNumber: 3, username: 'a', cooked: 'two'),
+        );
+        final updated = dependency.token;
+        expect(updated, isNot(same(renumbered)));
+        expect(notified.last, same(updated));
+        store.remove<Post>(_site, 1);
+        expect(dependency.token, isNot(same(updated)));
+        expect(notified.last, same(dependency.token));
+      });
+
+      test('does not touch LRU order or pin tracked records', () {
+        final store = Store(maxEntries: 2)
+          ..put(_site, const _Record(1, 'oldest'))
+          ..put(_site, const _Record(2, 'newest'));
+        final dependency = store.trackStructure<_Record>(_site, [1, 3]);
+        addTearDown(dependency.dispose);
+        final beforeEviction = dependency.token;
+        expect(store.length, 2);
+        expect(store.statisticsForTesting.observedEntries, 0);
+
+        store.put(_site, const _Record(4, 'arrival'));
+
+        expect(store.containsRecord<_Record>(_site, 1), isFalse);
+        expect(store.containsRecord<_Record>(_site, 2), isTrue);
+        expect(dependency.token, isNot(same(beforeEviction)));
+        expect(store.length, 2);
+        expect(store.statisticsForTesting.observedEntries, 0);
+      });
+
+      test('disposes only its registrations and stops token changes', () {
+        final store = Store();
+        final first = store.trackStructure<_Record>(_site, [1, 2]);
+        final second = store.trackStructure<_Record>(_site, [2, 3]);
+        expect(store.structureDependenciesForTesting, (
+          keys: 3,
+          registrations: 4,
+        ));
+        first.dispose();
+        first.dispose();
+        final disposed = first.token;
+        final live = second.token;
+        expect(store.structureDependenciesForTesting, (
+          keys: 2,
+          registrations: 2,
+        ));
+
+        store.put(_site, const _Record(2, 'shared'));
+        store.forget(_site);
+        expect(first.token, same(disposed));
+        expect(second.token, isNot(same(live)));
+        second.dispose();
+        expect(store.structureDependenciesForTesting, (
+          keys: 0,
+          registrations: 0,
+        ));
+        expect(store.length, 0);
+      });
+
+      test(
+        'forget invalidates before notifications and tracks future arrivals',
+        () {
+          final store = Store()..put(_site, const _Record(1, 'loaded'));
+          final dependency = store.trackStructure<_Record>(_site, [1, 2]);
+          final missing = store.trackStructure<_Record>(_site, [3]);
+          final other = store.trackStructure<_Record>(_otherSite, [1]);
+          addTearDown(dependency.dispose);
+          addTearDown(missing.dispose);
+          addTearDown(other.dispose);
+          final beforeForget = dependency.token;
+          final missingBeforeForget = missing.token;
+          final otherBeforeForget = other.token;
+          final ref = store.ref<_Record>(_site, 1);
+          Object? notified;
+          void listener() => notified = dependency.token;
+          ref.addListener(listener);
+          addTearDown(() => ref.removeListener(listener));
+
+          store.forget(_site);
+
+          final forgotten = dependency.token;
+          expect(forgotten, isNot(same(beforeForget)));
+          expect(notified, same(forgotten));
+          expect(missing.token, isNot(same(missingBeforeForget)));
+          expect(other.token, same(otherBeforeForget));
+          store.put(_site, const _Record(2, 'arrived later'));
+          expect(dependency.token, isNot(same(forgotten)));
+          final afterArrival = dependency.token;
+          store.put(_site, const _Record(4, 'unrelated'));
+          expect(dependency.token, same(afterArrival));
+        },
+      );
+    });
+
     test('absent updates and removals do not allocate refs', () {
       final store = Store();
 

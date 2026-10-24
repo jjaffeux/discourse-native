@@ -74,6 +74,7 @@ void main() {
       await shell.loadTopic(7, 'long', postNumber: target);
       final expected = posts.map((p) => p.id).toList();
       expect(shell.currentPostIds, expected);
+      final expectedIds = shell.currentPostIds;
       final initialIndex = TopicViewportSnapshot.from(shell).initialPostIndex;
       expect(initialIndex, streamLength == 20 ? 7 : 71);
       final unrelatedId = streamLength + 1;
@@ -89,10 +90,25 @@ void main() {
       for (final workload in [
         'current-content',
         'unrelated-content',
+        'unrelated-arrival',
+        'unrelated-removal',
         'topic-metadata',
       ]) {
         final samples = <int>[];
         for (var round = 0; round < 6; round++) {
+          if (workload == 'unrelated-removal') {
+            for (var repeat = 0; repeat < 200; repeat++) {
+              store.put(
+                site.url,
+                Post(
+                  id: streamLength + 2 + repeat,
+                  postNumber: 1,
+                  username: 'reader',
+                  cooked: 'other',
+                ),
+              );
+            }
+          }
           store.postReads = 0;
           var resolved = 0;
           final clock = Stopwatch()..start();
@@ -103,12 +119,18 @@ void main() {
                 7,
                 (topic) => topic.copyWith(title: 'Update $round $repeat'),
               );
+            } else if (workload == 'unrelated-removal') {
+              store.remove<Post>(site.url, streamLength + 2 + repeat);
             } else {
               final current = workload == 'current-content';
               store.put(
                 site.url,
                 Post(
-                  id: current ? start + (loaded ~/ 2) : unrelatedId,
+                  id: current
+                      ? start + (loaded ~/ 2)
+                      : workload == 'unrelated-arrival'
+                      ? streamLength + 202 + round * 200 + repeat
+                      : unrelatedId,
                   postNumber: current ? start + (loaded ~/ 2) : 1,
                   username: 'reader',
                   cooked: '<p>Update $round $repeat</p>',
@@ -117,6 +139,7 @@ void main() {
             }
             final snapshot = TopicViewportSnapshot.from(shell);
             resolved += snapshot.postIds.length;
+            expect(snapshot.postIds, same(expectedIds));
             if (snapshot.postIds.first != expected.first ||
                 snapshot.postIds.last != expected.last ||
                 snapshot.initialPostIndex != initialIndex) {
@@ -128,6 +151,7 @@ void main() {
           if (round > 0) samples.add(clock.elapsedMicroseconds);
         }
         expect(shell.currentPostIds, expected);
+        expect(store.postReads, 0);
         reports.add({
           'streamLength': streamLength,
           'loaded': loaded,

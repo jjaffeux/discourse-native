@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -21,6 +23,28 @@ final class _CountingStore extends Store {
     if (T == Post) probes++;
     return super.containsRecord<T>(siteUrl, id);
   }
+}
+
+final class _CountingStream extends ListBase<int> {
+  _CountingStream(this._ids);
+
+  final List<int> _ids;
+  int reads = 0;
+
+  @override
+  int get length => _ids.length;
+
+  @override
+  set length(int value) => _ids.length = value;
+
+  @override
+  int operator [](int index) {
+    reads++;
+    return _ids[index];
+  }
+
+  @override
+  void operator []=(int index, int value) => _ids[index] = value;
 }
 
 Post _post(int id, {int? number, String cooked = 'body'}) =>
@@ -69,6 +93,98 @@ void main() {
     store.remove<Post>(_site, 5);
     expect(tab.project(stream, 5).ids, [6, 7]);
     expect(tab.project(List.of(stream), 5).ids, isNot(same(renumbered.ids)));
+  });
+
+  test('unrelated structural changes do not scan stream or replace window', () {
+    final tab = reader('a');
+    final stream = _CountingStream([for (var id = 1; id <= 16000; id++) id]);
+    store.putAll(_site, [_post(15900), _post(15901)]);
+    final window = tab.project(stream, 15900);
+    expect(window.ids, [15900, 15901]);
+    expect(tab.initialIndex(window.ids, 15901, hasEarlier: true), 2);
+    stream.reads = 0;
+    store.reads = 0;
+    store.probes = 0;
+    for (var id = 20000; id < 22000; id++) {
+      store.put(_site, _post(id));
+      expect(tab.project(stream, 15900), same(window));
+      store.remove<Post>(_site, id);
+      expect(tab.project(stream, 15900), same(window));
+      expect(tab.initialIndex(window.ids, 15901, hasEarlier: true), 2);
+    }
+    expect(stream.reads, 0);
+    expect(store.reads, 0);
+    expect(store.probes, 0);
+    store.putAll(_site, [_post(15899), _post(15902)]);
+    final expanded = tab.project(stream, 15900);
+    expect(expanded.ids, [15899, 15900, 15901, 15902]);
+    expect(tab.initialIndex(expanded.ids, 15901, hasEarlier: true), 3);
+  });
+
+  test(
+    'missing target arrivals and structural updates replace saved index',
+    () {
+      final tab = reader('a');
+      final stream = [1, 2, 3, 4, 5, 6];
+      store.putAll(_site, [_post(1), _post(2), _post(5), _post(6)]);
+      final fallback = tab.project(stream, 3);
+      expect(fallback.ids, [5, 6]);
+      store.put(_site, _post(3));
+      final arrived = tab.project(stream, 3);
+      expect(arrived.ids, [1, 2, 3]);
+      expect(tab.initialIndex(arrived.ids, 3, hasEarlier: false), 2);
+      store.update<Post>(_site, 2, (_) => _post(2, number: 4));
+      final renumbered = tab.project(stream, 3);
+      expect(tab.initialIndex(renumbered.ids, 3, hasEarlier: false), 1);
+      store.remove<Post>(_site, 2);
+      expect(tab.project(stream, 3).ids, [3]);
+      store.forget(_site);
+      expect(tab.project(stream, 3).ids, isEmpty);
+      store.put(_site, _post(5));
+      expect(tab.project(stream, 3).ids, [5]);
+    },
+  );
+
+  test('unrelated insertion invalidates a window when it evicts its post', () {
+    final bounded = Store(maxEntries: 2);
+    final projections = TopicReaderProjections(bounded);
+    addTearDown(projections.dispose);
+    final tab = projections.forTab(_site, 'a', lifecycle.capture(_site))!;
+    final stream = [1, 2];
+    bounded.putAll(_site, [_post(1), _post(2)]);
+    expect(tab.project(stream, null).ids, [1, 2]);
+    bounded.put(_site, _post(99));
+    expect(bounded.length, 2);
+    expect(tab.project(stream, null).ids, [2]);
+  });
+
+  test('dependencies follow active streams and release with tab and lease', () {
+    final a = reader('a');
+    final ordinary = [1, 2, 3];
+    final summary = [1, 3];
+    for (var repeat = 0; repeat < 20; repeat++) {
+      a.project(ordinary, null);
+      expect(store.structureDependenciesForTesting, (
+        keys: 3,
+        registrations: 3,
+      ));
+      a.project(summary, null);
+      expect(store.structureDependenciesForTesting, (
+        keys: 2,
+        registrations: 2,
+      ));
+    }
+    final b = reader('b');
+    b.project(summary, null);
+    expect(store.structureDependenciesForTesting, (keys: 2, registrations: 4));
+    owner.retainTabs(_site, lifecycle.capture(_site), {'b'});
+    expect(store.structureDependenciesForTesting, (keys: 2, registrations: 2));
+    lifecycle.invalidate(_site);
+    expect(store.structureDependenciesForTesting, (keys: 0, registrations: 0));
+    reader('b').project(ordinary, null);
+    expect(store.structureDependenciesForTesting, (keys: 3, registrations: 3));
+    owner.dispose();
+    expect(store.structureDependenciesForTesting, (keys: 0, registrations: 0));
   });
 
   test('ordinary and summary stream identities select independent windows', () {

@@ -66,7 +66,10 @@ final class TopicReaderProjection {
   bool _retired = false;
   ({List<int> stream, int? target, Object? structure})? _key;
   TopicReaderWindow _window = emptyWindow;
-  ({List<int> ids, int target, bool hasEarlier, int? index})? _initial;
+  List<int>? _stream;
+  StoreStructureDependency? _structure;
+  ({List<int> ids, int target, bool hasEarlier, Object? structure, int? index})?
+  _initial;
 
   static const TopicReaderWindow emptyWindow = (
     stream: [],
@@ -81,13 +84,21 @@ final class TopicReaderProjection {
     _detach?.call();
     _detach = null;
     _key = null;
+    _structure?.dispose();
+    _structure = null;
+    _stream = null;
     _window = emptyWindow;
     _initial = null;
   }
 
   TopicReaderWindow project(List<int> stream, int? target) {
     if (!isCurrent) return emptyWindow;
-    final structure = _store.structureGenerationOf<Post>(_siteUrl);
+    if (!identical(_stream, stream)) {
+      _structure?.dispose();
+      _stream = stream;
+      _structure = _store.trackStructure<Post>(_siteUrl, stream);
+    }
+    final structure = _structure!.token;
     final key = _key;
     if (key != null &&
         identical(key.stream, stream) &&
@@ -138,11 +149,13 @@ final class TopicReaderProjection {
 
   int? initialIndex(List<int> ids, int target, {required bool hasEarlier}) {
     if (!isCurrent) return null;
+    final structure = _structure?.token;
     final cached = _initial;
     if (cached != null &&
         identical(cached.ids, ids) &&
         cached.target == target &&
-        cached.hasEarlier == hasEarlier) {
+        cached.hasEarlier == hasEarlier &&
+        identical(cached.structure, structure)) {
       return cached.index;
     }
     int? index;
@@ -153,7 +166,13 @@ final class TopicReaderProjection {
         break;
       }
     }
-    _initial = (ids: ids, target: target, hasEarlier: hasEarlier, index: index);
+    _initial = (
+      ids: ids,
+      target: target,
+      hasEarlier: hasEarlier,
+      structure: structure,
+      index: index,
+    );
     return index;
   }
 
