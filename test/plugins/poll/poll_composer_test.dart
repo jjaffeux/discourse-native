@@ -325,6 +325,10 @@ void main() {
         ('- [ ]', '  ', '<!--', '-->', ['example', 'live']),
         ('- [x]', '  ', '[code]', '[/code]', ['example', 'live']),
         ('- [x]', '  ', '<!--', '-->', ['example', 'live']),
+        ('- [ ] -', '  ', '[code]', '[/code]', ['example', 'live']),
+        ('- [ ] -', '  ', '<!--', '-->', ['example', 'live']),
+        ('- [x] -', '  ', '[code]', '[/code]', ['example', 'live']),
+        ('- [x] -', '  ', '<!--', '-->', ['example', 'live']),
       ]) {
         for (final newline in const ['\n', '\r\n']) {
           final example =
