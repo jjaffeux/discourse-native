@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/core_link_resolver.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _root = DiscourseInstance(url: 'https://example.com', title: 'Root');
@@ -74,7 +75,6 @@ void main() {
   test('external, credential-bearing and malformed links are declined', () {
     for (final url in [
       'https://elsewhere.example/t/example/7',
-      'https://user:secret@example.com/forum/t/example/7',
       'https://[',
       'mailto:person@example.com',
     ]) {
@@ -86,11 +86,23 @@ void main() {
     );
   });
 
+  test(
+    'credential-bearing links retain codec admission after forum matching',
+    () {
+      final target = _match(
+        'https://user:secret@example.com/forum/t/example/7',
+      );
+      expect(target?.instance, same(_nested));
+      expect(target!.decode(config: const SiteConfig()), isNull);
+    },
+  );
+
   test('only bare roots receive configured or contributed homepages', () {
     const config = SiteConfig(defaultHomepage: 'categories');
     const contributed = ContentRoute(
       destination: ExtensionDestination('custom-home'),
       title: 'Custom home',
+      icon: DIcons.folder,
     );
     for (final path in ['/forum', '/forum/']) {
       final target = _match(path)!;
