@@ -4,18 +4,38 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/site_lifecycle.dart';
 import '../../models/found_group.dart';
-import '../shell_controller.dart';
 import 'controller.dart';
 
+final class ComposerRecipientSearch {
+  const ComposerRecipientSearch({
+    required this.siteUrl,
+    required this.sourceIdentity,
+    required this.lease,
+    required this.isSourceCurrent,
+    required this.search,
+  });
+
+  final String siteUrl;
+  final Object sourceIdentity;
+  final SiteLease lease;
+  final bool Function() isSourceCurrent;
+  final Future<FoundUsersAndGroups> Function(String term) search;
+
+  bool get isCurrent => lease.isCurrent && isSourceCurrent();
+}
+
 final class ComposerRecipientLookup extends ChangeNotifier {
-  ComposerRecipientLookup({required this.composer, required this.shell})
-    : siteUrl = composer.target.siteUrl,
-      _lease = shell.lifecycle.capture(composer.target.siteUrl) {
+  ComposerRecipientLookup({
+    required this.composer,
+    required ComposerRecipientSearch search,
+  }) : _search = search,
+       siteUrl = composer.target.siteUrl,
+       _lease = search.lease {
     _detachRetirement = _lease.onRetire(_retire);
   }
 
   final ComposerController composer;
-  final ShellController shell;
+  final ComposerRecipientSearch _search;
   final String siteUrl;
   final SiteLease _lease;
   late final VoidCallback _detachRetirement;
@@ -33,17 +53,18 @@ final class ComposerRecipientLookup extends ChangeNotifier {
       .where((name) => name.isNotEmpty)
       .toList();
 
-  bool matches(ComposerController composer, ShellController shell) =>
+  bool matches(ComposerController composer, ComposerRecipientSearch search) =>
       !_retired &&
       _lease.isCurrent &&
       identical(this.composer, composer) &&
-      identical(this.shell, shell) &&
+      identical(_search.sourceIdentity, search.sourceIdentity) &&
+      identical(_lease.session, search.lease.session) &&
+      siteUrl == search.siteUrl &&
       siteUrl == composer.target.siteUrl;
 
   bool get _isCurrent =>
       !_retired &&
-      _lease.isCurrent &&
-      !shell.accountSessionDisposed &&
+      _search.isCurrent &&
       composer.isCurrent &&
       siteUrl == composer.target.siteUrl;
 
@@ -59,10 +80,7 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     notifyListeners();
     _debounce = Timer(const Duration(milliseconds: 200), () async {
       if (!_isCurrent) return;
-      final results = await shell.searchMessageRecipients(
-        siteUrl: siteUrl,
-        term: query.trim(),
-      );
+      final results = await _search.search(query.trim());
       if (!_isCurrent || generation != _generation) return;
       _results = results;
       notifyListeners();

@@ -125,6 +125,7 @@ import 'composer/draft_coordinator.dart';
 import 'composer/existing_topic_opening_owner.dart';
 import 'composer/opening_owner.dart';
 import 'composer/pills.dart';
+import 'composer/recipient_lookup.dart';
 import 'composer/triggers.dart';
 import 'content_page_contract.dart';
 import 'cooking_context_owner.dart';
@@ -7787,33 +7788,35 @@ class ShellController extends FrameSafeNotifier
   ComposerPills _composerPills(ComposerTarget target) =>
       _composerIdentityFor(target.siteUrl).pills(target.mentionTopicId);
 
-  Future<FoundUsersAndGroups> searchMessageRecipients({
-    required String siteUrl,
-    required String term,
-  }) async {
+  ComposerRecipientSearch messageRecipientSearch(String siteUrl) {
     final lease = lifecycle.capture(siteUrl);
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return const FoundUsersAndGroups();
-      if (!lease.isCurrent) {
-        return const FoundUsersAndGroups();
-      }
-      final found = await credential.run(
-        () => api.search.searchUsersAndGroups(
-          siteUrl: siteUrl,
-          term: term,
-          limit: 20,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      return lease.isCurrent ? found : const FoundUsersAndGroups();
-    } catch (error) {
-      return const FoundUsersAndGroups();
-    }
+    return ComposerRecipientSearch(
+      siteUrl: siteUrl,
+      sourceIdentity: this,
+      lease: lease,
+      isSourceCurrent: () => !accountSessionDisposed,
+      search: (term) async {
+        try {
+          final session = AccountRequestSession(siteUrl, lease);
+          final credential = _instanceAt(siteUrl)?.isConnected == true
+              ? await session.credentials(credentials)
+              : session.anonymousCredentials();
+          if (!lease.isCurrent) return const FoundUsersAndGroups();
+          final found = await credential.run(
+            () => api.search.searchUsersAndGroups(
+              siteUrl: siteUrl,
+              term: term,
+              limit: 20,
+              apiKey: credential.apiKey,
+              clientId: credential.clientId,
+            ),
+          );
+          return lease.isCurrent ? found : const FoundUsersAndGroups();
+        } catch (error) {
+          return const FoundUsersAndGroups();
+        }
+      },
+    );
   }
 
   Future<FoundUsersAndGroups> _searchMentions({
