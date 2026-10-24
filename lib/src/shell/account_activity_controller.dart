@@ -18,6 +18,7 @@ import '../models/notification_type_counts.dart';
 import '../models/user_activity_feed.dart';
 import '../plugin_api/notification_counters.dart';
 import '../plugin_api/notification_feed_host.dart';
+import 'account_history_feed_owners.dart';
 import 'notification_reconciliation.dart';
 
 typedef TotalsLoaded =
@@ -62,8 +63,18 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<PluginNotificationFeedId, PluginNotificationFeedSource>
   _pluginNotificationSources = {};
   final _bookmarkChanges = _ActivityAspect();
-  final _bookmarkListChanges = _ActivityAspect();
-  final _userActivityChanges = _ActivityAspect();
+  late final _bookmarkListOwner = BookmarkListOwner(
+    api: api,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    changed: notifySafely,
+  );
+  late final _userActivityOwner = UserActivityOwner(
+    api: api,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    changed: notifySafely,
+  );
 
   Listenable get totalsListenable => _totalsChanges;
   Listenable get notificationsListenable => _notificationChanges;
@@ -71,8 +82,8 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get likeNotificationsListenable => _likeNotificationChanges;
   Listenable get otherNotificationsListenable => _otherNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
-  Listenable get bookmarkListListenable => _bookmarkListChanges;
-  Listenable get userActivityListenable => _userActivityChanges;
+  Listenable get bookmarkListListenable => _bookmarkListOwner;
+  Listenable get userActivityListenable => _userActivityOwner;
 
   final Map<String, NotificationReconciliation> _reconciliations = {};
   late final _notifications = NotificationFeedSlot.notifications(
@@ -90,8 +101,6 @@ final class AccountActivityController extends FrameSafeNotifier {
   late final _bookmarks = NotificationFeedSlot.reminders(
     _bookmarkChanges.changed,
   );
-  final Map<String, BookmarkListFeed> _bookmarkLists = {};
-  final Map<String, UserActivityFeed> _userActivity = {};
   final Map<String, Object> _totalsRequests = {};
   final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
   final Map<String, DateTime> _totalsAttemptedAt = {};
@@ -113,8 +122,6 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Object> _likeNotificationRequests = {};
   final Map<String, Object> _otherNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
-  late final _bookmarkListRequests = _PagedRequestSlot(lifecycle);
-  late final _userActivityRequests = _PagedRequestSlot(lifecycle);
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<(String, PluginNotificationFeedId), Future<void>>
   _pluginNotificationDismissTasks = {};
@@ -185,15 +192,13 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   BookmarkFeed bookmarksFor(String? siteUrl) => _feedFor(siteUrl, _bookmarks);
 
-  BookmarkListFeed bookmarkListFor(String? siteUrl) => siteUrl == null
-      ? const BookmarkListFeed()
-      : _bookmarkLists[siteUrl] ?? const BookmarkListFeed();
+  BookmarkListFeed bookmarkListFor(String? siteUrl) =>
+      _bookmarkListOwner.feedFor(siteUrl);
 
-  UserActivityFeed userActivityFor(String? siteUrl) => siteUrl == null
-      ? const UserActivityFeed()
-      : _userActivity[siteUrl] ?? const UserActivityFeed();
+  UserActivityFeed userActivityFor(String? siteUrl) =>
+      _userActivityOwner.feedFor(siteUrl);
 
-  static const int userActivityPageSize = 30;
+  static const int userActivityPageSize = UserActivityOwner.pageSize;
 
   Future<NotificationTotals?> refresh(
     DiscourseInstance instance, {
@@ -896,282 +901,32 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
   }
 
-  /// The bookmarks page's complete list. The menu's [loadBookmarks] stays on
-  /// its own twenty-row route; this one pages until core has no more.
   Future<void> loadBookmarkList(
     DiscourseInstance instance, {
     bool refresh = false,
     bool loadMore = false,
     bool loadPrevious = false,
-  }) {
-    assert(
-      [refresh, loadMore, loadPrevious].where((value) => value).length <= 1,
-    );
-    if (isDisposed || !instance.isConnected) return Future<void>.value();
+  }) => _bookmarkListOwner.load(
+    instance,
+    refresh: refresh,
+    loadMore: loadMore,
+    loadPrevious: loadPrevious,
+  );
 
-    final siteUrl = instance.url;
-    final held = bookmarkListFor(siteUrl);
-    if (!refresh && !loadMore && !loadPrevious && held.loaded) {
-      return Future<void>.value();
-    }
-    if (loadMore && (!held.loaded || !held.hasMore)) {
-      return Future<void>.value();
-    }
-
-    if (loadPrevious && (!held.loaded || !held.hasPrevious)) {
-      return Future<void>.value();
-    }
-
-    final replace = refresh || !held.loaded;
-    final page = replace
-        ? 0
-        : loadPrevious
-        ? held.previousPage
-        : held.nextPage;
-    return _bookmarkListRequests.run(
-      siteUrl,
-      refresh: refresh,
-      publishLoading: () {
-        _bookmarkLists[siteUrl] = held.loadingPage(prepend: loadPrevious);
-        _notifyBookmarkList();
-      },
-      load: (request) => _loadBookmarkListPage(
-        instance,
-        request: request,
-        page: page,
-        replace: replace,
-        prepend: loadPrevious,
-      ),
-    );
-  }
-
-  /// A bookmark write invalidates a list already on hand, which Back would
-  /// otherwise show again unchanged. A list never opened is left for the page
-  /// to load when it is.
-  Future<void> refreshLoadedBookmarkList(DiscourseInstance instance) {
-    if (!_bookmarkLists.containsKey(instance.url)) return Future<void>.value();
-    return loadBookmarkList(instance, refresh: true);
-  }
-
-  Future<void> _loadBookmarkListPage(
-    DiscourseInstance instance, {
-    required _PagedRequest request,
-    required int page,
-    required bool replace,
-    required bool prepend,
-  }) async {
-    final siteUrl = instance.url;
-    final username = instance.user?.username;
-    if (username == null) return;
-
-    void fail(String message) {
-      final held = bookmarkListFor(siteUrl);
-      _bookmarkLists[siteUrl] = held.withError(
-        message,
-        retryFromStart: replace,
-      );
-    }
-
-    try {
-      final auth = await AccountRequestSession(
-        siteUrl,
-        request.lease,
-      ).keyCredentials(credentials);
-      final apiKey = auth.apiKey;
-      if (!request.isCurrent) {
-        return;
-      }
-      if (apiKey == null) {
-        request.commit(() {
-          fail(
-            appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
-          );
-          _notifyBookmarkList();
-        });
-        return;
-      }
-      final loaded = await auth.run(
-        () => api.bookmarkListPage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          username: username,
-          page: page,
-        ),
-      );
-      if (prepend && !loaded.hasMore && request.isCurrent) {
-        await loadBookmarkList(instance, refresh: true);
-        return;
-      }
-      request.commit(() {
-        _bookmarkLists[siteUrl] = bookmarkListFor(siteUrl).withPage(
-          loaded,
-          replace: replace,
-          prepend: prepend,
-          requestPage: page,
-        );
-        _notifyBookmarkList();
-      });
-    } on SiteLookupException catch (error) {
-      if (!request.isCurrent) {
-        return;
-      }
-
-      request.commit(() {
-        fail(
-          error.failure == SiteLookupFailure.notDiscourse
-              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
-              : appL10n.couldnTReach((instance.host).toString()),
-        );
-        _notifyBookmarkList();
-      });
-    } catch (error) {
-      if (!request.isCurrent) {
-        return;
-      }
-
-      request.commit(() {
-        fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
-        _notifyBookmarkList();
-      });
-    }
-  }
+  Future<void> refreshLoadedBookmarkList(DiscourseInstance instance) =>
+      _bookmarkListOwner.refreshLoaded(instance);
 
   Future<void> loadUserActivity(
     DiscourseInstance instance, {
     bool refresh = false,
     bool loadMore = false,
     bool loadPrevious = false,
-  }) {
-    assert(
-      [refresh, loadMore, loadPrevious].where((value) => value).length <= 1,
-    );
-    if (isDisposed || !instance.isConnected) return Future<void>.value();
-
-    final siteUrl = instance.url;
-    final held = userActivityFor(siteUrl);
-    if (!refresh && !loadMore && !loadPrevious && held.loaded) {
-      return Future<void>.value();
-    }
-    if (loadMore && (!held.loaded || !held.hasMore)) {
-      return Future<void>.value();
-    }
-
-    if (loadPrevious && (!held.loaded || !held.hasPrevious)) {
-      return Future<void>.value();
-    }
-
-    final replace = refresh || !held.loaded;
-    final offset = replace
-        ? 0
-        : loadPrevious
-        ? held.previousOffset(userActivityPageSize)
-        : held.nextOffset;
-    final limit = loadPrevious
-        ? held.firstOffset - offset
-        : userActivityPageSize;
-    return _userActivityRequests.run(
-      siteUrl,
-      refresh: refresh,
-      publishLoading: () {
-        _userActivity[siteUrl] = held.loadingPage(
-          replace: replace,
-          prepend: loadPrevious,
-        );
-        _notifyUserActivity();
-      },
-      load: (request) => _loadUserActivityPage(
-        instance,
-        request: request,
-        offset: offset,
-        replace: replace,
-        prepend: loadPrevious,
-        limit: limit,
-      ),
-    );
-  }
-
-  Future<void> _loadUserActivityPage(
-    DiscourseInstance instance, {
-    required _PagedRequest request,
-    required int offset,
-    required bool replace,
-    required bool prepend,
-    required int limit,
-  }) async {
-    final siteUrl = instance.url;
-    final username = instance.user?.username;
-    if (username == null) return;
-
-    void fail(String message) {
-      final held = userActivityFor(siteUrl);
-      _userActivity[siteUrl] = held.withError(message, retryFromStart: replace);
-    }
-
-    try {
-      final auth = await AccountRequestSession(
-        siteUrl,
-        request.lease,
-      ).keyCredentials(credentials);
-      final apiKey = auth.apiKey;
-      if (!request.isCurrent) {
-        return;
-      }
-      if (apiKey == null) {
-        request.commit(() {
-          fail(
-            appL10n.reconnectToToSeeYourActivity((instance.host).toString()),
-          );
-          _notifyUserActivity();
-        });
-        return;
-      }
-      final page = await auth.run(
-        () => api.userActivity(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          username: username,
-          offset: offset,
-          limit: limit,
-        ),
-      );
-      if (prepend && page.rawItemCount < limit && request.isCurrent) {
-        await loadUserActivity(instance, refresh: true);
-        return;
-      }
-      request.commit(() {
-        _userActivity[siteUrl] = userActivityFor(siteUrl).withPage(
-          page,
-          limit: limit,
-          replace: replace,
-          prepend: prepend,
-          requestOffset: offset,
-        );
-        _notifyUserActivity();
-      });
-    } on SiteLookupException catch (error) {
-      if (!request.isCurrent) {
-        return;
-      }
-
-      request.commit(() {
-        fail(
-          error.failure == SiteLookupFailure.notDiscourse
-              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
-              : appL10n.couldnTReach((instance.host).toString()),
-        );
-        _notifyUserActivity();
-      });
-    } catch (error) {
-      if (!request.isCurrent) {
-        return;
-      }
-
-      request.commit(() {
-        fail(appL10n.couldnTLoadActivityFrom((instance.host).toString()));
-        _notifyUserActivity();
-      });
-    }
-  }
+  }) => _userActivityOwner.load(
+    instance,
+    refresh: refresh,
+    loadMore: loadMore,
+    loadPrevious: loadPrevious,
+  );
 
   void readNotification(
     DiscourseInstance instance,
@@ -1300,8 +1055,8 @@ final class AccountActivityController extends FrameSafeNotifier {
       state.tasks.remove(siteUrl)?.ignore();
       state.requests.remove(siteUrl);
     }
-    final hadBookmarkList = _bookmarkLists.remove(siteUrl) != null;
-    final hadUserActivity = _userActivity.remove(siteUrl) != null;
+    final hadBookmarkList = _bookmarkListOwner.retire(siteUrl);
+    final hadUserActivity = _userActivityOwner.retire(siteUrl);
     _totalsRequests.remove(siteUrl);
     _totalsAttemptedAt.remove(siteUrl);
     final abandonedTotals = _totalsTasks.remove(siteUrl);
@@ -1329,8 +1084,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationRequests.remove(siteUrl);
     _otherNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
-    _bookmarkListRequests.forget(siteUrl);
-    _userActivityRequests.forget(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pluginNotificationDismissTasks.removeWhere((key, task) {
       if (key.$1 != siteUrl) return false;
@@ -1339,19 +1092,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     });
     final changed = hadBookmarkList || hadUserActivity;
     final hadNotifications = owner?.retire(notify: true) ?? false;
-    if (hadBookmarkList) _bookmarkListChanges.changed();
-    if (hadUserActivity) _userActivityChanges.changed();
+    if (hadBookmarkList) _bookmarkListOwner.publishRetirement();
+    if (hadUserActivity) _userActivityOwner.publishRetirement();
     if (changed || hadNotifications) notifySafely();
-  }
-
-  void _notifyBookmarkList() {
-    _bookmarkListChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyUserActivity() {
-    _userActivityChanges.changed();
-    notifySafely();
   }
 
   bool _commit(SiteLease lease, SiteMutation mutation) {
@@ -1402,8 +1145,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationRequests.clear();
     _otherNotificationRequests.clear();
     _bookmarkRequests.clear();
-    _bookmarkListRequests.clear();
-    _userActivityRequests.clear();
     _notificationReadRequests.clear();
     for (final owner in _reconciliations.values) {
       owner.retire();
@@ -1416,79 +1157,10 @@ final class AccountActivityController extends FrameSafeNotifier {
     _likeNotificationChanges.dispose();
     _otherNotificationChanges.dispose();
     _bookmarkChanges.dispose();
-    _bookmarkListChanges.dispose();
-    _userActivityChanges.dispose();
+    _bookmarkListOwner.dispose();
+    _userActivityOwner.dispose();
     super.dispose();
   }
-}
-
-final class _PagedRequestSlot {
-  _PagedRequestSlot(this.lifecycle);
-
-  final SiteLifecycle lifecycle;
-  final Map<String, _PagedRequest> _requests = {};
-
-  Future<void> run(
-    String siteUrl, {
-    required bool refresh,
-    required void Function() publishLoading,
-    required Future<void> Function(_PagedRequest request) load,
-  }) {
-    final active = _requests[siteUrl];
-    if (active != null && !refresh) return active.future;
-
-    final request = _PagedRequest(this, siteUrl, lifecycle.capture(siteUrl));
-    _requests[siteUrl] = request;
-
-    void finish([Object? error, StackTrace? stackTrace]) {
-      if (identical(_requests[siteUrl], request)) {
-        _requests.remove(siteUrl);
-      }
-      if (error == null) {
-        request._result.complete();
-      } else {
-        request._result.completeError(error, stackTrace!);
-      }
-    }
-
-    publishLoading();
-    if (!request.isCurrent) {
-      finish();
-      return request.future;
-    }
-    try {
-      unawaited(
-        load(request).then<void>(
-          (_) => finish(),
-          onError: (Object error, StackTrace stackTrace) =>
-              finish(error, stackTrace),
-        ),
-      );
-    } catch (error, stackTrace) {
-      finish(error, stackTrace);
-    }
-    return request.future;
-  }
-
-  void forget(String siteUrl) => _requests.remove(siteUrl)?.future.ignore();
-
-  void clear() => _requests.clear();
-}
-
-final class _PagedRequest {
-  _PagedRequest(this._slot, this.siteUrl, this.lease);
-
-  final _PagedRequestSlot _slot;
-  final String siteUrl;
-  final SiteLease lease;
-  final _result = Completer<void>();
-
-  Future<void> get future => _result.future;
-
-  bool get isCurrent =>
-      lease.isCurrent && identical(_slot._requests[siteUrl], this);
-
-  bool commit(SiteMutation mutation) => isCurrent && lease.commit(mutation);
 }
 
 final class _ActivityAspect extends FrameSafeNotifier {
