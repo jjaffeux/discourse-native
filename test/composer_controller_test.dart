@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -17,6 +18,352 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/composer_submission.dart';
 
 void main() {
+  group('explicit command history', () {
+    const image = '![First|100x80](upload://first)';
+    const secondImage = '![Second](upload://second)';
+    const gallery = '[grid]\n$image\n$secondImage\n[/grid]';
+    final commands =
+        <
+          ({
+            String name,
+            String source,
+            void Function(ComposerController) invoke,
+          })
+        >[
+          (
+            name: 'bold',
+            source: 'hello',
+            invoke: (c) => c.toggleMark(ComposerMark.bold),
+          ),
+          (name: 'heading', source: 'hello', invoke: (c) => c.setHeading(2)),
+          (
+            name: 'text insertion',
+            source: 'hello',
+            invoke: (c) => c.insertText('!'),
+          ),
+          (
+            name: 'mention insertion',
+            source: 'hello',
+            invoke: (c) => c.insertMention(),
+          ),
+          (
+            name: 'emoji insertion',
+            source: 'hello',
+            invoke: (c) => c.insertEmoji('smile'),
+          ),
+          (
+            name: 'block insertion',
+            source: 'hello',
+            invoke: (c) {
+              expect(
+                c.insertBlock(expectedValue: c.value, markdown: 'block'),
+                isTrue,
+              );
+            },
+          ),
+          (
+            name: 'block prepend',
+            source: 'hello',
+            invoke: (c) => c.prependBlock('block'),
+          ),
+          (
+            name: 'completion',
+            source: 'hello @sa',
+            invoke: (c) => c.acceptSuggestion(
+              const ComposerSuggestion(
+                kind: ComposerTriggerKind.mention,
+                value: 'sam',
+                label: 'Sam',
+              ),
+            ),
+          ),
+          (
+            name: 'image alt',
+            source: '$image\n\nhello',
+            invoke: (c) => c.setImageAlt(c.text.imageBlocks.single, 'Changed'),
+          ),
+          (
+            name: 'image scale',
+            source: '$image\n\nhello',
+            invoke: (c) => c.setImageScale(c.text.imageBlocks.single, 50),
+          ),
+          (
+            name: 'image removal',
+            source: '$image\n\nhello',
+            invoke: (c) => c.removeImage(c.text.imageBlocks.single),
+          ),
+          (
+            name: 'image move',
+            source: '$image\n\nhello',
+            invoke: (c) =>
+                c.moveImageToOffset(c.text.imageBlocks.single, c.raw.length),
+          ),
+          (
+            name: 'gallery mode',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.setGalleryMode(
+              c.text.galleryBlocks.single,
+              ComposerGalleryMode.carousel,
+            ),
+          ),
+          (
+            name: 'gallery unwrap',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.unwrapGallery(c.text.galleryBlocks.single),
+          ),
+          (
+            name: 'gallery removal',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.removeGallery(c.text.galleryBlocks.single),
+          ),
+          (
+            name: 'gallery reorder',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.reorderGalleryImage(
+              c.text.galleryBlocks.single,
+              c.text.galleryBlocks.single.images.first,
+              1,
+            ),
+          ),
+          (
+            name: 'gallery member move',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.moveImageOutOfGallery(
+              c.text.galleryBlocks.single,
+              c.text.galleryBlocks.single.images.first,
+            ),
+          ),
+          (
+            name: 'gallery member drop',
+            source: '$gallery\n\nhello',
+            invoke: (c) => c.moveImageOutOfGallery(
+              c.text.galleryBlocks.single,
+              c.text.galleryBlocks.single.images.first,
+              offset: c.raw.length,
+            ),
+          ),
+          (
+            name: 'gallery add selected',
+            source: '$gallery\n\n![Third](upload://third)\n\nhello',
+            invoke: (c) => c.addExistingImagesToGallery(
+              c.text.galleryBlocks.single,
+              c.standaloneImages,
+            ),
+          ),
+          (
+            name: 'gallery member removal',
+            source: '$gallery\n\nhello',
+            invoke: (c) =>
+                c.removeImage(c.text.galleryBlocks.single.images.first),
+          ),
+          (
+            name: 'quote removal',
+            source: '[quote="Sam"]\nQuoted\n[/quote]\n\nhello',
+            invoke: (c) => c.removeQuote(c.text.quoteBlocks.single),
+          ),
+        ];
+
+    for (final command in commands) {
+      test(
+        '${command.name} separates typing on both sides and restores selection',
+        () {
+          final composer = ComposerController(_target);
+          addTearDown(composer.dispose);
+          composer.history.startSession();
+          composer.text.value = _typed(command.source);
+          final before = composer.value;
+
+          command.invoke(composer);
+          final after = composer.value;
+          expect(after.text, isNot(before.text));
+          composer.text.value = after.copyWith(
+            text: '${after.text} more',
+            selection: TextSelection.collapsed(offset: after.text.length + 5),
+          );
+
+          expect(composer.history.undo(), isTrue);
+          expect(composer.value, after);
+          expect(composer.history.undo(), isTrue);
+          expect(composer.value, before);
+          expect(composer.history.undo(), isTrue);
+          expect(composer.raw, '');
+          expect(composer.history.redo(), isTrue);
+          expect(composer.value, before);
+          expect(composer.history.redo(), isTrue);
+          expect(composer.value, after);
+          expect(composer.history.redo(), isTrue);
+          expect(composer.raw, '${after.text} more');
+        },
+      );
+
+      test('${command.name} refuses an active local composition', () {
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.history.startSession();
+        composer.text.value = _typed(command.source).copyWith(
+          composing: TextRange(
+            start: command.source.length - 1,
+            end: command.source.length,
+          ),
+        );
+        final before = composer.value;
+        if (command.name == 'block insertion') {
+          expect(
+            composer.insertBlock(expectedValue: before, markdown: 'block'),
+            isFalse,
+          );
+        } else {
+          command.invoke(composer);
+        }
+        expect(composer.value, before);
+      });
+    }
+
+    test(
+      'refused emoji completion retains autocomplete and acceptance state',
+      () {
+        var accepted = 0;
+        final composer = ComposerController(
+          _target,
+          onEmojiAccepted: (_) => accepted++,
+        );
+        addTearDown(composer.dispose);
+        composer.text.value = _typed(
+          ':smi',
+        ).copyWith(composing: const TextRange(start: 1, end: 4));
+        composer.autocomplete.update(_typed(':smi'));
+        final before = composer.value;
+        expect(composer.autocomplete.isOpen, isTrue);
+        composer.acceptSuggestion(
+          const ComposerSuggestion(
+            kind: ComposerTriggerKind.emoji,
+            value: 'smile',
+            label: 'Smile',
+          ),
+        );
+        expect(composer.value, before);
+        expect(composer.autocomplete.isOpen, isTrue);
+        expect(accepted, 0);
+      },
+    );
+
+    test('commands join an existing transaction as a single undo step', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.history.startSession();
+      composer.text.value = _typed('hello');
+      composer.history.transact(() {
+        composer.insertText('!');
+        composer.insertEmoji('smile');
+      });
+      expect(composer.raw, 'hello! :smile:');
+      expect(composer.history.undo(), isTrue);
+      expect(composer.raw, 'hello');
+      expect(composer.history.undo(), isTrue);
+      expect(composer.raw, '');
+      expect(composer.history.redo(), isTrue);
+      expect(composer.history.redo(), isTrue);
+      expect(composer.raw, 'hello! :smile:');
+    });
+
+    test('block insertion accepts an unchanged source', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = const TextEditingValue(
+        text: 'block\n\n',
+        selection: TextSelection(baseOffset: 0, extentOffset: 7),
+      );
+      composer.history.startSession();
+      expect(
+        composer.insertBlock(expectedValue: composer.value, markdown: 'block'),
+        isTrue,
+      );
+      expect(composer.text.text, 'block\n\n');
+      expect(composer.history.canUndo, isFalse);
+    });
+
+    test('selected formatting restores a backward selection and redo', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.history.startSession();
+      composer.text.value = _typed('hello world').copyWith(
+        selection: const TextSelection(
+          baseOffset: 11,
+          extentOffset: 6,
+          isDirectional: true,
+        ),
+      );
+      final before = composer.value;
+      composer.toggleSelectedInlineCode();
+      final after = composer.value;
+      expect(after.text, 'hello `world`');
+      expect(composer.history.undo(), isTrue);
+      expect(composer.value, before);
+      expect(composer.history.redo(), isTrue);
+      expect(composer.value, after);
+    });
+
+    test('shared history does not bypass the child composition guard', () {
+      final parent = ComposerController(_target);
+      final child = ComposerController(_target, sharedHistory: parent.history);
+      addTearDown(parent.dispose);
+      addTearDown(child.dispose);
+      parent.text.value = _typed('parent');
+      child.text.value = _typed(
+        'hello',
+      ).copyWith(composing: const TextRange(start: 0, end: 5));
+      final before = child.value;
+      var formatted = false;
+      child.text.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 5,
+      );
+      final selected = child.value;
+      child.formatSelection((value) {
+        formatted = true;
+        return value.copyWith(text: 'changed');
+      });
+      expect(formatted, isFalse);
+      expect(child.value, selected);
+      child.text.value = before;
+      child.insertText('!');
+      expect(child.value, before);
+      expect(
+        child.insertBlock(expectedValue: before, markdown: 'block'),
+        isFalse,
+      );
+      expect(child.value, before);
+      expect(parent.raw, 'parent');
+    });
+
+    test(
+      'raw projection commits preserve typing coalescence and explicit transactions',
+      () {
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.history.startSession();
+        expect(
+          composer.commit(expectedValue: composer.value, value: _typed('h')),
+          isTrue,
+        );
+        expect(
+          composer.commitText(expectedText: 'h', value: _typed('hello')),
+          isTrue,
+        );
+        composer.history.transact(() {
+          expect(
+            composer.commitText(expectedText: 'hello', value: _typed('hello!')),
+            isTrue,
+          );
+        });
+        expect(composer.history.undo(), isTrue);
+        expect(composer.raw, 'hello');
+        expect(composer.history.undo(), isTrue);
+        expect(composer.raw, '');
+      },
+    );
+  });
+
   test('plugin document replacement retires submission authority', () {
     final composer = ComposerController(_attachmentTarget);
     addTearDown(composer.dispose);

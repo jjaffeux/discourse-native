@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,6 +27,68 @@ Finder _mainField(ComposerController composer) => find.byWidgetPredicate(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'format shortcut undo keeps the immediately preceding typed word',
+    (tester) async {
+      final composer = await _pumpPanel(tester);
+      await tester.enterText(_mainField(composer), 'hello');
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(composer.raw, 'hello****');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(composer.raw, 'hello');
+      expect(composer.text.selection, const TextSelection.collapsed(offset: 5));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  for (final details in [false, true]) {
+    testWidgets(
+      'embedded ${details ? 'details' : 'list'} command separates preceding typing',
+      (tester) async {
+        final source = details
+            ? '[details="Summary"]\nBody\n[/details]'
+            : '- [ ] Body';
+        final composer = await _pumpPanel(tester, source: source);
+        final body = find.byWidgetPredicate(
+          (widget) =>
+              widget is EditableText && widget.controller.text == 'Body',
+        );
+        await tester.enterText(body, 'Changed body');
+        await tester.pump();
+        final embedded = composer.activeEditor;
+        expect(embedded, isNot(same(composer)));
+        embedded.insertEmoji('smile');
+        await tester.pump();
+        expect(
+          composer.raw,
+          source.replaceFirst('Body', 'Changed body :smile:'),
+        );
+
+        await tester.tap(_action('undo'));
+        await tester.pumpAndSettle();
+        expect(composer.raw, source.replaceFirst('Body', 'Changed body'));
+        expect(composer.activeEditor.raw, 'Changed body');
+        await tester.tap(_action('redo'));
+        await tester.pumpAndSettle();
+        expect(
+          composer.raw,
+          source.replaceFirst('Body', 'Changed body :smile:'),
+        );
+        expect(composer.activeEditor.raw, 'Changed body :smile:');
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
+  }
 
   testWidgets(
     'toolbar follows available history and restores typing with its caret',
