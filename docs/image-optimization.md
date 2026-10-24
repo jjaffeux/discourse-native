@@ -18,9 +18,13 @@ it on success, removal, cancellation, or disposal.
   the site's byte threshold (default 524288 bytes).
 - Bake EXIF orientation before evaluating dimensions. Strip camera/EXIF and PNG
   text metadata, retaining ICC colour profiles.
-- A JPEG output carries its profile in one APP2 segment numbered 1 of 1. The
-  encoder cannot split one, so a profile over 65,519 bytes, or a JPEG source's
-  profile that spans several segments, is dropped rather than written truncated.
+- A JPEG output carries its profile in one APP2 segment numbered 1 of 1. Complete
+  source profiles split across APP2 segments are reassembled in sequence order,
+  even if the source segments are reordered. The encoder cannot split output
+  profiles, so profiles over 65,519 bytes retain the original upload. Incomplete,
+  duplicate, or inconsistent JPEG profile sequences also retain the original.
+  If decoding discovers different profile data after the first image scan, the
+  original upload is retained.
 - Expand palette and grayscale PNGs to RGB before encoding. A grayscale PNG's
   gray profile cannot describe the RGB result, so it is dropped.
 - Resize only when width exceeds the site's dimension threshold, to its width
