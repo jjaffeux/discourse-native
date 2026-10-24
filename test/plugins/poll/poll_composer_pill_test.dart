@@ -254,6 +254,38 @@ void main() {
       }
     });
 
+    testWidgets('keeps first-line list examples raw in the Native editor', (
+      tester,
+    ) async {
+      const document =
+          '- [code]\n  <!--\n  [poll name=example]\n'
+          '  * A\n  * B\n  [/poll]\n  [/code]\n'
+          '- <!--\n  [poll name=poll2]\n  * C\n  * D\n  [/poll]\n  -->\n'
+          '$source';
+      final controller = MarkdownEditingController(
+        text: document,
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: DTextarea(controller: controller)),
+        ),
+      );
+
+      expect(controller.pollBlocks.map((poll) => poll.name), ['lunch']);
+      final active = controller.pollBlocks.single;
+      expect(active.start, document.indexOf(source));
+      expect(active.end, document.length);
+      expect(active.source, source);
+      expect(controller.isPollCollapsed(active), isTrue);
+      expect(find.byType(PollComposerPill), findsOneWidget);
+      expect(nextPollName(document), 'poll');
+      expect(controller.text, document);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('projects only active polls across core wrapper boundaries', (
       tester,
     ) async {

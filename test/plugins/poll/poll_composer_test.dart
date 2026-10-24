@@ -435,7 +435,7 @@ void main() {
           ('<!--', '-->'),
         ])
           '- $task - a\n\n    $opening\n'
-          '  [poll name=example]\n  * A\n  * B\n  [/poll]\n  $closing',
+              '  [poll name=example]\n  * A\n  * B\n  [/poll]\n  $closing',
       for (final (marker, indent, openings) in const [
         ('- a', '  ', [4, 5]),
         ('1. a', '   ', [4, 5, 6]),

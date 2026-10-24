@@ -588,7 +588,7 @@ List<_SourceLine> _linesOf(String source) {
   return lines;
 }
 
-typedef _ListContext = ({int end, int indent});
+typedef _ListContext = ({int end, int indent, int? contentStart});
 
 String? _relativeBbcodeLine(String text, int indent) {
   var column = 0;
@@ -614,44 +614,128 @@ String? _relativeBbcodeLine(String text, int indent) {
   List<_ListContext>? contexts,
   bool raw = false,
 }) {
-  final starts = {
-    for (final tag in _BbcodeBlock.values) tag: <({int line, int indent})>[],
-  };
+  final closers = <({int indent, _BbcodeBlock tag}), List<int>>{};
   final code = <int, int>{};
   final blocks = <int, int>{};
-  for (var index = 0; index < lines.length; index++) {
+  for (var index = lines.length - 1; index >= 0; index--) {
     final text = lines[index].text;
-    final indent = contexts?[index].indent ?? 0;
-    final relative = raw ? text.trimLeft() : _relativeBbcodeLine(text, indent);
-    final opening = relative == null ? null : _bbcodeBlockOpening(relative);
-    if (opening != null) {
-      starts[opening]!.add((line: index, indent: indent));
-      continue;
+    final normalized = raw ? text.trimLeft() : _relativeBbcodeLine(text, 0)!;
+    var column = 0;
+    while (column < normalized.length && normalized[column] == ' ') {
+      column++;
     }
-    final closing = _bbcodeClosingPattern.firstMatch(text.trimLeft());
-    if (closing == null) continue;
-    final tag = _BbcodeBlock.values.byName(closing.group(1)!.toLowerCase());
-    final opened = starts[tag]!;
-    if (opened.isEmpty) continue;
-    final start = opened.last;
-    if (!raw) {
-      final relativeClosing = _relativeBbcodeLine(text, start.indent);
-      if (relativeClosing == null ||
-          !_bbcodeClosingPattern.hasMatch(relativeClosing)) {
-        continue;
+    final marker = normalized.substring(column);
+    final opening = _bbcodeBlockOpening(marker);
+    final closing = _bbcodeClosingPattern.firstMatch(marker);
+    if (opening != null || closing != null) {
+      final tag =
+          opening ??
+          _BbcodeBlock.values.byName(closing!.group(1)!.toLowerCase());
+      final firstIndent = raw || column < 3 ? 0 : column - 3;
+      final lastIndent = raw ? 0 : column;
+      for (var indent = firstIndent; indent <= lastIndent; indent++) {
+        final closed = closers.putIfAbsent((
+          indent: indent,
+          tag: tag,
+        ), () => []);
+        if (closing != null) {
+          closed.add(index);
+          continue;
+        }
+        if (closed.isEmpty) continue;
+        final end = closed.removeLast();
+        if (raw || (contexts?[index].indent ?? 0) == indent) {
+          final ends = tag == _BbcodeBlock.code ? code : blocks;
+          ends[index] = end;
+        }
       }
     }
-    final ends = tag == _BbcodeBlock.code ? code : blocks;
-    ends[opened.removeLast().line] = index;
+    final contentStart = contexts?[index].contentStart;
+    if (contentStart == null) continue;
+    final body = text.substring(contentStart);
+    final firstLine = raw ? body.trimLeft() : _relativeBbcodeLine(body, 0)!;
+    final firstOpening = _bbcodeBlockOpening(firstLine);
+    if (firstOpening == null) continue;
+    final closed =
+        closers[(indent: raw ? 0 : contexts![index].indent, tag: firstOpening)];
+    if (closed == null || closed.isEmpty) continue;
+    final ends = firstOpening == _BbcodeBlock.code ? code : blocks;
+    ends[index] = closed.last;
   }
   return (code: code, blocks: blocks);
 }
 
 List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
+  final contexts = List<_ListContext>.filled(lines.length, (
+    end: lines.length,
+    indent: 0,
+    contentStart: null,
+  ));
+  void collect(
+    List<ComposerListItem> items,
+    int Function(int) sourceOffset,
+    int parentIndent,
+    int firstLine,
+  ) {
+    var cursor = firstLine;
+    for (final parsedItem in items) {
+      final taskStart = parsedItem.taskMarkerStart;
+      final item = taskStart == null
+          ? parsedItem
+          : ComposerListItem(
+              document: parsedItem.document,
+              start: parsedItem.start,
+              end: parsedItem.end,
+              marker: parsedItem.marker,
+              indent: parsedItem.indent,
+              contentIndent: parsedItem.contentIndent,
+              contentStart: taskStart,
+              firstLineEnd: parsedItem.firstLineEnd,
+              closed: parsedItem.closed,
+              referenceMarkers: parsedItem.referenceMarkers,
+              number: parsedItem.number,
+            );
+      final sourceStart = sourceOffset(item.start);
+      final sourceEnd = sourceOffset(item.end);
+      while (cursor < lines.length && lines[cursor].contentEnd < sourceStart) {
+        cursor++;
+      }
+      final start = cursor;
+      while (cursor < lines.length && lines[cursor].start <= sourceEnd) {
+        cursor++;
+      }
+      final indent = parentIndent + item.contentIndent;
+      contexts.fillRange(start, cursor, (
+        end: cursor,
+        indent: indent,
+        contentStart: null,
+      ));
+      if (start < cursor) {
+        contexts[start] = (
+          end: cursor,
+          indent: indent,
+          contentStart: sourceOffset(item.contentStart) - lines[start].start,
+        );
+      }
+      collect(
+        item.children,
+        (offset) => sourceOffset(item.body.sourceOffset(offset)),
+        indent,
+        start,
+      );
+    }
+  }
+
+  collect(
+    composerListItems(source.replaceAll('<!--', '....')),
+    (offset) => offset,
+    0,
+    0,
+  );
   var listSource = source;
   if (source.contains('<!--')) {
     final absolute = _bbcodePairs(lines).code;
-    final raw = _bbcodePairs(lines, raw: true).code;
+    final raw = _bbcodePairs(lines, contexts: contexts, raw: true).code;
     final masked = StringBuffer();
     var codeLimit = -1;
     for (var index = 0; index < lines.length; index++) {
@@ -667,39 +751,14 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
     listSource = masked.toString();
   }
 
-  final contexts = List<_ListContext>.filled(lines.length, (
-    end: lines.length,
-    indent: 0,
-  ));
-  void collect(
-    List<ComposerListItem> items,
-    int Function(int) sourceOffset,
-    int parentIndent,
-    int firstLine,
-  ) {
-    var cursor = firstLine;
-    for (final item in items) {
-      final sourceStart = sourceOffset(item.start);
-      final sourceEnd = sourceOffset(item.end);
-      while (cursor < lines.length && lines[cursor].start < sourceStart) {
-        cursor++;
-      }
-      final start = cursor;
-      while (cursor < lines.length && lines[cursor].start <= sourceEnd) {
-        cursor++;
-      }
-      final indent = parentIndent + item.contentIndent;
-      contexts.fillRange(start, cursor, (end: cursor, indent: indent));
-      collect(
-        item.children,
-        (offset) => sourceOffset(item.body.sourceOffset(offset)),
-        indent,
-        start,
-      );
-    }
+  if (source.contains('<!--')) {
+    contexts.fillRange(0, lines.length, (
+      end: lines.length,
+      indent: 0,
+      contentStart: null,
+    ));
+    collect(composerListItems(listSource), (offset) => offset, 0, 0);
   }
-
-  collect(composerListItems(listSource), (offset) => offset, 0, 0);
   final pairs = _bbcodePairs(lines, contexts: contexts);
   final codeEnds = pairs.code;
   final blockEnds = pairs.blocks;
@@ -724,12 +783,19 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
       continue;
     }
 
-    if (_commentOpeningPattern.hasMatch(line)) {
+    final contentStart = contexts[index].contentStart;
+    final relative = contentStart == null
+        ? _relativeBbcodeLine(line, contexts[index].indent)
+        : _relativeBbcodeLine(line.substring(contentStart), 0);
+    final listComment =
+        relative != null && _commentOpeningPattern.hasMatch(relative);
+    if (_commentOpeningPattern.hasMatch(line) || listComment) {
+      final commentLimit = listComment ? limit : blockLimit;
       var end = index;
-      while (end < blockLimit && !lines[end].text.contains('-->')) {
+      while (end < commentLimit && !lines[end].text.contains('-->')) {
         end++;
       }
-      if (end == blockLimit) {
+      if (end == commentLimit) {
         result.fillRange(index, lines.length, true);
         break;
       }
