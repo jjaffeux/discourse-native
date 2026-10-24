@@ -245,7 +245,7 @@ void main() {
                   final prefix =
                       '$marker\n$blankBefore$indent$opener\n$blankAfter'
                           .replaceAll('\n', newline);
-                  final source = '$prefix$poll${newline}[/code]';
+                  final source = '$prefix$poll$newline[/code]';
                   final blocks = parsePollComposerBlocks(source);
                   expect(blocks, hasLength(1), reason: source);
                   final block = blocks.single;
@@ -269,6 +269,27 @@ void main() {
       },
     );
 
+    test('retains poll offsets after literal markers in prior code', () {
+      for (final newline in const ['\n', '\r\n']) {
+        final poll = '[poll name=live]\n* A\n* B\n[/poll]'.replaceAll(
+          '\n',
+          newline,
+        );
+        for (final marker in const ['<!--', '```']) {
+          final prefix = '[code]\n$marker\n[/code]\n- a\n\n  [code]\n'
+              .replaceAll('\n', newline);
+          final source = '$prefix$poll$newline[/code]';
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks, hasLength(1), reason: source);
+          final block = blocks.single;
+          expect(block.start, prefix.length, reason: source);
+          expect(block.end, prefix.length + poll.length, reason: source);
+          expect(block.source, poll, reason: source);
+          expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+        }
+      }
+    });
+
     test('keeps indented root and list-contained code examples literal', () {
       const poll = '[poll]\n* A\n* B\n[/poll]';
       for (final indent in const ['  ', '   ']) {
@@ -280,7 +301,7 @@ void main() {
       for (final (marker, indent) in const [('- a', '  '), ('1. a', '   ')]) {
         final example = '$indent${poll.replaceAll('\n', '\n$indent')}';
         final prefix = '$marker\n\n$indent[code]\n$example\n$indent[/code]\n\n';
-        final source = '${prefix}[poll name=live]\n* C\n* D\n[/poll]';
+        final source = '$prefix[poll name=live]\n* C\n* D\n[/poll]';
         final block = parsePollComposerBlocks(source).single;
         expect(block.start, prefix.length, reason: source);
         expect(block.end, source.length, reason: source);
@@ -296,6 +317,16 @@ void main() {
       const poll = '[poll]\n* A\n* B\n[/poll]';
       for (final newline in const ['\n', '\r\n']) {
         for (final (before, after, active) in const [
+          ('[code]\n```\n[/code]\n- a\n\n  [code]', '[/code]', true),
+          ('[code]\n<!--\n[/code]\n- a\n\n  [code]', '[/code]', true),
+          ('- a\n\n  [code]\n<!-- -->', '[/code]', true),
+          (
+            '- a\n\n  [code]\n<!--\n[poll name=example]\n* C\n* D\n[/poll]\n-->',
+            '[/code]',
+            true,
+          ),
+          ('- a\n\n  [code]\n<!--', '[/code]', false),
+          ('- a\n\n  [code]\n<!--\n[/code]\n-->', '', true),
           ('- a\n\n  [code]', '[/code]', true),
           ('- a\n  [code]', '[/code]', true),
           ('- a\n\n  [code]\n', '[/code]', true),
@@ -308,6 +339,20 @@ void main() {
           ('- a\n  ```', '', true),
           ('1. a\n\n   ```', '', true),
           ('1. a\n   ```', '', true),
+          (
+            '- a\n\n  [code]\n  [poll name=example]\n  * C\n  * D\n'
+                '  [/poll]\n  [/code]\n',
+            '',
+            true,
+          ),
+          (
+            '1. a\n\n   [code]\n   [poll name=example]\n   * C\n   * D\n'
+                '   [/poll]\n   [/code]\n',
+            '',
+            true,
+          ),
+          ('- a\n\n  <!--', '-->', false),
+          ('- a\n\n  <!--', '', false),
           ('  [code]', '[/code]', false),
           ('   [code]', '[/code]', false),
         ]) {
@@ -324,7 +369,11 @@ void main() {
             ),
           );
           expect(result.failure, isNull, reason: source);
-          expect(result.html.contains('class="poll"'), active, reason: source);
+          expect(
+            RegExp('class="poll"').allMatches(result.html).length,
+            active ? 1 : 0,
+            reason: source,
+          );
           expect(
             parsePollComposerBlocks(source).isNotEmpty,
             active,
