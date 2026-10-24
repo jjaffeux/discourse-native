@@ -297,6 +297,69 @@ void main() {
     },
   );
 
+  test('consumer watch survives account replacement until release', () async {
+    final shell = _shell(
+      instances: [
+        const DiscourseInstance(url: _site, title: 'A', loginRequired: true),
+      ],
+    );
+    await shell.load();
+    await pumpEventQueue();
+    final first = shell.cookingRequest(siteUrl: _site, raw: '@Alice');
+    var calls = 0;
+    final stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: first.raw,
+      onChanged: () => calls++,
+    );
+    final held = shell.accountSessionInstance(_site)!;
+    shell.applyAccountSessionInstance(
+      held.copyWith(user: const DiscourseUser(id: 7, username: 'Reader')),
+      AccountSessionPhase.connecting,
+    );
+    expect(shell.cookingRequestIsCurrent(first), isFalse);
+    expect(calls, 0);
+    await pumpEventQueue();
+    expect(calls, 1);
+    final next = shell.cookingRequest(siteUrl: _site, raw: first.raw);
+    expect(next.snapshot.accountId, '7');
+    expect(shell.cookingRequestIsCurrent(next), isTrue);
+    shell.store.put(_site, const UserCard(username: 'Alice'));
+    await pumpEventQueue();
+    expect(calls, 2);
+    shell.cooking.contextChanged(_site);
+    stop();
+    stop();
+    await pumpEventQueue();
+    expect(calls, 2);
+  });
+
+  test('consumer callbacks coalesce and can release reentrantly', () async {
+    final shell = _shell();
+    var calls = 0;
+    late void Function() stop;
+    stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: '@Alice topic:12',
+      onChanged: () {
+        calls++;
+        stop();
+      },
+    );
+    shell.store.put(_site, const UserCard(username: 'Alice'));
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 12, title: 'Title', stream: []),
+    );
+    expect(calls, 0);
+    await pumpEventQueue();
+    expect(calls, 1);
+    shell.cooking.contextChanged(_site);
+    await pumpEventQueue();
+    expect(calls, 1);
+    stop();
+  });
+
   test('device timezone fallback changes invalidate and notify', () async {
     final environment = TimezoneEnvironment.instance;
     final previous = environment.deviceTimezone;
