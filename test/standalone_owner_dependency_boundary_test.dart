@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/owner_dependency_graph.dart';
 
 const _owners = {
+  'lib/src/plugins/chat/chat_thread_metadata_owner.dart',
   'lib/src/shell/account_history_feed_owners.dart',
   'lib/src/shell/checklist_transactions.dart',
   'lib/src/shell/flag_transactions.dart',
