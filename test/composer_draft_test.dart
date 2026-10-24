@@ -225,6 +225,56 @@ void main() {
       });
     }
 
+    test('recovery metadata stays local and counts toward the local bound', () {
+      const draft = ComposerDraft(reply: 'Local writing');
+      const record = LocalComposerDraft(
+        draft: draft,
+        sequence: 4,
+        conflicted: true,
+      );
+      final encoded = record.encode();
+      final decoded = LocalComposerDraft.decode(encoded)!;
+      expect(decoded.draft, draft);
+      expect(decoded.sequence, 4);
+      expect(decoded.conflicted, isTrue);
+      expect(ComposerDraft.decodeLocal(encoded), draft);
+      expect(draft.encode(), isNot(contains('_native_')));
+      final overhead = const LocalComposerDraft(
+        draft: ComposerDraft(reply: ''),
+        sequence: 4,
+      ).encode().length;
+      final boundary = LocalComposerDraft(
+        draft: ComposerDraft(
+          reply: 'x' * (ComposerDraft.maximumLocalEncodedCodeUnits - overhead),
+        ),
+        sequence: 4,
+      );
+      expect(
+        boundary.encode().length,
+        ComposerDraft.maximumLocalEncodedCodeUnits,
+      );
+      expect(
+        LocalComposerDraft.decode(boundary.encode())!.draft,
+        boundary.draft,
+      );
+      final oversized = LocalComposerDraft(
+        draft: ComposerDraft(reply: '${boundary.draft.reply}x'),
+        sequence: 4,
+      );
+      expect(oversized.encode, throwsFormatException);
+      expect(LocalComposerDraft.decode('${boundary.encode()} '), isNull);
+      expect(ComposerDraft.decode(boundary.encode()), isNull);
+    });
+
+    test('legacy recovery has an unknown baseline', () {
+      final local = LocalComposerDraft.decode(
+        const ComposerDraft(reply: 'Legacy local writing').encodeLocal(),
+      )!;
+      expect(local.sequence, isNull);
+      expect(local.conflicted, isFalse);
+      expect(local.draft.reply, 'Legacy local writing');
+    });
+
     test('rejects empty or malformed input', () {
       expect(ComposerDraft.decodeLocal(null), isNull);
       expect(ComposerDraft.decodeLocal(''), isNull);

@@ -461,7 +461,10 @@ class _DraftSaveFailure extends StatelessWidget {
         ? (context.l10n.notSaved, context.l10n.couldnTSaveThisDraftOnThisDevice)
         : (
             context.l10n.deviceOnly,
-            context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly,
+            composer.draftConflict
+                ? '${context.l10n.someoneElseChangedThatFirst} '
+                      '${context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly}'
+                : context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly,
           );
 
     final tokens = DTokens.of(context);

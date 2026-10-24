@@ -2693,7 +2693,10 @@ void _registerComposerAndDraftTests() {
             sequence: 1,
           ),
         ]);
-        expect(drafts.saved.values.single, preserved.encode());
+        expect(
+          ComposerDraft.decodeLocal(drafts.saved.values.single),
+          preserved,
+        );
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );

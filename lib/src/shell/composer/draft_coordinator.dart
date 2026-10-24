@@ -35,6 +35,9 @@ enum _DraftServerPresence { unknown, createdAfterCachedCount, observed }
 
 final class _DraftKeyState {
   int? latestGeneration;
+  String? localSite;
+  bool conflicted = false;
+  int? acceptedSequence;
   _RetiredDraftSaves? retiredSaves;
   Object? saveRequest;
   Future<void>? operationTail;
@@ -142,6 +145,11 @@ final class ComposerDraftCoordinator {
     _sessions[composer] = session;
     session._composer = composer;
     composer.draftSequence = sequenceFor(composer.target);
+    session._baseSequence = composer.draftSequence;
+    if (_draftStates[session._keyFor(composer.target)]?.conflicted ?? false) {
+      session._conflicted = true;
+      composer.draftSaveConflicted();
+    }
   }
 
   int sequenceFor(ComposerTarget target) =>
@@ -167,11 +175,7 @@ final class ComposerDraftCoordinator {
     }
     final lease = _lifecycle.capture(target.siteUrl);
     // The row can predate a save this composer has already committed.
-    composer.draftSequence = _commitSequence(
-      target,
-      draft.sequence,
-      fallback: composer.draftSequence,
-    );
+    _commitSequence(target, draft.sequence);
     // A restore still reading the local or cached copy ranks that copy above
     // the row, but gives it up if the row's text lands first. One that could
     // not read the local copy cannot rule it out, so the row is withheld, as
@@ -182,7 +186,10 @@ final class ComposerDraftCoordinator {
         composer.closing) {
       return;
     }
-    composer.restore(data);
+    if (composer.restore(data)) {
+      composer.draftSequence = draft.sequence;
+      _sessions[composer]?._baseSequence = draft.sequence;
+    }
   }
 
   Future<bool>? restoreTaskFor(ComposerController composer) =>
@@ -480,7 +487,16 @@ final class ComposerDraftCoordinator {
     int? sequence,
   }) {
     forgetKnownServerDraft(composer);
+    final session = _sessions[composer];
+    if (session != null) {
+      session._settlement++;
+      session._conflicted = false;
+      final state = _stateFor(session._keyFor(composer.target));
+      state.conflicted = false;
+      state.deletedGeneration = ++_generation;
+    }
     composer.draftSettled();
+    final settlementGeneration = _generation;
     final target = composer.target;
     final localSite =
         _sessions[composer]?._localSite ?? _localDraftSite(target.siteUrl);
@@ -488,12 +504,18 @@ final class ComposerDraftCoordinator {
       _localStore.clear(
         localSite,
         target.draftKey,
-        ifCurrent: () => lease.commit(() {}),
+        ifCurrent: () =>
+            lease.commit(() {}) &&
+            (session == null ||
+                (_draftStates[session._keyFor(target)]?.latestGeneration ??
+                        settlementGeneration) <=
+                    settlementGeneration),
       ),
     );
     if (sequence != null) {
       rememberSequence(target, sequence);
       composer.draftSequence = sequence;
+      session?._baseSequence = sequence;
     }
   }
 
@@ -530,16 +552,29 @@ final class ComposerDraftCoordinator {
     if (composer == null || !composer.draftPersistencePending) return;
     final session = _sessions[composer];
     if (session == null) return;
-    final target = composer.target;
-    final draft = composer.draft;
-    Future<void>.sync(
-      () => draft.isEmpty
-          ? _localStore.clear(session._localSite, target.draftKey)
-          : _localStore.write(
-              session._localSite,
-              target.draftKey,
-              draft.encodeLocal(),
+    final settlement = session._settlement;
+    final key = session._keyFor(composer.target);
+    final generation = session._generation;
+    _trackLocalWrite(
+      _writeLocalDraft(
+        ComposerDraftSave(
+          target: composer.target,
+          draft: composer.draft,
+          sequence: composer.draftSequence,
+          localOnly: composer.draftsGaveUp,
+          isCurrent: () => true,
+        ),
+        session,
+        ifCurrent: () =>
+            session._settlement == settlement &&
+            (_draftStates[key]?.latestGeneration ?? generation) <= generation &&
+            !_draftStates.entries.any(
+              (entry) =>
+                  entry.key.draftKey == composer.target.draftKey &&
+                  entry.value.localSite == session._localSite &&
+                  (entry.value.latestGeneration ?? -1) > generation,
             ),
+      ),
     ).ignore();
   }
 
@@ -597,7 +632,12 @@ final class ComposerDraftCoordinator {
         await _localStore.write(
           session._localSite,
           target.draftKey,
-          preserved.encodeLocal(),
+          LocalComposerDraft(
+            draft: preserved,
+            sequence: session._baseSequence,
+            conflicted:
+                _draftStates[session._keyFor(target)]?.conflicted ?? false,
+          ).encode(),
           ifCurrent: () =>
               isCurrent() && composer.discardRevisionIsCurrent(revision),
         );
@@ -608,7 +648,8 @@ final class ComposerDraftCoordinator {
         return _draftChanged;
       }
 
-      if (overwritten) {
+      if (overwritten &&
+          !(_draftStates[session._keyFor(target)]?.conflicted ?? false)) {
         final credential = await _readCredential(
           target.siteUrl,
           session._lease,
@@ -629,7 +670,11 @@ final class ComposerDraftCoordinator {
           if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
             return false;
           }
-          final sequence = sequenceFor(target);
+          final sequence = _writeSequence(
+            session,
+            target,
+            composer.draftSequence,
+          );
           if (composer.unappliedDraftWasLocal) {
             await credential.request!.run(
               () => _draftsApi.deleteUserDraft(
@@ -658,8 +703,10 @@ final class ComposerDraftCoordinator {
             );
             session._lease.commit(() {
               if (nextSequence != null) {
-                final committedSequence = _commitSequence(target, nextSequence);
-                composer.draftSequence = committedSequence;
+                _commitSequence(target, nextSequence);
+                composer.draftSequence = nextSequence;
+                session._baseSequence = nextSequence;
+                _stateFor(key).acceptedSequence = nextSequence;
               }
               _stateFor(key).observeServerDraft();
             });
@@ -717,10 +764,6 @@ final class ComposerDraftCoordinator {
 
     try {
       if (composer.canSaveDraft) {
-        final credential = await _readCredential(target.siteUrl, lease);
-        if (!isCurrent()) return null;
-        if (credential.failure != null) return _discardFailure;
-
         await composer.finishInFlightDraftSaveForDiscard();
         if (!isCurrent()) return null;
         if (!composer.discardRevisionIsCurrent(revision)) {
@@ -741,7 +784,36 @@ final class ComposerDraftCoordinator {
           if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
             return false;
           }
-          final sequence = sequenceFor(target);
+          final state = _stateFor(key);
+          if (state.conflicted || composer.draftConflict) {
+            final cleared = await _localStore.clearChecked(
+              session._localSite,
+              target.draftKey,
+              ifCurrent: () =>
+                  isCurrent() && composer.discardRevisionIsCurrent(revision),
+            );
+            if (!cleared) throw const DraftWriteException();
+            if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+              return false;
+            }
+            state.conflicted = false;
+            session._conflicted = false;
+            state.deletedGeneration = ++_generation;
+            session._settlement++;
+            composer.draftSettled();
+            _close(composer);
+            return true;
+          }
+          final credential = await _readCredential(target.siteUrl, lease);
+          if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
+            return false;
+          }
+          if (credential.failure case final failure?) throw failure;
+          final sequence = _writeSequence(
+            session,
+            target,
+            composer.draftSequence,
+          );
           final draftWasKnown =
               (_draftStates[key]?.knownOnServer ?? false) ||
               _isServerDraftKnown(target);
@@ -831,11 +903,20 @@ final class ComposerDraftCoordinator {
     required bool Function() ifCurrent,
   }) async {
     final target = save.target;
+    if (_draftStates[session._keyFor(target)]?.conflicted ?? false) {
+      session._conflicted = true;
+    }
     if (!save.draft.isEmpty) {
       await _localStore.write(
         session._localSite,
         target.draftKey,
-        save.draft.encodeLocal(),
+        LocalComposerDraft(
+          draft: save.draft,
+          sequence: session._baseSequence ?? save.sequence,
+          conflicted:
+              _draftStates[session._keyFor(target)]?.conflicted ??
+              session._conflicted,
+        ).encode(),
         ifCurrent: ifCurrent,
       );
     } else if (!await _localStore.clearChecked(
@@ -855,6 +936,8 @@ final class ComposerDraftCoordinator {
     final target = save.target;
     final lease = session._lease;
     final key = session._keyFor(target);
+    final settlement = session._settlement;
+    final state = _stateFor(key);
     final generation = _claimGeneration(key, session);
     bool ownsLatestGeneration() =>
         _draftStates[key]?.latestGeneration == generation;
@@ -901,7 +984,10 @@ final class ComposerDraftCoordinator {
 
         // After the sync has given up, the local copy above is the whole save:
         // the site is not asked again, and the copy is not cleared.
-        if (save.localOnly) {
+        if (save.localOnly || _stateFor(key).conflicted) {
+          if (_stateFor(key).conflicted) {
+            session._composer?.draftSaveConflicted();
+          }
           if (localFailure != null) throw localFailure;
           return null;
         }
@@ -912,7 +998,11 @@ final class ComposerDraftCoordinator {
           if (credential.failure case final failure?) throw failure;
           final apiKey = credential.request!.apiKey!;
           if (save.draft.isEmpty) {
-            final requestSequence = sequenceFor(target);
+            final requestSequence = _writeSequence(
+              session,
+              target,
+              save.sequence,
+            );
             final draftWasKnown =
                 (_draftStates[key]?.knownOnServer ?? false) ||
                 _isServerDraftKnown(target);
@@ -951,7 +1041,11 @@ final class ComposerDraftCoordinator {
           final clientId = await _readClientId();
           if (!lease.isCurrent) return null;
 
-          final requestSequence = sequenceFor(target);
+          final requestSequence = _writeSequence(
+            session,
+            target,
+            save.sequence,
+          );
           final sequence = await credential.request!.run(
             () => _persistence.saveDraft(
               siteUrl: target.siteUrl,
@@ -966,10 +1060,12 @@ final class ComposerDraftCoordinator {
           );
 
           var clearLocal = false;
-          var committedSequence = sequence;
+          final committedSequence = sequence;
           lease.commit(() {
             if (sequence != null) {
-              committedSequence = _commitSequence(target, sequence);
+              _commitSequence(target, sequence);
+              session._baseSequence = sequence;
+              _stateFor(key).acceptedSequence = sequence;
             }
             session._composer?.unappliedDraftWasOverwritten();
             _stateFor(key).savedOnServer();
@@ -1001,6 +1097,19 @@ final class ComposerDraftCoordinator {
           }
 
           return committedSequence;
+        } on WriteException catch (error) {
+          if (error.failure == WriteFailure.conflict &&
+              lease.isCurrent &&
+              identical(_draftStates[key], state) &&
+              !wasDeleted() &&
+              session._settlement == settlement) {
+            _stateFor(key).conflicted = true;
+            session._conflicted = true;
+            session._composer?.draftSaveConflicted();
+            await _preserveConflict(target, session, settlement);
+          }
+          if (localFailure != null) throw localFailure;
+          rethrow;
         } catch (_) {
           if (localFailure != null) throw localFailure;
           rethrow;
@@ -1012,6 +1121,54 @@ final class ComposerDraftCoordinator {
         }
       }
     });
+  }
+
+  int _writeSequence(
+    ComposerDraftSession session,
+    ComposerTarget target,
+    int fallback,
+  ) {
+    final baseline = session._baseSequence ?? fallback;
+    final accepted = _draftStates[session._keyFor(target)]?.acceptedSequence;
+    return accepted != null && accepted > baseline ? accepted : baseline;
+  }
+
+  Future<void> _preserveConflict(
+    ComposerTarget target,
+    ComposerDraftSession session,
+    int settlement,
+  ) async {
+    await localWritesSettled();
+    final key = session._keyFor(target);
+    final generation = _draftStates[key]?.latestGeneration;
+    bool current() =>
+        session._lease.isCurrent &&
+        session._settlement == settlement &&
+        _draftStates[key]?.conflicted == true &&
+        _draftStates[key]?.latestGeneration == generation;
+    if (!current()) return;
+    final read = await _localStore.readChecked(
+      session._localSite,
+      target.draftKey,
+    );
+    if (!current()) return;
+    if (!read.succeeded) throw const DraftWriteException();
+    final local = LocalComposerDraft.decode(read.value);
+    if (local == null) return;
+    try {
+      await _localStore.write(
+        session._localSite,
+        target.draftKey,
+        LocalComposerDraft(
+          draft: local.draft,
+          sequence: local.sequence,
+          conflicted: true,
+        ).encode(),
+        ifCurrent: current,
+      );
+    } catch (error) {
+      throw DraftWriteException(error);
+    }
   }
 
   Future<bool> _restoreDraft(
@@ -1040,22 +1197,16 @@ final class ComposerDraftCoordinator {
     }
     final deletedGeneration = _draftStates[key]?.deletedGeneration;
     if (listedDraft != null) {
-      composer.draftSequence = _commitSequence(
-        target,
-        listedDraft.sequence,
-        fallback: composer.draftSequence,
-      );
+      _commitSequence(target, listedDraft.sequence);
     }
 
-    // The local copy exists only while the site does not have the text, so if
-    // there is one it is the newer of the two by construction.
     var localRead = await _localStore.readChecked(localSite, target.draftKey);
     if (!localRead.succeeded ||
         (localRead.value?.length ?? 0) >
             ComposerDraft.maximumLocalEncodedCodeUnits) {
       return false;
     }
-    var local = ComposerDraft.decodeLocal(localRead.value);
+    var local = LocalComposerDraft.decode(localRead.value);
     if (!isCurrent()) return true;
     if (local == null) {
       final session = _sessions[composer];
@@ -1070,7 +1221,7 @@ final class ComposerDraftCoordinator {
                 ComposerDraft.maximumLocalEncodedCodeUnits) {
           return false;
         }
-        local = ComposerDraft.decodeLocal(localRead.value);
+        local = LocalComposerDraft.decode(localRead.value);
         if (!isCurrent()) return true;
       }
     }
@@ -1114,12 +1265,22 @@ final class ComposerDraftCoordinator {
           remoteSequence,
           fallback: composer.draftSequence,
         );
-        composer.draftSequence = currentSequence;
+        if (composer.draft.isEmpty) {
+          composer.draftSequence = currentSequence;
+          session?._baseSequence = currentSequence;
+        }
+      }
+      if (local == null && listedDraft != null && composer.draft.isEmpty) {
+        composer.draftSequence = _commitSequence(
+          target,
+          listedDraft.sequence,
+          fallback: composer.draftSequence,
+        );
+        session?._baseSequence = composer.draftSequence;
       }
       final cached = target.createsTopic ? null : _readCachedDraft(target);
-      final draft = local ?? remote ?? cached ?? listedDraft?.data;
+      final draft = local?.draft ?? remote ?? cached ?? listedDraft?.data;
       if (draft == null) return;
-      final session = _sessions[composer];
       if (session != null &&
           (remote != null || cached != null || listedDraft != null)) {
         final key = session._keyFor(target);
@@ -1140,9 +1301,29 @@ final class ComposerDraftCoordinator {
           composer.target.replyToPostNumber != target.replyToPostNumber ||
           composer.target.replyToUsername != target.replyToUsername;
 
+      if (session != null) {
+        final baseline = local != null
+            ? local.sequence ?? 0
+            : remote != null
+            ? remoteSequence
+            : cached != null
+            ? _readCachedSequence(target)
+            : listedDraft?.sequence ?? composer.draftSequence;
+        session._baseSequence = baseline;
+        composer.draftSequence = baseline;
+        if (local != null &&
+            (local.conflicted ||
+                (local.sequence != null && sequenceFor(target) > baseline))) {
+          _stateFor(session._keyFor(target)).conflicted = true;
+          session._conflicted = true;
+        }
+      }
       if (!composer.restore(draft)) {
         composer.protectUnappliedDraft(draft, wasLocal: local != null);
         return;
+      }
+      if (session != null && _stateFor(session._keyFor(target)).conflicted) {
+        composer.draftSaveConflicted();
       }
       composer.setMinimumRequiredTags(
         _minimumRequiredTagsFor(target.siteUrl, composer.categoryId),
@@ -1221,7 +1402,9 @@ final class ComposerDraftCoordinator {
       session._generation = ++_generation;
     }
     final generation = session._generation;
-    final current = _draftStates[key]?.latestGeneration;
+    final state = _stateFor(key);
+    state.localSite = session._localSite;
+    final current = state.latestGeneration;
     if (current == null || generation > current) {
       _stateFor(key).latestGeneration = generation;
     }
@@ -1301,6 +1484,9 @@ final class ComposerDraftSession {
   int _generation;
   final Object _owner = Object();
   ComposerController? _composer;
+  int? _baseSequence;
+  int _settlement = 0;
+  bool _conflicted = false;
 
   Future<int?> save(ComposerDraftSave save) => _coordinator._save(save, this);
 

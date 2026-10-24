@@ -3882,7 +3882,9 @@ void _writeGroups() {
             return http.Response(jsonEncode({'draft_sequence': 9}), 200);
           }
           return http.Response(
-            jsonEncode({'errors': ['Draft has been updated elsewhere']}),
+            jsonEncode({
+              'errors': ['Draft has been updated elsewhere'],
+            }),
             409,
           );
         }),
@@ -3896,11 +3898,13 @@ void _writeGroups() {
           sequence: 4,
           data: '{"reply":"Local writing"}',
         ),
-        throwsA(isA<WriteException>().having(
-          (error) => error.failure,
-          'failure',
-          WriteFailure.conflict,
-        )),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.failure,
+            'failure',
+            WriteFailure.conflict,
+          ),
+        ),
       );
       expect(bodies, hasLength(1));
       expect(serverText, 'Newer writing on another device');

@@ -178,7 +178,7 @@ final class DiscourseComposerApi {
     String? owner,
     String? clientId,
   }) async {
-    Future<Map<String, dynamic>> send({required bool force}) => _write(
+    final body = await _write(
       Uri.parse('$siteUrl/drafts.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -187,21 +187,10 @@ final class DiscourseComposerApi {
       body: {
         'draft_key': draftKey,
         'sequence': sequence,
-        // A JSON string rather than an object: the controller rejects anything
-        // that is not a String outright.
         'data': data,
         'owner': owner,
-        if (force) 'force_save': true,
       },
     );
-
-    Map<String, dynamic> body;
-    try {
-      body = await send(force: false);
-    } on WriteException catch (e) {
-      if (e.failure != WriteFailure.conflict) rethrow;
-      body = await send(force: true);
-    }
 
     return jsonIntOrNull(body['draft_sequence']);
   }

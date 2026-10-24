@@ -1,4 +1,6 @@
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/draft_store.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -29,6 +31,51 @@ void main() {
     expect(opened.api.draftsSaved, hasLength(1));
     expect(opened.composer.draftStatus, DraftStatus.saved);
     expect(opened.composer.localDraftFailed, isFalse);
+  });
+
+  testWidgets('a draft conflict keeps later edits on this device', (
+    tester,
+  ) async {
+    final localStore = FakeDraftStore();
+    final opened = await _openComposer(
+      remoteFailure: const WriteException(WriteFailure.conflict),
+      localStore: localStore,
+    );
+    addTearDown(opened.shell.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ShellScope(
+          controller: opened.shell,
+          child: Scaffold(body: ComposerPanel(composer: opened.composer)),
+        ),
+      ),
+    );
+
+    opened.composer.text.text = 'My local writing';
+    await opened.composer.flushDraft();
+    opened.composer.text.text = 'My local writing, continued';
+    await opened.composer.flushDraft();
+    await tester.pump();
+
+    expect(opened.api.draftsSaved, hasLength(1));
+    expect(opened.composer.localDraftFailed, isFalse);
+    expect(
+      ComposerDraft.decodeLocal(
+        await localStore.read(
+          DraftStore.accountSiteKey(_siteUrl, 'id:1'),
+          'topic_7',
+        ),
+      )?.reply,
+      'My local writing, continued',
+    );
+    expect(find.text('Device only'), findsOneWidget);
+    expect(
+      find.textContaining('Someone else changed that first.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('kept on this device'), findsOneWidget);
   });
 
   testWidgets('the panel reports when neither draft copy is safe', (
@@ -75,7 +122,10 @@ void main() {
 Future<
   ({ShellController shell, FakeDiscourseApi api, ComposerController composer})
 >
-_openComposer({WriteException? remoteFailure}) async {
+_openComposer({
+  WriteException? remoteFailure,
+  FakeDraftStore? localStore,
+}) async {
   final api = FakeDiscourseApi(draftFailure: remoteFailure);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final connected = instance(
@@ -85,7 +135,7 @@ _openComposer({WriteException? remoteFailure}) async {
     instanceStore: FakeInstanceStore([connected]),
     api: api,
     authenticator: authenticator,
-    drafts: _FailingDraftStore(),
+    drafts: localStore ?? _FailingDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );
 

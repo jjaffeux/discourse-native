@@ -479,7 +479,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     blocks.reset();
     _resumeDraftAfterDiscardPrompt = false;
+    final conflict = _draftConflict;
     draftSettled();
+    _draftConflict = conflict;
+    if (conflict) _draftStatus = DraftStatus.failing;
     _recomputeCanSubmit();
     _notify();
     return _draftRevision;
@@ -1730,6 +1733,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   DateTime? _lastDraftSaveAt;
   int _draftFailures = 0;
   bool _draftsGaveUp = false;
+  bool _draftConflict = false;
+  int _draftSettlement = 0;
   bool _localDraftFailed = false;
   int _draftRevision = 0;
   _PendingDraft? _queuedDraft;
@@ -1738,7 +1743,16 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   DraftStatus _draftStatus = DraftStatus.clean;
   DraftStatus get draftStatus => _draftStatus;
 
-  bool get draftsGaveUp => _draftsGaveUp;
+  bool get draftsGaveUp => _draftsGaveUp || _draftConflict;
+
+  bool get draftConflict => _draftConflict;
+
+  void draftSaveConflicted() {
+    if (_disposed) return;
+    _draftConflict = true;
+    _draftStatus = DraftStatus.failing;
+    _notify();
+  }
 
   bool get localDraftFailed => _localDraftFailed;
 
@@ -1805,6 +1819,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void draftSettled() {
+    _draftSettlement++;
+    _draftConflict = false;
     _draftTimer?.cancel();
     _queuedDraft = null;
     _draftRevision++;
@@ -1935,6 +1951,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _PendingDraft pending,
   ) async {
     final request = _draftSaveRequest(pending);
+    final settlement = _draftSettlement;
 
     if (request.localOnly) {
       // The site is not being asked again, but the local copy is still
@@ -1966,9 +1983,15 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       _draftFailures = 0;
       if (!_disposed && request.isCurrent()) {
         _localDraftFailed = false;
-        _draftStatus = DraftStatus.saved;
+        _draftStatus = _draftConflict ? DraftStatus.failing : DraftStatus.saved;
       }
     } catch (error) {
+      if (!_disposed &&
+          settlement == _draftSettlement &&
+          error is WriteException &&
+          error.failure == WriteFailure.conflict) {
+        draftSaveConflicted();
+      }
       _draftFailures++;
       // No immediate retry: the next keystroke reschedules, which throttles
       // this to the speed someone types rather than the speed of a loop.
@@ -1986,7 +2009,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         target: pending.target,
         draft: pending.draft,
         sequence: draftSequence,
-        localOnly: _draftsGaveUp,
+        localOnly: draftsGaveUp,
         isCurrent: () => pending.revision == _draftRevision,
       );
 

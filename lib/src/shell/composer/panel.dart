@@ -654,6 +654,9 @@ class ComposerPanel extends StatelessWidget {
                                   ? context
                                         .l10n
                                         .couldnTSaveThisDraftOnThisDevice
+                                  : composer.draftConflict
+                                  ? '${context.l10n.someoneElseChangedThatFirst} '
+                                        '${context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly}'
                                   : composer.draftStatus ==
                                             DraftStatus.failing ||
                                         composer.draftsGaveUp

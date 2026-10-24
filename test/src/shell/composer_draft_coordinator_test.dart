@@ -45,6 +45,440 @@ const _listedTopicDraft = UserDraft(
 );
 
 void main() {
+  group('conflicting drafts', () {
+    test(
+      'keeps newer queued writing locally and never retries the server',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftGate: gate,
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'First writing';
+        final saving = composer.flushDraft();
+        await pumpEventQueue();
+        composer.text.text = 'Newest writing';
+        unawaited(composer.flushDraft());
+        await pumpEventQueue();
+        gate.complete();
+        await saving;
+        expect(harness.api.draftsSaved, hasLength(1));
+        expect(harness.api.draftsSaved.single['sequence'], 4);
+        expect(composer.draftConflict, isTrue);
+        expect(composer.draftsGaveUp, isTrue);
+        expect(composer.localDraftFailed, isFalse);
+        var recovery = LocalComposerDraft.decode(
+          harness.localStore.saved.values.single,
+        )!;
+        expect(recovery.draft.reply, 'Newest writing');
+        expect(recovery.sequence, 4);
+        expect(recovery.conflicted, isTrue);
+        composer.text.text = 'Still newer writing';
+        await composer.flushDraft();
+        recovery = LocalComposerDraft.decode(
+          harness.localStore.saved.values.single,
+        )!;
+        expect(recovery.draft.reply, 'Still newer writing');
+        expect(recovery.conflicted, isTrue);
+        expect(harness.api.draftsSaved, hasLength(1));
+      },
+    );
+
+    for (final target in [_replyTarget, _listedTopicTarget]) {
+      test(
+        'restart retains local baseline and conflict for ${target.draftKey}',
+        () async {
+          final local = FakeDraftStore();
+          await local.write(
+            _siteUrl,
+            target.draftKey,
+            const LocalComposerDraft(
+              draft: ComposerDraft(reply: 'Local version'),
+              sequence: 4,
+              conflicted: true,
+            ).encode(),
+          );
+          for (var restart = 0; restart < 2; restart++) {
+            final harness = _Harness(
+              localStore: local,
+              cachedSequence: 9,
+            )..cachedDraft = const ComposerDraft(reply: 'Other device writing');
+            addTearDown(harness.dispose);
+            final composer = harness.open(target).composer;
+            harness.coordinator.startRestore(
+              composer,
+              listedDraft: UserDraft(
+                key: target.draftKey,
+                sequence: 9,
+                data: const ComposerDraft(reply: 'Other device writing'),
+              ),
+            );
+            expect(await harness.coordinator.finishRestore(composer), isTrue);
+            expect(
+              composer.text.text,
+              restart == 0 ? 'Local version' : 'Locally edited version',
+            );
+            expect(composer.draftSequence, 4);
+            expect(composer.draftConflict, isTrue);
+            await harness.coordinator.restoreListedDraft(
+              composer,
+              UserDraft(
+                key: target.draftKey,
+                sequence: 10,
+                data: const ComposerDraft(reply: 'Newer other device writing'),
+              ),
+            );
+            expect(composer.draftSequence, 4);
+            composer.text.text = 'Locally edited version';
+            await composer.flushDraft();
+            harness.coordinator.preservePendingLocally(composer);
+            await harness.coordinator.localWritesSettled();
+            expect(harness.api.draftsSaved, isEmpty);
+            expect(
+              LocalComposerDraft.decode(local.saved.values.single)!.conflicted,
+              isTrue,
+            );
+            harness.dispose();
+          }
+        },
+      );
+    }
+
+    test(
+      'a pre-conflict snapshot cannot adopt a newly observed baseline',
+      () async {
+        final local = FakeDraftStore();
+        await local.write(
+          _siteUrl,
+          'topic_7',
+          const LocalComposerDraft(
+            draft: ComposerDraft(reply: 'Before conflict was persisted'),
+            sequence: 4,
+          ).encode(),
+        );
+        final harness = _Harness(localStore: local, cachedSequence: 9);
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(composer);
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+        composer.text.text = 'Reopened edit';
+        await composer.flushDraft();
+        expect(composer.draftSequence, 4);
+        expect(composer.draftConflict, isTrue);
+        expect(harness.api.draftsSaved, isEmpty);
+      },
+    );
+
+    test(
+      'legacy recovery uses an unknown baseline rather than another device sequence',
+      () async {
+        final harness = _Harness(
+          cachedSequence: 9,
+          api: FakeDiscourseApi(
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        await harness.localStore.write(
+          _siteUrl,
+          'topic_7',
+          const ComposerDraft(reply: 'Legacy writing').encodeLocal(),
+        );
+        final composer = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(composer);
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+        expect(composer.text.text, 'Legacy writing');
+        composer.text.text = 'Edited legacy writing';
+        await composer.flushDraft();
+        expect(harness.api.draftsSaved.single['sequence'], 0);
+        expect(composer.draftConflict, isTrue);
+      },
+    );
+
+    for (final clearFirst in [false, true]) {
+      test(
+        'discard only removes local conflict recovery after clear=$clearFirst',
+        () async {
+          final harness = _Harness(
+            cachedSequence: 4,
+            serverDraftKnown: true,
+            api: FakeDiscourseApi(
+              draftFailure: const WriteException(WriteFailure.conflict),
+            ),
+          );
+          addTearDown(harness.dispose);
+          final composer = harness.open(_replyTarget).composer;
+          harness.coordinator.startNewDraft(composer);
+          composer.text.text = 'Local conflict';
+          await composer.flushDraft();
+          if (clearFirst) {
+            composer.text.clear();
+            await composer.flushDraft();
+          }
+          expect(await harness.coordinator.discard(composer), isNull);
+          expect(harness.api.userDraftsDeleted, isEmpty);
+          expect(harness.localStore.saved, isEmpty);
+          expect(harness.destroyed, isEmpty);
+        },
+      );
+    }
+
+    test(
+      'successful queued saves advance only their own accepted baseline',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(draftGate: gate),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'First writing';
+        final saving = composer.flushDraft();
+        await pumpEventQueue();
+        composer.text.text = 'Second writing';
+        unawaited(composer.flushDraft());
+        harness.coordinator.rememberSequence(_replyTarget, 99);
+        gate.complete();
+        await saving;
+        expect(harness.api.draftsSaved.map((save) => save['sequence']), [4, 5]);
+        expect(composer.draftSequence, 6);
+        expect(harness.coordinator.sequenceFor(_replyTarget), 99);
+        expect(composer.draftConflict, isFalse);
+      },
+    );
+
+    test(
+      'protected draft repair uses an accepted save instead of a newer observation',
+      () async {
+        final harness = _Harness(cachedSequence: 4)
+          ..cachedDraft = const ComposerDraft(reply: 'Protected original');
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'Replacement writing';
+        harness.coordinator.startRestore(composer);
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+        expect(composer.hasUnappliedDraft, isTrue);
+        await composer.flushDraft();
+        harness.coordinator.rememberSequence(_replyTarget, 99);
+        expect(await harness.coordinator.discard(composer), isNull);
+        expect(harness.api.draftsSaved.map((save) => save['sequence']), [4, 5]);
+        expect(
+          ComposerDraft.decode(harness.api.draftsSaved.last['data'])!.reply,
+          'Protected original',
+        );
+      },
+    );
+
+    test(
+      'retired preservation cannot replace a new session recovery at the same address',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        final retired = harness.open(_replyTarget).composer;
+        retired.text.text = 'Older pending writing';
+        harness.lifecycle.invalidate(_siteUrl);
+        harness.coordinator.forgetSite(_siteUrl);
+        harness.composers.remove(retired);
+        final replacement = harness.open(_replyTarget);
+        await replacement.session.stage(
+          ComposerDraftSave(
+            target: _replyTarget,
+            draft: const ComposerDraft(reply: 'Replacement recovery'),
+            sequence: 0,
+            localOnly: true,
+            isCurrent: () => true,
+          ),
+        );
+        harness.coordinator.preservePendingLocally(retired);
+        await harness.coordinator.localWritesSettled();
+        expect(
+          ComposerDraft.decodeLocal(
+            harness.localStore.saved.values.single,
+          )!.reply,
+          'Replacement recovery',
+        );
+        retired.dispose();
+      },
+    );
+
+    test(
+      'retired conflict writing remains recoverable without a newer same-account writer',
+      () async {
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'Original conflicting writing';
+        await composer.flushDraft();
+        composer.text.text = 'Pending conflicting writing';
+        harness.lifecycle.invalidate(_siteUrl);
+        harness.coordinator.forgetSite(_siteUrl);
+        harness.coordinator.preservePendingLocally(composer);
+        await harness.coordinator.localWritesSettled();
+        final recovery = LocalComposerDraft.decode(
+          harness.localStore.saved.values.single,
+        )!;
+        expect(recovery.draft.reply, 'Pending conflicting writing');
+        expect(recovery.sequence, 4);
+        expect(recovery.conflicted, isTrue);
+      },
+    );
+
+    test(
+      'a failed conflict marker reports local failure and the next edit repairs it',
+      () async {
+        final local = _FailingConflictMarkerStore();
+        final harness = _Harness(
+          localStore: local,
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'Original writing';
+        await composer.flushDraft();
+        expect(composer.draftConflict, isTrue);
+        expect(composer.localDraftFailed, isTrue);
+        expect(
+          LocalComposerDraft.decode(local.saved.values.single)!.sequence,
+          4,
+        );
+        composer.text.text = 'Repaired local writing';
+        await composer.flushDraft();
+        expect(composer.localDraftFailed, isFalse);
+        expect(
+          LocalComposerDraft.decode(local.saved.values.single)!.draft.reply,
+          'Repaired local writing',
+        );
+        expect(
+          LocalComposerDraft.decode(local.saved.values.single)!.conflicted,
+          isTrue,
+        );
+        expect(harness.api.draftsSaved, hasLength(1));
+      },
+    );
+
+    test(
+      'a retired conflict protects the replacement composer newest writing',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftGate: gate,
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final retired = harness.open(_replyTarget).composer;
+        retired.text.text = 'Older retired writing';
+        final saving = retired.flushDraft();
+        await pumpEventQueue();
+        harness.coordinator.retire(retired);
+        harness.composers.remove(retired);
+        retired.dispose();
+        final replacement = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(replacement);
+        expect(await harness.coordinator.finishRestore(replacement), isTrue);
+        replacement.text.text = 'Newest replacement writing';
+        final replaced = replacement.flushDraft();
+        await pumpEventQueue();
+        gate.complete();
+        await saving;
+        await replaced;
+        expect(harness.api.draftsSaved, hasLength(1));
+        expect(replacement.draftConflict, isTrue);
+        expect(replacement.draftStatus, DraftStatus.failing);
+        final recovery = LocalComposerDraft.decode(
+          harness.localStore.saved.values.single,
+        )!;
+        expect(recovery.draft.reply, 'Newest replacement writing');
+        expect(recovery.sequence, 4);
+        expect(recovery.conflicted, isTrue);
+      },
+    );
+
+    test(
+      'account retirement prevents a late conflict from touching the replacement',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftGate: gate,
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final retired = harness.open(_replyTarget).composer;
+        retired.text.text = 'Old account writing';
+        final saving = retired.flushDraft();
+        await pumpEventQueue();
+        harness.lifecycle.invalidate(_siteUrl);
+        harness.coordinator.forgetSite(_siteUrl);
+        harness.composers.remove(retired);
+        retired.dispose();
+        final replacement = harness.open(_replyTarget);
+        await replacement.session.stage(
+          ComposerDraftSave(
+            target: _replyTarget,
+            draft: const ComposerDraft(reply: 'New account recovery'),
+            sequence: 4,
+            localOnly: true,
+            isCurrent: () => true,
+          ),
+        );
+        gate.complete();
+        await saving;
+        expect(replacement.composer.draftConflict, isFalse);
+        final recovery = LocalComposerDraft.decode(
+          harness.localStore.saved.values.single,
+        )!;
+        expect(recovery.draft.reply, 'New account recovery');
+        expect(recovery.conflicted, isFalse);
+      },
+    );
+
+    test(
+      'late conflict after accepted submission cannot recreate recovery',
+      () async {
+        final gate = Completer<void>();
+        final harness = _Harness(
+          cachedSequence: 4,
+          api: FakeDiscourseApi(
+            draftGate: gate,
+            draftFailure: const WriteException(WriteFailure.conflict),
+          ),
+        );
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        composer.text.text = 'Submitted writing';
+        final saving = composer.flushDraft();
+        await pumpEventQueue();
+        harness.coordinator.settleAfterSubmission(
+          composer,
+          harness.lifecycle.capture(_siteUrl),
+        );
+        gate.complete();
+        await saving;
+        expect(harness.localStore.saved, isEmpty);
+        expect(composer.draftConflict, isFalse);
+      },
+    );
+  });
+
   test(
     'draft save retains account scope and payload owner without migration header',
     () async {
@@ -327,7 +761,7 @@ void main() {
           expect(composer.text.text, newer.reply);
           expect(composer.title.text, newer.title);
           expect(composer.categoryId, 8);
-          expect(composer.draftSequence, local ? 4 : 9);
+          expect(composer.draftSequence, local ? 0 : 9);
           expect(
             api.draftsRequested.map((request) => request.draftKey),
             local ? isEmpty : [_listedTopicDraft.key],
@@ -408,7 +842,7 @@ void main() {
         await offered;
 
         expect(composer.text.text, newer.reply);
-        expect(composer.draftSequence, 4);
+        expect(composer.draftSequence, 0);
       },
     );
 
@@ -905,15 +1339,19 @@ void main() {
       );
       await pumpEventQueue();
       expect(
-        await localStore.read(_siteUrl, _listedDraft.key),
-        replacement.encode(),
+        ComposerDraft.decodeLocal(
+          await localStore.read(_siteUrl, _listedDraft.key),
+        ),
+        replacement,
       );
       localStore.gate.complete();
       await deletion;
       await save;
       expect(
-        await localStore.read(_siteUrl, _listedDraft.key),
-        replacement.encode(),
+        ComposerDraft.decodeLocal(
+          await localStore.read(_siteUrl, _listedDraft.key),
+        ),
+        replacement,
       );
       expect(harness.cachedDraft, isNull);
       expect(harness.api.draftsSaved, isEmpty);
@@ -1180,5 +1618,23 @@ final class _ScopedDraftApi extends FakeDiscourseApi {
       sequence: sequence,
       clientId: clientId,
     );
+  }
+}
+
+final class _FailingConflictMarkerStore extends FakeDraftStore {
+  bool fail = true;
+
+  @override
+  Future<void> write(
+    String siteUrl,
+    String draftKey,
+    String data, {
+    bool Function()? ifCurrent,
+  }) async {
+    if (fail && LocalComposerDraft.decode(data)?.conflicted == true) {
+      fail = false;
+      throw const DraftWriteException();
+    }
+    await super.write(siteUrl, draftKey, data, ifCurrent: ifCurrent);
   }
 }

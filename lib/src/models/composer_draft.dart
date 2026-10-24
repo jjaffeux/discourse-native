@@ -175,3 +175,41 @@ class ComposerDraft {
     composerTime,
   );
 }
+
+/// Local recovery text and the server baseline that produced it.
+@immutable
+final class LocalComposerDraft {
+  const LocalComposerDraft({
+    required this.draft,
+    this.sequence,
+    this.conflicted = false,
+  });
+
+  final ComposerDraft draft;
+  final int? sequence;
+  final bool conflicted;
+
+  static LocalComposerDraft? decode(Object? data) {
+    final draft = ComposerDraft.decodeLocal(data);
+    if (draft == null) return null;
+    final json = jsonDecode(data! as String) as Map<String, dynamic>;
+    final sequence = json['_native_draft_sequence'];
+    return LocalComposerDraft(
+      draft: draft,
+      sequence: sequence is int && sequence >= 0 ? sequence : null,
+      conflicted: json['_native_draft_conflict'] == true,
+    );
+  }
+
+  String encode() {
+    final encoded = jsonEncode({
+      ...draft.toJson(),
+      '_native_draft_sequence': sequence,
+      '_native_draft_conflict': conflicted,
+    });
+    if (encoded.length > ComposerDraft.maximumLocalEncodedCodeUnits) {
+      throw const FormatException('Local draft exceeds the storage limit');
+    }
+    return encoded;
+  }
+}
