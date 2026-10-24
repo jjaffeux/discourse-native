@@ -203,7 +203,7 @@ void main() {
         for (final closer in closers) {
           final document =
               '$marker\n\n$indent[code]\n'
-              '${indent}[poll name=example]\n$indent* A\n$indent* B\n'
+              '$indent[poll name=example]\n$indent* A\n$indent* B\n'
               '$indent[/poll]\n${' ' * closer}[/code]';
           expect(policy.parse(document), isEmpty, reason: document);
         }

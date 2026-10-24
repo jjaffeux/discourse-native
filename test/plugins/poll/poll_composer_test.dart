@@ -320,7 +320,7 @@ void main() {
           (
             source:
                 '$marker\n\n$indent[code]\n'
-                '${indent}[poll name=live]\n$indent* A\n$indent* B\n'
+                '$indent[poll name=live]\n$indent* A\n$indent* B\n'
                 '$indent[/poll]\n${' ' * closer}[/code]',
             active: false,
           ),
@@ -335,22 +335,24 @@ void main() {
     for (var index = 0; index < relativeCases.length; index++) {
       test('matches list-relative BBCode case $index', () {
         final example = relativeCases[index];
-        final blocks = parsePollComposerBlocks(example.source);
-        expect(blocks, hasLength(example.active ? 1 : 0));
-        expect(
-          pollNamesInComposerSource(example.source),
-          example.active ? {'live'} : <String>{},
-        );
-        if (example.active) {
-          final block = blocks.single;
-          expect(block.start, example.source.indexOf('  [poll'));
-          expect(block.end, example.source.indexOf('  [/poll]') + 9);
+        for (final newline in const ['\n', '\r\n']) {
+          final source = example.source.replaceAll('\n', newline);
+          final blocks = parsePollComposerBlocks(source);
+          expect(blocks, hasLength(example.active ? 1 : 0), reason: source);
           expect(
-            block.source,
-            example.source.substring(block.start, block.end),
+            pollNamesInComposerSource(source),
+            example.active ? {'live'} : <String>{},
+            reason: source,
           );
-          expect(block.openingIndent, '  ');
-          expect(block.closingIndent, '  ');
+          if (example.active) {
+            final block = blocks.single;
+            expect(block.start, source.indexOf('  [poll'));
+            expect(block.end, source.indexOf('  [/poll]') + 9);
+            expect(block.source, source.substring(block.start, block.end));
+            expect(block.lineEnding, newline);
+            expect(block.openingIndent, '  ');
+            expect(block.closingIndent, '  ');
+          }
         }
       });
     }
@@ -389,6 +391,19 @@ void main() {
           active: false,
         ),
         (source: '[code]\n$poll\n\t[/code]', active: true),
+        for (final indent in const ['  ', '   '])
+          (
+            source:
+                '$indent[code]\n    [/code]\n<!--\n[/code]\n'
+                '- a\n\n  [code]\n$poll\n[/code]',
+            active: true,
+          ),
+        (
+          source:
+              '- a\n\n    [code]\n  [poll name=live]\n'
+              '  * A\n  * B\n  [/poll]\n  [/code]',
+          active: false,
+        ),
       ];
       for (final example in cases) {
         final result = await service.cook(

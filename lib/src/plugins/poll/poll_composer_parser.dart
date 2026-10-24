@@ -588,33 +588,76 @@ List<_SourceLine> _linesOf(String source) {
   return lines;
 }
 
-List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
-  final starts = {for (final tag in _BbcodeBlock.values) tag: <int>[]};
-  final codeEnds = <int, int>{};
-  final blockEnds = <int, int>{};
+typedef _ListContext = ({int end, int indent});
+
+String? _relativeBbcodeLine(String text, int indent) {
+  var column = 0;
+  var offset = 0;
+  while (offset < text.length) {
+    final unit = text.codeUnitAt(offset);
+    if (unit == 0x20) {
+      column++;
+    } else if (unit == 0x09) {
+      column += 4 - column % 4;
+    } else {
+      break;
+    }
+    offset++;
+  }
+  return column < indent
+      ? null
+      : '${' ' * (column - indent)}${text.substring(offset)}';
+}
+
+({Map<int, int> code, Map<int, int> blocks}) _bbcodePairs(
+  List<_SourceLine> lines, {
+  List<_ListContext>? contexts,
+  bool raw = false,
+}) {
+  final starts = {
+    for (final tag in _BbcodeBlock.values) tag: <({int line, int indent})>[],
+  };
+  final code = <int, int>{};
+  final blocks = <int, int>{};
   for (var index = 0; index < lines.length; index++) {
-    final line = lines[index].text;
-    final opening = _bbcodeBlockOpening(line);
+    final text = lines[index].text;
+    final indent = contexts?[index].indent ?? 0;
+    final relative = raw ? text.trimLeft() : _relativeBbcodeLine(text, indent);
+    final opening = relative == null ? null : _bbcodeBlockOpening(relative);
     if (opening != null) {
-      starts[opening]!.add(index);
+      starts[opening]!.add((line: index, indent: indent));
       continue;
     }
-    final closing = _bbcodeClosingPattern.firstMatch(line);
+    final closing = _bbcodeClosingPattern.firstMatch(text.trimLeft());
     if (closing == null) continue;
     final tag = _BbcodeBlock.values.byName(closing.group(1)!.toLowerCase());
-    if (starts[tag]!.isNotEmpty) {
-      final ends = tag == _BbcodeBlock.code ? codeEnds : blockEnds;
-      ends[starts[tag]!.removeLast()] = index;
+    final opened = starts[tag]!;
+    if (opened.isEmpty) continue;
+    final start = opened.last;
+    if (!raw) {
+      final relativeClosing = _relativeBbcodeLine(text, start.indent);
+      if (relativeClosing == null ||
+          !_bbcodeClosingPattern.hasMatch(relativeClosing)) {
+        continue;
+      }
     }
+    final ends = tag == _BbcodeBlock.code ? code : blocks;
+    ends[opened.removeLast().line] = index;
   }
+  return (code: code, blocks: blocks);
+}
 
+List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
   var listSource = source;
-  if (source.contains('<!--') && codeEnds.isNotEmpty) {
+  if (source.contains('<!--')) {
+    final absolute = _bbcodePairs(lines).code;
+    final raw = _bbcodePairs(lines, raw: true).code;
     final masked = StringBuffer();
     var codeLimit = -1;
     for (var index = 0; index < lines.length; index++) {
-      final codeEnd = codeEnds[index];
-      if (codeEnd != null && codeEnd > codeLimit) codeLimit = codeEnd;
+      for (final end in [absolute[index], raw[index]]) {
+        if (end != null && end > codeLimit) codeLimit = end;
+      }
       final end = index + 1 < lines.length
           ? lines[index + 1].start
           : source.length;
@@ -624,18 +667,42 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
     listSource = masked.toString();
   }
 
-  final listLimits = List<int>.filled(lines.length, lines.length);
-  var cursor = 0;
-  for (final item in composerListItems(listSource)) {
-    while (cursor < lines.length && lines[cursor].start < item.start) {
-      cursor++;
+  final contexts = List<_ListContext>.filled(lines.length, (
+    end: lines.length,
+    indent: 0,
+  ));
+  void collect(
+    List<ComposerListItem> items,
+    int Function(int) sourceOffset,
+    int parentIndent,
+    int firstLine,
+  ) {
+    var cursor = firstLine;
+    for (final item in items) {
+      final sourceStart = sourceOffset(item.start);
+      final sourceEnd = sourceOffset(item.end);
+      while (cursor < lines.length && lines[cursor].start < sourceStart) {
+        cursor++;
+      }
+      final start = cursor;
+      while (cursor < lines.length && lines[cursor].start <= sourceEnd) {
+        cursor++;
+      }
+      final indent = parentIndent + item.contentIndent;
+      contexts.fillRange(start, cursor, (end: cursor, indent: indent));
+      collect(
+        item.children,
+        (offset) => sourceOffset(item.body.sourceOffset(offset)),
+        indent,
+        start,
+      );
     }
-    final start = cursor;
-    while (cursor < lines.length && lines[cursor].start <= item.end) {
-      cursor++;
-    }
-    listLimits.fillRange(start, cursor, cursor);
   }
+
+  collect(composerListItems(listSource), (offset) => offset, 0, 0);
+  final pairs = _bbcodePairs(lines, contexts: contexts);
+  final codeEnds = pairs.code;
+  final blockEnds = pairs.blocks;
 
   final result = List<bool>.filled(lines.length, false);
   final activeBlockEnds = <int>[];
@@ -646,8 +713,8 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
     final blockLimit = activeBlockEnds.isEmpty
         ? lines.length
         : activeBlockEnds.last;
-    final limit = listLimits[index] < blockLimit
-        ? listLimits[index]
+    final limit = contexts[index].end < blockLimit
+        ? contexts[index].end
         : blockLimit;
     final line = lines[index].text;
     final codeEnd = codeEnds[index];
