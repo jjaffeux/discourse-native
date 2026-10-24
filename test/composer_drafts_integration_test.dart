@@ -727,6 +727,7 @@ void _registerTopicReplyTests() {
         createPostGate: gate,
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -879,6 +880,7 @@ void _registerTopicReplyTests() {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -969,6 +971,7 @@ void _registerTopicReplyTests() {
           createPostGate: gate,
           feeds: {'/latest.json': listed},
           topics: {7: detail()},
+          postsById: {},
           writeFailure: const WriteException(WriteFailure.unreachable),
         );
 
@@ -1021,6 +1024,7 @@ void _registerTopicReplyTests() {
         createPostGate: gate,
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
@@ -3452,7 +3456,9 @@ void _registerComposerAndDraftTests() {
         'leaves no draft behind',
         (tester) async {
           final drafts = FakeDraftStore();
+          final gate = Completer<void>();
           final api = FakeDiscourseApi(
+            createPostGate: gate,
             feeds: {'/latest.json': listed},
             topics: {7: detail()},
             postsById: {
@@ -3485,12 +3491,15 @@ void _registerComposerAndDraftTests() {
           await settleDraft(tester);
           expect(drafts.saved, isNotEmpty);
 
+          await tester.tap(sendButton);
+          await tester.pump();
+          expect(api.created, hasLength(1));
           if (recheck) {
             api.topics.remove(7);
           } else {
             api.topics[7] = landed;
           }
-          await tester.tap(sendButton);
+          gate.complete();
           await tester.pumpAndSettle();
           if (recheck) {
             expect(tester.widget<DButton>(sendButton).tooltip, 'Check again');

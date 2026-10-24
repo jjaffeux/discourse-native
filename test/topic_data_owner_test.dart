@@ -263,7 +263,7 @@ Future<ReplyLookupResult> _lookupReply(
   f.api.topicReads.last.result.complete(
     detail == null
         ? _payload([], stream: {1, ...posts.map((post) => post.id)}.toList())
-        : (detail: detail, posts: const []),
+        : (detail: detail, posts: const <Post>[]),
   );
   await f.api.waitPosts(reads + 1);
   f.api.postReads.last.result.complete(posts);
