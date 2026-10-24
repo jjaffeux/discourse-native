@@ -21,6 +21,30 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test('sender does not consume another recipient slot', () async {
+    final (editor, _, api) = await _fixture(maximum: 2);
+    expect(editor.startGroup(editor.revision), isTrue);
+    const self = ChatDirectMessageUser(
+      identifier: 'u-7',
+      matchQuality: 1,
+      enabled: true,
+      username: 'reader',
+    );
+    await editor.select(self, editor.revision);
+    await editor.select(startChattingPeople.first, editor.revision);
+    expect(editor.membersCount, 1);
+    await editor.select(startChattingPeople[1], editor.revision);
+    expect(editor.members, [self, ...startChattingPeople.take(2)]);
+    expect(editor.membersCount, 2);
+    expect(editor.error, isNull);
+    expect(await editor.createGroup('Within the limit'), isNotNull);
+    expect(api.directMessageChannelRequests.single.usernames, [
+      'reader',
+      'maya',
+      'theo',
+    ]);
+  });
+
   test(
     'typing rejects retained rows before debounce and ignores old answers',
     () async {
