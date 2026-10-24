@@ -548,7 +548,12 @@ final class _MemoryDraftStore implements DraftStore {
   @override
   Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) async {
     if (ifCurrent?.call() == false) return;
-    _drafts.removeWhere((key, _) => key.startsWith('$siteUrl::'));
+    final actualSite = DraftStore.realSiteUrl(siteUrl);
+    final accountPrefix = DraftStore.accountSiteKeyPrefix(actualSite);
+    _drafts.removeWhere(
+      (key, _) =>
+          key.startsWith('$actualSite::') || key.startsWith(accountPrefix),
+    );
   }
 }
 

@@ -141,15 +141,6 @@ final class AccountSessionCoordinator {
         return const AccountConnectionStale();
       }
 
-      await drafts.clearSite(
-        siteUrl,
-        ifCurrent: () => _isCurrent(siteUrl, operation),
-      );
-      if (!_isCurrent(siteUrl, operation)) {
-        await _revokeIssued(siteUrl, credentials.key);
-        return const AccountConnectionStale();
-      }
-
       final pendingLease = _rotate(siteUrl, operation);
       if (pendingLease == null) {
         await _revokeIssued(siteUrl, credentials.key);
@@ -381,14 +372,17 @@ final class AccountSessionCoordinator {
         return AccountDisconnectionStale(lifecycle.capture(siteUrl));
       }
 
+      if (await _enterSignedOut(siteUrl, operation, lease, initial)
+          case final aborted?) {
+        return aborted;
+      }
+
       try {
         await drafts.clearSite(
-          siteUrl,
+          DraftStore.accountSiteKey(siteUrl, initial.localDraftAccount),
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
         );
-      } catch (error) {
-        // The opening rotation has already forgotten the account's session
-        // state, so even this early abort must publish the restored phase.
+      } catch (_) {
         return await _restoreFailedDisconnect(
           siteUrl,
           operation,
@@ -398,11 +392,6 @@ final class AccountSessionCoordinator {
       }
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionStale(lease);
-      }
-
-      if (await _enterSignedOut(siteUrl, operation, lease, initial)
-          case final aborted?) {
-        return aborted;
       }
 
       String? apiKey;
@@ -443,8 +432,7 @@ final class AccountSessionCoordinator {
   /// deleted. The refusal speaks for [apiKey] as read under [lease] alone: a
   /// connection or disconnection already under way owns the forum, and a key
   /// stored since belongs to a newer sign-in, so either leaves it untouched.
-  /// Unsent drafts stay, because the next connection clears them before it
-  /// publishes any account.
+  /// Unsent drafts stay in their original account namespace for reconnection.
   Future<AccountDisconnectionResult> expireRejectedKey(
     String siteUrl, {
     required String apiKey,

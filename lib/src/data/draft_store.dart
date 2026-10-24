@@ -333,12 +333,43 @@ class DraftStore {
     : _persistence = persistence ?? _platformDraftPersistence();
 
   static const String _prefix = 'discourse_native.draft::';
+  static const String _accountPrefix = 'discourse_native.account_draft::';
+  static const String _accountSitePrefix =
+      'discourse_native.account_draft_site::';
+
+  /// A local storage address only. It must never be sent to the forum.
+  static String accountSiteKey(String siteUrl, String? account) =>
+      account == null
+      ? siteUrl
+      : '${accountSiteKeyPrefix(siteUrl)}${Uri.encodeComponent(account)}';
+
+  static String accountSiteKeyPrefix(String siteUrl) =>
+      '$_accountSitePrefix${Uri.encodeComponent(siteUrl)}::';
+
+  static String realSiteUrl(String localSite) => _address(localSite).siteUrl;
+
+  static ({String siteUrl, String? account}) _address(String localSite) {
+    if (!localSite.startsWith(_accountSitePrefix)) {
+      return (siteUrl: localSite, account: null);
+    }
+    final value = localSite.substring(_accountSitePrefix.length);
+    final separator = value.indexOf('::');
+    return (
+      siteUrl: Uri.decodeComponent(value.substring(0, separator)),
+      account: Uri.decodeComponent(value.substring(separator + 2)),
+    );
+  }
 
   final DraftPersistence _persistence;
   final Map<String, Future<void>> _siteOperations = {};
 
-  static String _key(String siteUrl, String draftKey) =>
-      '$_prefix$siteUrl::$draftKey';
+  static String _key(String localSite, String draftKey) {
+    final address = _address(localSite);
+    final account = address.account;
+    return account == null
+        ? '$_prefix${address.siteUrl}::$draftKey'
+        : '$_accountPrefix${Uri.encodeComponent(address.siteUrl)}::${Uri.encodeComponent(account)}::$draftKey';
+  }
 
   Future<String?> read(String siteUrl, String draftKey) async =>
       (await readChecked(siteUrl, draftKey)).value;
@@ -465,12 +496,21 @@ class DraftStore {
       _serialize(siteUrl, () => _clearSite(siteUrl, ifCurrent: ifCurrent));
 
   Future<void> _clearSite(String siteUrl, {bool Function()? ifCurrent}) async {
-    final prefix = '$_prefix$siteUrl::';
+    final address = _address(siteUrl);
+    final legacyPrefix = '$_prefix${address.siteUrl}::';
+    final accountPrefix =
+        '$_accountPrefix${Uri.encodeComponent(address.siteUrl)}::';
+    final prefixes = address.account == null
+        ? [accountPrefix, legacyPrefix]
+        : [legacyPrefix, accountPrefix];
     final prefs = await _preferences();
     if (ifCurrent != null && !ifCurrent()) return;
 
     try {
-      await _persistence.deletePrefix(prefix);
+      for (final prefix in prefixes) {
+        if (ifCurrent?.call() == false) return;
+        await _persistence.deletePrefix(prefix);
+      }
     } catch (error, stackTrace) {
       // This is an account boundary. Continuing without a durable site blocker
       // could expose the previous account's text after reconnecting.
@@ -480,7 +520,7 @@ class DraftStore {
       try {
         await Future.wait([
           for (final key in prefs.getKeys())
-            if (key.startsWith(prefix)) prefs.remove(key),
+            if (prefixes.any(key.startsWith)) prefs.remove(key),
         ]);
       } catch (_) {}
     }
@@ -507,6 +547,7 @@ class DraftStore {
   }
 
   Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) {
+    siteUrl = realSiteUrl(siteUrl);
     final result = Completer<T>();
     final previous = _siteOperations[siteUrl] ?? Future<void>.value();
     final current = previous.then((_) async {

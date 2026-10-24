@@ -69,6 +69,7 @@ final class _DraftKeyState {
 final class ComposerDraftCoordinator {
   ComposerDraftCoordinator({
     required DraftStore localStore,
+    String Function(String siteUrl)? localDraftSite,
     required ComposerPersistenceApi persistence,
     required DraftsApi draftsApi,
     required SiteLifecycle lifecycle,
@@ -85,6 +86,7 @@ final class ComposerDraftCoordinator {
     required ComposerDraftDestroyedCallback recordDraftDestroyed,
     required void Function(ComposerController composer) onComposerClosed,
   }) : _localStore = localStore,
+       _localDraftSite = localDraftSite ?? ((siteUrl) => siteUrl),
        _persistence = persistence,
        _draftsApi = draftsApi,
        _lifecycle = lifecycle,
@@ -101,6 +103,7 @@ final class ComposerDraftCoordinator {
        _onComposerClosed = onComposerClosed;
 
   final DraftStore _localStore;
+  final String Function(String siteUrl) _localDraftSite;
   final ComposerPersistenceApi _persistence;
   final DraftsApi _draftsApi;
   final SiteLifecycle _lifecycle;
@@ -132,6 +135,7 @@ final class ComposerDraftCoordinator {
         this,
         _lifecycle.capture(target.siteUrl),
         ++_generation,
+        _localDraftSite(target.siteUrl),
       );
 
   void attach(ComposerDraftSession session, ComposerController composer) {
@@ -190,6 +194,7 @@ final class ComposerDraftCoordinator {
     bool Function() requestIsCurrent,
   ) {
     final lease = _lifecycle.capture(siteUrl);
+    final localSite = _localDraftSite(siteUrl);
     final key = (siteUrl: siteUrl, draftKey: draft.key, session: lease.session);
     final generation = _generation;
     final recoveryGeneration = _draftStates[key]?.latestGeneration;
@@ -237,7 +242,7 @@ final class ComposerDraftCoordinator {
         );
         if (!isCurrent()) return;
         final cleared = await _localStore.clearChecked(
-          siteUrl,
+          localSite,
           draft.key,
           ifCurrent: ownsRecovery,
         );
@@ -477,9 +482,11 @@ final class ComposerDraftCoordinator {
     forgetKnownServerDraft(composer);
     composer.draftSettled();
     final target = composer.target;
+    final localSite =
+        _sessions[composer]?._localSite ?? _localDraftSite(target.siteUrl);
     unawaited(
       _localStore.clear(
-        target.siteUrl,
+        localSite,
         target.draftKey,
         ifCurrent: () => lease.commit(() {}),
       ),
@@ -521,12 +528,18 @@ final class ComposerDraftCoordinator {
 
   void preservePendingLocally(ComposerController? composer) {
     if (composer == null || !composer.draftPersistencePending) return;
+    final session = _sessions[composer];
+    if (session == null) return;
     final target = composer.target;
     final draft = composer.draft;
     Future<void>.sync(
       () => draft.isEmpty
-          ? _localStore.clear(target.siteUrl, target.draftKey)
-          : _localStore.write(target.siteUrl, target.draftKey, draft.encode()),
+          ? _localStore.clear(session._localSite, target.draftKey)
+          : _localStore.write(
+              session._localSite,
+              target.draftKey,
+              draft.encode(),
+            ),
     ).ignore();
   }
 
@@ -582,7 +595,7 @@ final class ComposerDraftCoordinator {
         // the server so a process exit between those operations cannot lose
         // both versions.
         await _localStore.write(
-          target.siteUrl,
+          session._localSite,
           target.draftKey,
           preserved.encode(),
           ifCurrent: () =>
@@ -665,7 +678,7 @@ final class ComposerDraftCoordinator {
 
       if (!composer.unappliedDraftWasLocal) {
         final cleared = await _localStore.clearChecked(
-          target.siteUrl,
+          session._localSite,
           target.draftKey,
           ifCurrent: () =>
               isCurrent() && composer.discardRevisionIsCurrent(revision),
@@ -741,7 +754,7 @@ final class ComposerDraftCoordinator {
             ),
           );
           final localCleared = await _localStore.clearChecked(
-            target.siteUrl,
+            session._localSite,
             target.draftKey,
             ifCurrent: () =>
                 isCurrent() && composer.discardRevisionIsCurrent(revision),
@@ -802,6 +815,7 @@ final class ComposerDraftCoordinator {
     return _trackLocalWrite(
       _writeLocalDraft(
         save,
+        session,
         ifCurrent: () =>
             save.isCurrent() &&
             session._lease.isCurrent &&
@@ -812,19 +826,20 @@ final class ComposerDraftCoordinator {
   }
 
   Future<void> _writeLocalDraft(
-    ComposerDraftSave save, {
+    ComposerDraftSave save,
+    ComposerDraftSession session, {
     required bool Function() ifCurrent,
   }) async {
     final target = save.target;
     if (!save.draft.isEmpty) {
       await _localStore.write(
-        target.siteUrl,
+        session._localSite,
         target.draftKey,
         save.draft.encode(),
         ifCurrent: ifCurrent,
       );
     } else if (!await _localStore.clearChecked(
-          target.siteUrl,
+          session._localSite,
           target.draftKey,
           ifCurrent: ifCurrent,
         ) &&
@@ -854,6 +869,7 @@ final class ComposerDraftCoordinator {
       try {
         await _writeLocalDraft(
           save,
+          session,
           ifCurrent: () =>
               save.isCurrent() &&
               !wasDeleted() &&
@@ -974,7 +990,7 @@ final class ComposerDraftCoordinator {
           });
           if (clearLocal) {
             await _localStore.clear(
-              target.siteUrl,
+              session._localSite,
               target.draftKey,
               ifCurrent: () =>
                   save.isCurrent() &&
@@ -1008,7 +1024,9 @@ final class ComposerDraftCoordinator {
     final target = startingTarget ?? composer.target;
     final lease = _lifecycle.capture(target.siteUrl);
     startingRevision ??= composer.draftRevision;
-    final key = _sessions[composer]?._keyFor(target);
+    final session = _sessions[composer];
+    final key = session?._keyFor(target);
+    final localSite = session?._localSite ?? _localDraftSite(target.siteUrl);
 
     bool isCurrent() => lease.isCurrent && _isCurrent(composer);
 
@@ -1031,10 +1049,7 @@ final class ComposerDraftCoordinator {
 
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction.
-    var localRead = await _localStore.readChecked(
-      target.siteUrl,
-      target.draftKey,
-    );
+    var localRead = await _localStore.readChecked(localSite, target.draftKey);
     if (!localRead.succeeded) return false;
     var local = ComposerDraft.decode(localRead.value);
     if (!isCurrent()) return true;
@@ -1045,10 +1060,7 @@ final class ComposerDraftCoordinator {
         if (!isCurrent()) return true;
         // A retired controller may have failed its first local write and then
         // completed a remote save while this composer was opening.
-        localRead = await _localStore.readChecked(
-          target.siteUrl,
-          target.draftKey,
-        );
+        localRead = await _localStore.readChecked(localSite, target.draftKey);
         if (!localRead.succeeded) return false;
         local = ComposerDraft.decode(localRead.value);
         if (!isCurrent()) return true;
@@ -1268,10 +1280,16 @@ final class ComposerDraftCoordinator {
 }
 
 final class ComposerDraftSession {
-  ComposerDraftSession._(this._coordinator, this._lease, this._generation);
+  ComposerDraftSession._(
+    this._coordinator,
+    this._lease,
+    this._generation,
+    this._localSite,
+  );
 
   final ComposerDraftCoordinator _coordinator;
   final SiteLease _lease;
+  final String _localSite;
   int _generation;
   final Object _owner = Object();
   ComposerController? _composer;

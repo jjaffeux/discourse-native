@@ -287,7 +287,12 @@ class FakeDraftStore implements DraftStore {
   @override
   Future<void> clearSite(String siteUrl, {bool Function()? ifCurrent}) async {
     if (ifCurrent != null && !ifCurrent()) return;
-    saved.removeWhere((key, _) => key.startsWith('$siteUrl::'));
+    final actualSite = DraftStore.realSiteUrl(siteUrl);
+    final accountPrefix = DraftStore.accountSiteKeyPrefix(actualSite);
+    saved.removeWhere(
+      (key, _) =>
+          key.startsWith('$actualSite::') || key.startsWith(accountPrefix),
+    );
     events.add('clearSite:$siteUrl');
   }
 }
