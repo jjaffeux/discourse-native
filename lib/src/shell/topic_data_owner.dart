@@ -48,10 +48,6 @@ final class ReplyFound extends ReplyLookupResult {
   final Post post;
 }
 
-final class ReplyAbsent extends ReplyLookupResult {
-  const ReplyAbsent();
-}
-
 final class ReplyIndeterminate extends ReplyLookupResult {
   const ReplyIndeterminate();
 }
@@ -1700,10 +1696,9 @@ final class TopicDataSession implements BookmarkTopicData {
       if (_publishTopic(payload, stamp) == null ||
           !_publishPosts(topicId, posts, stamp) ||
           !isCurrent ||
-          matches.length > 1) {
+          matches.length != 1) {
         return const ReplyIndeterminate();
       }
-      if (matches.isEmpty) return const ReplyAbsent();
       final landed = matches.single;
       final newIds = stream.where((id) => id > boundary._maxPostId);
       if (!_hasReplyBoundaryStream(payload.detail) ||

@@ -15664,7 +15664,7 @@ abstract class AppLocalizations {
   /// English UI message used by shell/composer_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'That may have posted — the site could not be reached to check. Check again before sending it a second time.'**
+  /// **'That may have posted. Its status could not be confirmed. Check again before sending it a second time.'**
   String get thatMayHavePostedTheSiteCouldNotBeReachedTo;
 
   /// English UI message used by shell/composer_controller.dart. Keep placeholders intact.

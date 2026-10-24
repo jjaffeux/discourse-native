@@ -12147,7 +12147,7 @@
   "@checkingWhetherThatPosted": {
     "description": "English UI message used by shell/composer_controller.dart. Keep placeholders intact."
   },
-  "thatMayHavePostedTheSiteCouldNotBeReachedTo": "That may have posted — the site could not be reached to check. Check again before sending it a second time.",
+  "thatMayHavePostedTheSiteCouldNotBeReachedTo": "That may have posted. Its status could not be confirmed. Check again before sending it a second time.",
   "@thatMayHavePostedTheSiteCouldNotBeReachedTo": {
     "description": "English UI message used by shell/composer_controller.dart. Keep placeholders intact."
   },

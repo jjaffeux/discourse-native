@@ -9108,7 +9108,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get thatMayHavePostedTheSiteCouldNotBeReachedTo =>
-      'That may have posted — the site could not be reached to check. Check again before sending it a second time.';
+      'That may have posted. Its status could not be confirmed. Check again before sending it a second time.';
 
   @override
   String get yourReplyWasSentForReviewSoItIsNotPosted =>

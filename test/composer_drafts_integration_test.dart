@@ -852,26 +852,164 @@ void _registerTopicReplyTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
-    testWidgets('a check that finds nothing lets the reply be sent again', (
+    testWidgets(
+      'recovery never resends an accepted reply before five newer replies',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {7: detail()},
+          postsById: {
+            for (var id = 2; id <= 7; id++)
+              id: Post(
+                id: id,
+                postNumber: id,
+                username: id == 2 ? 'joffreyj' : 'other',
+                cooked: '<p>${id == 2 ? 'It landed.' : 'Later reply $id'}</p>',
+                raw: id == 2 ? 'It landed.' : 'Later reply $id',
+              ),
+          },
+          createPostGate: gate,
+          writeFailure: const WriteException(WriteFailure.unreachable),
+        );
+
+        await openTopic(tester, api);
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField, 'It landed.');
+        await tester.pumpAndSettle();
+        await tester.tap(sendButton());
+        await tester.pump();
+        expect(api.created, hasLength(1));
+
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [detail().posts.first],
+          stream: const [1, 2, 3, 4, 5, 6, 7],
+          postsCount: 7,
+          canCreatePost: true,
+        );
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        expect(api.created, hasLength(1));
+        final panel = find.byType(ComposerPanel);
+        if (panel.evaluate().isNotEmpty) {
+          expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+          await tester.tap(sendButton());
+          await tester.pumpAndSettle();
+          expect(api.created, hasLength(1));
+          if (panel.evaluate().isNotEmpty) {
+            expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+          } else {
+            expect(renderedText('It landed.'), findsOneWidget);
+          }
+        } else {
+          expect(renderedText('It landed.'), findsOneWidget);
+        }
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
+    for (final visible in [false, true]) {
+      testWidgets(
+        visible
+            ? 'recovery keeps a reply with unavailable raw unresolved'
+            : 'recovery keeps a reply absent from the stream unresolved',
+        (tester) async {
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {7: detail()},
+            postsById: {
+              2: const Post(
+                id: 2,
+                postNumber: 2,
+                username: 'joffreyj',
+                cooked: '<p>Unknown fate.</p>',
+              ),
+            },
+            createPostGate: gate,
+            writeFailure: const WriteException(WriteFailure.unreachable),
+          );
+
+          await openTopic(tester, api);
+          await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+          await tester.pumpAndSettle();
+          await tester.enterText(_composerField, 'Unknown fate.');
+          await tester.pumpAndSettle();
+          await tester.tap(sendButton());
+          await tester.pump();
+          expect(api.created, hasLength(1));
+          if (visible) {
+            api.topics[7] = topicPayload(
+              id: 7,
+              title: 'A real topic',
+              posts: [detail().posts.first],
+              stream: const [1, 2],
+              postsCount: 2,
+              canCreatePost: true,
+            );
+          }
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(find.textContaining('may have posted'), findsOneWidget);
+          expect(find.text('Unknown fate.'), findsOneWidget);
+          expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+          await tester.tap(sendButton());
+          await tester.pumpAndSettle();
+          expect(api.created, hasLength(1));
+          expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+    }
+
+    testWidgets('a reply omitted from the posts response stays unresolved', (
       tester,
     ) async {
+      final gate = Completer<void>();
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
+        postsById: {},
+        createPostGate: gate,
         writeFailure: const WriteException(WriteFailure.unreachable),
       );
 
       await openTopic(tester, api);
       await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
-      await tester.enterText(_composerField, 'Never arrived.');
+      await tester.enterText(_composerField, 'Unknown fate.');
       await tester.pumpAndSettle();
       await tester.tap(sendButton());
+      await tester.pump();
+      expect(api.created, hasLength(1));
+
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A real topic',
+        posts: [detail().posts.first],
+        stream: const [1, 2],
+        postsCount: 2,
+        canCreatePost: true,
+      );
+      gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.text("Couldn't reach the site."), findsOneWidget);
-      expect(find.text('Never arrived.'), findsOneWidget);
-      expect(tester.widget<DButton>(sendButton()).onPressed, isNotNull);
+      for (var check = 0; check < 2; check++) {
+        expect(find.textContaining('may have posted'), findsOneWidget);
+        expect(find.text('Unknown fate.'), findsOneWidget);
+        expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
+        await tester.tap(sendButton());
+        await tester.pumpAndSettle();
+        expect(api.created, hasLength(1));
+      }
+      expect(api.postFetches.last, contains(2));
+      expect(find.text('Unknown fate.'), findsOneWidget);
+      expect(tester.widget<DButton>(sendButton()).tooltip, 'Check again');
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a check that cannot be made holds sending back', (

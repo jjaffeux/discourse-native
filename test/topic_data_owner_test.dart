@@ -593,7 +593,7 @@ void main() {
         await _lookupReply(f, data, credential, boundary!, [
           _post(110, 'Same reply', raw: 'Same reply'),
         ]),
-        isA<ReplyAbsent>(),
+        isA<ReplyIndeterminate>(),
       );
     },
   );
@@ -637,7 +637,9 @@ void main() {
               : Post.regularPostType;
           expect(
             result,
-            type == expectedType ? isA<ReplyFound>() : isA<ReplyAbsent>(),
+            type == expectedType
+                ? isA<ReplyFound>()
+                : isA<ReplyIndeterminate>(),
           );
         },
       );
