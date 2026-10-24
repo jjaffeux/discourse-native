@@ -11,6 +11,8 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
@@ -669,6 +671,76 @@ void _registerReactionAndLikeTests() {
       await tester.tap(find.byTooltip('More emojis'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets(
+      'a full-topic refresh confirms a reaction before uncertain settlement',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = await openTopic(
+          tester,
+          config: configured,
+          posts: [
+            post(reactions: [(id: 'clap', count: 1)], userCount: 1),
+          ],
+          reactionGate: gate,
+          reactionFailure: const WriteException(WriteFailure.unreachable),
+        );
+        final shell = ShellScope.read(
+          tester.element(find.byType(ReactionsRow).first),
+        );
+        final controller = shell.pluginSession.require(
+          reactionsControllerService,
+        );
+        Post stored() => shell.store.read<Post>(site, 1)!;
+        DToggle drawn(String label) => tester.widget<DToggle>(
+          find.descendant(
+            of: find.byType(ReactionsRow),
+            matching: find.byWidgetPredicate(
+              (w) => w is DToggle && w.semanticLabel == label,
+            ),
+          ),
+        );
+        expect(drawn('1 clap reaction').pressed, isFalse);
+        final writing = controller.toggle(stored(), 'clap', siteUrl: site);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+        expect(controller.writeInFlight(site, 1), isTrue);
+        expect(stored().reactions!.mine?.id, 'clap');
+        expect(drawn('2 clap reactions').pressed, isTrue);
+        api.topics[7] = topicPayload(
+          id: 7,
+          title: 'A real topic',
+          posts: [
+            post(
+              reactions: [(id: 'clap', count: 8)],
+              mine: 'clap',
+              userCount: 8,
+              canUndo: true,
+            ),
+          ],
+          stream: [1],
+          postsCount: 1,
+        );
+        final refreshing = shell.refreshCurrentTab();
+        await tester.pumpAndSettle();
+        await refreshing;
+        expect(controller.writeInFlight(site, 1), isTrue);
+        expect(stored().reactions!.mine?.id, 'clap');
+        expect(stored().reactions!.entries.single.count, 8);
+        expect(stored().reactions!.userCount, 8);
+        expect(drawn('8 clap reactions').pressed, isTrue);
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect((await writing).kind, ReactionToggleKind.uncertain);
+        expect(controller.writeInFlight(site, 1), isFalse);
+        expect(stored().reactions!.mine?.id, 'clap');
+        expect(stored().reactions!.entries.single.count, 8);
+        expect(stored().reactions!.userCount, 8);
+        expect(drawn('8 clap reactions').pressed, isTrue);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
 
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
       testWidgets(
