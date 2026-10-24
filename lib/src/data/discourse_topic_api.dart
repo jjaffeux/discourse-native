@@ -134,6 +134,7 @@ final class DiscourseTopicApi {
           if (more)
             'more_topics_url': uri
                 .replace(
+                  path: '${Uri.parse(siteUrl).path}${uri.path}',
                   queryParameters: {
                     ...uri.queryParameters,
                     'page': '${page + 1}',
