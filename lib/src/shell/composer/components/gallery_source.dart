@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import 'image_source.dart';
 
@@ -129,7 +130,10 @@ List<ComposerImageGalleryBlock> parseComposerImageGalleries(
   // and a draft of links has brackets enough without one.
   if (!_gridOpener.hasMatch(source)) return const [];
 
-  final code = codeRanges ?? markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = literals.isEmpty
+      ? codeRanges ?? markdownCodeRanges(source)
+      : markdownCodeRanges(literals.mask(source));
   images ??= parseComposerImages(source, codeRanges: code);
   final pairs = <_GalleryTagPair>[];
   final stack = <_OpenGalleryTag>[];
@@ -151,7 +155,9 @@ List<ComposerImageGalleryBlock> parseComposerImageGalleries(
       offset = images[imageIndex].end;
       continue;
     }
-    if (code.contains(opening) || _isEscapedTag(source, opening)) {
+    if (literals.contains(opening) ||
+        code.contains(opening) ||
+        _isEscapedTag(source, opening)) {
       offset = opening + 1;
       continue;
     }

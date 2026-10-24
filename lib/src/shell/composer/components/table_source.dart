@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import 'image_source.dart';
 
@@ -121,7 +122,8 @@ List<ComposerTableBlock> parseComposerTables(String source) {
   // The projection and its input formatter both parse every edit. A pipe in
   // prose is not a table: scan for code only once a header and delimiter
   // pair has to be checked against it.
-  late final code = markdownFenceRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  late final code = markdownFenceRanges(literals.mask(source));
   final lines = <_TableLine?>[];
   var offset = 0;
   for (final text in source.split('\n')) {
@@ -139,6 +141,9 @@ List<ComposerTableBlock> parseComposerTables(String source) {
         delimiter == null ||
         header.cells.length != delimiter.cells.length ||
         !delimiter.cells.every((cell) => _delimiter.hasMatch(cell.text)) ||
+        literals.containsBlock(
+          header.start + header.text.length - header.text.trimLeft().length,
+        ) ||
         code.contains(header.start) ||
         code.contains(delimiter.start)) {
       continue;
@@ -147,7 +152,13 @@ List<ComposerTableBlock> parseComposerTables(String source) {
     var next = index + 2;
     while (next < lines.length) {
       final row = lines[next];
-      if (row == null || code.contains(row.start)) break;
+      if (row == null ||
+          literals.containsBlock(
+            row.start + row.text.length - row.text.trimLeft().length,
+          ) ||
+          code.contains(row.start)) {
+        break;
+      }
       final nextLine = lines.elementAtOrNull(next + 1);
       if (nextLine != null &&
           row.cells.length == nextLine.cells.length &&

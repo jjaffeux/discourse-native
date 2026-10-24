@@ -3,6 +3,7 @@ import 'package:html/parser.dart' as html;
 
 import '../../../models/composer_upload.dart';
 import '../../../models/site_config.dart';
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 
 @immutable
@@ -183,13 +184,20 @@ Iterable<_ImageToken> _imageTokens(
 }) sync* {
   // Every image starts with its opener; without one, skip the markdown scan.
   if (!source.contains('![')) return;
-  final code = codeRanges ?? markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = literals.isEmpty
+      ? codeRanges ?? markdownCodeRanges(source)
+      : markdownCodeRanges(literals.mask(source));
   var offset = 0;
   var paragraphEnd = -1;
   final destinationEnds = <int, int>{};
   while (offset < source.length) {
     final start = source.indexOf('![', offset);
     if (start < 0) break;
+    if (literals.contains(start)) {
+      offset = start + 2;
+      continue;
+    }
 
     // Openers inside this alt share its stopping point, including an unfinished
     // escape or a closer with an invalid destination. None can succeed if this

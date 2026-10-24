@@ -8,6 +8,7 @@ import '../../../data/site_pdf_thumbnail_repository.dart';
 import '../../../models/site_config.dart';
 import '../../../plugin_api/composer_syntax.dart';
 import '../../pdf_attachment.dart';
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import 'quote.dart';
 
@@ -50,7 +51,10 @@ List<ComposerLinkBlock> parseComposerLinks(
   List<String> linkifyTlds = SiteConfig.defaultMarkdownLinkifyTlds,
 }) {
   if (source.isEmpty) return const [];
-  final code = codeRanges ?? markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = literals.isEmpty
+      ? codeRanges ?? markdownCodeRanges(source)
+      : markdownCodeRanges(literals.mask(source));
   final links = <ComposerLinkBlock>[];
   final markdownRanges = <TextRange>[];
   var offset = 0;
@@ -59,9 +63,14 @@ List<ComposerLinkBlock> parseComposerLinks(
   while (offset < source.length) {
     final start = source.indexOf('[', offset);
     if (start < 0) break;
+    if (literals.contains(start)) {
+      offset = start + 1;
+      continue;
+    }
     final candidate = (candidates ??= _markdownLinkCandidates(
       source,
       code,
+      literals,
     ))[start];
     if (candidate == null) {
       offset = start + 1;
@@ -102,6 +111,7 @@ List<ComposerLinkBlock> parseComposerLinks(
           markdownRangeIndex < markdownRanges.length &&
           markdownRanges[markdownRangeIndex].start < end;
       if (end <= start ||
+          literals.contains(start) ||
           code.overlaps(start, end) ||
           overlapsMarkdown ||
           context.isInHtmlOrReference(start) ||
@@ -132,6 +142,7 @@ List<ComposerLinkBlock> parseComposerLinks(
 Map<int, ({int bracket, int end})> _markdownLinkCandidates(
   String source,
   CodeRanges code,
+  ComposerLiteralContainers literals,
 ) {
   final candidates = <int, ({int bracket, int end})>{};
   final labels = <({int start, bool nestedLink})>[];
@@ -145,6 +156,8 @@ Map<int, ({int bracket, int end})> _markdownLinkCandidates(
       offset += 1;
     } else if (unit == 0x0A) {
       labels.clear();
+    } else if ((unit == 0x5B || unit == 0x5D) && literals.contains(offset)) {
+      continue;
     } else if ((unit == 0x5B || unit == 0x5D) && code.contains(offset)) {
       // Code can contain unmatched brackets inside an otherwise valid label.
       // Match its enclosing link so the full range stays excluded below.

@@ -2,6 +2,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 
 @immutable
@@ -66,7 +67,8 @@ String _quoteSummary(String value) {
 /// Complete outer blocks only. Incomplete markup and code examples stay text.
 List<ComposerDetailsBlock> parseComposerDetails(String source) {
   if (!source.toLowerCase().contains('[details')) return const [];
-  final code = markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = markdownCodeRanges(literals.mask(source));
   final blocks = <ComposerDetailsBlock>[];
   final stack = <_DetailsTag>[];
   var offset = 0;
@@ -74,7 +76,7 @@ List<ComposerDetailsBlock> parseComposerDetails(String source) {
     final start = source.indexOf('[', offset);
     if (start < 0) break;
     offset = start + 1;
-    if (code.contains(start)) continue;
+    if (literals.contains(start) || code.contains(start)) continue;
     final tag = _tagAt(source, start);
     if (tag == null) continue;
     offset = tag.end;

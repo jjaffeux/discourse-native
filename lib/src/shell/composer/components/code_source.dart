@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../html_comments.dart';
+
 /// A complete fenced block, retaining its original delimiters and line endings.
 @immutable
 class ComposerCodeBlock {
@@ -74,13 +76,14 @@ String composerCodeMarkdown(String body, {String newline = '\n'}) {
 
 List<ComposerCodeBlock> parseComposerCodeBlocks(String source) {
   if (!source.contains('```') && !source.contains('~~~')) return const [];
+  final syntax = ComposerLiteralContainers(source).mask(source);
   final blocks = <ComposerCodeBlock>[];
   final openingPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})([^\r\n]*)$');
   RegExpMatch? opening;
   var start = 0;
   var bodyStart = 0;
   var offset = 0;
-  for (final rawLine in source.split('\n')) {
+  for (final rawLine in syntax.split('\n')) {
     final line = rawLine.endsWith('\r')
         ? rawLine.substring(0, rawLine.length - 1)
         : rawLine;
