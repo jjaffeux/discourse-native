@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -14,6 +16,8 @@ import 'package:discourse_native/src/shell/topic_move_posts.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
@@ -30,6 +34,116 @@ const _user = DiscourseUser(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final selected in [false, true]) {
+    final path = selected ? 'selected-post' : 'single-post';
+    for (final refreshFails in [false, true]) {
+      test(
+        '$path server OK stays accepted with refresh failure $refreshFails',
+        () async {
+          final requests = <http.Request>[];
+          final ownerApi = DiscourseApi(
+            client: MockClient((request) async {
+              requests.add(request);
+              return http.Response('{"success":"OK"}', 200);
+            }),
+          );
+          addTearDown(ownerApi.close);
+          final (:shell, :api) = await _fixture(ownerApi: ownerApi);
+          if (refreshFails) api.readFailure = StateError('Refresh unavailable');
+
+          final result = await _changeOwner(shell, selected: selected);
+
+          expect(
+            result,
+            isA<PostMutationAccepted>().having(
+              (r) => r.projection,
+              'projection',
+              refreshFails
+                  ? PostProjectionFreshness.stale
+                  : PostProjectionFreshness.fresh,
+            ),
+          );
+          expect(requests, hasLength(1));
+          expect(requests.single.method, 'POST');
+          expect(requests.single.url.path, '/t/7/change-owner.json');
+          expect(jsonDecode(requests.single.body), {
+            'post_ids': selected ? [1, 2] : [1],
+            'username': 'recipient',
+          });
+          final ids = selected ? [1, 2] : [1];
+          expect(api.reads, [ids]);
+          if (refreshFails) {
+            api.readFailure = null;
+            expect(
+              await (result as PostMutationAccepted).recovery!.refresh(),
+              PostProjectionFreshness.fresh,
+            );
+            expect(requests, hasLength(1));
+          }
+          for (final id in ids) {
+            expect(shell.store.read<Post>(_site, id)?.username, 'recipient');
+            expect(shell.postWriteInFlight(id, siteUrl: _site), isFalse);
+          }
+        },
+      );
+    }
+
+    for (final status in [200, 400, 403, 422]) {
+      test(
+        '$path does not accept a failed owner acknowledgment with HTTP $status',
+        () async {
+          final ownerApi = DiscourseApi(
+            client: MockClient(
+              (_) async => http.Response(
+                status == 400
+                    ? '{"errors":["Invalid owner"]}'
+                    : '{"failed":"FAILED"}',
+                status,
+              ),
+            ),
+          );
+          addTearDown(ownerApi.close);
+          final (:shell, :api) = await _fixture(ownerApi: ownerApi);
+          final result = await _changeOwner(shell, selected: selected);
+
+          expect(
+            result,
+            (status == 200 || status == 422)
+                ? isA<PostMutationUncertain>()
+                : isA<PostMutationRefused>(),
+          );
+          expect(api.writes, 1);
+          expect(shell.store.read<Post>(_site, 1)?.username, 'author');
+          if (status == 400 || status == 403) expect(api.reads, isEmpty);
+        },
+      );
+    }
+
+    for (final notSent in [false, true]) {
+      test(
+        '$path owner transport failure preserves notSent $notSent',
+        () async {
+          final ownerApi = DiscourseApi(
+            client: MockClient((_) async {
+              if (notSent) throw const HandshakeException('TLS unavailable');
+              throw http.ClientException('Response lost');
+            }),
+          );
+          addTearDown(ownerApi.close);
+          final (:shell, :api) = await _fixture(ownerApi: ownerApi);
+
+          expect(
+            await _changeOwner(shell, selected: selected),
+            notSent ? isA<PostMutationNotSent>() : isA<PostMutationUncertain>(),
+          );
+          expect(api.writes, 1);
+          if (notSent) expect(api.reads, isEmpty);
+          expect(shell.store.read<Post>(_site, 1)?.username, 'author');
+        },
+      );
+    }
+  }
 
   for (final notSent in [false, true]) {
     test(
@@ -500,8 +614,12 @@ void main() {
 Future<({ShellController shell, _MutationApi api})> _fixture({
   bool initiallyDeleted = false,
   FakeAuthenticator? authenticator,
+  DiscourseApi? ownerApi,
 }) async {
-  final api = _MutationApi(initiallyDeleted: initiallyDeleted);
+  final api = _MutationApi(
+    initiallyDeleted: initiallyDeleted,
+    ownerApi: ownerApi,
+  );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: _user),
@@ -520,6 +638,25 @@ Future<({ShellController shell, _MutationApi api})> _fixture({
   await shell.loadTopic(7, 'topic');
   shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
   return (shell: shell, api: api);
+}
+
+Future<PostMutationOutcome> _changeOwner(
+  ShellController shell, {
+  required bool selected,
+}) {
+  if (selected) {
+    shell.setTopicPostSelectionEnabled(_site, 7, true);
+    shell.toggleTopicPostSelected(_site, 7, 1);
+    shell.toggleTopicPostSelected(_site, 7, 2);
+  }
+  final target = shell.captureTopicPostOwnerTarget(
+    siteUrl: _site,
+    topicId: 7,
+    postId: selected ? null : 1,
+  );
+  return selected
+      ? shell.changeSelectedTopicPostOwner(target, 'recipient')
+      : shell.changeTopicPostOwner(target, 'recipient');
 }
 
 Future<void> _openOwner(
@@ -587,9 +724,10 @@ Future<void> _submit(WidgetTester tester) async {
 }
 
 class _MutationApi extends FakeDiscourseApi {
-  _MutationApi({this.initiallyDeleted = false})
+  _MutationApi({this.initiallyDeleted = false, this.ownerApi})
     : super(user: _user, feeds: const {'/latest.json': []});
   final bool initiallyDeleted;
+  final DiscourseApi? ownerApi;
   Object? _mutationError;
   Object? readFailure;
   Object? topicFailure;
@@ -682,6 +820,14 @@ class _MutationApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     await _write();
+    await ownerApi?.changePostOwners(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      topicId: topicId,
+      postIds: postIds,
+      username: username,
+      clientId: clientId,
+    );
     this.username = username;
   }
 

@@ -5571,12 +5571,12 @@ void _writeGroups() {
       });
     });
 
-    test('changes ownership through the topic route', () async {
+    test('changes ownership with the server success OK marker', () async {
       late http.Request sent;
       final api = DiscourseApi(
         client: MockClient((request) async {
           sent = request;
-          return http.Response(jsonEncode({'success': true}), 200);
+          return http.Response(jsonEncode({'success': 'OK'}), 200);
         }),
       );
 
@@ -5595,6 +5595,74 @@ void _writeGroups() {
         'username': 'kris',
       });
     });
+
+    for (final response in [
+      '{}',
+      '{"success":true}',
+      '{"success":false}',
+      '{"success":"FAILED"}',
+      '{"failed":"FAILED"}',
+      '{"success":"ok"}',
+      '[]',
+      'invalid json',
+      '',
+    ]) {
+      test('rejects an unconfirmed owner response $response', () async {
+        final api = DiscourseApi(
+          client: MockClient((_) async => http.Response(response, 200)),
+        );
+
+        await expectLater(
+          api.changePostOwners(
+            siteUrl: 'https://meta.discourse.org',
+            apiKey: 'the-key',
+            topicId: 7,
+            postIds: const [42],
+            username: 'kris',
+          ),
+          throwsA(
+            isA<WriteException>()
+                .having((e) => e.failure, 'failure', WriteFailure.unreachable)
+                .having((e) => e.notSent, 'notSent', isFalse),
+          ),
+        );
+      });
+    }
+
+    for (final status in [400, 403, 422]) {
+      test('preserves an owner failure with HTTP $status', () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              status == 400
+                  ? '{"errors":["Invalid owner"]}'
+                  : '{"failed":"FAILED"}',
+              status,
+            ),
+          ),
+        );
+
+        await expectLater(
+          api.changePostOwners(
+            siteUrl: 'https://meta.discourse.org',
+            apiKey: 'the-key',
+            topicId: 7,
+            postIds: const [42],
+            username: 'kris',
+          ),
+          throwsA(
+            isA<WriteException>()
+                .having((e) => e.failure, 'failure', switch (status) {
+                  400 => WriteFailure.validation,
+                  403 => WriteFailure.forbidden,
+                  _ => WriteFailure.unreachable,
+                })
+                .having((e) => e.statusCode, 'statusCode', status)
+                .having((e) => e.notSent, 'notSent', isFalse),
+          ),
+        );
+      });
+    }
   });
 
   group('updatePostWiki', () {
