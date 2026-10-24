@@ -222,7 +222,7 @@ void main() {
         ('`', r'\`', true),
       ])
         (
-          source: 'text $before\n$legacy\n$after',
+          source: 'text $before\n$legacy\ntext $after',
           event: false,
           code: code,
           editable: !code,
