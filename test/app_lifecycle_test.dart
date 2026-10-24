@@ -330,6 +330,58 @@ void main() {
       expect(api.closeCalls, 1);
     });
 
+    testWidgets('a superseded bootstrap cannot load or enter app ready', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final lifecycle = _GatedBootstrapLifecycle(gate.future);
+      final oldStore = _CountingInstanceStore();
+      final newStore = _CountingInstanceStore();
+      final api = FakeDiscourseApi();
+      final authenticator = FakeAuthenticator();
+      final drafts = FakeDraftStore();
+      final tabs = FakeForumTabStore();
+      final trackers = FakeSiteTracker.reset();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+      final oldManifest = PluginManifest([
+        _LifecycleTestModule('gated-bootstrap', lifecycle),
+      ]);
+      const newManifest = PluginManifest([]);
+      DiscourseApp app({required bool replacement}) => DiscourseApp(
+        store: replacement ? newStore : oldStore,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: tabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        pluginManifest: replacement ? newManifest : oldManifest,
+      );
+      try {
+        await tester.pumpWidget(app(replacement: false));
+        await tester.pump();
+        expect(lifecycle.phases, [PluginStartupPhase.bootstrap]);
+        expect(oldStore.loads, 0);
+
+        await tester.pumpWidget(app(replacement: true));
+        await tester.pumpAndSettle();
+        expect(newStore.loads, 1);
+        expect(_controller(tester).loadStatus, InstanceLoadStatus.ready);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(oldStore.loads, 0);
+        expect(lifecycle.phases, [PluginStartupPhase.bootstrap]);
+        expect(newStore.loads, 1);
+      } finally {
+        if (!gate.isCompleted) gate.complete();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+    });
+
     testWidgets('loads the sites when a plugin fails to boot', (tester) async {
       final manifest = PluginManifest([
         _LifecycleTestModule('lifecycle-broken', _BrokenBootstrapLifecycle()),
@@ -865,5 +917,31 @@ final class _GatedAuthenticator extends FakeAuthenticator {
 
   void release() {
     if (!_release.isCompleted) _release.complete();
+  }
+}
+
+final class _GatedBootstrapLifecycle extends PluginAppLifecycle {
+  _GatedBootstrapLifecycle(this.gate);
+
+  final Future<void> gate;
+  final phases = <PluginStartupPhase>[];
+
+  @override
+  Future<void> startPhase(
+    PluginStartupPhase phase,
+    PluginHostBindings bindings,
+  ) async {
+    phases.add(phase);
+    if (phase == PluginStartupPhase.bootstrap) await gate;
+  }
+}
+
+final class _CountingInstanceStore extends FakeInstanceStore {
+  int loads = 0;
+
+  @override
+  Future<List<DiscourseInstance>> load() {
+    loads++;
+    return super.load();
   }
 }
