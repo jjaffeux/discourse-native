@@ -223,6 +223,39 @@ void main() {
       expect(controller.text, document);
     });
 
+    testWidgets(
+      'projects a root poll after list code while keeping examples raw',
+      (tester) async {
+        const document =
+            '- example\n\n'
+            '  [code]\n  [poll]\n  * C\n  * D\n  [/poll]\n  [/code]\n\n'
+            '- item\n  [code]\n'
+            '$source\n[/code]';
+        final controller = MarkdownEditingController(
+          text: document,
+          syntaxPolicies: const [PollComposerSyntaxPolicy()],
+        );
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark,
+            home: Scaffold(body: DTextarea(controller: controller)),
+          ),
+        );
+
+        expect(controller.pollBlocks.map((poll) => poll.name), ['lunch']);
+        final active = controller.pollBlocks.single;
+        expect(active.start, document.indexOf(source));
+        expect(active.end, active.start + source.length);
+        expect(active.source, source);
+        expect(controller.isPollCollapsed(active), isTrue);
+        expect(find.byType(PollComposerPill), findsOneWidget);
+        expect(nextPollName(document), 'poll');
+        expect(controller.text, document);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('keeps examples raw while projecting the active poll', (
       tester,
     ) async {

@@ -230,6 +230,115 @@ void main() {
       },
     );
 
+    test(
+      'preserves exact active polls after list-contained code and fences',
+      () {
+        for (final newline in const ['\n', '\r\n']) {
+          final poll = '[poll]\n* A\n* B\n[/poll]'.replaceAll('\n', newline);
+          for (final (marker, indent) in const [
+            ('- a', '  '),
+            ('1. a', '   '),
+          ]) {
+            for (final blankBefore in const ['', '\n']) {
+              for (final blankAfter in const ['', '\n']) {
+                for (final opener in const ['[code]', '```']) {
+                  final prefix =
+                      '$marker\n$blankBefore$indent$opener\n$blankAfter'
+                          .replaceAll('\n', newline);
+                  final source = '$prefix$poll${newline}[/code]';
+                  final blocks = parsePollComposerBlocks(source);
+                  expect(blocks, hasLength(1), reason: source);
+                  final block = blocks.single;
+                  expect(block.start, prefix.length, reason: source);
+                  expect(
+                    block.end,
+                    prefix.length + poll.length,
+                    reason: source,
+                  );
+                  expect(block.source, poll, reason: source);
+                  expect(block.lineEnding, newline, reason: source);
+                  expect(pollNamesInComposerSource(source), {
+                    'poll',
+                  }, reason: source);
+                  expect(nextPollName(source), 'poll2', reason: source);
+                }
+              }
+            }
+          }
+        }
+      },
+    );
+
+    test('keeps indented root and list-contained code examples literal', () {
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      for (final indent in const ['  ', '   ']) {
+        final source = '$indent[code]\n$poll\n[/code]';
+        expect(parsePollComposerBlocks(source), isEmpty, reason: source);
+        expect(pollNamesInComposerSource(source), isEmpty, reason: source);
+        expect(nextPollName(source), 'poll', reason: source);
+      }
+      for (final (marker, indent) in const [('- a', '  '), ('1. a', '   ')]) {
+        final example = '$indent${poll.replaceAll('\n', '\n$indent')}';
+        final prefix = '$marker\n\n$indent[code]\n$example\n$indent[/code]\n\n';
+        final source = '${prefix}[poll name=live]\n* C\n* D\n[/poll]';
+        final block = parsePollComposerBlocks(source).single;
+        expect(block.start, prefix.length, reason: source);
+        expect(block.end, source.length, reason: source);
+        expect(block.source, source.substring(prefix.length), reason: source);
+        expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+        expect(nextPollName(source), 'poll', reason: source);
+      }
+    });
+
+    test('list boundaries agree with the bundled cooker', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      for (final newline in const ['\n', '\r\n']) {
+        for (final (before, after, active) in const [
+          ('- a\n\n  [code]', '[/code]', true),
+          ('- a\n  [code]', '[/code]', true),
+          ('- a\n\n  [code]\n', '[/code]', true),
+          ('- a\n  [code]\n', '[/code]', true),
+          ('1. a\n\n   [code]', '[/code]', true),
+          ('1. a\n   [code]', '[/code]', true),
+          ('1. a\n\n   [code]\n', '[/code]', true),
+          ('1. a\n   [code]\n', '[/code]', true),
+          ('- a\n\n  ```', '', true),
+          ('- a\n  ```', '', true),
+          ('1. a\n\n   ```', '', true),
+          ('1. a\n   ```', '', true),
+          ('  [code]', '[/code]', false),
+          ('   [code]', '[/code]', false),
+        ]) {
+          final source = '$before\n$poll\n$after'.replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(result.html.contains('class="poll"'), active, reason: source);
+          expect(
+            parsePollComposerBlocks(source).isNotEmpty,
+            active,
+            reason: source,
+          );
+          expect(
+            pollNamesInComposerSource(source),
+            active ? {'poll'} : <String>{},
+            reason: source,
+          );
+        }
+      }
+    });
+
     test('preserves active polls at quote boundaries', () {
       const poll = '[poll name=live]\n* A\n* B\n[/poll]';
       for (final quote in const [
