@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/post_permanent_delete.dart';
@@ -328,6 +329,80 @@ void main() {
     );
   }
 
+  for (final permanentFirst in [false, true]) {
+    testWidgets(
+      '${permanentFirst ? 'permanent deletion' : 'ordinary recovery'} holds the shared topic admission',
+      (tester) async {
+        final api = _DeletionApi();
+        final controller = await _openTopic(tester, api);
+        controller.store.update<TopicDetail>(
+          _siteA,
+          7,
+          (topic) => topic.copyWith(canRecoverTopic: true),
+        );
+        final target = controller.capturePostPermanentDeleteTarget(
+          siteUrl: _siteA,
+          topicId: 7,
+          post: controller.store.read<Post>(_siteA, 1)!,
+        );
+        Future<Object?> firstAction() => permanentFirst
+            ? controller.permanentlyDeletePost(target)
+            : controller.setTopicDeleted(_siteA, 7, false);
+        Future<Object?> secondAction() => permanentFirst
+            ? controller.setTopicDeleted(_siteA, 7, false)
+            : controller.permanentlyDeletePost(target);
+
+        final firstGate = Completer<void>();
+        api.nextWrite = firstGate;
+        api.deletionFailure = const WriteException(WriteFailure.forbidden);
+        final first = firstAction();
+        await tester.pump();
+        expect(controller.topicDeletionWriteInFlight(_siteA, 7), isTrue);
+        expect(api.topicDeletes.length + api.recoveries.length, 1);
+        if (permanentFirst) {
+          expect(
+            await secondAction(),
+            'Another topic action is still finishing.',
+          );
+        } else {
+          final blocked = await secondAction();
+          expect(blocked, isA<PostMutationNotSent>());
+          expect(
+            (blocked! as PostMutationNotSent).problem.kind,
+            PostMutationProblemKind.busyTopic,
+          );
+        }
+        expect(api.topicDeletes.length + api.recoveries.length, 1);
+        expect(controller.topicDeletionWriteInFlight(_siteA, 7), isTrue);
+
+        firstGate.complete();
+        await tester.pump();
+        expect(
+          await first,
+          permanentFirst ? isA<PostMutationRefused>() : isA<String>(),
+        );
+        expect(controller.topicDeletionWriteInFlight(_siteA, 7), isFalse);
+
+        api.deletionFailure = null;
+        final retryGate = Completer<void>();
+        api.nextWrite = retryGate;
+        final retry = secondAction();
+        await tester.pump();
+        expect(api.topicDeletes, hasLength(1));
+        expect(api.recoveries, hasLength(1));
+        expect(controller.topicDeletionWriteInFlight(_siteA, 7), isTrue);
+        retryGate.complete();
+        await tester.pumpAndSettle();
+        expect(
+          await retry,
+          permanentFirst ? isNull : isA<PostMutationAccepted>(),
+        );
+        expect(controller.topicDeletionWriteInFlight(_siteA, 7), isFalse);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+  }
+
   for (final change in ['account', 'permission']) {
     testWidgets('topic deletion rechecks $change after reading the client ID', (
       tester,
@@ -500,6 +575,7 @@ class _DeletionApi extends FakeDiscourseApi {
   WriteException? deletionFailure;
   final checks = <({String siteUrl, String apiKey, int postId})>[];
   final topicDeletes = <({String siteUrl, String apiKey, int topicId})>[];
+  final recoveries = <({String siteUrl, String apiKey, int topicId})>[];
   final postDeletes =
       <({String siteUrl, String apiKey, int topicId, int postId})>[];
   final refreshes = <({String siteUrl, String? apiKey, int topicId})>[];
@@ -561,6 +637,17 @@ class _DeletionApi extends FakeDiscourseApi {
     nextWrite = null;
     if (held != null) await held.future;
     if (deletionFailure case final failure?) throw failure;
+  }
+
+  @override
+  Future<void> recoverTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) async {
+    recoveries.add((siteUrl: siteUrl, apiKey: apiKey, topicId: topicId));
+    await _write();
   }
 
   @override
