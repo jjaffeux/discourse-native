@@ -35,7 +35,7 @@ void main() {
       for (final image in images) {
         expect(source.substring(image.start, image.end), image.source);
       }
-      _expectLegacyImages(source);
+      _expectLegacyUnescapedImages(source);
     });
 
     test('recovers images after invalid labels, destinations, and titles', () {
@@ -53,11 +53,10 @@ void main() {
         '![bad\n![after](upload://ok)',
         r'![outer \![inner](upload://ok)',
         r'![even\\](upload://ok) ![odd\] alt](upload://two)',
-        r'\![escaped opener](upload://ok)',
       ];
       for (final source in sources) {
         expect(parseComposerImages(source), isNotEmpty, reason: source);
-        _expectLegacyImages(source);
+        _expectLegacyUnescapedImages(source);
       }
     });
 
@@ -78,7 +77,7 @@ void main() {
         '![x\u2029alt](upload://a)',
       ]) {
         expect(parseComposerImages(source), isEmpty, reason: source);
-        _expectLegacyImages(source);
+        _expectLegacyUnescapedImages(source);
       }
     });
 
@@ -94,10 +93,10 @@ void main() {
         'upload://six',
         'upload://seven',
       ]);
-      _expectLegacyImages(source);
+      _expectLegacyUnescapedImages(source);
     });
 
-    test('agrees with the previous parser on generated mixed input', () {
+    test('matches legacy syntax for unescaped images', () {
       const pieces = [
         '![',
         '![a',
@@ -151,7 +150,7 @@ void main() {
           1 + random.nextInt(20),
           (_) => pieces[random.nextInt(pieces.length)],
         ).join();
-        if (_expectLegacyImages(source) > 0) {
+        if (_expectLegacyUnescapedImages(source) > 0) {
           withImages += 1;
         } else {
           withoutImages += 1;
@@ -263,9 +262,9 @@ _ImageValue _value(ComposerImageBlock image) => (
   scale: image.scale,
 );
 
-int _expectLegacyImages(String source) {
+int _expectLegacyUnescapedImages(String source) {
   final code = CodeRanges.of(scanMarkdown(source));
-  final expected = _legacyImages(source, code);
+  final expected = _legacyUnescapedImages(source, code);
   expect(
     parseComposerImages(source).map(_value),
     expected,
@@ -274,15 +273,13 @@ int _expectLegacyImages(String source) {
   for (final ranges in [code, CodeRanges.none]) {
     expect(
       parseComposerImages(source, codeRanges: ranges).map(_value),
-      _legacyImages(source, ranges),
+      _legacyUnescapedImages(source, ranges),
       reason: 'source: ${source.codeUnits}; code: ${ranges.ranges.toList()}',
     );
   }
   return expected.length;
 }
 
-// Keep the previous syntax as an independent oracle. Generated inputs stay
-// short; malformed long-input behavior belongs in the scaling tests above.
 final _legacyImagePattern = RegExp(
   r'!\[((?:\\.|[^\\\]\n])*)\]\(((?:upload://|https?://)[^)\s]+)(?:\s+"[^"]*")?\)',
   caseSensitive: false,
@@ -291,10 +288,18 @@ final _legacyLabelPattern = RegExp(
   r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
 );
 
-List<_ImageValue> _legacyImages(String source, CodeRanges code) {
+List<_ImageValue> _legacyUnescapedImages(String source, CodeRanges code) {
   final images = <_ImageValue>[];
   for (final match in _legacyImagePattern.allMatches(source)) {
-    if (code.overlaps(match.start, match.end)) continue;
+    var slashes = 0;
+    for (
+      var at = match.start - 1;
+      at >= 0 && source.codeUnitAt(at) == 0x5c;
+      at--
+    ) {
+      slashes++;
+    }
+    if (slashes.isOdd || code.overlaps(match.start, match.end)) continue;
     final label = _legacyLabelPattern.firstMatch(match.group(1)!);
     if (label == null) continue;
     final width = int.tryParse(label.group(2) ?? '');
