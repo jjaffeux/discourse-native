@@ -106,7 +106,7 @@ void main() {
     }
 
     for (final cache in _SearchableGroupCache.values) {
-      test('revokes delayed ${cache.name} pages', () async {
+      test('settles delayed ${cache.name} pages after rename', () async {
         final transport = _ControlledGroupTransport()
           ..onWrite = (_) => canonical;
         final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
@@ -124,10 +124,164 @@ void main() {
         );
         response.complete(cache.page(7));
         await oldRead;
-        expect(cache.ids(controller, _site, ''), isEmpty);
+        if (cache == _SearchableGroupCache.directory) {
+          final directory = controller.directoryState(
+            _site,
+            const GroupDirectoryQuery(),
+          );
+          expect(directory.loaded, isTrue);
+          expect(directory.loading, isFalse);
+          expect(directory.groups.single.name, 'canonical');
+          transport.objects.add(
+            _completed({
+              'groups': [
+                {'id': 7, 'name': 'reconciled'},
+              ],
+              'total_rows_groups': 1,
+            }),
+          );
+          await controller.loadDirectory(
+            _connectedInstance,
+            const GroupDirectoryQuery(),
+            refresh: true,
+          );
+          expect(
+            controller
+                .directoryState(_site, const GroupDirectoryQuery())
+                .groups
+                .single
+                .name,
+            'reconciled',
+          );
+        } else {
+          expect(cache.ids(controller, _site, ''), isEmpty);
+        }
         expect(
           controller.detailState(_site, 'canonical').detail?.group.name,
           'canonical',
+        );
+      });
+    }
+
+    test(
+      'rename preserves another site directory and pending refresh',
+      () async {
+        const other = DiscourseInstance(
+          url: 'https://other.example',
+          title: 'Other',
+        );
+        const query = GroupDirectoryQuery();
+        final response = Completer<Map<String, dynamic>>();
+        final page = _SearchableGroupCache.directory.page(7);
+        final transport = _ControlledGroupTransport()
+          ..onWrite = ((_) => canonical)
+          ..objects.addAll([_completed(page), response]);
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        await controller.loadDirectory(other, query);
+        final pending = controller.loadDirectory(other, query, refresh: true);
+        await pumpEventQueue();
+        final held = controller.directoryState(other.url, query);
+        transport.objects.add(_completed(canonical));
+        await controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {'name': 'requested'}),
+        );
+        expect(controller.directoryState(other.url, query), same(held));
+        response.complete(page);
+        await pending;
+        final completed = controller.directoryState(other.url, query);
+        expect(completed.loaded, isTrue);
+        expect(completed.loading, isFalse);
+        expect(completed.groups.single.name, 'group-7');
+      },
+    );
+
+    for (final more in [false, true]) {
+      test('rename preserves a loaded directory during '
+          '${more ? 'pagination' : 'refresh'}', () async {
+        final transport = _ControlledGroupTransport()
+          ..onWrite = ((_) => canonical)
+          ..objects.add(
+            _completed({
+              'groups': [
+                {'id': 7, 'name': 'support'},
+                {'id': 8, 'name': 'unrelated'},
+              ],
+              'extras': {
+                'type_filters': ['public'],
+              },
+              'total_rows_groups': 4,
+              'load_more_groups': '/groups?page=1',
+            }),
+          );
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        const query = GroupDirectoryQuery();
+        await controller.loadDirectory(_connectedInstance, query);
+        final held = controller.directoryState(_site, query);
+        final unrelated = held.groups.last;
+        final response = Completer<Map<String, dynamic>>();
+        transport.objects.add(response);
+        final pending = controller.loadDirectory(
+          _connectedInstance,
+          query,
+          refresh: !more,
+          more: more,
+        );
+        await pumpEventQueue();
+        transport.objects.add(_completed(canonical));
+        await controller.updateGroup(
+          _connectedInstance,
+          original,
+          GroupUpdateCommand(const {'name': 'requested'}),
+        );
+        final projected = controller.directoryState(_site, query);
+        expect(projected.loaded, isTrue);
+        expect(projected.loading, !more);
+        expect(projected.loadingMore, more);
+        expect(projected.hasMore, held.hasMore);
+        expect(projected.nextPage, held.nextPage);
+        expect(projected.totalRows, held.totalRows);
+        expect(projected.typeFilters, held.typeFilters);
+        expect(projected.groups.map((group) => group.name), [
+          'canonical',
+          'unrelated',
+        ]);
+        expect(projected.groups.last, same(unrelated));
+        expect(held.groups.first.name, 'support');
+        response.complete({
+          'groups': [
+            {'id': 7, 'name': 'support'},
+            {'id': 8, 'name': 'unrelated'},
+            {'id': 10, 'name': 'another'},
+          ],
+          'total_rows_groups': 3,
+        });
+        await pending;
+        final completed = controller.directoryState(_site, query);
+        expect(completed.loaded, isTrue);
+        expect(completed.loading, isFalse);
+        expect(completed.loadingMore, isFalse);
+        expect(completed.groups.map((group) => group.name), [
+          'canonical',
+          'unrelated',
+          'another',
+        ]);
+        expect(completed.nextPage, more ? 2 : 1);
+        expect(completed.hasMore, isFalse);
+        expect(
+          transport.gets.where(
+            (request) => request.path.startsWith('/groups.json'),
+          ),
+          hasLength(2),
         );
       });
     }

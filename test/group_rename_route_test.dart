@@ -102,8 +102,27 @@ void main() {
           if (destination == 'other tab') {
             shell.selectTab('other');
           }
+          final directoryCoordinator = GroupPagesCoordinator();
+          addTearDown(directoryCoordinator.dispose);
           if (destination == 'directory') {
             shell.pushContent(ContentRoute.group(const GroupRoute.directory()));
+            directoryCoordinator.bind(
+              port,
+              GroupPagesRouteSnapshot(
+                owner: owner,
+                routeId: shell.currentContent!.id,
+                groupNamespace: true,
+                route: const GroupRoute.directory(),
+                canPopContent: true,
+              ),
+            );
+            await directoryCoordinator.requestLoad();
+            expect(
+              port
+                  .directoryState(owner, directoryCoordinator.directoryQuery)
+                  .loaded,
+              isTrue,
+            );
           }
           if (destination == 'retired') {
             shell.lifecycle.invalidate(_site);
@@ -115,6 +134,19 @@ void main() {
           final openingBefore = shell.currentWorkspace!.tabById('opening')!;
           server.release.complete();
           final result = await pending;
+          if (destination == 'directory') {
+            await directoryCoordinator.requestLoad();
+            final directory = port.directoryState(
+              owner,
+              directoryCoordinator.directoryQuery,
+            );
+            expect(directory.loaded, isTrue);
+            expect(directory.groups.map((group) => group.name), [
+              'canonical',
+              'unrelated',
+            ]);
+            expect(server.directoryLoads, 1);
+          }
           expect(
             result,
             isA<GroupWriteAccepted<Group>>().having(
@@ -258,6 +290,7 @@ final class _Server {
   _Server({required this.confirm});
   final bool confirm;
   int writes = 0;
+  int directoryLoads = 0;
   final started = Completer<void>();
   final release = Completer<void>();
   late final api = DiscourseApi(
@@ -290,6 +323,7 @@ final class _Server {
       if (request.url.path == '/groups/canonical.json') {
         return http.Response('{}', 500);
       }
+      if (request.url.path == '/groups.json') directoryLoads++;
       final Object body = switch (request.url.path) {
         '/session/current.json' => {
           'current_user': {'id': 7, 'username': 'reader', 'admin': true},
@@ -301,7 +335,13 @@ final class _Server {
         '/groups/support.json' => {
           'group': {'id': 9, 'name': 'support', 'can_admin_group': true},
         },
-        '/groups.json' => {'groups': <Object?>[]},
+        '/groups.json' => {
+          'groups': [
+            {'id': 9, 'name': 'support'},
+            {'id': 10, 'name': 'unrelated'},
+          ],
+          'total_rows_groups': 2,
+        },
         '/latest.json' => {
           'topic_list': {'topics': <Object?>[]},
         },
