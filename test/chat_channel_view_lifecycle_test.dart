@@ -1796,6 +1796,131 @@ void main() {
       );
     }
 
+    for (final forward in [false, true]) {
+      testWidgets(
+        'history page retains mounted HTML and viewport anchor forward $forward',
+        (tester) async {
+          final api = _ChatApi(openPages: const {});
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          final messages = [for (var id = 1; id <= 80; id++) _message(id)];
+          controller.chatRecords
+            ..put(firstSite, _channel(lastRead: 80))
+            ..putAll(firstSite, messages);
+          Widget view(List<ChatMessage> page) => _TestStreamView(
+            controller: controller,
+            messages: page,
+            stream: ChatStreamState(
+              messageIds: [for (final message in page) message.id],
+              fetchedOnce: true,
+              fetches: 1,
+              canLoadMoreFuture: forward,
+            ),
+          );
+          final held = forward
+              ? messages.take(40).toList()
+              : messages.skip(40).toList();
+          await tester.pumpWidget(view(held));
+          await tester.pumpAndSettle();
+          final position = tester
+              .state<ScrollableState>(_verticalChatScroll())
+              .position;
+          if (!forward) {
+            position.jumpTo(320);
+            await tester.pumpAndSettle();
+          }
+          final seen = _visibleMessageTops(tester);
+          final html = find.byType(CookedHtml).evaluate().toSet();
+          expect(seen, isNotEmpty);
+          expect(html, isNotEmpty);
+          await tester.pumpWidget(view(messages));
+          await tester.pumpAndSettle();
+          final after = _visibleMessageTops(tester);
+          if (forward) {
+            expect(after.keys, containsAll(seen.keys));
+            final anchor = find.byKey(const ValueKey('chat-message-40'));
+            expect(
+              tester.getBottomLeft(anchor).dy,
+              closeTo(tester.getRect(_verticalChatScroll()).bottom, 0.1),
+            );
+          } else {
+            _expectSameTops(after, seen);
+          }
+          expect(html.every((element) => element.mounted), isTrue);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('a day landing supersedes a staged forward-page correction', (
+      tester,
+    ) async {
+      final api = _ChatApi(openPages: const {});
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      final messages = [for (var id = 1; id <= 80; id++) _message(id)];
+      controller.chatRecords
+        ..put(firstSite, _channel(lastRead: 80))
+        ..putAll(firstSite, messages);
+      Widget view(List<ChatMessage> page) => _TestStreamView(
+        controller: controller,
+        messages: page,
+        stream: ChatStreamState(
+          messageIds: [for (final message in page) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+          canLoadMoreFuture: true,
+        ),
+      );
+      await tester.pumpWidget(view(messages.take(40).toList()));
+      await tester.pumpAndSettle();
+      final day = tester
+          .widgetList<StreamDaySeparator>(find.byType(StreamDaySeparator))
+          .singleWhere((separator) => separator.floating);
+      tester.binding.addPostFrameCallback((_) => day.onTap!());
+      await tester.pumpWidget(view(messages));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-message-1')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a deferred Home correction cannot move a replacement thread', (
+      tester,
+    ) async {
+      final api = _ChatApi(openPages: const {});
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      final messages = [for (var id = 1; id <= 80; id++) _message(id)];
+      controller.chatRecords
+        ..put(firstSite, _channel(lastRead: 80))
+        ..putAll(firstSite, messages);
+      Widget view(ChatStreamTarget target) => _TestStreamView(
+        controller: controller,
+        messages: messages,
+        target: target,
+        stream: ChatStreamState(
+          messageIds: [for (final message in messages) message.id],
+          fetchedOnce: true,
+          fetches: 1,
+        ),
+      );
+      await tester.pumpWidget(view(const ChatChannelTarget(9)));
+      await tester.pumpAndSettle();
+      final position = tester
+          .state<ScrollableState>(_verticalChatScroll())
+          .position;
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpWidget(
+        view(const ChatThreadTarget(channelId: 9, threadId: 3)),
+      );
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('jump to latest is a named compact keyboard target', (
       tester,
     ) async {

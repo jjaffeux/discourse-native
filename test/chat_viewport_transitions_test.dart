@@ -97,9 +97,11 @@ void main() {
     expect(change.forwardAnchorId, 3);
     expect(change.holdArrival, isFalse);
     expect(owner.presentState(0).pendingCount, 0);
-    expect(owner.isCurrentWindow(page), isTrue);
+    final landing = owner.beginForwardPage();
+    expect(owner.isCurrentLanding(landing), isTrue);
     owner.observeWindow(page, _window(ids: [1, 2, 3, 4, 5]));
-    expect(owner.isCurrentWindow(page), isFalse);
+    expect(owner.isCurrentLanding(landing), isFalse);
+    expect(owner.anchoring, isFalse);
   });
 
   test('replacement fetches neither count live arrivals nor retain a page', () {
@@ -151,4 +153,46 @@ void main() {
       expect(owner.isCurrentDayJump(day), isFalse);
     },
   );
+  test('route replacement retires deferred boundary correction', () {
+    final owner = ChatViewportTransitions();
+    final boundary = owner.beginBoundaryJump();
+    owner.observeWindow(_window(), _window(route: _thread));
+    expect(owner.isCurrentBoundaryJump(boundary), isFalse);
+  });
+
+  test('two landings in one fetch have separate cancellation identities', () {
+    final owner = ChatViewportTransitions();
+    final first = owner.beginLanding();
+    final second = owner.beginLanding();
+    expect(owner.isCurrentLanding(first), isFalse);
+    expect(owner.isCurrentLanding(second), isTrue);
+    expect(owner.settleLanding(first), isFalse);
+    expect(owner.anchoring, isTrue);
+    expect(owner.settleLanding(second), isTrue);
+  });
+  test(
+    'replacement fetch cancels day navigation but history paging does not',
+    () {
+      final owner = ChatViewportTransitions();
+      final old = _window();
+      final day = owner.beginDayJump();
+      owner.observeWindow(old, _window(ids: [0, 1, 2, 3]));
+      expect(owner.isCurrentDayJump(day), isTrue);
+      owner.observeWindow(old, _window(fetches: 2));
+      expect(owner.isCurrentDayJump(day), isFalse);
+    },
+  );
+  test('retirement cancels every deferred operation', () {
+    final owner = ChatViewportTransitions();
+    final landing = owner.beginLanding();
+    final arrival = owner.beginArrivalHold();
+    final day = owner.beginDayJump();
+    final boundary = owner.beginBoundaryJump();
+    owner.retire();
+    expect(owner.isCurrentLanding(landing), isFalse);
+    expect(owner.isCurrentArrival(arrival), isFalse);
+    expect(owner.isCurrentDayJump(day), isFalse);
+    expect(owner.isCurrentBoundaryJump(boundary), isFalse);
+    expect(owner.anchoring, isFalse);
+  });
 }

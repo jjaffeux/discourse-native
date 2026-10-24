@@ -1033,17 +1033,17 @@ class _StreamState extends State<ChatMessageStream>
     final row = _rowOf(was);
     if (row == null) return;
 
-    final window = _viewportWindow(widget);
-    _viewport.beginLanding();
+    final token = _viewport.beginForwardPage();
     // New row heights exist only after layout.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_viewport.isCurrentWindow(window)) return;
+      if (!mounted || !_viewport.isCurrentLanding(token)) return;
       _landOn(row, alignment: 0);
     });
   }
 
   @override
   void dispose() {
+    _viewport.retire();
     WidgetsBinding.instance.removeObserver(this);
     _headerGeometry?.removeListener(_scheduleLook);
     _shell?.removeListener(_handleShellChanged);

@@ -41,32 +41,32 @@ final class ChatViewportChange {
 final class ChatViewportTransitions {
   ChatViewportAnchor? _anchored;
   Object? _windowRevision;
-  ChatViewportRoute? _route;
-  bool _anchoring = false;
+  ({Object token, Object? windowRevision})? _landing;
   bool _away = false;
   int _unseen = 0;
   Object? _arrival;
   Object? _dayJump;
   int _boundaryRevision = 0;
 
-  bool get anchoring => _anchoring;
+  bool get anchoring => _landing != null;
 
   ChatViewportChange observeWindow(
     ChatViewportWindow previous,
     ChatViewportWindow current,
   ) {
-    _route = current.route;
     _windowRevision = current.revision;
-    if (previous.route != current.route) {
+    final changedRoute = previous.route != current.route;
+    final sameFetch = previous.fetches == current.fetches;
+    if (changedRoute || !sameFetch) _cancelDeferred();
+    if (_landing?.windowRevision case final revision?) {
+      if (!identical(revision, current.revision)) _landing = null;
+    }
+    if (changedRoute) {
       _anchored = null;
-      _anchoring = false;
       _away = false;
       _unseen = 0;
-      _arrival = null;
-      _dayJump = null;
       return const ChatViewportChange(changedRoute: true);
     }
-    final sameFetch = previous.fetches == current.fetches;
     final newestChanged = previous.newestId != current.newestId;
     final holdArrival =
         _away &&
@@ -98,7 +98,7 @@ final class ChatViewportTransitions {
     required int? newestId,
   }) {
     _anchored = anchor;
-    _anchoring = true;
+    beginLanding();
     final target = anchorMessageId ?? lastReadOnOpen;
     return (
       messageId: target == newestId ? null : target,
@@ -106,20 +106,37 @@ final class ChatViewportTransitions {
     );
   }
 
-  bool isCurrentWindow(ChatViewportWindow window) =>
-      _route == window.route && identical(_windowRevision, window.revision);
-
-  ChatViewportAnchor? beginLanding() {
-    _anchoring = true;
-    return _anchored;
+  Object beginLanding() {
+    final token = Object();
+    _landing = (token: token, windowRevision: null);
+    return token;
   }
 
-  bool isCurrentLanding(ChatViewportAnchor? token) => _anchored == token;
+  Object beginForwardPage() {
+    final token = Object();
+    _landing = (token: token, windowRevision: _windowRevision);
+    return token;
+  }
 
-  bool settleLanding(ChatViewportAnchor? token) {
+  bool isCurrentLanding(Object token) => identical(_landing?.token, token);
+
+  bool settleLanding(Object token) {
     if (!isCurrentLanding(token)) return false;
-    _anchoring = false;
+    _landing = null;
     return true;
+  }
+
+  void _cancelDeferred() {
+    _landing = null;
+    _arrival = null;
+    _dayJump = null;
+    _boundaryRevision++;
+  }
+
+  void retire() {
+    _cancelDeferred();
+    _anchored = null;
+    _windowRevision = null;
   }
 
   Object beginArrivalHold() => _arrival = Object();
