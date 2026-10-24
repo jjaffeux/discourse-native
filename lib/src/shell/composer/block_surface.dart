@@ -150,16 +150,9 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     }
     _hoverPosition = event.position;
     _scheduleGeometry();
-    for (final item in composer.blocks.index.blocks) {
-      final rect = widget.blockRect(item);
-      if (rect != null &&
-          event.position.dy >= rect.top &&
-          event.position.dy <= rect.bottom) {
-        if (_hoveredId != item.id) {
-          setState(() => _hoveredId = item.id);
-        }
-        break;
-      }
+    final item = _dropGeometry.blockAt(event.position.dy);
+    if (item != null && _hoveredId != item.id) {
+      setState(() => _hoveredId = item.id);
     }
   }
 

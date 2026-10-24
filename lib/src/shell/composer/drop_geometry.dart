@@ -10,6 +10,9 @@ class ComposerDropGeometry {
   const ComposerDropGeometry(this.index, this.blockRect, {this.emptyLineAt});
 
   final ComposerBlockIndex index;
+
+  /// Rendered bounds with top edges, centers and bottom edges in document order.
+  /// Returns null when a block's layout is unavailable.
   final Rect? Function(ComposerBodyBlock block) blockRect;
   final ComposerEmptyLine? Function(Offset position)? emptyLineAt;
 
@@ -19,6 +22,24 @@ class ComposerDropGeometry {
     Offset position, {
     ComposerDropTarget? previousTarget,
     bool touch = false,
+  }) {
+    final rects = <ComposerBodyBlock, Rect?>{};
+    final query = ComposerDropGeometry(
+      index,
+      (block) => rects.putIfAbsent(block, () => blockRect(block)),
+      emptyLineAt: emptyLineAt,
+    );
+    return query._targetWithHysteresis(
+      position,
+      previousTarget: previousTarget,
+      touch: touch,
+    );
+  }
+
+  ComposerDropTarget? _targetWithHysteresis(
+    Offset position, {
+    ComposerDropTarget? previousTarget,
+    required bool touch,
   }) {
     final target = _targetAt(position);
     if (target == null ||
@@ -77,10 +98,16 @@ class ComposerDropGeometry {
   ComposerDropTarget? _targetAt(Offset position) {
     final line = emptyLineAt?.call(position);
     if (line != null) {
-      final following = blocks.indexWhere(
-        (block) => block.start >= line.range.end,
-      );
-      final gap = following < 0 ? blocks.length : following;
+      var gap = 0;
+      var endBlock = blocks.length;
+      while (gap < endBlock) {
+        final middle = (gap + endBlock) ~/ 2;
+        if (blocks[middle].start < line.range.end) {
+          gap = middle + 1;
+        } else {
+          endBlock = middle;
+        }
+      }
       final start = gap == 0 ? 0 : blocks[gap - 1].end;
       final end = gap == blocks.length
           ? index.source.length
@@ -104,7 +131,51 @@ class ComposerDropGeometry {
     return gap == null || y == null ? null : (gap: gap, offset: null, y: y);
   }
 
+  /// Finds the first block containing [y], including both vertical edges.
+  ComposerBodyBlock? blockAt(double y) {
+    Rect? candidate;
+    var start = 0;
+    var end = blocks.length;
+    while (start < end) {
+      final middle = (start + end) ~/ 2;
+      final rect = blockRect(blocks[middle]);
+      if (rect == null) {
+        for (final block in blocks) {
+          final visible = blockRect(block);
+          if (visible != null && y >= visible.top && y <= visible.bottom) {
+            return block;
+          }
+        }
+        return null;
+      }
+      if (rect.bottom < y) {
+        start = middle + 1;
+      } else {
+        candidate = rect;
+        end = middle;
+      }
+    }
+    return candidate != null && y >= candidate.top ? blocks[start] : null;
+  }
+
   int? gapAt(Offset position) {
+    if (blocks.isEmpty) return null;
+    var start = 0;
+    var end = blocks.length;
+    while (start < end) {
+      final middle = (start + end) ~/ 2;
+      final rect = blockRect(blocks[middle]);
+      if (rect == null) return _visibleGapAt(position);
+      if (position.dy < rect.center.dy) {
+        end = middle;
+      } else {
+        start = middle + 1;
+      }
+    }
+    return start;
+  }
+
+  int? _visibleGapAt(Offset position) {
     int? afterLastVisible;
     for (var i = 0; i < blocks.length; i++) {
       final rect = blockRect(blocks[i]);

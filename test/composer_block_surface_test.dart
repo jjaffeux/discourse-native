@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsAction;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/block_surface.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/drop_geometry.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -131,6 +132,73 @@ void main() {
     expect(find.byTooltip('Drag to move or click to open menu'), findsNothing);
     expect(find.byTooltip('Empty paragraph actions'), findsNothing);
   }
+
+  testWidgets('indexed pointer lookup follows mixed editor layouts', (
+    tester,
+  ) async {
+    await (FontLoader(
+      'PointerGeometrySans',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+    composer.text.text = [
+      'A paragraph with an inline [link](https://example.test). ' * 4,
+      '## A heading that wraps across a narrow editor',
+      '- First list item\n- Second list item',
+      '[ ] First task\n[x] Second task',
+      '```dart\nvoid main() {}\n```',
+      '[quote="someone"]Quoted text\nwith a second line[/quote]',
+      'Final paragraph',
+    ].join('\n\n');
+    for (final mobile in [false, true]) {
+      for (final scale in [1.0, 1.5]) {
+        await mount(
+          tester,
+          mobile: mobile,
+          textScale: scale,
+          textStyle: const TextStyle(
+            fontFamily: 'PointerGeometrySans',
+            fontSize: 16,
+            height: 1.5,
+          ),
+        );
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final blocks = composer.blocks.index.blocks;
+        final rects = [for (final block in blocks) surface.blockRect(block)!];
+        expect(rects.length, greaterThan(6));
+        for (var i = 1; i < rects.length; i++) {
+          expect(rects[i].top, greaterThanOrEqualTo(rects[i - 1].top));
+          expect(
+            rects[i].center.dy,
+            greaterThanOrEqualTo(rects[i - 1].center.dy),
+          );
+          expect(rects[i].bottom, greaterThanOrEqualTo(rects[i - 1].bottom));
+        }
+        final geometry = ComposerDropGeometry(
+          composer.blocks.index,
+          surface.blockRect,
+        );
+        for (final rect in rects) {
+          for (final y in [rect.top, rect.center.dy, rect.bottom]) {
+            final position = Offset(rect.center.dx, y);
+            final hovered = blocks.where((block) {
+              final bounds = surface.blockRect(block)!;
+              return y >= bounds.top && y <= bounds.bottom;
+            }).firstOrNull;
+            final following = rects.indexWhere(
+              (bounds) => y < bounds.center.dy,
+            );
+            expect(geometry.blockAt(y)?.id, hovered?.id);
+            expect(
+              geometry.gapAt(position),
+              following < 0 ? blocks.length : following,
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
 
   for (final dark in [false, true]) {
     testWidgets('typing hides block actions until the mouse moves ($dark)', (
