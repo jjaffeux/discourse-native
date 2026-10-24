@@ -50,7 +50,8 @@ class ComposerLiteralContainers {
     var inlineEnd = 0;
     var commentEnd = 0;
     var start = 0;
-    var previousBlank = true;
+    var paragraph = false;
+    var previousQuoteDepth = 0;
     var indentedCode = false;
     var tokenIndexEnd = 0;
     var tokenCandidates = <int, ComposerMarkdownTokenBoundary>{};
@@ -88,9 +89,13 @@ class ComposerLiteralContainers {
       final quoteDepth = '>'
           .allMatches(line.substring(quoteStart, content))
           .length;
+      var listStart = false;
       if (start >= commentEnd && start >= inlineEnd && fence == null) {
-        final marker = _list.firstMatch(line.substring(content));
+        final marker = _paragraphBlock.hasMatch(line.substring(content))
+            ? null
+            : _list.firstMatch(line.substring(content));
         if (marker != null) {
+          listStart = true;
           final markerEnd = content + marker[1]!.length + marker[2]!.length;
           final beforeGap = _indentWidth(
             line.substring(0, markerEnd),
@@ -109,13 +114,19 @@ class ComposerLiteralContainers {
       final relative = line.substring(content);
       final firstContent =
           start + content + relative.length - relative.trimLeft().length;
-      final blank = line.trim().isEmpty;
-      final wasBlank = previousBlank;
-      previousBlank = blank;
+      final blank = relative.trim().isEmpty;
+      final continuesParagraph =
+          paragraph && !listStart && quoteDepth == previousQuoteDepth;
+      previousQuoteDepth = quoteDepth;
+      paragraph =
+          !blank &&
+          !_paragraphBlock.hasMatch(relative) &&
+          !(start < commentEnd && (_ranges.lastOrNull?.block ?? false));
       if (!blank && _indentWidth(relative) < 4) indentedCode = false;
       final delimiter = _fence.firstMatch(relative);
       if (start >= commentEnd && start >= inlineEnd) {
         if (fence != null) {
+          paragraph = false;
           if (delimiter != null &&
               delimiter[1]![0] == fence[0] &&
               delimiter[1]!.length >= fence.length &&
@@ -135,6 +146,7 @@ class ComposerLiteralContainers {
         }
         if (delimiter != null &&
             !(delimiter[1]!.startsWith('`') && delimiter[2]!.contains('`'))) {
+          paragraph = false;
           fence = delimiter[1];
           fenceIndent = indents.lastOrNull ?? 0;
           fenceStart = start;
@@ -142,16 +154,16 @@ class ComposerLiteralContainers {
           start = end + 1;
           continue;
         }
-        if (_indentWidth(relative) >= 4) {
-          if (wasBlank || indentedCode || content > 0) {
-            indentedCode = true;
-            _ranges.add((
-              start: start,
-              end: end,
-              kind: _LiteralContainerKind.indentedCode,
-              block: true,
-            ));
-          }
+        if (_indentWidth(relative) >= 4 &&
+            (!continuesParagraph || indentedCode)) {
+          paragraph = false;
+          indentedCode = true;
+          _ranges.add((
+            start: start,
+            end: end,
+            kind: _LiteralContainerKind.indentedCode,
+            block: true,
+          ));
           start = end + 1;
           continue;
         }
@@ -212,7 +224,7 @@ class ComposerLiteralContainers {
         if (source[at] == '\\') {
           at += 2;
         } else if (source.startsWith('<!--', at)) {
-          final block = at == firstContent;
+          final block = at == firstContent && _indentWidth(relative) < 4;
           final closing = inlineLiterals.commentEnd(
             at,
             end,
@@ -225,6 +237,7 @@ class ComposerLiteralContainers {
             continue;
           }
           commentEnd = closing;
+          if (block) paragraph = false;
           _ranges.add((
             start: at,
             end: commentEnd,
@@ -238,7 +251,7 @@ class ComposerLiteralContainers {
             at,
             end,
             indents.lastOrNull ?? 0,
-            at == firstContent,
+            at == firstContent && _indentWidth(relative) < 4,
             quoteDepth,
             codeBlocks,
             codeClosers,
@@ -248,6 +261,7 @@ class ComposerLiteralContainers {
             at++;
           } else {
             commentEnd = code.end;
+            if (code.block) paragraph = false;
             _ranges.add((
               start: at,
               end: code.end,
@@ -369,6 +383,10 @@ final _inlineBreak = RegExp(
   r'^(?:[ \t\r]*$| {0,3}(?:[-+*](?:[ \t]+|$)|1[.)](?:[ \t]+|$)|>|#{1,6}(?:[ \t]+|$)|`{3,}|~{3,}|<!--))',
 );
 
+final _paragraphBlock = RegExp(
+  r'^ {0,3}(?:#{1,6}(?:[ \t]+|$)|(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})\r?$)',
+);
+
 final _tableDelimiter = RegExp(
   r'^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*\r?$',
 );
@@ -384,6 +402,7 @@ class _InlineLiteralEnds {
   }
 
   final String source;
+  final _paragraphEnds = <(int, int, int), int>{};
   final _tickRuns = <String, List<RegExpMatch>>{};
   late final _comments = RegExp('-->').allMatches(source).toList();
   late final _blanks = _blank.allMatches(source).toList();
@@ -393,6 +412,9 @@ class _InlineLiteralEnds {
     final index = _delimiterIndex(_lines, offset);
     return index == _lines.length ? source.length : _lines[index].start;
   }
+
+  int _paragraphEnd(int end, int indent) =>
+      _inlineParagraphEnd(source, end, indent, null, _paragraphEnds);
 
   int? commentEnd(
     int start,
@@ -405,7 +427,7 @@ class _InlineLiteralEnds {
     if (index == _comments.length) return block ? source.length : null;
     final close = _comments[index];
     if (close.end > limit ||
-        (!block && _interruptsInline(source, lineEnd, close.start, indent))) {
+        (!block && _paragraphEnd(lineEnd, indent) < close.start)) {
       return null;
     }
     return close.end;
@@ -422,25 +444,59 @@ class _InlineLiteralEnds {
     if (closeIndex == runs.length) return opening.end;
     final closing = runs[closeIndex];
     return closing.end <= limit &&
-            !_interruptsInline(source, lineEnd, closing.start, indent)
+            _paragraphEnd(lineEnd, indent) >= closing.start
         ? closing.end
         : opening.end;
   }
 }
 
-int _inlineParagraphEnd(String source, int end, int indent, [int? limit]) {
+int _inlineParagraphEnd(
+  String source,
+  int end,
+  int indent, [
+  int? limit,
+  Map<(int, int, int), int>? cache,
+]) {
   limit ??= source.length;
+  final openingStart = source.lastIndexOf('\n', end > 0 ? end - 1 : 0) + 1;
+  final openingLine = source.substring(openingStart, end);
+  var openingContent = _indentCharacters(openingLine, indent);
+  var quoteDepth = 0;
+  while (true) {
+    final quote = _quote.matchAsPrefix(openingLine, openingContent);
+    if (quote == null) break;
+    openingContent = quote.end;
+    quoteDepth++;
+  }
+  final cached = cache?[(end, indent, quoteDepth)];
+  if (cached != null) return cached;
+  final visited = cache == null ? null : <int>[end];
+  int finish(int boundary) {
+    if (cache != null) {
+      for (final lineEnd in visited!) {
+        cache[(lineEnd, indent, quoteDepth)] = boundary;
+      }
+    }
+    return boundary;
+  }
+
   var start = end + 1;
   while (start < limit) {
     end = source.indexOf('\n', start);
     if (end < 0) end = source.length;
     final line = source.substring(start, end);
-    final relative = line.substring(_indentCharacters(line, indent));
-    if (_inlineBreak.hasMatch(relative)) return start;
+    var lineContent = _indentCharacters(line, indent);
+    for (var depth = 0; depth < quoteDepth; depth++) {
+      final quote = _quote.matchAsPrefix(line, lineContent);
+      if (quote == null) break;
+      lineContent = quote.end;
+    }
+    final relative = line.substring(lineContent);
+    if (_inlineBreak.hasMatch(relative)) return finish(start);
     final content = _indentCharacters(relative, _indentWidth(relative));
     if (_indentWidth(relative) < 4 &&
         _codeOpeningEnd(relative, content, relative.length) != null) {
-      return start;
+      return finish(start);
     }
     final nextEnd = source.indexOf('\n', end < source.length ? end + 1 : end);
     final nextLine = source.substring(
@@ -448,11 +504,14 @@ int _inlineParagraphEnd(String source, int end, int indent, [int? limit]) {
       nextEnd < 0 ? source.length : nextEnd,
     );
     if (relative.contains('|') && _tableDelimiter.hasMatch(nextLine)) {
-      return start;
+      return finish(start);
     }
+    final nextCached = cache?[(end, indent, quoteDepth)];
+    if (nextCached != null) return finish(nextCached);
+    visited?.add(end);
     start = end + 1;
   }
-  return limit;
+  return finish(limit);
 }
 
 final _codeClose = RegExp(r'\[/code\]', caseSensitive: false);

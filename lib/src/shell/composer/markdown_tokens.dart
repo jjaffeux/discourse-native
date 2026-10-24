@@ -46,7 +46,6 @@ class ComposerMarkdownImageReader {
         offset = start + 2;
         continue;
       }
-      // Nested openers in the same alt share its stopping point.
       final alt = _imageAltPattern.matchAsPrefix(source, start)!;
       final bracket = alt.end;
       offset = bracket + 1;
@@ -181,8 +180,6 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
   final candidates = <int, ComposerMarkdownTokenBoundary>{};
   final limit = end ?? source.length;
   final labels = <({int start, bool nestedLink})>[];
-  // Pair labels once, including unfinished outer labels, rather than rescanning
-  // their suffixes from every opener. Completed destinations are skipped.
   for (var offset = start; offset < limit; offset += 1) {
     final skipped = skipInline?.call(offset, limit);
     if (skipped != null && skipped > offset) {
@@ -199,7 +196,6 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
     } else if ((unit == 0x5B || unit == 0x5D) &&
         (excludesBracket?.call(offset) ?? false)) {
       // Code can contain unmatched brackets inside an otherwise valid label.
-      // Match its enclosing link so the full range stays excluded below.
       continue;
     } else if (unit == 0x5B) {
       labels.add((start: offset, nestedLink: false));

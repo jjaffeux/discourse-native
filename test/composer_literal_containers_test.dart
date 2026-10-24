@@ -329,6 +329,14 @@ void main() {
     );
   }
 
+  test('rejected inline comments preserve the later paragraph image', () {
+    const active = '![active](https://example.test/b.png)';
+    final source = '${'text <!--\n' * 2000}\n-->\n\n$active';
+    final block = parseComposerImages(source).single;
+    expect(block.start, source.indexOf(active));
+    expect(block.source, active);
+  });
+
   test('table edits preserve original inline comment and inline code cells', () {
     const source =
         '| `code` <!-- | hidden --> | B |\r\n| --- | --- | --- |\r\n| x | y |';
