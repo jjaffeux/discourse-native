@@ -1,6 +1,6 @@
 # Topic tracking reconciliation
 
-`TopicTrackingReconciler` owns the tracking protocol for one account at one site. `TopicTrackingDirectory` owns each account's reconciler identity, admission, canonical topic-row projection, and retirement. Private site live sessions own MessageBus startup, subscriptions, snapshot transport, and retry capabilities. `NotificationPreferenceTransactions` owns notification write queues, current-user category preference merging, and refresh admission. `ShellController` retains navigation and adapts the owner to current-user persistence, taxonomy, and live-session transport.
+`TopicTrackingReconciler` owns the tracking protocol for one account at one site. `TopicTrackingDirectory` owns each account's reconciler identity, admission, canonical topic-row projection, and retirement. `SiteLiveSessions` owns MessageBus startup, subscriptions, snapshot transport, and retry capabilities independently of the shell. `NotificationPreferenceTransactions` owns notification write queues, current-user category preference merging, and refresh admission. `ShellController` retains navigation and adapts the owner to current-user persistence, taxonomy, and live-session transport.
 
 ## Account ownership
 
@@ -52,6 +52,24 @@ retry writes automatically or introduce a notifier.
 
 ## Live connection lifetime
 
+`site_live_sessions.dart` is a standalone library. Its constructor takes the
+canonical tracking directory, lifecycle, credential reader, site API, and tracker
+factory. The shell supplies fresh immutable demand values through
+`demandSnapshot`, so foreground, selection, connection and retention changes
+remain visible across awaits and synchronous listener calls. The owner keeps no canonical site, user or topic cache.
+
+`SiteLiveCurrentUsers` adapts canonical instance reads, current-user reconciliation
+and account ID lookup. `SiteLiveComposition` dispatches typed live messages to
+notification, reviewable, status, draft, DND and sidebar owners. It also composes
+incoming filters, visible-topic watches and scoped plugin attachments. Channel
+registration remains in the session, which checks its original lease and tracker
+between attachments. The shell adapter never starts polling.
+
+The boundary comparison rejected an account-context factory because it would
+add an identity concept beside the existing lease and tracking account. Direct
+canonical dependencies and the two semantic collaborators preserve those
+existing authorities with fewer concepts. No polling policy or notifier changes.
+
 Each live session holds startup completion until HTML bootstrap settles, so later JSON account refreshes run second. An assembling tracker is available for scoped plugin handles, while polling requires a ready tracker with all core, plugin, and visible-topic channels registered. One desired-state policy governs startup, foreground changes, retention, and resume. Anonymous readers on private forums never qualify, even with retention. Retirement closes the assembling or ready tracker and releases its retry capability. Callbacks require the captured startup attempt or exact ready tracker as well as the account lease.
 
 ## Ordering contract
@@ -85,3 +103,10 @@ The existing partial-report policy and explicit acknowledged mark-unread reset a
 `topic_tracking_directory_test.dart` constructs the directory without a shell or Flutter binding and pins identity replacement, lease retirement, transition admission, retry-before-event ordering, reentrant Store effects, and canonical row projection.
 
 `notification_preference_transactions_test.dart` constructs the owner without a shell or Flutter binding. It pins reentrant admission, account-wide category ordering, lease retirement during writes and credential reads, unknown write outcomes, and confirmed success after publication or refresh failure.
+
+`site_live_sessions_owner_test.dart` constructs the owner without a shell or
+Flutter binding. It proves anonymous credential policy, private-forum retention,
+latest demand, reentrant subscription assembly, credential and bootstrap
+retirement, same-lease reconnect, and account-bound retries. The existing
+standalone-owner dependency check prevents imports or parts from bringing shell
+authority back into the owner.
