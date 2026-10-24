@@ -106,6 +106,7 @@ final class _MetadataEvents implements ChatThreadMetadataEvents {
     created.add(detail);
   }
 
+  @override
   void threadTitleStored(String siteUrl, int threadId) {
     storedTitles.add(threadId);
   }

@@ -1,8 +1,8 @@
 import 'chat_thread.dart';
 
-/// Records live and local changes to threads' personal state during one
-/// thread-list HTTP request. The page it answers may predate them, so it must
-/// not put back an older notification level, read position or unread count.
+/// Records title and personal-state changes during one thread-list HTTP
+/// request. The page it answers may predate them, so it must not put back an
+/// older title, notification level, read position or unread count.
 /// Keeping dirty fields, rather than comparing only the final record with its
 /// starting value, also preserves changes that return to their original value.
 final class ChatThreadListRefresh {
@@ -12,6 +12,10 @@ final class ChatThreadListRefresh {
     final changes = _changes[after.id] ?? _ThreadChanges();
     changes.record(before, after);
     if (changes.hasChanges) _changes[after.id] = changes;
+  }
+
+  void recordTitleChange(int threadId) {
+    (_changes[threadId] ??= _ThreadChanges()).title = true;
   }
 
   /// Answers [incoming] carrying [held]'s values for every field changed
@@ -36,6 +40,8 @@ final class ChatThreadListRefresh {
       );
     }
     return incoming.copyWith(
+      title: changes.title ? held.title : null,
+      clearTitle: changes.title && held.title == null,
       membership: membership,
       clearMembership: membership == null,
       tracking: changes.activity ? held.tracking : null,
@@ -44,12 +50,14 @@ final class ChatThreadListRefresh {
 }
 
 final class _ThreadChanges {
+  bool title = false;
   bool level = false;
   bool activity = false;
 
-  bool get hasChanges => level || activity;
+  bool get hasChanges => title || level || activity;
 
   void record(ChatThread? before, ChatThread after) {
+    if (before == null || before.title != after.title) title = true;
     final previous = before?.membership;
     final next = after.membership;
     if (before == null ||

@@ -1357,9 +1357,6 @@ class ChatController extends FrameSafeNotifier {
   ChatThread? thread(String siteUrl, int threadId) =>
       _store.read<ChatThread>(siteUrl, threadId);
 
-  // Live and local mutations participate in in-flight thread-list pages.
-  // Ordinary HTTP hydration (thread detail and list pages) is not a newer
-  // mutation.
   void _putThread(String siteUrl, ChatThread next) {
     final before = thread(siteUrl, next.id);
     _recordThreadChange(siteUrl, before, _store.put(siteUrl, next));
@@ -3604,4 +3601,8 @@ final class _ChatThreadMetadataEvents implements ChatThreadMetadataEvents {
   @override
   void threadChanged(String siteUrl, ChatThread before, ChatThread after) =>
       _controller._recordThreadChange(siteUrl, before, after);
+
+  @override
+  void threadTitleStored(String siteUrl, int threadId) =>
+      _controller._heldThreadCatalog(siteUrl)?.recordTitleChange(threadId);
 }

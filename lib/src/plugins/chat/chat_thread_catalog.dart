@@ -155,6 +155,12 @@ final class _ChatThreadCatalog {
     }
   }
 
+  void recordTitleChange(int threadId) {
+    for (final entry in _lists.values) {
+      entry.request?.refresh.recordTitleChange(threadId);
+    }
+  }
+
   Set<int> loadedIdsForChannel(int channelId) => {
     ...?snapshot(_ChatThreadListId.mine).ids,
     ...?snapshot(_ChannelChatThreadList(channelId)).ids,
@@ -284,13 +290,18 @@ final class _ChatThreadCatalog {
           }
         }
         for (final thread in page.threads) {
-          store.put(
-            siteUrl,
-            run.refresh.reconcile(
-              thread,
-              store.read<ChatThread>(siteUrl, thread.id),
-            ),
-          );
+          final held = store.read<ChatThread>(siteUrl, thread.id);
+          final incoming = run.refresh.reconcile(thread, held);
+          if (held == null) {
+            store.put(siteUrl, incoming);
+          } else {
+            store.update<ChatThread>(siteUrl, thread.id, (current) {
+              final merged = current.merge(incoming);
+              return merged.title == incoming.title
+                  ? merged
+                  : merged.copyWith(clearTitle: true);
+            });
+          }
         }
         final incoming = [
           for (final thread in page.threads)

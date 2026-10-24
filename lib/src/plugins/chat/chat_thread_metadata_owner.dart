@@ -19,6 +19,7 @@ abstract interface class ChatThreadMetadataEvents {
   void ensureThreadSubscription(String siteUrl, ChatThreadTarget target);
   void threadCreated(String siteUrl, ChatThread created, int originalMessageId);
   void threadChanged(String siteUrl, ChatThread before, ChatThread after);
+  void threadTitleStored(String siteUrl, int threadId);
 }
 
 typedef _ChatThreadMetadataKey = ({String siteUrl, ChatThreadTarget target});
@@ -191,6 +192,9 @@ final class ChatThreadMetadataOwner {
             stored = _thread(siteUrl, detail.id);
           }
           final merged = stored!;
+          if (held == null || held.title != merged.title) {
+            _events.threadTitleStored(siteUrl, detail.id);
+          }
           _events.detailStored(siteUrl, target, merged);
         });
         _events.ensureThreadSubscription(siteUrl, target);
@@ -320,6 +324,7 @@ final class ChatThreadMetadataOwner {
           (current) => current.copyWith(title: title),
         );
         metadata.detailDirty = true;
+        _events.threadTitleStored(siteUrl, target.threadId);
       });
       return true;
     } catch (error) {
