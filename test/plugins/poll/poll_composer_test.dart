@@ -527,6 +527,12 @@ void main() {
                 '- $fence\n  [code]\n  $fence\n  ${poll.replaceAll('\n', '\n  ')}\n  [/code]\n$live',
             names: ['poll', 'live'],
           ),
+        for (final fence in const ['```', '~~~'])
+          (
+            source:
+                '- a\n\n    $fence\n  [code]\n    $fence\n  ${poll.replaceAll('\n', '\n  ')}\n  [/code]\n$live',
+            names: ['poll', 'live'],
+          ),
         for (final hidden in const ['```', '~~~', '[quote]', '- [code]'])
           (
             source: '<!--\n$hidden\n-->\n- a\n\n  [code]\n$live\n[/code]',
@@ -557,7 +563,7 @@ void main() {
           );
           final blocks = parsePollComposerBlocks(source);
           expect(
-            blocks.map((block) => block.name ?? 'poll'),
+            blocks.map((block) => block.name),
             example.names,
             reason: source,
           );

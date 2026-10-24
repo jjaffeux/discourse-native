@@ -588,7 +588,40 @@ List<_SourceLine> _linesOf(String source) {
   return lines;
 }
 
-typedef _ListContext = ({int end, int indent, int? contentStart});
+typedef _ListCandidate = ({
+  int start,
+  int end,
+  int indent,
+  int markerIndent,
+  int contentStart,
+  bool interruptsParagraph,
+});
+typedef _PairKey = ({int line, int indent});
+
+final _paragraphBlockPattern = RegExp(r'^ {0,3}(?:#{1,6}(?:[ \t]|$)|>|<)');
+final _paragraphRulePattern = RegExp(
+  r'^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$',
+);
+final _paragraphSetextPattern = RegExp(r'^ {0,3}(?:=+|-+)[ \t]*$');
+
+bool _continuesParagraph(String line, bool paragraph) =>
+    line.trim().isNotEmpty &&
+    !_paragraphBlockPattern.hasMatch(line) &&
+    !_paragraphRulePattern.hasMatch(line) &&
+    !(paragraph && _paragraphSetextPattern.hasMatch(line)) &&
+    _bbcodeBlockOpening(line) == null;
+
+class _ActiveList {
+  _ActiveList(_ListCandidate candidate, int limit, String line)
+    : start = candidate.start,
+      end = candidate.end < limit ? candidate.end : limit,
+      indent = candidate.indent,
+      contentStart = candidate.contentStart,
+      paragraph = line.substring(candidate.contentStart).trim().isNotEmpty;
+
+  final int start, end, indent, contentStart;
+  bool paragraph;
+}
 
 String? _relativeBbcodeLine(String text, int indent) {
   var column = 0;
@@ -609,68 +642,75 @@ String? _relativeBbcodeLine(String text, int indent) {
       : '${' ' * (column - indent)}${text.substring(offset)}';
 }
 
-({Map<int, int> code, Map<int, int> blocks}) _bbcodePairs(
-  List<_SourceLine> lines, {
-  List<_ListContext>? contexts,
-  bool raw = false,
-}) {
-  final closers = <({int indent, _BbcodeBlock tag}), List<int>>{};
-  final code = <int, int>{};
-  final blocks = <int, int>{};
+({Map<_PairKey, int> code, Map<_PairKey, int> blocks}) _bbcodePairs(
+  List<_SourceLine> lines,
+  List<List<_ListCandidate>> candidates,
+) {
+  final streams = <int, Map<_BbcodeBlock, List<int>>>{};
+  final bases = <int>[];
+  final code = <_PairKey, int>{};
+  final blocks = <_PairKey, int>{};
   for (var index = lines.length - 1; index >= 0; index--) {
     final text = lines[index].text;
-    final normalized = raw ? text.trimLeft() : _relativeBbcodeLine(text, 0)!;
+    for (final candidate in candidates[index]) {
+      final body = _relativeBbcodeLine(
+        text.substring(candidate.contentStart),
+        0,
+      )!;
+      final tag = _bbcodeBlockOpening(body);
+      if (tag == null) continue;
+      final closed = streams[candidate.indent]?[tag];
+      if (closed == null || closed.isEmpty) continue;
+      (tag == _BbcodeBlock.code ? code : blocks)[(
+            line: index,
+            indent: candidate.indent,
+          )] =
+          closed.last;
+    }
+    if (text.trim().isEmpty) continue;
+    final normalized = _relativeBbcodeLine(text, 0)!;
     var column = 0;
     while (column < normalized.length && normalized[column] == ' ') {
       column++;
     }
+    while (bases.isNotEmpty && bases.last > column) {
+      streams.remove(bases.removeLast());
+    }
     final marker = normalized.substring(column);
     final opening = _bbcodeBlockOpening(marker);
     final closing = _bbcodeClosingPattern.firstMatch(marker);
-    if (opening != null || closing != null) {
-      final tag =
-          opening ??
-          _BbcodeBlock.values.byName(closing!.group(1)!.toLowerCase());
-      final firstIndent = raw || column < 3 ? 0 : column - 3;
-      final lastIndent = raw ? 0 : column;
-      for (var indent = firstIndent; indent <= lastIndent; indent++) {
-        final closed = closers.putIfAbsent((
+    if (opening == null && closing == null) continue;
+    final tag =
+        opening ?? _BbcodeBlock.values.byName(closing!.group(1)!.toLowerCase());
+    final first = column < 3 ? 0 : column - 3;
+    for (var indent = first; indent <= column; indent++) {
+      var stream = streams[indent];
+      if (stream == null) {
+        stream = {for (final tag in _BbcodeBlock.values) tag: <int>[]};
+        streams[indent] = stream;
+        var position = bases.length;
+        while (position > 0 && bases[position - 1] > indent) {
+          position--;
+        }
+        bases.insert(position, indent);
+      }
+      final closed = stream[tag]!;
+      if (closing != null) {
+        closed.add(index);
+      } else if (closed.isNotEmpty) {
+        (tag == _BbcodeBlock.code ? code : blocks)[(
+          line: index,
           indent: indent,
-          tag: tag,
-        ), () => []);
-        if (closing != null) {
-          closed.add(index);
-          continue;
-        }
-        if (closed.isEmpty) continue;
-        final end = closed.removeLast();
-        if (raw || (contexts?[index].indent ?? 0) == indent) {
-          final ends = tag == _BbcodeBlock.code ? code : blocks;
-          ends[index] = end;
-        }
+        )] = closed
+            .removeLast();
       }
     }
-    final contentStart = contexts?[index].contentStart;
-    if (contentStart == null) continue;
-    final body = text.substring(contentStart);
-    final firstLine = raw ? body.trimLeft() : _relativeBbcodeLine(body, 0)!;
-    final firstOpening = _bbcodeBlockOpening(firstLine);
-    if (firstOpening == null) continue;
-    final closed =
-        closers[(indent: raw ? 0 : contexts![index].indent, tag: firstOpening)];
-    if (closed == null || closed.isEmpty) continue;
-    final ends = firstOpening == _BbcodeBlock.code ? code : blocks;
-    ends[index] = closed.last;
   }
   return (code: code, blocks: blocks);
 }
 
 List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
-  final contexts = List<_ListContext>.filled(lines.length, (
-    end: lines.length,
-    indent: 0,
-    contentStart: null,
-  ));
+  final candidates = List.generate(lines.length, (_) => <_ListCandidate>[]);
   void collect(
     List<ComposerListItem> items,
     int Function(int) sourceOffset,
@@ -678,23 +718,7 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
     int firstLine,
   ) {
     var cursor = firstLine;
-    for (final parsedItem in items) {
-      final taskStart = parsedItem.taskMarkerStart;
-      final item = taskStart == null
-          ? parsedItem
-          : ComposerListItem(
-              document: parsedItem.document,
-              start: parsedItem.start,
-              end: parsedItem.end,
-              marker: parsedItem.marker,
-              indent: parsedItem.indent,
-              contentIndent: parsedItem.contentIndent,
-              contentStart: taskStart,
-              firstLineEnd: parsedItem.firstLineEnd,
-              closed: parsedItem.closed,
-              referenceMarkers: parsedItem.referenceMarkers,
-              number: parsedItem.number,
-            );
+    for (final item in items) {
       final sourceStart = sourceOffset(item.start);
       final sourceEnd = sourceOffset(item.end);
       while (cursor < lines.length && lines[cursor].contentEnd < sourceStart) {
@@ -705,17 +729,26 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
         cursor++;
       }
       final indent = parentIndent + item.contentIndent;
-      contexts.fillRange(start, cursor, (
-        end: cursor,
-        indent: indent,
-        contentStart: null,
-      ));
       if (start < cursor) {
-        contexts[start] = (
+        candidates[start].add((
+          start: start,
           end: cursor,
           indent: indent,
+          markerIndent: parentIndent + item.indent,
           contentStart: sourceOffset(item.contentStart) - lines[start].start,
-        );
+          interruptsParagraph:
+              (item.number == null ||
+                  int.tryParse(
+                        item.marker.substring(0, item.marker.length - 1),
+                      ) ==
+                      1) &&
+              lines[start].text
+                  .substring(
+                    sourceOffset(item.contentStart) - lines[start].start,
+                  )
+                  .trim()
+                  .isNotEmpty,
+        ));
       }
       collect(
         item.children,
@@ -726,101 +759,167 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
     }
   }
 
-  collect(
-    composerListItems(source.replaceAll('<!--', '....')),
-    (offset) => offset,
-    0,
-    0,
-  );
-  var listSource = source;
-  if (source.contains('<!--')) {
-    final absolute = _bbcodePairs(lines).code;
-    final raw = _bbcodePairs(lines, contexts: contexts, raw: true).code;
-    final masked = StringBuffer();
-    var codeLimit = -1;
-    for (var index = 0; index < lines.length; index++) {
-      for (final end in [absolute[index], raw[index]]) {
-        if (end != null && end > codeLimit) codeLimit = end;
-      }
-      final end = index + 1 < lines.length
-          ? lines[index + 1].start
-          : source.length;
-      final text = source.substring(lines[index].start, end);
-      masked.write(index < codeLimit ? text.replaceAll('<!--', '....') : text);
-    }
-    listSource = masked.toString();
-  }
-
-  if (source.contains('<!--')) {
-    contexts.fillRange(0, lines.length, (
-      end: lines.length,
-      indent: 0,
-      contentStart: null,
-    ));
-    collect(composerListItems(listSource), (offset) => offset, 0, 0);
-  }
-  final pairs = _bbcodePairs(lines, contexts: contexts);
-  final codeEnds = pairs.code;
-  final blockEnds = pairs.blocks;
-
+  final discovery = source
+      .replaceAll('<!--', '....')
+      .replaceAll('[', '.')
+      .replaceAllMapped(
+        RegExp(r'`{3,}|~{3,}'),
+        (match) => '.' * match[0]!.length,
+      );
+  collect(composerListItems(discovery), (offset) => offset, 0, 0);
+  final pairs = _bbcodePairs(lines, candidates);
+  final activeLists = <_ActiveList>[];
+  final activeBlocks = <({int end, _ActiveList? owner})>[];
   final result = List<bool>.filled(lines.length, false);
-  final activeBlockEnds = <int>[];
-  for (var index = 0; index < lines.length; index++) {
-    while (activeBlockEnds.isNotEmpty && index >= activeBlockEnds.last) {
-      activeBlockEnds.removeLast();
+  var rootParagraph = false;
+  void endParagraph(_ActiveList? list) {
+    if (list == null) {
+      rootParagraph = false;
+    } else {
+      list.paragraph = false;
     }
-    final blockLimit = activeBlockEnds.isEmpty
-        ? lines.length
-        : activeBlockEnds.last;
-    final limit = contexts[index].end < blockLimit
-        ? contexts[index].end
-        : blockLimit;
+  }
+
+  for (var index = 0; index < lines.length; index++) {
+    while (activeLists.isNotEmpty && index >= activeLists.last.end) {
+      activeLists.removeLast();
+    }
+    var closedBlock = false;
+    while (activeBlocks.isNotEmpty && index >= activeBlocks.last.end) {
+      final block = activeBlocks.removeLast();
+      endParagraph(block.owner);
+      closedBlock = true;
+    }
+    if (closedBlock) continue;
     final line = lines[index].text;
-    final codeEnd = codeEnds[index];
+    if (line.trim().isEmpty) {
+      rootParagraph = false;
+      for (final list in activeLists) {
+        list.paragraph = false;
+      }
+    } else {
+      while (activeLists.isNotEmpty &&
+          !activeLists.last.paragraph &&
+          _relativeBbcodeLine(line, activeLists.last.indent) == null) {
+        activeLists.removeLast();
+      }
+    }
+    final blockLimit = activeBlocks.isEmpty
+        ? lines.length
+        : activeBlocks.last.end;
+    for (final candidate in candidates[index]) {
+      while (activeLists.isNotEmpty &&
+          candidate.markerIndent < activeLists.last.indent) {
+        activeLists.removeLast();
+      }
+      final parentIndent = activeLists.isEmpty ? 0 : activeLists.last.indent;
+      if (candidate.markerIndent - parentIndent >= 4) continue;
+      final paragraph = activeLists.isEmpty
+          ? rootParagraph
+          : activeLists.last.paragraph;
+      final firstLine =
+          activeLists.isNotEmpty && activeLists.last.start == index;
+      if (!firstLine && paragraph && !candidate.interruptsParagraph) continue;
+      if (activeLists.isEmpty) rootParagraph = false;
+      activeLists.add(_ActiveList(candidate, blockLimit, line));
+    }
+    final absolute = _relativeBbcodeLine(line, 0)!;
+    final rootBlock =
+        _bbcodeBlockOpening(absolute) != null ||
+        _commentOpeningPattern.hasMatch(absolute) ||
+        _fenceOpeningPattern.hasMatch(absolute);
+    if (rootBlock) {
+      while (activeLists.isNotEmpty &&
+          _relativeBbcodeLine(line, activeLists.last.indent) == null) {
+        activeLists.removeLast();
+      }
+    }
+    final context = activeLists.isEmpty ? null : activeLists.last;
+    final indent = context?.indent ?? 0;
+    final limit = context != null && context.end < blockLimit
+        ? context.end
+        : blockLimit;
+    final key = (line: index, indent: indent);
+    final codeEnd = pairs.code[key];
     if (codeEnd != null && codeEnd < limit) {
+      endParagraph(context);
       result.fillRange(index, codeEnd + 1, true);
       index = codeEnd;
       continue;
     }
-
-    final contentStart = contexts[index].contentStart;
-    final relative = contentStart == null
-        ? _relativeBbcodeLine(line, contexts[index].indent)
-        : _relativeBbcodeLine(line.substring(contentStart), 0);
-    final listComment =
-        relative != null && _commentOpeningPattern.hasMatch(relative);
-    if (_commentOpeningPattern.hasMatch(line) || listComment) {
-      final commentLimit = listComment ? limit : blockLimit;
+    final relative = context?.start == index
+        ? _relativeBbcodeLine(line.substring(context!.contentStart), 0)
+        : _relativeBbcodeLine(line, indent);
+    if (relative != null && _commentOpeningPattern.hasMatch(relative)) {
       var end = index;
-      while (end < commentLimit && !lines[end].text.contains('-->')) {
+      var closed = false;
+      while (end < limit) {
+        final text = lines[end].text;
+        if (end > index &&
+            text.trim().isNotEmpty &&
+            _relativeBbcodeLine(text, indent) == null) {
+          break;
+        }
+        if (text.contains('-->')) {
+          closed = true;
+          break;
+        }
         end++;
       }
-      if (end == commentLimit) {
+      if (!closed) {
         result.fillRange(index, lines.length, true);
         break;
       }
+      endParagraph(context);
       result.fillRange(index, end + 1, true);
       index = end;
       continue;
     }
-
-    final blockEnd = blockEnds[index];
+    final blockEnd = pairs.blocks[key];
     if (blockEnd != null && blockEnd < limit) {
-      activeBlockEnds.add(blockEnd);
+      endParagraph(context);
+      activeBlocks.add((end: blockEnd, owner: context));
       continue;
     }
-
-    final open = _fenceOpeningPattern.firstMatch(line);
-    if (open == null) continue;
+    final open = relative == null
+        ? null
+        : _fenceOpeningPattern.firstMatch(relative);
+    if (open == null) {
+      if (context == null) {
+        rootParagraph = _continuesParagraph(line, rootParagraph);
+      } else if (line.trim().isNotEmpty) {
+        context.paragraph = _continuesParagraph(
+          relative ?? line,
+          context.paragraph,
+        );
+      }
+      continue;
+    }
     final run = open.group(1)!;
     final close = RegExp(
       '^ {0,3}${RegExp.escape(run[0])}{${run.length},}[ \\t]*\$',
     );
     var end = index + 1;
-    while (end < limit && !close.hasMatch(lines[end].text)) {
+    while (end < limit) {
+      final relativeClose = _relativeBbcodeLine(lines[end].text, indent);
+      if (relativeClose == null && lines[end].text.trim().isNotEmpty) break;
+      if (relativeClose != null && close.hasMatch(relativeClose)) break;
       end++;
     }
-    if (end == limit) end--;
+    final relativeClose = end < limit
+        ? _relativeBbcodeLine(lines[end].text, indent)
+        : null;
+    if (relativeClose == null || !close.hasMatch(relativeClose)) {
+      if (end < limit && lines[end].text.trim().isNotEmpty) {
+        while (activeLists.isNotEmpty &&
+            _relativeBbcodeLine(lines[end].text, activeLists.last.indent) ==
+                null) {
+          activeLists.removeLast();
+        }
+      }
+      end--;
+    }
+    endParagraph(context);
     result.fillRange(index, end + 1, true);
     index = end;
   }
