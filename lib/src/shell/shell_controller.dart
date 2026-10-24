@@ -139,6 +139,7 @@ import 'global_search_models.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
 import 'mobile_navigation.dart';
+import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
 import 'post_quote.dart';
@@ -2573,24 +2574,8 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await accountActivity.loadNotifications(instance);
   }
 
-  Future<void> markAllNotificationsRead(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    if (instance == null || !instance.isConnected) return;
-    final lease = lifecycle.capture(siteUrl);
-    final credential = await AccountRequestSession(
-      siteUrl,
-      lease,
-    ).keyCredentials(credentials);
-    if (!lease.isCurrent || credential.apiKey == null) return;
-    final types = await _siteNotificationTypesFor(
-      instance,
-      credential.apiKey!,
-      lease: lease,
-      requestCredentials: credential,
-    );
-    if (!lease.isCurrent) return;
-    await accountActivity.markAllNotificationsRead(instance, types);
-  }
+  Future<void> markAllNotificationsRead(String siteUrl) =>
+      _notificationFeeds.markAllNotificationsRead(siteUrl);
 
   NotificationFeed replyNotificationsFor(String siteUrl) =>
       accountActivity.replyNotificationsFor(siteUrl);
@@ -2685,15 +2670,8 @@ class ShellController extends FrameSafeNotifier
   NotificationFeed otherNotificationsFor(String siteUrl) =>
       accountActivity.otherNotificationsFor(siteUrl);
 
-  Future<void> loadOtherNotifications(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    if (instance != null) {
-      await accountActivity.loadOtherNotifications(
-        instance,
-        (apiKey) => _otherNotificationTypesFor(instance, apiKey),
-      );
-    }
-  }
+  Future<void> loadOtherNotifications(String siteUrl) =>
+      _notificationFeeds.loadOtherNotifications(siteUrl);
 
   int otherNotificationUnreadCount(
     String siteUrl, {
@@ -2730,9 +2708,17 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final Map<String, List<NotificationWireType>> _siteNotificationTypes = {};
-  final Map<String, Future<List<NotificationWireType>>>
-  _siteNotificationTypeRequests = {};
+  late final _notificationFeeds = NotificationFeedRefreshOwner(
+    api: api.site,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    activity: accountActivity,
+    instanceFor: _instanceAt,
+    claimedTypes: (instance) =>
+        _claimedUserMenuNotificationTypes(_pluginUserMenuSectionsFor(instance)),
+    groupedAuthorityAdvanced: _onGroupedUnreadAuthorityAdvanced,
+    refreshDebounce: pluginNotificationFeedRefreshDebounce,
+  );
 
   Set<NotificationTypeName> _claimedUserMenuNotificationTypes(
     Iterable<PluginUserMenuSection> pluginSections,
@@ -2754,65 +2740,6 @@ class ShellController extends FrameSafeNotifier
         totals: accountActivity.totalsFor(instance.url),
       ),
     );
-  }
-
-  Future<List<NotificationTypeName>> _otherNotificationTypesFor(
-    DiscourseInstance instance,
-    String apiKey,
-  ) async {
-    final siteTypes = await _siteNotificationTypesFor(instance, apiKey);
-    final claimed = _claimedUserMenuNotificationTypes(
-      _pluginUserMenuSectionsFor(instance),
-    );
-    return List.unmodifiable([
-      for (final type in siteTypes)
-        if (!claimed.contains(NotificationTypeName(type.wireName)))
-          NotificationTypeName(type.wireName),
-    ]);
-  }
-
-  Future<List<NotificationWireType>> _siteNotificationTypesFor(
-    DiscourseInstance instance,
-    String apiKey, {
-    SiteLease? lease,
-    AccountRequestCredentials? requestCredentials,
-  }) {
-    final cached = _siteNotificationTypes[instance.url];
-    if (cached != null) return Future.value(cached);
-    final active = _siteNotificationTypeRequests[instance.url];
-    if (active != null) return active;
-
-    final requestLease = lease ?? lifecycle.capture(instance.url);
-    final credentialFuture = requestCredentials == null
-        ? AccountRequestSession(
-            instance.url,
-            requestLease,
-          ).keyCredentials(credentials)
-        : Future<AccountRequestCredentials>.value(requestCredentials);
-    late final Future<List<NotificationWireType>> request;
-    request = credentialFuture
-        .then(
-          (credential) => credential.run(
-            () => api.site.siteNotificationTypes(
-              siteUrl: instance.url,
-              apiKey: credential.apiKey!,
-            ),
-          ),
-        )
-        .then((types) {
-          final immutable = List<NotificationWireType>.unmodifiable(types);
-          requestLease.commit(
-            () => _siteNotificationTypes[instance.url] = immutable,
-          );
-          return immutable;
-        })
-        .whenComplete(() {
-          if (identical(_siteNotificationTypeRequests[instance.url], request)) {
-            final _ = _siteNotificationTypeRequests.remove(instance.url);
-          }
-        });
-    _siteNotificationTypeRequests[instance.url] = request;
-    return request;
   }
 
   @override
@@ -3603,8 +3530,6 @@ class ShellController extends FrameSafeNotifier
     host: this,
   );
 
-  final Map<String, Timer> _pluginNotificationFeedRefreshTimers = {};
-
   bool _foreground = true;
 
   /// When the app left the foreground; null while it is in it.
@@ -3867,33 +3792,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     Object? data,
     SiteLease lease,
-  ) {
-    // This is called only from the tracker's lifecycle-bound commit closure.
-    // Advancing here, rather than in the raw MessageBus callback, prevents a
-    // retired account generation from invalidating current feeds or counts.
-    final groupedCounts = data is Map
-        ? NotificationTypeCounts.fromWire(data['grouped_unread_notifications'])
-        : NotificationTypeCounts.unavailable;
-    if (groupedCounts.isAvailable) {
-      _onGroupedUnreadAuthorityAdvanced(siteUrl);
-    }
-    accountActivity.applyLiveNotificationState(siteUrl, data);
-    if (!accountActivity.hasTrackedPluginNotifications(siteUrl)) return;
-
-    _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
-    late final Timer timer;
-    timer = Timer(pluginNotificationFeedRefreshDebounce, () {
-      if (!identical(_pluginNotificationFeedRefreshTimers[siteUrl], timer)) {
-        return;
-      }
-      _pluginNotificationFeedRefreshTimers.remove(siteUrl);
-      if (isDisposed || !lease.isCurrent) return;
-      final instance = _instanceAt(siteUrl);
-      if (instance?.isConnected != true) return;
-      accountActivity.refreshLoadedPluginNotifications(instance!).ignore();
-    });
-    _pluginNotificationFeedRefreshTimers[siteUrl] = timer;
-  }
+  ) => _notificationFeeds.acceptLiveState(siteUrl, data, lease);
 
   final Map<String, Set<String>> _serverPluginNames = {};
 
@@ -9051,8 +8950,7 @@ class ShellController extends FrameSafeNotifier
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
     _customSidebar.forget(siteUrl);
-    _siteNotificationTypes.remove(siteUrl);
-    _siteNotificationTypeRequests.remove(siteUrl)?.ignore();
+    _notificationFeeds.forget(siteUrl);
     _sitePresentation?.forget(siteUrl);
     _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
     _composerIdentities.remove(siteUrl)?.retire();
@@ -9070,7 +8968,6 @@ class ShellController extends FrameSafeNotifier
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
     _profileWrites.forget(siteUrl);
-    _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
     _liveSessions.forget(siteUrl);
     _notify();
   }
@@ -9964,15 +9861,7 @@ class ShellController extends FrameSafeNotifier
     _messageArchives.dispose();
     _newTopicDismissals.dispose();
     _profileWrites.dispose();
-    for (final timer in _pluginNotificationFeedRefreshTimers.values) {
-      timer.cancel();
-    }
-    _pluginNotificationFeedRefreshTimers.clear();
-    _siteNotificationTypes.clear();
-    for (final request in _siteNotificationTypeRequests.values) {
-      request.ignore();
-    }
-    _siteNotificationTypeRequests.clear();
+    _notificationFeeds.dispose();
     _selectedPostModeration.dispose();
     _flags.dispose();
     _topicReads.dispose();

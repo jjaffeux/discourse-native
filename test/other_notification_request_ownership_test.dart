@@ -1,11 +1,15 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -258,6 +262,30 @@ void main() {
       );
     }
 
+    test('catalog completion resolves claims from the current user', () async {
+      final api = _CatalogApi()..currentUserGate = Completer<DiscourseUser>();
+      final plugins = PluginInstaller.install(
+        const PluginManifest([_ClaimModule()]),
+      );
+      final shell = await _shell(api, plugins: plugins);
+      addTearDown(() async {
+        shell.dispose();
+        await plugins.close();
+      });
+      final loading = shell.loadOtherNotifications(_siteUrl);
+      await api.catalogStarted.future;
+      api.currentUserGate!.complete(
+        const DiscourseUser(id: 7, username: 'reader', admin: true),
+      );
+      await pumpEventQueue();
+      expect(shell.currentUserFor(_siteUrl)!.admin, isTrue);
+      api.catalog.complete(const [CoreNotificationTypes.grantedBadge]);
+      await loading;
+
+      expect(api.requests, isEmpty);
+      expect(shell.otherNotificationsFor(_siteUrl).loaded, isTrue);
+    });
+
     test('current shell owner resolves and caches unclaimed types', () async {
       final api = _CatalogApi();
       final shell = await _shell(api);
@@ -299,8 +327,12 @@ AccountActivityController _controller(
   lifecycle: lifecycle,
 );
 
-Future<ShellController> _shell(_CatalogApi api) async {
+Future<ShellController> _shell(
+  _CatalogApi api, {
+  InstalledPlugins? plugins,
+}) async {
   final shell = ShellController(
+    plugins: plugins,
     instanceStore: FakeInstanceStore([_connected]),
     api: api,
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'original-key',
@@ -356,6 +388,15 @@ class _NotificationsApi extends FakeDiscourseApi {
 }
 
 final class _CatalogApi extends _NotificationsApi {
+  Completer<DiscourseUser>? currentUserGate;
+
+  @override
+  Future<DiscourseUser> currentUser({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) => currentUserGate?.future ?? Future.value(_user);
+
   final catalogStarted = Completer<void>();
   final catalog = Completer<List<NotificationWireType>>();
   final List<String?> catalogKeys = [];
@@ -370,4 +411,39 @@ final class _CatalogApi extends _NotificationsApi {
     if (!catalogStarted.isCompleted) catalogStarted.complete();
     return catalog.future;
   }
+}
+
+final class _ClaimModule implements PluginModule {
+  const _ClaimModule();
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('claims'));
+
+  @override
+  void register(PluginRegistrar registrar) =>
+      registrar.addCapability(const _Claims());
+}
+
+final class _Claims implements SitePlugin, UserMenuSectionPlugin {
+  const _Claims();
+
+  @override
+  String get name => 'claims';
+
+  @override
+  List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) =>
+      [
+        if (context.user.admin)
+          PluginUserMenuSection(
+            id: const PluginUserMenuSectionId(
+              owner: PluginId('claims'),
+              name: 'badges',
+            ),
+            icon: DIcons.bell,
+            label: 'Badges',
+            notificationTypes: _types,
+            builder: (_, _) => const SizedBox.shrink(),
+          ),
+      ];
 }
