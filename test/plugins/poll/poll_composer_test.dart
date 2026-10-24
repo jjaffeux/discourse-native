@@ -476,6 +476,117 @@ void main() {
       }
     });
 
+    test('list admission follows original paragraphs and opaque blocks', () async {
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      const live = '[poll name=live]\n* C\n* D\n[/poll]';
+      final cases = <({String source, List<String> names})>[
+        for (final marker in const ['2.', '2)'])
+          (
+            source: 'text\n$marker a\n\n   [code]\n$poll\n[/code]\n$live',
+            names: ['live'],
+          ),
+        for (final prefix in const ['', '# heading\n', 'text\n\n'])
+          for (final marker in const ['1.', '2.'])
+            (
+              source: '$prefix$marker a\n\n   [code]\n$poll\n[/code]\n$live',
+              names: ['poll', 'live'],
+            ),
+        for (final prior in const [
+          '  [code]\n  x\n  [/code]',
+          '  <!--\n  x\n  -->',
+          '  [quote]\n  x\n  [/quote]',
+          '  ```\n  x\n  ```',
+        ])
+          (
+            source:
+                '- a\n\n$prior\n  paragraph\nlazy\n\n  [code]\n$live\n[/code]',
+            names: ['live'],
+          ),
+        for (final fence in const ['```', '~~~'])
+          (
+            source:
+                '- $fence\n  x\n  $fence\ntext\n\n  [code]\n$poll\n[/code]\n$live',
+            names: ['live'],
+          ),
+
+        for (final tag in const ['code', 'quote', 'excerpt', 'grid', 'wrap'])
+          (
+            source:
+                '- [$tag]\n  x\n  [/$tag]\ntext\n\n  [code]\n$poll\n[/code]\n$live',
+            names: ['live'],
+          ),
+        (
+          source: '- <!--\n  x\n  -->\ntext\n\n  [code]\n$poll\n[/code]\n$live',
+          names: ['live'],
+        ),
+        for (final fence in const ['```', '~~~'])
+          (
+            source:
+                '- $fence\n  [code]\n  $fence\n  ${poll.replaceAll('\n', '\n  ')}\n  [/code]\n$live',
+            names: ['poll', 'live'],
+          ),
+        for (final hidden in const ['```', '~~~', '[quote]', '- [code]'])
+          (
+            source: '<!--\n$hidden\n-->\n- a\n\n  [code]\n$live\n[/code]',
+            names: ['live'],
+          ),
+      ];
+      for (final example in cases) {
+        for (final newline in const ['\n', '\r\n']) {
+          final source = example.source.replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            example.names,
+            reason: source,
+          );
+          final blocks = parsePollComposerBlocks(source);
+          expect(
+            blocks.map((block) => block.name ?? 'poll'),
+            example.names,
+            reason: source,
+          );
+          expect(
+            pollNamesInComposerSource(source),
+            example.names.toSet(),
+            reason: source,
+          );
+          expect(
+            nextPollName(source),
+            example.names.contains('poll') ? 'poll2' : 'poll',
+            reason: source,
+          );
+          for (final block in blocks) {
+            final expected = block.name == 'live'
+                ? live.replaceAll('\n', newline)
+                : (source.contains('  [poll]')
+                          ? '  ${poll.replaceAll('\n', '\n  ')}'
+                          : poll)
+                      .replaceAll('\n', newline);
+            expect(block.start, source.indexOf(expected), reason: source);
+            expect(block.end, block.start + expected.length, reason: source);
+            expect(block.source, expected, reason: source);
+            expect(block.lineEnding, newline, reason: source);
+          }
+        }
+      }
+    });
+
     final fixedBaseExamples = <String>[
       for (final task in const ['[ ]', '[x]'])
         for (final (opening, closing) in const [
