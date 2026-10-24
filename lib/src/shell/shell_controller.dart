@@ -128,6 +128,7 @@ import 'content_page_contract.dart';
 import 'cooking_context_owner.dart';
 import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
+import 'flag_transactions.dart';
 import 'forum_settings_controller.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
@@ -4488,8 +4489,6 @@ class ShellController extends FrameSafeNotifier
   );
   final _topicListRevealRequests = StreamController<int>.broadcast(sync: true);
 
-  static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
-
   TopicDetail? get currentTopic => focusedTabContext.currentTopic;
 
   bool get currentTopicSummary => focusedTabContext.currentTopicSummary;
@@ -7960,182 +7959,36 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  late final FlagTransactions _flags = FlagTransactions(
+    store: store,
+    api: api.postMutations,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    topicData: _topicData,
+    siteContextFor: (siteUrl) => FlagSiteContext(
+      connected: _instanceAt(siteUrl)?.isConnected == true,
+      catalog: _postActionCatalogs[siteUrl] ?? const SitePostActionCatalog(),
+      minimumMessageLength: siteConfigFor(siteUrl).minPersonalMessagePostLength,
+    ),
+    changed: _notify,
+  );
+
   Future<String?> createPostFlag(
     String siteUrl,
     Post post,
     PostFlagType flagType, {
     String? message,
-  }) async {
-    final instance = _instanceAt(siteUrl);
-    final held = store.read<Post>(siteUrl, post.id);
-    PostFlagType? currentType;
-    for (final type in postFlagTypesFor(siteUrl)) {
-      if (type.id == flagType.id) {
-        currentType = type;
-        break;
-      }
-    }
-    if (instance?.isConnected != true) {
-      return const WriteException(WriteFailure.forbidden).message;
-    }
-    if (held == null ||
-        held.hidden ||
-        held.isDeleted ||
-        held.actedFlagSummaries.isNotEmpty ||
-        currentType == null ||
-        !currentType.enabled ||
-        !currentType.appliesToPost ||
-        !held.canFlagWith(currentType.id)) {
-      return appL10n.thisPostCanNoLongerBeFlagged;
-    }
-
-    final submittedMessage = currentType.requireMessage ? message ?? '' : null;
-    final length = submittedMessage?.length ?? 0;
-    final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
-    if (currentType.requireMessage &&
-        (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return appL10n.yourMessageMustBeBetweenAndCharacters(
-        (minimum).toString(),
-        (PostFlagType.maximumMessageLength).toString(),
-      );
-    }
-
-    final lease = lifecycle.capture(siteUrl);
-    final releasePost = _topicData
-        .forLease(siteUrl, lease)
-        ?.beginPostWrite(held.id);
-    if (releasePost == null) {
-      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
-    }
-    try {
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent) {
-        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-      }
-      if (credential.failure case final failure?) return failure.message;
-
-      try {
-        final flagActionTypeId = currentType.id;
-        final fresh = await credential.request!.run(
-          () => api.postMutations.createPostFlag(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            postId: held.id,
-            postActionTypeId: flagActionTypeId,
-            message: submittedMessage,
-          ),
-        );
-        if (!lease.isCurrent) {
-          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-        }
-        lease.commit(() {
-          _topicData.forLease(siteUrl, lease)?.acceptPostAction(fresh);
-          _notify();
-        });
-        return null;
-      } on WriteException catch (error) {
-        return error.message;
-      } catch (error) {
-        return const WriteException(WriteFailure.unreachable).message;
-      }
-    } finally {
-      lease.commit(releasePost);
-    }
-  }
+  }) => _flags.createPost(siteUrl, post, flagType, message: message);
 
   bool topicFlagWriteInFlight(String siteUrl, int topicId) =>
-      _topicFlagWrites.containsKey(_topicKey(siteUrl, topicId));
+      _flags.topicWriting(siteUrl, topicId);
 
   Future<String?> createTopicFlag(
     String siteUrl,
     TopicDetail topic,
     PostFlagType flagType, {
     String? message,
-  }) async {
-    final instance = _instanceAt(siteUrl);
-    final held = store.read<TopicDetail>(siteUrl, topic.id);
-    final currentType = _postActionCatalogs[siteUrl]?.topicFlags
-        .where((type) => type.id == flagType.id)
-        .firstOrNull;
-    if (instance?.isConnected != true) {
-      return const WriteException(WriteFailure.forbidden).message;
-    }
-    if (held == null ||
-        currentType == null ||
-        !currentType.enabled ||
-        !currentType.appliesToTopic ||
-        !held.canFlagWith(currentType.id)) {
-      return appL10n.thisTopicCanNoLongerBeFlagged;
-    }
-
-    final submittedMessage = currentType.requireMessage ? message ?? '' : null;
-    final length = submittedMessage?.length ?? 0;
-    final minimum = siteConfigFor(siteUrl).minPersonalMessagePostLength;
-    if (currentType.requireMessage &&
-        (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return appL10n.yourMessageMustBeBetweenAndCharacters(
-        (minimum).toString(),
-        (PostFlagType.maximumMessageLength).toString(),
-      );
-    }
-
-    final key = _topicKey(siteUrl, held.id);
-    if (_topicFlagWrites.containsKey(key)) {
-      return appL10n.anotherFlagOnThisTopicIsStillBeingSaved;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    final attempt = Object();
-    _topicFlagWrites[key] = attempt;
-    void release() {
-      if (identical(_topicFlagWrites[key], attempt)) {
-        _topicFlagWrites.remove(key);
-      }
-    }
-
-    final detach = lease.onRetire(release);
-    _notify();
-    try {
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent) {
-        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-      }
-      if (credential.failure case final failure?) return failure.message;
-
-      try {
-        await credential.request!.run(
-          () => api.postMutations.createTopicFlag(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            topicId: held.id,
-            postActionTypeId: currentType.id,
-            message: submittedMessage,
-          ),
-        );
-        if (!lease.isCurrent) {
-          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-        }
-        lease.commit(() {
-          store.update<TopicDetail>(
-            siteUrl,
-            held.id,
-            (current) => current.withTopicFlag(currentType.id),
-          );
-          _notify();
-        });
-        return null;
-      } on WriteException catch (error) {
-        return error.message;
-      } catch (error) {
-        return const WriteException(WriteFailure.unreachable).message;
-      }
-    } finally {
-      detach();
-      if (identical(_topicFlagWrites[key], attempt)) {
-        release();
-        lease.commit(_notify);
-      }
-    }
-  }
+  }) => _flags.createTopic(siteUrl, topic, flagType, message: message);
 
   final _postChecklistWrites = <String, PostChecklistWrite>{};
   int _checklistMutationSequence = 0;
@@ -8302,8 +8155,6 @@ class ShellController extends FrameSafeNotifier
     return targetSite != null &&
         _topicData.forSite(targetSite).postWriting(postId);
   }
-
-  final Map<String, Object> _topicFlagWrites = {};
 
   @override
   BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) =>
@@ -9234,7 +9085,7 @@ class ShellController extends FrameSafeNotifier
     userCardRequests.forget(siteUrl);
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _selectedPostModeration.forget(siteUrl);
-    _topicFlagWrites.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _flags.forget(siteUrl);
     _notificationPreferences.forget(siteUrl);
     _currentUsers.forget(siteUrl);
     _topicActions.forget(siteUrl);
@@ -10169,7 +10020,7 @@ class ShellController extends FrameSafeNotifier
     }
     _siteNotificationTypeRequests.clear();
     _selectedPostModeration.dispose();
-    _topicFlagWrites.clear();
+    _flags.dispose();
     _topicReads.dispose();
     _customSidebar.dispose();
     for (final instance in _instances) {
