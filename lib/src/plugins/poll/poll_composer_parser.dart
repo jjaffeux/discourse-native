@@ -820,7 +820,7 @@ List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
       final firstLine =
           activeLists.isNotEmpty && activeLists.last.start == index;
       if (!firstLine && paragraph && !candidate.interruptsParagraph) continue;
-      if (activeLists.isEmpty) rootParagraph = false;
+      endParagraph(activeLists.isEmpty ? null : activeLists.last);
       activeLists.add(_ActiveList(candidate, blockLimit, line));
     }
     final absolute = _relativeBbcodeLine(line, 0)!;
