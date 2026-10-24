@@ -18,7 +18,17 @@ final class _ControlledAssignedGroupApi implements AssignedGroupApi {
   final List<Completer<TopicList>> topicResults = [];
   final List<Completer<TopicList>> pageResults = [];
 
-  final List<({String groupName, String search, int offset, int limit})>
+  final List<
+    ({
+      String siteUrl,
+      String apiKey,
+      String? clientId,
+      String groupName,
+      String search,
+      int offset,
+      int limit,
+    })
+  >
   memberCalls = [];
   final List<
     ({
@@ -41,6 +51,9 @@ final class _ControlledAssignedGroupApi implements AssignedGroupApi {
     String? clientId,
   }) {
     memberCalls.add((
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
       groupName: groupName,
       search: search,
       offset: offset,
@@ -72,6 +85,13 @@ final class _ControlledAssignedGroupApi implements AssignedGroupApi {
     topicCalls.add((groupName: groupName, filter: filter, query: query));
     return topicResults.removeAt(0).future;
   }
+}
+
+final class _DelayedCredentialReader extends FakeApiCredentialReader {
+  final keysRead = <Completer<String?>>[];
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) => keysRead.removeAt(0).future;
 }
 
 Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
@@ -1015,6 +1035,305 @@ void main() {
     );
   });
 
+  for (final fail in [false, true]) {
+    for (final refreshing in [false, true]) {
+      test('stale member page ${fail ? 'failure' : 'response'} leaves '
+          '${refreshing ? 'refresh' : 'replacement page'} pending', () async {
+        final old = Completer<AssignedGroupMembersPage>();
+        final fresh = Completer<AssignedGroupMembersPage>();
+        final replacement = Completer<AssignedGroupMembersPage>();
+        final api = _ControlledAssignedGroupApi()
+          ..memberResults.addAll([
+            _completed(_members(1, hasMore: true)),
+            old,
+            fresh,
+            replacement,
+          ]);
+        final controller = AssignedGroupController(
+          api: api,
+          requests: _requests(SiteLifecycle()),
+        );
+        addTearDown(controller.dispose);
+        Future<void> load({bool refresh = false}) => controller.loadMembers(
+          siteUrl: _site,
+          groupName: ' support ',
+          search: ' sam ',
+          refresh: refresh,
+        );
+        Future<void> page() => controller.loadMoreMembers(
+          siteUrl: _site,
+          groupName: 'support',
+          search: 'sam',
+        );
+        AssignedGroupMembersState state() =>
+            controller.membersStateFor(_site, 'support', search: 'sam');
+
+        await load();
+        final oldLoad = page();
+        await pumpEventQueue();
+        final refreshLoad = load(refresh: true);
+        await pumpEventQueue();
+        expect(state().members.single.id, 1);
+        Future<void>? replacementLoad;
+        if (!refreshing) {
+          fresh.complete(_members(3, hasMore: true, assignmentCount: 20));
+          await refreshLoad;
+          replacementLoad = page();
+          await pumpEventQueue();
+        }
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+        if (fail) {
+          old.completeError(StateError('old member page failed'));
+        } else {
+          old.complete(_members(2, offset: 50));
+        }
+        await oldLoad;
+        expect(notifications, 0);
+        expect(state().members.single.id, refreshing ? 1 : 3);
+        expect(state().loading, refreshing);
+        expect(state().loadingMore, !refreshing);
+        expect(state().error, isNull);
+        await load();
+        await page();
+        expect(api.memberCalls, hasLength(refreshing ? 3 : 4));
+        expect(
+          api.memberCalls.every(
+            (call) => call.groupName == 'support' && call.search == 'sam',
+          ),
+          isTrue,
+        );
+        if (refreshing) {
+          fresh.complete(_members(3, assignmentCount: 20));
+          await refreshLoad;
+        } else {
+          replacement.complete(_members(4, offset: 50));
+          await replacementLoad;
+        }
+        expect(
+          state().members.map((member) => member.id),
+          refreshing ? [3] : [3, 4],
+        );
+        expect(state().assignmentCount, 20);
+        expect(state().loading, isFalse);
+        expect(state().loadingMore, isFalse);
+      });
+    }
+  }
+
+  for (final page in [false, true]) {
+    for (final missingCredentials in [false, true]) {
+      test(
+        'member ${page ? 'page' : 'refresh'} retains results after '
+        '${missingCredentials ? 'missing credentials' : 'failure'}',
+        () async {
+          final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+          final failure = Completer<AssignedGroupMembersPage>();
+          final api = _ControlledAssignedGroupApi()
+            ..memberResults.addAll([
+              _completed(_members(1, hasMore: true)),
+              if (!missingCredentials) failure,
+            ]);
+          final controller = AssignedGroupController(
+            api: api,
+            requests: FakePluginRequestHost(credentials: credentials),
+          );
+          addTearDown(controller.dispose);
+          Future<void> load() => page
+              ? controller.loadMoreMembers(siteUrl: _site, groupName: 'support')
+              : controller.loadMembers(
+                  siteUrl: _site,
+                  groupName: 'support',
+                  refresh: true,
+                );
+          await controller.loadMembers(siteUrl: _site, groupName: 'support');
+          if (missingCredentials) credentials.keys.clear();
+          final failedLoad = load();
+          await pumpEventQueue();
+          if (!missingCredentials) failure.completeError(StateError('offline'));
+          await failedLoad;
+          final state = controller.membersStateFor(_site, 'support');
+          expect(state.members.single.id, 1);
+          expect(state.assignmentCount, 10);
+          expect(state.nextOffset, 50);
+          expect(state.hasMore, isTrue);
+          expect(state.error, isNotNull);
+          expect(state.pageError, page);
+          expect(state.loading, isFalse);
+          expect(state.loadingMore, isFalse);
+          final calls = api.memberCalls.length;
+          if (!page) {
+            await controller.loadMoreMembers(
+              siteUrl: _site,
+              groupName: 'support',
+            );
+            expect(api.memberCalls, hasLength(calls));
+          }
+          credentials.keys[_site] = 'restored';
+          api.memberResults.add(_completed(_members(2, offset: page ? 50 : 0)));
+          await load();
+          expect(api.memberCalls.last.offset, page ? 50 : 0);
+          expect(controller.membersStateFor(_site, 'support').error, isNull);
+          expect(
+            controller
+                .membersStateFor(_site, 'support')
+                .members
+                .map((member) => member.id),
+            page ? [1, 2] : [2],
+          );
+        },
+      );
+    }
+  }
+
+  for (final dispose in [false, true]) {
+    test('member loading listener ${dispose ? 'disposes' : 'forgets'} '
+        'before credentials or API dispatch', () async {
+      final api = _ControlledAssignedGroupApi();
+      final controller = AssignedGroupController(
+        api: api,
+        requests: _requests(SiteLifecycle()),
+      );
+      if (!dispose) addTearDown(controller.dispose);
+      var retired = false;
+      controller.addListener(() {
+        if (retired) return;
+        retired = true;
+        if (dispose) {
+          controller.dispose();
+        } else {
+          controller.forget(_site);
+        }
+      });
+      await controller.loadMembers(siteUrl: _site, groupName: 'support');
+      expect(api.memberCalls, isEmpty);
+      expect(controller.membersStateFor(_site, 'support').loaded, isFalse);
+      expect(controller.membersStateFor(_site, 'support').loading, isFalse);
+    });
+  }
+
+  for (final fail in [false, true]) {
+    test('member account replacement rejects late ${fail ? 'error' : 'page'} '
+        'and finally notifications', () async {
+      final old = Completer<AssignedGroupMembersPage>();
+      final fresh = Completer<AssignedGroupMembersPage>();
+      final api = _ControlledAssignedGroupApi()
+        ..memberResults.addAll([old, fresh]);
+      final lifecycle = SiteLifecycle();
+      final controller = AssignedGroupController(
+        api: api,
+        requests: _requests(lifecycle),
+      );
+      addTearDown(controller.dispose);
+      final oldLoad = controller.loadMembers(
+        siteUrl: _site,
+        groupName: 'support',
+      );
+      await pumpEventQueue();
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      final freshLoad = controller.loadMembers(
+        siteUrl: _site,
+        groupName: 'support',
+      );
+      await pumpEventQueue();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      if (fail) {
+        old.completeError(StateError('old account failed'));
+      } else {
+        old.complete(_members(1));
+      }
+      await oldLoad;
+      expect(notifications, 0);
+      expect(controller.membersStateFor(_site, 'support').loading, isTrue);
+      await controller.loadMembers(siteUrl: _site, groupName: 'support');
+      expect(api.memberCalls, hasLength(2));
+      fresh.complete(_members(2));
+      await freshLoad;
+      expect(controller.membersStateFor(_site, 'support').members.single.id, 2);
+    });
+  }
+
+  test(
+    'member retirement during credentials does not dispatch old API work',
+    () async {
+      final oldKey = Completer<String?>();
+      final credentials = _DelayedCredentialReader()
+        ..keysRead.addAll([oldKey, _completed('new-key')]);
+      final fresh = Completer<AssignedGroupMembersPage>();
+      final api = _ControlledAssignedGroupApi()..memberResults.add(fresh);
+      final lifecycle = SiteLifecycle();
+      final controller = AssignedGroupController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
+      );
+      addTearDown(controller.dispose);
+      final oldLoad = controller.loadMembers(
+        siteUrl: _site,
+        groupName: 'support',
+      );
+      await pumpEventQueue();
+      lifecycle.invalidate(_site);
+      controller.forget(_site);
+      final freshLoad = controller.loadMembers(
+        siteUrl: _site,
+        groupName: 'support',
+      );
+      await pumpEventQueue();
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      oldKey.complete('old-key');
+      await oldLoad;
+      expect(api.memberCalls, hasLength(1));
+      expect(api.memberCalls.single.apiKey, 'new-key');
+      expect(api.memberCalls.single.clientId, 'test-client');
+      expect(api.memberCalls.single.siteUrl, _site);
+      expect(notifications, 0);
+      expect(controller.membersStateFor(_site, 'support').loading, isTrue);
+      fresh.complete(_members(2));
+      await freshLoad;
+      expect(controller.membersStateFor(_site, 'support').members.single.id, 2);
+    },
+  );
+
+  test(
+    'member success listener refresh keeps the replacement request active',
+    () async {
+      final fresh = Completer<AssignedGroupMembersPage>();
+      final api = _ControlledAssignedGroupApi()
+        ..memberResults.addAll([_completed(_members(1)), fresh]);
+      final controller = AssignedGroupController(
+        api: api,
+        requests: _requests(SiteLifecycle()),
+      );
+      addTearDown(controller.dispose);
+      Future<void>? refresh;
+      void onResult() {
+        final state = controller.membersStateFor(_site, 'support');
+        if (!state.loaded || state.loading) return;
+        controller.removeListener(onResult);
+        refresh = controller.loadMembers(
+          siteUrl: _site,
+          groupName: 'support',
+          refresh: true,
+        );
+      }
+
+      controller.addListener(onResult);
+      await controller.loadMembers(siteUrl: _site, groupName: 'support');
+      await pumpEventQueue();
+      expect(controller.membersStateFor(_site, 'support').loading, isTrue);
+      await controller.loadMembers(siteUrl: _site, groupName: 'support');
+      expect(api.memberCalls, hasLength(2));
+      fresh.complete(_members(2));
+      await refresh;
+      expect(controller.membersStateFor(_site, 'support').members.single.id, 2);
+    },
+  );
   test('dispose drops in-flight responses', () async {
     final result = Completer<TopicList>();
     final api = _ControlledAssignedGroupApi()..topicResults.add(result);
