@@ -376,6 +376,19 @@ void main() {
         ),
         (source: '- a\n\n  [code]\n<!--\n$poll\n[/code]', active: false),
         (source: '    [code]\n\n$poll\n    [/code]', active: true),
+        (
+          source:
+              '- a\n\n  - b\n\n    [code]\n'
+              '  [poll name=live]\n  * A\n  * B\n  [/poll]\n    [/code]',
+          active: true,
+        ),
+        (
+          source:
+              '- a\n\n  [code]\n  [poll name=live]\n'
+              '  * A\n  * B\n  [/poll]\n\t[/code]',
+          active: false,
+        ),
+        (source: '[code]\n$poll\n\t[/code]', active: true),
       ];
       for (final example in cases) {
         final result = await service.cook(
