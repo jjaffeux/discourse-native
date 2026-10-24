@@ -194,7 +194,9 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
-    test('projects only active polls across core wrapper boundaries', () {
+    testWidgets('projects only active polls across core wrapper boundaries', (
+      tester,
+    ) async {
       const poll = '[poll]\n* A\n* B\n[/poll]';
       const document =
           '[QUOTE=Sam]\n[code]\n$poll\n[/quote]\n[/code]\n'
@@ -206,9 +208,17 @@ void main() {
       );
       addTearDown(controller.dispose);
 
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: DTextarea(controller: controller)),
+        ),
+      );
+
       expect(controller.pollBlocks.map((poll) => poll.name), ['lunch']);
       expect(controller.pollBlocks.single.start, document.indexOf(source));
       expect(controller.isPollCollapsed(controller.pollBlocks.single), isTrue);
+      expect(find.byType(PollComposerPill), findsOneWidget);
       expect(nextPollName(document), 'poll');
       expect(controller.text, document);
     });

@@ -334,10 +334,14 @@ final RegExp _leadingHorizontalSpacePattern = RegExp(r'^[ \t]');
 final RegExp _fenceOpeningPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
 final RegExp _commentOpeningPattern = RegExp(r'^ {0,3}<!--');
 
-enum _BbcodeBlock { code, quote }
+enum _BbcodeBlock { code, quote, excerpt, grid, wrap, poll }
+
+final String _bbcodeBlockNames = _BbcodeBlock.values
+    .map((block) => block.name)
+    .join('|');
 
 final RegExp _bbcodeClosingPattern = RegExp(
-  r'^ {0,3}\[/(code|quote)\]\s*$',
+  '^ {0,3}\\[/($_bbcodeBlockNames)\\]\\s*\$',
   caseSensitive: false,
 );
 const _bbcodeQuotationPairs = [
@@ -356,19 +360,22 @@ final String _bbcodeQuotedValuePattern = [
     '${RegExp.escape(pair[0])}[^${RegExp.escape(pair[1])}]+${RegExp.escape(pair[1])}',
 ].join('|');
 final RegExp _bbcodeOpeningPattern = RegExp(
-  r'^ {0,3}\[(?=(code|quote)(?:[=\s\]]))'
+  '^ {0,3}\\[(?=($_bbcodeBlockNames)(?:[=\\s\\]]))'
   '(?:(?:[-\\w]+(?:=(?:$_bbcodeQuotedValuePattern|[^\\s\\]]+))?)+\\s*)+',
   caseSensitive: false,
 );
 final RegExp _legacyQuoteOpeningPattern = RegExp(
-  '^ {0,3}\\[quote=(\\s*[^${RegExp.escape(_bbcodeQuotationPairs.join())}].+?)\\]',
+  '^ {0,3}\\[(quote)=(\\s*[^${RegExp.escape(_bbcodeQuotationPairs.join())}].+?)\\]',
   caseSensitive: false,
 );
 
 _BbcodeBlock? _bbcodeBlockOpening(String line) {
   final legacyQuote = _legacyQuoteOpeningPattern.firstMatch(line);
-  if (legacyQuote != null && line.substring(legacyQuote.end).trim().isEmpty) {
-    return _BbcodeBlock.quote;
+  if (legacyQuote != null) {
+    return legacyQuote.group(1) == 'quote' &&
+            line.substring(legacyQuote.end).trim().isEmpty
+        ? _BbcodeBlock.quote
+        : null;
   }
   final opening = _bbcodeOpeningPattern.firstMatch(line);
   if (opening == null ||
@@ -581,7 +588,8 @@ List<_SourceLine> _linesOf(String source) {
 
 List<bool> _excludedLineMap(List<_SourceLine> lines) {
   final starts = {for (final tag in _BbcodeBlock.values) tag: <int>[]};
-  final ends = {for (final tag in _BbcodeBlock.values) tag: <int, int>{}};
+  final codeEnds = <int, int>{};
+  final blockEnds = <int, int>{};
   for (var index = 0; index < lines.length; index++) {
     final line = lines[index].text;
     final opening = _bbcodeBlockOpening(line);
@@ -593,19 +601,20 @@ List<bool> _excludedLineMap(List<_SourceLine> lines) {
     if (closing == null) continue;
     final tag = _BbcodeBlock.values.byName(closing.group(1)!.toLowerCase());
     if (starts[tag]!.isNotEmpty) {
-      ends[tag]![starts[tag]!.removeLast()] = index;
+      final ends = tag == _BbcodeBlock.code ? codeEnds : blockEnds;
+      ends[starts[tag]!.removeLast()] = index;
     }
   }
 
   final result = List<bool>.filled(lines.length, false);
-  final quoteEnds = <int>[];
+  final activeBlockEnds = <int>[];
   for (var index = 0; index < lines.length; index++) {
-    while (quoteEnds.isNotEmpty && index >= quoteEnds.last) {
-      quoteEnds.removeLast();
+    while (activeBlockEnds.isNotEmpty && index >= activeBlockEnds.last) {
+      activeBlockEnds.removeLast();
     }
-    final limit = quoteEnds.isEmpty ? lines.length : quoteEnds.last;
+    final limit = activeBlockEnds.isEmpty ? lines.length : activeBlockEnds.last;
     final line = lines[index].text;
-    final codeEnd = ends[_BbcodeBlock.code]![index];
+    final codeEnd = codeEnds[index];
     if (codeEnd != null && codeEnd < limit) {
       result.fillRange(index, codeEnd + 1, true);
       index = codeEnd;
@@ -626,9 +635,9 @@ List<bool> _excludedLineMap(List<_SourceLine> lines) {
       continue;
     }
 
-    final quoteEnd = ends[_BbcodeBlock.quote]![index];
-    if (quoteEnd != null && quoteEnd < limit) {
-      quoteEnds.add(quoteEnd);
+    final blockEnd = blockEnds[index];
+    if (blockEnd != null && blockEnd < limit) {
+      activeBlockEnds.add(blockEnd);
       continue;
     }
 
