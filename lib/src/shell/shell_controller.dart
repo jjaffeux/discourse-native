@@ -62,7 +62,6 @@ import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
-import '../models/do_not_disturb.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
@@ -145,6 +144,7 @@ import 'plugin_background_retention.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
+import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
@@ -170,7 +170,7 @@ part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
 part 'instance_rail_transactions.dart';
 part 'post_commands.dart';
-part 'profile_write_transactions.dart';
+
 part 'selected_post_moderation.dart';
 part 'post_mutation_policy.dart';
 part 'topic_action_transactions.dart';
@@ -3533,7 +3533,16 @@ class ShellController extends FrameSafeNotifier
   }
 
   late final _liveSessions = _SiteLiveSessions(this);
-  late final _profileWrites = _ProfileWriteTransactions(this);
+  late final _profileWrites = ProfileWriteTransactions(
+    currentUser: _ShellProfileCurrentUser(this),
+    api: api.site,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    userStatuses: userStatuses,
+    doNotDisturb: doNotDisturb,
+    changed: _notify,
+    clock: _clock,
+  );
   late final _currentUsers = _CurrentUserDirectory(
     lifecycle: lifecycle,
     models: plugins.models,
@@ -4125,21 +4134,16 @@ class ShellController extends FrameSafeNotifier
     required String emoji,
     DateTime? endsAt,
     bool? pauseNotifications,
-  }) async => (await _profileWrites.writeStatus(
+  }) => _profileWrites.setStatus(
     siteUrl,
-    _SetProfileStatus(
-      description: description,
-      emoji: emoji,
-      endsAt: endsAt,
-      pauseNotifications: pauseNotifications,
-    ),
-  )).message;
+    description: description,
+    emoji: emoji,
+    endsAt: endsAt,
+    pauseNotifications: pauseNotifications,
+  );
 
-  Future<String?> clearUserStatus(String siteUrl) async =>
-      (await _profileWrites.writeStatus(
-        siteUrl,
-        const _ClearProfileStatus(),
-      )).message;
+  Future<String?> clearUserStatus(String siteUrl) =>
+      _profileWrites.clearStatus(siteUrl);
 
   /// Writes what a quit would otherwise lose — a tab selection or anchor
   /// still inside its debounce, and each composer's pending draft — and
@@ -10309,4 +10313,54 @@ final class _ShellScopedPluginNotificationFeedHost
   @override
   Future<bool> openPluginNotificationUrl(String url) =>
       _host.openPluginNotificationUrl(url);
+}
+
+final class _ShellProfileCurrentUser implements ProfileCurrentUser {
+  _ShellProfileCurrentUser(this._shell);
+
+  final ShellController _shell;
+
+  @override
+  ProfileUserSnapshot? snapshotFor(String siteUrl) {
+    final instance = _shell._instanceAt(siteUrl);
+    return instance == null
+        ? null
+        : ProfileUserSnapshot(
+            user: instance.user,
+            statusEnabled: instance.config.userStatusEnabled,
+          );
+  }
+
+  @override
+  CurrentUserReconciler reconcilerFor(String siteUrl) =>
+      _shell._currentUsers.reconcilerFor(siteUrl);
+
+  @override
+  Future<void> refresh(String siteUrl, String apiKey, SiteLease lease) async {
+    await _shell._currentUsers.refresh(
+      siteUrl,
+      apiKey,
+      lease: lease,
+      force: true,
+    );
+  }
+
+  @override
+  void confirmPresence(String siteUrl, bool hidden) {
+    final instance = _shell._instanceAt(siteUrl);
+    final user = instance?.user;
+    if (instance == null || user == null) return;
+    _shell._replaceInstance(
+      instance,
+      instance.copyWith(user: user.withHidePresence(hidden)),
+    );
+  }
+
+  @override
+  void confirmStatus(String siteUrl, int userId, UserStatus? status) =>
+      _shell._applyOwnUserStatus(siteUrl, userId, status);
+
+  @override
+  void persist() =>
+      _shell.instanceStore.save(List.of(_shell._instances)).ignore();
 }
