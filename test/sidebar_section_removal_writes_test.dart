@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -17,8 +18,9 @@ import 'support/shell_test_harness.dart';
 const _site = 'https://meta.discourse.org';
 const _other = 'https://other.example';
 const _section = 'custom-9';
-String _key(String site) =>
-    '${SharedPreferencesSidebarSectionPersistence.keys.of(site)}.$_section';
+String _key(String site) => SharedPreferencesSidebarSectionPersistence
+    .preferences
+    .keyFor(SitePreferenceIdentity.namedItem(site, _section));
 
 void main() {
   for (final remove in [false, true]) {
@@ -87,8 +89,11 @@ void main() {
           expect(await shell.removeInstance(shell.instanceFor(_site)!), isTrue);
           await tester.pumpAndSettle();
           expect(
-            await preferences.getAll(),
-            isNot(contains('flutter.${_key(_site)}')),
+            shell.sidebarSections.collapsedFor(
+              siteUrl: _site,
+              sectionId: _section,
+            ),
+            isNull,
           );
           expect(await shell.addInstance(original), isTrue);
           await shell.connectCurrentInstance();

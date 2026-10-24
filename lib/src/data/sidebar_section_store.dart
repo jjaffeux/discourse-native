@@ -1,5 +1,3 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
@@ -27,25 +25,31 @@ final class SharedPreferencesSidebarSectionPersistence
     retirement: SitePreferenceRetirement.tracked,
   );
 
+  static const preferences = OwnedSitePreferences(
+    id: 'discourse_native.sidebar_section_collapsed',
+    scope: SitePreferenceScope.namedItem,
+    value: SitePreferenceValue.boolean,
+    legacy: keys,
+  );
+
   @override
   Future<bool?> readCollapsed({
     required String siteUrl,
     required String sectionId,
-  }) async =>
-      (await SharedPreferences.getInstance()).getBool(_key(siteUrl, sectionId));
+  }) => preferences.read(SitePreferenceIdentity.namedItem(siteUrl, sectionId));
 
   @override
   Future<bool> writeCollapsed({
     required String siteUrl,
     required String sectionId,
     required bool collapsed,
-  }) async => (await SharedPreferences.getInstance()).setBool(
-    _key(siteUrl, sectionId),
-    collapsed,
-  );
-
-  static String _key(String siteUrl, String sectionId) =>
-      '${keys.of(siteUrl)}.${Uri.encodeComponent(sectionId)}';
+  }) async {
+    await preferences.write(
+      SitePreferenceIdentity.namedItem(siteUrl, sectionId),
+      collapsed,
+    );
+    return true;
+  }
 }
 
 final class SidebarSectionStore {
@@ -80,12 +84,17 @@ final class SidebarSectionStore {
     _siteOwners.removeWhere((site, _) => sites.includes(site));
   }
 
-  Future<bool> read({required String siteUrl, required String sectionId}) =>
-      _operations.run(
-        owner: _persistence,
-        key: (siteUrl, sectionId),
-        operation: () => _read(siteUrl: siteUrl, sectionId: sectionId),
-      );
+  Future<bool> read({required String siteUrl, required String sectionId}) {
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
+    return _operations.run(
+      owner: _persistence,
+      key: (siteUrl, sectionId),
+      operation: () async {
+        if (!identical(_siteOwners[siteUrl], owner)) return false;
+        return _read(siteUrl: siteUrl, sectionId: sectionId);
+      },
+    );
+  }
 
   Future<bool> _read({
     required String siteUrl,

@@ -1,16 +1,25 @@
 part of 'site_preference_keys.dart';
 
-enum SitePreferenceScope { site, account }
+enum SitePreferenceScope { site, account, namedItem }
 
 final class SitePreferenceIdentity {
-  const SitePreferenceIdentity.site(this.siteUrl) : account = null;
-  const SitePreferenceIdentity.account(this.siteUrl, String this.account);
+  const SitePreferenceIdentity.site(this.siteUrl)
+    : account = null,
+      itemName = null;
+  const SitePreferenceIdentity.account(this.siteUrl, String this.account)
+    : itemName = null;
+  const SitePreferenceIdentity.namedItem(this.siteUrl, String this.itemName)
+    : account = null;
 
   final String siteUrl;
   final String? account;
+  final String? itemName;
 
-  SitePreferenceScope get scope =>
-      account == null ? SitePreferenceScope.site : SitePreferenceScope.account;
+  SitePreferenceScope get scope => itemName != null
+      ? SitePreferenceScope.namedItem
+      : account != null
+      ? SitePreferenceScope.account
+      : SitePreferenceScope.site;
 }
 
 /// The native preference type, kept separate from a store's domain decoding.
@@ -20,6 +29,7 @@ final class SitePreferenceIdentity {
 final class SitePreferenceValue<T extends Object> {
   const SitePreferenceValue._(this._read, this._write);
 
+  static const boolean = SitePreferenceValue<bool>._(_readBool, _writeBool);
   static const string = SitePreferenceValue<String>._(
     _readString,
     _writeString,
@@ -32,6 +42,13 @@ final class SitePreferenceValue<T extends Object> {
   final T? Function(SharedPreferences, String) _read;
   final Future<bool> Function(SharedPreferences, String, T) _write;
 
+  static bool? _readBool(SharedPreferences preferences, String key) =>
+      preferences.getBool(key);
+  static Future<bool> _writeBool(
+    SharedPreferences preferences,
+    String key,
+    bool value,
+  ) => preferences.setBool(key, value);
   static String? _readString(SharedPreferences preferences, String key) =>
       preferences.getString(key);
   static Future<bool> _writeString(
@@ -51,7 +68,7 @@ final class SitePreferenceValue<T extends Object> {
 }
 
 /// Owns exact identities, compatible legacy reads, and removal ordering.
-/// Account spelling remains the domain store's existing policy.
+/// Account and item spelling remain the domain store's existing policy.
 @PreferenceStorage.adapter(
   'Typed site preferences serialize migration and permanent removal by exact site identity.',
 )
@@ -79,10 +96,10 @@ final class OwnedSitePreferences<T extends Object> {
   String? _legacyKey(SitePreferenceIdentity identity) {
     final key = legacy;
     if (key == null) return null;
-    final account = identity.account;
-    return account == null
+    final name = identity.account ?? identity.itemName;
+    return name == null
         ? key.of(identity.siteUrl)
-        : '${key.of(identity.siteUrl)}.${Uri.encodeComponent(account)}';
+        : '${key.of(identity.siteUrl)}.${Uri.encodeComponent(name)}';
   }
 
   Future<T?> read(SitePreferenceIdentity identity) {
@@ -168,7 +185,7 @@ bool _ownsPreference(String site, Object owner) =>
     identical(_ownedPreferenceOwners[site], owner);
 
 String _encodeOwnedPreference(String id, SitePreferenceIdentity identity) =>
-    '$_ownedPreferencePrefix${base64Url.encode(utf8.encode(jsonEncode([id, identity.scope.name, identity.siteUrl, identity.account]))).replaceAll('=', '')}';
+    '$_ownedPreferencePrefix${base64Url.encode(utf8.encode(jsonEncode([id, identity.scope.name, identity.siteUrl, identity.account ?? identity.itemName]))).replaceAll('=', '')}';
 
 SitePreferenceIdentity? _ownedPreferenceIdentity(String key) {
   if (!key.startsWith(_ownedPreferencePrefix)) return null;
@@ -184,6 +201,10 @@ SitePreferenceIdentity? _ownedPreferenceIdentity(String key) {
     }
     if (tuple case [String id, 'account', String site, String account]) {
       final identity = SitePreferenceIdentity.account(site, account);
+      return _encodeOwnedPreference(id, identity) == key ? identity : null;
+    }
+    if (tuple case [String id, 'namedItem', String site, String itemName]) {
+      final identity = SitePreferenceIdentity.namedItem(site, itemName);
       return _encodeOwnedPreference(id, identity) == key ? identity : null;
     }
   } on FormatException {
