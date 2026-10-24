@@ -441,16 +441,21 @@ final class ShellTabContext {
     final tab = activeTab;
     if (instance == null || tab == null) return null;
     final source = topicListContent;
+    final categories = shell.filterCategoriesFor(instance.url);
     return TopicListTransitions(
       tab: tab,
       source: source,
       mode: currentTopicListMode,
       sidebarSource: sidebarFilterRoute,
-      categories: shell.filterCategoriesFor(instance.url),
-      sourceCategory: shell.categoryFor(
-        source?.categoryId,
-        siteUrl: instance.url,
-      ),
+      categories: categories,
+      canonicalCategories: {
+        for (final id in {
+          for (final category in categories) category.id,
+          ?source?.categoryId,
+        })
+          if (shell.categoryFor(id, siteUrl: instance.url) case final category?)
+            id: category,
+      },
       resolvedTags: shell._topicListFilterTagNames(instance.url, source),
       signedIn: instance.user != null,
       unifiedNewEnabled: instance.user?.unifiedNewEnabled == true,

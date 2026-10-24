@@ -95,7 +95,7 @@ TopicListTransitions _facts(
   mode: TopicListMode.fromRoute(source) ?? TopicListMode.latest,
   sidebarSource: sidebarSource,
   categories: const [],
-  sourceCategory: null,
+  canonicalCategories: const {},
   resolvedTags: source.tagNames,
   signedIn: true,
   unifiedNewEnabled: true,

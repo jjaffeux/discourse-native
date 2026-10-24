@@ -323,6 +323,43 @@ void main() {
     expect(setup.api.feedPaths.length, requests);
   });
 
+  test(
+    'applying a category scope uses its current canonical name and path',
+    () async {
+      const original = TopicCategory(
+        id: 42,
+        name: 'Support',
+        slug: 'support',
+        color: '3188CC',
+      );
+      const renamed = TopicCategory(
+        id: 42,
+        name: 'Help',
+        slug: 'help',
+        color: 'AA5500',
+      );
+      final setup = await _controller(
+        categoryList: [original],
+        extraFeeds: {
+          '/c/help/42.json': [_popularTopic],
+        },
+      );
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      final site = controller.currentInstance!.url;
+      await controller.loadCategories(site);
+      controller.store.put(site, renamed);
+      expect(controller.filterCategoriesFor(site).single.slug, 'support');
+
+      await controller.applyTopicListFilterQuery('category:42');
+
+      expect(controller.topicListContent?.feedPath, '/c/help/42.json');
+      expect(controller.topicListContent?.title, 'Help');
+      expect(setup.api.feedPaths.last, '/c/help/42.json');
+      expect(controller.currentFeed?.topicIds, [_popularTopic.id]);
+    },
+  );
+
   for (final submit in [false, true]) {
     test(
       '${submit ? 'submitting' : 'applying'} an empty filter query preserves '

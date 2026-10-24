@@ -109,13 +109,14 @@ final class TopicListTransitions {
     required this.mode,
     required this.sidebarSource,
     required List<TopicCategory> categories,
-    required this.sourceCategory,
+    required Map<int, TopicCategory> canonicalCategories,
     required List<String> resolvedTags,
     required this.signedIn,
     required this.unifiedNewEnabled,
     required this.desktopPanelsEnabled,
     required this.mobileNavigationEnabled,
   }) : categories = List.unmodifiable(categories),
+       canonicalCategories = Map.unmodifiable(canonicalCategories),
        resolvedTags = List.unmodifiable(resolvedTags);
 
   final ForumTab tab;
@@ -123,7 +124,8 @@ final class TopicListTransitions {
   final TopicListMode? mode;
   final ContentRoute? sidebarSource;
   final List<TopicCategory> categories;
-  final TopicCategory? sourceCategory;
+  final Map<int, TopicCategory> canonicalCategories;
+  TopicCategory? get sourceCategory => canonicalCategories[source?.categoryId];
   final List<String> resolvedTags;
   final bool signedIn;
   final bool unifiedNewEnabled;
@@ -207,9 +209,7 @@ final class TopicListTransitions {
         final scope = parseTopicFilterScope(command.query, categories);
         route = scope.query.isEmpty
             ? _filterRoute(
-                category: categories
-                    .where((item) => item.id == scope.categoryId)
-                    .firstOrNull,
+                category: canonicalCategories[scope.categoryId],
                 tags: scope.tags,
                 mode:
                     TopicListMode.fromRoute(sidebarSource) ??
