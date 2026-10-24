@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/composer_submission.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -431,7 +432,7 @@ void main() {
           ),
           poll ? 'Late title' : '2026-08-12',
         );
-        composer.beginSubmit();
+        beginTestComposerSubmission(composer);
         await tester.pump();
         await tester.ensureVisible(find.text('Apply'));
         await tester.pump();
@@ -540,7 +541,7 @@ void main() {
       await tester.pump();
       expect(enabled.visibleComposer!.text.text, '>');
 
-      enabled.visibleComposer!.beginSubmit();
+      beginTestComposerSubmission(enabled.visibleComposer!);
       await tester.pump();
       final action = find.byKey(const ValueKey('composer-insert'));
       expect(tester.widget<DButton>(action).onPressed, isNull);

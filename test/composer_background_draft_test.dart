@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/composer_submission.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -359,6 +360,7 @@ void main() {
         case 'submitting':
           composer.beginSubmit();
         case 'checking':
+          beginTestComposerSubmission(composer);
           composer.checking();
         case 'settled':
           composer.draftSettled();
@@ -382,6 +384,7 @@ void main() {
     );
     final shell = await _pumpApp(tester, api: api, drafts: drafts);
     final composer = await _openReply(shell);
+    beginTestComposerSubmission(composer);
     composer.unresolved();
     composer.text.text = 'Edited while the outcome is unknown';
 

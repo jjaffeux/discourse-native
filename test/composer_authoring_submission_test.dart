@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/composer_submission.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -207,6 +208,7 @@ void main() {
         case 'loading':
           composer.beginLoadingBody();
         case 'checking':
+          beginTestComposerSubmission(composer);
           composer.checking();
         case 'closing':
           composer.beginClose();
@@ -233,6 +235,7 @@ void main() {
     final shell = await _openComposer(FakeDiscourseApi());
     final composer = shell.visibleComposer!;
     await _pumpPanel(tester, shell);
+    beginTestComposerSubmission(composer);
     composer.unresolved();
     composer.text.selection = const TextSelection(
       baseOffset: 0,
