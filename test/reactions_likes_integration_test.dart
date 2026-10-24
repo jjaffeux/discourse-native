@@ -12,8 +12,8 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
-import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
@@ -741,6 +741,81 @@ void _registerReactionAndLikeTests() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
+
+    for (final removing in [false, true]) {
+      testWidgets(
+        'an equal full-topic ${removing ? 'removal' : 'addition'} confirmation survives a lost response',
+        (tester) async {
+          final gate = Completer<void>();
+          final api = await openTopic(
+            tester,
+            config: configured,
+            posts: [
+              post(
+                reactions: [(id: 'clap', count: 2)],
+                mine: removing ? 'clap' : null,
+                userCount: 2,
+                canUndo: removing,
+              ),
+            ],
+            reactionGate: gate,
+            reactionFailure: const WriteException(WriteFailure.unreachable),
+          );
+          final shell = ShellScope.read(
+            tester.element(find.byType(ReactionsRow).first),
+          );
+          final controller = shell.pluginSession.require(
+            reactionsControllerService,
+          );
+          Post stored() => shell.store.read<Post>(site, 1)!;
+          final writing = controller.toggle(stored(), 'clap', siteUrl: site);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 20));
+          final optimistic = stored();
+          final projected = optimistic.reactions!;
+          final confirmed = Reactions(
+            entries: projected.entries,
+            mine: projected.mine,
+            usedMainReaction: projected.usedMainReaction,
+            userCount: projected.userCount,
+          );
+          api.topics[7] = topicPayload(
+            id: 7,
+            title: 'A real topic',
+            posts: [
+              optimistic.withPlugins(
+                optimistic.plugins.withValue(reactionsDataKey, confirmed),
+              ),
+            ],
+            stream: [1],
+            postsCount: 1,
+          );
+          final refreshing = shell.refreshCurrentTab();
+          await tester.pumpAndSettle();
+          await refreshing;
+          expect(controller.writeInFlight(site, 1), isTrue);
+          expect(stored().reactions!.mine?.id, removing ? null : 'clap');
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect((await writing).kind, ReactionToggleKind.uncertain);
+          expect(stored().reactions, confirmed);
+          final drawn = tester.widget<DToggle>(
+            find.descendant(
+              of: find.byType(ReactionsRow),
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is DToggle &&
+                    w.semanticLabel ==
+                        '${removing ? 1 : 3} clap ${removing ? 'reaction' : 'reactions'}',
+              ),
+            ),
+          );
+          expect(drawn.pressed, !removing);
+          expect(controller.writeInFlight(site, 1), isFalse);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
+    }
 
     for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
       testWidgets(

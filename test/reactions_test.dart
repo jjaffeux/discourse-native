@@ -231,6 +231,57 @@ void main() {
     });
   });
 
+  group('pending write ownership', () {
+    test('ordinary decoded records retain structural equality', () {
+      final json = payload(
+        reactions: [entry('clap', 2)],
+        mine: {'id': 'clap', 'can_undo': true},
+        userCount: 2,
+      );
+      final first = reactionsOf(json);
+      final second = reactionsOf(json);
+      expect(first, second);
+      expect(first.hashCode, second.hashCode);
+    });
+
+    test('an equal topic read replaces the local projection', () {
+      final confirmed = postFrom(
+        payload(
+          reactions: [entry('clap', 2)],
+          mine: {'id': 'clap', 'can_undo': true},
+          userCount: 2,
+        ),
+      );
+      final owner = Object();
+      final pending = confirmed.withPlugins(
+        confirmed.plugins.withValue(
+          reactionsDataKey,
+          confirmed.reactions!.withPendingWrite(owner),
+        ),
+      );
+      expect(pending, isNot(confirmed));
+      expect(pending.merge(confirmed), same(confirmed));
+      expect(pending.reactions!.withPendingWrite(null), confirmed.reactions);
+    });
+
+    test('reaction copies retain ownership until settlement', () {
+      final owner = Object();
+      final pending = const Reactions().withPendingWrite(owner);
+      expect(pending.isPendingWrite(owner), isTrue);
+      expect(pending.isPendingWrite(Object()), isFalse);
+      expect(pending.withToggled('clap').isPendingWrite(owner), isTrue);
+      expect(pending.withMainReaction('clap').isPendingWrite(owner), isTrue);
+      expect(
+        pending.withMineOf(const Reactions()).isPendingWrite(owner),
+        isTrue,
+      );
+      expect(pending.withPendingWrite(null).isPendingWrite(owner), isFalse);
+      expect(pending, pending.withPendingWrite(owner));
+      expect(pending.hashCode, pending.withPendingWrite(owner).hashCode);
+      expect(pending, isNot(pending.withPendingWrite(Object())));
+    });
+  });
+
   group('withToggled', () {
     test('gives a first reaction and counts the reader', () {
       final next = const Reactions().withToggled('clap');

@@ -70,7 +70,17 @@ class Reactions {
     this.mine,
     this.usedMainReaction = false,
     this.userCount = 0,
+  }) : _pendingWrite = null;
+
+  const Reactions._({
+    required this.entries,
+    required this.mine,
+    required this.usedMainReaction,
+    required this.userCount,
+    required this._pendingWrite,
   });
+
+  final Object? _pendingWrite;
 
   static Reactions? fromJson(Map<String, dynamic> json) {
     final raw = json['reactions'];
@@ -134,7 +144,8 @@ class Reactions {
 
     final sorted = next.values.toList()..sort(_compareReaction);
 
-    return Reactions(
+    return Reactions._(
+      pendingWrite: _pendingWrite,
       entries: List.unmodifiable(sorted),
       // Match the web client's optimistic undo assumption.
       mine: removing ? null : Reaction(id: id, canUndo: true),
@@ -149,31 +160,50 @@ class Reactions {
 
   /// Write responses are authoritative for the reader, but not for counts:
   /// toggle serialization filters deleted emoji while topic reads do not.
-  Reactions withMineOf(Reactions other) => Reactions(
+  Reactions withMineOf(Reactions other) => Reactions._(
+    pendingWrite: _pendingWrite,
     entries: entries,
     mine: other.mine,
     usedMainReaction: other.usedMainReaction,
     userCount: userCount,
   );
 
-  Reactions withMainReaction(String? mainReaction) => Reactions(
+  Reactions withMainReaction(String? mainReaction) => Reactions._(
+    pendingWrite: _pendingWrite,
     entries: entries,
     mine: mine,
     usedMainReaction: mainReaction != null && mine?.id == mainReaction,
     userCount: userCount,
   );
 
+  /// Keeps an equal topic read distinct from an unconfirmed local projection.
+  Reactions withPendingWrite(Object? owner) => Reactions._(
+    pendingWrite: owner,
+    entries: entries,
+    mine: mine,
+    usedMainReaction: usedMainReaction,
+    userCount: userCount,
+  );
+
+  bool isPendingWrite(Object owner) => identical(_pendingWrite, owner);
+
   @override
   bool operator ==(Object other) =>
       other is Reactions &&
+      identical(other._pendingWrite, _pendingWrite) &&
       other.mine == mine &&
       other.usedMainReaction == usedMainReaction &&
       other.userCount == userCount &&
       listEquals(other.entries, entries);
 
   @override
-  int get hashCode =>
-      Object.hash(Object.hashAll(entries), mine, usedMainReaction, userCount);
+  int get hashCode => Object.hash(
+    Object.hashAll(entries),
+    mine,
+    usedMainReaction,
+    userCount,
+    identityHashCode(_pendingWrite),
+  );
 
   @override
   String toString() => appL10n.reactionsMineUsers(

@@ -496,6 +496,209 @@ void main() {
       );
     }
 
+    for (final (failure, kind) in <(Object, ReactionToggleKind)>[
+      (
+        const WriteException(WriteFailure.unreachable),
+        ReactionToggleKind.uncertain,
+      ),
+      (
+        const WriteException(WriteFailure.forbidden),
+        ReactionToggleKind.refused,
+      ),
+      (
+        const WriteException(WriteFailure.unreachable, notSent: true),
+        ReactionToggleKind.notSent,
+      ),
+      (StateError('response lost'), ReactionToggleKind.uncertain),
+    ]) {
+      for (final (name, initial, confirmed)
+          in <(String, Reactions, Reactions?)>[
+            (
+              'a confirmed addition',
+              const Reactions(entries: [Reaction(id: 'clap', count: 1)]),
+              const Reactions(
+                entries: [Reaction(id: 'clap', count: 8)],
+                mine: Reaction(id: 'clap', canUndo: true),
+                userCount: 8,
+              ),
+            ),
+            (
+              'a confirmed removal',
+              const Reactions(
+                entries: [Reaction(id: 'clap', count: 4)],
+                mine: Reaction(id: 'clap', canUndo: true),
+                userCount: 4,
+              ),
+              const Reactions(
+                entries: [Reaction(id: 'clap', count: 3)],
+                userCount: 3,
+              ),
+            ),
+            (
+              'another own reaction',
+              const Reactions(entries: [Reaction(id: 'clap', count: 1)]),
+              const Reactions(
+                entries: [
+                  Reaction(id: 'clap', count: 7),
+                  Reaction(id: 'heart', count: 3),
+                ],
+                mine: Reaction(id: 'heart', canUndo: true),
+                userCount: 10,
+              ),
+            ),
+            (
+              'new counts from other users',
+              const Reactions(entries: [Reaction(id: 'clap', count: 1)]),
+              const Reactions(
+                entries: [Reaction(id: 'clap', count: 9)],
+                userCount: 9,
+              ),
+            ),
+            (
+              'an absent plugin record',
+              const Reactions(entries: [Reaction(id: 'clap', count: 1)]),
+              null,
+            ),
+          ]) {
+        test(
+          '${kind.name} preserves $name after a fresh read ($failure)',
+          () async {
+            final post = _reactablePost(reactions: initial);
+            final posts = _LanePostHost([post]);
+            final writes = _ControlledWrites();
+            final controller = _controller(
+              api: _SequencedReactorsApi([]),
+              requests: FakePluginRequestHost(
+                credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+              ),
+              posts: posts,
+              writes: writes,
+            );
+            addTearDown(controller.dispose);
+            final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+            await writes.started.future;
+            posts.updatePluginRecord(
+              _siteUrl,
+              post.id,
+              reactionsDataKey,
+              (_) => confirmed,
+            );
+            writes.response.completeError(failure);
+            final result = await pending;
+            expect(result.kind, kind);
+            expect(posts.posts[7]!.reactions, same(confirmed));
+            expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+          },
+        );
+      }
+    }
+
+    for (final removing in [false, true]) {
+      for (final withPayload in [false, true]) {
+        test(
+          'accepted ${removing ? 'removal' : 'addition'} settles local ownership '
+          '${withPayload ? 'with' : 'without'} a reaction payload',
+          () async {
+            final initial = Reactions(
+              entries: const [Reaction(id: 'clap', count: 2)],
+              mine: removing ? const Reaction(id: 'clap', canUndo: true) : null,
+              userCount: 2,
+            );
+            final post = _reactablePost(reactions: initial);
+            final posts = _LanePostHost([post]);
+            final writes = _ControlledWrites();
+            final controller = _controller(
+              api: _SequencedReactorsApi([]),
+              requests: FakePluginRequestHost(
+                credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+              ),
+              posts: posts,
+              writes: writes,
+            );
+            addTearDown(controller.dispose);
+            final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+            await writes.started.future;
+            writes.response.complete(
+              withPayload
+                  ? _reactablePost(
+                      reactions: Reactions(
+                        entries: const [],
+                        mine: removing
+                            ? null
+                            : const Reaction(id: 'clap', canUndo: true),
+                      ),
+                    )
+                  : null,
+            );
+            expect((await pending).kind, ReactionToggleKind.applied);
+            expect(posts.posts[7]!.reactions, initial.withToggled('clap'));
+            expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+          },
+        );
+      }
+    }
+
+    test('a content update does not confirm the local reaction', () async {
+      final post = _reactablePost();
+      final posts = _LanePostHost([post]);
+      final writes = _ControlledWrites();
+      final controller = _controller(
+        api: _SequencedReactorsApi([]),
+        requests: FakePluginRequestHost(
+          credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        ),
+        posts: posts,
+        writes: writes,
+      );
+      addTearDown(controller.dispose);
+      final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+      await writes.started.future;
+      posts.posts[7] = posts.posts[7]!.copyWith(cooked: '<p>Edited</p>');
+      writes.response.completeError(StateError('response lost'));
+      expect((await pending).kind, ReactionToggleKind.uncertain);
+      expect(posts.posts[7]!.cooked, '<p>Edited</p>');
+      expect(posts.posts[7]!.reactions, same(post.reactions));
+      expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+    });
+
+    test(
+      'a failed retired write cannot modify the replacement account',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(
+            credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            lifecycle: lifecycle,
+          ),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await writes.started.future;
+        lifecycle.invalidate(_siteUrl);
+        final replacement = _reactablePost(
+          reactions: const Reactions(
+            entries: [Reaction(id: 'heart', count: 9)],
+            mine: Reaction(id: 'heart', canUndo: true),
+          ),
+        );
+        posts.posts[7] = replacement;
+        writes.response.completeError(
+          const WriteException(WriteFailure.unreachable),
+        );
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.uncertain);
+        expect(result.isCurrent, isFalse);
+        expect(posts.posts[7], same(replacement));
+        expect(posts.writeInFlight(_siteUrl, 7), isTrue);
+      },
+    );
+
     test(
       'a missing reaction endpoint is unavailable and remains silent',
       () async {

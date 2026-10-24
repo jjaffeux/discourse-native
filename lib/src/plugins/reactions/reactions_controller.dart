@@ -280,6 +280,7 @@ class ReactionsController extends FrameSafeNotifier {
       final held = latest.reactions ?? post.reactions;
       if (held == null) return const ReactionToggleResult.unchanged();
 
+      final pendingWrite = Object();
       final applied = lease.commit(() {
         _posts.updatePluginRecord(
           siteUrl,
@@ -289,7 +290,8 @@ class ReactionsController extends FrameSafeNotifier {
               .withToggled(reaction)
               .withMainReaction(
                 siteConfigFor(siteUrl).reactionsSettings.mainReaction,
-              ),
+              )
+              .withPendingWrite(pendingWrite),
         );
       });
       if (!applied || !current()) {
@@ -303,7 +305,8 @@ class ReactionsController extends FrameSafeNotifier {
             siteUrl,
             post.id,
             reactionsDataKey,
-            (_) => held,
+            (stored) =>
+                stored?.isPendingWrite(pendingWrite) == true ? held : stored,
           );
         });
       }
@@ -359,16 +362,17 @@ class ReactionsController extends FrameSafeNotifier {
             : ReactionToggleResult.notSent(failure, isCurrent: current());
       }
       if (!current()) return const ReactionToggleResult.acceptedRetired();
-      if (fresh?.reactions case final answered?) {
-        lease.commit(() {
-          _posts.updatePluginRecord(
-            siteUrl,
-            post.id,
-            reactionsDataKey,
-            (stored) => stored?.withMineOf(answered),
-          );
+      final answered = fresh?.reactions;
+      lease.commit(() {
+        _posts.updatePluginRecord(siteUrl, post.id, reactionsDataKey, (stored) {
+          final settled = answered == null
+              ? stored
+              : stored?.withMineOf(answered);
+          return settled?.isPendingWrite(pendingWrite) == true
+              ? settled?.withPendingWrite(null)
+              : settled;
         });
-      }
+      });
       return current()
           ? const ReactionToggleResult.applied()
           : const ReactionToggleResult.acceptedRetired();
