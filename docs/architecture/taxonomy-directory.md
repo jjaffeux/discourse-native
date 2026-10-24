@@ -36,7 +36,7 @@ Sidebar projection keeps its separate connected-user preferences, anonymous defa
 
 ## Category preference writes
 
-Category notification write queues, current-user snapshot precedence, preference version barriers, tracking reconciliation, and persistence remain with their existing owners. The taxonomy owner receives only the category projection. It stages the immutable snapshot before publishing the category through Store, then leaves reentrant listeners free to choose a newer level or retire the account. It does not assign an older snapshot after Store publication.
+`NotificationPreferenceTransactions` owns category notification queues, membership merging, and refresh admission. It reuses the current-user preference version barrier and tracking reconciler. Shell adapters publish and persist the merged current user. The taxonomy owner receives only the category projection. It stages the immutable snapshot before publishing the category through Store, then leaves reentrant listeners free to choose a newer level or retire the account. It does not assign an older snapshot after Store publication.
 
 ## Design and validation
 
