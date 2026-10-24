@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/shell/post_fast_edit.dart';
+import 'package:discourse_native/src/shell/post_quote.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -90,6 +91,45 @@ void main() {
       expect(shell.visibleComposer?.raw, 'Unfinished reply');
     },
   );
+
+  test('quote escaping never becomes the fast edit source match', () async {
+    for (final raw in [r'Before \*literal\* after', 'Before *literal* after']) {
+      final post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'author',
+        cooked: '<p>Before *literal* after</p>',
+        raw: raw,
+        canEdit: true,
+      );
+      final selection = PostQuoteSelectionResolver(
+        post.cooked,
+      ).resolve('*literal*');
+      expect(selection.supportsFastEdit, isTrue);
+      expect(selection.markdown, r'\*literal\*');
+      expect(selection.editText, '*literal*');
+      final api = FakeDiscourseApi(postsById: {22: post});
+      final shell = await _shell(api, post);
+      try {
+        final error = await shell.saveFastEdit(
+          siteUrl: _siteUrl,
+          topicId: 7,
+          post: post,
+          selectedMarkdown: selection.editText,
+          replacement: 'changed',
+        );
+        if (raw.contains(r'\')) {
+          expect(error, 'The selected text could not be matched safely.');
+          expect(api.updated, isEmpty);
+        } else {
+          expect(error, isNull);
+          expect(api.updated.single['raw'], 'Before changed after');
+        }
+      } finally {
+        shell.dispose();
+      }
+    }
+  });
 
   test('fast edit stops when write admission changes the account', () async {
     const post = Post(

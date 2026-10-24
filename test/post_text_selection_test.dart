@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html;
 
 import 'support/fakes.dart';
 
@@ -246,23 +247,138 @@ void main() {
   });
 
   group('cooked selection reconstruction', () {
-    test('quotes literal Markdown without changing its cooked meaning', () async {
+    test(
+      'quotes literal Markdown without changing its cooked meaning',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        const cooked = '<p>Use *literal* markers and `ticks`.</p>';
+        final resolver = PostQuoteSelectionResolver(cooked);
+        for (final contents in [
+          resolver.contentsFor('Use *literal* markers and `ticks`.'),
+          resolver.entirePost,
+        ]) {
+          final result = await cooker.cook(
+            CookingRequest(
+              raw: contents,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+            ),
+          );
+          expect(result.html, cooked);
+        }
+      },
+    );
+
+    test(
+      'round trips literal syntax, generated marks, links, and code',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        final fixtures = [
+          r'<p>Use _literal_ **stars** ~~strike~~ | pipes | and \slashes.</p>',
+          '<p># heading<br>- item<br>1. item<br>---<br>===<br>+ item</p>',
+          '<p>[quote]literal[/quote] [poll] [details] ![image](url)</p>',
+          '<p>[quote]<br>*literal*<br>[/quote]</p>',
+          '<p>[poll]<br>* literal<br>[/poll]</p>',
+          '<p>[details=literal]<br>body<br>[/details]</p>',
+          '<p>[code]<br>*literal*<br>[/code]</p>',
+          '<p>&lt;b&gt;literal&lt;/b&gt; &amp;copy; &amp;#42; &amp; text</p>',
+          '<p><strong>*literal* and `ticks`</strong> <em>_literal_</em></p>',
+          '<p>Literal `tick` with <code> a`b </code> and *stars*.</p>',
+          '<p><a href="https://example.com/a)b?x=1&amp;y=2">[label] *literal*</a></p>',
+          '<p><a href="https://example.com/a(b)c">label</a></p>',
+          '<pre><code>  first\n\nsecond *literal* `tick`\n</code></pre>',
+        ];
+        for (final cooked in fixtures) {
+          final resolver = PostQuoteSelectionResolver(cooked);
+          for (final contents in [
+            resolver.entirePost,
+            resolver.contentsFor(resolver.plainText),
+          ]) {
+            final result = await cooker.cook(
+              CookingRequest(
+                raw: contents,
+                snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              ),
+            );
+            final expected = html.parseFragment(cooked);
+            final actual = html.parseFragment(
+              result.html.replaceAll('<br>\n', '<br>'),
+            );
+            expect(actual.text, expected.text, reason: '$cooked -> $contents');
+            expect(
+              actual.querySelectorAll('*').map((node) => node.localName),
+              expected.querySelectorAll('*').map((node) => node.localName),
+              reason: '$cooked -> ${result.html}',
+            );
+            expect(
+              actual
+                  .querySelectorAll('a')
+                  .map((node) => node.attributes['href']),
+              expected
+                  .querySelectorAll('a')
+                  .map((node) => node.attributes['href']),
+            );
+          }
+        }
+      },
+    );
+
+    test('literal BBCode stays text inside the generated post quote', () async {
       final cooker = OfflineCookingService();
       addTearDown(cooker.dispose);
-      const cooked = '<p>Use *literal* markers and `ticks`.</p>';
-      final resolver = PostQuoteSelectionResolver(cooked);
-      for (final contents in [
-        resolver.contentsFor('Use *literal* markers and `ticks`.'),
-        resolver.entirePost,
-      ]) {
+      final resolver = PostQuoteSelectionResolver(
+        '<p>[quote]<br>*literal* and `ticks`<br>[/quote]</p>',
+      );
+      final result = await cooker.cook(
+        CookingRequest(
+          raw: buildPostQuote(
+            post: _post,
+            topicId: 7,
+            contents: resolver.entirePost,
+            config: const SiteConfig.unknown(),
+          ),
+          snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+        ),
+      );
+      final cooked = html.parseFragment(result.html);
+      expect(cooked.querySelectorAll('aside.quote'), hasLength(1));
+      expect(cooked.querySelectorAll('em, code'), isEmpty);
+      expect(
+        cooked.querySelector('blockquote')?.text.trim(),
+        '[quote]\n*literal* and `ticks`\n[/quote]',
+      );
+    });
+
+    test(
+      'round trips a partial selection across literal prose, marks, and code',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        final resolver = PostQuoteSelectionResolver(
+          '<p>Before *literal* <strong>and _more_</strong> '
+          '<code>a`b</code> after.</p>',
+        );
         final result = await cooker.cook(
           CookingRequest(
-            raw: contents,
+            raw: resolver.contentsFor('*literal* and _more_ a`b'),
             snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
           ),
         );
-        expect(result.html, cooked);
-      }
+        expect(
+          result.html,
+          '<p>*literal* <strong>and _more_</strong> <code>a`b</code></p>',
+        );
+      },
+    );
+
+    test('keeps unmatched composer quote Markdown unchanged', () {
+      final resolver = PostQuoteSelectionResolver('<p>*literal*</p>');
+      const existing = r'\*literal\* and **authored**';
+      final resolution = resolver.resolve(existing);
+      expect(resolution.markdown, existing);
+      expect(resolution.editText, existing);
+      expect(resolution.supportsFastEdit, isFalse);
     });
 
     test('restores paragraphs and inline formatting', () {
@@ -413,7 +529,7 @@ void main() {
       );
       expect(
         postQuoteContentsFromSelection('<p>`plain`</p>', '`plain`'),
-        '`plain`',
+        r'\`plain\`',
       );
     });
 
@@ -502,7 +618,8 @@ void main() {
 
         for (final prose in [before, after]) {
           final result = resolver.resolve(prose);
-          expect(result.markdown, prose.trim());
+          expect(result.editText, prose.trim());
+          expect(result.markdown, isNot(prose.trim()));
           expect(result.supportsFastEdit, isTrue);
           expect(
             resolver.resolve(prose, isLocalized: true).supportsFastEdit,
@@ -883,6 +1000,111 @@ void main() {
       expect(shell.visibleComposer?.target.replyToUsername, 'sam');
 
       // Closing cancels the draft debounce started by inserting the quote.
+      shell.closeComposer();
+      await tester.pump();
+    });
+
+    testWidgets('selected literals enter the reply as escaped quote text', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>*literal* and `ticks`</p>',
+      );
+      final shell = await _pumpSelection(
+        tester,
+        post: post,
+        child: const Text('*literal* and `ticks`'),
+      );
+      addTearDown(shell.dispose);
+      tester
+          .state<SelectionAreaState>(find.byType(SelectionArea))
+          .selectableRegion
+          .selectAll(SelectionChangedCause.toolbar);
+      await tester.pump(const Duration(milliseconds: 151));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('quote-selection')));
+      await tester.pumpAndSettle();
+      expect(
+        shell.visibleComposer?.raw,
+        '[quote="sam, post:2, topic:7"]\n'
+        r'\*literal\* and \`ticks\`'
+        '\n[/quote]',
+      );
+      shell.closeComposer();
+      await tester.pump();
+    });
+
+    testWidgets('literal quote syntax stays plain in the fast editor', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>*literal*</p>',
+        raw: r'\*literal\*',
+        canEdit: true,
+      );
+      final api = FakeDiscourseApi(postsById: const {22: post});
+      final shell = await _pumpSelection(
+        tester,
+        post: post,
+        api: api,
+        child: const Text('*literal*'),
+      );
+      addTearDown(shell.dispose);
+      tester
+          .state<SelectionAreaState>(find.byType(SelectionArea))
+          .selectableRegion
+          .selectAll(SelectionChangedCause.toolbar);
+      await tester.pump(const Duration(milliseconds: 151));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      final input = find.byKey(const ValueKey('fast-edit-input'));
+      expect(tester.widget<DTextarea>(input).controller!.text, '*literal*');
+      await tester.enterText(input, 'changed');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+      await tester.pumpAndSettle();
+      expect(api.updated, isEmpty);
+      expect(find.byKey(const ValueKey('fast-edit-error')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('fast-edit-cancel')));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('full edit uses the original formatted source match', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p><strong>*literal*</strong></p>',
+        raw: 'intro\n***literal*** suffix',
+        canEdit: true,
+      );
+      final shell = await _pumpSelection(
+        tester,
+        post: post,
+        child: const Text('*literal*'),
+      );
+      addTearDown(shell.dispose);
+      tester
+          .state<SelectionAreaState>(find.byType(SelectionArea))
+          .selectableRegion
+          .selectAll(SelectionChangedCause.toolbar);
+      await tester.pump(const Duration(milliseconds: 151));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('edit-selection')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fast-edit-input')), findsNothing);
+      expect(shell.visibleComposer?.target.isEdit, isTrue);
+      expect(shell.visibleComposer?.raw, post.raw);
+      expect(shell.visibleComposer?.text.selection.baseOffset, 6);
       shell.closeComposer();
       await tester.pump();
     });

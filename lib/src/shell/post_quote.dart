@@ -40,10 +40,12 @@ String postQuoteContentsFromSelection(String cooked, String plainText) {
 final class PostTextSelectionResolution {
   const PostTextSelectionResolution({
     required this.markdown,
+    required this.editText,
     required this.supportsFastEdit,
   });
 
   final String markdown;
+  final String editText;
   final bool supportsFastEdit;
 }
 
@@ -69,6 +71,7 @@ final class PostQuoteSelectionResolver {
     if (plainText.isEmpty || source == null) {
       return PostTextSelectionResolution(
         markdown: selected,
+        editText: selected,
         supportsFastEdit: false,
       );
     }
@@ -81,6 +84,7 @@ final class PostQuoteSelectionResolver {
     if (match == null) {
       return PostTextSelectionResolution(
         markdown: selected,
+        editText: selected,
         supportsFastEdit: false,
       );
     }
@@ -91,16 +95,18 @@ final class PostQuoteSelectionResolver {
       plainText,
     );
     final markdown = source.markdown(range.start, range.end);
+    final editText = source.markdown(range.start, range.end, forQuote: false);
     return PostTextSelectionResolution(
       markdown: markdown,
+      editText: editText,
       supportsFastEdit:
           !isLocalized &&
           match.unique &&
-          markdown.isNotEmpty &&
-          markdown.length <= maximumFastEditSelectionLength &&
-          !markdown.contains('|') &&
-          !markdown.contains(_selectionLineBreaks) &&
-          !_problematicFastEditCharacters.hasMatch(markdown) &&
+          editText.isNotEmpty &&
+          editText.length <= maximumFastEditSelectionLength &&
+          !editText.contains('|') &&
+          !editText.contains(_selectionLineBreaks) &&
+          !_problematicFastEditCharacters.hasMatch(editText) &&
           source.fastEditable(range.start, range.end),
     );
   }
@@ -109,9 +115,10 @@ final class PostQuoteSelectionResolver {
 final RegExp _selectionLineBreaks = RegExp(r'[\r\n]');
 final RegExp _problematicFastEditCharacters = RegExp('[‚‘’„“”«»‹›™±…→←↔¶]');
 
-typedef _MarkdownMark = ({String open, String close});
+typedef _MarkdownMark = ({String open, String close, String quoteClose});
 
 final RegExp _collapsibleWhitespace = RegExp(r'[ \t\r\n\f]+');
+final RegExp _orderedListDigits = RegExp(r'^\d{1,9}$');
 
 class _CookedCode {
   _CookedCode({required this.block});
@@ -329,18 +336,19 @@ class _CookedSelectionSource {
     return (start: start, end: end);
   }
 
-  String markdown(int start, int end) {
+  String markdown(int start, int end, {bool forQuote = true}) {
     if (start < 0 || end <= start || end > characters.length) return '';
     final hasCode = characters
         .getRange(start, end)
         .any((character) => character.code != null);
     final out = StringBuffer();
     List<_MarkdownMark> active = const [];
+    var lineStart = start;
 
     void closeTo(int length) {
       if (length == active.length) return;
       for (var index = active.length - 1; index >= length; index--) {
-        out.write(active[index].close);
+        out.write(forQuote ? active[index].quoteClose : active[index].close);
       }
       active = length == 0 ? const [] : active.sublist(0, length);
     }
@@ -350,6 +358,7 @@ class _CookedSelectionSource {
       if (offset > start && lines > 0) {
         closeTo(0);
         out.write(lines == 1 ? '\n' : '\n\n');
+        lineStart = offset;
       }
 
       final character = characters[offset];
@@ -373,12 +382,23 @@ class _CookedSelectionSource {
         active = next;
       }
       if (code == null) {
-        // Escape literal prose backslashes so they survive Markdown parsing
-        // without escaping generated delimiters or canceling prose tick escapes.
-        if (hasCode && (character.value == r'\' || character.value == '`')) {
-          out.write(r'\');
+        if (forQuote) {
+          final value = character.value;
+          final blockPrefix =
+              (offset == lineStart && '+-='.contains(value)) ||
+              ('.)'.contains(value) &&
+                  offset > lineStart &&
+                  offset - lineStart <= 9 &&
+                  _orderedListDigits.hasMatch(
+                    plainText.substring(lineStart, offset),
+                  ));
+          out.write(_quoteLiteral(value, blockPrefix: blockPrefix));
+        } else {
+          if (hasCode && (character.value == r'\' || character.value == '`')) {
+            out.write(r'\');
+          }
+          out.write(character.value);
         }
-        out.write(character.value);
         continue;
       }
 
@@ -473,19 +493,23 @@ _MarkdownMark? _markdownMark(dom.Element element) {
   switch (element.localName) {
     case 'b':
     case 'strong':
-      return (open: '**', close: '**');
+      return (open: '**', close: '**', quoteClose: '**');
     case 'i':
     case 'em':
-      return (open: '*', close: '*');
+      return (open: '*', close: '*', quoteClose: '*');
     case 'del':
     case 's':
     case 'strike':
-      return (open: '~~', close: '~~');
+      return (open: '~~', close: '~~', quoteClose: '~~');
     case 'a':
       final href = element.attributes['href'];
       return href == null || href.isEmpty
           ? null
-          : (open: '[', close: ']($href)');
+          : (
+              open: '[',
+              close: ']($href)',
+              quoteClose: '](${_quoteLinkDestination(href)})',
+            );
     case 'kbd':
     case 'mark':
     case 'small':
@@ -494,7 +518,25 @@ _MarkdownMark? _markdownMark(dom.Element element) {
     case 'sub':
     case 'ins':
       final name = element.localName!;
-      return (open: '<$name>', close: '</$name>');
+      return (open: '<$name>', close: '</$name>', quoteClose: '</$name>');
   }
   return null;
 }
+
+String _quoteLiteral(String character, {required bool blockPrefix}) {
+  if (character == '#') return '&#35;<!-- -->';
+  if (const {'[', ']', '<', '>', '&'}.contains(character)) {
+    return '&#${character.codeUnitAt(0)};';
+  }
+  return blockPrefix || r'\`*_~|^'.contains(character)
+      ? '\\$character'
+      : character;
+}
+
+String _quoteLinkDestination(String href) => href
+    .replaceAll('&', '&amp;')
+    .replaceAllMapped(RegExp(r'[\\()]'), (match) => '\\${match[0]}')
+    .replaceAllMapped(
+      RegExp(r'[<>\s]'),
+      (match) => Uri.encodeComponent(match[0]!),
+    );

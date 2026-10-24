@@ -48,6 +48,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   TextSelectionToolbarAnchors? _anchors;
   PostTextSelectionResolution _selection = const PostTextSelectionResolution(
     markdown: '',
+    editText: '',
     supportsFastEdit: false,
   );
   PostQuoteSelectionResolver? _quoteResolver;
@@ -151,7 +152,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
       return;
     }
     if (!selection.supportsFastEdit) {
-      controller.openEdit(widget.post, focusText: selection.markdown);
+      controller.openEdit(widget.post, focusText: selection.editText);
       return;
     }
     await showPostFastEditor(
@@ -160,7 +161,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
       siteUrl: widget.siteUrl,
       topicId: widget.topicId,
       post: widget.post,
-      selectedMarkdown: selection.markdown,
+      selectedMarkdown: selection.editText,
     );
   }
 
