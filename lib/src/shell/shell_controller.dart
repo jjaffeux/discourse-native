@@ -2762,7 +2762,7 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final siteTypes = await _siteNotificationTypesFor(instance, apiKey);
     final claimed = _claimedUserMenuNotificationTypes(
-      _pluginUserMenuSectionsFor(instance),
+      _pluginUserMenuSectionsFor(_instanceAt(instance.url)),
     );
     return List.unmodifiable([
       for (final type in siteTypes)
