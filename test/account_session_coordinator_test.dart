@@ -17,6 +17,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'support/fakes.dart';
 
@@ -454,7 +455,7 @@ void main() {
         'restores legacy-only writing after ${account ?? 'flat'} draft retirement fails',
         () async {
           final localSite = DraftStore.accountSiteKey(_siteUrl, account);
-          final flatPrefix = 'discourse_native.draft::$_siteUrl::';
+          const flatPrefix = 'discourse_native.draft::$_siteUrl::';
           final accountPrefix =
               'discourse_native.account_draft::${Uri.encodeComponent(_siteUrl)}::';
           final activePrefix = account == null ? flatPrefix : accountPrefix;
@@ -519,7 +520,7 @@ void main() {
           ('uncommitted backup', null, false, true, 'Legacy writing'),
         ]) {
       test('failed disconnect preserves $name boundaries', () async {
-        final prefix = 'discourse_native.draft::$_siteUrl::';
+        const prefix = 'discourse_native.draft::$_siteUrl::';
         final key = '${prefix}topic_42';
         SharedPreferences.setMockInitialValues({key: 'Legacy writing'});
         final storage = LinuxFileStorage(directory: directory);
@@ -591,7 +592,7 @@ void main() {
     });
 
     test('malformed legacy values do not block explicit disconnect', () async {
-      final key = 'discourse_native.draft::$_siteUrl::topic_42';
+      const key = 'discourse_native.draft::$_siteUrl::topic_42';
       SharedPreferences.setMockInitialValues({key: 42});
       final fixture = _Fixture(
         draftStore: DraftStore(

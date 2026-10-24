@@ -511,8 +511,6 @@ class DraftStore {
       if (!preferences.succeeded || prefs == null) {
         throw StateError('Legacy draft preferences unavailable');
       }
-      // Linux retires fallback before deleting values. Keep the active text
-      // private first so a failed deletion can restore the account safely.
       for (final key in prefs.getKeys()) {
         if (!key.startsWith(prefixes.last)) continue;
         if (ifCurrent?.call() == false) return;
