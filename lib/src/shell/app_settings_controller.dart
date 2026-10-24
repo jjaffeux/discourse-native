@@ -1,8 +1,32 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
+
 import '../data/app_settings_store.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/app_settings.dart';
+
+enum AppSettingsSaveStatus { unconfirmed, pending, saved, failed }
+
+final class AppSettingsSaveState {
+  const AppSettingsSaveState._(this.status, [this.failure]);
+
+  static const unconfirmed = AppSettingsSaveState._(
+    AppSettingsSaveStatus.unconfirmed,
+  );
+  static const pending = AppSettingsSaveState._(AppSettingsSaveStatus.pending);
+  static const saved = AppSettingsSaveState._(AppSettingsSaveStatus.saved);
+
+  final AppSettingsSaveStatus status;
+  final AppSettingsWriteFailure? failure;
+}
+
+final class _SettingChoice<T extends Object> {
+  T? value;
+  Object? writeIdentity;
+  Future<void>? pending;
+  AppSettingsSaveState state = AppSettingsSaveState.unconfirmed;
+}
 
 final class AppSettingsController extends FrameSafeNotifier {
   AppSettingsController({AppSettingsStore? store})
@@ -24,13 +48,24 @@ final class AppSettingsController extends FrameSafeNotifier {
   bool _loaded = false;
   bool get loaded => _loaded;
 
-  bool? _selectedLimitContentSize;
-  bool? _selectedDisableGifAnimations;
-  bool? _selectedReduceMotion;
-  bool? _selectedRawMarkdownComposers;
-  AppTextScale? _selectedTextScale;
-  AppThemeMode? _selectedThemeMode;
-  TopicListDisplayMode? _selectedTopicListMode;
+  final _limitContentSize = _SettingChoice<bool>();
+  final _disableGifAnimations = _SettingChoice<bool>();
+  final _reduceMotion = _SettingChoice<bool>();
+  final _rawMarkdownComposers = _SettingChoice<bool>();
+  final _textScale = _SettingChoice<AppTextScale>();
+  final _themeMode = _SettingChoice<AppThemeMode>();
+  final _topicListMode = _SettingChoice<TopicListDisplayMode>();
+  final _saveStates =
+      FrameSafeValueNotifier<Map<AppSettingsField, AppSettingsSaveState>>(
+        Map.unmodifiable({
+          for (final field in AppSettingsField.values)
+            field: AppSettingsSaveState.unconfirmed,
+        }),
+      );
+
+  ValueListenable<Map<AppSettingsField, AppSettingsSaveState>> get saveStates =>
+      _saveStates;
+
   Future<void>? _loadTask;
 
   Future<void> load() {
@@ -52,121 +87,157 @@ final class AppSettingsController extends FrameSafeNotifier {
     if (isDisposed) return;
     // A choice can arrive even after the store's read future has completed.
     _settings = loaded.copyWith(
-      limitContentSize: _selectedLimitContentSize,
-      disableGifAnimations: _selectedDisableGifAnimations,
-      reduceMotion: _selectedReduceMotion,
-      rawMarkdownComposers: _selectedRawMarkdownComposers,
-      textScale: _selectedTextScale,
-      themeMode: _selectedThemeMode,
-      topicListMode: _selectedTopicListMode,
+      limitContentSize: _limitContentSize.value,
+      disableGifAnimations: _disableGifAnimations.value,
+      reduceMotion: _reduceMotion.value,
+      rawMarkdownComposers: _rawMarkdownComposers.value,
+      textScale: _textScale.value,
+      themeMode: _themeMode.value,
+      topicListMode: _topicListMode.value,
     );
     _loaded = true;
     notifySafely();
   }
 
-  Future<void> setLimitContentSize(bool enabled) {
-    if (isDisposed ||
-        ((_loaded || _selectedLimitContentSize != null) &&
-            enabled == limitContentSize)) {
-      return Future<void>.value();
+  Future<void> setLimitContentSize(bool value) => _select(
+    _limitContentSize,
+    AppSettingsField.limitContentSize,
+    value,
+    current: limitContentSize,
+    apply: () => _settings = _settings.copyWith(limitContentSize: value),
+    persist: () => store.update(limitContentSize: value),
+  );
+
+  Future<void> setDisableGifAnimations(bool value) => _select(
+    _disableGifAnimations,
+    AppSettingsField.disableGifAnimations,
+    value,
+    current: disableGifAnimations,
+    apply: () => _settings = _settings.copyWith(disableGifAnimations: value),
+    persist: () => store.update(disableGifAnimations: value),
+  );
+
+  Future<void> setReduceMotion(bool value) => _select(
+    _reduceMotion,
+    AppSettingsField.reduceMotion,
+    value,
+    current: reduceMotion,
+    apply: () => _settings = _settings.copyWith(reduceMotion: value),
+    persist: () => store.update(reduceMotion: value),
+  );
+
+  Future<void> setRawMarkdownComposers(bool value) => _select(
+    _rawMarkdownComposers,
+    AppSettingsField.rawMarkdownComposers,
+    value,
+    current: rawMarkdownComposers,
+    apply: () => _settings = _settings.copyWith(rawMarkdownComposers: value),
+    persist: () => store.update(rawMarkdownComposers: value),
+  );
+
+  Future<void> setTextScale(AppTextScale value) => _select(
+    _textScale,
+    AppSettingsField.textScale,
+    value,
+    current: textScale,
+    apply: () => _settings = _settings.copyWith(textScale: value),
+    persist: () => store.update(textScale: value),
+  );
+
+  Future<void> setThemeMode(AppThemeMode value) => _select(
+    _themeMode,
+    AppSettingsField.themeMode,
+    value,
+    current: themeMode,
+    apply: () => _settings = _settings.copyWith(themeMode: value),
+    persist: () => store.update(themeMode: value),
+  );
+
+  Future<void> setTopicListMode(TopicListDisplayMode value) => _select(
+    _topicListMode,
+    AppSettingsField.topicListMode,
+    value,
+    current: topicListMode,
+    apply: () => _settings = _settings.copyWith(topicListMode: value),
+    persist: () => store.update(topicListMode: value),
+  );
+
+  Future<void> _select<T extends Object>(
+    _SettingChoice<T> choice,
+    AppSettingsField field,
+    T value, {
+    required T? current,
+    required void Function() apply,
+    required Future<AppSettingsWriteResult> Function() persist,
+  }) {
+    if (isDisposed) return Future<void>.value();
+    if (choice.value == value) {
+      final pending = choice.pending;
+      if (pending != null) return pending;
+      if (choice.state.status == AppSettingsSaveStatus.saved) {
+        return Future<void>.value();
+      }
     }
 
-    _selectedLimitContentSize = enabled;
-    _settings = _settings.copyWith(limitContentSize: enabled);
-    final saving = store.update(limitContentSize: enabled);
+    final settingsChanged =
+        choice.value != value && (!_loaded || current != value);
+    choice.value = value;
+    final identity = Object();
+    choice.writeIdentity = identity;
+    choice.state = AppSettingsSaveState.pending;
+    apply();
+    final saving = _save(choice, field, identity, persist);
+    choice.pending = saving;
     unawaited(load());
-    notifySafely();
+    _publishSaveStates();
+    if (settingsChanged) notifySafely();
     return saving;
   }
 
-  Future<void> setDisableGifAnimations(bool disabled) {
-    if (isDisposed ||
-        ((_loaded || _selectedDisableGifAnimations != null) &&
-            disabled == disableGifAnimations)) {
-      return Future<void>.value();
+  Future<void> _save<T extends Object>(
+    _SettingChoice<T> choice,
+    AppSettingsField field,
+    Object identity,
+    Future<AppSettingsWriteResult> Function() persist,
+  ) async {
+    AppSettingsWriteFailure? failure;
+    try {
+      final result = await persist();
+      failure = result.failures[field];
+      if (failure == null && !result.saved.contains(field)) {
+        throw StateError('Missing persistence outcome for ${field.name}.');
+      }
+    } catch (error, stackTrace) {
+      failure = AppSettingsWriteFailure(error, stackTrace);
     }
-
-    _selectedDisableGifAnimations = disabled;
-    _settings = _settings.copyWith(disableGifAnimations: disabled);
-    final saving = store.update(disableGifAnimations: disabled);
-    unawaited(load());
-    notifySafely();
-    return saving;
+    if (isDisposed || !identical(choice.writeIdentity, identity)) return;
+    choice.pending = null;
+    choice.state = failure == null
+        ? AppSettingsSaveState.saved
+        : AppSettingsSaveState._(AppSettingsSaveStatus.failed, failure);
+    _publishSaveStates();
   }
 
-  Future<void> setReduceMotion(bool reduced) {
-    if (isDisposed ||
-        ((_loaded || _selectedReduceMotion != null) &&
-            reduced == reduceMotion)) {
-      return Future<void>.value();
-    }
-    _selectedReduceMotion = reduced;
-    _settings = _settings.copyWith(reduceMotion: reduced);
-    final saving = store.update(reduceMotion: reduced);
-    unawaited(load());
-    notifySafely();
-    return saving;
+  void _publishSaveStates() {
+    _saveStates.value = Map.unmodifiable({
+      AppSettingsField.limitContentSize: _limitContentSize.state,
+      AppSettingsField.disableGifAnimations: _disableGifAnimations.state,
+      AppSettingsField.reduceMotion: _reduceMotion.state,
+      AppSettingsField.rawMarkdownComposers: _rawMarkdownComposers.state,
+      AppSettingsField.textScale: _textScale.state,
+      AppSettingsField.themeMode: _themeMode.state,
+      AppSettingsField.topicListMode: _topicListMode.state,
+    });
   }
 
-  Future<void> setRawMarkdownComposers(bool enabled) {
-    if (isDisposed ||
-        ((_loaded || _selectedRawMarkdownComposers != null) &&
-            enabled == rawMarkdownComposers)) {
-      return Future<void>.value();
-    }
-
-    _selectedRawMarkdownComposers = enabled;
-    _settings = _settings.copyWith(rawMarkdownComposers: enabled);
-    final saving = store.update(rawMarkdownComposers: enabled);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTextScale(AppTextScale scale) {
-    if (isDisposed ||
-        ((_loaded || _selectedTextScale != null) && scale == textScale)) {
-      return Future<void>.value();
-    }
-
-    _selectedTextScale = scale;
-    _settings = _settings.copyWith(textScale: scale);
-    final saving = store.update(textScale: scale);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setThemeMode(AppThemeMode mode) {
-    if (isDisposed ||
-        ((_loaded || _selectedThemeMode != null) && mode == themeMode)) {
-      return Future<void>.value();
-    }
-
-    _selectedThemeMode = mode;
-    _settings = _settings.copyWith(themeMode: mode);
-    final saving = store.update(themeMode: mode);
-    unawaited(load());
-    notifySafely();
-    return saving;
-  }
-
-  Future<void> setTopicListMode(TopicListDisplayMode mode) {
-    if (isDisposed ||
-        ((_loaded || _selectedTopicListMode != null) &&
-            mode == topicListMode)) {
-      return Future<void>.value();
-    }
-    _selectedTopicListMode = mode;
-    _settings = _settings.copyWith(topicListMode: mode);
-    final saving = store.update(topicListMode: mode);
-    unawaited(load());
-    notifySafely();
-    return saving;
+  @override
+  void dispose() {
+    _saveStates.dispose();
+    super.dispose();
   }
 
   Future<void> increaseTextScale() {
-    if (!_loaded && _selectedTextScale == null) {
+    if (!_loaded && _textScale.value == null) {
       return _changeTextScaleAfterLoad(increaseTextScale);
     }
     final index = textScale.index;
@@ -177,7 +248,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   }
 
   Future<void> decreaseTextScale() {
-    if (!_loaded && _selectedTextScale == null) {
+    if (!_loaded && _textScale.value == null) {
       return _changeTextScaleAfterLoad(decreaseTextScale);
     }
     final index = textScale.index;
@@ -186,7 +257,7 @@ final class AppSettingsController extends FrameSafeNotifier {
   }
 
   Future<void> resetTextScale() {
-    if (!_loaded && _selectedTextScale == null) {
+    if (!_loaded && _textScale.value == null) {
       return _changeTextScaleAfterLoad(resetTextScale);
     }
     return setTextScale(AppTextScale.percent100);
