@@ -486,7 +486,22 @@ class GlobalSearchController extends ChangeNotifier {
       setOrder(condition.text);
       return;
     }
-    final next = conditionsFor(filter.scope).toList();
+    _banks[filter.scope] = _normalizedConditions(
+      conditionsFor(filter.scope),
+      condition,
+      index: scope == filter.scope ? index : null,
+    );
+    _scope = filter.scope;
+    _schedule();
+  }
+
+  List<GlobalSearchCondition> _normalizedConditions(
+    List<GlobalSearchCondition> current,
+    GlobalSearchCondition condition, {
+    int? index,
+  }) {
+    final filter = globalSearchFilter(condition.filterId, capabilities)!;
+    final next = current.toList();
     final copy = GlobalSearchCondition(
       filterId: condition.filterId,
       operator: condition.operator,
@@ -497,7 +512,7 @@ class GlobalSearchController extends ChangeNotifier {
       capabilities: capabilities,
       username: capabilities.username,
     );
-    if (index != null && scope == filter.scope && index < next.length) {
+    if (index != null && index < next.length) {
       next[index] = copy;
     } else {
       final duplicate = next.indexWhere(
@@ -538,9 +553,7 @@ class GlobalSearchController extends ChangeNotifier {
     if (next.length > 30) {
       throw FormatException(appL10n.useAtMost30Conditions);
     }
-    _banks[filter.scope] = List.unmodifiable(next);
-    _scope = filter.scope;
-    _schedule();
+    return List.unmodifiable(next);
   }
 
   void removeCondition(int index) {
@@ -650,28 +663,16 @@ class GlobalSearchController extends ChangeNotifier {
         capabilities,
       );
       if (expression.conditions.isNotEmpty || expression.order != null) {
-        if (scope == GlobalSearchScope.all) _scope = GlobalSearchScope.forum;
-        _query = expression.query;
-        final next = [...conditions];
+        final target = scope == GlobalSearchScope.all
+            ? GlobalSearchScope.forum
+            : scope;
+        var next = conditionsFor(target);
         for (final condition in expression.conditions) {
-          final token = globalSearchConditionToken(
-            condition,
-            capabilities: capabilities,
-            username: capabilities.username,
-          );
-          if (!next.any(
-            (item) =>
-                globalSearchConditionToken(
-                  item,
-                  capabilities: capabilities,
-                  username: capabilities.username,
-                ) ==
-                token,
-          )) {
-            next.add(condition);
-          }
+          next = _normalizedConditions(next, condition);
         }
-        _banks[scope] = List.unmodifiable(next);
+        _banks[target] = next;
+        _scope = target;
+        _query = expression.query;
         if (expression.order != null) _orders[scope] = expression.order!;
       }
       _remember();
