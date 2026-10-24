@@ -27,6 +27,46 @@ Completer<T> _completed<T>(T value) => Completer<T>()..complete(value);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('rename refreshes the server canonical name', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.add(
+        _completed({
+          'group': {'id': 7, 'name': 'support'},
+        }),
+      )
+      ..onWrite = (_) => {
+        'group': {'id': 7, 'name': 'canonical'},
+      };
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    await controller.loadDetail(_connectedInstance, 'support');
+    transport.onGet = (path) {
+      if (path == '/groups/support.json') {
+        throw StateError('old group no longer exists');
+      }
+    };
+    transport.objects.add(
+      _completed({
+        'group': {'id': 7, 'name': 'canonical'},
+      }),
+    );
+
+    final result = await controller.updateGroup(
+      _connectedInstance,
+      const Group(id: 7, name: 'support'),
+      GroupUpdateCommand(const {'name': 'requested'}),
+    );
+
+    expect(result.canApplyLocally, isTrue);
+    expect(transport.gets.last.path, '/groups/canonical.json');
+    expect(
+      controller.detailState(_site, 'canonical').detail?.group.name,
+      'canonical',
+    );
+    expect(controller.detailState(_site, 'support').detail, isNull);
+  });
+
   const previewGroup = Group(
     id: 1,
     name: 'support',
