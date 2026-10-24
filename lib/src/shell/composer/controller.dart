@@ -15,6 +15,7 @@ import '../../foundation/count_label.dart';
 import '../../models/composer_draft.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
+import '../../models/site_emoji.dart';
 import '../../models/topic_tag.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/hashtag_kind.dart';
@@ -989,7 +990,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final code = bareCode
         .replaceFirst(RegExp(r'^:'), '')
         .replaceFirst(RegExp(r':$'), '');
-    if (!RegExp(r'^[A-Za-z0-9_+\-]+(?::t[2-6])?$').hasMatch(code)) return;
+    if (!RegExp(
+      '^$siteEmojiNameCharacterClass+'
+      r'(?::t[2-6])?$',
+      unicode: true,
+    ).hasMatch(code)) {
+      return;
+    }
 
     final old = text.value;
     final selection = old.selection.isValid
@@ -1001,7 +1008,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
     if (selection.isCollapsed) {
       final before = old.text.substring(0, start);
-      final partial = RegExp(r':[A-Za-z0-9_+\-]*$').firstMatch(before);
+      final partial = RegExp(
+        ':$siteEmojiNameCharacterClass*'
+        r'$',
+        unicode: true,
+      ).firstMatch(before);
       if (partial != null && _emojiSigilOpensWord(before, partial.start)) {
         start = partial.start;
       } else if (start > 0 && !RegExp(r'\s').hasMatch(old.text[start - 1])) {

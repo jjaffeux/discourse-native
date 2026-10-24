@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/site_emoji.dart';
 import '../theme/discourse_typography.dart';
 import 'emoji.dart';
 import 'search_words.dart';
@@ -54,7 +55,8 @@ class SiteEmojiText extends StatefulWidget {
   final List<Widget> trailing;
 
   static final RegExp shortcodePattern = RegExp(
-    r':([a-z0-9_+-]+(?::t[1-6])?):',
+    ':($siteEmojiNameCharacterClass+(?::t[1-6])?):',
+    unicode: true,
   );
 
   @override

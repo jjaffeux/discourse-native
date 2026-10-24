@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+const siteEmojiNameCharacterClass =
+    r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}_+\-]';
+
 enum EmojiSkinTone {
   neutral(null),
   t2(2),

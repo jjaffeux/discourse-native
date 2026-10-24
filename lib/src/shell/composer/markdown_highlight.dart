@@ -2,6 +2,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/site_emoji.dart';
 import '../syntax.dart';
 
 abstract final class Md {
@@ -643,7 +644,8 @@ class _Scan {
   );
 
   static final RegExp _emojiPattern = RegExp(
-    r':([a-z0-9_+-]{1,59}(?::t[1-6])?):',
+    ':(($siteEmojiNameCharacterClass{1,59})(?::t[1-6])?):',
+    unicode: true,
   );
   static final RegExp _boundaryPattern = RegExp(r'[\w@#./-]');
 
@@ -1052,6 +1054,7 @@ class _Scan {
 
   void _emoji() {
     for (final match in _emojiPattern.allMatches(source)) {
+      if (match.group(2)!.length > 59) continue;
       if (!_free(match.start, match.end)) continue;
       // Match Core's default shortcode boundary so times and `word:smile:`
       // remain text. This scanner cannot see the setting that relaxes it.

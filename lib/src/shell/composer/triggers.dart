@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../../models/site_emoji.dart';
+
 enum ComposerTriggerKind {
   mention('@'),
   hashtag('#'),
@@ -208,6 +210,9 @@ bool _isLowSurrogate(int unit) => unit >= 0xDC00 && unit <= 0xDFFF;
 const _unicodeName = r'\p{Alphabetic}\p{Mark}\p{Decimal_Number}';
 final RegExp _mentionCharacter = RegExp('[${_unicodeName}_.-]', unicode: true);
 final RegExp _hashtagCharacter = RegExp('[${_unicodeName}_:.-]', unicode: true);
-final RegExp _emojiCharacter = RegExp(r'[A-Za-z0-9_+-]');
+final RegExp _emojiCharacter = RegExp(
+  siteEmojiNameCharacterClass,
+  unicode: true,
+);
 final RegExp _nameCharacter = RegExp('[${_unicodeName}_.+-]', unicode: true);
 final RegExp _wordOpeningCharacter = RegExp(r'''[\s([{<"'`]''');
