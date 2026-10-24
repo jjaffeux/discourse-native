@@ -1,3 +1,5 @@
+import 'markdown_tokens.dart';
+
 /// HTML comments remain literal source in the editor, but cannot introduce
 /// interactive Markdown. Scan in source order so fences/backticks inside a
 /// comment cannot hide its closing delimiter or change later code boundaries.
@@ -50,6 +52,11 @@ class ComposerLiteralContainers {
     var start = 0;
     var previousBlank = true;
     var indentedCode = false;
+    var tokenIndexEnd = 0;
+    var tokenCandidates = <int, ComposerMarkdownTokenBoundary>{};
+    final activeTokens = <ComposerMarkdownTokenBoundary>[];
+    final images = ComposerMarkdownImageReader(source);
+    final inlineLiterals = _InlineLiteralEnds(source);
     while (start < source.length) {
       var end = source.indexOf('\n', start);
       if (end < 0) end = source.length;
@@ -153,25 +160,71 @@ class ComposerLiteralContainers {
       if (at < commentEnd) at = commentEnd;
       if (at < inlineEnd) at = inlineEnd;
       while (at < end) {
+        while (activeTokens.isNotEmpty && at >= activeTokens.last.tokenEnd) {
+          activeTokens.removeLast();
+        }
+        if (activeTokens.isNotEmpty && at >= activeTokens.last.labelEnd) {
+          inlineEnd = activeTokens.removeLast().tokenEnd;
+          at = inlineEnd;
+          continue;
+        }
+        if (source[at] == '[' || source.startsWith('![', at)) {
+          if (at >= tokenIndexEnd) {
+            tokenIndexEnd = _inlineParagraphEnd(
+              source,
+              end,
+              indents.lastOrNull ?? 0,
+            );
+            tokenCandidates = composerMarkdownLinkCandidates(
+              source,
+              start: at,
+              end: tokenIndexEnd,
+              images: images,
+              skipInline: (offset, limit) {
+                if (source.startsWith('<!--', offset)) {
+                  return inlineLiterals.commentEnd(
+                    offset,
+                    inlineLiterals.lineEnd(offset),
+                    indents.lastOrNull ?? 0,
+                    limit,
+                  );
+                }
+                if (source[offset] == '`') {
+                  return inlineLiterals.codeEnd(
+                    offset,
+                    inlineLiterals.lineEnd(offset),
+                    indents.lastOrNull ?? 0,
+                    limit,
+                  );
+                }
+                return null;
+              },
+            );
+          }
+          final bracket = source[at] == '[' ? at : at + 1;
+          final token = tokenCandidates[bracket];
+          if (token != null &&
+              (activeTokens.isEmpty ||
+                  activeTokens.last.openerStart != token.openerStart)) {
+            activeTokens.add(token);
+          }
+        }
         if (source[at] == '\\') {
           at += 2;
         } else if (source.startsWith('<!--', at)) {
-          final close = source.indexOf('-->', at + 4);
           final block = at == firstContent;
-          // Inline HTML must close within its paragraph. A list that
-          // interrupts the paragraph leaves an unfinished opener literal.
-          if (!block &&
-              (close < 0 ||
-                  _interruptsInline(
-                    source,
-                    end,
-                    close,
-                    indents.lastOrNull ?? 0,
-                  ))) {
+          final closing = inlineLiterals.commentEnd(
+            at,
+            end,
+            indents.lastOrNull ?? 0,
+            source.length,
+            block: block,
+          );
+          if (closing == null) {
             at += 4;
             continue;
           }
-          commentEnd = close < 0 ? source.length : close + 3;
+          commentEnd = closing;
           _ranges.add((
             start: at,
             end: commentEnd,
@@ -189,6 +242,7 @@ class ComposerLiteralContainers {
             quoteDepth,
             codeBlocks,
             codeClosers,
+            inlineLimit: activeTokens.lastOrNull?.labelEnd,
           );
           if (code == null) {
             at++;
@@ -203,26 +257,12 @@ class ComposerLiteralContainers {
             at = code.end;
           }
         } else if (source[at] == '`') {
-          final opening = _ticks.matchAsPrefix(source, at)!;
-          final blank = _blank.firstMatch(source.substring(opening.end));
-          final limit = blank == null
-              ? source.length
-              : opening.end + blank.start;
-          final closing = _ticks
-              .allMatches(source, opening.end)
-              .takeWhile((match) => match.start < limit)
-              .where((match) => match[0] == opening[0])
-              .firstOrNull;
-          inlineEnd =
-              closing != null &&
-                  !_interruptsInline(
-                    source,
-                    end,
-                    closing.start,
-                    indents.lastOrNull ?? 0,
-                  )
-              ? closing.end
-              : opening.end;
+          inlineEnd = inlineLiterals.codeEnd(
+            at,
+            end,
+            indents.lastOrNull ?? 0,
+            activeTokens.lastOrNull?.labelEnd ?? source.length,
+          );
           at = inlineEnd;
         } else {
           at++;
@@ -333,30 +373,86 @@ final _tableDelimiter = RegExp(
   r'^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*\r?$',
 );
 
-bool _interruptsInline(String source, int end, int close, int indent) {
+bool _interruptsInline(String source, int end, int close, int indent) =>
+    _inlineParagraphEnd(source, end, indent, close) < close;
+
+class _InlineLiteralEnds {
+  _InlineLiteralEnds(this.source) {
+    for (final tick in _ticks.allMatches(source)) {
+      (_tickRuns[tick[0]!] ??= []).add(tick);
+    }
+  }
+
+  final String source;
+  final _tickRuns = <String, List<RegExpMatch>>{};
+  late final _comments = RegExp('-->').allMatches(source).toList();
+  late final _blanks = _blank.allMatches(source).toList();
+  late final _lines = RegExp(r'\n').allMatches(source).toList();
+
+  int lineEnd(int offset) {
+    final index = _delimiterIndex(_lines, offset);
+    return index == _lines.length ? source.length : _lines[index].start;
+  }
+
+  int? commentEnd(
+    int start,
+    int lineEnd,
+    int indent,
+    int limit, {
+    bool block = false,
+  }) {
+    final index = _delimiterIndex(_comments, start + 4);
+    if (index == _comments.length) return block ? source.length : null;
+    final close = _comments[index];
+    if (close.end > limit ||
+        (!block && _interruptsInline(source, lineEnd, close.start, indent))) {
+      return null;
+    }
+    return close.end;
+  }
+
+  int codeEnd(int start, int lineEnd, int indent, int limit) {
+    final opening = _ticks.matchAsPrefix(source, start)!;
+    final blankIndex = _delimiterIndex(_blanks, opening.end);
+    if (blankIndex < _blanks.length && _blanks[blankIndex].start < limit) {
+      limit = _blanks[blankIndex].start;
+    }
+    final runs = _tickRuns[opening[0]!] ?? const <RegExpMatch>[];
+    final closeIndex = _delimiterIndex(runs, opening.end);
+    if (closeIndex == runs.length) return opening.end;
+    final closing = runs[closeIndex];
+    return closing.end <= limit &&
+            !_interruptsInline(source, lineEnd, closing.start, indent)
+        ? closing.end
+        : opening.end;
+  }
+}
+
+int _inlineParagraphEnd(String source, int end, int indent, [int? limit]) {
+  limit ??= source.length;
   var start = end + 1;
-  while (start < close) {
+  while (start < limit) {
     end = source.indexOf('\n', start);
     if (end < 0) end = source.length;
     final line = source.substring(start, end);
     final relative = line.substring(_indentCharacters(line, indent));
-    if (_inlineBreak.hasMatch(relative)) return true;
+    if (_inlineBreak.hasMatch(relative)) return start;
     final content = _indentCharacters(relative, _indentWidth(relative));
     if (_indentWidth(relative) < 4 &&
         _codeOpeningEnd(relative, content, relative.length) != null) {
-      return true;
+      return start;
     }
-    final nextEnd = source.indexOf('\n', end + 1);
+    final nextEnd = source.indexOf('\n', end < source.length ? end + 1 : end);
     final nextLine = source.substring(
       end < source.length ? end + 1 : end,
       nextEnd < 0 ? source.length : nextEnd,
     );
     if (relative.contains('|') && _tableDelimiter.hasMatch(nextLine)) {
-      return true;
+      return start;
     }
     start = end + 1;
   }
-  return false;
+  return limit;
 }
 
 final _codeClose = RegExp(r'\[/code\]', caseSensitive: false);
@@ -410,7 +506,7 @@ int? _codeOpeningEnd(String source, int at, int end) {
   return null;
 }
 
-int _codeCloseIndex(List<RegExpMatch> closers, int offset) {
+int _delimiterIndex(List<RegExpMatch> closers, int offset) {
   var low = 0;
   var high = closers.length;
   while (low < high) {
@@ -432,11 +528,16 @@ int _codeCloseIndex(List<RegExpMatch> closers, int offset) {
   bool startsLine,
   int quoteDepth,
   Map<int, int?> codeBlocks,
-  List<RegExpMatch> codeClosers,
-) {
-  final openingEnd = _codeOpeningEnd(source, at, lineEnd);
+  List<RegExpMatch> codeClosers, {
+  int? inlineLimit,
+}) {
+  final openingEnd = _codeOpeningEnd(
+    source,
+    at,
+    inlineLimit != null && inlineLimit < lineEnd ? inlineLimit : lineEnd,
+  );
   if (openingEnd == null) return null;
-  final closeIndex = _codeCloseIndex(codeClosers, openingEnd);
+  final closeIndex = _delimiterIndex(codeClosers, openingEnd);
   RegExpMatch? sameLine;
   if (startsLine) {
     for (
@@ -500,6 +601,7 @@ int _codeCloseIndex(List<RegExpMatch> closers, int offset) {
   // The inline rule takes the first closer within the same paragraph.
   if (closeIndex == codeClosers.length) return null;
   final closing = codeClosers[closeIndex];
+  if (inlineLimit != null && closing.end > inlineLimit) return null;
   final closeAt = closing.start;
   if (_interruptsInline(source, lineEnd, closeAt, indent)) return null;
   return (end: closing.end, block: false);

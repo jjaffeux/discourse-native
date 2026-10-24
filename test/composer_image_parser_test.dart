@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
+import 'package:discourse_native/src/shell/composer/html_comments.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
@@ -528,17 +529,20 @@ _ImageValue _value(ComposerImageBlock image) => (
 int _expectImageInvariants(String source) {
   final images = parseComposerImages(source);
   var previousEnd = 0;
-  final code = markdownCodeRanges(source);
+  final rawCode = markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = markdownCodeRanges(literals.mask(source));
   for (final image in images) {
     expect(image.start, greaterThanOrEqualTo(previousEnd));
     expect(image.end, greaterThan(image.start));
     expect(image.end, lessThanOrEqualTo(source.length));
     expect(source.substring(image.start, image.end), image.source);
-    expect(code.overlaps(image.start, image.end), isFalse);
+    expect(literals.contains(image.start), isFalse, reason: source);
+    expect(code.overlaps(image.start, image.end), isFalse, reason: source);
     previousEnd = image.end;
   }
   expect(
-    parseComposerImages(source, codeRanges: code).map(_value),
+    parseComposerImages(source, codeRanges: rawCode).map(_value),
     images.map(_value),
   );
   return images.length;

@@ -156,6 +156,7 @@ void main() {
     '[code]\n<!-- unclosed\n[/code]',
     '<!--\n[code]\n-->',
     '`<!--`',
+    r' \``',
     '```\n<!--\n```',
     '    <!--',
     '- ```\n  <!--\n  ```',
@@ -430,6 +431,58 @@ void main() {
       );
     });
   }
+
+  for (final outer in [
+    '[caption <!-- [ -->](https://example.test/a<!--)',
+    '[caption <!-- ](fake) -->](https://example.test/a<!--)',
+    '![caption <!-- [ -->](https://example.test/a[code].png)',
+    '![caption <!-- ](fake) -->](https://example.test/a[code].png)',
+  ]) {
+    test('closed label comment cannot poison token boundary: $outer', () {
+      const active = '![active](https://example.test/b.png)';
+      final source = '$outer\n$active\n[/code] -->';
+      final block = parseComposerImages(source).last;
+      expect(block.start, source.indexOf(active));
+      expect(block.source, active);
+    });
+  }
+
+  test(
+    'indented fence-like source preserves a following active image',
+    () async {
+      const source = '\t```\n$image';
+      final service = OfflineCookingService();
+      addTearDown(service.dispose);
+      final result = await service.cook(
+        CookingRequest(
+          raw: source,
+          snapshot: CookingSnapshot(
+            siteId: 'test-site',
+            accountId: 'test-account',
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      expect(result.html, contains('<pre><code>```'));
+      expect(result.html, contains('<img '));
+      final block = parseComposerImages(
+        source,
+        codeRanges: markdownCodeRanges(source),
+      ).single;
+      expect(block.start, source.indexOf(image));
+      expect(block.source, image);
+    },
+  );
+
+  test('fenced fake labels cannot poison later raw token boundaries', () {
+    const active = '![active](https://example.test/b.png)';
+    const source =
+        '```text\n[bogus <!-- ](https://example.test/fake)\n```\n'
+        '![caption](https://example.test/a[code].png)\n$active\n[/code]';
+    final block = parseComposerImages(source).last;
+    expect(block.start, source.indexOf(active));
+    expect(block.source, active);
+  });
 
   for (final outer in [
     '![caption <!--](https://example.test/a.png)',

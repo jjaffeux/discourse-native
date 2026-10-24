@@ -5,6 +5,7 @@ import '../../../models/composer_upload.dart';
 import '../../../models/site_config.dart';
 import '../html_comments.dart';
 import '../markdown_highlight.dart';
+import '../markdown_tokens.dart';
 
 @immutable
 class ComposerImageBlock {
@@ -60,17 +61,6 @@ final class ComposerVideoBlock {
   final String title;
   final String url;
 }
-
-// Let `\\.` own backslashes. Matching them in both branches causes explosive
-// backtracking and misreads CommonMark's escaped `\]`.
-final RegExp _imageAltPattern = RegExp(r'!\[((?:\\.|[^\\\]\n])*)');
-final _imageParagraphBreak = RegExp(
-  r'(?:\r\n|\r(?!\n)|\n)[ \t]*(?:\r\n|\r(?!\n)|\n)',
-);
-final RegExp _imageSchemePattern = RegExp(
-  r'(?:upload://|https?://)',
-  caseSensitive: false,
-);
 
 // The ", N%" scale is only syntax after "|WxH", mirroring Discourse's own
 // image-scale pattern; without dimensions the suffix is the author's alt text.
@@ -188,140 +178,26 @@ Iterable<_ImageToken> _imageTokens(
   final code = literals.isEmpty
       ? codeRanges ?? markdownCodeRanges(source)
       : markdownCodeRanges(literals.mask(source));
-  var offset = 0;
-  var paragraphEnd = -1;
-  final destinationEnds = <int, int>{};
-  while (offset < source.length) {
-    final start = source.indexOf('![', offset);
-    if (start < 0) break;
-    if (literals.contains(start)) {
-      offset = start + 2;
-      continue;
-    }
-
-    // Openers inside this alt share its stopping point, including an unfinished
-    // escape or a closer with an invalid destination. None can succeed if this
-    // one fails, so do not retry the same suffix for each nested `![`.
-    final alt = _imageAltPattern.matchAsPrefix(source, start)!;
-    final bracket = alt.end;
-    offset = bracket + 1;
-    if (!source.startsWith('](', bracket)) continue;
-    if (start >= paragraphEnd) {
-      paragraphEnd =
-          _imageParagraphBreak.allMatches(source, start).firstOrNull?.start ??
-          source.length;
-    }
-    final destination = _imageDestination(
-      source,
-      bracket + 2,
-      paragraphEnd,
-      destinationEnds,
-    );
-    if (destination == null) continue;
-    final (:urlStart, :urlEnd, :end) = destination;
-
-    offset = end;
+  for (final token in ComposerMarkdownImageReader(
+    source,
+  ).tokens(excludesOpener: literals.contains)) {
+    final boundary = token.boundary;
+    final start = boundary.openerStart;
+    final end = boundary.tokenEnd;
     if (code.overlaps(start, end)) continue;
-    var slashes = 0;
-    for (var at = start - 1; at >= 0 && source.codeUnitAt(at) == 0x5c; at--) {
-      slashes++;
-    }
     yield (
       start: start,
       end: end,
       source: source.substring(start, end),
-      label: alt.group(1)!,
-      url: _unescapeImageDestination(source.substring(urlStart, urlEnd)),
-      destination: source.substring(bracket + 2, end - 1),
-      escaped: slashes.isOdd,
+      label: source.substring(boundary.labelStart, boundary.labelEnd),
+      url: _unescapeImageDestination(
+        source.substring(token.urlStart, token.urlEnd),
+      ),
+      destination: source.substring(boundary.destinationStart, end - 1),
+      escaped: token.escaped,
     );
   }
 }
-
-typedef _ImageDestination = ({int urlStart, int urlEnd, int end});
-
-_ImageDestination? _imageDestination(
-  String source,
-  int start,
-  int paragraphEnd,
-  Map<int, int> destinationEnds,
-) {
-  var at = start;
-  while (at < paragraphEnd && _imageDestinationSpace(source.codeUnitAt(at))) {
-    at++;
-  }
-  final angle = at < paragraphEnd && source.codeUnitAt(at) == 0x3c;
-  if (angle) at++;
-  final urlStart = at;
-  final scheme = _imageSchemePattern.matchAsPrefix(source, urlStart);
-  if (scheme == null) return null;
-  var nesting = 0;
-  while (at < paragraphEnd) {
-    final unit = source.codeUnitAt(at);
-    if (angle) {
-      if (unit == 0x0a || unit == 0x0d || unit == 0x3c) return null;
-      if (unit == 0x3e) break;
-    } else {
-      if (unit <= 0x20 || unit == 0x7f) break;
-      if (unit == 0x28) {
-        nesting++;
-        // Match the cooker and bound retries of nested malformed images.
-        if (nesting > 32) return null;
-      } else if (unit == 0x29) {
-        if (nesting == 0) break;
-        nesting--;
-      }
-    }
-    if (unit == 0x5c && at + 1 < paragraphEnd) {
-      // A backslash cannot escape a space in a bare destination.
-      at += !angle && source.codeUnitAt(at + 1) == 0x20 ? 1 : 2;
-    } else {
-      at++;
-    }
-  }
-  final urlEnd = at;
-  if (urlEnd <= scheme.end || nesting != 0) return null;
-  if (angle) {
-    if (at >= paragraphEnd || source.codeUnitAt(at) != 0x3e) return null;
-    at++;
-  }
-  final end = destinationEnds.putIfAbsent(
-    at,
-    () => _imageDestinationEnd(source, at, paragraphEnd),
-  );
-  if (end < 0) return null;
-  return (urlStart: urlStart, urlEnd: urlEnd, end: end);
-}
-
-int _imageDestinationEnd(String source, int start, int paragraphEnd) {
-  var at = start;
-  while (at < paragraphEnd && _imageDestinationSpace(source.codeUnitAt(at))) {
-    at++;
-  }
-  if (at >= paragraphEnd) return -1;
-  if (source.codeUnitAt(at) == 0x29) return at + 1;
-  if (at == start) return -1;
-  var marker = source.codeUnitAt(at);
-  if (marker != 0x22 && marker != 0x27 && marker != 0x28) return -1;
-  if (marker == 0x28) marker = 0x29;
-  at++;
-  while (at < paragraphEnd) {
-    final unit = source.codeUnitAt(at++);
-    if (unit == marker) {
-      while (at < paragraphEnd &&
-          _imageDestinationSpace(source.codeUnitAt(at))) {
-        at++;
-      }
-      return at < paragraphEnd && source.codeUnitAt(at) == 0x29 ? at + 1 : -1;
-    }
-    if (unit == 0x28 && marker == 0x29) return -1;
-    if (unit == 0x5c && at < paragraphEnd) at++;
-  }
-  return -1;
-}
-
-bool _imageDestinationSpace(int unit) =>
-    unit == 0x20 || unit == 0x09 || unit == 0x0a || unit == 0x0d;
 
 final _imageDestinationEscape = RegExp(
   r'\\([!-/:-@\[-`{-~])|&([a-z#][a-z0-9]{1,31});',
