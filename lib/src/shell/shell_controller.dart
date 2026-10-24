@@ -2122,11 +2122,13 @@ class ShellController extends FrameSafeNotifier
       instance.url,
       waitForRemoteRevocation: false,
     );
-    final lease = disconnected.lease;
-    if (isDisposed ||
-        disconnected.outcome != AccountDisconnectionOutcome.disconnected ||
-        lease == null ||
-        !lease.isCurrent) {
+    final lease = switch (disconnected) {
+      AccountDisconnected(:final lease) => lease,
+      AccountDisconnectionFailed() ||
+      AccountDisconnectionStale() ||
+      AccountDisconnectionMissing() => null,
+    };
+    if (isDisposed || lease == null || !lease.isCurrent) {
       return false;
     }
 
@@ -3917,14 +3919,18 @@ class ShellController extends FrameSafeNotifier
     AccountDisconnectionResult result,
     String message,
   ) {
-    if (isDisposed ||
-        result.outcome != AccountDisconnectionOutcome.disconnected) {
-      return;
+    if (isDisposed) return;
+    switch (result) {
+      case AccountDisconnected(:final lease):
+        lease.commit(() {
+          _connectErrors[siteUrl] = message;
+          _notify();
+        });
+      case AccountDisconnectionFailed() ||
+          AccountDisconnectionStale() ||
+          AccountDisconnectionMissing():
+        break;
     }
-    result.lease?.commit(() {
-      _connectErrors[siteUrl] = message;
-      _notify();
-    });
   }
 
   @override
@@ -7972,17 +7978,19 @@ class ShellController extends FrameSafeNotifier
 
     try {
       final result = await _accountSessions.connect(instance.url);
-      switch (result.outcome) {
-        case AccountConnectionOutcome.connected:
+      switch (result) {
+        case AccountConnected(instance: final connected):
           _connectErrors.remove(instance.url);
-          final connected = result.instance!;
           unawaited(_refreshOne(connected));
           unawaited(_customSidebar.ensure(instance.url));
-        case AccountConnectionOutcome.cancelled:
+        case AccountConnectionCancelled():
           _connectErrors.remove(instance.url);
-        case AccountConnectionOutcome.failed:
-          _connectErrors[instance.url] = result.message!;
-          if (result.refreshSignedOutPresentation &&
+        case AccountConnectionFailed(
+          :final message,
+          :final refreshSignedOutPresentation,
+        ):
+          _connectErrors[instance.url] = message;
+          if (refreshSignedOutPresentation &&
               currentInstance?.url == instance.url) {
             unawaited(
               RequestIntent.background().run(
@@ -7990,7 +7998,7 @@ class ShellController extends FrameSafeNotifier
               ),
             );
           }
-        case AccountConnectionOutcome.stale || AccountConnectionOutcome.missing:
+        case AccountConnectionStale() || AccountConnectionMissing():
           break;
       }
     } finally {
@@ -8014,7 +8022,12 @@ class ShellController extends FrameSafeNotifier
 
   Future<bool> disconnectInstance(String siteUrl) async {
     final result = await _accountSessions.disconnect(siteUrl);
-    return result.outcome == AccountDisconnectionOutcome.disconnected;
+    return switch (result) {
+      AccountDisconnected() => true,
+      AccountDisconnectionFailed() ||
+      AccountDisconnectionStale() ||
+      AccountDisconnectionMissing() => false,
+    };
   }
 
   @override

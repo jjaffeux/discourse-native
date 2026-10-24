@@ -30,6 +30,7 @@ const _newCredentials = UserApiCredentials(
 enum _Failure {
   readCredential,
   authorize,
+  cancelAuthorization,
   clearDrafts,
   lookup,
   persistCredential,
@@ -66,6 +67,9 @@ final class _SessionAuthenticator extends FakeAuthenticator {
     await authorizeGate?.future;
     if (failures.contains(_Failure.authorize)) {
       throw const UserApiAuthException(UserApiAuthFailure.launchFailed);
+    }
+    if (failures.contains(_Failure.cancelAuthorization)) {
+      throw const UserApiAuthException(UserApiAuthFailure.cancelled);
     }
     return _newCredentials;
   }
@@ -373,19 +377,50 @@ void main() {
     final result = await snapshot.run(
       () => fixture.coordinator.disconnect(_siteUrl),
     );
-    expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+    expect(result, isA<AccountDisconnected>());
     expect(fixture.api.revocationCount, 1);
     expect(fixture.api.revocationScopes, [null]);
     expect(fixture.events, contains('credential:revoke:$_oldKey'));
   });
 
+  test('missing sites return without account effects', () async {
+    final fixture = _Fixture();
+
+    final connected = await fixture.coordinator.connect(_otherSiteUrl);
+    final disconnected = await fixture.coordinator.disconnect(_otherSiteUrl);
+
+    expect(connected, isA<AccountConnectionMissing>());
+    expect(disconnected, isA<AccountDisconnectionMissing>());
+    expect(fixture.events, isEmpty);
+  });
+
   group('AccountSessionCoordinator connect', () {
+    test('cancelled authorization keeps the previous account', () async {
+      final fixture = _Fixture(failures: {_Failure.cancelAuthorization});
+
+      final result = await fixture.coordinator.connect(_siteUrl);
+
+      expect(result, isA<AccountConnectionCancelled>());
+      expect(fixture.current.user, _accountA);
+      expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+      expect(fixture.events, ['credential:read', 'credential:authorize']);
+    });
+
     test('commits the replacement account in durable privacy order', () async {
       final fixture = _Fixture();
 
       final result = await fixture.coordinator.connect(_siteUrl);
 
-      expect(result.outcome, AccountConnectionOutcome.connected);
+      expect(
+        result,
+        isA<AccountConnected>()
+            .having(
+              (value) => value.instance,
+              'instance',
+              same(fixture.current),
+            )
+            .having((value) => value.apiKey, 'apiKey', _newKey),
+      );
       expect(fixture.current.user, _accountB);
       expect((await fixture.durable).user, _accountB);
       expect(fixture.authenticator.keys[_siteUrl], _newKey);
@@ -413,7 +448,7 @@ void main() {
 
           final result = await fixture.coordinator.connect(_siteUrl);
 
-          expect(result.outcome, AccountConnectionOutcome.failed);
+          expect(result, isA<AccountConnectionFailed>());
           expect(fixture.current.user, _accountA);
           expect((await fixture.durable).user, _accountA);
           fixture.expectPrivateStateIsCoherent();
@@ -426,7 +461,7 @@ void main() {
 
       final result = await fixture.coordinator.connect(_siteUrl);
 
-      expect(result.outcome, AccountConnectionOutcome.failed);
+      expect(result, isA<AccountConnectionFailed>());
       expect(fixture.current.user, _accountA);
       expect((await fixture.durable).user, _accountA);
       expect(fixture.events, contains('credential:revoke:$_newKey'));
@@ -440,7 +475,7 @@ void main() {
 
         final result = await fixture.coordinator.connect(_siteUrl);
 
-        expect(result.outcome, AccountConnectionOutcome.failed);
+        expect(result, isA<AccountConnectionFailed>());
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
         expect(fixture.instances.attempts, 2);
@@ -463,7 +498,7 @@ void main() {
 
         final result = await fixture.coordinator.connect(_siteUrl);
 
-        expect(result.outcome, AccountConnectionOutcome.failed);
+        expect(result, isA<AccountConnectionFailed>());
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
         expect(fixture.events, contains('credential:revoke:$_newKey'));
@@ -476,7 +511,7 @@ void main() {
 
       final result = await fixture.coordinator.connect(_siteUrl);
 
-      expect(result.outcome, AccountConnectionOutcome.connected);
+      expect(result, isA<AccountConnected>());
       expect(fixture.current.user, _accountB);
       expect((await fixture.durable).user, _accountB);
       fixture.expectPrivateStateIsCoherent();
@@ -487,8 +522,16 @@ void main() {
 
       final result = await fixture.coordinator.connect(_siteUrl);
 
-      expect(result.outcome, AccountConnectionOutcome.failed);
-      expect(result.refreshSignedOutPresentation, isTrue);
+      expect(
+        result,
+        isA<AccountConnectionFailed>()
+            .having(
+              (value) => value.refreshSignedOutPresentation,
+              'refreshSignedOutPresentation',
+              isTrue,
+            )
+            .having((value) => value.message, 'message', isNotEmpty),
+      );
       expect(fixture.current.user, isNull);
       expect((await fixture.durable).user, isNull);
       expect(fixture.authenticator.keys[_siteUrl], isNull);
@@ -515,8 +558,14 @@ void main() {
 
         final result = await fixture.coordinator.connect(_siteUrl);
 
-        expect(result.outcome, AccountConnectionOutcome.failed);
-        expect(result.refreshSignedOutPresentation, isFalse);
+        expect(
+          result,
+          isA<AccountConnectionFailed>().having(
+            (value) => value.refreshSignedOutPresentation,
+            'refreshSignedOutPresentation',
+            isFalse,
+          ),
+        );
         expect(fixture.current.user, isNull);
         expect((await fixture.durable).user, isNull);
         expect(fixture.authenticator.keys[_siteUrl], _newKey);
@@ -531,7 +580,7 @@ void main() {
 
         final result = await fixture.coordinator.connect(_siteUrl);
 
-        expect(result.outcome, AccountConnectionOutcome.failed);
+        expect(result, isA<AccountConnectionFailed>());
         expect(fixture.current.user, isNull);
         expect((await fixture.durable).user, isNull);
         expect(fixture.authenticator.keys[_siteUrl], isNull);
@@ -548,7 +597,7 @@ void main() {
 
         final result = await fixture.coordinator.disconnect(_siteUrl);
 
-        expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+        expect(result, isA<AccountDisconnected>());
         expect(fixture.current.user, isNull);
         expect((await fixture.durable).user, isNull);
         expect(fixture.authenticator.keys[_siteUrl], isNull);
@@ -573,7 +622,7 @@ void main() {
 
         final result = await fixture.coordinator.disconnect(_siteUrl);
 
-        expect(result.outcome, AccountDisconnectionOutcome.failed);
+        expect(result, isA<AccountDisconnectionFailed>());
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
         // The opening rotation already forgot the account's session state,
@@ -596,7 +645,7 @@ void main() {
 
         final result = await fixture.coordinator.disconnect(_siteUrl);
 
-        expect(result.outcome, AccountDisconnectionOutcome.failed);
+        expect(result, isA<AccountDisconnectionFailed>());
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
         expect(fixture.authenticator.keys[_siteUrl], _oldKey);
@@ -614,7 +663,7 @@ void main() {
 
         final result = await fixture.coordinator.disconnect(_siteUrl);
 
-        expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+        expect(result, isA<AccountDisconnected>());
         expect(fixture.current.user, isNull);
         expect((await fixture.durable).user, isNull);
         if (failure == _Failure.deleteCredential) {
@@ -637,7 +686,7 @@ void main() {
             waitForRemoteRevocation: false,
           );
 
-          expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+          expect(result, isA<AccountDisconnected>());
           expect(fixture.current.user, isNull);
           expect((await fixture.durable).user, isNull);
           expect(fixture.authenticator.keys[_siteUrl], isNull);
@@ -667,8 +716,14 @@ void main() {
         lease: fixture.lifecycle.capture(_siteUrl),
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.disconnected);
-      expect(result.lease?.isCurrent, isTrue);
+      expect(
+        result,
+        isA<AccountDisconnected>().having(
+          (value) => value.lease.isCurrent,
+          'lease.isCurrent',
+          isTrue,
+        ),
+      );
       expect(fixture.current.user, isNull);
       expect((await fixture.durable).user, isNull);
       expect(fixture.authenticator.keys[_siteUrl], isNull);
@@ -695,7 +750,7 @@ void main() {
           lease: fixture.lifecycle.capture(_siteUrl),
         );
 
-        expect(result.outcome, AccountDisconnectionOutcome.failed);
+        expect(result, isA<AccountDisconnectionFailed>());
         expect(fixture.current.user, _accountA);
         expect((await fixture.durable).user, _accountA);
         expect(fixture.authenticator.keys[_siteUrl], _oldKey);
@@ -715,7 +770,16 @@ void main() {
         lease: lease,
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(
+        result,
+        isA<AccountDisconnectionStale>()
+            .having((value) => value.lease, 'lease', same(lease))
+            .having(
+              (value) => value.lease.isCurrent,
+              'lease.isCurrent',
+              isTrue,
+            ),
+      );
       expect(fixture.current.user, _accountA);
       expect(fixture.authenticator.keys[_siteUrl], _newKey);
       expect(fixture.events, ['credential:read']);
@@ -733,8 +797,8 @@ void main() {
         lease: lease,
       );
 
-      expect(connected.outcome, AccountConnectionOutcome.connected);
-      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(connected, isA<AccountConnected>());
+      expect(result, isA<AccountDisconnectionStale>());
       expect(fixture.current.user, _accountB);
       expect((await fixture.durable).user, _accountB);
       expect(fixture.authenticator.keys[_siteUrl], _newKey);
@@ -756,8 +820,8 @@ void main() {
       fixture.authenticator.authorizeGate!.complete();
       final connected = await connecting;
 
-      expect(result.outcome, AccountDisconnectionOutcome.stale);
-      expect(connected.outcome, AccountConnectionOutcome.connected);
+      expect(result, isA<AccountDisconnectionStale>());
+      expect(connected, isA<AccountConnected>());
       expect(fixture.current.user, _accountB);
       expect(fixture.authenticator.keys[_siteUrl], _newKey);
       fixture.expectPrivateStateIsCoherent();
@@ -774,8 +838,14 @@ void main() {
         lease: fixture.lifecycle.capture(_siteUrl),
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.disconnected);
-      expect(result.lease?.isCurrent, isTrue);
+      expect(
+        result,
+        isA<AccountDisconnected>().having(
+          (value) => value.lease.isCurrent,
+          'lease.isCurrent',
+          isTrue,
+        ),
+      );
       expect(fixture.current.user, isNull);
       expect((await fixture.durable).user, isNull);
       expect(fixture.api.revocationCount, 0);
@@ -798,7 +868,7 @@ void main() {
         lease: fixture.lifecycle.capture(_siteUrl),
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.failed);
+      expect(result, isA<AccountDisconnectionFailed>());
       expect(fixture.current.user, _accountA);
       expect((await fixture.durable).user, _accountA);
       expect(fixture.authenticator.keys[_siteUrl], _oldKey);
@@ -813,7 +883,7 @@ void main() {
         lease: fixture.lifecycle.capture(_siteUrl),
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(result, isA<AccountDisconnectionStale>());
       expect(fixture.current.user, _accountA);
       expect((await fixture.durable).user, _accountA);
       expect(fixture.authenticator.keys[_siteUrl], _oldKey);
@@ -830,7 +900,7 @@ void main() {
         lease: fixture.lifecycle.capture(_siteUrl),
       );
 
-      expect(result.outcome, AccountDisconnectionOutcome.stale);
+      expect(result, isA<AccountDisconnectionStale>());
       expect(fixture.current.user, isNull);
       expect(fixture.events, ['credential:read']);
     });
@@ -856,10 +926,7 @@ void main() {
       await ordinarySave;
       final results = await Future.wait([firstDisconnect, secondDisconnect]);
 
-      expect(
-        results.map((result) => result.outcome),
-        everyElement(AccountDisconnectionOutcome.disconnected),
-      );
+      expect(results, everyElement(isA<AccountDisconnected>()));
       expect(fixture.persistence.writeCount, 3);
       expect(
         fixture.snapshotsAtDeletion.keys,
@@ -907,7 +974,7 @@ void main() {
           final result = await disconnect;
           final durable = await fixture.instances.load();
 
-          expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+          expect(result, isA<AccountDisconnected>());
           expect(fixture.persistence.writeCount, 3);
           expect([
             fixture.snapshotsAtDeletion[_siteUrl]!
@@ -969,7 +1036,7 @@ void main() {
         final result = await disconnect;
         final durable = await fixture.instances.load();
 
-        expect(result.outcome, AccountDisconnectionOutcome.failed);
+        expect(result, isA<AccountDisconnectionFailed>());
         expect(fixture.persistence.writeCount, 5);
         expect(fixture.snapshotsAtDeletion, isEmpty);
         expect(fixture.authenticator.keys[_siteUrl], _oldKey);
@@ -1004,13 +1071,13 @@ void main() {
           const Duration(seconds: 1),
         );
 
-        expect(firstResult.outcome, AccountDisconnectionOutcome.disconnected);
+        expect(firstResult, isA<AccountDisconnected>());
         expect(fixture.authenticator.keys[_siteUrl], isNull);
 
         final secondResult = await fixture.coordinator.disconnect(
           _otherSiteUrl,
         );
-        expect(secondResult.outcome, AccountDisconnectionOutcome.disconnected);
+        expect(secondResult, isA<AccountDisconnected>());
         expect(fixture.authenticator.keys[_otherSiteUrl], isNull);
 
         fixture.api.firstRevocationGate!.complete();
@@ -1040,8 +1107,8 @@ void main() {
           final connected = await reconnect;
           final disconnected = await disconnect;
 
-          expect(connected.outcome, AccountConnectionOutcome.connected);
-          expect(disconnected.outcome, AccountDisconnectionOutcome.stale);
+          expect(connected, isA<AccountConnected>());
+          expect(disconnected, isA<AccountDisconnectionStale>());
           expect(
             fixture.host.accountSessionInstance(_siteUrl)!.user,
             _accountB,
@@ -1078,14 +1145,11 @@ void main() {
             final disconnected = await disconnecting.timeout(
               const Duration(seconds: 1),
             );
-            expect(
-              disconnected.outcome,
-              AccountDisconnectionOutcome.disconnected,
-            );
+            expect(disconnected, isA<AccountDisconnected>());
             expect(fixture.authenticator.keys[_siteUrl], isNull);
 
             final connected = await fixture.coordinator.connect(_siteUrl);
-            expect(connected.outcome, AccountConnectionOutcome.connected);
+            expect(connected, isA<AccountConnected>());
           } finally {
             gate.complete();
           }
@@ -1115,8 +1179,8 @@ void main() {
       fixture.authenticator.authorizeGate!.complete();
       final connected = await connecting;
 
-      expect(disconnected.outcome, AccountDisconnectionOutcome.disconnected);
-      expect(connected.outcome, AccountConnectionOutcome.stale);
+      expect(disconnected, isA<AccountDisconnected>());
+      expect(connected, isA<AccountConnectionStale>());
       expect(fixture.current.user, isNull);
       expect(fixture.authenticator.keys[_siteUrl], isNull);
       expect(fixture.events, contains('credential:revoke:$_newKey'));
@@ -1132,8 +1196,8 @@ void main() {
       fixture.api.lookupGate!.complete();
       final connected = await connecting;
 
-      expect(disconnected.outcome, AccountDisconnectionOutcome.disconnected);
-      expect(connected.outcome, AccountConnectionOutcome.stale);
+      expect(disconnected, isA<AccountDisconnected>());
+      expect(connected, isA<AccountConnectionStale>());
       expect(fixture.current.user, isNull);
       expect(fixture.authenticator.keys[_siteUrl], isNull);
       expect(fixture.events, contains('credential:revoke:$_newKey'));
@@ -1149,8 +1213,8 @@ void main() {
       fixture.api.firstRevocationGate!.complete();
       final disconnected = await disconnecting;
 
-      expect(connecting.outcome, AccountConnectionOutcome.connected);
-      expect(disconnected.outcome, AccountDisconnectionOutcome.stale);
+      expect(connecting, isA<AccountConnected>());
+      expect(disconnected, isA<AccountDisconnectionStale>());
       expect(fixture.current.user, _accountB);
       expect((await fixture.durable).user, _accountB);
       expect(fixture.authenticator.keys[_siteUrl], _newKey);
