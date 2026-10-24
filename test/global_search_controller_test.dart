@@ -270,6 +270,33 @@ void main() {
     },
   );
 
+  testWidgets(
+    'pending category consumers share one page and keep different pages distinct',
+    (tester) async {
+      final api = _EngineApi()
+        ..categoryGate = Completer<GlobalSearchCategoryPage>();
+      final search = _controller(api);
+      addTearDown(search.dispose);
+      final first = search.lookupCategoryChoices('support');
+      final samePage = search.lookupCategoryChoices(' support ');
+      final nextPage = search.lookupCategoryChoices('support', page: 2);
+      await tester.pump();
+      expect(api.categoryLookups, [('support', 1), ('support', 2)]);
+      api.categoryGate!.complete(
+        const GlobalSearchCategoryPage(
+          choices: [GlobalSearchFilterChoice(value: '1', label: 'Support')],
+          hasMore: true,
+        ),
+      );
+      expect((await first).choices.single.value, '1');
+      expect((await samePage).choices.single.value, '1');
+      expect((await nextPage).hasMore, isTrue);
+      api.categoryGate = null;
+      await search.lookupCategoryChoices('support');
+      expect(api.categoryLookups, hasLength(3));
+    },
+  );
+
   test('channel IDs scope chat requests without relying on a slug', () async {
     final transport = _Transport();
     final api = GlobalSearchApi(transport: transport);
@@ -1580,6 +1607,7 @@ class _EngineApi extends GlobalSearchApi {
   Completer<GlobalSearchCategoryPage>? categoryGate;
   Completer<void>? categoryStarted;
   final clientIds = <String?>[];
+  final categoryLookups = <(String, int)>[];
 
   @override
   Future<GlobalSearchCategoryPage> lookupCategoryChoices({
@@ -1589,6 +1617,7 @@ class _EngineApi extends GlobalSearchApi {
     required String term,
     int page = 1,
   }) async {
+    categoryLookups.add((term, page));
     clientIds.add(clientId);
     if (categoryStarted?.isCompleted == false) categoryStarted!.complete();
     return categoryGate?.future ??
@@ -1603,6 +1632,7 @@ class _EngineApi extends GlobalSearchApi {
     String? clientId,
     required GlobalSearchFilter filter,
     required String term,
+    Future<void>? abortTrigger,
   }) async {
     if (lookupStarted?.isCompleted == false) lookupStarted!.complete();
     return lookupGate?.future ?? lookupValues;

@@ -77,6 +77,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Object? _selectedNavigationIdentity;
   final _drill = <int>[];
   Object? _lookupKey;
+  Timer? _lookupTimer;
   int _lookupRevision = 0;
   List<GlobalSearchFilterChoice> _choices = const [];
   bool _loadingChoices = false;
@@ -332,13 +333,14 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   void _loadStage(GlobalSearchFilter filter) {
     final controller = widget.controller;
+    final term = controller.stagedTerm;
     final key = (
       controller,
       controller.categoryLookupSession,
       controller.siteUrl,
       controller.configurationRevision,
       filter.id,
-      controller.stagedTerm,
+      term,
     );
     if (_lookupKey == key) return;
     _lookupKey = key;
@@ -348,17 +350,31 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     _choiceError = null;
     _loadingChoices = true;
     final revision = ++_lookupRevision;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    bool current() =>
+        mounted &&
+        revision == _lookupRevision &&
+        identical(widget.controller, controller) &&
+        key ==
+            (
+              controller,
+              controller.categoryLookupSession,
+              controller.siteUrl,
+              controller.configurationRevision,
+              controller.stagedFilter?.id,
+              controller.stagedTerm,
+            );
+    Future<void> load() async {
+      if (!current()) return;
       try {
         final categoryPage = filter.id == 'category'
-            ? await controller.lookupCategoryChoices(controller.stagedTerm)
+            ? await controller.lookupCategoryChoices(term)
             : null;
         final choices = filter.choices.isNotEmpty
             ? filter.choices
             : filter.id == 'category'
             ? categoryPage!.choices
-            : await controller.lookupChoices(filter, controller.stagedTerm);
-        if (!mounted || revision != _lookupRevision) return;
+            : await controller.lookupChoices(filter, term);
+        if (!current()) return;
         setState(() {
           _choices = choices;
           _categoryPage = categoryPage == null ? 0 : 1;
@@ -366,11 +382,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           _loadingChoices = false;
         });
       } catch (error) {
-        if (!mounted || revision != _lookupRevision) return;
+        if (!current()) return;
         setState(() {
           _loadingChoices = false;
           _choiceError = GlobalSearchApi.failureMessage(error);
         });
+      }
+    }
+
+    _lookupTimer?.cancel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!current()) return;
+      if (filter.choices.isEmpty && term.isNotEmpty) {
+        _lookupTimer = Timer(const Duration(milliseconds: 180), load);
+      } else {
+        unawaited(load());
       }
     });
   }
@@ -658,6 +684,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   @override
   void dispose() {
+    _lookupTimer?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -675,6 +702,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         controller.scope,
       );
       if (signature != _navigationSignature) {
+        _lookupTimer?.cancel();
+        _lookupTimer = null;
+        _lookupKey = null;
+        _lookupRevision++;
         resetSelection();
         _navigationSignature = signature;
       }

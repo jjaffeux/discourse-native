@@ -26,6 +26,63 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final leave in ['clear', 'replace controller', 'dispose']) {
+    testWidgets('inline filter debounce stops on $leave', (tester) async {
+      final api = _PanelApi();
+      final controller = await _pump(tester, api: api);
+      controller.setQuery('author:sam');
+      await tester.pump();
+      if (leave == 'clear') {
+        controller.setQuery('');
+        await tester.pump();
+      } else if (leave == 'replace controller') {
+        await _pump(tester);
+      } else {
+        await tester.pumpWidget(const SizedBox());
+      }
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(api.userTerms, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'static inline filter choices remain immediate and keyboard selectable',
+    (tester) async {
+      final controller = await _pump(tester);
+      controller.setQuery('status:');
+      await tester.pump();
+      await tester.pump();
+      final state = tester.state<GlobalSearchPanelState>(
+        find.byType(GlobalSearchPanel),
+      );
+      expect(
+        find.byKey(const ValueKey('global-search-staged-open')),
+        findsOneWidget,
+      );
+      expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
+      expect(controller.conditions.single.value, ['open']);
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('inline filter typing only requests the settled term', (
+    tester,
+  ) async {
+    final api = _PanelApi();
+    final controller = await _pump(tester, api: api);
+    for (final term in ['s', 'sa', 'sam']) {
+      controller.setQuery('author:$term');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(api.userTerms, isEmpty);
+    await tester.pump(const Duration(milliseconds: 180));
+    await tester.pump();
+    expect(api.userTerms, ['sam']);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final textScale in [1.0, 2.0]) {
     testWidgets(
       'loaded result pages reveal and wrap keyboard selection at $textScale text',
@@ -1127,6 +1184,7 @@ class _PanelApi extends GlobalSearchApi {
   _PanelApi({this.results = const []}) : super(transport: FakeDiscourseApi());
   final List<GlobalSearchResult> results;
   final tagTerms = <String>[];
+  final userTerms = <String>[];
   Future<List<GlobalSearchFilterChoice>> Function(String)? tagLookup;
   Completer<GlobalSearchCategoryPage>? categoryGate;
   bool failCategories = false, moreCategories = false;
@@ -1194,7 +1252,9 @@ class _PanelApi extends GlobalSearchApi {
     String? clientId,
     required GlobalSearchFilter filter,
     required String term,
+    Future<void>? abortTrigger,
   }) async {
+    if (filter.id == 'author') userTerms.add(term);
     if (filter.id == 'tags') {
       tagTerms.add(term);
       if (tagLookup case final lookup?) return lookup(term);

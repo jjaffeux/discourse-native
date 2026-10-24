@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
+import 'package:discourse_native/src/shell/global_search_filters.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -15,6 +16,131 @@ import 'support/fakes.dart';
 const _site = 'https://example.test';
 
 void main() {
+  testWidgets('identical filter consumers share one HTTP read', (tester) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final counted = _CountingLookupApi(api);
+    final controller = _controller(api, searchApi: counted);
+    addTearDown(controller.dispose);
+    final filter = globalSearchFilter('author')!;
+    final first = controller.lookupChoices(filter, 'sam');
+    final second = controller.lookupChoices(filter, 'sam');
+    await tester.pump();
+    expect(counted.lookupStarts, 1);
+    expect(client.requests, hasLength(1));
+    client.requests.single.complete({
+      'users': [
+        {'username': 'sam', 'name': 'Sam'},
+      ],
+    });
+    expect((await first).single.value, 'sam');
+    expect((await second).single.value, 'sam');
+    final refresh = controller.lookupChoices(filter, 'sam');
+    await tester.pump();
+    expect(client.requests, hasLength(2));
+    client.requests.last.complete({'users': <Object?>[]});
+    expect(await refresh, isEmpty);
+  });
+
+  for (final contributed in [false, true]) {
+    for (final action in ['configure', 'dispose']) {
+      testWidgets(
+        '$action cancels pending ${contributed ? 'contributed' : 'core'} filter reads',
+        (tester) async {
+          final client = _SearchClient();
+          final api = DiscourseApi(client: client);
+          addTearDown(api.close);
+          final controller = _controller(api, chat: contributed);
+          await tester.pump();
+          final filter = globalSearchFilter(
+            contributed ? 'chatChannel' : 'author',
+            controller.capabilities,
+          )!;
+          final pending = controller.lookupChoices(filter, 'sam');
+          await tester.pump();
+          expect(client.requests, hasLength(1));
+          if (action == 'dispose') {
+            controller.dispose();
+          } else {
+            controller.configure(
+              siteUrl: _site,
+              capabilities: const GlobalSearchCapabilities(
+                authenticated: true,
+                username: 'new-account',
+              ),
+            );
+            addTearDown(controller.dispose);
+          }
+          await tester.pump();
+          expect(client.requests.single.aborted, isTrue);
+          expect(await pending, isEmpty);
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'disposing a filter owner leaves another owner of the same HTTP read alive',
+    (tester) async {
+      final client = _SearchClient();
+      final api = DiscourseApi(client: client);
+      addTearDown(api.close);
+      final lifecycle = SiteLifecycle();
+      final first = _controller(api, lifecycle: lifecycle);
+      final second = _controller(api, lifecycle: lifecycle);
+      addTearDown(second.dispose);
+      await tester.pump();
+      final filter = globalSearchFilter('author')!;
+      final retired = first.lookupChoices(filter, 'sam');
+      final live = second.lookupChoices(filter, 'sam');
+      await tester.pump();
+      expect(client.requests, hasLength(1));
+      first.dispose();
+      await tester.pump();
+      expect(client.requests.single.aborted, isFalse);
+      expect(await retired, isEmpty);
+      client.requests.single.complete({
+        'users': [
+          {'username': 'sam'},
+        ],
+      });
+      expect((await live).single.value, 'sam');
+    },
+  );
+
+  testWidgets('shared filter errors reach both consumers and can retry', (
+    tester,
+  ) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    final filter = globalSearchFilter('author')!;
+    final first = controller.lookupChoices(filter, 'sam');
+    final second = controller.lookupChoices(filter, 'sam');
+    final firstError = expectLater(first, throwsA(isA<SiteLookupException>()));
+    final secondError = expectLater(
+      second,
+      throwsA(isA<SiteLookupException>()),
+    );
+    await tester.pump();
+    expect(client.requests, hasLength(1));
+    client.requests.single.response.completeError(StateError('offline'));
+    await firstError;
+    await secondError;
+    final retry = controller.lookupChoices(filter, 'sam');
+    await tester.pump();
+    expect(client.requests, hasLength(2));
+    client.requests.last.complete({
+      'users': [
+        {'username': 'sam'},
+      ],
+    });
+    expect((await retry).single.value, 'sam');
+  });
+
   testWidgets('superseded searches abort while another owner stays alive', (
     tester,
   ) async {
@@ -220,9 +346,10 @@ GlobalSearchController _controller(
   DiscourseApi api, {
   bool chat = false,
   SiteLifecycle? lifecycle,
+  GlobalSearchApi? searchApi,
 }) =>
     GlobalSearchController(
-      api: GlobalSearchApi(transport: api),
+      api: searchApi ?? GlobalSearchApi(transport: api),
       credentials: FakeApiCredentialReader()..keys[_site] = 'key',
       lifecycle: lifecycle ?? SiteLifecycle(),
       debounceDuration: const Duration(milliseconds: 1),
@@ -301,4 +428,31 @@ class _SearchRequest {
   void complete(Map<String, dynamic> body) => response.complete(
     http.StreamedResponse(Stream.value(utf8.encode(jsonEncode(body))), 200),
   );
+}
+
+class _CountingLookupApi extends GlobalSearchApi {
+  _CountingLookupApi(DiscourseApi api) : super(transport: api);
+  int lookupStarts = 0;
+
+  @override
+  Future<List<GlobalSearchFilterChoice>> lookupChoices({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchFilter filter,
+    required String term,
+    GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
+    Future<void>? abortTrigger,
+  }) {
+    lookupStarts++;
+    return super.lookupChoices(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      filter: filter,
+      term: term,
+      capabilities: capabilities,
+      abortTrigger: abortTrigger,
+    );
+  }
 }

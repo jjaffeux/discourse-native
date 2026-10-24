@@ -77,6 +77,17 @@ class GlobalSearchController extends ChangeNotifier {
   };
   final _choiceLabels = <String, Map<String, GlobalSearchFilterChoice>>{};
   final _tagChoices = <String, GlobalSearchFilterChoice>{};
+  final _choiceLookups =
+      _PendingFilterLookups<
+        (GlobalSearchCapabilities, String, String),
+        List<GlobalSearchFilterChoice>
+      >();
+  final _categoryLookups =
+      _PendingFilterLookups<
+        (GlobalSearchCapabilities, String, int),
+        GlobalSearchCategoryPage
+      >();
+  final _lookupAborts = <Completer<void>>{};
   late final _GlobalSearchExecution _execution;
   bool _disposed = false;
   int _configuration = 0;
@@ -318,6 +329,7 @@ class GlobalSearchController extends ChangeNotifier {
         _capabilities.username != capabilities.username;
     if (!changedSite && _baseFingerprint == capabilities.fingerprint) return;
     _configuration++;
+    _invalidateLookups();
     _tagChoices.clear();
     _baseFingerprint = capabilities.fingerprint;
     _siteUrl = siteUrl;
@@ -765,13 +777,28 @@ class GlobalSearchController extends ChangeNotifier {
   Future<List<GlobalSearchFilterChoice>> lookupChoices(
     GlobalSearchFilter filter,
     String term,
+  ) {
+    final query = filter.id == 'tags' ? term.trim() : term;
+    return _choiceLookups.run((
+      capabilities,
+      filter.id,
+      query,
+    ), () => _lookupChoices(filter, query));
+  }
+
+  Future<List<GlobalSearchFilterChoice>> _lookupChoices(
+    GlobalSearchFilter filter,
+    String term,
   ) async {
     final site = siteUrl, lease = _lease, epoch = _configuration;
-    if (site == null ||
+    if (_disposed ||
+        site == null ||
         lease == null ||
         !globalSearchFilterAvailable(filter, capabilities)) {
       return const [];
     }
+    final abort = Completer<void>();
+    _lookupAborts.add(abort);
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     try {
       final auth = await AccountRequestSession(
@@ -790,6 +817,7 @@ class GlobalSearchController extends ChangeNotifier {
           clientId: client,
           filter: filter,
           term: term,
+          abortTrigger: abort.future,
         ),
       );
       if (!current()) return const [];
@@ -820,15 +848,29 @@ class GlobalSearchController extends ChangeNotifier {
     } catch (_) {
       if (!current()) return const [];
       rethrow;
+    } finally {
+      _lookupAborts.remove(abort);
+      if (!abort.isCompleted) abort.complete();
     }
   }
 
   Future<GlobalSearchCategoryPage> lookupCategoryChoices(
     String term, {
     int page = 1,
+  }) => _categoryLookups.run((
+    capabilities,
+    term.trim(),
+    page,
+  ), () => _lookupCategoryChoices(term.trim(), page: page));
+
+  Future<GlobalSearchCategoryPage> _lookupCategoryChoices(
+    String term, {
+    required int page,
   }) async {
     final site = siteUrl, lease = _lease, epoch = _configuration;
-    if (site == null || lease == null) return const GlobalSearchCategoryPage();
+    if (_disposed || site == null || lease == null) {
+      return const GlobalSearchCategoryPage();
+    }
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     try {
       final auth = await AccountRequestSession(
@@ -962,15 +1004,47 @@ class GlobalSearchController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void _invalidateLookups() {
+    for (final abort in _lookupAborts) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _lookupAborts.clear();
+    _choiceLookups.clear();
+    _categoryLookups.clear();
+  }
+
   @override
   void dispose() {
     _disposed = true;
     _configuration++;
+    _invalidateLookups();
     _execution.dispose();
     history.removeListener(_notify);
     if (_ownsHistory) history.dispose();
     super.dispose();
   }
+}
+
+class _PendingFilterLookups<K, V> {
+  final _pending = <K, Future<V>>{};
+
+  Future<V> run(K key, Future<V> Function() load) {
+    final existing = _pending[key];
+    if (existing != null) return existing;
+    late final Future<V> future;
+    future = Future<V>.sync(load).whenComplete(() {
+      if (identical(_pending[key], future)) {
+        final _ = _pending.remove(key);
+      }
+    });
+    _pending[key] = future;
+    if (_pending.length > 32) {
+      final _ = _pending.remove(_pending.keys.first);
+    }
+    return future;
+  }
+
+  void clear() => _pending.clear();
 }
 
 typedef _SearchQueryTail = ({

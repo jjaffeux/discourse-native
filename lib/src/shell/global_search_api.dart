@@ -736,6 +736,7 @@ class GlobalSearchApi {
     required GlobalSearchFilter filter,
     required String term,
     GlobalSearchCapabilities capabilities = const GlobalSearchCapabilities(),
+    Future<void>? abortTrigger,
   }) async {
     if (filter.choices.isNotEmpty) return filter.choices;
     if (filter.id == 'tags') term = term.trim();
@@ -749,7 +750,7 @@ class GlobalSearchApi {
           )
           .firstOrNull;
       return provider?.lookup(
-            _context(siteUrl, apiKey, clientId),
+            _context(siteUrl, apiKey, clientId, abortTrigger: abortTrigger),
             filter,
             term,
           ) ??
@@ -781,7 +782,13 @@ class GlobalSearchApi {
     } else {
       return const [];
     }
-    final body = await _get(siteUrl, path, apiKey, clientId);
+    final body = await _get(
+      siteUrl,
+      path,
+      apiKey,
+      clientId,
+      abortTrigger: abortTrigger,
+    );
     final rows = jsonObjects(body[key]);
     return List.unmodifiable(
       [
