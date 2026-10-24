@@ -1723,6 +1723,7 @@ void _registerComposerAndDraftTests() {
       DraftStore? drafts,
       FakeAuthenticator? authenticator,
     }) async {
+      api.accounts.putIfAbsent('meta-key', () => api.user ?? me);
       await pumpShell(
         tester,
         desktop,

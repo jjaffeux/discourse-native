@@ -18,7 +18,10 @@ void main() {
     'disposing preserves a debounced draft locally without remote sync',
     () async {
       final drafts = _GatedDraftStore();
-      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(id: 1, username: 'reader'),
+        feeds: const {'/latest.json': []},
+      );
       final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
       final shell = ShellController(
         instanceStore: FakeInstanceStore([
