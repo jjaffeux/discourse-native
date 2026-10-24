@@ -294,7 +294,7 @@ List<(int, int)> _excluded(String source) {
   String? fence;
   var fenceStart = 0;
   var fenceLength = 0;
-  final lines = RegExp(r'^.*(?:\n|$)', multiLine: true);
+  final lines = RegExp(r'^[^\r\n]*(?:\r\n?|\n|$)', multiLine: true);
   for (final line in lines.allMatches(source)) {
     final text = line[0]!;
     final marker = RegExp(r'^ {0,3}(`{3,}|~{3,})').firstMatch(text)?[1];
@@ -400,7 +400,7 @@ Iterable<(int, int)> _delimitedRanges(
 Iterable<(int, int)> _inlineCodeRanges(String source) sync* {
   var paragraphStart = 0;
   for (final line in RegExp(
-    r'^.*(?:\n|$)',
+    r'^[^\r\n]*(?:\r\n?|\n|$)',
     multiLine: true,
   ).allMatches(source)) {
     final text = line[0]!;

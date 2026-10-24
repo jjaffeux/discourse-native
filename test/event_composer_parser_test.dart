@@ -188,7 +188,7 @@ void main() {
     const legacy = '[event start = "2026-09-08 12:00"]\nAgenda\n[/event]';
     const dotted = '[event start=x future.Flag=abc]\nAgenda\n[/event]';
     final cases = <({String source, bool event, bool code, bool editable})>[
-      for (final newline in ['\n', '\r\n'])
+      for (final newline in ['\n', '\r\n', '\r'])
         for (final indent in ['', '   '])
           for (final closer in ['`', '``'])
             (
@@ -218,7 +218,15 @@ void main() {
         code: false,
         editable: true,
       ),
-      for (final space in ['\u00a0', '\u2003'])
+      for (final separator in ['\u2028', '\u2029'])
+        (
+          source:
+              '`before\n[event start="2026-09-08 12:00" name="a${separator}b"]\nAgenda\n[/event]\n`after',
+          event: true,
+          code: false,
+          editable: true,
+        ),
+      for (final space in ['\u00a0', '\u2003', '\u2028', '\u2029'])
         (
           source: '`before\n$space\n$legacy\n`after',
           event: false,
