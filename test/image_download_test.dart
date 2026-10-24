@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -20,6 +21,31 @@ void main() {
     temporary = await Directory.systemTemp.createTemp('image-download-test-');
   });
   tearDown(() => temporary.delete(recursive: true));
+
+  test('an extensionless image retains its PNG share type', () async {
+    final repository = _repository(
+      (_) async => http.Response.bytes(
+        base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+        ),
+        200,
+        headers: {'content-type': 'image/png'},
+      ),
+    );
+    addTearDown(repository.dispose);
+    final environment = _FakeImageDownloadEnvironment(temporary);
+    await NativeLightboxImageDownloader(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+    ).download(
+      url: '/image?id=9',
+      title: 'Screenshot',
+      siteUrl: siteUrl,
+      repository: repository,
+    );
+    expect(environment.mimeType, 'image/png');
+    expect(environment.filename, 'Screenshot.png');
+  });
 
   test('a cancelled desktop save does not fetch the image', () async {
     var requests = 0;
