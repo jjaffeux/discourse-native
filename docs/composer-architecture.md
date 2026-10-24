@@ -178,11 +178,20 @@ have neutral projections for inapplicable fields; they do not grant a write
 destination or an operation-specific copy method. Validation switches over the
 concrete target family, including non-null plugin policy and PM recipients.
 
-Persistence identity remains `(siteUrl, draftKey)`, scoped to the current
-account session by the draft coordinator. The existing `topic_<id>`,
-`new_topic`, `new_private_message`, allocated creation keys, listed keys and
-plugin policy keys retain their exact spelling. Compatibility parsing remains
-in `ComposerDraft` and `UserDraft`; targets do not re-encode stored drafts.
+Server persistence identity remains `(siteUrl, draftKey)`. Local recovery
+copies also belong to an account. `DiscourseInstance.draftOwner` retains the
+original local draft owner through sign-out and restart. That owner keeps the
+legacy storage address; other accounts use a separate persistence prefix.
+Unknown legacy ownership never grants an account access to those drafts.
+Each composer session captures its local storage address before asynchronous
+work, while every account namespace shares the real site's storage queue.
+Reconnect preserves local copies. Explicit disconnect clears them after its
+signed-out snapshot is durable.
+
+The existing `topic_<id>`, `new_topic`, `new_private_message`, allocated
+creation keys, listed keys and plugin policy keys retain their exact spelling
+on the server. Compatibility parsing remains in `ComposerDraft` and
+`UserDraft`; targets do not re-encode stored drafts.
 
 `tabId` records the initiating reader tab. Shell controller membership owns a
 forum composer, and creation routing uses the separately captured submission

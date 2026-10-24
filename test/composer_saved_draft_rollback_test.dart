@@ -499,7 +499,8 @@ class _Harness {
     await drafts.write(_site, 'new_topic', _saved.encode());
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('one.example').copyWith(
+        instance(
+          'one.example',
           user: const DiscourseUser(
             id: 1,
             username: 'reader',

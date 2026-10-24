@@ -66,14 +66,8 @@ void _registerTopicReplyTests() {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
     List<DiscourseInstance> connectedSites({DiscourseUser user = me}) => [
-      instance(
-        'meta.discourse.org',
-        title: 'Discourse Meta',
-      ).copyWith(user: user),
-      instance(
-        'team.discourse.org',
-        title: 'Discourse Team',
-      ).copyWith(user: user),
+      instance('meta.discourse.org', title: 'Discourse Meta', user: user),
+      instance('team.discourse.org', title: 'Discourse Team', user: user),
     ];
 
     FakeAuthenticator signedIn() => FakeAuthenticator()
@@ -1119,10 +1113,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: me),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: me),
         ],
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
@@ -1249,10 +1240,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: me),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: me),
         ],
         authenticator: FakeAuthenticator()
           ..keys['https://meta.discourse.org'] = 'meta-key',
@@ -1700,10 +1688,7 @@ void _registerComposerAndDraftTests() {
     const me = DiscourseUser(username: 'joffreyj', name: 'Joffrey');
 
     List<DiscourseInstance> connectedSites() => [
-      instance(
-        'meta.discourse.org',
-        title: 'Discourse Meta',
-      ).copyWith(user: me),
+      instance('meta.discourse.org', title: 'Discourse Meta', user: me),
     ];
 
     FakeAuthenticator signedIn() =>
@@ -1738,6 +1723,7 @@ void _registerComposerAndDraftTests() {
       DraftStore? drafts,
       FakeAuthenticator? authenticator,
     }) async {
+      api.accounts.putIfAbsent('meta-key', () => api.user ?? me);
       await pumpShell(
         tester,
         desktop,
@@ -2151,10 +2137,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2214,10 +2197,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2271,10 +2251,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2336,7 +2313,8 @@ void _registerComposerAndDraftTests() {
             instance(
               'meta.discourse.org',
               title: 'Discourse Meta',
-            ).copyWith(user: writer),
+              user: writer,
+            ),
           ],
           authenticator: signedIn(),
           drafts: drafts,
@@ -2420,7 +2398,8 @@ void _registerComposerAndDraftTests() {
             instance(
               'meta.discourse.org',
               title: 'Discourse Meta',
-            ).copyWith(user: writer),
+              user: writer,
+            ),
           ],
           authenticator: signedIn(),
           drafts: drafts,
@@ -2490,10 +2469,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2563,10 +2539,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2716,10 +2689,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -2760,10 +2730,7 @@ void _registerComposerAndDraftTests() {
         desktop,
         api: api,
         instances: [
-          instance(
-            'meta.discourse.org',
-            title: 'Discourse Meta',
-          ).copyWith(user: writer),
+          instance('meta.discourse.org', title: 'Discourse Meta', user: writer),
         ],
         authenticator: signedIn(),
       );
@@ -3031,14 +2998,21 @@ void _registerComposerAndDraftTests() {
       final drafts = FakeDraftStore();
       final auth = signedIn();
       final api = FakeDiscourseApi(
-        user: me,
+        user: const DiscourseUser(id: 2, username: 'other-writer'),
         feeds: {'/latest.json': listed},
         topics: {7: detail(draftSequence: 4)},
         draftGate: saveGate,
       );
 
+      api.accounts['meta-key'] = me;
+
       await openComposer(tester, api, drafts: drafts, authenticator: auth);
       final shell = ShellScope.read(tester.element(primaryMainContent));
+      final accountA = shell.currentInstance!;
+      final accountASite = DraftStore.accountSiteKey(
+        accountA.url,
+        accountA.localDraftAccount,
+      );
       await tester.enterText(_composerField, 'Account A first');
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -3056,7 +3030,15 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
       await tester.pumpAndSettle();
+      final accountB = shell.currentInstance!;
+      final accountBSite = DraftStore.accountSiteKey(
+        accountB.url,
+        accountB.localDraftAccount,
+      );
+      expect(accountBSite, isNot(accountASite));
       final accountBComposer = shell.visibleComposer!;
+      expect(accountBComposer.text.text, isEmpty);
+      expect(await drafts.read(accountASite, 'topic_7'), isNull);
       accountBComposer.text.text = 'Account B draft';
       await tester.pump(ComposerController.draftDebounce);
       await tester.pump();
@@ -3065,12 +3047,18 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.first['apiKey'], 'meta-key');
       expect(api.draftsSaved.last['apiKey'], 'api-key');
       expect(api.draftsSaved.last['data'], contains('Account B draft'));
-      expect(drafts.saved.values.single, contains('Account B draft'));
+      expect(
+        ComposerDraft.decode(await drafts.read(accountBSite, 'topic_7'))?.reply,
+        'Account B draft',
+      );
+      expect(await drafts.read(accountASite, 'topic_7'), isNull);
 
       saveGate.complete();
       await tester.pumpAndSettle();
 
       expect(api.draftsSaved, hasLength(2));
+      expect(await drafts.read(accountASite, 'topic_7'), isNull);
+      expect(await drafts.read(accountBSite, 'topic_7'), isNull);
       expect(
         api.draftsSaved.where(
           (save) => (save['data'] as String).contains('Account A queued'),

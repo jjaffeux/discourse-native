@@ -44,6 +44,7 @@ class DiscourseInstance {
     this.apiVersion = 0,
     this.loginRequired = false,
     this.user,
+    this.draftOwner,
     this.notificationTotals,
     this.appearance,
     this.config = const SiteConfig.unknown(),
@@ -69,6 +70,12 @@ class DiscourseInstance {
       apiVersion: json['apiVersion'] as int? ?? 0,
       loginRequired: json['loginRequired'] as bool? ?? false,
       user: user,
+      draftOwner: !json.containsKey('draftOwner')
+          ? null
+          : switch (json['draftOwner']) {
+              final String owner => owner,
+              _ => '',
+            },
       notificationTotals: user == null
           ? null
           : _notificationTotalsFromJson(
@@ -110,6 +117,7 @@ class DiscourseInstance {
       apiVersion: apiVersion ?? this.apiVersion,
       loginRequired: loginRequired ?? this.loginRequired,
       user: clearUser ? null : (user ?? this.user),
+      draftOwner: _resolvedDraftOwner,
       notificationTotals: clearUser || clearNotificationTotals
           ? null
           : (notificationTotals ?? this.notificationTotals),
@@ -139,6 +147,7 @@ class DiscourseInstance {
       apiVersion: apiVersion,
       loginRequired: info.loginRequired,
       user: user,
+      draftOwner: _resolvedDraftOwner,
       notificationTotals: notificationTotals,
       appearance: appearance,
       config: config,
@@ -154,6 +163,30 @@ class DiscourseInstance {
   final bool loginRequired;
 
   final DiscourseUser? user;
+
+  /// The account entitled to pre-migration drafts, including while signed out.
+  /// Empty means unknown; null migrates the currently held account.
+  final String? draftOwner;
+
+  String get _resolvedDraftOwner => draftOwner ?? _draftIdentity(user);
+
+  /// Null keeps the original flat draft namespace for its proven owner.
+  String? get localDraftAccount {
+    final identity = _draftIdentity(user);
+    final owner = _resolvedDraftOwner;
+    if (identity.isNotEmpty && owner == identity) {
+      return null;
+    }
+    return identity.isEmpty ? 'anonymous' : identity;
+  }
+
+  static String _draftIdentity(DiscourseUser? user) {
+    if (user == null) return '';
+    final id = user.id;
+    return id != null && id > 0
+        ? 'id:$id'
+        : 'username:${user.username.toLowerCase()}';
+  }
 
   final NotificationTotals? notificationTotals;
 
@@ -175,6 +208,7 @@ class DiscourseInstance {
     'apiVersion': apiVersion,
     'loginRequired': loginRequired,
     'user': user?.toJson(extensions: extensions),
+    'draftOwner': _resolvedDraftOwner,
     if (user != null && notificationTotals != null)
       'notificationTotals': notificationTotals!.toStoredJson(
         counterCodec: counterCodec,

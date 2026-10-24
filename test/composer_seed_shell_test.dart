@@ -28,7 +28,8 @@ void main() {
       instanceStore: FakeInstanceStore([
         instance(
           'meta.discourse.org',
-        ).copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+          user: const DiscourseUser(id: 7, username: 'reader'),
+        ),
       ]),
       api: FakeDiscourseApi(
         feeds: const {'/latest.json': <Topic>[]},
@@ -80,7 +81,8 @@ void main() {
           instanceStore: FakeInstanceStore([
             instance(
               'meta.discourse.org',
-            ).copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+              user: const DiscourseUser(id: 7, username: 'reader'),
+            ),
           ]),
           api: api,
           authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -12,6 +15,9 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/types.dart';
 
 import 'support/fakes.dart';
 
@@ -146,6 +152,7 @@ final class _SessionApi extends FakeDiscourseApi {
   Completer<void>? firstRevocationGate;
   final lookupStarted = Completer<void>();
   final firstRevocationStarted = Completer<void>();
+  DiscourseUser connectedUser = _accountB;
   int revocationCount = 0;
   final revocationScopes = <AccountRequestScope?>[];
 
@@ -161,7 +168,7 @@ final class _SessionApi extends FakeDiscourseApi {
     if (failures.contains(_Failure.lookup)) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    return _accountB;
+    return connectedUser;
   }
 
   @override
@@ -239,14 +246,17 @@ final class _SessionHost implements AccountSessionHost {
 }
 
 final class _Fixture {
-  _Fixture({this.failures = const {}, Set<int> failingSaveCalls = const {}}) {
-    const initial = DiscourseInstance(
-      url: _siteUrl,
-      title: 'Meta',
-      user: _accountA,
-    );
+  _Fixture({
+    this.failures = const {},
+    Set<int> failingSaveCalls = const {},
+    DraftStore? draftStore,
+    DiscourseInstance? initialInstance,
+  }) {
+    final initial =
+        initialInstance ??
+        const DiscourseInstance(url: _siteUrl, title: 'Meta', user: _accountA);
     authenticator = _SessionAuthenticator(events, failures);
-    drafts = _SessionDraftStore(events, failures);
+    drafts = draftStore ?? _SessionDraftStore(events, failures);
     instances = _SessionInstanceStore(
       [initial],
       events,
@@ -269,7 +279,7 @@ final class _Fixture {
   final List<String> reportedOperations = [];
   final SiteLifecycle lifecycle = SiteLifecycle();
   late final _SessionAuthenticator authenticator;
-  late final _SessionDraftStore drafts;
+  late final DraftStore drafts;
   late final _SessionInstanceStore instances;
   late final _SessionApi api;
   late final _SessionHost host;
@@ -368,6 +378,293 @@ final class _RealStoreFixture {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('AccountSessionCoordinator saved writing', () {
+    late Directory directory;
+    late File file;
+    late DraftStore drafts;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      directory = await Directory.systemTemp.createTemp('account-drafts-');
+      file = File('${directory.path}/drafts.json');
+      drafts = DraftStore(
+        persistence: AppleFileDraftPersistence(
+          file: file,
+          legacyStorage: _NoLegacyDrafts(),
+        ),
+      );
+      await drafts.write(_siteUrl, 'topic_42', 'My only unsent writing');
+    });
+
+    tearDown(() async => directory.delete(recursive: true));
+
+    Future<String?> restoredWriting() => DraftStore(
+      persistence: AppleFileDraftPersistence(
+        file: file,
+        legacyStorage: _NoLegacyDrafts(),
+      ),
+    ).read(_siteUrl, 'topic_42');
+
+    for (final failure in [_Failure.lookup, _Failure.persistCredential]) {
+      test(
+        'preserves saved writing when reconnect ${failure.name} fails',
+        () async {
+          final fixture = _Fixture(draftStore: drafts, failures: {failure});
+          final result = await fixture.coordinator.connect(_siteUrl);
+          expect(result, isA<AccountConnectionFailed>());
+          expect(fixture.current.user, _accountA);
+          expect(await restoredWriting(), 'My only unsent writing');
+        },
+      );
+    }
+
+    test(
+      'preserves saved writing when reconnect boundary save fails',
+      () async {
+        final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {1});
+        final result = await fixture.coordinator.connect(_siteUrl);
+        expect(result, isA<AccountConnectionFailed>());
+        expect(fixture.current.user, _accountA);
+        expect(await restoredWriting(), 'My only unsent writing');
+      },
+    );
+
+    test('successful disconnect retires flat and scoped writing', () async {
+      final bSite = DraftStore.accountSiteKey(_siteUrl, 'id:2');
+      await drafts.write(bSite, 'topic_42', 'Another account writing');
+      final fixture = _Fixture(draftStore: drafts);
+      final result = await fixture.coordinator.disconnect(_siteUrl);
+      expect(result, isA<AccountDisconnected>());
+      expect((await fixture.durable).user, isNull);
+      expect(await restoredWriting(), isNull);
+      expect(await drafts.read(bSite, 'topic_42'), isNull);
+    });
+
+    test('preserves saved writing when disconnect rolls back', () async {
+      final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {1, 2});
+      final result = await fixture.coordinator.disconnect(_siteUrl);
+      expect(result, isA<AccountDisconnectionFailed>());
+      expect(fixture.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    for (final account in <String?>[null, 'id:1']) {
+      test(
+        'restores legacy-only writing after ${account ?? 'flat'} draft retirement fails',
+        () async {
+          final localSite = DraftStore.accountSiteKey(_siteUrl, account);
+          const flatPrefix = 'discourse_native.draft::$_siteUrl::';
+          final accountPrefix =
+              'discourse_native.account_draft::${Uri.encodeComponent(_siteUrl)}::';
+          final activePrefix = account == null ? flatPrefix : accountPrefix;
+          final inactivePrefix = account == null ? accountPrefix : flatPrefix;
+          final key = account == null
+              ? '${flatPrefix}topic_42'
+              : '$accountPrefix${Uri.encodeComponent(account)}::topic_42';
+          SharedPreferences.setMockInitialValues({
+            key: 'Writing that has never reached private storage',
+          });
+          final storage = LinuxFileStorage(directory: directory);
+          final failingStorage = _FailingDraftPrefixDeletion(
+            storage,
+            activePrefix,
+          );
+          final fixture = _Fixture(
+            initialInstance: DiscourseInstance(
+              url: _siteUrl,
+              title: 'Meta',
+              user: _accountA,
+              draftOwner: account == null ? null : 'id:2',
+            ),
+            draftStore: DraftStore(
+              persistence: PrivateDraftPersistence(storage: failingStorage),
+            ),
+          );
+
+          final result = await fixture.coordinator.disconnect(_siteUrl);
+
+          expect(result, isA<AccountDisconnectionFailed>());
+          expect(fixture.current.user, _accountA);
+          expect((await fixture.durable).user, _accountA);
+          expect(fixture.authenticator.keys[_siteUrl], _oldKey);
+          expect(failingStorage.deletedPrefixes, [
+            inactivePrefix,
+            activePrefix,
+          ]);
+          expect(failingStorage.retirementMarkerWasDurable, isTrue);
+          final restarted = DraftStore(
+            persistence: PrivateDraftPersistence(
+              storage: LinuxFileStorage(directory: directory),
+            ),
+          );
+          expect(
+            await restarted.read(localSite, 'topic_42'),
+            'Writing that has never reached private storage',
+          );
+        },
+      );
+    }
+
+    for (final (name, privateText, retired, failBackup, expected)
+        in <(String, String?, bool, bool, String?)>[
+          (
+            'newer private writing',
+            'Newer private writing',
+            false,
+            false,
+            'Newer private writing',
+          ),
+          ('previously retired writing', null, true, false, null),
+          ('uncommitted backup', null, false, true, 'Legacy writing'),
+        ]) {
+      test('failed disconnect preserves $name boundaries', () async {
+        const prefix = 'discourse_native.draft::$_siteUrl::';
+        const key = '${prefix}topic_42';
+        SharedPreferences.setMockInitialValues({key: 'Legacy writing'});
+        final storage = LinuxFileStorage(directory: directory);
+        final persistence = PrivateDraftPersistence(storage: storage);
+        if (privateText != null) await storage.write(key, privateText);
+        if (retired) await persistence.delete(key);
+        final failingStorage = _FailingDraftPrefixDeletion(
+          storage,
+          prefix,
+          failBackupWrites: failBackup,
+        );
+        final fixture = _Fixture(
+          draftStore: DraftStore(
+            persistence: PrivateDraftPersistence(storage: failingStorage),
+          ),
+        );
+
+        final result = await fixture.coordinator.disconnect(_siteUrl);
+
+        expect(result, isA<AccountDisconnectionFailed>());
+        expect(fixture.current.user, _accountA);
+        if (failBackup) {
+          expect(failingStorage.deletedPrefixes, isEmpty);
+          expect(
+            await storage.read(
+              'discourse_native.retired_draft_prefix::$prefix',
+            ),
+            isNull,
+          );
+          expect(
+            (await SharedPreferences.getInstance()).getString(key),
+            'Legacy writing',
+          );
+        } else {
+          expect(failingStorage.retirementMarkerWasDurable, isTrue);
+        }
+        expect(
+          await DraftStore(
+            persistence: PrivateDraftPersistence(
+              storage: LinuxFileStorage(directory: directory),
+            ),
+          ).read(_siteUrl, 'topic_42'),
+          expected,
+        );
+      });
+    }
+
+    test('failed preference reads abort before draft retirement', () async {
+      final storage = LinuxFileStorage(directory: directory);
+      final failingStorage = _FailingDraftPrefixDeletion(
+        storage,
+        'discourse_native.draft::$_siteUrl::',
+      );
+      final fixture = _Fixture(
+        draftStore: DraftStore(
+          persistence: PrivateDraftPersistence(storage: failingStorage),
+        ),
+      );
+      SharedPreferencesStorePlatform.instance = _UnreadableDraftPreferences();
+      SharedPreferences.resetStatic();
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+      final result = await fixture.coordinator.disconnect(_siteUrl);
+
+      expect(result, isA<AccountDisconnectionFailed>());
+      expect(fixture.current.user, _accountA);
+      expect(failingStorage.deletedPrefixes, isEmpty);
+      expect(await storage.readAll(), isEmpty);
+    });
+
+    test('malformed legacy values do not block explicit disconnect', () async {
+      const key = 'discourse_native.draft::$_siteUrl::topic_42';
+      SharedPreferences.setMockInitialValues({key: 42});
+      final fixture = _Fixture(
+        draftStore: DraftStore(
+          persistence: PrivateDraftPersistence(
+            storage: LinuxFileStorage(directory: directory),
+          ),
+        ),
+      );
+
+      expect(
+        await fixture.coordinator.disconnect(_siteUrl),
+        isA<AccountDisconnected>(),
+      );
+      expect((await SharedPreferences.getInstance()).containsKey(key), isFalse);
+    });
+
+    test('preserves saved writing after expiry and process restart', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      final expired = await fixture.coordinator.expireRejectedKey(
+        _siteUrl,
+        apiKey: _oldKey,
+        lease: fixture.lifecycle.capture(_siteUrl),
+      );
+      expect(expired, isA<AccountDisconnected>());
+      final restarted = _Fixture(
+        draftStore: DraftStore(
+          persistence: AppleFileDraftPersistence(
+            file: file,
+            legacyStorage: _NoLegacyDrafts(),
+          ),
+        ),
+        initialInstance: DiscourseInstance.fromJson(
+          (await fixture.durable).toJson(),
+        ),
+      );
+      restarted.api.connectedUser = _accountA;
+      final result = await restarted.coordinator.connect(_siteUrl);
+      expect(result, isA<AccountConnected>());
+      expect(restarted.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('keeps original writing when the connected snapshot fails', () async {
+      final fixture = _Fixture(draftStore: drafts, failingSaveCalls: {2});
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result, isA<AccountConnectionFailed>());
+      expect(fixture.current.user, isNull);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('preserves saved writing when the same account reconnects', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      fixture.api.connectedUser = _accountA;
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result, isA<AccountConnected>());
+      expect(fixture.current.user, _accountA);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+
+    test('does not expose saved writing to a replacement account', () async {
+      final fixture = _Fixture(draftStore: drafts);
+      final result = await fixture.coordinator.connect(_siteUrl);
+      expect(result, isA<AccountConnected>());
+      expect(fixture.current.user, _accountB);
+      final localSite = DraftStore.accountSiteKey(
+        _siteUrl,
+        fixture.current.localDraftAccount,
+      );
+      expect(await drafts.read(localSite, 'topic_42'), isNull);
+      expect(await restoredWriting(), 'My only unsent writing');
+    });
+  });
   test('revocation leaves the retired ambient request scope', () async {
     final fixture = _Fixture();
     final snapshot = await AccountRequestSession(
@@ -427,7 +724,6 @@ void main() {
       expect(fixture.events, [
         'credential:read',
         'credential:authorize',
-        'drafts:clear',
         'lifecycle:clear',
         'presentation:connecting',
         'instances:save:signed-out',
@@ -456,15 +752,12 @@ void main() {
       );
     }
 
-    test('revokes an issued key when durable draft cleanup fails', () async {
+    test('does not delete drafts while replacing an account', () async {
       final fixture = _Fixture(failures: {_Failure.clearDrafts});
-
       final result = await fixture.coordinator.connect(_siteUrl);
-
-      expect(result, isA<AccountConnectionFailed>());
-      expect(fixture.current.user, _accountA);
-      expect((await fixture.durable).user, _accountA);
-      expect(fixture.events, contains('credential:revoke:$_newKey'));
+      expect(result, isA<AccountConnected>());
+      expect(fixture.current.user, _accountB);
+      expect(fixture.events, isNot(contains('drafts:clear')));
       fixture.expectPrivateStateIsCoherent();
     });
 
@@ -603,9 +896,9 @@ void main() {
         expect(fixture.authenticator.keys[_siteUrl], isNull);
         expect(fixture.events, [
           'lifecycle:clear',
-          'drafts:clear',
           'presentation:disconnecting',
           'instances:save:signed-out',
+          'drafts:clear',
           'credential:read',
           'credential:revoke:$_oldKey',
           'credential:delete',
@@ -616,7 +909,7 @@ void main() {
     );
 
     test(
-      'aborts before the account boundary when draft cleanup fails',
+      'restores the account without deleting its key when draft cleanup fails',
       () async {
         final fixture = _Fixture(failures: {_Failure.clearDrafts});
 
@@ -629,6 +922,8 @@ void main() {
         // so the host must be told to rebuild it like any other rollback.
         expect(fixture.events, [
           'lifecycle:clear',
+          'presentation:disconnecting',
+          'instances:save:signed-out',
           'drafts:clear',
           'lifecycle:clear',
           'presentation:restored',
@@ -1221,4 +1516,69 @@ void main() {
       fixture.expectPrivateStateIsCoherent();
     });
   });
+}
+
+final class _NoLegacyDrafts implements PrivateStorage {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<void> write(String key, String value) async {}
+
+  @override
+  Future<void> delete(String key) async {}
+}
+
+final class _FailingDraftPrefixDeletion implements EnumerablePrivateStorage {
+  _FailingDraftPrefixDeletion(
+    this.storage,
+    this.failingPrefix, {
+    this.failBackupWrites = false,
+  });
+
+  final EnumerablePrivateStorage storage;
+  final String failingPrefix;
+  final bool failBackupWrites;
+  final deletedPrefixes = <String>[];
+  bool retirementMarkerWasDurable = false;
+
+  @override
+  Future<void> deletePrefix(String prefix) async {
+    deletedPrefixes.add(prefix);
+    if (prefix == failingPrefix) {
+      retirementMarkerWasDurable =
+          await storage.read(
+            'discourse_native.retired_draft_prefix::$prefix',
+          ) !=
+          null;
+      throw StateError('active draft deletion failed after retirement');
+    }
+    await storage.deletePrefix(prefix);
+  }
+
+  @override
+  Future<void> delete(String key) => storage.delete(key);
+
+  @override
+  Future<String?> read(String key) => storage.read(key);
+
+  @override
+  Future<Map<String, String>> readAll() => storage.readAll();
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (failBackupWrites && key.startsWith(failingPrefix)) {
+      throw StateError('draft backup write failed');
+    }
+    await storage.write(key, value);
+  }
+}
+
+final class _UnreadableDraftPreferences extends InMemorySharedPreferencesStore {
+  _UnreadableDraftPreferences() : super.empty();
+
+  @override
+  Future<Map<String, Object>> getAllWithParameters(
+    GetAllParameters parameters,
+  ) async => throw StateError('draft preferences unreadable');
 }

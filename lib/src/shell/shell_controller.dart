@@ -5642,6 +5642,13 @@ class ShellController extends FrameSafeNotifier
   late final ComposerDraftCoordinator _composerDrafts =
       ComposerDraftCoordinator(
         localStore: drafts,
+        localDraftSite: (siteUrl) {
+          final instance = _instanceAt(siteUrl);
+          return DraftStore.accountSiteKey(
+            siteUrl,
+            instance == null ? 'anonymous' : instance.localDraftAccount,
+          );
+        },
         persistence: api.composerPersistence,
         draftsApi: api.drafts,
         lifecycle: lifecycle,

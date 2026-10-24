@@ -414,19 +414,32 @@ void main() {
     expect(drafts.started.isCompleted, isTrue);
 
     await shell.disconnectCurrentInstance();
+    api.accounts['api-key'] = api.user!;
     await shell.connectCurrentInstance();
     final second = await _openReply(shell);
+    expect(second.text.text, isEmpty);
+    final current = shell.currentInstance!;
+    final localSite = DraftStore.accountSiteKey(
+      current.url,
+      current.localDraftAccount,
+    );
     second.text.text = 'Current account';
     drafts.gateWrites = false;
     final lifecycle = _lifecycle(tester);
     lifecycle.didChangeAppLifecycleState(AppLifecycleState.resumed);
     lifecycle.didChangeAppLifecycleState(AppLifecycleState.hidden);
     await tester.pump();
-    expect(_localReply(drafts), 'Current account');
+    expect(
+      ComposerDraft.decode(await drafts.read(localSite, 'topic_7'))?.reply,
+      'Current account',
+    );
 
     drafts.release.complete();
     await first.finishDraftSaves();
-    expect(_localReply(drafts), 'Current account');
+    expect(
+      ComposerDraft.decode(await drafts.read(localSite, 'topic_7'))?.reply,
+      'Current account',
+    );
     expect(api.draftsSaved, hasLength(1));
     expect(api.draftsSaved.single['data'], contains('Current account'));
     await tester.pumpWidget(const SizedBox.shrink());
@@ -470,18 +483,17 @@ Future<ShellController> _pumpApp(
   required FakeDiscourseApi api,
   required FakeDraftStore drafts,
 }) async {
+  const user = DiscourseUser(id: 1, username: 'reader');
+  api.accounts.putIfAbsent('api-key', () => user);
+  api.accounts.putIfAbsent('team-key', () => user);
   await pumpShell(
     tester,
     desktop,
     api: api,
     drafts: drafts,
     instances: [
-      instance(
-        'meta.discourse.org',
-      ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
-      instance(
-        'team.discourse.org',
-      ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+      instance('meta.discourse.org', user: user),
+      instance('team.discourse.org', user: user),
     ],
     authenticator: FakeAuthenticator()
       ..keys[_siteUrl] = 'api-key'
