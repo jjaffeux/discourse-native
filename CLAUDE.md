@@ -53,14 +53,20 @@ Requirements line with it.
   listening goes through `ShellScope` / `ShellSelector`.
   `shell_rebuild_isolation_test.dart` pins this; keep new state out of the
   facade's `notifyListeners()` unless it is genuinely shell-wide.
-- `shell_controller.dart` being the largest file is a consequence of that
-  facade, not a backlog item. Splitting it has been measured: the composer
-  submit path, the instance-order cluster and `_forgetSiteState` are each
-  bidirectionally wired to navigation, topic state and the sub-controllers at
-  once, and the one genuinely clean seam (the hashtag/mention identity caches)
-  is ~4% of the file. Extracting state that *does* change independently is
-  welcome — that is how the eleven existing sub-controllers got there — but
-  moving lines to shrink the file is not, and has been declined deliberately.
+- Reassess `ShellController` boundaries against the current code. Extract
+  cohesive state, transaction policy, or account lifetimes into owners when
+  that reduces coupling or the work needed to understand a feature. Smaller
+  files are a useful outcome; past coupling assessments are not a veto.
+  Move the owner's state and behavior together, define its dependencies and
+  retirement path, and keep canonical data in the existing stores. Prefer
+  narrow capabilities to access to the whole shell. Private Dart parts are
+  valid when they establish a clear owner without adding a public API.
+  Migrate callers and remove superseded state and policy paths in the same
+  change.
+  Keep cross-feature navigation and composition in the shell. Preserve
+  account-lease checks, async ordering, reentrant publication, pure-Dart
+  construction, and rebuild isolation. Judge each split by the responsibility
+  it owns and the dependencies it removes, rather than file size alone.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
   upstream markup. Optional feature catalogs and snapshots live under their
   owning plugin's `tool/` directory. When changing a parser, check its
