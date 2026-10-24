@@ -32,6 +32,8 @@ class ComposerDraft {
 
   static const int maximumEncodedCharacters = 150000;
 
+  static const int maximumLocalEncodedCodeUnits = 4 * 1024 * 1024;
+
   factory ComposerDraft.fromJson(Map<String, dynamic> json) => ComposerDraft(
     reply: jsonString(json['reply']),
     action: jsonText(json['action']) ?? replyAction,
@@ -58,6 +60,19 @@ class ComposerDraft {
     if (data is! String || data.isEmpty || !_isWithinEncodedLimit(data)) {
       return null;
     }
+    return _decodeJson(data);
+  }
+
+  static ComposerDraft? decodeLocal(Object? data) {
+    if (data is! String ||
+        data.isEmpty ||
+        data.length > maximumLocalEncodedCodeUnits) {
+      return null;
+    }
+    return _decodeJson(data);
+  }
+
+  static ComposerDraft? _decodeJson(String data) {
     try {
       final draft = ComposerDraft.fromJson(
         jsonDecode(data) as Map<String, dynamic>,
@@ -118,6 +133,14 @@ class ComposerDraft {
   };
 
   String encode() => jsonEncode(toJson());
+
+  String encodeLocal() {
+    final encoded = encode();
+    if (encoded.length > maximumLocalEncodedCodeUnits) {
+      throw const FormatException('Local draft exceeds the storage limit');
+    }
+    return encoded;
+  }
 
   @override
   bool operator ==(Object other) =>

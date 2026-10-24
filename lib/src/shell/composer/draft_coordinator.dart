@@ -538,7 +538,7 @@ final class ComposerDraftCoordinator {
           : _localStore.write(
               session._localSite,
               target.draftKey,
-              draft.encode(),
+              draft.encodeLocal(),
             ),
     ).ignore();
   }
@@ -597,7 +597,7 @@ final class ComposerDraftCoordinator {
         await _localStore.write(
           session._localSite,
           target.draftKey,
-          preserved.encode(),
+          preserved.encodeLocal(),
           ifCurrent: () =>
               isCurrent() && composer.discardRevisionIsCurrent(revision),
         );
@@ -835,7 +835,7 @@ final class ComposerDraftCoordinator {
       await _localStore.write(
         session._localSite,
         target.draftKey,
-        save.draft.encode(),
+        save.draft.encodeLocal(),
         ifCurrent: ifCurrent,
       );
     } else if (!await _localStore.clearChecked(
@@ -1050,8 +1050,12 @@ final class ComposerDraftCoordinator {
     // The local copy exists only while the site does not have the text, so if
     // there is one it is the newer of the two by construction.
     var localRead = await _localStore.readChecked(localSite, target.draftKey);
-    if (!localRead.succeeded) return false;
-    var local = ComposerDraft.decode(localRead.value);
+    if (!localRead.succeeded ||
+        (localRead.value?.length ?? 0) >
+            ComposerDraft.maximumLocalEncodedCodeUnits) {
+      return false;
+    }
+    var local = ComposerDraft.decodeLocal(localRead.value);
     if (!isCurrent()) return true;
     if (local == null) {
       final session = _sessions[composer];
@@ -1061,8 +1065,12 @@ final class ComposerDraftCoordinator {
         // A retired controller may have failed its first local write and then
         // completed a remote save while this composer was opening.
         localRead = await _localStore.readChecked(localSite, target.draftKey);
-        if (!localRead.succeeded) return false;
-        local = ComposerDraft.decode(localRead.value);
+        if (!localRead.succeeded ||
+            (localRead.value?.length ?? 0) >
+                ComposerDraft.maximumLocalEncodedCodeUnits) {
+          return false;
+        }
+        local = ComposerDraft.decodeLocal(localRead.value);
         if (!isCurrent()) return true;
       }
     }

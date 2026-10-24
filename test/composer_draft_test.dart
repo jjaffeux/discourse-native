@@ -154,4 +154,83 @@ void main() {
       expect(ComposerDraft.decode(data), isNull);
     });
   });
+
+  group('local persistence', () {
+    test('keeps the portable draft fields', () {
+      const draft = ComposerDraft(
+        reply: 'Hello team',
+        action: ComposerDraft.privateMessageAction,
+        title: 'A private subject',
+        archetypeId: ComposerDraft.privateMessageArchetype,
+        recipients: 'tech-leads',
+        replyToPostNumber: 2,
+        replyToUsername: 'sam',
+        whisper: true,
+        typingTime: Duration(seconds: 9),
+        composerTime: Duration(seconds: 30),
+      );
+
+      expect(draft.encodeLocal(), draft.encode());
+      expect(ComposerDraft.decodeLocal(draft.encodeLocal()), draft);
+    });
+
+    test('round-trips long text with JSON escaping and Unicode', () {
+      final draft = ComposerDraft(reply: List.filled(30000, '"\\\n😀').join());
+      final encoded = draft.encodeLocal();
+
+      expect(encoded.runes.length, greaterThan(150000));
+      expect(ComposerDraft.decodeLocal(encoded), draft);
+      expect(ComposerDraft.decode(encoded), isNull);
+    });
+
+    test('accepts the local limit and rejects the next code unit', () {
+      final overhead = const ComposerDraft(reply: '').encode().length;
+      final draft = ComposerDraft(
+        reply: 'x'.padRight(
+          ComposerDraft.maximumLocalEncodedCodeUnits - overhead,
+          'x',
+        ),
+      );
+      final encoded = draft.encodeLocal();
+      final oversized = ComposerDraft(reply: '${draft.reply}x');
+
+      expect(encoded, hasLength(ComposerDraft.maximumLocalEncodedCodeUnits));
+      expect(ComposerDraft.decodeLocal(encoded), draft);
+      expect(oversized.encodeLocal, throwsFormatException);
+      expect(ComposerDraft.decodeLocal(oversized.encode()), isNull);
+    });
+
+    for (final sample in ['"', '😀']) {
+      test('bounds encoded code units for $sample', () {
+        final overhead = const ComposerDraft(reply: '').encode().length;
+        final draft = ComposerDraft(
+          reply: List.filled(
+            (ComposerDraft.maximumLocalEncodedCodeUnits - overhead) ~/ 2,
+            sample,
+          ).join(),
+        );
+        final encoded = draft.encodeLocal();
+        final oversized = ComposerDraft(reply: '${draft.reply}$sample');
+
+        expect(
+          encoded.length,
+          inInclusiveRange(
+            ComposerDraft.maximumLocalEncodedCodeUnits - 1,
+            ComposerDraft.maximumLocalEncodedCodeUnits,
+          ),
+        );
+        expect(ComposerDraft.decodeLocal(encoded), draft);
+        expect(oversized.encodeLocal, throwsFormatException);
+        expect(ComposerDraft.decodeLocal(oversized.encode()), isNull);
+      });
+    }
+
+    test('rejects empty or malformed input', () {
+      expect(ComposerDraft.decodeLocal(null), isNull);
+      expect(ComposerDraft.decodeLocal(''), isNull);
+      expect(ComposerDraft.decodeLocal('not json'), isNull);
+      expect(ComposerDraft.decodeLocal('[1,2,3]'), isNull);
+      expect(ComposerDraft.decodeLocal(jsonEncode({'reply': '  '})), isNull);
+    });
+  });
 }
