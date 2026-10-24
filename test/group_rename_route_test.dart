@@ -25,12 +25,19 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final destination in ['opening', 'other tab', 'directory', 'retired']) {
+  for (final (destination, acknowledgmentOnly) in [
+    for (final destination in ['opening', 'other tab', 'directory', 'retired'])
+      for (final acknowledgmentOnly in [false, true])
+        (destination, acknowledgmentOnly),
+  ]) {
     for (final confirmed in [false, true]) {
       test(
-        'rename ${confirmed ? 'confirmation' : 'save'} preserves $destination navigation',
+        'rename ${acknowledgmentOnly ? 'acknowledgment' : 'full group'} ${confirmed ? 'confirmation' : 'save'} preserves $destination navigation',
         () async {
-          final server = _Server(confirm: confirmed);
+          final server = _Server(
+            confirm: confirmed,
+            acknowledgmentOnly: acknowledgmentOnly,
+          );
           addTearDown(server.api.close);
           final store = FakeForumTabStore([_workspace()]);
           final shell = ShellController(
@@ -147,6 +154,12 @@ void main() {
             ]);
             expect(server.directoryLoads, 1);
           }
+          if (destination != 'retired') {
+            expect(
+              shell.groups.detailState(_site, 'canonical').detail?.group.name,
+              'canonical',
+            );
+          }
           expect(
             result,
             isA<GroupWriteAccepted<Group>>().having(
@@ -154,6 +167,8 @@ void main() {
               'projection',
               destination == 'retired'
                   ? GroupProjectionFreshness.retired
+                  : acknowledgmentOnly
+                  ? GroupProjectionFreshness.refreshed
                   : GroupProjectionFreshness.stale,
             ),
           );
@@ -287,9 +302,11 @@ ForumWorkspace _workspace() => ForumWorkspace(
 );
 
 final class _Server {
-  _Server({required this.confirm});
+  _Server({required this.confirm, required this.acknowledgmentOnly});
+  final bool acknowledgmentOnly;
   final bool confirm;
   int writes = 0;
+  bool saved = false;
   int directoryLoads = 0;
   final started = Completer<void>();
   final release = Completer<void>();
@@ -308,6 +325,23 @@ final class _Server {
         }
         started.complete();
         await release.future;
+        saved = true;
+        if (acknowledgmentOnly) return http.Response('{"success":"OK"}', 200);
+        return http.Response(
+          jsonEncode({
+            'group': {
+              'id': 9,
+              'name': 'canonical',
+              'full_name': 'Canonical team',
+              'can_admin_group': true,
+            },
+          }),
+          200,
+        );
+      }
+      if (saved && request.url.path == '/groups/support.json')
+        return http.Response('{}', 404);
+      if (request.url.path == '/groups/by-id/9.json') {
         return http.Response(
           jsonEncode({
             'group': {
