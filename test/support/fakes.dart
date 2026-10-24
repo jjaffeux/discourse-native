@@ -4293,11 +4293,13 @@ Map<String, dynamic> _gifPageJson(GifSearchPage page) => {
   'next': page.nextPosition,
 };
 
-DiscourseInstance instance(String host, {String? title}) => DiscourseInstance(
-  url: 'https://$host',
-  title: title ?? host,
-  apiVersion: 4,
-);
+DiscourseInstance instance(String host, {String? title, DiscourseUser? user}) =>
+    DiscourseInstance(
+      user: user,
+      url: 'https://$host',
+      title: title ?? host,
+      apiVersion: 4,
+    );
 
 class FakeApiCredentialReader implements ApiCredentialReader {
   FakeApiCredentialReader({this.clientIdValue = 'test-client'});

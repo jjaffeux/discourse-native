@@ -36,7 +36,7 @@ void main() {
     drafts = FakeDraftStore();
     shell = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: user),
+        instance('meta.discourse.org', user: user),
       ]),
       api: api,
       authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',

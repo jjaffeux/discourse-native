@@ -337,7 +337,7 @@ Future<ShellController> _openShell(
     desktop,
     api: api,
     drafts: drafts,
-    instances: [instance('meta.discourse.org').copyWith(user: api.user)],
+    instances: [instance('meta.discourse.org', user: api.user)],
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
   );
   return ShellScope.read(tester.element(primaryMainContent));

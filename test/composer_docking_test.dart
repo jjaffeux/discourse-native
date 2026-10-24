@@ -1809,7 +1809,7 @@ class _Harness {
     );
     final shell = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: user),
+        instance('meta.discourse.org', user: user),
       ]),
       api: FakeDiscourseApi(
         user: user,

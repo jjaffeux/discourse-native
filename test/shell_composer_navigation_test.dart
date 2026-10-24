@@ -49,8 +49,8 @@ void main() {
     );
     shell = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('one.example', title: 'One').copyWith(user: user),
-        instance('two.example', title: 'Two').copyWith(user: user),
+        instance('one.example', title: 'One', user: user),
+        instance('two.example', title: 'Two', user: user),
       ]),
       api: api,
       authenticator: FakeAuthenticator()

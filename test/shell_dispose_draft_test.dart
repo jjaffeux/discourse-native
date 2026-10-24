@@ -24,7 +24,8 @@ void main() {
         instanceStore: FakeInstanceStore([
           instance(
             'meta.discourse.org',
-          ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+            user: const DiscourseUser(id: 1, username: 'reader'),
+          ),
         ]),
         api: api,
         authenticator: authenticator,

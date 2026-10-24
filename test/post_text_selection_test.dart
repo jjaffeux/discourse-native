@@ -1314,7 +1314,8 @@ Future<ShellController> _shell({
     instanceStore: FakeInstanceStore([
       instance(
         'meta.discourse.org',
-      ).copyWith(config: config, user: _openingUser),
+        user: _openingUser,
+      ).copyWith(config: config),
     ]),
     api: api ?? FakeDiscourseApi(),
     authenticator: authenticator,

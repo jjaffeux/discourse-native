@@ -45,8 +45,8 @@ void main() {
     drafts = _DraftStore();
     shell = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('one.example', title: 'One').copyWith(user: _user),
-        instance('two.example', title: 'Two').copyWith(user: _user),
+        instance('one.example', title: 'One', user: _user),
+        instance('two.example', title: 'Two', user: _user),
       ]),
       api: api,
       authenticator: FakeAuthenticator()

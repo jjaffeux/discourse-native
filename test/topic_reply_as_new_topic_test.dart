@@ -75,7 +75,7 @@ void main() {
     );
     final controller = ShellController(
       instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: reader),
+        instance('meta.discourse.org', user: reader),
       ]),
       api: api,
       authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
