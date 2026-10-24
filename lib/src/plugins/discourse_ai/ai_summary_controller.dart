@@ -126,7 +126,17 @@ final class AiSummaryController {
     } catch (error, stack) {
       // The transport cannot abort a sent request. Keep observing its errors
       // even after the dialog has cancelled and released its live resources.
-      request._fail(error, stack);
+      if (error is WriteException &&
+          error.failure == WriteFailure.unreachable &&
+          !error.notSent &&
+          error.statusCode == null &&
+          request._subscription != null &&
+          request._checkCurrent()) {
+        // The job can finish even when the sent POST's reply is lost.
+        request._waitForStream(streamTimeout);
+      } else {
+        request._fail(error, stack);
+      }
     }
   }
 }

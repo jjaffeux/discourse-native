@@ -717,9 +717,9 @@ void main() {
   ) async {
     final site = _HeldSite();
     final request = _Settled(
-      _heldSummaries(site)
-          .load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false)
-          .result,
+      _heldSummaries(
+        site,
+      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
     );
     await tester.pump();
     expect(site.requests.single.url.path, _summaryPath);
@@ -739,9 +739,9 @@ void main() {
   ) async {
     final site = _HeldSite();
     final request = _Settled(
-      _heldSummaries(site)
-          .load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false)
-          .result,
+      _heldSummaries(
+        site,
+      ).load(siteUrl: _siteUrl, topicId: 7, hasCachedSummary: false).result,
     );
     await tester.pump();
     await tester.pump(aiGenerationTimeout - const Duration(seconds: 1));
