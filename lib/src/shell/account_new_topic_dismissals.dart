@@ -92,6 +92,7 @@ final class NewTopicDismissals {
     final topics = scope.dismissTopics;
     final posts = scope.dismissPosts;
     try {
+      if (!account.isCurrent) return null;
       final credential = await account.request.credentials(credentials);
       if (!account.isCurrent) return null;
       if (credential.apiKey == null) {

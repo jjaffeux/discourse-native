@@ -38,6 +38,29 @@ void main() {
     ]);
   });
 
+  for (final retire in ['lease', 'forget', 'dispose']) {
+    test('$retire during busy publication cannot read credentials', () async {
+      final credentials = _Credentials();
+      final fixture = _Fixture(credentials: credentials);
+      fixture.onChanged = () {
+        switch (retire) {
+          case 'lease':
+            fixture.lifecycle.invalidate(_site);
+          case 'forget':
+            fixture.owner.forget(_site);
+          case 'dispose':
+            fixture.owner.dispose();
+        }
+      };
+
+      expect(await fixture.owner.dismiss(fixture.command), isNull);
+      expect(credentials.started.isCompleted, isFalse);
+      expect(fixture.api.calls, 0);
+      expect(fixture.events, ['busy']);
+      expect(fixture.owner.isBusy(_site), isFalse);
+    });
+  }
+
   for (final retire in ['lease', 'forget']) {
     test(
       '$retire retirement isolates late completion from successor',
