@@ -172,6 +172,7 @@ Future<ShellController> _fixture(_Api api) async {
 class _Api extends FakeDiscourseApi {
   _Api()
     : super(
+        user: const DiscourseUser(username: 'reader'),
         topics: {
           7: (
             detail: const TopicDetail(

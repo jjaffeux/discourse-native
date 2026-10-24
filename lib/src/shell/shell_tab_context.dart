@@ -110,7 +110,10 @@ final class ShellTabContext {
       selectedTopicId: readingTopicId,
       isRead: (id) => UnreadTopicFeed.isRead(
         topic: shell.store.read<Topic>(instance.url, id),
-        tracking: shell._topicTrackingBySite[instance.url]?.topic(id),
+        tracking: shell._topicTracking
+            .existing(instance.url)
+            ?.reconciler
+            .topic(id),
         localReadPostNumber: shell._topicReads.lastReadPostNumberFor(
           instance.url,
           id,
@@ -170,10 +173,11 @@ final class ShellTabContext {
     final instance = _instance;
     if (instance == null ||
         instance.user == null ||
-        shell._topicTrackingBySite[instance.url]?.hasSnapshot != true) {
+        shell._topicTracking.existing(instance.url)?.reconciler.hasSnapshot !=
+            true) {
       return (all: 0, topics: 0, replies: 0);
     }
-    final tracking = shell._topicTrackingBySite[instance.url];
+    final tracking = shell._topicTracking.existing(instance.url)?.reconciler;
     if (tracking == null) return (all: 0, topics: 0, replies: 0);
 
     final tagIds = <int>{};

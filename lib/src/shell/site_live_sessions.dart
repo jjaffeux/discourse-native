@@ -84,9 +84,11 @@ final class _SiteLiveSessions {
     AccountRequestCredentials? requestCredentials,
   }) async {
     if (_disposed || !lease.isCurrent) return;
+    final account = _shell._topicTracking.matching(siteUrl, lease, tracking);
+    if (account == null) return;
     await _forSite(siteUrl).loadTracking(
       username: username,
-      tracking: tracking,
+      account: account,
       ticket: ticket,
       refreshCategoryPreferences: refreshCategoryPreferences,
       requestCredentials: requestCredentials,
@@ -132,7 +134,7 @@ final class _SiteLiveSession {
   _SiteLiveState _state = _SiteLiveIdle();
   void Function() _unobserveRetirement = () {};
   ({
-    TopicTrackingReconciler tracking,
+    TopicTrackingAccount account,
     Future<void> Function(TopicTrackingSnapshot) load,
   })?
   _retry;
@@ -197,12 +199,10 @@ final class _SiteLiveSession {
   void retryTracking() {
     final retry = _retry;
     clearRetry();
-    if (retry == null ||
-        !isCurrent ||
-        !identical(_shell._topicTrackingBySite[siteUrl], retry.tracking)) {
+    if (retry == null || !isCurrent || !retry.account.isCurrent) {
       return;
     }
-    final ticket = retry.tracking.beginSnapshot();
+    final ticket = retry.account.reconciler.beginSnapshot();
     if (ticket != null) unawaited(retry.load(ticket));
   }
 
@@ -248,9 +248,10 @@ final class _SiteLiveSession {
 
     final currentUserOwner = _shell._currentUsers.reconcilerFor(siteUrl);
     final userSnapshot = currentUserOwner.beginSnapshot();
-    final bootstrapTrackingOwner = apiKey == null || clientId == null
+    final bootstrapTrackingAccount = apiKey == null || clientId == null
         ? null
-        : _shell._trackingFor(siteUrl);
+        : _shell._topicTracking.capture(siteUrl, lease: lease);
+    final bootstrapTrackingOwner = bootstrapTrackingAccount?.reconciler;
     final bootstrapTicket = bootstrapTrackingOwner?.beginBootstrap();
     final bootstrap = apiKey == null || clientId == null
         ? null
@@ -305,17 +306,20 @@ final class _SiteLiveSession {
         if (ownsTracker()) lease.commit(mutation);
       }
 
+      final account = _shell._topicTracking.capture(siteUrl, lease: lease);
+      if (account == null) return;
+      final tracking = account.reconciler;
       final bootstrapState = bootstrap?.currentUserState;
       if (bootstrapState != null) {
         _shell._acceptLiveNotificationState(siteUrl, bootstrapState, lease);
-        if (!isCurrent) return;
+        if (!isCurrent || !account.isCurrent) return;
         _shell.accountActivity.applyReviewableCounts(siteUrl, bootstrapState);
       }
+      if (!isCurrent || !account.isCurrent) return;
 
       final trackingUsername = apiKey == null
           ? null
           : freshBootstrapUser?.username ?? current.user?.username;
-      final tracking = _shell._trackingFor(siteUrl);
       final currentBootstrapTicket = identical(tracking, bootstrapTrackingOwner)
           ? bootstrapTicket
           : tracking.beginBootstrap();
@@ -343,7 +347,7 @@ final class _SiteLiveSession {
         clearRetry();
       }
 
-      if (!isCurrent) return;
+      if (!isCurrent || !account.isCurrent) return;
       final SiteTracker tracker;
       try {
         tracker = _shell.trackers(
@@ -361,7 +365,7 @@ final class _SiteLiveSession {
           // A superseded account's tracker must not judge by, or leave hints
           // in, the filter its successor now owns at the same URL.
           admitIncoming: (data) =>
-              ownsTracker() && _shell._admitsIncomingTopic(siteUrl, data),
+              ownsTracker() && account.admitsIncoming(data),
           onNotifications: (data) => commit(
             () => _shell._acceptLiveNotificationState(siteUrl, data, lease),
           ),
@@ -374,7 +378,7 @@ final class _SiteLiveSession {
 
         return;
       }
-      if (!isCurrent) {
+      if (!isCurrent || !account.isCurrent) {
         tracker.dispose().ignore();
         if (loadTicket != null) tracking.cancelSnapshot(loadTicket);
         return;
@@ -387,7 +391,7 @@ final class _SiteLiveSession {
             tracker.watchTopicTrackingState(
               userId,
               (data) => commit(
-                () => _shell._applyTopicTrackingMessage(siteUrl, data),
+                () => account.accept(data, retryBeforeAccept: retryTracking),
               ),
               lastIds: initialLastIds,
             );
@@ -397,13 +401,13 @@ final class _SiteLiveSession {
           unawaited(
             loadTracking(
               username: trackingUsername!,
-              tracking: tracking,
+              account: account,
               ticket: loadTicket,
               requestCredentials: requestCredentials,
             ),
           );
         }
-        if (!isCurrent) return;
+        if (!isCurrent || !account.isCurrent) return;
         try {
           tracker.watchPluginChannel(
             '/user-status',
@@ -443,11 +447,11 @@ final class _SiteLiveSession {
           } catch (_) {}
         }
       }
-      if (!isCurrent) return;
+      if (!isCurrent || !account.isCurrent) return;
       for (final owned
           in _shell._pluginSession
               .ownedCapabilities<PluginTrackerAttachment>()) {
-        if (!isCurrent) return;
+        if (!isCurrent || !account.isCurrent) return;
         try {
           owned.capability.attachPluginTracker(
             siteUrl,
@@ -457,9 +461,9 @@ final class _SiteLiveSession {
           );
         } catch (_) {}
       }
-      if (!isCurrent) return;
+      if (!isCurrent || !account.isCurrent) return;
       if (demand.watchesVisibleTopics) _shell._syncTopicWatch(siteUrl, tracker);
-      if (!isCurrent) return;
+      if (!isCurrent || !account.isCurrent) return;
       _state = _SiteLiveReady(tracker);
       synchronize();
     });
@@ -491,15 +495,13 @@ final class _SiteLiveSession {
 
   Future<void> loadTracking({
     required String username,
-    required TopicTrackingReconciler tracking,
+    required TopicTrackingAccount account,
     required TopicTrackingSnapshot ticket,
     Future<void> Function()? refreshCategoryPreferences,
     AccountRequestCredentials? requestCredentials,
   }) async {
-    bool ownsLoad() =>
-        isCurrent &&
-        identical(_shell._topicTrackingBySite[siteUrl], tracking) &&
-        tracking.owns(ticket);
+    final tracking = account.reconciler;
+    bool ownsLoad() => isCurrent && account.owns(ticket);
     AccountRequestCredentials? heldCredentials = requestCredentials;
     try {
       if (!ownsLoad()) return;
@@ -542,10 +544,10 @@ final class _SiteLiveSession {
       if (ownsLoad()) {
         tracking.failSnapshot(ticket);
         _retry = (
-          tracking: tracking,
+          account: account,
           load: (nextTicket) => loadTracking(
             username: username,
-            tracking: tracking,
+            account: account,
             ticket: nextTicket,
             refreshCategoryPreferences: refreshCategoryPreferences,
             requestCredentials: heldCredentials,
@@ -560,15 +562,13 @@ final class _SiteLiveSession {
   void resyncTracking() {
     if (!isCurrent) return;
     final username = _shell._instanceAt(siteUrl)?.user?.username;
-    final tracking = _shell._topicTrackingBySite[siteUrl];
-    if (username == null || tracking?.hasSnapshot != true) return;
-    final ticket = tracking!.beginSnapshot();
+    final account = _shell._topicTracking.existing(siteUrl);
+    if (username == null || account?.reconciler.hasSnapshot != true) return;
+    final tracking = account!.reconciler;
+    final ticket = tracking.beginSnapshot();
     if (ticket == null) return;
     clearRetry();
-    bool ownsResync() =>
-        isCurrent &&
-        identical(_shell._topicTrackingBySite[siteUrl], tracking) &&
-        tracking.owns(ticket);
+    bool ownsResync() => isCurrent && account.owns(ticket);
     unawaited(() async {
       try {
         final requestCredentials = await AccountRequestSession(
@@ -582,7 +582,7 @@ final class _SiteLiveSession {
         }
         await loadTracking(
           username: username,
-          tracking: tracking,
+          account: account,
           ticket: ticket,
           requestCredentials: requestCredentials,
         );
