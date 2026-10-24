@@ -29,6 +29,119 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('shared bookmark links', () {
+    test(
+      'cached topic actions need no read and expire after a write',
+      () async {
+        final api = _BookmarkFakeApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final before = api.topicsOpened.length;
+        final action = shell.cachedTopicBookmarkLink('$_site/t/topic/7');
+        expect(action, isNotNull);
+        expect(action!.resolution, isNull);
+        expect(api.topicsOpened, hasLength(before));
+        expect((await action.invoke()).saved, isTrue);
+        expect(
+          api.createdBookmarks.single.targetType,
+          BookmarkTargetType.topic,
+        );
+        expect((await action.invoke()).saved, isFalse);
+        expect(api.createdBookmarks, hasLength(1));
+      },
+    );
+
+    test(
+      'a list flag for post bookmarks resolves the topic identity',
+      () async {
+        const postBookmark = Bookmark(
+          id: 73,
+          bookmarkableId: 12,
+          bookmarkableType: 'Post',
+          postNumber: 2,
+        );
+        final api = _BookmarkFakeApi(bookmark: postBookmark);
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        shell.store.remove<TopicDetail>(_site, 7);
+        final action = shell.cachedTopicBookmarkLink('$_site/t/topic/7');
+        expect(action?.resolution, isNotNull);
+        expect((await action!.invoke()).saved, isTrue);
+        expect(api.deletedBookmarks, isEmpty);
+        expect(
+          api.createdBookmarks.single.targetType,
+          BookmarkTargetType.topic,
+        );
+        expect(api.createdBookmarks.single.targetId, 7);
+      },
+    );
+
+    test('resolution refuses a read overtaken by a bookmark write', () async {
+      final api = _StaleTopicBookmarkApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final pending = shell.resolveBookmarkLink('$_site/t/topic/7/2');
+      await api.staleStarted.future;
+      expect(
+        (await shell.createBookmark(
+          siteUrl: _site,
+          topicId: 7,
+          targetType: BookmarkTargetType.post,
+          targetId: 12,
+        )).saved,
+        isTrue,
+      );
+      api.staleResponse.complete(_payload());
+      expect(await pending, isNull);
+      expect(shell.store.read<Post>(_site, 12)?.bookmark?.id, 91);
+    });
+
+    test(
+      'resolution validates original bookmark targets without publishing',
+      () async {
+        final api = _BookmarkFakeApi();
+        final shell = await _loadShell(api);
+        addTearDown(shell.dispose);
+        api.topics[99] = topicPayload(
+          id: 99,
+          posts: const [
+            Post(id: 990, postNumber: 3, username: 'sam', cooked: ''),
+            Post(
+              id: 991,
+              postNumber: 4,
+              username: 'sam',
+              cooked: '',
+              hidden: true,
+            ),
+          ],
+        );
+        final before = shell.currentContent;
+        for (final bookmark in const [
+          Bookmark(id: 71, bookmarkableId: 7, bookmarkableType: 'Topic'),
+          Bookmark(id: 72, bookmarkableId: 12, bookmarkableType: 'Post'),
+          Bookmark(
+            id: 73,
+            bookmarkableId: 990,
+            bookmarkableType: 'ChatMessage',
+          ),
+        ]) {
+          expect(
+            await shell.resolveBookmarkLink(
+              '$_site/t/other/99/3',
+              targetBookmark: bookmark,
+            ),
+            isNull,
+          );
+        }
+        expect(await shell.resolveBookmarkLink('$_site/t/other/99/4'), isNull);
+        final action = await shell.resolveBookmarkLink('$_site/t/other/99/3');
+        expect(action, isNotNull);
+        expect(shell.store.read<TopicDetail>(_site, 99), isNull);
+        expect(shell.store.read<Post>(_site, 990), isNull);
+        expect(shell.currentContent, before);
+        expect(api.createdBookmarks, isEmpty);
+      },
+    );
+
     for (final post in [false, true]) {
       test(
         'bookmarks an unopened ${post ? 'post' : 'topic'} without navigating',

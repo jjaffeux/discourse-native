@@ -46,3 +46,19 @@ retirement between publications and account refresh callbacks, admission
 retirement, uncertain outcomes, and forced refresh retirement. Existing shell,
 opening-session, ordering, post hold, checklist, and editor tests pin the
 unchanged user behavior.
+
+`BookmarkLinkResolver` owns cached topic-list actions and asynchronous link
+resolution. The shell supplies serving-forum lookup and current plugin resolver
+capabilities. The resolver captures the existing `BookmarkAccountSession` for
+its lease, revision guard and write admission. It reads topic payloads with
+key-only credentials and never publishes those payloads or navigates. Returned
+core actions retain the original account and revision guard, then use the
+existing target host for writes. Plugin target identity and actions remain
+owned by the plugin resolver. The resolver has no separate account state or
+retirement path.
+
+`bookmark_link_resolver_test.dart` constructs the resolver without a shell or
+Flutter binding. It covers key-only request identity, replacement during
+credential and topic reads, action retirement, active writes and current plugin
+capabilities. `bookmark_shell_controller_test.dart` pins exact target identity
+and nonpublication. `open_link_test.dart` drives the rendered context menus.
