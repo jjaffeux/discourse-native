@@ -33,6 +33,10 @@ has identical revision values.
 
 Presence writes advance authority at both start and settlement. A snapshot
 dispatched during a pending write also preserves the confirmed presence value.
+DND advances its ticket revision at write start and settlement, on valid live
+updates including repeated values, and when a confirmed pause expires. Its
+controller rejects snapshots during pending writes. Reads dispatched after
+settlement or a live update can reconcile missed changes from another device.
 Grouped unread authority advances on accepted complete live maps and local
 notification read or dismiss operations. Draft authority advances on every
 valid live count, including repeated values. Successful category writes advance
@@ -50,7 +54,8 @@ The result contains the reconciled user, whether its account changed, and
 whether grouped counts may seed account totals. A stale grouped snapshot can
 refresh other user fields but cannot reseed totals. The shell retains account
 cache resets, instance replacement, persistence, notification and plugin
-observer dispatch. DND retains its existing owner and pre-merge acceptance.
+observer dispatch. DND retains its existing owner and pre-merge acceptance,
+using the original account ticket to preserve held DND for stale responses.
 Concurrent full responses retain their existing acceptance order.
 
 ## Refresh ownership

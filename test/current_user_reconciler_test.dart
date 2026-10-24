@@ -102,6 +102,23 @@ void main() {
     expect(result.user.name, 'Fresh name');
   });
 
+  test('DND authority rejects older reads and admits later reads', () {
+    final older = reconciler.beginSnapshot();
+    expect(reconciler.doNotDisturbIsCurrent(older), isTrue);
+
+    reconciler.doNotDisturbChanged();
+
+    expect(reconciler.doNotDisturbIsCurrent(older), isFalse);
+    final later = reconciler.beginSnapshot();
+    expect(reconciler.doNotDisturbIsCurrent(later), isTrue);
+    reconciler.doNotDisturbChanged();
+    expect(reconciler.doNotDisturbIsCurrent(later), isFalse);
+    expect(
+      reconciler.doNotDisturbIsCurrent(reconciler.beginSnapshot()),
+      isTrue,
+    );
+  });
+
   test(
     'presence settlement preserves older responses after success or failure',
     () {
@@ -417,6 +434,7 @@ void main() {
 
     expect(foreign.reconcile(ticket, previous: null, incoming: user), isNull);
     expect(foreign.categoryPreferencesAreCurrent(ticket), isFalse);
+    expect(foreign.doNotDisturbIsCurrent(ticket), isFalse);
     expect(
       foreign.acceptsCategoryPreferences(
         ticket,
@@ -432,6 +450,7 @@ void main() {
       isNull,
     );
     expect(reconciler.categoryPreferencesAreCurrent(ticket), isFalse);
+    expect(reconciler.doNotDisturbIsCurrent(ticket), isFalse);
 
     final replacement = CurrentUserReconciler(
       lease: lifecycle.capture(_site),
@@ -441,6 +460,7 @@ void main() {
       replacement.reconcile(ticket, previous: null, incoming: user),
       isNull,
     );
+    expect(replacement.doNotDisturbIsCurrent(ticket), isFalse);
     expect(
       replacement.reconcile(
         replacement.beginSnapshot(),
@@ -460,6 +480,7 @@ void main() {
       replacement.categoryPreferencesAreCurrent(replacementTicket),
       isFalse,
     );
+    expect(replacement.doNotDisturbIsCurrent(replacementTicket), isFalse);
     expect(
       replacement
           .updatePluginOption(
