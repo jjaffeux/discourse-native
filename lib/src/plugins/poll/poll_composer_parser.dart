@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../shell/composer/components/list_source.dart';
+
 const pollComposerSyntaxId = 'poll/poll';
 
 abstract interface class PollComposerProjectionData {
@@ -187,7 +189,7 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
   if (source.isEmpty) return const [];
 
   final lines = _linesOf(source);
-  final excluded = _excludedLineMap(lines);
+  final excluded = _excludedLineMap(source, lines);
   final blocks = <PollComposerBlock>[];
 
   var index = 0;
@@ -262,7 +264,7 @@ List<PollComposerBlock> parsePollComposerBlocks(String source) {
 /// Includes valid openers with complex raw bodies so new polls cannot collide.
 Set<String> pollNamesInComposerSource(String source) {
   final lines = _linesOf(source);
-  final excluded = _excludedLineMap(lines);
+  final excluded = _excludedLineMap(source, lines);
   final names = <String>{};
   for (var index = 0; index < lines.length; index++) {
     if (excluded[index]) continue;
@@ -586,7 +588,7 @@ List<_SourceLine> _linesOf(String source) {
   return lines;
 }
 
-List<bool> _excludedLineMap(List<_SourceLine> lines) {
+List<bool> _excludedLineMap(String source, List<_SourceLine> lines) {
   final starts = {for (final tag in _BbcodeBlock.values) tag: <int>[]};
   final codeEnds = <int, int>{};
   final blockEnds = <int, int>{};
@@ -606,13 +608,47 @@ List<bool> _excludedLineMap(List<_SourceLine> lines) {
     }
   }
 
+  var listSource = source;
+  if (source.contains('<!--') && codeEnds.isNotEmpty) {
+    final masked = StringBuffer();
+    var codeLimit = -1;
+    for (var index = 0; index < lines.length; index++) {
+      final codeEnd = codeEnds[index];
+      if (codeEnd != null && codeEnd > codeLimit) codeLimit = codeEnd;
+      final end = index + 1 < lines.length
+          ? lines[index + 1].start
+          : source.length;
+      final text = source.substring(lines[index].start, end);
+      masked.write(index < codeLimit ? text.replaceAll('<!--', '....') : text);
+    }
+    listSource = masked.toString();
+  }
+
+  final listLimits = List<int>.filled(lines.length, lines.length);
+  var cursor = 0;
+  for (final item in composerListItems(listSource)) {
+    while (cursor < lines.length && lines[cursor].start < item.start) {
+      cursor++;
+    }
+    final start = cursor;
+    while (cursor < lines.length && lines[cursor].start <= item.end) {
+      cursor++;
+    }
+    listLimits.fillRange(start, cursor, cursor);
+  }
+
   final result = List<bool>.filled(lines.length, false);
   final activeBlockEnds = <int>[];
   for (var index = 0; index < lines.length; index++) {
     while (activeBlockEnds.isNotEmpty && index >= activeBlockEnds.last) {
       activeBlockEnds.removeLast();
     }
-    final limit = activeBlockEnds.isEmpty ? lines.length : activeBlockEnds.last;
+    final blockLimit = activeBlockEnds.isEmpty
+        ? lines.length
+        : activeBlockEnds.last;
+    final limit = listLimits[index] < blockLimit
+        ? listLimits[index]
+        : blockLimit;
     final line = lines[index].text;
     final codeEnd = codeEnds[index];
     if (codeEnd != null && codeEnd < limit) {
@@ -623,10 +659,10 @@ List<bool> _excludedLineMap(List<_SourceLine> lines) {
 
     if (_commentOpeningPattern.hasMatch(line)) {
       var end = index;
-      while (end < limit && !lines[end].text.contains('-->')) {
+      while (end < blockLimit && !lines[end].text.contains('-->')) {
         end++;
       }
-      if (end == limit) {
+      if (end == blockLimit) {
         result.fillRange(index, lines.length, true);
         break;
       }
