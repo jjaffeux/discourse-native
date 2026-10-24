@@ -153,7 +153,10 @@ extension _TopicMetadataTransactions on ShellController {
             apiKey: credential.apiKey!,
             term: tag.name,
             categoryId: categoryId,
-            selectedTagIds: selected.map((item) => item.id).whereType<int>(),
+            selectedTagIds: selected
+                .map((item) => item.id)
+                .whereType<int>()
+                .where((id) => id != tag.id),
             limit: siteConfigFor(
               siteUrl,
             ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
@@ -162,7 +165,7 @@ extension _TopicMetadataTransactions on ShellController {
         final match = result.results
             .where(
               (item) =>
-                  item.id == tag.id ||
+                  (tag.id != null && item.id == tag.id) ||
                   item.name.toLowerCase() == tag.name.toLowerCase(),
             )
             .firstOrNull;

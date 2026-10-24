@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_category_picker.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -25,8 +30,6 @@ void main() {
   test('category change retains an allowed existing tag', () async {
     final fixture = await _fixture();
     fixture.api.tagSearchResponse = (request) {
-      expect(request.url.path, '/tags/filter/search.json');
-      expect(request.url.queryParameters['categoryId'], '2');
       final selected =
           request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
       return _tagResults(
@@ -49,6 +52,218 @@ void main() {
     expect(await saving, isNull);
     expect(fixture.api.requests.single['tags'], [_tag]);
     expect(fixture.shell.currentTopic?.tags, [_tag]);
+  });
+
+  test(
+    'category validation keeps eligible peers in each search context',
+    () async {
+      const mobile = TopicTag(id: 8, name: 'mobile');
+      final queries = await _expectCategoryTags(
+        selected: [_tag, mobile],
+        expected: [_tag, mobile],
+        response: (request) {
+          final query = request.url.queryParameters;
+          final selected =
+              request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+          final candidate = query['q'] == 'design' ? _tag : mobile;
+          return _tagResults(
+            selected.contains('${candidate.id}')
+                ? []
+                : [
+                    {'id': candidate.id, 'name': candidate.name},
+                  ],
+          );
+        },
+      );
+      expect(
+        queries.map(
+          (request) => request.url.queryParametersAll['selected_tag_ids[]'],
+        ),
+        [
+          ['8'],
+          ['7'],
+        ],
+      );
+    },
+  );
+
+  for (final parentFirst in [true, false]) {
+    test(
+      'category validation retains a child with its parent, parent first $parentFirst',
+      () async {
+        const child = TopicTag(id: 8, name: 'mobile');
+        final selected = parentFirst ? [_tag, child] : [child, _tag];
+        await _expectCategoryTags(
+          selected: selected,
+          expected: selected,
+          response: (request) {
+            final parent = request.url.queryParameters['q'] == 'design';
+            final peers =
+                request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+            return _tagResults([
+              {
+                'id': parent ? 7 : 8,
+                'name': parent ? 'design' : 'mobile',
+                'disabled': !parent && !peers.contains('7'),
+              },
+            ]);
+          },
+        );
+      },
+    );
+  }
+
+  test(
+    'category validation removes a child whose required parent is absent',
+    () async {
+      const child = TopicTag(id: 8, name: 'mobile');
+      await _expectCategoryTags(
+        selected: [child],
+        expected: [],
+        response: (request) {
+          final peers =
+              request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+          return _tagResults([
+            {'id': 8, 'name': 'mobile', 'disabled': !peers.contains('7')},
+          ]);
+        },
+      );
+    },
+  );
+
+  test('category validation preserves one-per-topic peer exclusions', () async {
+    const mobile = TopicTag(id: 8, name: 'mobile');
+    await _expectCategoryTags(
+      selected: [_tag, mobile],
+      expected: [],
+      response: (request) {
+        final design = request.url.queryParameters['q'] == 'design';
+        final peers =
+            request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+        return _tagResults([
+          {
+            'id': design ? 7 : 8,
+            'name': design ? 'design' : 'mobile',
+            'disabled': peers.contains(design ? '8' : '7'),
+          },
+        ]);
+      },
+    );
+  });
+
+  for (final restriction in ['disabled', 'forbidden', 'missing']) {
+    test('category validation removes only the $restriction tag', () async {
+      const mobile = TopicTag(id: 8, name: 'mobile');
+      await _expectCategoryTags(
+        selected: [_tag, mobile],
+        expected: [mobile],
+        response: (request) {
+          final design = request.url.queryParameters['q'] == 'design';
+          return _tagResults(
+            design && restriction == 'missing'
+                ? []
+                : [
+                    {
+                      'id': design ? 7 : 8,
+                      'name': design ? 'design' : 'mobile',
+                      'disabled': design && restriction == 'disabled',
+                    },
+                  ],
+            forbidden: design && restriction == 'forbidden',
+          );
+        },
+      );
+    });
+  }
+
+  test(
+    'uncertain category eligibility retains the complete original selection',
+    () async {
+      const mobile = TopicTag(id: 8, name: 'mobile');
+      await _expectCategoryTags(
+        selected: [_tag, mobile],
+        expected: [_tag, mobile],
+        response: (request) {
+          if (request.url.queryParameters['q'] == 'mobile') {
+            throw http.ClientException('Lookup disconnected');
+          }
+          return _tagResults([
+            {'id': 7, 'name': 'design', 'disabled': true},
+          ]);
+        },
+      );
+    },
+  );
+
+  test(
+    'category validation matches name-only tags by their own name',
+    () async {
+      await _expectCategoryTags(
+        selected: [const TopicTag(name: 'design')],
+        expected: [const TopicTag(name: 'Design')],
+        response: (_) => _tagResults([
+          {'name': 'unrelated'},
+          {'name': 'Design'},
+        ]),
+      );
+    },
+  );
+
+  testWidgets('category picker retains an allowed existing tag after saving', (
+    tester,
+  ) async {
+    final fixture = (await tester.runAsync(_fixture))!;
+    fixture.api.tagSearchResponse = (request) {
+      final selected =
+          request.url.queryParametersAll['selected_tag_ids[]'] ?? [];
+      return _tagResults(
+        selected.contains('7')
+            ? []
+            : [
+                {'id': 7, 'name': 'design'},
+              ],
+      );
+    };
+    fixture.shell.store.update<TopicDetail>(
+      _site,
+      1,
+      (detail) => detail.copyWith(tags: [_tag]),
+    );
+    await tester.pumpWidget(
+      ShellScope(
+        controller: fixture.shell,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Align(
+            alignment: Alignment.topLeft,
+            child: TopicCategoryMenuAnchor(
+              siteUrl: _site,
+              topicId: 1,
+              categoryId: 1,
+              enabled: true,
+              builder: (context, open, saving, trigger) => DButton(
+                onPressed: open,
+                label: Text(saving ? 'Saving' : 'Edit category'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Edit category'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey(('topic-category-picker-option', 2))),
+    );
+    await tester.pumpAndSettle();
+    expect(fixture.api.requests, hasLength(1));
+    fixture.api.pending.single.complete(const TopicUpdate());
+    await tester.pumpAndSettle();
+    expect(fixture.api.requests.single['tags'], [_tag]);
+    expect(fixture.shell.currentTopic?.categoryId, 2);
+    expect(fixture.shell.currentTopic?.tags, [_tag]);
+    expect(find.text('Edit category'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   for (final field in _Field.values) {
@@ -318,8 +533,9 @@ _fixture() async {
   final auth = _HeldAuthenticator()..keys[_site] = 'key';
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance('meta.example')
-          .copyWith(user: const DiscourseUser(id: 7, username: 'sam')),
+      instance(
+        'meta.example',
+      ).copyWith(user: const DiscourseUser(id: 7, username: 'sam')),
     ]),
     api: api,
     authenticator: auth,
@@ -360,6 +576,9 @@ final class _HeldAuthenticator extends FakeAuthenticator {
 final class _MetadataApi extends FakeDiscourseApi {
   _MetadataApi()
     : super(
+        categorySearches: const {
+          '': [TopicCategory(id: 2, name: 'Support', color: '888888')],
+        },
         feeds: const {
           '/latest.json': [_row],
         },
@@ -382,6 +601,7 @@ final class _MetadataApi extends FakeDiscourseApi {
   final pending = <Completer<TopicUpdate>>[];
   final keys = <String>[];
   final requests = <Map<String, Object?>>[];
+  final tagQueries = <http.Request>[];
   Completer<TopicTagSearch>? tagSearch;
   int tagSearches = 0;
   http.Response Function(http.Request)? tagSearchResponse;
@@ -438,11 +658,14 @@ final class _MetadataApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     tagSearches++;
-    if (tagSearch != null) return await tagSearch!.future;
+    if (tagSearch != null) return tagSearch!.future;
     final response = tagSearchResponse;
     if (response == null) return const TopicTagSearch(tags: [_tag]);
     final api = DiscourseApi(
-      client: MockClient((request) async => response(request)),
+      client: MockClient((request) async {
+        tagQueries.add(request);
+        return response(request);
+      }),
     );
     try {
       return await api.searchTopicTags(
@@ -468,3 +691,36 @@ http.Response _tagResults(
   200,
   headers: {'content-type': 'application/json'},
 );
+
+Future<List<http.Request>> _expectCategoryTags({
+  required List<TopicTag> selected,
+  required List<TopicTag> expected,
+  required http.Response Function(http.Request) response,
+}) async {
+  final fixture = await _fixture();
+  fixture.api.tagSearchResponse = response;
+  fixture.shell.store.update<TopicDetail>(
+    _site,
+    1,
+    (detail) => detail.copyWith(tags: selected),
+  );
+  final saving = _save(fixture.shell, _Field.category);
+  await pumpEventQueue();
+  expect(fixture.api.requests, hasLength(1));
+  fixture.api.pending.single.complete(const TopicUpdate());
+  expect(await saving, isNull);
+  expect(
+    fixture.shell.currentTopic?.tags.map((tag) => tag.name),
+    expected.map((tag) => tag.name),
+  );
+  expect(fixture.api.requests.single['originalTags'], selected);
+  expect(fixture.api.requests.single['tags'], expected);
+  expect(fixture.shell.currentTopic?.categoryId, 2);
+  expect(fixture.shell.currentTopic?.tags, expected);
+  expect(fixture.shell.store.read<Topic>(_site, 1)?.tags, expected);
+  for (final query in fixture.api.tagQueries) {
+    expect(query.url.path, '/tags/filter/search.json');
+    expect(query.url.queryParameters['categoryId'], '2');
+  }
+  return fixture.api.tagQueries;
+}
