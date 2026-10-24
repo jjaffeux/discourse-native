@@ -503,8 +503,26 @@ class DraftStore {
     final prefixes = address.account == null
         ? [accountPrefix, legacyPrefix]
         : [legacyPrefix, accountPrefix];
-    final prefs = await _preferences();
+    final preferences = await _preferencesChecked();
+    final prefs = preferences.value;
     if (ifCurrent != null && !ifCurrent()) return;
+
+    if (_persistence is PrivateDraftPersistence) {
+      if (!preferences.succeeded || prefs == null) {
+        throw StateError('Legacy draft preferences unavailable');
+      }
+      // Linux retires fallback before deleting values. Keep the active text
+      // private first so a failed deletion can restore the account safely.
+      for (final key in prefs.getKeys()) {
+        if (!key.startsWith(prefixes.last)) continue;
+        if (ifCurrent?.call() == false) return;
+        final stored = await _persistence.read(key);
+        if (ifCurrent?.call() == false) return;
+        if (stored.value != null || !stored.allowPreferenceFallback) continue;
+        final legacy = prefs.get(key);
+        if (legacy is String) await _persistence.write(key, legacy);
+      }
+    }
 
     try {
       for (final prefix in prefixes) {

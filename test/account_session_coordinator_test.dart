@@ -16,6 +16,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 import 'support/fakes.dart';
 
@@ -487,7 +488,10 @@ void main() {
           expect(fixture.current.user, _accountA);
           expect((await fixture.durable).user, _accountA);
           expect(fixture.authenticator.keys[_siteUrl], _oldKey);
-          expect(failingStorage.deletedPrefixes, [inactivePrefix, activePrefix]);
+          expect(failingStorage.deletedPrefixes, [
+            inactivePrefix,
+            activePrefix,
+          ]);
           expect(failingStorage.retirementMarkerWasDurable, isTrue);
           final restarted = DraftStore(
             persistence: PrivateDraftPersistence(
@@ -501,6 +505,108 @@ void main() {
         },
       );
     }
+
+    for (final (name, privateText, retired, failBackup, expected)
+        in <(String, String?, bool, bool, String?)>[
+          (
+            'newer private writing',
+            'Newer private writing',
+            false,
+            false,
+            'Newer private writing',
+          ),
+          ('previously retired writing', null, true, false, null),
+          ('uncommitted backup', null, false, true, 'Legacy writing'),
+        ]) {
+      test('failed disconnect preserves $name boundaries', () async {
+        final prefix = 'discourse_native.draft::$_siteUrl::';
+        final key = '${prefix}topic_42';
+        SharedPreferences.setMockInitialValues({key: 'Legacy writing'});
+        final storage = LinuxFileStorage(directory: directory);
+        final persistence = PrivateDraftPersistence(storage: storage);
+        if (privateText != null) await storage.write(key, privateText);
+        if (retired) await persistence.delete(key);
+        final failingStorage = _FailingDraftPrefixDeletion(
+          storage,
+          prefix,
+          failBackupWrites: failBackup,
+        );
+        final fixture = _Fixture(
+          draftStore: DraftStore(
+            persistence: PrivateDraftPersistence(storage: failingStorage),
+          ),
+        );
+
+        final result = await fixture.coordinator.disconnect(_siteUrl);
+
+        expect(result, isA<AccountDisconnectionFailed>());
+        expect(fixture.current.user, _accountA);
+        if (failBackup) {
+          expect(failingStorage.deletedPrefixes, isEmpty);
+          expect(
+            await storage.read(
+              'discourse_native.retired_draft_prefix::$prefix',
+            ),
+            isNull,
+          );
+          expect(
+            (await SharedPreferences.getInstance()).getString(key),
+            'Legacy writing',
+          );
+        } else {
+          expect(failingStorage.retirementMarkerWasDurable, isTrue);
+        }
+        expect(
+          await DraftStore(
+            persistence: PrivateDraftPersistence(
+              storage: LinuxFileStorage(directory: directory),
+            ),
+          ).read(_siteUrl, 'topic_42'),
+          expected,
+        );
+      });
+    }
+
+    test('failed preference reads abort before draft retirement', () async {
+      final storage = LinuxFileStorage(directory: directory);
+      final failingStorage = _FailingDraftPrefixDeletion(
+        storage,
+        'discourse_native.draft::$_siteUrl::',
+      );
+      final fixture = _Fixture(
+        draftStore: DraftStore(
+          persistence: PrivateDraftPersistence(storage: failingStorage),
+        ),
+      );
+      SharedPreferencesStorePlatform.instance = _UnreadableDraftPreferences();
+      SharedPreferences.resetStatic();
+      addTearDown(() => SharedPreferences.setMockInitialValues({}));
+
+      final result = await fixture.coordinator.disconnect(_siteUrl);
+
+      expect(result, isA<AccountDisconnectionFailed>());
+      expect(fixture.current.user, _accountA);
+      expect(failingStorage.deletedPrefixes, isEmpty);
+      expect(await storage.readAll(), isEmpty);
+    });
+
+    test('malformed legacy values do not block explicit disconnect', () async {
+      final key = 'discourse_native.draft::$_siteUrl::topic_42';
+      SharedPreferences.setMockInitialValues({key: 42});
+      final fixture = _Fixture(
+        draftStore: DraftStore(
+          persistence: PrivateDraftPersistence(
+            storage: LinuxFileStorage(directory: directory),
+          ),
+        ),
+      );
+
+      expect(
+        await fixture.coordinator.disconnect(_siteUrl),
+        isA<AccountDisconnected>(),
+      );
+      expect((await SharedPreferences.getInstance()).containsKey(key), isFalse);
+    });
 
     test('preserves saved writing after expiry and process restart', () async {
       final fixture = _Fixture(draftStore: drafts);
@@ -1423,10 +1529,15 @@ final class _NoLegacyDrafts implements PrivateStorage {
 }
 
 final class _FailingDraftPrefixDeletion implements EnumerablePrivateStorage {
-  _FailingDraftPrefixDeletion(this.storage, this.failingPrefix);
+  _FailingDraftPrefixDeletion(
+    this.storage,
+    this.failingPrefix, {
+    this.failBackupWrites = false,
+  });
 
   final EnumerablePrivateStorage storage;
   final String failingPrefix;
+  final bool failBackupWrites;
   final deletedPrefixes = <String>[];
   bool retirementMarkerWasDurable = false;
 
@@ -1435,7 +1546,9 @@ final class _FailingDraftPrefixDeletion implements EnumerablePrivateStorage {
     deletedPrefixes.add(prefix);
     if (prefix == failingPrefix) {
       retirementMarkerWasDurable =
-          await storage.read('discourse_native.retired_draft_prefix::$prefix') !=
+          await storage.read(
+            'discourse_native.retired_draft_prefix::$prefix',
+          ) !=
           null;
       throw StateError('active draft deletion failed after retirement');
     }
@@ -1452,5 +1565,19 @@ final class _FailingDraftPrefixDeletion implements EnumerablePrivateStorage {
   Future<Map<String, String>> readAll() => storage.readAll();
 
   @override
-  Future<void> write(String key, String value) => storage.write(key, value);
+  Future<void> write(String key, String value) async {
+    if (failBackupWrites && key.startsWith(failingPrefix)) {
+      throw StateError('draft backup write failed');
+    }
+    await storage.write(key, value);
+  }
+}
+
+final class _UnreadableDraftPreferences extends InMemorySharedPreferencesStore {
+  _UnreadableDraftPreferences() : super.empty();
+
+  @override
+  Future<Map<String, Object>> getAllWithParameters(
+    GetAllParameters parameters,
+  ) async => throw StateError('draft preferences unreadable');
 }
