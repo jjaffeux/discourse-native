@@ -369,6 +369,29 @@ final class _SequencedDetailApi extends FakeDiscourseApi {
   }
 }
 
+final class _SequencedTitleApi extends FakeDiscourseApi {
+  final List<Completer<void>> responses = [];
+
+  @override
+  Future<void> updateChatThreadTitle({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required String title,
+    String? clientId,
+  }) {
+    chatThreadTitlesUpdated.add((
+      channelId: channelId,
+      threadId: threadId,
+      title: title,
+    ));
+    final response = Completer<void>();
+    responses.add(response);
+    return response.future;
+  }
+}
+
 final class _PendingNotificationResponse {
   _PendingNotificationResponse(this.level);
 
@@ -2850,6 +2873,51 @@ void main() {
   );
 
   test(
+    'a forgotten title completion cannot clear its replacement write',
+    () async {
+      final api = _SequencedTitleApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final requests = FakePluginRequestHost(credentials: credentials);
+      final store = Store()
+        ..put(site, threadDetail(title: 'Old account', originalAuthorId: 7));
+      final subject = _controllerFor(api, store: store, requests: requests);
+
+      final old = subject.chat.updateThreadTitle(site, target, 'Old title');
+      await waitUntil(() => api.responses.length == 1);
+      requests.lifecycle.invalidate(site);
+      subject.chat.forget(site);
+      store.put(
+        site,
+        threadDetail(title: 'Replacement account', originalAuthorId: 7),
+      );
+      final replacement = subject.chat.updateThreadTitle(
+        site,
+        target,
+        'Replacement title',
+      );
+      await waitUntil(() => api.responses.length == 2);
+      api.responses[0].complete();
+
+      expect(await old, isFalse);
+      expect(subject.chat.thread(site, 22)?.title, 'Replacement account');
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'Overlapping title'),
+        isFalse,
+      );
+      expect(api.chatThreadTitlesUpdated, hasLength(2));
+      api.responses[1].complete();
+      expect(await replacement, isTrue);
+      expect(subject.chat.thread(site, 22)?.title, 'Replacement title');
+
+      final next = subject.chat.updateThreadTitle(site, target, 'Next title');
+      await waitUntil(() => api.responses.length == 3);
+      api.responses[2].complete();
+      expect(await next, isTrue);
+      expect(subject.chat.thread(site, 22)?.title, 'Next title');
+    },
+  );
+
+  test(
     'a forgotten detail completion cannot clear its replacement request',
     () async {
       final api = _SequencedDetailApi();
@@ -3046,6 +3114,149 @@ void main() {
           ChatThreadNotificationLevel.muted,
         ],
       );
+    },
+  );
+
+  test(
+    'notification queues let independent threads finish separately',
+    () async {
+      final api = _SequencedNotificationApi();
+      const otherTarget = ChatThreadTarget(channelId: 9, threadId: 23);
+      final store = Store()
+        ..put(site, threadDetail())
+        ..put(
+          site,
+          listedThread(
+            23,
+            membership: const ChatThreadMembership(
+              threadId: 23,
+              notificationLevel: ChatThreadNotificationLevel.tracking,
+              lastReadMessageId: 230,
+            ),
+          ),
+        );
+      final subject = _controllerFor(api, store: store);
+
+      final first = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.watching,
+      );
+      await waitUntil(() => api.pending.length == 1);
+      final queued = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.muted,
+      );
+      final other = subject.chat.updateThreadNotificationLevel(
+        site,
+        otherTarget,
+        ChatThreadNotificationLevel.normal,
+      );
+      await waitUntil(() => api.pending.length == 2);
+      expect(
+        api.chatThreadNotificationLevelsUpdated.map(
+          (request) => request.threadId,
+        ),
+        [22, 23],
+      );
+      api.pending[1].response.complete(
+        const ChatThreadMembership(
+          threadId: 23,
+          notificationLevel: ChatThreadNotificationLevel.normal,
+          lastReadMessageId: 230,
+        ),
+      );
+
+      expect(await other, isTrue);
+      expect(
+        subject.chat.thread(site, 23)?.membership?.notificationLevel,
+        ChatThreadNotificationLevel.normal,
+      );
+      expect(
+        subject.chat.thread(site, 22)?.membership?.notificationLevel,
+        ChatThreadNotificationLevel.muted,
+      );
+      api.pending[0].response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.watching,
+          lastReadMessageId: 17,
+        ),
+      );
+      await waitUntil(() => api.pending.length == 3);
+      api.pending[2].response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.muted,
+          lastReadMessageId: 17,
+        ),
+      );
+
+      expect(await first, isTrue);
+      expect(await queued, isTrue);
+      expect(
+        subject.chat.thread(site, 22)?.membership?.notificationLevel,
+        ChatThreadNotificationLevel.muted,
+      );
+      expect(
+        subject.chat.thread(site, 23)?.membership?.notificationLevel,
+        ChatThreadNotificationLevel.normal,
+      );
+      expect(
+        api.chatThreadNotificationLevelsUpdated.map(
+          (request) => request.threadId,
+        ),
+        [22, 23, 22],
+      );
+    },
+  );
+
+  test(
+    'notification rollback keeps a read cursor moved backward by deletion',
+    () async {
+      final api = _SequencedNotificationApi();
+      final detail = threadDetail(lastMessageId: 30).copyWith(
+        membership: const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.tracking,
+          lastReadMessageId: 30,
+        ),
+      );
+      final store = Store()
+        ..put(site, detail)
+        ..put(site, threadMessage(30));
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+
+      final updating = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.muted,
+      );
+      await waitUntil(() => api.pending.length == 1);
+      tracker.deliverPluginMessage('/chat/9/thread/22', {
+        'type': 'delete',
+        'deleted_id': 30,
+        'deleted_at': '2026-08-12T12:01:00.000Z',
+        'latest_not_deleted_message_id': 29,
+      });
+      expect(subject.chat.thread(site, 22)?.membership?.lastReadMessageId, 29);
+      api.pending.single.response.completeError(
+        const WriteException(WriteFailure.unreachable),
+      );
+
+      expect(await updating, isFalse);
+      final membership = subject.chat.thread(site, 22)?.membership;
+      expect(
+        membership?.notificationLevel,
+        ChatThreadNotificationLevel.tracking,
+      );
+      expect(membership?.lastReadMessageId, 29);
+      expect(subject.chat.thread(site, 22)?.lastMessageId, 29);
+      expect(subject.store.read<ChatMessage>(site, 30), isNull);
     },
   );
 
