@@ -50,6 +50,37 @@ void main() {
     addTearDown(controller.dispose);
   });
 
+  test('obsolete undo cannot replace a newer successful assignment', () async {
+    final removal = await controller.unassignForUndo(
+      _site,
+      _topic,
+      const Assignment(
+        assignee: AssignmentUser(username: 'sam'),
+        note: 'Original note',
+        status: 'New',
+      ),
+    );
+    expect(removal.permit, isNotNull);
+    expect(
+      (await controller.assign(
+        _site,
+        _topic,
+        const AssignmentUser(username: 'alex'),
+        note: 'New note',
+        status: 'In progress',
+      )).kind,
+      AssignmentWriteKind.applied,
+    );
+
+    final undone = await controller.restoreAssignment(removal.permit!);
+
+    expect(undone.kind, AssignmentWriteKind.inactive);
+    expect(transport.writes, hasLength(2));
+    expect(transport.writes.last.body['username'], 'alex');
+    expect(transport.writes.last.body['note'], 'New note');
+    expect(transport.writes.last.body['status'], 'In progress');
+  });
+
   group('permission enforcement', () {
     test('rejects suggestions before transport access', () async {
       allowed = false;
