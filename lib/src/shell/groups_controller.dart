@@ -376,6 +376,7 @@ final class _GroupRequest {
   final String siteUrl;
   final SiteLease lease;
   final String? groupName;
+  final Map<int, Group> directoryReplacements = {};
 }
 
 final class _GroupMutation {
@@ -521,7 +522,8 @@ final class GroupsController extends FrameSafeNotifier {
         if (current == null) return;
         final rows = more ? [...current.groups] : <Group>[];
         final seen = {for (final group in rows) group.id};
-        for (final group in page.groups) {
+        for (final returned in page.groups) {
+          final group = token.directoryReplacements[returned.id] ?? returned;
           if (seen.add(group.id)) rows.add(group);
         }
         _directories[key] = GroupDirectoryState(
@@ -1518,8 +1520,7 @@ final class GroupsController extends FrameSafeNotifier {
       final names = {oldKey.groupName, newKey.groupName};
       _requests.removeWhere(
         (_, request) =>
-            request.siteUrl == siteUrl &&
-            (request.groupName == null || names.contains(request.groupName)),
+            request.siteUrl == siteUrl && names.contains(request.groupName),
       );
       _details.remove(oldKey);
       _members.removeWhere(
@@ -1537,7 +1538,33 @@ final class GroupsController extends FrameSafeNotifier {
       _logs.removeWhere(
         (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
       );
-      _directories.removeWhere((key, _) => key.siteUrl == siteUrl);
+      for (final request in _requests.values) {
+        if (request.siteUrl == siteUrl && request.key is _DirectoryKey) {
+          request.directoryReplacements[updated.id] = updated;
+        }
+      }
+      for (final entry in _directories.entries) {
+        final state = entry.value;
+        if (entry.key.siteUrl != siteUrl ||
+            !state.groups.any((group) => group.id == updated.id)) {
+          continue;
+        }
+        _directories[entry.key] = GroupDirectoryState._(
+          groups: List.unmodifiable([
+            for (final group in state.groups)
+              group.id == updated.id ? updated : group,
+          ]),
+          typeFilters: state.typeFilters,
+          totalRows: state.totalRows,
+          nextPage: state.nextPage,
+          hasMore: state.hasMore,
+          loading: state.loading,
+          loadingMore: state.loadingMore,
+          loaded: state.loaded,
+          error: state.error,
+          pageError: state.pageError,
+        );
+      }
     }
     _details[newKey] = GroupDetailState(
       detail: GroupDetail(
