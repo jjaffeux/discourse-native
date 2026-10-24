@@ -424,6 +424,7 @@ bool _eventInterruptsParagraph(String line) {
   if (opening == null) return false;
   var offset = opening.end;
   final key = RegExp(r'[-A-Za-z0-9_]+');
+  final whitespace = RegExp(r'\s');
   const quotes = {
     '"': '"',
     "'": "'",
@@ -437,7 +438,7 @@ bool _eventInterruptsParagraph(String line) {
   };
   final absentQuotes = <String>{};
   while (offset < line.length) {
-    while (offset < line.length && line[offset].trim().isEmpty) {
+    while (offset < line.length && whitespace.hasMatch(line[offset])) {
       if (line[offset] == '\n' || line[offset] == '\r') return false;
       offset++;
     }
@@ -449,7 +450,7 @@ bool _eventInterruptsParagraph(String line) {
     if (offset == line.length || line[offset] != '=') continue;
     offset++;
     if (offset == line.length ||
-        line[offset].trim().isEmpty ||
+        whitespace.hasMatch(line[offset]) ||
         line[offset] == ']') {
       return false;
     }
@@ -463,7 +464,7 @@ bool _eventInterruptsParagraph(String line) {
       }
     }
     while (offset < line.length &&
-        line[offset].trim().isNotEmpty &&
+        !whitespace.hasMatch(line[offset]) &&
         line[offset] != ']') {
       offset++;
     }

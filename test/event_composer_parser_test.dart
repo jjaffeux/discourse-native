@@ -204,6 +204,20 @@ void main() {
         code: false,
         editable: true,
       ),
+      (
+        source:
+            '`before\n[event start="2026-09-08 12:00"\u0085name="Call"]\nAgenda\n[/event]\n`after',
+        event: false,
+        code: true,
+        editable: false,
+      ),
+      (
+        source:
+            '`before\n[event start=x\u0085future.Flag=y]\nAgenda\n[/event]\n`after',
+        event: true,
+        code: false,
+        editable: true,
+      ),
       for (final space in ['\u00a0', '\u2003'])
         (
           source: '`before\n$space\n$legacy\n`after',
