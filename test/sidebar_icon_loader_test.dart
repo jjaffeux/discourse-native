@@ -4,7 +4,10 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/account_request_session.dart';
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/sidebar_icon_loader.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -74,10 +77,17 @@ void main() {
       );
       addTearDown(api.close);
 
-      final section = (await api.customSidebarSections(
-        siteUrl: 'https://forum.example',
-        apiKey: 'secret',
-        clientId: 'client',
+      final lifecycle = SiteLifecycle();
+      final credentials = await AccountRequestSession(
+        'https://forum.example',
+        lifecycle.capture('https://forum.example'),
+      ).credentials(const _SignedInCredentials());
+      final section = (await credentials.run(
+        () => api.customSidebarSections(
+          siteUrl: 'https://forum.example',
+          apiKey: credentials.apiKey,
+          clientId: credentials.clientId,
+        ),
       )).single;
 
       expect(section.destinations.map((link) => link.icon.name), names);
@@ -625,4 +635,14 @@ void sidebarArtworkReuseTests() {
       expect(requests, 2);
     },
   );
+}
+
+final class _SignedInCredentials implements ApiCredentialReader {
+  const _SignedInCredentials();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async => 'secret';
+
+  @override
+  Future<String> clientId() async => 'client';
 }
