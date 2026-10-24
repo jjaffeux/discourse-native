@@ -605,6 +605,40 @@ void main() {
       );
     });
 
+    test('Unicode emoji keep complete token names and UTF-16 ranges', () {
+      for (final name in [
+        'türkiye',
+        'åland_islands',
+        'côte_d_ivoire',
+        'custom_e\u0301',
+        '𐐀flag',
+      ]) {
+        final source = '🧵 :$name: after';
+        final emoji = scanMarkdown(
+          source,
+        ).where((run) => run.has(Md.emoji)).toList();
+        expect(emoji, hasLength(1));
+        final run = emoji.single;
+        expect(run.token, name);
+        expect(run.start, '🧵 '.length);
+        expect(run.end, '🧵 :$name:'.length);
+        expect(source.substring(run.start, run.end), ':$name:');
+        for (final literal in ['word:$name:', '`:$name:`', ':$name/path:']) {
+          expect(
+            scanMarkdown(literal).where((run) => run.has(Md.emoji)),
+            isEmpty,
+            reason: literal,
+          );
+        }
+      }
+      final maxName = '𐐀' * 29 + 'a';
+      expect(tokenOf(':$maxName:'), maxName);
+      expect(
+        scanMarkdown(':${'𐐀' * 30}:').where((run) => run.has(Md.emoji)),
+        isEmpty,
+      );
+    });
+
     test('finds shortcodes, tone and all', () {
       expect(annotate('a :smile: here'), 'a <emoji>:smile:</> here');
       expect(annotate('a :wave:t3: here'), 'a <emoji>:wave:t3:</> here');

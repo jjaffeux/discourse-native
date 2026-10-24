@@ -38,11 +38,11 @@ void main() {
     expect(ComposerTriggerKind.emoji.accepts(':'), isFalse);
   });
 
-  test('only mentions and hashtags accept Unicode names', () {
+  test('all trigger kinds accept Unicode name characters', () {
     for (final character in ['é', '中', '𐐀', '\u0301', '٢']) {
       expect(ComposerTriggerKind.mention.accepts(character), isTrue);
       expect(ComposerTriggerKind.hashtag.accepts(character), isTrue);
-      expect(ComposerTriggerKind.emoji.accepts(character), isFalse);
+      expect(ComposerTriggerKind.emoji.accepts(character), isTrue);
     }
     for (final kind in ComposerTriggerKind.values) {
       expect(kind.accepts('🧵'), isFalse);
@@ -50,6 +50,27 @@ void main() {
   });
 
   group('composerTriggerAt', () {
+    test('Unicode emoji completion preserves UTF-16 source ranges', () {
+      final value = typed('🧵 (:côte_d_| after');
+      final found = composerTriggerAt(value);
+      expect(found, isNotNull);
+      final trigger = found!;
+      expect(trigger.kind, ComposerTriggerKind.emoji);
+      expect(trigger.query, 'côte_d_');
+      expect(trigger.start, '🧵 ('.length);
+      expect(trigger.end, '🧵 (:côte_d_'.length);
+      final completed = applyComposerCompletion(
+        value,
+        trigger,
+        'côte_d_ivoire',
+      );
+      expect(completed.text, '🧵 (:côte_d_ivoire: after');
+      expect(completed.selection.baseOffset, '🧵 (:côte_d_ivoire: '.length);
+      for (final text in ['word:tür|', ':türkiye:|', ':tür|kiye', ':tür/ki|']) {
+        expect(triggerIn(text), '-', reason: text);
+      }
+    });
+
     test('opens once enough has been typed', () {
       expect(triggerIn('hey @s|'), '@s');
       expect(triggerIn('hey @sam|'), '@sam');
@@ -60,7 +81,7 @@ void main() {
       for (final name in ['josé', '中文', 'jose\u0301', '𐐀name', '٢']) {
         expect(triggerIn('hello @$name|'), '@$name');
         expect(triggerIn('see #$name|'), '#$name');
-        expect(triggerIn('a :$name|'), '-');
+        expect(triggerIn('a :$name|'), ':$name');
       }
       expect(triggerIn('see #父:子|'), '#父:子');
       expect(triggerIn('see #café::tag|'), '#café::tag');

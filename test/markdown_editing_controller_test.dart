@@ -1022,6 +1022,32 @@ void main() {
   });
 
   group('emoji artwork', () {
+    testWidgets('Unicode emoji artwork preserves UTF-16 source projection', (
+      tester,
+    ) async {
+      final pipeline = installTestMediaPipeline(
+        client: MockClient((_) async => http.Response.bytes(_pngBytes, 200)),
+      );
+      const url = 'https://emoji.example/tr.png';
+      await pipeline.emoji.load(url);
+      const source = '🧵 :türkiye: after';
+      await pumpField(tester, source, resolveEmoji: (_) => url);
+      await tester.pump();
+      expect(find.byType(EmojiImage), findsOneWidget);
+      expect(controller.text, source);
+      final painted = editable(tester).renderEditable.plainText;
+      expect(painted.length, source.length);
+      expect(painted.replaceAll('\uFFFC', ':'), source);
+      controller.selection = const TextSelection.collapsed(offset: 6);
+      await tester.pump();
+      expect(find.byType(EmojiImage), findsNothing);
+      controller.selection = TextSelection.collapsed(
+        offset: '🧵 :türkiye:'.length,
+      );
+      await tester.pump();
+      expect(find.byType(EmojiImage), findsOneWidget);
+    });
+
     String urlFor(String name) => 'https://meta.discourse.org/$name.png';
 
     MediaPipeline primeCache() => installTestMediaPipeline(

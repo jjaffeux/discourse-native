@@ -1,12 +1,16 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
+import 'package:discourse_native/src/shell/composer/components/emoji.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -81,6 +85,84 @@ Future<void> _pumpComposer(WidgetTester tester, ShellController shell) async {
 }
 
 void main() {
+  testWidgets('picker wrapper inserts a Unicode choice at its captured caret', (
+    tester,
+  ) async {
+    installTestMediaPipeline(
+      client: MockClient((_) async => http.Response('', 404)),
+    );
+    final composer = ComposerController(
+      const ReplyComposerTarget(
+        siteUrl: _site,
+        topicId: 7,
+        slug: 'emoji',
+        privateMessageTopic: false,
+        topicTitle: 'Emoji',
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: '🧵 :tür after',
+      selection: TextSelection.collapsed(offset: 7),
+    );
+    final catalog = SiteEmojiCatalog(
+      groups: [
+        SiteEmojiGroup(
+          id: 'flags',
+          emojis: const [
+            SiteEmoji(name: 'türkiye', url: 'https://emoji.example/tr.png'),
+          ],
+        ),
+      ],
+    );
+    final store = EmojiPickerStore(persistence: _EmojiMemoryPersistence());
+    final host = PluginEmojiHost(
+      preferences: store,
+      siteConfigFor: (_) => const SiteConfig(),
+      loadCatalog: (_, {refresh = false}) async => catalog,
+      loadSearchAliases: (_, {refresh = false}) async => const {},
+      resolveUrl: (_, _) => 'https://emoji.example/tr.png',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => DButton(
+              onPressed: () => openEmojiPickerForComposer(
+                context: context,
+                emoji: host,
+                composer: composer,
+                pickerContext: CoreEmojiUsageContexts.topic,
+                stillOwns: () => true,
+              ),
+              label: const Text('Choose emoji'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Choose emoji'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('emoji-picker-desktop-popover')),
+      findsOneWidget,
+    );
+    composer.text.selection = const TextSelection.collapsed(offset: 0);
+    await tester.tap(find.byTooltip(':türkiye:'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, '🧵 :türkiye: after');
+    expect(composer.text.selection.baseOffset, '🧵 :türkiye:'.length);
+    expect(
+      await store.favoriteEmojiCodes(
+        siteUrl: _site,
+        context: CoreEmojiUsageContexts.topic,
+        catalog: catalog,
+      ),
+      ['türkiye'],
+    );
+  });
+
   testWidgets('topic composer deletes rendered emoji atomically', (
     tester,
   ) async {
@@ -342,3 +424,17 @@ final _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
   'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
+
+final class _EmojiMemoryPersistence implements EmojiPickerPersistence {
+  String? value;
+  @override
+  Future<String?> readPreferences({required String siteUrl}) async => value;
+  @override
+  Future<bool> writePreferences({
+    required String siteUrl,
+    required String encoded,
+  }) async {
+    value = encoded;
+    return true;
+  }
+}

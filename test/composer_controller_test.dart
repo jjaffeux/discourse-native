@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
@@ -1457,6 +1458,54 @@ void main() {
   });
 
   group('emoji insertion', () {
+    for (final name in ['türkiye', 'åland_islands', 'côte_d_ivoire']) {
+      test('inserts the canonical picker code $name', () {
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        final choice = SiteEmoji(name: name, url: '/emoji.png');
+        composer.insertEmoji(choice.codeFor(EmojiSkinTone.neutral));
+        expect(composer.text.text, ':$name:');
+        expect(composer.text.selection.baseOffset, name.length + 2);
+      });
+    }
+
+    test('replaces a Unicode partial with a wrapped picker code', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('🧵 hello :tür');
+      composer.insertEmoji(':türkiye:');
+      expect(composer.text.text, '🧵 hello :türkiye:');
+      expect(composer.text.selection.baseOffset, composer.text.text.length);
+    });
+
+    test('Unicode names retain colon boundaries and reject unsafe syntax', () {
+      final composer = ComposerController(_target);
+      addTearDown(composer.dispose);
+      composer.text.value = _typed('word:tür');
+      composer.insertEmoji('türkiye');
+      expect(composer.text.text, 'word:tür :türkiye:');
+      final before = composer.text.value;
+      for (final code in [
+        '',
+        'bad name',
+        'türkiye/path',
+        'türkiye.png',
+        '<türkiye>',
+        'türkiye:t1',
+        'türkiye:t7',
+        'türkiye:t3:extra',
+        '::türkiye::',
+        'türkiye\n',
+        '🧵',
+      ]) {
+        composer.insertEmoji(code);
+        expect(composer.text.value, before, reason: code);
+      }
+      composer.text.value = _typed('');
+      composer.insertEmoji('custom_é-1+name:t3');
+      expect(composer.text.text, ':custom_é-1+name:t3:');
+    });
+
     test('replaces an incomplete shortcode at the caret', () {
       final composer = ComposerController(_target);
       addTearDown(composer.dispose);

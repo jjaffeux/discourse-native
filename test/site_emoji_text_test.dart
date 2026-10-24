@@ -200,6 +200,42 @@ void main() {
   });
 
   group('shortcode catalog resolution', () {
+    testWidgets(
+      'resolves Unicode names across styled runs without losing text',
+      (tester) async {
+        await _pump(
+          tester,
+          runs: const [
+            SiteEmojiTextRun('🧵 :tür'),
+            SiteEmojiTextRun('kiye: :åland_islands: :côte_d_ivoire: after'),
+          ],
+        );
+        expect(
+          tester
+              .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+              .map((image) => image.name),
+          ['türkiye', 'åland_islands', 'côte_d_ivoire'],
+        );
+        expect(
+          find.bySemanticsLabel(
+            '🧵 :türkiye: :åland_islands: :côte_d_ivoire: after',
+          ),
+          findsOneWidget,
+        );
+        final text = tester.widget<Text>(find.byType(Text).first);
+        expect(
+          text.textSpan!.toPlainText(includePlaceholders: false),
+          '🧵    after',
+        );
+      },
+    );
+
+    testWidgets('leaves unknown Unicode shortcodes literal', (tester) async {
+      await _pump(tester, runs: const [SiteEmojiTextRun('Hi :inconnu_é:!')]);
+      expect(find.byType(SiteEmojiImage), findsNothing);
+      expect(find.text('Hi :inconnu_é:!'), findsOneWidget);
+    });
+
     testWidgets('projects a registered shortcode as an emoji span', (
       tester,
     ) async {
@@ -274,6 +310,9 @@ Future<void> _pump(
     api: FakeDiscourseApi(
       emojisBySite: {
         'https://meta.example': const [
+          SiteEmoji(name: 'türkiye', url: '/emoji/tr.png'),
+          SiteEmoji(name: 'åland_islands', url: '/emoji/ax.png'),
+          SiteEmoji(name: 'côte_d_ivoire', url: '/emoji/ci.png'),
           SiteEmoji(name: 'sparkles', url: '/images/emoji/sparkles.png'),
           SiteEmoji(name: 'tada', url: '/images/emoji/tada.png'),
           SiteEmoji(name: 'wave', url: '/images/emoji/wave.png', tonable: true),
