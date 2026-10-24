@@ -23,8 +23,9 @@ lease.commit(() {
 ```
 
 Bootstrap and session reads capture an opaque `CurrentUserSnapshot` before
-their asynchronous work. The shell supplies its latest user at acceptance and
-keeps its existing request capabilities. A ticket belongs to its issuing owner;
+their asynchronous work. The current-user directory reads the canonical instance
+at acceptance through a narrow shell host. The shell keeps its existing request
+capabilities. A ticket belongs to its issuing owner;
 retiring the owner or its lease prevents acceptance, including when a successor
 has identical revision values.
 
@@ -52,6 +53,29 @@ cache resets, instance replacement, persistence, notification and plugin
 observer dispatch. DND retains its existing owner and pre-merge acceptance.
 Concurrent full responses retain their existing acceptance order.
 
+## Refresh ownership
+
+The private `current_user_directory.dart` shell part owns one record per account
+lease. Each record composes `CurrentUserRefresh` and `CurrentUserReconciler` with
+a freshness marker. It stores no user. Fresh capabilities read the current
+`DiscourseInstance.user`, including later local and live changes. A connected
+snapshot marks its original lease fresh. Restored persisted users need a new
+confirmed read.
+
+The directory owns request admission, per-read tickets, snapshot acceptance and
+retirement. Ordinary callers join the active refresh, while forced bursts share
+its next replay. Bootstrap reads use the same account reconciler. Lease retirement
+settles active and queued refresh callers, retires authority tickets and removes
+only that account record.
+
+The directory invokes the shell's accepted-result publication synchronously
+inside the original lease commit. The shell invalidates sibling state and replaces
+the canonical instance in that call. It rechecks the lease after reentrant effects,
+before persistence and between plugin observers. A listener that retires the
+account prevents the remaining old-account effects. Credential acquisition,
+missing-key handling and rejected-key expiration stay with the shell's existing
+authentication composition and `AccountSessionCoordinator`.
+
 ## Category-only reads
 
 Bootstrap checks `categoryPreferencesAreCurrent` before installing the
@@ -74,5 +98,7 @@ change response ordering without helping this extraction.
 `current_user_reconciler_test.dart` pins ticket lifetime, independent field
 authority, plugin overlays, account transitions, and grouped seed eligibility.
 The owning presence, notification, category, bootstrap, and Chat session tests
-exercise the production adapters and persistence. This refactor changes no UI
+exercise the production adapters and persistence. `site_session_test.dart` also
+checks canonical freshness, lease-only retirement, synchronous account-change
+invalidation and retirement during sibling and plugin publication. This refactor changes no UI
 or persistence schema and makes no performance claim.

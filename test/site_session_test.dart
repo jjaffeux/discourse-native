@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/data/recent_search_store.dart';
+import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
@@ -17,6 +18,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -437,7 +439,8 @@ final class _GatedAccountHealingApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) async {
-    started.complete();
+    currentUserRequests.add(siteUrl);
+    if (!started.isCompleted) started.complete();
     await accountGate.future;
     return const DiscourseUser(id: 42, username: 'account-a');
   }
@@ -508,6 +511,15 @@ final class _ThrowingCurrentUserObserver implements PluginCurrentUserObserver {
     calls.add('throwing:$siteUrl');
     throw StateError('observer failed');
   }
+}
+
+final class _CallbackCurrentUserObserver implements PluginCurrentUserObserver {
+  const _CallbackCurrentUserObserver(this.callback);
+
+  final void Function() callback;
+
+  @override
+  void pluginCurrentUserRefreshed(String siteUrl) => callback();
 }
 
 final class _RecordingCurrentUserObserver implements PluginCurrentUserObserver {
@@ -644,6 +656,10 @@ Future<Set<String>> _storedPreferencesOf(String siteUrl) async => {
         key ==
             BookmarkReminderStore.preferences.keyFor(
               SitePreferenceIdentity.account(siteUrl, 'reader.name'),
+            ) ||
+        key ==
+            SharedPreferencesSidebarSectionPersistence.preferences.keyFor(
+              SitePreferenceIdentity.namedItem(siteUrl, 'community'),
             ) ||
         key ==
             RecentSearchStore.preferences.keyFor(
@@ -1005,6 +1021,221 @@ void main() {
           isEmpty,
         );
         expect((await store.load()).single.user, isNull);
+      },
+    );
+
+    test(
+      'fresh capabilities read the canonical user and retire with its lease',
+      () async {
+        final observer = _RecordingCurrentUserObserver([]);
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(
+              user: const DiscourseUser(id: 42, username: 'account-a'),
+            ),
+          ]),
+          api: FakeDiscourseApi(
+            user: const DiscourseUser(
+              id: 42,
+              username: 'account-a',
+              hidePresence: false,
+            ),
+          ),
+          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: PluginInstaller.install(
+            PluginManifest([
+              _CurrentUserObserverModule([observer]),
+            ]),
+          ),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await observer.called.future;
+        expect(shell.freshCurrentUserFor(_siteUrl)?.hidePresence, isFalse);
+
+        await shell.toggleHidePresence(_siteUrl);
+        expect(shell.freshCurrentUserFor(_siteUrl)?.hidePresence, isTrue);
+        expect(
+          shell.freshCurrentUserFor(_siteUrl),
+          same(shell.currentUserFor(_siteUrl)),
+        );
+
+        shell.lifecycle.invalidate(_siteUrl);
+        expect(shell.freshCurrentUserFor(_siteUrl), isNull);
+        expect(shell.currentUserFor(_siteUrl)?.hidePresence, isTrue);
+      },
+    );
+
+    for (final disconnectDuringInvalidation in [false, true]) {
+      test(
+        'account refresh invalidation precedes publication, disconnect=$disconnectDuringInvalidation',
+        () async {
+          final gate = Completer<void>();
+          final api = _GatedAccountHealingApi(gate);
+          final observer = _RecordingCurrentUserObserver([]);
+          final store = _RecordingInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'account-a')),
+          ]);
+          final shell = ShellController(
+            instanceStore: store,
+            api: api,
+            authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            plugins: PluginInstaller.install(
+              PluginManifest([
+                _CurrentUserObserverModule([observer]),
+              ]),
+            ),
+          );
+          addTearDown(shell.dispose);
+          await shell.load();
+          await api.started.future;
+          shell.accountActivity.applyGroupedUnreadSnapshot(
+            _siteUrl,
+            NotificationTypeCounts.empty,
+          );
+          final invalidated = Completer<void>();
+          Future<bool>? disconnecting;
+          final publishedIds = <int?>[];
+          shell.addListener(
+            () => publishedIds.add(shell.currentUserFor(_siteUrl)?.id),
+          );
+          shell.accountActivity.addListener(() {
+            if (invalidated.isCompleted ||
+                shell.accountActivity.totalsFor(_siteUrl) != null) {
+              return;
+            }
+            expect(shell.currentUserFor(_siteUrl)?.id, 7);
+            invalidated.complete();
+            if (disconnectDuringInvalidation) {
+              disconnecting = shell.disconnectInstance(_siteUrl);
+            }
+          });
+
+          gate.complete();
+          await invalidated.future;
+          if (disconnectDuringInvalidation) {
+            expect(await disconnecting!, isTrue);
+            await pumpEventQueue();
+            expect(publishedIds, isNot(contains(42)));
+            expect(shell.currentUserFor(_siteUrl), isNull);
+            expect(observer.calls, isEmpty);
+            expect(
+              store.snapshots.where(
+                (items) => items.any((item) => item.user?.id == 42),
+              ),
+              isEmpty,
+            );
+          } else {
+            await observer.called.future;
+            expect(shell.currentUserFor(_siteUrl)?.id, 42);
+            expect(shell.freshCurrentUserFor(_siteUrl)?.id, 42);
+            expect(shell.accountActivity.totalsFor(_siteUrl), isNull);
+            expect((await store.load()).single.user?.id, 42);
+          }
+        },
+      );
+    }
+
+    test(
+      'an interrupted refresh retries after a reentrant connection fails',
+      () async {
+        final responseGate = Completer<void>();
+        final authGate = Completer<void>();
+        final api = _GatedAccountHealingApi(responseGate);
+        final auth = _GatedAuthFailureAuthenticator(authGate)
+          ..keys[_siteUrl] = 'account-key';
+        final observer = _RecordingCurrentUserObserver([]);
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'account-a')),
+          ]),
+          api: api,
+          authenticator: auth,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: PluginInstaller.install(
+            PluginManifest([
+              _CurrentUserObserverModule([observer]),
+            ]),
+          ),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await api.started.future;
+        shell.accountActivity.applyGroupedUnreadSnapshot(
+          _siteUrl,
+          NotificationTypeCounts.empty,
+        );
+        Future<void>? connecting;
+        shell.accountActivity.addListener(() {
+          if (connecting != null ||
+              shell.accountActivity.totalsFor(_siteUrl) != null) {
+            return;
+          }
+          connecting = shell.connectCurrentInstance();
+        });
+
+        responseGate.complete();
+        await auth.started.future;
+        expect(shell.currentUserFor(_siteUrl)?.id, 7);
+        expect(shell.freshCurrentUserFor(_siteUrl), isNull);
+        authGate.complete();
+        await connecting!;
+        await pumpEventQueue();
+
+        expect(api.currentUserRequests, hasLength(2));
+        expect(shell.currentUserFor(_siteUrl)?.id, 42);
+        expect(shell.freshCurrentUserFor(_siteUrl)?.id, 42);
+        expect(observer.calls, ['recording:$_siteUrl']);
+      },
+    );
+
+    test(
+      'a retiring current-user observer prevents later observers from seeing its response',
+      () async {
+        final calls = <String>[];
+        late final ShellController shell;
+        Future<bool>? disconnecting;
+        final observer = _RecordingCurrentUserObserver(calls);
+        final firstCalled = Completer<void>();
+        shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(
+              user: const DiscourseUser(id: 42, username: 'account-a'),
+            ),
+          ]),
+          api: FakeDiscourseApi(
+            user: const DiscourseUser(id: 42, username: 'account-a'),
+          ),
+          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: PluginInstaller.install(
+            PluginManifest([
+              _CurrentUserObserverModule([
+                _CallbackCurrentUserObserver(() {
+                  disconnecting = shell.disconnectInstance(_siteUrl);
+                  firstCalled.complete();
+                }),
+                observer,
+              ]),
+            ]),
+          ),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        await firstCalled.future;
+        expect(await disconnecting!, isTrue);
+        expect(calls, isEmpty);
+        expect(shell.currentUserFor(_siteUrl), isNull);
       },
     );
 

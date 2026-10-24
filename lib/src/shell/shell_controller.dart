@@ -108,6 +108,7 @@ import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/cooking_plugin.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
+import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
@@ -162,6 +163,7 @@ part 'composer_identity_resolution.dart';
 part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
+part 'current_user_directory.dart';
 part 'instance_rail_transactions.dart';
 part 'post_commands.dart';
 part 'profile_write_transactions.dart';
@@ -300,7 +302,8 @@ class ShellController extends FrameSafeNotifier
         PluginNavigationHost,
         BookmarkHost,
         PluginNotificationFeedHost,
-        AccountSessionHost {
+        AccountSessionHost,
+        _CurrentUserRefreshHost {
   ShellController({
     required this.instanceStore,
     required ShellApiCapabilities api,
@@ -574,9 +577,9 @@ class ShellController extends FrameSafeNotifier
             final instance = _instanceAt(siteUrl);
             final user = instance?.user;
             if (instance == null || user == null) return;
-            final updated = _currentUserReconcilerFor(
-              siteUrl,
-            ).updatePluginOption(field, previous: user, update: update);
+            final updated = _currentUsers
+                .reconcilerFor(siteUrl)
+                .updatePluginOption(field, previous: user, update: update);
             if (updated == user) return;
             _replaceInstance(instance, instance.copyWith(user: updated));
             unawaited(_persistPreferencesMirror(List.of(_instances)));
@@ -2403,7 +2406,12 @@ class ShellController extends FrameSafeNotifier
         await _expireMissingAccount(instance.url, lease);
         return;
       }
-      await _sessionUser(instance.url, apiKey, lease: lease, force: force);
+      await _currentUsers.refresh(
+        instance.url,
+        apiKey,
+        lease: lease,
+        force: force,
+      );
       if (!lease.isCurrent || currentInstance?.url != instance.url) return;
       await _customSidebar.ensure(instance.url, account: lease);
     } catch (_) {
@@ -2489,7 +2497,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _onGroupedUnreadAuthorityAdvanced(String siteUrl) {
-    _currentUserReconcilerFor(siteUrl).groupedUnreadChanged();
+    _currentUsers.reconcilerFor(siteUrl).groupedUnreadChanged();
   }
 
   void _onPreferencesSaved(
@@ -3578,23 +3586,13 @@ class ShellController extends FrameSafeNotifier
 
   late final _liveSessions = _SiteLiveSessions(this);
   late final _profileWrites = _ProfileWriteTransactions(this);
-  final Map<String, CurrentUserReconciler> _currentUserReconcilers = {};
-
-  CurrentUserReconciler _currentUserReconcilerFor(String siteUrl) {
-    final current = _currentUserReconcilers[siteUrl];
-    if (current != null && current.isCurrent) return current;
-    current?.retire();
-    return _currentUserReconcilers[siteUrl] = CurrentUserReconciler(
-      lease: lifecycle.capture(siteUrl),
-      models: plugins.models,
-    );
-  }
+  late final _currentUsers = _CurrentUserDirectory(
+    lifecycle: lifecycle,
+    models: plugins.models,
+    host: this,
+  );
 
   final Map<String, Timer> _pluginNotificationFeedRefreshTimers = {};
-
-  final Set<String> _sessionUsersRefreshed = {};
-
-  final Map<String, CurrentUserRefresh> _sessionUserRequests = {};
 
   bool _foreground = true;
 
@@ -4010,49 +4008,22 @@ class ShellController extends FrameSafeNotifier
     final storedId = held.user?.id;
     if (storedId != null) return storedId;
 
-    final user = await _sessionUser(siteUrl, apiKey, lease: lease);
+    final user = await _currentUsers.refresh(siteUrl, apiKey, lease: lease);
     if (!lease.isCurrent) return null;
     // A stored id is stable enough to keep this account's private counters
     // connected after a failed refresh, but its capabilities remain unknown.
     return user?.id ?? _instanceAt(siteUrl)?.user?.id;
   }
 
-  Future<DiscourseUser?> _sessionUser(
-    String siteUrl,
-    String apiKey, {
-    SiteLease? lease,
-    bool force = false,
-  }) {
-    final held = _instanceAt(siteUrl);
-    if (held == null) return Future.value();
-    if (!force && _sessionUsersRefreshed.contains(siteUrl)) {
-      return Future.value(held.user);
-    }
+  @override
+  bool _canAcceptCurrentUser(String siteUrl) =>
+      !isDisposed && _connectingSiteUrl != siteUrl;
 
-    final session = lease ?? lifecycle.capture(siteUrl);
-    if (!session.isCurrent) return Future.value();
-    var refresh = _sessionUserRequests[siteUrl];
-    if (refresh == null || !refresh.isCurrent) {
-      refresh?.retire();
-      refresh = CurrentUserRefresh(
-        lease: session,
-        read: () => _readSessionUser(
-          siteUrl,
-          apiKey,
-          session,
-          _currentUserReconcilerFor(siteUrl).beginSnapshot(),
-        ),
-      );
-      _sessionUserRequests[siteUrl] = refresh;
-    }
-    return refresh.request(force: force);
-  }
-
+  @override
   Future<DiscourseUser?> _readSessionUser(
     String siteUrl,
     String apiKey,
     SiteLease lease,
-    CurrentUserSnapshot userSnapshot,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -4079,12 +4050,7 @@ class ShellController extends FrameSafeNotifier
       });
       return null;
     }
-    return _acceptFreshCurrentUserSnapshot(
-      siteUrl,
-      responseUser,
-      lease,
-      userSnapshot,
-    );
+    return responseUser;
   }
 
   /// Every request carrying a key the site refuses fails the same way, so the
@@ -4139,68 +4105,60 @@ class ShellController extends FrameSafeNotifier
     });
   }
 
-  DiscourseUser? _acceptFreshCurrentUserSnapshot(
+  @override
+  bool _publishFreshCurrentUser(
     String siteUrl,
-    DiscourseUser responseUser,
     SiteLease lease,
-    CurrentUserSnapshot userSnapshot,
+    DiscourseInstance previous,
+    CurrentUserReconciliation accepted,
   ) {
-    if (isDisposed || !lease.isCurrent || _connectingSiteUrl == siteUrl) {
-      return null;
-    }
-    final user = _acceptDoNotDisturbSnapshot(siteUrl, responseUser);
+    bool ownsPublication() => _canAcceptCurrentUser(siteUrl) && lease.isCurrent;
 
-    var changed = false;
-    DiscourseUser? committedUser;
-    final accepted = lease.commit(() {
-      final fresh = _instanceAt(siteUrl);
-      if (fresh == null) return;
-      final previousUser = fresh.user;
-      final reconciliation = _currentUserReconcilerFor(
-        siteUrl,
-      ).reconcile(userSnapshot, previous: previousUser, incoming: user);
-      if (reconciliation == null) return;
-      final accountChanged = reconciliation.accountChanged;
-      final reconciledUser = reconciliation.user;
-      committedUser = reconciledUser;
-      _sessionUsersRefreshed.add(siteUrl);
-      _profileWrites.currentUserAccepted(siteUrl, reconciledUser);
-      if (previousUser != committedUser || accountChanged) {
-        changed = true;
-        if (accountChanged) {
-          accountActivity.forget(siteUrl);
-          groups.forget(siteUrl);
-          userDirectory.forget(siteUrl);
-          badges.forget(siteUrl);
-          _notificationPreferences.forget(siteUrl);
-          _topicTrackingBySite.remove(siteUrl)?.retire();
-          _liveSessions.clearRetry(siteUrl);
-        }
-        _replaceInstance(
-          fresh,
-          fresh.copyWith(
-            user: committedUser,
-            clearNotificationTotals: accountChanged,
-          ),
-        );
+    final user = accepted.user;
+    final changed = previous.user != user || accepted.accountChanged;
+    _profileWrites.currentUserAccepted(siteUrl, user);
+    if (!ownsPublication()) return false;
+    if (changed) {
+      if (accepted.accountChanged) {
+        accountActivity.forget(siteUrl);
+        if (!ownsPublication()) return false;
+        groups.forget(siteUrl);
+        if (!ownsPublication()) return false;
+        userDirectory.forget(siteUrl);
+        if (!ownsPublication()) return false;
+        badges.forget(siteUrl);
+        if (!ownsPublication()) return false;
+        _notificationPreferences.forget(siteUrl);
+        _topicTrackingBySite.remove(siteUrl)?.retire();
+        _liveSessions.clearRetry(siteUrl);
       }
-      if (reconciliation.seedGroupedUnreadCounts) {
-        _seedGroupedUnreadNotifications(siteUrl, committedUser!);
+      if (!ownsPublication() || !identical(_instanceAt(siteUrl), previous)) {
+        return false;
       }
-      _notify();
-    });
-    if (accepted && changed && lease.isCurrent) {
-      instanceStore.save(List.of(_instances)).ignore();
+      _replaceInstance(
+        previous,
+        previous.copyWith(
+          user: user,
+          clearNotificationTotals: accepted.accountChanged,
+        ),
+      );
+      if (!ownsPublication()) return true;
     }
-    if (accepted && lease.isCurrent) {
-      for (final observer
-          in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
-        _observePluginLifecycle(
-          Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
-        );
-      }
+    if (accepted.seedGroupedUnreadCounts) {
+      _seedGroupedUnreadNotifications(siteUrl, user);
+      if (!ownsPublication()) return true;
     }
-    return accepted ? committedUser : null;
+    _notify();
+    if (!ownsPublication()) return true;
+    if (changed) instanceStore.save(List.of(_instances)).ignore();
+    for (final observer
+        in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
+      if (!ownsPublication()) break;
+      _observePluginLifecycle(
+        Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
+      );
+    }
+    return true;
   }
 
   void _applyUserDraftsMessage(String siteUrl, Object? data) {
@@ -4212,7 +4170,7 @@ class ShellController extends FrameSafeNotifier
     final user = instance?.user;
     if (instance == null || user == null) return;
 
-    _currentUserReconcilerFor(siteUrl).draftCountChanged();
+    _currentUsers.reconcilerFor(siteUrl).draftCountChanged();
 
     var current = instance;
     if (user.draftCount != count) {
@@ -4277,6 +4235,7 @@ class ShellController extends FrameSafeNotifier
     return true;
   }
 
+  @override
   DiscourseUser _acceptDoNotDisturbSnapshot(
     String siteUrl,
     DiscourseUser user,
@@ -4453,7 +4412,7 @@ class ShellController extends FrameSafeNotifier
     site: api.site,
     currentUsers: NotificationPreferenceCurrentUsers(
       read: (siteUrl) => _instanceAt(siteUrl)?.user,
-      reconcilerFor: _currentUserReconcilerFor,
+      reconcilerFor: _currentUsers.reconcilerFor,
       publish: (siteUrl, lease, user) {
         if (!lease.isCurrent || isDisposed) return;
         final instance = _instanceAt(siteUrl);
@@ -8757,6 +8716,7 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  @override
   DiscourseInstance? _instanceAt(String url) {
     for (final instance in _instances) {
       if (instance.url == url) return instance;
@@ -9018,9 +8978,7 @@ class ShellController extends FrameSafeNotifier
   DiscourseUser? currentUserFor(String siteUrl) => _instanceAt(siteUrl)?.user;
 
   DiscourseUser? freshCurrentUserFor(String siteUrl) =>
-      _sessionUsersRefreshed.contains(siteUrl)
-      ? _instanceAt(siteUrl)?.user
-      : null;
+      _currentUsers.freshUserFor(siteUrl);
 
   ({bool valid, PluginData data}) _pluginDataForTarget(
     String siteUrl,
@@ -9121,8 +9079,7 @@ class ShellController extends FrameSafeNotifier
     } finally {
       if (_connectingSiteUrl == instance.url) _connectingSiteUrl = null;
       final held = _instanceAt(instance.url);
-      if (held?.isConnected == true &&
-          !_sessionUsersRefreshed.contains(instance.url)) {
+      if (held?.isConnected == true && !_currentUsers.isFresh(instance.url)) {
         // A cancelled/failed handshake leaves the previous account in place.
         // Retry a background refresh that deliberately stood aside above.
         unawaited(_refreshSessionUserFor(held!));
@@ -9175,13 +9132,14 @@ class ShellController extends FrameSafeNotifier
     if (held.user?.id != replacement.user?.id) cooking.forget(replacement.url);
     var applied = replacement;
     if (phase == AccountSessionPhase.connected && replacement.user != null) {
+      final lease = lifecycle.capture(replacement.url);
       final user = _acceptDoNotDisturbSnapshot(
         replacement.url,
         replacement.user!,
       );
       applied = replacement.copyWith(user: user);
       _seedGroupedUnreadNotifications(replacement.url, user);
-      _sessionUsersRefreshed.add(replacement.url);
+      _currentUsers.markConnectedUserFresh(replacement.url, lease);
       _profileWrites.currentUserAccepted(replacement.url, user);
     } else if (phase == AccountSessionPhase.restored &&
         replacement.user != null) {
@@ -9268,7 +9226,7 @@ class ShellController extends FrameSafeNotifier
     _selectedPostModeration.forget(siteUrl);
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _notificationPreferences.forget(siteUrl);
-    _currentUserReconcilers.remove(siteUrl)?.retire();
+    _currentUsers.forget(siteUrl);
     _topicActions.forget(siteUrl);
     _messageArchives.forget(siteUrl);
     _topicNavigation.forgetSite(siteUrl);
@@ -9296,8 +9254,6 @@ class ShellController extends FrameSafeNotifier
         .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
     _observePluginLifecycle(forgetPlugins);
     topicFeeds.forget(siteUrl);
-    _sessionUsersRefreshed.remove(siteUrl);
-    _sessionUserRequests.remove(siteUrl)?.retire();
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
     _profileWrites.forget(siteUrl);
@@ -10189,14 +10145,7 @@ class ShellController extends FrameSafeNotifier
     _topicPropertyRequests.dispose();
     unawaited(_topicListRevealRequests.close());
     _notificationPreferences.dispose();
-    for (final owner in _currentUserReconcilers.values) {
-      owner.retire();
-    }
-    _currentUserReconcilers.clear();
-    for (final refresh in _sessionUserRequests.values) {
-      refresh.retire();
-    }
-    _sessionUserRequests.clear();
+    _currentUsers.dispose();
     _topicActions.dispose();
     _messageArchives.dispose();
     _profileWrites.dispose();

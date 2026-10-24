@@ -246,7 +246,7 @@ final class _SiteLiveSession {
 
     if (!isCurrent) return;
 
-    final currentUserOwner = _shell._currentUserReconcilerFor(siteUrl);
+    final currentUserOwner = _shell._currentUsers.reconcilerFor(siteUrl);
     final userSnapshot = currentUserOwner.beginSnapshot();
     final bootstrapTrackingOwner = apiKey == null || clientId == null
         ? null
@@ -259,7 +259,7 @@ final class _SiteLiveSession {
     final bootstrapUser = bootstrap?.currentUser;
     final freshBootstrapUser = bootstrapUser == null
         ? null
-        : _shell._acceptFreshCurrentUserSnapshot(
+        : _shell._currentUsers.acceptSnapshot(
             siteUrl,
             bootstrapUser,
             lease,
