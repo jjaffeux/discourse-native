@@ -7,6 +7,14 @@ const _event = '[event start="2026-09-08 12:00"]\nAgenda\n[/event]';
 const _unfinished = '[event start="2026-09-08 12:00"]\n';
 
 void main() {
+  test('stray backticks do not hide a separate event block', () {
+    for (final closer in ['`', '``']) {
+      final source = '`unclosed\n$_event\n$closer';
+      expect(parseEventBlocks(source).map((block) => block.source), [_event]);
+      expect(hasEventMarkup(source), isTrue);
+    }
+  });
+
   test('unfinished and nested events keep the existing raw fallback', () {
     expect(parseEventBlocks(_unfinished * 64), isEmpty);
     expect(hasEventMarkup(_unfinished * 64), isTrue);
