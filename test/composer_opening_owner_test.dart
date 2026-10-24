@@ -253,6 +253,9 @@ final class _Harness
   @override
   ComposerController? selectedComposer;
 
+  @override
+  bool canCreateTopicHere = true;
+
   NewTopicOpeningOrigin origin() {
     final route = this.route ?? ContentRoute.list(ListLink.parse('/c/bugs/5')!);
     return NewTopicOpeningOrigin(
@@ -262,8 +265,9 @@ final class _Harness
       feedId: 'latest',
       content: route,
       route: route,
-      originFeedId: 'latest',
-      seedCategory: true,
+      defaultFeedId: 'latest',
+      revealContent: false,
+      hasSourceRoute: false,
     );
   }
 

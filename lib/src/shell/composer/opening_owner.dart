@@ -20,8 +20,9 @@ final class NewTopicOpeningOrigin {
     required this.feedId,
     required this.content,
     required this.route,
-    required this.originFeedId,
-    required this.seedCategory,
+    required this.defaultFeedId,
+    required this.revealContent,
+    required this.hasSourceRoute,
   });
 
   final String siteUrl;
@@ -30,8 +31,9 @@ final class NewTopicOpeningOrigin {
   final String feedId;
   final ContentRoute? content;
   final ContentRoute route;
-  final String originFeedId;
-  final bool seedCategory;
+  final String defaultFeedId;
+  final bool revealContent;
+  final bool hasSourceRoute;
 }
 
 final class NewTopicOpeningPlan {
@@ -55,6 +57,7 @@ final class NewTopicOpeningPlan {
 /// The registry and navigation retain authority over editor presentation.
 abstract interface class ComposerOpeningPresentation {
   ComposerController? get selectedComposer;
+  bool get canCreateTopicHere;
   bool owns(ComposerController composer);
   bool isCurrentOrigin(NewTopicOpeningOrigin origin);
   Future<void>? confirmReplacement(ComposerController composer);
@@ -151,7 +154,13 @@ final class ComposerOpeningOwner {
     final link = path == null
         ? null
         : ListLink.parse(path.replaceFirst(RegExp(r'\.json$'), ''));
-    final categoryId = origin.seedCategory ? route.categoryId : null;
+    final canCreateHere = _presentation.canCreateTopicHere;
+    final originFeedId = origin.revealContent && !canCreateHere
+        ? origin.defaultFeedId
+        : origin.feedId;
+    final categoryId = canCreateHere || origin.hasSourceRoute
+        ? route.categoryId
+        : null;
     var category = _metadata.categoryFor(origin.siteUrl, categoryId);
     final needsLookup = categoryId != null && category == null;
     if (category == null &&
@@ -180,7 +189,7 @@ final class ComposerOpeningOwner {
         tabId: origin.tabId,
         topicTitle: topicTitle(),
         draftKey: listedDraft?.key ?? allocateDraftKey(),
-        originFeedId: origin.originFeedId,
+        originFeedId: originFeedId,
         initialCategoryId: categoryId,
       ),
       link: link,

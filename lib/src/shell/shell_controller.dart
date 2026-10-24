@@ -5997,10 +5997,9 @@ class ShellController extends FrameSafeNotifier
       feedId: feedId,
       content: currentContent,
       route: route,
-      originFeedId: revealContent && !canCreateTopicHere
-          ? instance.defaultDestination.id
-          : feedId,
-      seedCategory: canCreateTopicHere || sourceRoute != null,
+      defaultFeedId: instance.defaultDestination.id,
+      revealContent: revealContent,
+      hasSourceRoute: sourceRoute != null,
     );
     final plan = await _composerOpening.prepareNewTopic(
       origin,
@@ -9867,6 +9866,9 @@ final class _ShellComposerOpeningHost
 
   @override
   ComposerController? get selectedComposer => _shell._composer;
+
+  @override
+  bool get canCreateTopicHere => _shell.canCreateTopicHere;
 
   @override
   bool owns(ComposerController composer) =>
