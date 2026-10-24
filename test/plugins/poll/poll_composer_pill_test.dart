@@ -245,6 +245,23 @@ void main() {
       }
     });
 
+    test('nested list blocks cannot leave editable poll examples', () {
+      const policy = PollComposerSyntaxPolicy();
+      const document =
+          '- - [code]\n    x\n    [/code]\ntext\n\n  [code]\n'
+          '[poll]\n* A\n* B\n[/poll]\n[/code]\n$source';
+      for (final newline in const ['\n', '\r\n']) {
+        final raw = document.replaceAll('\n', newline);
+        final expected = source.replaceAll('\n', newline);
+        final occurrences = policy.parse(raw);
+        expect(occurrences, hasLength(1));
+        expect(occurrences.single.start, raw.indexOf(expected));
+        expect(occurrences.single.end, raw.length);
+        expect(occurrences.single.source, expected);
+        expect(nextPollName(raw), 'poll');
+      }
+    });
+
     test('projects polls using list-relative BBCode boundaries', () {
       const policy = PollComposerSyntaxPolicy();
       for (final (marker, indent, closers) in const [

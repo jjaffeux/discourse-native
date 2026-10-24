@@ -593,6 +593,116 @@ void main() {
       }
     });
 
+    final nestedListBlocks = [
+      for (final prefix in const ['- a\n  - ', '- - ', '- a\n  - b\n    '])
+        for (final (opening, closing) in const [
+          ('[code]', '[/code]'),
+          ('<!--', '-->'),
+          ('[quote]', '[/quote]'),
+          ('```', '```'),
+        ])
+          '$prefix$opening\n    x\n    $closing',
+    ];
+    for (var index = 0; index < nestedListBlocks.length; index++) {
+      test('nested list block $index ends its parent paragraph', () async {
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        const live = '[poll name=live]\n* C\n* D\n[/poll]';
+        for (final newline in const ['\n', '\r\n']) {
+          final source =
+              '${nestedListBlocks[index]}\ntext\n\n  [code]\n'
+              '[poll]\n* A\n* B\n[/poll]\n[/code]\n$live';
+          final raw = source.replaceAll('\n', newline);
+          final expected = live.replaceAll('\n', newline);
+          final result = await service.cook(
+            CookingRequest(
+              raw: raw,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: raw);
+          expect(
+            RegExp(
+              r'class="poll"[^>]*data-poll-name="([^"]+)"',
+            ).allMatches(result.html).map((match) => match[1]),
+            ['live'],
+            reason: raw,
+          );
+          final blocks = parsePollComposerBlocks(raw);
+          expect(blocks.map((block) => block.name), ['live'], reason: raw);
+          expect(blocks.single.start, raw.indexOf(expected), reason: raw);
+          expect(blocks.single.end, raw.length, reason: raw);
+          expect(blocks.single.source, expected, reason: raw);
+          expect(blocks.single.lineEnding, newline, reason: raw);
+          expect(pollNamesInComposerSource(raw), {'live'}, reason: raw);
+          expect(nextPollName(raw), 'poll', reason: raw);
+        }
+      });
+    }
+
+    test(
+      'nested list paragraphs retain legitimate lazy continuations',
+      () async {
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        const poll = '[poll]\n* A\n* B\n[/poll]';
+        const live = '[poll name=live]\n* C\n* D\n[/poll]';
+        for (final child in const [
+          '- a\n  - paragraph',
+          '- a\n  - [code]\n    x\n    [/code]\n  paragraph',
+        ]) {
+          for (final newline in const ['\n', '\r\n']) {
+            final source = '$child\ntext\n\n  [code]\n$poll\n[/code]\n$live'
+                .replaceAll('\n', newline);
+            final result = await service.cook(
+              CookingRequest(
+                raw: source,
+                snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+                configuration: CookingConfiguration(
+                  modules: [
+                    CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                  ],
+                ),
+              ),
+            );
+            expect(result.failure, isNull, reason: source);
+            expect(
+              RegExp(
+                r'class="poll"[^>]*data-poll-name="([^"]+)"',
+              ).allMatches(result.html).map((match) => match[1]),
+              ['poll', 'live'],
+              reason: source,
+            );
+            final blocks = parsePollComposerBlocks(source);
+            expect(blocks.map((block) => block.name), [
+              'poll',
+              'live',
+            ], reason: source);
+            expect(pollNamesInComposerSource(source), {
+              'poll',
+              'live',
+            }, reason: source);
+            expect(nextPollName(source), 'poll2', reason: source);
+            for (final block in blocks) {
+              final expected = (block.name == 'live' ? live : poll).replaceAll(
+                '\n',
+                newline,
+              );
+              expect(block.start, source.indexOf(expected), reason: source);
+              expect(block.end, block.start + expected.length, reason: source);
+              expect(block.source, expected, reason: source);
+              expect(block.lineEnding, newline, reason: source);
+            }
+          }
+        }
+      },
+    );
+
     final fixedBaseExamples = <String>[
       for (final task in const ['[ ]', '[x]'])
         for (final (opening, closing) in const [
