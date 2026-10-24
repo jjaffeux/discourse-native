@@ -1,3 +1,4 @@
+import 'markdown_blocks.dart';
 import 'markdown_tokens.dart';
 
 /// HTML comments remain literal source in the editor, but cannot introduce
@@ -38,6 +39,8 @@ class ComposerLiteralContainers {
     final indents = <int>[];
     final codeClosers = _codeClose.allMatches(source).toList();
     final codeBlocks = <int, int?>{};
+    final gridBlocks = <int, int?>{};
+    final gridClosers = _gridClose.allMatches(source).toList();
     if (!source.contains('<!--') &&
         codeClosers.isEmpty &&
         !_nestedContext.hasMatch(source)) {
@@ -51,6 +54,9 @@ class ComposerLiteralContainers {
     var commentEnd = 0;
     var start = 0;
     var paragraph = false;
+    ({int indent, int quoteDepth})? table;
+    var tableDelimiterEnd = 0;
+    var gridEnd = 0;
     var previousQuoteDepth = 0;
     var indentedCode = false;
     var tokenIndexEnd = 0;
@@ -115,6 +121,18 @@ class ComposerLiteralContainers {
       final firstContent =
           start + content + relative.length - relative.trimLeft().length;
       final blank = relative.trim().isEmpty;
+      if (table != null &&
+          (table.indent != (indents.lastOrNull ?? 0) ||
+              table.quoteDepth != quoteDepth ||
+              blank ||
+              _indentWidth(relative) >= 4 ||
+              (start > tableDelimiterEnd &&
+                  (_inlineBreak.hasMatch(relative) ||
+                      _bbcodeOpeningEnd(source, firstContent, end) != null ||
+                      _bbcodeOpeningEnd(source, firstContent, end, 'grid') !=
+                          null)))) {
+        table = null;
+      }
       final continuesParagraph =
           paragraph && !listStart && quoteDepth == previousQuoteDepth;
       previousQuoteDepth = quoteDepth;
@@ -168,9 +186,82 @@ class ComposerLiteralContainers {
           continue;
         }
       }
+      if (start >= commentEnd &&
+          start >= inlineEnd &&
+          _indentWidth(relative) < 4 &&
+          relative.contains('|')) {
+        var nextEnd = source.indexOf('\n', end < source.length ? end + 1 : end);
+        if (nextEnd < 0) nextEnd = source.length;
+        final next = source.substring(
+          end < source.length ? end + 1 : end,
+          nextEnd,
+        );
+        var nextContent = _indentCharacters(next, indents.lastOrNull ?? 0);
+        for (var depth = 0; depth < quoteDepth; depth++) {
+          final quote = _quote.matchAsPrefix(next, nextContent);
+          if (quote == null) break;
+          nextContent = quote.end;
+        }
+        final nextRelative = next.substring(nextContent);
+        if (_indentWidth(nextRelative) < 4 &&
+            composerMarkdownTableHeader(
+              relative,
+              nextRelative,
+              offset: start + content,
+              tokens: composerMarkdownLinkCandidates(
+                source,
+                start: start + content,
+                end: end,
+                images: images,
+                referenceLinks: true,
+                skipInline: (offset, limit) {
+                  if (source.startsWith('<!--', offset)) {
+                    return inlineLiterals.commentEnd(
+                      offset,
+                      end,
+                      indents.lastOrNull ?? 0,
+                      limit,
+                    );
+                  }
+                  if (source[offset] == '`') {
+                    return inlineLiterals.codeEnd(
+                      offset,
+                      end,
+                      indents.lastOrNull ?? 0,
+                      limit,
+                    );
+                  }
+                  return null;
+                },
+              ).values,
+            )) {
+          table = (indent: indents.lastOrNull ?? 0, quoteDepth: quoteDepth);
+          tableDelimiterEnd = nextEnd;
+        }
+      }
+      if (table != null) paragraph = false;
       var at = start + content;
       if (at < commentEnd) at = commentEnd;
       if (at < inlineEnd) at = inlineEnd;
+      if (at <= firstContent &&
+          start >= commentEnd &&
+          start >= inlineEnd &&
+          _indentWidth(relative) < 4 &&
+          gridClosers.isNotEmpty) {
+        final grid = _bbcodeAt(
+          source,
+          firstContent,
+          end,
+          indents.lastOrNull ?? 0,
+          true,
+          quoteDepth,
+          gridBlocks,
+          gridClosers,
+          tag: 'grid',
+          blockOnly: true,
+        );
+        if (grid != null && grid.end > gridEnd) gridEnd = grid.end;
+      }
       while (at < end) {
         while (activeTokens.isNotEmpty && at >= activeTokens.last.tokenEnd) {
           activeTokens.removeLast();
@@ -246,7 +337,7 @@ class ComposerLiteralContainers {
           ));
           at = commentEnd;
         } else if (source[at] == '[' && codeClosers.isNotEmpty) {
-          final code = _bbcodeCodeAt(
+          final code = _bbcodeAt(
             source,
             at,
             end,
@@ -282,6 +373,7 @@ class ComposerLiteralContainers {
           at++;
         }
       }
+      if (gridEnd > start && gridEnd <= end) paragraph = false;
       start = end + 1;
     }
     if (fence != null && nestedFence) {
@@ -495,7 +587,7 @@ int _inlineParagraphEnd(
     if (_inlineBreak.hasMatch(relative)) return finish(start);
     final content = _indentCharacters(relative, _indentWidth(relative));
     if (_indentWidth(relative) < 4 &&
-        _codeOpeningEnd(relative, content, relative.length) != null) {
+        _bbcodeOpeningEnd(relative, content, relative.length) != null) {
       return finish(start);
     }
     final nextEnd = source.indexOf('\n', end < source.length ? end + 1 : end);
@@ -515,6 +607,7 @@ int _inlineParagraphEnd(
 }
 
 final _codeClose = RegExp(r'\[/code\]', caseSensitive: false);
+final _gridClose = RegExp(r'\[/grid\]', caseSensitive: false);
 const _bbcodeQuotes = ['""', "''", '«»', '“”', '””', '‘’', '„“', '‚’', '‹›'];
 
 bool _bbcodeNameUnit(int unit) =>
@@ -524,11 +617,12 @@ bool _bbcodeNameUnit(int unit) =>
     unit == 0x5f ||
     unit == 0x2d;
 
-int? _codeOpeningEnd(String source, int at, int end) {
-  if (at + 5 > end || source.substring(at, at + 5).toLowerCase() != '[code') {
+int? _bbcodeOpeningEnd(String source, int at, int end, [String tag = 'code']) {
+  final nameEnd = at + tag.length + 1;
+  if (nameEnd > end || source.substring(at, nameEnd).toLowerCase() != '[$tag') {
     return null;
   }
-  var next = at + 5;
+  var next = nameEnd;
   if (next < end && _bbcodeNameUnit(source.codeUnitAt(next))) return null;
   while (next < end) {
     if (source[next] == '=') {
@@ -579,7 +673,7 @@ int _delimiterIndex(List<RegExpMatch> closers, int offset) {
   return low;
 }
 
-({int end, bool block})? _bbcodeCodeAt(
+({int end, bool block})? _bbcodeAt(
   String source,
   int at,
   int lineEnd,
@@ -589,11 +683,15 @@ int _delimiterIndex(List<RegExpMatch> closers, int offset) {
   Map<int, int?> codeBlocks,
   List<RegExpMatch> codeClosers, {
   int? inlineLimit,
+  String tag = 'code',
+  bool blockOnly = false,
 }) {
-  final openingEnd = _codeOpeningEnd(
+  final closingPattern = tag == 'code' ? _codeClose : _gridClose;
+  final openingEnd = _bbcodeOpeningEnd(
     source,
     at,
     inlineLimit != null && inlineLimit < lineEnd ? inlineLimit : lineEnd,
+    tag,
   );
   if (openingEnd == null) return null;
   final closeIndex = _delimiterIndex(codeClosers, openingEnd);
@@ -637,13 +735,13 @@ int _delimiterIndex(List<RegExpMatch> closers, int offset) {
           if (depth < quoteDepth && line.trim().isNotEmpty) break;
           content += _indentCharacters(line.substring(content), indent);
           final tagAt = start + content;
-          final closing = _codeClose.matchAsPrefix(source, tagAt);
+          final closing = closingPattern.matchAsPrefix(source, tagAt);
           if (closing != null &&
               source.substring(closing.end, end).trim().isEmpty) {
             codeBlocks[openers.removeLast()] = closing.end;
             if (openers.isEmpty) break;
           } else {
-            final nestedEnd = _codeOpeningEnd(source, tagAt, end);
+            final nestedEnd = _bbcodeOpeningEnd(source, tagAt, end, tag);
             if (nestedEnd != null &&
                 source.substring(nestedEnd, end).trim().isEmpty) {
               openers.add(tagAt);
@@ -657,6 +755,7 @@ int _delimiterIndex(List<RegExpMatch> closers, int offset) {
     final end = codeBlocks[at];
     if (end != null) return (end: end, block: true);
   }
+  if (blockOnly) return null;
   // The inline rule takes the first closer within the same paragraph.
   if (closeIndex == codeClosers.length) return null;
   final closing = codeClosers[closeIndex];

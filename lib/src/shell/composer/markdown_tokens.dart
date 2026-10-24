@@ -176,10 +176,14 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
   bool Function(int, int)? overlapsCode,
   int? Function(int, int)? skipInline,
   ComposerMarkdownImageReader? images,
+  bool referenceLinks = false,
 }) {
   final candidates = <int, ComposerMarkdownTokenBoundary>{};
   final limit = end ?? source.length;
   final labels = <({int start, bool nestedLink})>[];
+  final referenceEnds = referenceLinks
+      ? _markdownLabelEnds(source, start, limit, skipInline)
+      : const <int, int>{};
   for (var offset = start; offset < limit; offset += 1) {
     final skipped = skipInline?.call(offset, limit);
     if (skipped != null && skipped > offset) {
@@ -202,7 +206,7 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
     } else if (unit == 0x5D && labels.isNotEmpty) {
       final label = labels.removeLast();
       final image = label.start > 0 && source[label.start - 1] == '!';
-      final end =
+      var end =
           offset > label.start + 1 &&
               offset + 2 < limit &&
               source[offset + 1] == '('
@@ -210,6 +214,9 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
                 ? images.destinationAt(offset + 2, limit)?.end
                 : _markdownLinkDestinationEnd(source, offset + 2, limit)
           : null;
+      if (end == null && referenceLinks && offset + 1 < limit) {
+        end = referenceEnds[offset + 1];
+      }
       final accepted = end != null && (image || !label.nestedLink);
       if (accepted) {
         candidates[label.start] = (
@@ -232,6 +239,31 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
     }
   }
   return candidates;
+}
+
+Map<int, int> _markdownLabelEnds(
+  String source,
+  int start,
+  int limit,
+  int? Function(int, int)? skipInline,
+) {
+  final ends = <int, int>{};
+  final labels = <int>[];
+  for (var at = start; at < limit; at++) {
+    final skipped = skipInline?.call(at, limit);
+    if (skipped != null && skipped > at) {
+      at = skipped - 1;
+    } else if (source[at] == r'\') {
+      at++;
+    } else if (source[at] == '[') {
+      labels.add(at);
+    } else if (source[at] == ']' && labels.isNotEmpty) {
+      ends[labels.removeLast()] = at + 1;
+    } else if (source[at] == '\n') {
+      labels.clear();
+    }
+  }
+  return ends;
 }
 
 int? _markdownLinkDestinationEnd(String source, int start, int limit) {
