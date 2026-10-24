@@ -404,9 +404,10 @@ Iterable<(int, int)> _inlineCodeRanges(String source) sync* {
     multiLine: true,
   ).allMatches(source)) {
     final text = line[0]!;
-    if (text.trim().isEmpty || _eventInterruptsParagraph(text)) {
+    final blank = RegExp(r'^[ \t\r\n]*$').hasMatch(text);
+    if (blank || _eventInterruptsParagraph(text)) {
       yield* _paragraphCodeRanges(source, paragraphStart, line.start);
-      paragraphStart = text.trim().isEmpty ? line.end : line.start;
+      paragraphStart = blank ? line.end : line.start;
     }
   }
   yield* _paragraphCodeRanges(source, paragraphStart, source.length);

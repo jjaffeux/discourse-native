@@ -204,6 +204,13 @@ void main() {
         code: false,
         editable: true,
       ),
+      for (final space in ['\u00a0', '\u2003'])
+        (
+          source: '`before\n$space\n$legacy\n`after',
+          event: false,
+          code: true,
+          editable: false,
+        ),
       for (final event in [legacy, dotted])
         (
           source: '`before\n$event\n`after',
