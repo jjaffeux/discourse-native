@@ -12,6 +12,7 @@ import '../data/store.dart';
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
+import '../models/topic_link.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'bookmark_transactions.dart';
 import 'topic_prefetch_controller.dart';
@@ -63,6 +64,7 @@ final class TopicDataOwner {
     required this.changed,
     required this.liveChanged,
     required this.published,
+    this.lastPostResolved,
     required this.prepareCategories,
 
     required this.loadTimeout,
@@ -78,6 +80,8 @@ final class TopicDataOwner {
   final void Function() changed;
   final void Function(String siteUrl) liveChanged;
   final bool Function(String siteUrl, TopicDetail detail) published;
+  final void Function(String siteUrl, int topicId, int postNumber)?
+  lastPostResolved;
   final Future<void> Function(String siteUrl, Iterable<int> ids)
   prepareCategories;
 
@@ -523,10 +527,46 @@ final class TopicDataSession implements BookmarkTopicData {
     final held = _store.read<TopicDetail>(siteUrl, topicId);
     return held != null &&
         (postNumber == null ||
+            (postNumber == TopicLink.lastPostNumber &&
+                _cachedLastPostNumber(held) != null) ||
             held.stream.any(
               (id) => _store.read<Post>(siteUrl, id)?.postNumber == postNumber,
             ));
   }
+
+  int? _cachedLastPostNumber(TopicDetail detail) {
+    if (!detail.isMegaTopic) {
+      if (detail.stream.isEmpty) return 1;
+      return _store.read<Post>(siteUrl, detail.stream.last)?.postNumber;
+    }
+    final last = detail.lastPostId;
+    if (last != null && detail.stream.contains(last)) {
+      final post = _store.read<Post>(siteUrl, last);
+      if (post != null) return post.postNumber;
+    }
+    if (detail.highestPostNumber > 0) {
+      for (final id in detail.stream) {
+        final number = _store.read<Post>(siteUrl, id)?.postNumber;
+        if (number == detail.highestPostNumber) return number;
+      }
+    }
+    if (detail.stream.isEmpty && detail.postsCount == 0) return 1;
+    return null;
+  }
+
+  void _resolveLastPost(int topicId, int? requested, int position, int number) {
+    if (isCurrent &&
+        requested == TopicLink.lastPostNumber &&
+        position == _topic(topicId).positions) {
+      _owner.lastPostResolved?.call(siteUrl, topicId, number);
+    }
+  }
+
+  int _lastReturnedPostNumber(TopicPayload payload, _ReadStamp stamp) =>
+      _withoutRemoved(
+        payload,
+        stamp.removals,
+      ).posts.fold(1, (number, post) => math.max(number, post.postNumber));
 
   Future<T> _stage<T>(Future<T> future, Stopwatch elapsed, String description) {
     final remaining = _owner.loadTimeout - elapsed.elapsed;
@@ -670,8 +710,19 @@ final class TopicDataSession implements BookmarkTopicData {
         !force &&
         !state.stale &&
         _hasPost(topicId, postNumber)) {
-      if (_owner.published(siteUrl, held)) _changed();
-      return;
+      final changed = _owner.published(siteUrl, held);
+      final last = postNumber == TopicLink.lastPostNumber
+          ? _cachedLastPostNumber(
+              _store.read<TopicDetail>(siteUrl, topicId) ?? held,
+            )
+          : null;
+      if (postNumber != TopicLink.lastPostNumber || last != null) {
+        if (last != null) {
+          _resolveLastPost(topicId, postNumber, positionAtOpen, last);
+        }
+        if (changed || last != null) _changed();
+        return;
+      }
     }
     final elapsed = Stopwatch()..start();
     final key = (
@@ -760,6 +811,12 @@ final class TopicDataSession implements BookmarkTopicData {
 
       received = _publishTopic(fetched, stamp, positioned: postNumber != null);
       if (received != null && isCurrent) {
+        _resolveLastPost(
+          topicId,
+          postNumber,
+          positionAtOpen,
+          _lastReturnedPostNumber(fetched, stamp),
+        );
         opening.received(received);
         if (postNumber == null && opening.canResume()) {
           resumeNumber = received.resumePostNumber;
@@ -823,6 +880,7 @@ final class TopicDataSession implements BookmarkTopicData {
       return;
     }
     postNumber ??= state.refreshPostNumber;
+    final positionAtOpen = state.positions;
     var stamp = _stamp(topicId);
     final reading = Object();
     state.reading = reading;
@@ -845,7 +903,19 @@ final class TopicDataSession implements BookmarkTopicData {
           clientId: credential.clientId,
         ),
       );
-      _publishTopic(payload, stamp, positioned: postNumber != null);
+      final received = _publishTopic(
+        payload,
+        stamp,
+        positioned: postNumber != null,
+      );
+      if (received != null) {
+        _resolveLastPost(
+          topicId,
+          postNumber,
+          positionAtOpen,
+          _lastReturnedPostNumber(payload, stamp),
+        );
+      }
     } catch (error) {
       if (isCurrent) state.stale = true;
     } finally {

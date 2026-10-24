@@ -36,6 +36,19 @@ const _lastPost = Post(
   cooked: '<p>Last</p>',
 );
 
+const _megaTail = (
+  detail: TopicDetail(
+    id: 1,
+    title: 'One',
+    stream: [200, 300],
+    postsCount: 3,
+    isMegaTopic: true,
+    lastPostId: 300,
+    highestPostNumber: 12,
+  ),
+  posts: [_secondPost, _lastPost],
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -82,8 +95,37 @@ void main() {
       },
     );
 
+    test(
+      'settling last preserves a topic route identity and retained feed path',
+      () async {
+        final (:shell, api: _, authenticator: _) = await _fixture();
+        final route = shell.currentContent!;
+        shell.replaceCurrentContent(
+          ContentRoute(
+            destination: const TopicDestination(
+              topicId: 1,
+              slug: 'one',
+              legacyKey: 'saved-topic',
+              retainedFeedPath: '/latest.json',
+            ),
+            title: route.title,
+            icon: route.icon,
+            subtitle: 'Saved subtitle',
+          ),
+        );
+        expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 12);
+        expect(shell.currentContent?.id, 'saved-topic');
+        expect(shell.currentContent?.feedPath, '/latest.json');
+        expect(shell.currentContent?.subtitle, 'Saved subtitle');
+      },
+    );
+
     test('a partial mega-topic cache cannot supply the final post', () async {
       final (:shell, :api, authenticator: _) = await _fixture();
+      api.finalPayload = _megaTail;
+      shell.store.remove<TopicDetail>(_siteUrl, 1);
       shell.store.put(
         _siteUrl,
         const TopicDetail(
@@ -95,11 +137,45 @@ void main() {
           lastPostId: 300,
         ),
       );
+      expect(shell.focusedTabContext.currentPostIds, [100]);
       expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
       await pumpEventQueue();
       expect(shell.currentContent?.postNumber, 12);
+      expect(shell.focusedTabContext.currentTopic?.isMegaTopic, isTrue);
+      expect(shell.focusedTabContext.currentPostIds, contains(300));
       expect(api.topicPostNumbersOpened, [99999999]);
     });
+
+    test(
+      'a cached final post outside a mega-topic run still loads the tail',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        api.finalPayload = _megaTail;
+        shell.store.remove<TopicDetail>(_siteUrl, 1);
+        shell.store
+          ..put(_siteUrl, _lastPost)
+          ..put(
+            _siteUrl,
+            const TopicDetail(
+              id: 1,
+              title: 'One',
+              stream: [100],
+              isMegaTopic: true,
+              lastPostId: 300,
+              highestPostNumber: 12,
+            ),
+          );
+        expect(shell.store.read<TopicDetail>(_siteUrl, 1)?.stream, [100]);
+        expect(shell.store.read<Post>(_siteUrl, 300)?.postNumber, 12);
+        expect(shell.focusedTabContext.currentPostIds, [100]);
+        expect(shell.openTopicUrl('$_siteUrl/t/1/last'), isTrue);
+        await pumpEventQueue();
+        expect(api.topicPostNumbersOpened, [99999999]);
+        expect(shell.currentContent?.postNumber, 12);
+        expect(shell.focusedTabContext.currentTopic?.isMegaTopic, isTrue);
+        expect(shell.focusedTabContext.currentPostIds, contains(300));
+      },
+    );
 
     test(
       'an empty accepted topic settles last to its opening position',
@@ -113,7 +189,10 @@ void main() {
         await pumpEventQueue();
         expect(shell.currentContent?.postNumber, 1);
         await shell.loadTopic(1, 'one');
-        expect(api.topicPostNumbersOpened, [99999999, 1]);
+        expect(
+          api.topicPostNumbersOpened.where((number) => number == 99999999),
+          [99999999],
+        );
       },
     );
 

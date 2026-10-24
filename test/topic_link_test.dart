@@ -26,7 +26,11 @@ void main() {
 
     test('reads final positions for root and subfolder permalink shapes', () {
       for (final prefix in ['', '/forum']) {
-        for (final path in ['t/12/last', 't/topic/12/last']) {
+        for (final path in [
+          't/12/last',
+          't/topic/12/last',
+          't/topic/12/last/',
+        ]) {
           final link = TopicLink.parse(
             'https://example.com$prefix/$path',
             siteUrl: 'https://example.com$prefix',

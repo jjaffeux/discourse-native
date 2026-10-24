@@ -183,6 +183,9 @@ final class _Fixture {
       },
       liveChanged: (_) => changes++,
       published: (_, _) => false,
+      lastPostResolved: (siteUrl, topicId, postNumber) => resolvedLastPosts.add(
+        (siteUrl: siteUrl, topicId: topicId, postNumber: postNumber),
+      ),
       prepareCategories: (_, _) async {},
 
       loadTimeout: const Duration(seconds: 5),
@@ -218,6 +221,7 @@ final class _Fixture {
   final store = Store();
   final lifecycle = SiteLifecycle();
   final credentials = _Credentials();
+  final resolvedLastPosts = <({String siteUrl, int topicId, int postNumber})>[];
   int changes = 0;
   void Function()? onChange;
   late final TopicDataOwner owner;
@@ -288,6 +292,62 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test(
+    'last-post resolution excludes a post removed during the request',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final reading = data.open(
+        7,
+        slug: 'topic',
+        postNumber: 99999999,
+        opening: f.opening,
+      );
+      await f.api.waitTopics(1);
+      data.removePost(7, 3);
+      f.api.topicReads.single.result.complete(
+        _payload(
+          [_post(2, 'Visible'), _post(3, 'Removed')],
+          stream: const [1, 2, 3],
+        ),
+      );
+      await reading;
+      expect(f.resolvedLastPosts, [
+        (siteUrl: _site, topicId: 7, postNumber: 2),
+      ]);
+      expect(f.store.read<Post>(_site, 3), isNull);
+    },
+  );
+
+  test(
+    'last-post resolution excludes a post removed during publication',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      f.store.ref<Post>(_site, 3).addListener(() {
+        if (f.store.read<Post>(_site, 3) != null) data.removePost(7, 3);
+      });
+      final reading = data.open(
+        7,
+        slug: 'topic',
+        postNumber: 99999999,
+        opening: f.opening,
+      );
+      await f.api.waitTopics(1);
+      f.api.topicReads.single.result.complete(
+        _payload(
+          [_post(2, 'Visible'), _post(3, 'Removed')],
+          stream: const [1, 2, 3],
+        ),
+      );
+      await reading;
+      expect(f.resolvedLastPosts, [
+        (siteUrl: _site, topicId: 7, postNumber: 2),
+      ]);
+      expect(f.store.read<Post>(_site, 3), isNull);
+    },
+  );
+
   for (final pinRemoved in [false, true]) {
     test(
       'delayed lists preserve the newest row reconciliation after pin ${pinRemoved ? 'removal' : 'preference'}',

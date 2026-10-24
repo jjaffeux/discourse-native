@@ -23,6 +23,8 @@ class TopicLink {
 
   static const int maximumUrlLength = 2048;
 
+  static const int lastPostNumber = 99_999_999;
+
   /// Reads a topic link. A forum served from a subfolder writes its links
   /// under that path; [siteUrl] names the forum so the base is required and
   /// then skipped, and a link under some other path is not a topic of it.
@@ -31,9 +33,12 @@ class TopicLink {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return null;
 
-    final segments = siteUrl == null
+    var segments = siteUrl == null
         ? tryUriPathSegments(uri)
         : DiscourseInstance.pathSegmentsWithin(siteUrl, uri);
+    if (segments != null && segments.isNotEmpty && segments.last.isEmpty) {
+      segments = segments.sublist(0, segments.length - 1);
+    }
     if (segments == null || segments.length < 2 || segments.first != 't') {
       return null;
     }
@@ -49,14 +54,19 @@ class TopicLink {
     if (id == null || id <= 0) return null;
 
     final postIndex = idIndex + 1;
-    final postNumber = segments.length > postIndex
-        ? int.tryParse(segments[postIndex])
+    if (segments.length > postIndex + 1) return null;
+    final suffix = segments.length > postIndex ? segments[postIndex] : null;
+    final postNumber = suffix == 'last'
+        ? lastPostNumber
+        : suffix != null && _allDigits.hasMatch(suffix)
+        ? int.tryParse(suffix)
         : null;
+    if (suffix != null && (postNumber == null || postNumber <= 0)) return null;
     return TopicLink(
       uri: uri,
       topicId: id,
       slug: slugless ? '' : segments[1],
-      postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
+      postNumber: postNumber,
     );
   }
 

@@ -4268,6 +4268,7 @@ class ShellController extends FrameSafeNotifier
       _topicNavigation.armHighlightIfLoaded();
       return changed;
     },
+    lastPostResolved: _settleLastTopicPost,
     prepareCategories: (siteUrl, ids) async {
       final instance = _instanceAt(siteUrl);
       if (instance != null) await _taxonomy.ensureCategoryIds(instance, ids);
@@ -5318,6 +5319,45 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url == siteUrl && activeTabId == tabId) {
       unawaited(loadFeed(messages.id));
     }
+  }
+
+  void _settleLastTopicPost(String siteUrl, int topicId, int postNumber) {
+    final workspace = _workspace.forSite(siteUrl);
+    if (workspace == null) return;
+    var changed = false;
+    final tabs = <ForumTab>[];
+    for (final tab in workspace.tabs) {
+      final route = tab.currentContent;
+      if (route.topicId != topicId ||
+          route.postNumber != TopicLink.lastPostNumber) {
+        tabs.add(tab);
+        continue;
+      }
+      changed = true;
+      tabs.add(
+        tab.copyWith(
+          contentStack: [
+            ...tab.contentStack.take(tab.contentStack.length - 1),
+            ContentRoute(
+              destination: TopicDestination(
+                topicId: topicId,
+                slug: route.slug,
+                postNumber: postNumber,
+                legacyKey: route.id,
+                retainedFeedPath: route.feedPath,
+              ),
+              title: route.title,
+              icon: route.icon,
+              subtitle: route.subtitle,
+              color: route.color,
+            ),
+          ],
+          anchors: Map<String, ForumTabAnchor>.of(tab.anchors)
+            ..remove(route.id),
+        ),
+      );
+    }
+    if (changed) _workspace.put(workspace.copyWith(tabs: tabs));
   }
 
   /// Whether any route of the topic changed.

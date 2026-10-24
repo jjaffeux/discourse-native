@@ -1,7 +1,7 @@
 import 'dart:ui' show Color;
 
-import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -36,6 +36,17 @@ void main() {
         );
         expect(restored.postNumber, 99999999);
         expect(restored.id, route.id);
+        expect(
+          route.sameDestinationAs(
+            ContentRoute.topic(
+              topicId: 12,
+              slug: 'other',
+              title: 'Topic',
+              postNumber: 2,
+            ),
+          ),
+          isTrue,
+        );
       }
     }
   });
