@@ -87,6 +87,49 @@ void main() {
       expect(parseBlock(blobOnebox).lines[1].text, '  return if url.blank?');
     });
 
+    test('source copy preserves authored whitespace boundaries', () {
+      for (final source in [
+        '\n  - first \t\n\t- second  \n \t\n\n',
+        '\n \t\n',
+      ]) {
+        final data = CodeBlockData.fromSource(source, language: 'text');
+
+        expect(data.text, source);
+        expect(data.clipboardText, source);
+      }
+    });
+
+    test('copy normalizes unusual whitespace without discarding it', () {
+      const unusual = [
+        '\f',
+        '\v',
+        '\u00a0',
+        '\u1680',
+        '\u2000',
+        '\u2001',
+        '\u2002',
+        '\u2003',
+        '\u2004',
+        '\u2005',
+        '\u2006',
+        '\u2007',
+        '\u2008',
+        '\u2009',
+        '\u200a',
+        '\u202f',
+        '\u205f',
+        '\u3000',
+        '\ufeff',
+      ];
+      for (final whitespace in unusual) {
+        final source = '$whitespace\t value$whitespace\n';
+        final data = CodeBlockData.fromSource(source, language: 'text');
+
+        expect(data.text, source);
+        expect(data.clipboardText, ' \t value \n');
+      }
+    });
+
     test('marks the lines the link pointed at', () {
       final lines = parseBlock(blobOnebox).lines;
 
@@ -139,6 +182,58 @@ void main() {
   });
 
   group('CodeBlock', () {
+    for (final numbered in [false, true]) {
+      testWidgets('inline and fullscreen copy preserve authored whitespace '
+          '(numbered: $numbered)', (tester) async {
+        const source = '\n  - first \t\n\t- second  \n \t\n';
+        final markup = numbered
+            ? '<pre><code><ol start="12">'
+                  '${source.split('\n').map((line) => '<li>$line</li>').join()}'
+                  '</ol></code></pre>'
+            : '<pre><code>\n$source\n</code></pre>';
+        final data = parseBlock(markup);
+        expect(data.text, source);
+        final copied = <String>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add(
+              (call.arguments as Map<Object?, Object?>)['text'] as String,
+            );
+          }
+          return null;
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(body: CodeBlock(data: data)),
+          ),
+        );
+
+        await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+        await tester.pump();
+        expect(copied, [source]);
+
+        await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+        await tester.pump();
+        expect(copied, [source, source]);
+
+        await tester.tap(
+          find.byKey(const ValueKey('code-block-fullscreen-close')),
+        );
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+
     testWidgets('long fences retain complete copy and fullscreen source', (
       tester,
     ) async {
@@ -173,7 +268,7 @@ void main() {
       expect(find.byType(DCodeViewer), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('code-block-copy')));
       await tester.pump();
-      expect(copied, source.trim());
+      expect(copied, source);
       await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
       await tester.pumpAndSettle();
       final field = tester.widget<editor.CodeField>(
