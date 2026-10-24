@@ -4,13 +4,13 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart'
-    show ValueListenable, defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
+import 'chat_composer_draft_session.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
@@ -180,29 +180,15 @@ class _ChatComposerState extends State<ChatComposer> {
   PluginEmojiHost? _emoji;
 
   ChatController? _chat;
-  VoidCallback? _chatAccountListener;
-  ({ChatController chat, String siteUrl, int messageId})? _editCooking;
-  ({ChatController chat, String siteUrl, ChatStreamTarget target})?
-  _draftCooking;
+  ChatComposerDraftSession? _draftSession;
+  ComposerController? get _composer => _draftSession?.composer;
   String _cookingLocale = 'en';
-  ComposerController? _composer;
-  VoidCallback? _composerDraftListener;
-  ValueListenable<ChatComposerDraft?>? _retainedDraft;
-  VoidCallback? _retainedDraftListener;
-  VoidCallback? _rebindRetainedDraft;
-  ChatComposerDraft? _deferredRetainedDraft;
-  Set<int>? _completedUploadIdsBeforeDeferral;
-  bool _applyingRetainedDraft = false;
   String? _sourceKey;
   bool _pickingGif = false;
   bool _pickingFiles = false;
   bool _pickingEmoji = false;
   bool _savingEdit = false;
-  final Object _editCookingOwner = Object();
-  final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
-
-  ChatReplyTo? get _replyTo =>
-      widget.threadId == null ? _retainedDraft?.value?.replyTo : null;
+  ChatReplyTo? get _replyTo => _draftSession?.replyTo;
 
   void _closeDisabledEmojiAutocomplete(bool emojiEnabled) {
     final composer = _composer;
@@ -253,77 +239,19 @@ class _ChatComposerState extends State<ChatComposer> {
         identical(_emoji, emoji) &&
         identical(_chat, chat) &&
         _sourceKey == sourceKey) {
-      _prepareEditCooking();
+      _draftSession?.prepareEditCooking();
       return;
     }
 
-    _cancelEditCooking();
-    if (_chatAccountListener case final listener?) {
-      _chat?.removeListener(listener);
-    }
-    _chatAccountListener = null;
     widget.uploadDropController?.detach(_composer);
-    if (_composer case final previousComposer?) {
-      if (_composerDraftListener case final listener?) {
-        previousComposer.removeListener(listener);
-        previousComposer.text.removeListener(listener);
-      }
-      previousComposer.dispose();
-    }
-    if (_retainedDraft case final retainedDraft?) {
-      if (_retainedDraftListener case final listener?) {
-        retainedDraft.removeListener(listener);
-      }
-    }
-    _composerDraftListener = null;
-    _suspendRetiredDraftCooking();
-    _retainedDraft = null;
-    _retainedDraftListener = null;
-    _rebindRetainedDraft = null;
-    _deferredRetainedDraft = null;
-    _completedUploadIdsBeforeDeferral = null;
-    _applyingRetainedDraft = false;
+    _draftSession?.dispose();
+    _draftSession = null;
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _host = host;
     _emoji = emoji;
-
     _chat = chat;
     _sourceKey = sourceKey;
-    final cookingSite = widget.siteUrl;
-    var cookingAccount = chat.currentUserFor(cookingSite)?.id;
-    var composerSession = chat.captureSession(cookingSite);
-    void accountChanged() {
-      if (!identical(_chat, chat) || _sourceKey != sourceKey) return;
-      final account = chat.currentUserFor(cookingSite)?.id;
-      final sessionChanged = !composerSession.isCurrent;
-      if (account == cookingAccount && !sessionChanged) return;
-      cookingAccount = account;
-      _cancelEditCooking();
-      if (sessionChanged) {
-        // A rollback can restore the same user while retiring every upload
-        // selected in the previous account session.
-        composerSession = chat.captureSession(cookingSite);
-        if (_composer case final composer?) {
-          final draft = chat.composerDraftFor(cookingSite, _target);
-          _deferredRetainedDraft = null;
-          _completedUploadIdsBeforeDeferral = null;
-          _applyingRetainedDraft = true;
-          try {
-            composer.replacePluginDocument(
-              raw: draft?.raw ?? '',
-              uploads: draft?.uploads ?? const [],
-            );
-          } finally {
-            _applyingRetainedDraft = false;
-          }
-        }
-        _rebindRetainedDraft?.call();
-      }
-    }
-
-    _chatAccountListener = accountChanged;
-    chat.addListener(accountChanged);
-    _composer = host.buildComposer(
+    final composer = host.buildComposer(
       ComposerTargetRequest(
         kind: ChatPlugin.messageComposerTarget,
         siteUrl: widget.siteUrl,
@@ -334,146 +262,14 @@ class _ChatComposerState extends State<ChatComposer> {
         },
       ),
     );
-    final composer = _composer;
     if (composer == null) return;
-    final target = _target;
-    _draftCooking = (chat: chat, siteUrl: widget.siteUrl, target: target);
-    var retainedDraft = chat.composerDraftListenableFor(widget.siteUrl, target);
-    _retainedDraft = retainedDraft;
-
-    void applyRetainedDraft() {
-      _replyChanges.value = _replyTo;
-      if (_applyingRetainedDraft ||
-          widget.editingMessage != null ||
-          !identical(_composer, composer) ||
-          !identical(_retainedDraft, retainedDraft)) {
-        return;
-      }
-      final next =
-          retainedDraft.value ?? ChatComposerDraft(raw: '', uploads: const []);
-      final current = ChatComposerDraft(
-        raw: composer.raw,
-        uploads: composer.completedUploads,
-        replyTo: _replyTo,
-      );
-      if (current == next) return;
-
-      _applyingRetainedDraft = true;
-      try {
-        if (composer.hasActiveUploads) {
-          _completedUploadIdsBeforeDeferral ??= {
-            for (final upload in composer.completedUploads) upload.id,
-          };
-          _deferredRetainedDraft = next;
-          if (composer.text.text != next.raw) {
-            composer.text.value = TextEditingValue(
-              text: next.raw,
-              selection: TextSelection.collapsed(offset: next.raw.length),
-            );
-          }
-        } else {
-          _deferredRetainedDraft = null;
-          _completedUploadIdsBeforeDeferral = null;
-          composer.replacePluginDocument(raw: next.raw, uploads: next.uploads);
-        }
-      } finally {
-        _applyingRetainedDraft = false;
-      }
-    }
-
-    _retainedDraftListener = applyRetainedDraft;
-    retainedDraft.addListener(applyRetainedDraft);
-    _rebindRetainedDraft = () {
-      // Account cleanup removes the ref from the controller. A retained
-      // composer must observe the replacement ref even when rollback restores
-      // the same user and target.
-      final next = chat.composerDraftListenableFor(cookingSite, target);
-      if (identical(next, retainedDraft)) return;
-      retainedDraft.removeListener(applyRetainedDraft);
-      retainedDraft = next;
-      _retainedDraft = next;
-      next.addListener(applyRetainedDraft);
-      applyRetainedDraft();
-    };
-
-    void retainDraft() {
-      if (_applyingRetainedDraft) return;
-      if (widget.editingMessage != null) {
-        _prepareEditCooking();
-        return;
-      }
-
-      if (_deferredRetainedDraft case final deferred?) {
-        if (composer.hasActiveUploads) {
-          final next = ChatComposerDraft(
-            raw: composer.raw,
-            uploads: deferred.uploads,
-            replyTo: _replyTo,
-          );
-          _deferredRetainedDraft = next;
-          chat.retainComposerDraft(
-            widget.siteUrl,
-            target,
-            raw: next.raw,
-            uploads: next.uploads,
-            replyTo: next.replyTo,
-          );
-          return;
-        }
-
-        final completedBeforeDeferral =
-            _completedUploadIdsBeforeDeferral ?? const <int>{};
-        final mergedUploads = [...deferred.uploads];
-        final retainedIds = {for (final upload in mergedUploads) upload.id};
-        for (final upload in composer.completedUploads) {
-          if (!completedBeforeDeferral.contains(upload.id) &&
-              retainedIds.add(upload.id)) {
-            mergedUploads.add(upload);
-          }
-        }
-        final merged = ChatComposerDraft(
-          raw: composer.raw,
-          uploads: mergedUploads,
-          replyTo: _replyTo,
-        );
-        _deferredRetainedDraft = null;
-        _completedUploadIdsBeforeDeferral = null;
-        _applyingRetainedDraft = true;
-        try {
-          composer.replacePluginDocument(
-            raw: merged.raw,
-            uploads: merged.uploads,
-          );
-        } finally {
-          _applyingRetainedDraft = false;
-        }
-        chat.retainComposerDraft(
-          widget.siteUrl,
-          target,
-          raw: merged.raw,
-          uploads: merged.uploads,
-          replyTo: merged.replyTo,
-        );
-        return;
-      }
-
-      chat.retainComposerDraft(
-        widget.siteUrl,
-        target,
-        raw: composer.raw,
-        uploads: composer.completedUploads,
-        replyTo: _replyTo,
-      );
-    }
-
-    _composerDraftListener = retainDraft;
-    composer.addListener(retainDraft);
-    // ComposerController deliberately avoids rebuilding its whole panel for
-    // every keystroke, so observe the document directly as well as upload and
-    // notice changes published by the controller.
-    composer.text.addListener(retainDraft);
-    applyRetainedDraft();
-    retainDraft();
+    _draftSession = ChatComposerDraftSession(
+      chat: chat,
+      siteUrl: widget.siteUrl,
+      target: _target,
+      composer: composer,
+      editingMessage: widget.editingMessage,
+    );
     widget.uploadDropController?.attach(
       composer,
       canAccept: () =>
@@ -482,8 +278,8 @@ class _ChatComposerState extends State<ChatComposer> {
           !_savingEdit &&
           (_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false),
     );
-    if (widget.editingMessage case final message?) {
-      _replaceWithMessage(composer, message, sourceKey);
+    if (widget.editingMessage != null) {
+      _requestFocus(sourceKey);
     }
     if (widget.focusRequest > 0) _requestFocus(sourceKey);
   }
@@ -521,26 +317,8 @@ class _ChatComposerState extends State<ChatComposer> {
         oldWidget.threadId == widget.threadId;
     if (sameTarget) {
       if (oldWidget.editingMessage?.id != widget.editingMessage?.id) {
-        _cancelEditCooking();
-        _deferredRetainedDraft = null;
-        _completedUploadIdsBeforeDeferral = null;
-        if (widget.editingMessage case final message?) {
-          _replaceWithMessage(_composer!, message, _sourceKey!);
-        } else {
-          final composer = _composer;
-          final retained = _retainedDraft?.value;
-          if (composer != null) {
-            _applyingRetainedDraft = true;
-            try {
-              composer.replacePluginDocument(
-                raw: retained?.raw ?? '',
-                uploads: retained?.uploads ?? const [],
-              );
-            } finally {
-              _applyingRetainedDraft = false;
-            }
-          }
-        }
+        _draftSession?.updateEditingMessage(widget.editingMessage);
+        if (widget.editingMessage != null) _requestFocus(_sourceKey!);
       }
       if (oldWidget.focusRequest != widget.focusRequest &&
           widget.focusRequest > 0) {
@@ -557,34 +335,9 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
-    _cancelEditCooking();
-    if (_chatAccountListener case final listener?) {
-      _chat?.removeListener(listener);
-    }
     widget.uploadDropController?.detach(_composer);
-    if (_composer case final composer?) {
-      if (_composerDraftListener case final listener?) {
-        composer.removeListener(listener);
-        composer.text.removeListener(listener);
-      }
-      composer.dispose();
-    }
-    if (_retainedDraft case final retainedDraft?) {
-      if (_retainedDraftListener case final listener?) {
-        retainedDraft.removeListener(listener);
-      }
-    }
-    _replyChanges.dispose();
-    _suspendRetiredDraftCooking();
+    _draftSession?.dispose();
     super.dispose();
-  }
-
-  void _suspendRetiredDraftCooking() {
-    final held = _draftCooking;
-    _draftCooking = null;
-    if (held != null) {
-      held.chat.suspendComposerCookingIfUnobserved(held.siteUrl, held.target);
-    }
   }
 
   void _send(ComposerController composer) {
@@ -641,49 +394,6 @@ class _ChatComposerState extends State<ChatComposer> {
       _savingEdit ||
       (_chat?.hasSendingMessage(widget.siteUrl, _target) ?? false);
 
-  void _replaceWithMessage(
-    ComposerController composer,
-    ChatMessage message,
-    String sourceKey,
-  ) {
-    composer.replacePluginDocument(
-      raw: message.raw,
-      uploads: [for (final upload in message.uploads) _composerUpload(upload)],
-    );
-    _prepareEditCooking();
-    _requestFocus(sourceKey);
-  }
-
-  void _prepareEditCooking() {
-    final chat = _chat;
-    final composer = _composer;
-    final message = widget.editingMessage;
-    if (chat == null || composer == null || message == null) return;
-    final target = (chat: chat, siteUrl: widget.siteUrl, messageId: message.id);
-    if (_editCooking != target) {
-      _cancelEditCooking();
-      _editCooking = target;
-    }
-    chat.prepareEditCooking(
-      widget.siteUrl,
-      message,
-      composer.raw,
-      owner: _editCookingOwner,
-    );
-  }
-
-  void _cancelEditCooking() {
-    final target = _editCooking;
-    _editCooking = null;
-    if (target != null) {
-      target.chat.cancelEditCooking(
-        target.siteUrl,
-        target.messageId,
-        owner: _editCookingOwner,
-      );
-    }
-  }
-
   Future<void> _saveEdit(
     ComposerController composer,
     ChatController chat,
@@ -700,7 +410,7 @@ class _ChatComposerState extends State<ChatComposer> {
       widget.siteUrl,
       message.id,
       composer.raw,
-      cookingOwner: _editCookingOwner,
+      cookingOwner: _draftSession!.editCookingOwner,
       uploads: [
         for (final upload in composer.completedUploads)
           originalUploads[upload.id] ?? ChatUpload.fromComposerUpload(upload),
@@ -718,55 +428,29 @@ class _ChatComposerState extends State<ChatComposer> {
       composer.showNotice(error);
       return;
     }
-    _cancelEditCooking();
+    _draftSession?.cancelEditCooking();
     final finish = widget.onEditFinished;
     if (finish != null) {
       finish();
     } else {
-      _clearEditDocument(composer);
+      _draftSession?.clearEditDocument();
     }
   }
-
-  static ComposerUploadResult _composerUpload(ChatUpload upload) =>
-      ComposerUploadResult(
-        id: upload.id,
-        originalFilename: upload.originalFilename,
-        shortUrl: upload.url,
-        url: upload.url,
-        width: upload.width,
-        height: upload.height,
-        thumbnailUrl: upload.thumbnailUrl,
-      );
 
   void _cancelEdit() {
     if (_savingEdit) return;
-    _cancelEditCooking();
+    _draftSession?.cancelEditCooking();
     final finish = widget.onEditFinished;
     if (finish != null) {
       finish();
     } else {
-      if (_composer case final composer?) _clearEditDocument(composer);
-    }
-  }
-
-  void _clearEditDocument(ComposerController composer) {
-    _applyingRetainedDraft = true;
-    try {
-      composer.clearDocument();
-    } finally {
-      _applyingRetainedDraft = false;
+      _draftSession?.clearEditDocument();
     }
   }
 
   void _clearReply({bool refocus = true}) {
-    final draft = _retainedDraft?.value;
-    if (draft?.replyTo == null) return;
-    _chat?.retainComposerDraft(
-      widget.siteUrl,
-      _target,
-      raw: draft!.raw,
-      uploads: draft.uploads,
-    );
+    if (_replyTo == null) return;
+    _draftSession?.clearReply();
     if (refocus) _requestFocus(_sourceKey!);
   }
 
@@ -1023,7 +707,7 @@ class _ChatComposerState extends State<ChatComposer> {
         return ListenableBuilder(
           listenable: Listenable.merge([
             composer,
-            _replyChanges,
+            _draftSession!.replyChanges,
             _chat!.streamListenableFor(widget.siteUrl, _target),
             for (final id
                 in _chat!.streamFor(widget.siteUrl, _target).localMessageIds)
@@ -1181,8 +865,6 @@ class _ChatComposerState extends State<ChatComposer> {
       return KeyEventResult.ignored;
     }
 
-    // Editing replaces the text field. Release focus before the rebuild so
-    // _replaceWithMessage can reopen keyboard input on the new field.
     composer.focus.unfocus();
     widget.onEditMessage?.call(lastUserMessage);
     return KeyEventResult.handled;
