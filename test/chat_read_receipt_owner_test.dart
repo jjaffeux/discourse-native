@@ -66,6 +66,7 @@ void main() {
         target: const ChatChannelTarget(9),
         api: api,
         requests: requests,
+        retries: ChatReadReceiptRetries(),
         clock: () => viewedAt.subtract(const Duration(hours: 1)),
         isCurrent: () => true,
         publish: (read, at) {
@@ -82,6 +83,35 @@ void main() {
       expect(owner.preventsEviction, isFalse);
     },
   );
+
+  test('retry debt is isolated by site and full target', () async {
+    final retries = ChatReadReceiptRetries();
+    final channel = _ReadFixture(const ChatChannelTarget(9), retries: retries)
+      ..api.readFailure = const WriteException(WriteFailure.unreachable);
+    final thread =
+        _ReadFixture(
+            const ChatThreadTarget(channelId: 9, threadId: 22),
+            retries: retries,
+          )
+          ..thread = _thread.copyWith(
+            membership: _thread.membership!.withLastReadMessageId(3),
+          );
+    final otherSite = _ReadFixture(
+      const ChatChannelTarget(9),
+      siteUrl: 'https://other.example',
+      retries: retries,
+    )..channel = _channel.withLastRead(3, caughtUp: true);
+    await channel.observe(3);
+
+    await thread.observe(3);
+    await otherSite.observe(3);
+    expect(thread.api.attempts, isEmpty);
+    expect(otherSite.api.attempts, isEmpty);
+
+    channel.api.readFailure = null;
+    await channel.observe(3);
+    expect(channel.api.attempts, [3, 3]);
+  });
 
   for (final target in <ChatStreamTarget>[
     const ChatChannelTarget(9),
@@ -107,6 +137,208 @@ void main() {
       },
     );
 
+    for (final failure in [
+      const WriteException(WriteFailure.unreachable, notSent: true),
+      const WriteException(WriteFailure.unreachable),
+    ]) {
+      test(
+        '${target.storageKey} retries ${failure.notSent ? 'unsent' : 'uncertain'} delivery only on another observation',
+        () async {
+          final fixture = _ReadFixture(target)..api.readFailure = failure;
+
+          await fixture.observe(3);
+          expect(fixture.lastRead, 3);
+          expect(fixture.owner.preventsEviction, isFalse);
+          await Future<void>.delayed(Duration.zero);
+          expect(fixture.api.attempts, [3]);
+
+          fixture.api.readFailure = null;
+          await fixture.observe(3);
+          await fixture.observe(3);
+
+          expect(fixture.api.attempts, [3, 3]);
+          expect(fixture.lastRead, 3);
+          expect(fixture.owner.preventsEviction, isFalse);
+        },
+      );
+    }
+
+    test(
+      '${target.storageKey} retry preserves newer visible progress',
+      () async {
+        final fixture = _ReadFixture(target)
+          ..api.readFailure = const WriteException(WriteFailure.unreachable);
+        await fixture.observe(3);
+        final viewedAt = DateTime.utc(3000);
+        fixture.channel = fixture.channel
+            .withLastRead(5, caughtUp: false)
+            .withLastViewedAt(viewedAt);
+        fixture.thread = fixture.thread.copyWith(
+          membership: fixture.thread.membership!.withLastReadMessageId(5),
+        );
+        fixture.api.readFailure = null;
+
+        await fixture.observe(3);
+
+        expect(fixture.api.attempts, [3, 3]);
+        expect(fixture.lastRead, 5);
+        if (!target.isThread) {
+          expect(fixture.channel.membership.lastViewedAt, viewedAt);
+        }
+      },
+    );
+
+    test('${target.storageKey} retries after credentials return', () async {
+      final fixture = _ReadFixture(target);
+      fixture.credentials.keys.clear();
+
+      await fixture.observe(3);
+      expect(fixture.lastRead, 3);
+      expect(fixture.api.attempts, isEmpty);
+      expect(fixture.owner.preventsEviction, isFalse);
+
+      fixture.credentials.keys[fixture.siteUrl] = 'key';
+      await fixture.observe(3);
+      await fixture.observe(3);
+
+      expect(fixture.api.attempts, [3]);
+      expect(fixture.lastRead, 3);
+    });
+
+    test('${target.storageKey} advances past an undelivered cursor', () async {
+      final fixture = _ReadFixture(target)
+        ..api.readFailure = const WriteException(WriteFailure.unreachable);
+      await fixture.observe(3);
+      await fixture.observe(2);
+      expect(fixture.api.attempts, [3]);
+      expect(fixture.lastRead, 3);
+
+      fixture.api.readFailure = null;
+      await fixture.observe(4);
+      await fixture.observe(3);
+      await fixture.observe(4);
+
+      expect(fixture.api.attempts, [3, 4]);
+      expect(fixture.lastRead, 4);
+    });
+
+    test(
+      '${target.storageKey} newer queued success settles an older failure',
+      () async {
+        final fixture = _ReadFixture(target);
+        final gate = Completer<void>();
+        fixture.api.gates[2] = gate;
+        fixture.api.failures[2] = const WriteException(
+          WriteFailure.unreachable,
+        );
+        var firstDone = false;
+        var newestDone = false;
+        final first = fixture.observe(2).then((_) => firstDone = true);
+        await fixture.api.started.future;
+        final superseded = fixture.observe(3);
+        final newest = fixture.observe(4).then((_) => newestDone = true);
+        await fixture.observe(4);
+        await fixture.observe(2);
+        expect(firstDone, isFalse);
+        expect(newestDone, isFalse);
+        expect(fixture.lastRead, 4);
+
+        gate.complete();
+        await Future.wait([first, superseded, newest]);
+        await fixture.observe(4);
+
+        expect(fixture.api.attempts, [2, 4]);
+        expect(fixture.lastRead, 4);
+        expect(firstDone, isTrue);
+        expect(newestDone, isTrue);
+      },
+    );
+
+    test(
+      '${target.storageKey} duplicate retry finishes during delivery',
+      () async {
+        final fixture = _ReadFixture(target)
+          ..api.readFailure = const WriteException(WriteFailure.unreachable);
+        await fixture.observe(3);
+        fixture.api.readFailure = null;
+        final gate = Completer<void>();
+        fixture.api.gates[3] = gate;
+        var completed = false;
+        final retry = fixture.observe(3).then((_) => completed = true);
+        await Future<void>.delayed(Duration.zero);
+        expect(fixture.api.attempts, [3, 3]);
+
+        await fixture.observe(3);
+
+        expect(completed, isFalse);
+        expect(fixture.api.attempts, [3, 3]);
+        gate.complete();
+        await retry;
+        await fixture.observe(3);
+        expect(completed, isTrue);
+        expect(fixture.api.attempts, [3, 3]);
+      },
+    );
+
+    test('${target.storageKey} retries after its owner is evicted', () async {
+      final fixture = _ReadFixture(target)
+        ..api.readFailure = const WriteException(WriteFailure.unreachable);
+      await fixture.observe(3);
+      expect(fixture.owner.preventsEviction, isFalse);
+      fixture.replaceOwner();
+
+      fixture.api.readFailure = null;
+      await fixture.observe(3);
+      await fixture.observe(3);
+
+      expect(fixture.api.attempts, [3, 3]);
+      expect(fixture.lastRead, 3);
+    });
+
+    test(
+      '${target.storageKey} discards debt from a replaced account',
+      () async {
+        final fixture = _ReadFixture(target)
+          ..api.readFailure = const WriteException(WriteFailure.unreachable);
+        await fixture.observe(3);
+        fixture.requests.lifecycle.invalidate(fixture.siteUrl);
+        fixture.credentials.keys[fixture.siteUrl] = 'account-b';
+        fixture.replaceOwner();
+        fixture.api.readFailure = null;
+
+        await fixture.observe(3);
+
+        expect(fixture.api.attempts, [3]);
+        fixture.channel = _channel;
+        fixture.thread = _thread;
+        await fixture.observe(3);
+        expect(fixture.api.attempts, [3, 3]);
+      },
+    );
+
+    test(
+      '${target.storageKey} retired delivery cannot record a later failure',
+      () async {
+        final fixture = _ReadFixture(target);
+        final gate = Completer<void>();
+        fixture.api.gates[3] = gate;
+        fixture.api.readFailure = const WriteException(
+          WriteFailure.unreachable,
+        );
+        final first = fixture.observe(3);
+        await fixture.api.started.future;
+        fixture.replaceOwner();
+        gate.complete();
+        await first;
+        fixture.api.readFailure = null;
+
+        await fixture.observe(3);
+
+        expect(fixture.api.attempts, [3]);
+        expect(fixture.lastRead, 3);
+      },
+    );
+
     for (final retire in [false, true]) {
       test(
         '${target.storageKey} disowns credentials after ${retire ? 'retirement' : 'account replacement'}',
@@ -120,6 +352,7 @@ void main() {
             target: target,
             api: api,
             requests: requests,
+            retries: ChatReadReceiptRetries(),
             clock: DateTime.now,
             isCurrent: () => true,
             publish: (_, _) => publications++,
@@ -171,8 +404,99 @@ final class _HeldCredentials extends FakeApiCredentialReader {
   }
 }
 
+final class _ReadFixture {
+  _ReadFixture(
+    this.target, {
+    ChatReadReceiptRetries? retries,
+    this.siteUrl = _site,
+  }) : retries = retries ?? ChatReadReceiptRetries() {
+    credentials.keys[siteUrl] = 'key';
+    requests = FakePluginRequestHost(credentials: credentials);
+    owner = _newOwner();
+  }
+
+  final ChatStreamTarget target;
+  final String siteUrl;
+  final ChatReadReceiptRetries retries;
+  final credentials = FakeApiCredentialReader();
+  final api = _ReadApi();
+  late final FakePluginRequestHost requests;
+  late ChatReadReceiptOwner owner;
+  ChatChannel channel = _channel;
+  ChatThread thread = _thread;
+
+  int? get lastRead => target.isThread
+      ? thread.membership?.lastReadMessageId
+      : channel.membership.lastReadMessageId;
+
+  ChatReadReceiptOwner _newOwner() => ChatReadReceiptOwner(
+    siteUrl: siteUrl,
+    target: target,
+    api: api,
+    requests: requests,
+    retries: retries,
+    clock: DateTime.now,
+    isCurrent: () => true,
+    publish: (read, at) {
+      switch (read) {
+        case ChatChannelRead():
+          channel = read.project(channel, at)!;
+        case ChatThreadRead():
+          thread = read.project(thread);
+      }
+    },
+  );
+
+  void replaceOwner() {
+    owner.retire();
+    owner = _newOwner();
+  }
+
+  Future<void> observe(int messageId) {
+    final admission = ChatReadReceiptOwner.admit(
+      target,
+      messageId,
+      ChatReadReceiptSnapshot(
+        lease: requests.capture(siteUrl),
+        channel: channel,
+        thread: thread,
+        isLocalMessage: false,
+        atPresent: true,
+        newestMessageId: 3,
+      ),
+      retryMessageId: retries.pendingMessageId(siteUrl, target),
+    );
+    return admission == null ? Future.value() : owner.markRead(admission);
+  }
+}
+
 final class _ReadApi extends FakeDiscourseApi {
   final List<int> threadReads = [];
+  final List<int> attempts = [];
+  final gates = <int, Completer<void>>{};
+  final failures = <int, WriteException>{};
+  final started = Completer<void>();
+  WriteException? readFailure;
+
+  Future<void> _deliver(int messageId) async {
+    attempts.add(messageId);
+    if (!started.isCompleted) started.complete();
+    await gates[messageId]?.future;
+    final error = failures[messageId] ?? readFailure;
+    if (error != null) throw error;
+  }
+
+  @override
+  Future<void> markChatChannelRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    chatReadsMarked.add((channelId: channelId, messageId: messageId));
+    await _deliver(messageId);
+  }
 
   @override
   Future<void> markChatThreadRead({
@@ -184,5 +508,6 @@ final class _ReadApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     threadReads.add(messageId);
+    await _deliver(messageId);
   }
 }

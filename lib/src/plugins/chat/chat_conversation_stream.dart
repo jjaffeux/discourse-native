@@ -732,6 +732,7 @@ final class _ChatConversationStream {
         target: target,
         api: _controller.api,
         requests: _controller._requests,
+        retries: _controller._readReceiptRetries,
         clock: _controller._clock,
         isCurrent: () => isCurrent,
         publish: (admission, viewedAt) =>

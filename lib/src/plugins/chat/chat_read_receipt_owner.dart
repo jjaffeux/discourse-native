@@ -24,11 +24,17 @@ final class ChatReadReceiptSnapshot {
 }
 
 sealed class ChatReadAdmission {
-  const ChatReadAdmission(this.messageId, this.lease, this.alreadyRead);
+  const ChatReadAdmission(
+    this.messageId,
+    this.lease,
+    this.alreadyRead,
+    this.shouldDeliver,
+  );
 
   final int messageId;
   final PluginSiteLease lease;
   final bool alreadyRead;
+  final bool shouldDeliver;
 }
 
 final class ChatChannelRead extends ChatReadAdmission {
@@ -36,6 +42,7 @@ final class ChatChannelRead extends ChatReadAdmission {
     super.messageId,
     super.lease,
     super.alreadyRead,
+    super.shouldDeliver,
     this.before,
     this.caughtUp,
   );
@@ -58,7 +65,12 @@ final class ChatChannelRead extends ChatReadAdmission {
 }
 
 final class ChatThreadRead extends ChatReadAdmission {
-  const ChatThreadRead._(super.messageId, super.lease, super.alreadyRead);
+  const ChatThreadRead._(
+    super.messageId,
+    super.lease,
+    super.alreadyRead,
+    super.shouldDeliver,
+  );
 
   ChatThread project(ChatThread current) {
     final membership = current.membership;
@@ -72,6 +84,53 @@ final class ChatThreadRead extends ChatReadAdmission {
   }
 }
 
+/// Keeps undelivered cursors without retaining their conversation windows.
+final class ChatReadReceiptRetries {
+  final Map<
+    (String, ChatStreamTarget),
+    ({int messageId, PluginSiteLease lease})
+  >
+  _pending = {};
+
+  int? pendingMessageId(String siteUrl, ChatStreamTarget target) {
+    final key = (siteUrl, target);
+    final pending = _pending[key];
+    if (pending == null) return null;
+    if (!pending.lease.isCurrent) {
+      _pending.remove(key);
+      return null;
+    }
+    return pending.messageId;
+  }
+
+  void _failed(
+    String siteUrl,
+    ChatStreamTarget target,
+    ChatReadAdmission read,
+  ) {
+    final pending = pendingMessageId(siteUrl, target);
+    if (pending == null || read.messageId >= pending) {
+      _pending[(siteUrl, target)] = (
+        messageId: read.messageId,
+        lease: read.lease,
+      );
+    }
+  }
+
+  void _delivered(String siteUrl, ChatStreamTarget target, int messageId) {
+    final pending = pendingMessageId(siteUrl, target);
+    if (pending != null && pending <= messageId) {
+      _pending.remove((siteUrl, target));
+    }
+  }
+
+  void forget(String siteUrl) {
+    _pending.removeWhere((key, _) => key.$1 == siteUrl);
+  }
+
+  void clear() => _pending.clear();
+}
+
 final class _ReadRun {}
 
 /// Owns read admission, optimistic projection and delivery for one retained target.
@@ -81,6 +140,7 @@ final class ChatReadReceiptOwner {
     required this.target,
     required this._api,
     required this._requests,
+    required this._retries,
     required this._clock,
     required this._isCurrent,
     required this._publish,
@@ -90,12 +150,14 @@ final class ChatReadReceiptOwner {
   final ChatStreamTarget target;
   final ChatApi _api;
   final PluginRequestHost _requests;
+  final ChatReadReceiptRetries _retries;
   final DateTime Function() _clock;
   final bool Function() _isCurrent;
   final void Function(ChatReadAdmission, DateTime) _publish;
   ChatReadAdmission? _queued;
   Future<void>? _task;
   _ReadRun? _run;
+  int? _sendingMessageId;
   bool _retired = false;
 
   bool get preventsEviction => _queued != null || _task != null || _run != null;
@@ -105,14 +167,22 @@ final class ChatReadReceiptOwner {
   static ChatReadAdmission? admit(
     ChatStreamTarget target,
     int messageId,
-    ChatReadReceiptSnapshot snapshot,
-  ) {
+    ChatReadReceiptSnapshot snapshot, {
+    int? retryMessageId,
+  }) {
     if (messageId <= 0 || snapshot.isLocalMessage) return null;
+    final retry = retryMessageId != null && messageId >= retryMessageId;
     if (target.threadId != null) {
       final membership = snapshot.thread?.membership;
       if (membership == null) return null;
-      if ((membership.lastReadMessageId ?? 0) >= messageId) return null;
-      return ChatThreadRead._(messageId, snapshot.lease, false);
+      final alreadyRead = (membership.lastReadMessageId ?? 0) >= messageId;
+      if (alreadyRead && !retry) return null;
+      return ChatThreadRead._(
+        messageId,
+        snapshot.lease,
+        alreadyRead,
+        !alreadyRead || retry,
+      );
     }
 
     final channel = snapshot.channel;
@@ -125,19 +195,30 @@ final class ChatReadReceiptOwner {
     final staleCounts =
         caughtUp &&
         (channel.tracking.unreadCount > 0 || channel.tracking.mentionCount > 0);
-    if (alreadyRead && !staleCounts) return null;
+    if (alreadyRead && !staleCounts && !retry) return null;
     return ChatChannelRead._(
       messageId,
       snapshot.lease,
       alreadyRead,
+      !alreadyRead || retry,
       channel,
       caughtUp,
     );
   }
 
   Future<void> markRead(ChatReadAdmission admission) {
+    if (!_current || !admission.lease.isCurrent) return Future.value();
+    bool duplicate() {
+      final pending = _queued?.messageId ?? _sendingMessageId;
+      return pending != null && pending >= admission.messageId;
+    }
+
+    if (admission.shouldDeliver && duplicate()) return Future.value();
     _publish(admission, _clock().toUtc());
-    if (admission.alreadyRead || !_current || !admission.lease.isCurrent) {
+    if (!admission.shouldDeliver ||
+        !_current ||
+        !admission.lease.isCurrent ||
+        duplicate()) {
       return Future.value();
     }
     _queued = admission;
@@ -155,6 +236,7 @@ final class ChatReadReceiptOwner {
     _queued = null;
     _run = null;
     _task = null;
+    _sendingMessageId = null;
   }
 
   Future<void> _drain(_ReadRun run) async {
@@ -164,15 +246,20 @@ final class ChatReadReceiptOwner {
       final receipt = _queued;
       _queued = null;
       if (receipt == null) {
+        _sendingMessageId = null;
         _run = null;
         _task = null;
         return;
       }
+      _sendingMessageId = receipt.messageId;
       try {
         final credentials = await _requests.credentialsFor(siteUrl);
         final apiKey = credentials.apiKey;
         if (!receipt.lease.isCurrent || !ownsRequest()) continue;
-        if (apiKey == null) continue;
+        if (apiKey == null) {
+          _retries._failed(siteUrl, target, receipt);
+          continue;
+        }
         final clientId = credentials.clientId;
         if (!receipt.lease.isCurrent || !ownsRequest()) continue;
         if (target.threadId == null) {
@@ -197,7 +284,14 @@ final class ChatReadReceiptOwner {
             ),
           );
         }
-      } catch (_) {}
+        if (ownsRequest() && receipt.lease.isCurrent) {
+          _retries._delivered(siteUrl, target, receipt.messageId);
+        }
+      } catch (_) {
+        if (ownsRequest() && receipt.lease.isCurrent) {
+          _retries._failed(siteUrl, target, receipt);
+        }
+      }
     }
   }
 }

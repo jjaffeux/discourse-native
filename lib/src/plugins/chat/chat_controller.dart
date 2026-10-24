@@ -790,6 +790,8 @@ class ChatController extends FrameSafeNotifier {
     events: _ChatThreadMetadataEvents(this, notifySafely),
   );
 
+  final _readReceiptRetries = ChatReadReceiptRetries();
+
   final LinkedHashMap<String, _ChatConversationStream> _conversations =
       LinkedHashMap();
 
@@ -3371,6 +3373,7 @@ class ChatController extends FrameSafeNotifier {
         atPresent: window.atPresent,
         newestMessageId: window.newestId,
       ),
+      retryMessageId: _readReceiptRetries.pendingMessageId(siteUrl, target),
     );
     if (admission == null) return Future.value();
     return _conversationFor(siteUrl, target).readReceipts.markRead(admission);
@@ -3401,6 +3404,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _readReceiptRetries.forget(siteUrl);
     _messageWriteOwners.remove(siteUrl)?.retire();
     _reactionOwners.remove(siteUrl)?.retire();
     _directories.remove(siteUrl)?.retire();
@@ -3456,6 +3460,7 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _readReceiptRetries.clear();
     final messageWriteOwners = _messageWriteOwners.values.toList(
       growable: false,
     );

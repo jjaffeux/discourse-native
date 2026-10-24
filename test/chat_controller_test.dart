@@ -11584,9 +11584,90 @@ void main() {
       expect(held(subject.store)?.membership.lastReadMessageId, 3);
     });
 
+    for (final target in <ChatStreamTarget>[
+      const ChatChannelTarget(9),
+      const ChatThreadTarget(channelId: 9, threadId: 22),
+    ]) {
+      test(
+        '${target.storageKey} retries after conversation eviction',
+        () async {
+          final api = _RecoveringChatReadApi(
+            chatMessagesByKey: {
+              key(9): page([message(1), message(2), message(3)]),
+              key(10): page([message(10)]),
+            },
+          );
+          final subject = build(
+            api: api,
+            maxRetainedCanonicalMessageIdsPerSite: 50,
+          );
+          subject.store.put(site, channel(9, lastRead: 1));
+          subject.store.put(
+            site,
+            const ChatThread(
+              id: 22,
+              channelId: 9,
+              status: 'open',
+              replyCount: 3,
+              membership: ChatThreadMembership(
+                threadId: 22,
+                lastReadMessageId: 1,
+              ),
+            ),
+          );
+          if (!target.isThread) await subject.chat.openChannel(site, 9);
+          await subject.chat.markReadFor(site, target, 3);
+          expect(subject.chat.retainedTargetCountForTesting(site), 1);
+
+          await subject.chat.openChannel(site, 10);
+          expect(subject.chat.retainedTargetCountForTesting(site), 1);
+          if (target.isThread) {
+            expect(
+              subject.chat.thread(site, 22)?.membership?.lastReadMessageId,
+              3,
+            );
+          } else {
+            expect(subject.chat.stream(site, 9).fetchedOnce, isFalse);
+            expect(held(subject.store)?.membership.lastReadMessageId, 3);
+          }
+          api.offline = false;
+          await subject.chat.markReadFor(site, target, 3);
+          await subject.chat.markReadFor(site, target, 3);
+
+          if (target.isThread) {
+            expect(api.threadReads, [3, 3]);
+            expect(
+              subject.chat.thread(site, 22)?.membership?.lastReadMessageId,
+              3,
+            );
+            expect(api.chatReadsMarked, isEmpty);
+          } else {
+            expect(api.chatReadsMarked, [
+              (channelId: 9, messageId: 3),
+              (channelId: 9, messageId: 3),
+            ]);
+            expect(held(subject.store)?.membership.lastReadMessageId, 3);
+            expect(api.threadReads, isEmpty);
+          }
+        },
+      );
+    }
+
+    test('forget clears undelivered receipts from the old account', () async {
+      final api = _RecoveringChatReadApi();
+      final subject = build(api: api);
+      subject.store.put(site, channel(9, lastRead: 1));
+      await subject.chat.markRead(site, 9, 3);
+
+      subject.chat.forget(site);
+      subject.store.put(site, channel(9, lastRead: 3));
+      api.offline = false;
+      await subject.chat.markRead(site, 9, 3);
+
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
+    });
+
     test('writes once for a message it has already recorded', () async {
-      // The optimistic update is the whole of the de-duplication: a second
-      // scroll tick that sees the same message reads back its own answer.
       final subject = await reading(held: channel(9, lastRead: 1));
 
       await subject.chat.markRead(site, 9, 3);
@@ -11928,7 +12009,25 @@ final class _GatedChannelDetailApi extends FakeDiscourseApi {
 }
 
 final class _RecoveringChatReadApi extends FakeDiscourseApi {
+  _RecoveringChatReadApi({super.chatMessagesByKey});
+
   bool offline = true;
+  final List<int> threadReads = [];
+
+  @override
+  Future<void> markChatThreadRead({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int threadId,
+    required int messageId,
+    String? clientId,
+  }) async {
+    threadReads.add(messageId);
+    if (offline) {
+      throw const WriteException(WriteFailure.unreachable, notSent: true);
+    }
+  }
 
   @override
   Future<void> markChatChannelRead({
