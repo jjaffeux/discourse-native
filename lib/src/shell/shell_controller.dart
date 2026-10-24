@@ -166,6 +166,7 @@ part 'instance_rail_transactions.dart';
 part 'post_commands.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
+part 'post_mutation_policy.dart';
 part 'topic_metadata_transactions.dart';
 part 'topic_navigation_attempts.dart';
 part 'shell_tab_context.dart';
@@ -8002,133 +8003,67 @@ class ShellController extends FrameSafeNotifier
   static String _plainQuoteCharacters(String value) =>
       value.replaceAll(RegExp('[“”]'), '"').replaceAll(RegExp('[‘’]'), "'");
 
+  late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
+    store: store,
+    instanceFor: _instanceAt,
+    selectedSite: () => currentInstance?.url,
+    isDisposed: () => isDisposed,
+  );
+
+  late final _SelectedPostModeration _selectedPostModeration =
+      _SelectedPostModeration(
+        store: store,
+        api: api.postMutations,
+        credentials: credentials,
+        lifecycle: lifecycle,
+        topicData: _topicData,
+        policy: _postMutationPolicy,
+        changed: _notify,
+      );
+
   bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
-      _selectedPosts.containsKey((siteUrl: siteUrl, topicId: topicId));
+      _selectedPostModeration.topicPostSelectionEnabled(siteUrl, topicId);
 
   Set<int> selectedTopicPostIds(String siteUrl, int topicId) =>
-      Set.unmodifiable(
-        _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids ??
-            const <int>{},
-      );
+      _selectedPostModeration.selectedTopicPostIds(siteUrl, topicId);
 
   bool isTopicPostSelected(String siteUrl, int topicId, int postId) =>
-      _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids.contains(
-        postId,
-      ) ??
-      false;
+      _selectedPostModeration.isTopicPostSelected(siteUrl, topicId, postId);
 
-  List<Post> selectedTopicPosts(String siteUrl, int topicId) {
-    final detail = store.read<TopicDetail>(siteUrl, topicId);
-    final selected = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids;
-    if (detail == null || selected == null || selected.isEmpty) return const [];
-    return List.unmodifiable([
-      for (final id in detail.stream)
-        if (selected.contains(id)) ?store.read<Post>(siteUrl, id),
-    ]);
-  }
+  List<Post> selectedTopicPosts(String siteUrl, int topicId) =>
+      _selectedPostModeration.selectedTopicPosts(siteUrl, topicId);
 
   bool topicPostSelectionWriteInFlight(String siteUrl, int topicId) =>
-      _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.active != null;
+      _selectedPostModeration.topicPostSelectionWriteInFlight(siteUrl, topicId);
 
-  void setTopicPostSelectionEnabled(String siteUrl, int topicId, bool enabled) {
-    final key = (siteUrl: siteUrl, topicId: topicId);
-    if (enabled) {
-      final topic = store.read<TopicDetail>(siteUrl, topicId);
-      if (topic == null || !topic.canSelectPosts) return;
-      if (_selectedPosts.containsKey(key)) return;
-      _selectedPosts[key] = _SelectedPostsSelection();
-    } else {
-      if (_selectedPosts[key]?.active != null ||
-          _selectedPosts.remove(key) == null) {
-        return;
-      }
-    }
-    _notify();
-  }
+  void setTopicPostSelectionEnabled(
+    String siteUrl,
+    int topicId,
+    bool enabled,
+  ) => _selectedPostModeration.setTopicPostSelectionEnabled(
+    siteUrl,
+    topicId,
+    enabled,
+  );
 
-  void toggleTopicPostSelected(String siteUrl, int topicId, int postId) {
-    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (selection == null ||
-        topic == null ||
-        !topic.canSelectPosts ||
-        selection.active != null ||
-        !topic.stream.contains(postId) ||
-        store.read<Post>(siteUrl, postId) == null) {
-      return;
-    }
-    if (!selection.ids.remove(postId)) selection.ids.add(postId);
-    _notify();
-  }
+  void toggleTopicPostSelected(String siteUrl, int topicId, int postId) =>
+      _selectedPostModeration.toggleTopicPostSelected(siteUrl, topicId, postId);
 
-  void selectAllLoadedTopicPosts(String siteUrl, int topicId) {
-    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (selection == null ||
-        topic == null ||
-        !topic.canSelectPosts ||
-        selection.active != null) {
-      return;
-    }
-    selection.ids
-      ..clear()
-      ..addAll(
-        topic.stream.where((id) => store.read<Post>(siteUrl, id) != null),
-      );
-    _notify();
-  }
+  void selectAllLoadedTopicPosts(String siteUrl, int topicId) =>
+      _selectedPostModeration.selectAllLoadedTopicPosts(siteUrl, topicId);
 
-  void clearSelectedTopicPosts(String siteUrl, int topicId) {
-    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
-    if (selection == null ||
-        selection.ids.isEmpty ||
-        selection.active != null) {
-      return;
-    }
-    selection.ids.clear();
-    _notify();
-  }
+  void clearSelectedTopicPosts(String siteUrl, int topicId) =>
+      _selectedPostModeration.clearSelectedTopicPosts(siteUrl, topicId);
 
   Future<PostMutationOutcome> deleteSelectedTopicPosts(
     String siteUrl,
     int topicId,
-  ) async {
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (topic == null ||
-        !topic.canSelectPosts ||
-        posts.isEmpty ||
-        posts.any((post) => !post.canDelete)) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.invalidTarget),
-      );
-    }
-    return (await _runSelectedPosts(
-      _DeleteSelectedPosts(siteUrl, topicId, lifecycle.capture(siteUrl)),
-      posts,
-    )).outcome;
-  }
+  ) => _selectedPostModeration.deleteSelectedTopicPosts(siteUrl, topicId);
 
   Future<PostMutationOutcome> mergeSelectedTopicPosts(
     String siteUrl,
     int topicId,
-  ) async {
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (topic == null ||
-        !topic.canSelectPosts ||
-        posts.length < 2 ||
-        posts.any((post) => !post.canDelete) ||
-        posts.map((post) => post.username).toSet().length != 1) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.invalidTarget),
-      );
-    }
-    return (await _runSelectedPosts(
-      _MergeSelectedPosts(siteUrl, topicId, lifecycle.capture(siteUrl)),
-      posts,
-    )).outcome;
-  }
+  ) => _selectedPostModeration.mergeSelectedTopicPosts(siteUrl, topicId);
 
   TopicPostMoveTarget captureTopicPostMoveTarget(String siteUrl, int topicId) =>
       TopicPostMoveTarget._(
@@ -8154,37 +8089,11 @@ class ShellController extends FrameSafeNotifier
     TopicPostMoveTarget target, {
     List<int>? postIds,
     bool newTopic = false,
-  }) {
-    if (!isTopicPostMoveTargetCurrent(target)) {
-      return const PostMutationRetired();
-    }
-    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
-    const forbidden = PostMutationNotSent(
-      PostMutationProblem(PostMutationProblemKind.forbidden),
-    );
-    if (topic == null || !topic.canMovePosts) return forbidden;
-    // A move is sent with the archetype it was offered in, and one sent as a
-    // topic publishes a message's posts in a new public topic.
-    if (topic.privateMessage != target.privateMessage) return forbidden;
-    if (postIds == null) return null;
-    if (postIds.isEmpty ||
-        postIds.any(
-          (id) =>
-              !topic.stream.contains(id) ||
-              store.read<Post>(target.siteUrl, id) == null,
-        )) {
-      return forbidden;
-    }
-    if (newTopic &&
-        (postIds.length == topic.stream.length ||
-            store.read<Post>(target.siteUrl, postIds.first)?.postType !=
-                Post.regularPostType ||
-            (target.privateMessage &&
-                !canMoveTopicPostsToNewMessage(target)))) {
-      return forbidden;
-    }
-    return null;
-  }
+  }) => _postMutationPolicy.moveBlock(
+    target,
+    postIds: postIds,
+    newTopic: newTopic,
+  );
 
   String? _topicPostMoveRefusal(
     TopicPostMoveTarget target, {
@@ -8272,110 +8181,31 @@ class ShellController extends FrameSafeNotifier
     TopicPostMoveTarget target,
     int destinationTopicId, {
     bool chronologicalOrder = false,
-  }) async {
-    final siteUrl = target.siteUrl;
-    final topicId = target.topicId;
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    final ids = [for (final post in posts) post.id];
-    final refusal = _topicPostMoveBlock(target, postIds: ids);
-    if (refusal != null) return PostMoveOutcome(refusal, targetCurrent: false);
-    if (destinationTopicId <= 0 || destinationTopicId == topicId) {
-      return PostMoveOutcome(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.forbidden),
-        ),
-        targetCurrent: true,
-      );
-    }
-    final settlement = await _runSelectedPosts(
-      _MoveSelectedPostsToExisting(
-        target,
-        destinationTopicId,
-        chronologicalOrder: chronologicalOrder,
-      ),
-      posts,
-    );
-    final outcome = settlement.outcome;
-    final current = isTopicPostMoveTargetCurrent(target);
-    return PostMoveOutcome(
-      current ? outcome : _retiredPostMutation(outcome),
-      destinationUrl: settlement.destinationUrl,
-      targetCurrent: current,
-    );
-  }
+  }) => _selectedPostModeration.moveSelectedTopicPostsToExisting(
+    target,
+    destinationTopicId,
+    chronologicalOrder: chronologicalOrder,
+  );
 
   Future<PostMoveOutcome> moveSelectedTopicPostsToNew(
     TopicPostMoveTarget target, {
     required String title,
     int? categoryId,
     List<int> tagIds = const [],
-  }) async {
-    final siteUrl = target.siteUrl;
-    final topicId = target.topicId;
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    final ids = [for (final post in posts) post.id];
-    final refusal = _topicPostMoveBlock(target, postIds: ids, newTopic: true);
-    if (refusal != null) return PostMoveOutcome(refusal, targetCurrent: false);
-    if (title.trim().isEmpty || (target.privateMessage && categoryId != null)) {
-      return PostMoveOutcome(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.forbidden),
-        ),
-        targetCurrent: true,
-      );
-    }
-    final settlement = await _runSelectedPosts(
-      _MoveSelectedPostsToNew(
-        target,
-        title: title,
-        categoryId: categoryId,
-        tagIds: tagIds,
-      ),
-      posts,
-    );
-    final outcome = settlement.outcome;
-    final current = isTopicPostMoveTargetCurrent(target);
-    return PostMoveOutcome(
-      current ? outcome : _retiredPostMutation(outcome),
-      destinationUrl: settlement.destinationUrl,
-      targetCurrent: current,
-    );
-  }
+  }) => _selectedPostModeration.moveSelectedTopicPostsToNew(
+    target,
+    title: title,
+    categoryId: categoryId,
+    tagIds: tagIds,
+  );
 
-  bool canChangeSelectedTopicPostOwner(String siteUrl, int topicId) {
-    if (currentInstance?.url != siteUrl ||
-        currentInstance?.user?.canChangePostOwner != true) {
-      return false;
-    }
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    return posts.isNotEmpty &&
-        posts.map((post) => post.username).toSet().length == 1;
-  }
+  bool canChangeSelectedTopicPostOwner(String siteUrl, int topicId) =>
+      _selectedPostModeration.canChangeSelectedTopicPostOwner(siteUrl, topicId);
 
   Future<PostMutationOutcome> changeSelectedTopicPostOwner(
     TopicPostOwnerTarget target,
     String username,
-  ) async {
-    final posts = selectedTopicPosts(target.siteUrl, target.topicId);
-    final ids = [for (final post in posts) post.id];
-    final trimmed = username.trim();
-    if (target.postId != null) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.forbidden),
-      );
-    }
-    if (_topicPostOwnerRefusal(target, ids, trimmed) case final refusal?) {
-      return refusal;
-    }
-    final settlement = await _runSelectedPosts(
-      _ChangeSelectedPostsOwner(target, trimmed),
-      posts,
-    );
-    final outcome = settlement.outcome;
-    return _ownsTopicPostOwnerTarget(target)
-        ? outcome
-        : _retiredPostMutation(outcome);
-  }
+  ) => _selectedPostModeration.changeSelectedTopicPostOwner(target, username);
 
   bool canChangeTopicPostOwner(Post post) {
     final instance = currentInstance;
@@ -8405,31 +8235,7 @@ class ShellController extends FrameSafeNotifier
     TopicPostOwnerTarget target,
     List<int> postIds,
     String username,
-  ) {
-    if (!_ownsTopicPostOwnerTarget(target)) return const PostMutationRetired();
-    final instance = _instanceAt(target.siteUrl);
-    final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
-    final posts = [
-      for (final id in postIds) ?store.read<Post>(target.siteUrl, id),
-    ];
-    if (instance?.isConnected != true ||
-        instance?.user?.canChangePostOwner != true ||
-        topic == null ||
-        (target.postId == null &&
-            (currentInstance?.url != target.siteUrl ||
-                !topic.canSelectPosts)) ||
-        postIds.isEmpty ||
-        posts.length != postIds.length ||
-        postIds.any((id) => !topic.stream.contains(id)) ||
-        posts.map((post) => post.username).toSet().length != 1 ||
-        username.isEmpty ||
-        posts.first.username == username) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.forbidden),
-      );
-    }
-    return null;
-  }
+  ) => _postMutationPolicy.ownerRefusal(target, postIds, username);
 
   Future<List<FoundUser>> searchTopicPostOwnerUsers(
     TopicPostOwnerTarget target,
@@ -8472,7 +8278,9 @@ class ShellController extends FrameSafeNotifier
         _composerRegistry.owns(editing)) {
       closeComposer(composer: editing);
     }
-    return lease?.isCurrent == false ? _retiredPostMutation(outcome) : outcome;
+    return lease?.isCurrent == false
+        ? _postMutationPolicy.retired(outcome)
+        : outcome;
   }
 
   bool canPermanentlyDeletePost(Post post) {
@@ -8609,7 +8417,7 @@ class ShellController extends FrameSafeNotifier
         return refusal;
       }
       if (credential.failure case final failure?) {
-        return PostMutationNotSent(_postMutationProblem(failure));
+        return PostMutationNotSent(_postMutationPolicy.problem(failure));
       }
       var sent = false;
       try {
@@ -8623,7 +8431,7 @@ class ShellController extends FrameSafeNotifier
           );
         });
       } catch (error, stackTrace) {
-        return await _failedPostMutation(
+        return await _postMutationPolicy.failed(
           data,
           topicId,
           ids,
@@ -9100,7 +8908,6 @@ class ShellController extends FrameSafeNotifier
         _topicData.forSite(targetSite).postWriting(postId);
   }
 
-  final Map<_SelectedPostsKey, _SelectedPostsSelection> _selectedPosts = {};
   final Set<String> _topicFlagWrites = {};
 
   @override
@@ -9277,294 +9084,6 @@ class ShellController extends FrameSafeNotifier
       return lease.isCurrent ? fetched : null;
     } catch (error) {
       rethrow;
-    }
-  }
-
-  PostMutationProblem _postMutationProblem(WriteException error) =>
-      PostMutationProblem(
-        switch (error.failure) {
-          WriteFailure.validation => PostMutationProblemKind.validation,
-          WriteFailure.rateLimited => PostMutationProblemKind.rateLimited,
-          WriteFailure.forbidden => PostMutationProblemKind.forbidden,
-          WriteFailure.conflict => PostMutationProblemKind.conflict,
-          WriteFailure.unreachable => PostMutationProblemKind.unavailable,
-        },
-        serverMessages: List.unmodifiable(error.errors),
-        retryAfter: error.retryAfter,
-      );
-
-  PostMutationOutcome _retiredPostMutation(PostMutationOutcome outcome) =>
-      switch (outcome) {
-        PostMutationAccepted() => const PostMutationAccepted.retired(),
-        PostMutationUncertain(:final recovery) => PostMutationUncertain(
-          PostProjectionFreshness.retired,
-          recovery,
-        ),
-        _ => const PostMutationRetired(),
-      };
-
-  PostMutationAccepted _acceptedPostMutation(
-    PostProjectionFreshness projection,
-    PostMutationRecovery recovery,
-  ) => switch (projection) {
-    PostProjectionFreshness.fresh => const PostMutationAccepted.fresh(),
-    PostProjectionFreshness.stale => PostMutationAccepted.stale(recovery),
-    PostProjectionFreshness.retired => const PostMutationAccepted.retired(),
-  };
-
-  Future<PostMutationOutcome> _failedPostMutation(
-    TopicDataSession data,
-    int topicId,
-    List<int> ids,
-    String? apiKey,
-    Object error,
-    StackTrace stackTrace, {
-    required bool sent,
-    bool wholeTopic = false,
-    bool alreadyHeld = true,
-  }) async {
-    if (!sent) {
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      return PostMutationNotSent(
-        error is WriteException
-            ? _postMutationProblem(error)
-            : const PostMutationProblem(PostMutationProblemKind.unavailable),
-      );
-    }
-    if (error is WriteException &&
-        (error.failure != WriteFailure.unreachable || error.notSent)) {
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      final problem = _postMutationProblem(error);
-      return error.notSent
-          ? PostMutationNotSent(problem)
-          : PostMutationRefused(problem);
-    }
-
-    return data.reconcileUncertainMutation(
-      topicId,
-      ids,
-      apiKey,
-      wholeTopic: wholeTopic,
-      alreadyHeld: alreadyHeld,
-    );
-  }
-
-  PostMutationOutcome? _selectedPostsDispatchBlock(
-    _SelectedPostsCommand command,
-    List<int> ids,
-  ) => switch (command) {
-    _MoveSelectedPostsToExisting(:final target) => _topicPostMoveBlock(
-      target,
-      postIds: ids,
-    ),
-    _MoveSelectedPostsToNew(:final target) => _topicPostMoveBlock(
-      target,
-      postIds: ids,
-      newTopic: true,
-    ),
-    _ChangeSelectedPostsOwner(:final target, :final username) =>
-      _topicPostOwnerRefusal(target, ids, username),
-    _DeleteSelectedPosts() || _MergeSelectedPosts() => null,
-  };
-
-  Future<String?> _sendSelectedPosts(
-    _SelectedPostsAttempt attempt,
-    String apiKey,
-  ) async {
-    final command = attempt.command;
-    final siteUrl = command.siteUrl;
-    final topicId = command.topicId;
-    final ids = attempt.postIds;
-    switch (command) {
-      case _DeleteSelectedPosts():
-        await api.postMutations.deletePosts(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          postIds: ids,
-        );
-        return null;
-      case _MergeSelectedPosts():
-        await api.postMutations.mergePosts(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          postIds: ids,
-        );
-        return null;
-      case _MoveSelectedPostsToExisting(
-        :final target,
-        :final destinationTopicId,
-        :final chronologicalOrder,
-      ):
-        void invalidateDestination() => command.lease.commit(
-          () => attempt.data.refreshWhenOpened(destinationTopicId),
-        );
-        final String destinationUrl;
-        try {
-          destinationUrl = await api.postMutations.movePosts(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            topicId: topicId,
-            postIds: ids,
-            destinationTopicId: destinationTopicId,
-            chronologicalOrder: chronologicalOrder,
-            privateMessage: target.privateMessage,
-          );
-        } on WriteException catch (error) {
-          if (error.failure == WriteFailure.unreachable && !error.notSent) {
-            invalidateDestination();
-          }
-          rethrow;
-        } catch (_) {
-          invalidateDestination();
-          rethrow;
-        }
-        invalidateDestination();
-        return destinationUrl;
-      case _MoveSelectedPostsToNew(
-        :final target,
-        :final title,
-        :final categoryId,
-        :final tagIds,
-      ):
-        return api.postMutations.movePosts(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          topicId: topicId,
-          postIds: ids,
-          title: title,
-          categoryId: categoryId,
-          tagIds: tagIds,
-          privateMessage: target.privateMessage,
-        );
-      case _ChangeSelectedPostsOwner(:final username):
-        await api.postMutations.changePostOwners(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          topicId: topicId,
-          postIds: ids,
-          username: username,
-        );
-        return null;
-    }
-  }
-
-  Future<({PostMutationOutcome outcome, String? destinationUrl})>
-  _runSelectedPosts(_SelectedPostsCommand command, List<Post> posts) async {
-    final siteUrl = command.siteUrl;
-    final topicId = command.topicId;
-    final lease = command.lease;
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null || isDisposed) {
-      return (outcome: const PostMutationRetired(), destinationUrl: null);
-    }
-    final ids = List<int>.unmodifiable(posts.map((post) => post.id));
-    if (_selectedPostsDispatchBlock(command, ids) case final refusal?) {
-      return (outcome: refusal, destinationUrl: null);
-    }
-    final unresolved = data.moderationRecoveryFor(topicId, ids);
-    if (unresolved != null) {
-      return (
-        outcome: PostMutationNotSent.recoveryRequired(unresolved),
-        destinationUrl: null,
-      );
-    }
-    final selection = _selectedPosts[command.key]!;
-    if (selection.active != null || ids.any(data.postWriting)) {
-      return (
-        outcome: const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.busyPost),
-        ),
-        destinationUrl: null,
-      );
-    }
-    final attempt = _SelectedPostsAttempt(
-      command: command,
-      selection: selection,
-      postIds: ids,
-      data: data,
-      releases: [
-        for (final id in ids) data.holdPostWrite(id, notifyOnRelease: false),
-      ],
-    );
-    selection.active = attempt;
-    _notify();
-    PostMutationOutcome outcome = const PostMutationRetired();
-    String? destinationUrl;
-    ({PostMutationOutcome outcome, String? destinationUrl}) settle(
-      PostMutationOutcome settled,
-    ) {
-      outcome = settled;
-      return (outcome: settled, destinationUrl: destinationUrl);
-    }
-
-    try {
-      if (!data.isCurrent || isDisposed) return settle(outcome);
-      if (_selectedPostsDispatchBlock(command, attempt.postIds)
-          case final refusal?) {
-        return settle(refusal);
-      }
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!data.isCurrent || isDisposed) return settle(outcome);
-      if (_selectedPostsDispatchBlock(command, attempt.postIds)
-          case final refusal?) {
-        return settle(refusal);
-      }
-      if (credential.failure case final failure?) {
-        return settle(PostMutationNotSent(_postMutationProblem(failure)));
-      }
-      var sent = false;
-      try {
-        destinationUrl = await credential.request!.run(() {
-          sent = true;
-          return _sendSelectedPosts(attempt, credential.apiKey!);
-        });
-      } catch (error, stackTrace) {
-        return settle(
-          await _failedPostMutation(
-            data,
-            topicId,
-            attempt.postIds,
-            credential.apiKey,
-            error,
-            stackTrace,
-            sent: sent,
-          ),
-        );
-      }
-      outcome = const PostMutationAccepted.retired();
-      if (!data.isCurrent || isDisposed) return settle(outcome);
-      final projection = await data.repairSelectedPosts(
-        topicId,
-        attempt.postIds,
-        credential.apiKey,
-        lease,
-      );
-      return settle(
-        _acceptedPostMutation(
-          projection,
-          data.postMutationRecovery(
-            topicId,
-            attempt.postIds,
-            credential.apiKey,
-          ),
-        ),
-      );
-    } finally {
-      lease.commit(() {
-        if (!identical(_selectedPosts[command.key], attempt.selection) ||
-            !identical(selection.active, attempt)) {
-          return;
-        }
-        selection.active = null;
-        if (outcome is PostMutationAccepted ||
-            outcome is PostMutationUncertain) {
-          _selectedPosts.remove(command.key);
-        }
-        for (final release in attempt.releases) {
-          release();
-        }
-        _notify();
-      });
     }
   }
 
@@ -10319,7 +9838,7 @@ class ShellController extends FrameSafeNotifier
     likerRequests.forget(siteUrl);
     userCardRequests.forget(siteUrl);
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _selectedPosts.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _selectedPostModeration.forget(siteUrl);
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _notificationPreferences.forget(siteUrl);
     _currentUserReconcilers.remove(siteUrl)?.retire();
@@ -11270,7 +10789,7 @@ class ShellController extends FrameSafeNotifier
     }
     _siteNotificationTypeRequests.clear();
     _topicDeletionWrites.clear();
-    _selectedPosts.clear();
+    _selectedPostModeration.dispose();
     _topicFlagWrites.clear();
     _topicReads.dispose();
     _customSidebar.dispose();

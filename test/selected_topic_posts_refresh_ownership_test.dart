@@ -27,6 +27,47 @@ void main() {
 
   for (final action in _BulkAction.values) {
     group(action.name, () {
+      test('installs admission before notifying reentrant callers', () async {
+        final authenticator = _GatedAuthenticator();
+        final (:controller, :api, authenticator: _) = await _fixture(
+          authenticator: authenticator,
+        );
+        final credential = authenticator.nextRead = Completer<String?>();
+        Future<PostMutationOutcome>? reentrant;
+        void onAdmission() {
+          if (reentrant != null ||
+              !controller.topicPostSelectionWriteInFlight(_siteUrl, _topicId)) {
+            return;
+          }
+          _expectLocks(controller, true);
+          controller.toggleTopicPostSelected(_siteUrl, _topicId, 42);
+          controller.clearSelectedTopicPosts(_siteUrl, _topicId);
+          expect(
+            controller.selectedTopicPostIds(_siteUrl, _topicId),
+            _selectedIds.toSet(),
+          );
+          reentrant = _write(controller, action);
+        }
+
+        controller.addListener(onAdmission);
+        final writing = _write(controller, action);
+        controller.removeListener(onAdmission);
+        expect(reentrant, isNotNull);
+        expect(
+          await reentrant,
+          isA<PostMutationNotSent>().having(
+            (outcome) => outcome.problem.kind,
+            'problem',
+            PostMutationProblemKind.busyPost,
+          ),
+        );
+        expect(_writtenIds(api, action), isEmpty);
+        credential.complete(_originalKey);
+        expect(await writing, isA<PostMutationAccepted>());
+        expect(_writtenIds(api, action), [_selectedIds]);
+        _expectLocks(controller, false);
+      });
+
       test('holds the submitted selection through credential IO', () async {
         final authenticator = _GatedAuthenticator();
         final (:controller, :api, authenticator: _) = await _fixture(

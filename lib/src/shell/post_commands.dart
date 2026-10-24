@@ -230,7 +230,7 @@ final class _PostCommandOwner {
       }
       if (_targetBlock(command) case final refusal?) return refusal;
       if (credential.failure case final failure?) {
-        return PostMutationNotSent(shell._postMutationProblem(failure));
+        return PostMutationNotSent(shell._postMutationPolicy.problem(failure));
       }
       var sent = false;
       try {
@@ -239,7 +239,7 @@ final class _PostCommandOwner {
           return _send(attempt, credential.apiKey!);
         });
       } catch (error, stackTrace) {
-        return await shell._failedPostMutation(
+        return await shell._postMutationPolicy.failed(
           attempt.data,
           topicId,
           [attempt.postId],
@@ -265,7 +265,7 @@ final class _PostCommandOwner {
         credential.apiKey,
         lease,
       );
-      return shell._acceptedPostMutation(
+      return shell._postMutationPolicy.accepted(
         projection,
         attempt.data.postMutationRecovery(topicId, [
           attempt.postId,
