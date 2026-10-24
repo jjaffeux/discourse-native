@@ -21,6 +21,7 @@ dependencies:
     sdk: flutter
 
   http: ^1.6.0
+  mime: ^2.1.0
   intl: ^0.20.3
   timezone: ^0.11.2
   # Kalender's pre-1.0 minor releases can change its API. Upgrade deliberately

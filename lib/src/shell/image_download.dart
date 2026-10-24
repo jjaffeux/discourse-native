@@ -72,9 +72,9 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
     final lease = siteUrl == null
         ? null
         : repository?.lifecycle.capture(siteUrl);
-    final filename = imageDownloadFilename(title: title, url: url);
+    final suggestedName = imageDownloadFilename(title: title, url: url);
     final destination = _usesSaveDialog
-        ? await _environment.chooseSavePath(suggestedName: filename)
+        ? await _environment.chooseSavePath(suggestedName: suggestedName)
         : null;
     if (_usesSaveDialog && destination == null) {
       return const MediaDownloadCancelled();
@@ -92,7 +92,12 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       throw const ImageDownloadException();
     }
 
-    final mimeType = imageMimeType(filename, isSvg: image.isSvg);
+    final filename = imageDownloadFilename(
+      title: title,
+      url: url,
+      mediaType: image.mediaType,
+    );
+    final mimeType = image.mediaType?.mimeType ?? 'application/octet-stream';
     if (destination != null) {
       await _environment.saveImage(
         image.bytes,
@@ -181,36 +186,14 @@ final class ImageDownloadException implements Exception {
   String toString() => appL10n.theImageCouldNotBeDownloaded;
 }
 
-String imageDownloadFilename({required String? title, required String url}) =>
-    downloadFilename(
-      title: title,
-      url: url,
-      fallback: 'image',
-      mediaExtensions: _imageMimeTypes.keys,
-    );
-
-String imageMimeType(String filename, {required bool isSvg}) {
-  if (isSvg) return 'image/svg+xml';
-  return _imageMimeTypes[_extension(filename)] ?? 'application/octet-stream';
-}
-
-// Also the only extensions a image's title may keep as its own.
-const _imageMimeTypes = {
-  'avif': 'image/avif',
-  'bmp': 'image/bmp',
-  'gif': 'image/gif',
-  'heic': 'image/heic',
-  'heif': 'image/heif',
-  'jpg': 'image/jpeg',
-  'jpeg': 'image/jpeg',
-  'png': 'image/png',
-  'svg': 'image/svg+xml',
-  'tif': 'image/tiff',
-  'tiff': 'image/tiff',
-  'webp': 'image/webp',
-};
-
-String? _extension(String filename) {
-  final match = RegExp(r'\.([A-Za-z0-9]{1,10})$').firstMatch(filename);
-  return match?.group(1)?.toLowerCase();
-}
+String imageDownloadFilename({
+  required String? title,
+  required String url,
+  SiteImageMediaType? mediaType,
+}) => downloadFilename(
+  title: title,
+  url: url,
+  fallback: 'image',
+  mediaExtensions: SiteImageMediaType.values.expand((type) => type.extensions),
+  preferredExtensions: mediaType?.extensions ?? const [],
+);

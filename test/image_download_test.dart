@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as image;
 
 import 'support/fakes.dart';
 
@@ -25,9 +26,7 @@ void main() {
   test('an extensionless image retains its PNG share type', () async {
     final repository = _repository(
       (_) async => http.Response.bytes(
-        base64Decode(
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
-        ),
+        _pngBytes,
         200,
         headers: {'content-type': 'image/png'},
       ),
@@ -45,7 +44,196 @@ void main() {
     );
     expect(environment.mimeType, 'image/png');
     expect(environment.filename, 'Screenshot.png');
+    expect(environment.bytes, orderedEquals(_pngBytes));
   });
+
+  for (final (
+        description,
+        bytes,
+        contentType,
+        title,
+        expectedName,
+        expectedMime,
+      )
+      in [
+        (
+          'PNG without a header',
+          _pngBytes,
+          null,
+          'Screenshot',
+          'Screenshot.png',
+          'image/png',
+        ),
+        (
+          'PNG with a generic header',
+          _pngBytes,
+          'application/octet-stream',
+          'Screenshot.jpg',
+          'Screenshot.png',
+          'image/png',
+        ),
+        (
+          'PNG with a conflicting header',
+          _pngBytes,
+          'image/jpeg',
+          'Screenshot.jpeg',
+          'Screenshot.png',
+          'image/png',
+        ),
+        (
+          'PNG with a false SVG header',
+          _pngBytes,
+          'image/svg+xml',
+          'Screenshot.svg',
+          'Screenshot.png',
+          'image/png',
+        ),
+        (
+          'PNG with a parameterized header',
+          _pngBytes,
+          'IMAGE/PNG; charset=binary',
+          'Screenshot.PNG',
+          'Screenshot.PNG',
+          'image/png',
+        ),
+        (
+          'a supported header-only format',
+          image.encodeBmp(image.Image(width: 1, height: 1)),
+          'IMAGE/BMP; charset=binary',
+          'Screenshot',
+          'Screenshot.bmp',
+          'image/bmp',
+        ),
+        (
+          'SVG markup without a header',
+          Uint8List.fromList(
+            utf8.encode(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>',
+            ),
+          ),
+          null,
+          'Diagram.jpg',
+          'Diagram.svg',
+          'image/svg+xml',
+        ),
+        (
+          'SVG with a parameterized header',
+          Uint8List.fromList(
+            utf8.encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+          ),
+          'IMAGE/SVG+XML; charset=utf-8',
+          'Diagram',
+          'Diagram.svg',
+          'image/svg+xml',
+        ),
+        (
+          'unknown bytes with an image name',
+          Uint8List.fromList([1, 2, 3]),
+          'text/plain',
+          'Screenshot.png',
+          'Screenshot.png',
+          'application/octet-stream',
+        ),
+        (
+          'a non-image signature with an image header',
+          Uint8List.fromList(utf8.encode('%PDF-1.7')),
+          'image/png',
+          'Screenshot.png',
+          'Screenshot.png',
+          'application/octet-stream',
+        ),
+      ]) {
+    test('shares $description with its response type', () async {
+      final repository = _repository(
+        (_) async => http.Response.bytes(
+          bytes,
+          200,
+          headers: {'content-type': ?contentType},
+        ),
+      );
+      addTearDown(repository.dispose);
+      final environment = _FakeImageDownloadEnvironment(temporary);
+      await NativeLightboxImageDownloader(
+        platform: TargetPlatform.iOS,
+        environment: environment,
+      ).download(
+        url: '/image?id=9&signature=private',
+        title: title,
+        siteUrl: siteUrl,
+        repository: repository,
+      );
+      expect(environment.mimeType, expectedMime);
+      expect(environment.filename, expectedName);
+      expect(environment.bytes, orderedEquals(bytes));
+      expect(temporary.listSync(), isEmpty);
+    });
+  }
+
+  test('cached images keep their response type when shared again', () async {
+    var requests = 0;
+    final repository = _repository((_) async {
+      requests++;
+      return http.Response.bytes(
+        image.encodeBmp(image.Image(width: 1, height: 1)),
+        200,
+        headers: {'content-type': 'image/bmp'},
+      );
+    });
+    addTearDown(repository.dispose);
+    final environment = _FakeImageDownloadEnvironment(temporary);
+    final downloader = NativeLightboxImageDownloader(
+      platform: TargetPlatform.iOS,
+      environment: environment,
+    );
+    for (var index = 0; index < 2; index++) {
+      await downloader.download(
+        url: '/image?id=9',
+        title: 'Screenshot',
+        siteUrl: siteUrl,
+        repository: repository,
+      );
+      expect(environment.mimeType, 'image/bmp');
+      expect(environment.filename, 'Screenshot.bmp');
+    }
+    expect(requests, 1);
+    expect(environment.shareCalls, 2);
+  });
+
+  test(
+    'a desktop selected path remains authoritative over detected type',
+    () async {
+      final repository = _repository(
+        (_) async => http.Response.bytes(_pngBytes, 200),
+      );
+      addTearDown(repository.dispose);
+      final environment = _FakeImageDownloadEnvironment(
+        temporary,
+        savePath: '/chosen/final-copy.jpg',
+      );
+      final result =
+          await NativeLightboxImageDownloader(
+            platform: TargetPlatform.macOS,
+            environment: environment,
+          ).download(
+            url: '/image.jpg?signature=private',
+            title: 'Screenshot.jpg',
+            siteUrl: siteUrl,
+            repository: repository,
+          );
+      expect(environment.suggestedName, 'Screenshot.jpg');
+      expect(environment.savedPath, '/chosen/final-copy.jpg');
+      expect(environment.filename, 'Screenshot.png');
+      expect(environment.mimeType, 'image/png');
+      expect(
+        result,
+        isA<MediaDownloadSaved>().having(
+          (saved) => saved.filename,
+          'filename',
+          'final-copy.jpg',
+        ),
+      );
+    },
+  );
 
   test('a cancelled desktop save does not fetch the image', () async {
     var requests = 0;
@@ -77,7 +265,7 @@ void main() {
     final repository = _repository((request) async {
       sent = request;
       return http.Response.bytes(
-        [1, 2, 3],
+        _pngBytes,
         200,
         headers: {'content-type': 'image/png'},
       );
@@ -112,7 +300,7 @@ void main() {
     expect(environment.savedPath, '/chosen/final-copy.png');
     expect(environment.filename, 'screenshot.png');
     expect(environment.mimeType, 'image/png');
-    expect(environment.bytes, orderedEquals([1, 2, 3]));
+    expect(environment.bytes, orderedEquals(_pngBytes));
     expect(environment.shareCalls, 0);
   });
 
@@ -203,7 +391,9 @@ void main() {
     late SiteImageRepository repository;
 
     setUp(() {
-      repository = _repository((_) async => http.Response.bytes([4, 5], 200));
+      repository = _repository(
+        (_) async => http.Response.bytes(_webpBytes, 200),
+      );
       addTearDown(repository.dispose);
     });
 
@@ -246,7 +436,7 @@ void main() {
         expect(environment.sharedMode, 0x180); // 0600
       }
       expect(environment.mimeType, 'image/webp');
-      expect(environment.bytes, orderedEquals([4, 5]));
+      expect(environment.bytes, orderedEquals(_webpBytes));
       expect(environment.shareOrigin, origin);
       expect(environment.shareCalls, 1);
       expect(temporary.listSync(), isEmpty);
@@ -324,6 +514,37 @@ void main() {
   );
 
   group('imageDownloadFilename', () {
+    for (final (title, urlName, type, expected) in [
+      ('Scan.JPEG', 'image.png', SiteImageMediaType.jpeg, 'Scan.JPEG'),
+      ('Scan.jpg', 'image.jpg', SiteImageMediaType.png, 'Scan.png'),
+      (null, 'image.jpeg', SiteImageMediaType.png, 'image.png'),
+      ('Release v2.0', 'image.jpg', SiteImageMediaType.png, 'Release v2.0.png'),
+      (
+        'Invoice.command',
+        'image.jpg',
+        SiteImageMediaType.png,
+        'Invoice.command.png',
+      ),
+      (
+        'Screenshot 10.45.12',
+        'image.jpg',
+        SiteImageMediaType.png,
+        'Screenshot 10.45.12.png',
+      ),
+      (null, '', SiteImageMediaType.png, 'image.png'),
+    ]) {
+      test('names $title from $urlName as the known ${type.name} type', () {
+        expect(
+          imageDownloadFilename(
+            title: title,
+            url: '$siteUrl/$urlName',
+            mediaType: type,
+          ),
+          expected,
+        );
+      });
+    }
+
     test('prefers and sanitizes the upload title', () {
       expect(
         imageDownloadFilename(
@@ -383,7 +604,6 @@ void main() {
       // The composer's alt for "Screenshot … at 10.45.12.png".
       final screenshot = named('Screenshot 2024-01-02 at 10.45.12');
       expect(screenshot, 'Screenshot 2024-01-02 at 10.45.12.png');
-      expect(imageMimeType(screenshot, isSvg: false), 'image/png');
       expect(named('Release v2.0'), 'Release v2.0.png');
       expect(named('Invoice.command'), 'Invoice.command.png');
       expect(named('Scan.HEIC'), 'Scan.HEIC');
@@ -469,3 +689,8 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
     return shareOutcome;
   }
 }
+
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+);
+final _webpBytes = image.encodeWebP(image.Image(width: 1, height: 1));

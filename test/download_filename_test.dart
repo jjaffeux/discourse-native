@@ -47,6 +47,53 @@ void main() {
     });
   }
 
+  for (final unit in ['a', 'é', '中', '📷']) {
+    for (final existingExtension in ['', '.jpg', '.command']) {
+      test(
+        'bounds a detected extension after $unit titles ending in $existingExtension',
+        () {
+          final filename = downloadFilename(
+            title: '${unit * 300}$existingExtension',
+            url: 'https://example.com/image.jpeg',
+            fallback: 'image',
+            mediaExtensions: _images,
+            preferredExtensions: const ['png'],
+          );
+          expect(utf8.encode(filename).length, lessThanOrEqualTo(240));
+          expect(filename, endsWith('.png'));
+          expect(filename, startsWith(unit));
+          expect(utf8.decode(utf8.encode(filename)), filename);
+        },
+      );
+    }
+  }
+
+  test('a known type keeps its filename aliases', () {
+    expect(
+      downloadFilename(
+        title: 'Scan.JPEG',
+        url: 'https://example.com/image.png',
+        fallback: 'image',
+        mediaExtensions: _images,
+        preferredExtensions: const ['jpg', 'jpeg'],
+      ),
+      'Scan.JPEG',
+    );
+  });
+
+  test('a known type protects Windows device names', () {
+    expect(
+      downloadFilename(
+        title: 'CON.jpg',
+        url: 'https://example.com/image.jpg',
+        fallback: 'image',
+        mediaExtensions: _images,
+        preferredExtensions: const ['png'],
+      ),
+      '_CON.png',
+    );
+  });
+
   test('bounds descriptive titles after inheriting the URL extension', () {
     final filename = downloadFilename(
       title: 'Long description ' * 50,

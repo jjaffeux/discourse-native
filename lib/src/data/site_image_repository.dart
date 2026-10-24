@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
 
 import 'api_credentials.dart';
 import 'avatar_loader.dart';
@@ -10,15 +11,41 @@ import 'media_request_coordinator.dart';
 import 'site_asset_account.dart';
 import 'site_lifecycle.dart';
 
+enum SiteImageMediaType {
+  avif('image/avif', ['avif']),
+  bmp('image/bmp', ['bmp']),
+  gif('image/gif', ['gif']),
+  heic('image/heic', ['heic']),
+  heif('image/heif', ['heif']),
+  jpeg('image/jpeg', ['jpg', 'jpeg']),
+  png('image/png', ['png']),
+  svg('image/svg+xml', ['svg']),
+  tiff('image/tiff', ['tif', 'tiff']),
+  webp('image/webp', ['webp']);
+
+  const SiteImageMediaType(this.mimeType, this.extensions);
+
+  final String mimeType;
+  final List<String> extensions;
+
+  static SiteImageMediaType? _fromMimeType(String? mimeType) {
+    for (final type in values) {
+      if (type.mimeType == mimeType) return type;
+    }
+    return null;
+  }
+}
+
 final class SiteImageBytes {
   const SiteImageBytes(
     this.bytes, {
-    required this.isSvg,
+    required this.mediaType,
     this.isAnimated = false,
   });
 
   final Uint8List bytes;
-  final bool isSvg;
+  final SiteImageMediaType? mediaType;
+  bool get isSvg => mediaType == SiteImageMediaType.svg;
   final bool isAnimated;
 }
 
@@ -317,16 +344,35 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
   @override
   SiteImageBytes? decode(http.Response response) {
     if (response.bodyBytes.isEmpty) return null;
-    final contentType = response.headers['content-type'];
+    final mediaType = _imageMediaType(
+      response.bodyBytes,
+      response.headers['content-type'],
+    );
     return SiteImageBytes(
       response.bodyBytes,
-      isSvg: AvatarLoader.looksLikeSvg(
+      mediaType: mediaType,
+      isAnimated: _looksAnimated(
         response.bodyBytes,
-        contentType: contentType,
+        contentType: mediaType?.mimeType,
       ),
-      isAnimated: _looksAnimated(response.bodyBytes, contentType: contentType),
     );
   }
+}
+
+SiteImageMediaType? _imageMediaType(Uint8List bytes, String? contentType) {
+  // An empty path prevents filenames from becoming evidence of a format.
+  final normalized = contentType?.split(';').first.trim().toLowerCase();
+  final declared = SiteImageMediaType._fromMimeType(normalized);
+  final detected = lookupMimeType('', headerBytes: bytes);
+  // A generic HEIF container can hold AVIF or HEIC compatible brands.
+  if (detected == 'image/heif' &&
+      (declared == SiteImageMediaType.avif ||
+          declared == SiteImageMediaType.heic)) {
+    return declared;
+  }
+  if (detected != null) return SiteImageMediaType._fromMimeType(detected);
+  if (AvatarLoader.looksLikeSvg(bytes)) return SiteImageMediaType.svg;
+  return declared;
 }
 
 bool _looksAnimated(Uint8List bytes, {String? contentType}) {

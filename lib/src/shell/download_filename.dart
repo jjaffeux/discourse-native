@@ -5,6 +5,7 @@ String downloadFilename({
   required String url,
   required String fallback,
   required Iterable<String> mediaExtensions,
+  Iterable<String> preferredExtensions = const [],
 }) {
   final urlName = _urlFilename(url);
   final trimmedTitle = title?.trim();
@@ -31,7 +32,15 @@ String downloadFilename({
   // be saved and shared as something its bytes are not.
   final extension = _extension(filename);
   final urlExtension = _extension(urlName ?? '');
-  if (urlExtension != null &&
+  final preferredExtension = preferredExtensions.firstOrNull;
+  if (preferredExtension != null) {
+    if (!preferredExtensions.contains(extension)) {
+      if (mediaExtensions.contains(extension)) {
+        filename = filename.substring(0, filename.lastIndexOf('.'));
+      }
+      filename = '$filename.$preferredExtension';
+    }
+  } else if (urlExtension != null &&
       extension != urlExtension &&
       !mediaExtensions.contains(extension)) {
     filename = '$filename.$urlExtension';

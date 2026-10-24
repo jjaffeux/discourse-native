@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as image;
 
 import 'support/fakes.dart';
 
@@ -99,21 +100,37 @@ void main() {
                 '',
                 302,
                 headers: {
-                  'location':
-                      'https://objects.example/signed/image.png?token=x',
+                  'location': 'https://objects.example/signed?token=x',
                   'cache-control': 'private, no-store',
+                  'content-type': 'image/jpeg',
                 },
               );
             }
-            return http.Response.bytes([1, 2, 3], 200);
+            return http.Response.bytes(
+              image.encodeBmp(image.Image(width: 1, height: 1)),
+              200,
+              headers: {'content-type': 'image/bmp'},
+            );
           }),
         );
         addTearDown(repository.dispose);
 
-        final image = await repository.load(siteUrl: siteUrl, url: secureUrl);
+        final loaded = await repository.load(siteUrl: siteUrl, url: secureUrl);
 
-        expect(image?.bytes, orderedEquals([1, 2, 3]));
-        expect(image?.isAnimated, isFalse);
+        expect(loaded?.mediaType, SiteImageMediaType.bmp);
+        expect(
+          loaded?.bytes,
+          orderedEquals(image.encodeBmp(image.Image(width: 1, height: 1))),
+        );
+        expect(loaded?.isAnimated, isFalse);
+        expect(
+          repository.cached(siteUrl: siteUrl, url: secureUrl)?.mediaType,
+          SiteImageMediaType.bmp,
+        );
+        expect(
+          (await repository.load(siteUrl: siteUrl, url: secureUrl))?.mediaType,
+          SiteImageMediaType.bmp,
+        );
         expect(requests, hasLength(2));
         expect(requests.first.followRedirects, isFalse);
         expect(requests.first.headers['User-Api-Key'], 'account-key');
@@ -124,6 +141,129 @@ void main() {
         expect(requests.last.url.host, 'objects.example');
         expect(requests.last.headers, isNot(contains('User-Api-Key')));
         expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
+      },
+    );
+  }
+
+  for (final (format, bytes, contentType, expected) in [
+    (
+      'PNG',
+      image.encodePng(image.Image(width: 1, height: 1)),
+      'image/svg+xml',
+      SiteImageMediaType.png,
+    ),
+    (
+      'JPEG',
+      image.encodeJpg(image.Image(width: 1, height: 1)),
+      null,
+      SiteImageMediaType.jpeg,
+    ),
+    (
+      'GIF',
+      image.encodeGif(image.Image(width: 1, height: 1)),
+      null,
+      SiteImageMediaType.gif,
+    ),
+    (
+      'WebP',
+      image.encodeWebP(image.Image(width: 1, height: 1)),
+      null,
+      SiteImageMediaType.webp,
+    ),
+    (
+      'TIFF',
+      image.encodeTiff(image.Image(width: 1, height: 1)),
+      null,
+      SiteImageMediaType.tiff,
+    ),
+    (
+      'BMP',
+      image.encodeBmp(image.Image(width: 1, height: 1)),
+      'IMAGE/BMP; charset=binary',
+      SiteImageMediaType.bmp,
+    ),
+    (
+      'SVG',
+      Uint8List.fromList('<svg xmlns="http://www.w3.org/2000/svg"/>'.codeUnits),
+      null,
+      SiteImageMediaType.svg,
+    ),
+    (
+      'unknown',
+      Uint8List.fromList([1, 2, 3]),
+      'application/octet-stream',
+      null,
+    ),
+  ]) {
+    test(
+      'retains $format response metadata consistently with SVG rendering',
+      () async {
+        var requests = 0;
+        final repository = SiteImageRepository(
+          credentials: FakeApiCredentialReader(),
+          lifecycle: SiteLifecycle(),
+          client: MockClient((_) async {
+            requests++;
+            return http.Response.bytes(
+              bytes,
+              200,
+              headers: {'content-type': ?contentType},
+            );
+          }),
+        );
+        addTearDown(repository.dispose);
+        final loaded = await repository.load(siteUrl: siteUrl, url: secureUrl);
+        expect(loaded?.mediaType, expected);
+        expect(loaded?.isSvg, expected == SiteImageMediaType.svg);
+        final cached = repository.cached(siteUrl: siteUrl, url: secureUrl);
+        expect(cached?.mediaType, expected);
+        expect(cached?.bytes, orderedEquals(bytes));
+        final reloaded = await repository.load(
+          siteUrl: siteUrl,
+          url: secureUrl,
+        );
+        expect(reloaded?.mediaType, expected);
+        expect(reloaded?.isSvg, expected == SiteImageMediaType.svg);
+        expect(requests, 1);
+      },
+    );
+  }
+
+  for (final (brand, contentType, expected) in [
+    ('avif', 'IMAGE/AVIF; charset=binary', SiteImageMediaType.avif),
+    ('heic', 'image/heic', SiteImageMediaType.heic),
+    ('mif1', 'image/png', SiteImageMediaType.heif),
+  ]) {
+    test(
+      'a generic HEIF container retains its declared $brand image type',
+      () async {
+        final bytes = [
+          0,
+          0,
+          0,
+          24,
+          ...'ftypmif1'.codeUnits,
+          0,
+          0,
+          0,
+          0,
+          ...'mif1'.codeUnits,
+          ...brand.codeUnits,
+        ];
+        final repository = SiteImageRepository(
+          credentials: FakeApiCredentialReader(),
+          lifecycle: SiteLifecycle(),
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              bytes,
+              200,
+              headers: {'content-type': contentType},
+            ),
+          ),
+        );
+        addTearDown(repository.dispose);
+        final loaded = await repository.load(siteUrl: siteUrl, url: secureUrl);
+        expect(loaded?.mediaType, expected);
       },
     );
   }
