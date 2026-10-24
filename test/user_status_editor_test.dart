@@ -432,6 +432,9 @@ void main() {
     testWidgets(
       'emoji selection ${reconnect ? 'is ignored after reconnect' : 'is displayed in the picker button and saved'}',
       (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(1200, 1000);
+        addTearDown(tester.view.reset);
         final api = _StatusApi();
         await _open(tester, api: api);
         final shell = ShellScope.read(
