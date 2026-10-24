@@ -1,79 +1,93 @@
-import 'package:discourse_native/l10n/strings.dart';
-
-import '../data/account_request_session.dart';
-import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
-import '../data/site_lifecycle.dart';
-import '../data/store.dart';
-import '../models/discourse_instance.dart';
-import '../models/user_card.dart';
-import 'preview_requests.dart';
+part of 'preview_requests.dart';
 
 final class PreviewLoadingOwner {
   PreviewLoadingOwner({
-    required this.site,
-    required this.topicContent,
-    required this.credentials,
-    required this.lifecycle,
-    required this.store,
+    required this._site,
+    required this._topicContent,
+    required this._credentials,
+    required this._lifecycle,
+    required this._store,
   });
 
-  final ShellSiteApi site;
-  final TopicContentApi topicContent;
-  final SiteApiKeyReader credentials;
-  final SiteLifecycle lifecycle;
-  final Store store;
+  final ShellSiteApi _site;
+  final TopicContentApi _topicContent;
+  final SiteApiKeyReader _credentials;
+  final SiteLifecycle _lifecycle;
+  final Store _store;
   final PreviewRequests<String> userCardRequests = PreviewRequests();
   final PreviewRequests<int> likerRequests = PreviewRequests();
+  final Map<String, _PreviewAccount> _accounts = {};
   bool _disposed = false;
 
+  _PreviewAccount? _account(String siteUrl) {
+    if (_disposed) return null;
+    final lease = _lifecycle.capture(siteUrl);
+    final account = _accounts[siteUrl];
+    if (account != null) {
+      if (identical(account.lease.session, lease.session)) return account;
+      _retire(account);
+    }
+    if (_disposed || !lease.isCurrent) return null;
+    final successor = _accounts[siteUrl];
+    if (successor != null) return successor;
+    final created = _PreviewAccount(siteUrl, lease);
+    _accounts[siteUrl] = created;
+    created.detach = lease.onRetire(() => _retire(created));
+    return created;
+  }
+
+  bool _owns(_PreviewAccount account) =>
+      !_disposed &&
+      account.lease.isCurrent &&
+      identical(_accounts[account.siteUrl], account);
+
+  bool _ownsCard(_PreviewAccount account, String key, Object request) =>
+      _owns(account) && identical(account.cards[key], request);
+
+  bool _ownsLikers(_PreviewAccount account, int postId, Object request) =>
+      _owns(account) && identical(account.likers[postId], request);
+
   Future<void> loadLikers(DiscourseInstance instance, int postId) async {
+    if (_disposed) return;
     final targetSite = instance.url;
-
-    // Captured before the fetch is announced, so a listener that replaces
-    // the account cannot hand this fetch the new one.
-    final lease = lifecycle.capture(targetSite);
-    if (!likerRequests.begin(targetSite, postId)) return;
+    final account = _account(targetSite);
+    if (account == null || account.likers.containsKey(postId)) return;
+    final request = Object();
+    account.likers[postId] = request;
+    if (!likerRequests.begin(targetSite, postId)) {
+      account.likers.remove(postId);
+      return;
+    }
     String? failure;
-
     try {
+      if (!_ownsLikers(account, postId, request)) return;
       final credential = await AccountRequestSession(
         targetSite,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
+        account.lease,
+      ).keyCredentials(_credentials);
+      if (!_ownsLikers(account, postId, request)) return;
       final fetched = await credential.run(
-        () => topicContent.postLikers(
+        () => _topicContent.postLikers(
           siteUrl: targetSite,
           postId: postId,
-          // Keep credential reads inside the guarded try: macOS entitlement
-          // failures must not strand the fetch in [likerRequests].
           apiKey: credential.apiKey,
         ),
       );
-      lease.commit(() => store.put(targetSite, fetched));
+      if (!_ownsLikers(account, postId, request)) return;
+      _store.put(targetSite, fetched);
     } on SiteLookupException catch (e) {
-      if (_disposed ||
-          !lease.isCurrent ||
-          !likerRequests.isPending(targetSite, postId)) {
-        return;
-      }
-
+      if (!_ownsLikers(account, postId, request)) return;
       failure = e.failure == SiteLookupFailure.notDiscourse
           ? appL10n.couldnTSeeWhoLikedThis
-          : appL10n.couldnTReach((instance.host).toString());
-    } catch (error) {
-      if (_disposed ||
-          !lease.isCurrent ||
-          !likerRequests.isPending(targetSite, postId)) {
-        return;
-      }
-
+          : appL10n.couldnTReach(instance.host);
+    } catch (_) {
+      if (!_ownsLikers(account, postId, request)) return;
       failure = appL10n.couldnTLoadWhoLikedThis;
     } finally {
-      lease.commit(
-        () => likerRequests.finish(targetSite, postId, error: failure),
-      );
+      if (_ownsLikers(account, postId, request)) {
+        account.likers.remove(postId);
+        likerRequests.finish(targetSite, postId, error: failure);
+      }
     }
   }
 
@@ -82,71 +96,86 @@ final class PreviewLoadingOwner {
     String username, {
     bool force = false,
   }) async {
-    if (username.isEmpty) return;
+    if (_disposed || username.isEmpty) return;
     final targetSite = instance.url;
-
+    final account = _account(targetSite);
     final key = username.toLowerCase();
-    if (userCardRequests.isPending(targetSite, key)) return;
+    if (account == null || account.cards.containsKey(key)) return;
     if (!force) {
       if (userCardRequests.errorFor(targetSite, key) != null) return;
-      if (store.read<UserCard>(targetSite, key) != null) return;
+      if (_store.read<UserCard>(targetSite, key) != null) return;
     }
-
-    // Captured before the fetch is announced, so a listener that replaces
-    // the account cannot hand this fetch the new one.
-    final lease = lifecycle.capture(targetSite);
-    userCardRequests.begin(targetSite, key);
+    final request = Object();
+    account.cards[key] = request;
+    if (!userCardRequests.begin(targetSite, key)) {
+      account.cards.remove(key);
+      return;
+    }
     String? failure;
-
     try {
+      if (!_ownsCard(account, key, request)) return;
       final credential = await AccountRequestSession(
         targetSite,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
+        account.lease,
+      ).keyCredentials(_credentials);
+      if (!_ownsCard(account, key, request)) return;
       final card = await credential.run(
-        () => site.userCard(
+        () => _site.userCard(
           siteUrl: targetSite,
           username: username,
-          // Read inside the guard, the way `loadLikers` does: storage that
-          // throws would otherwise strand the fetch in [userCardRequests].
           apiKey: credential.apiKey,
         ),
       );
-      lease.commit(() => store.put(targetSite, card));
+      if (!_ownsCard(account, key, request)) return;
+      _store.put(targetSite, card);
     } on SiteLookupException catch (e) {
-      if (_disposed ||
-          !lease.isCurrent ||
-          !userCardRequests.isPending(targetSite, key)) {
-        return;
-      }
-
+      if (!_ownsCard(account, key, request)) return;
       failure = e.failure == SiteLookupFailure.notDiscourse
           ? appL10n.couldnTSeeThatProfile
-          : appL10n.couldnTReach((instance.host).toString());
-    } catch (error) {
-      if (_disposed ||
-          !lease.isCurrent ||
-          !userCardRequests.isPending(targetSite, key)) {
-        return;
-      }
-
-      failure = appL10n.couldnTLoadShellcontroller((username).toString());
+          : appL10n.couldnTReach(instance.host);
+    } catch (_) {
+      if (!_ownsCard(account, key, request)) return;
+      failure = appL10n.couldnTLoadShellcontroller(username);
     } finally {
-      lease.commit(
-        () => userCardRequests.finish(targetSite, key, error: failure),
-      );
+      if (_ownsCard(account, key, request)) {
+        account.cards.remove(key);
+        userCardRequests.finish(targetSite, key, error: failure);
+      }
     }
   }
 
-  void forget(String siteUrl) {
-    likerRequests.forget(siteUrl);
-    userCardRequests.forget(siteUrl);
+  void _retire(_PreviewAccount account) {
+    if (!identical(_accounts[account.siteUrl], account)) return;
+    _accounts.remove(account.siteUrl);
+    account.detach();
+    account.cards.clear();
+    account.likers.clear();
+    final notifyCards = userCardRequests._clearSite(account.siteUrl);
+    final notifyLikers = likerRequests._clearSite(account.siteUrl);
+    notifyCards?.call();
+    notifyLikers?.call();
   }
 
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
+    for (final account in _accounts.values) {
+      account.detach();
+      account.cards.clear();
+      account.likers.clear();
+    }
+    _accounts.clear();
     userCardRequests.dispose();
     likerRequests.dispose();
   }
+}
+
+final class _PreviewAccount {
+  _PreviewAccount(this.siteUrl, this.lease);
+
+  final String siteUrl;
+  final SiteLease lease;
+  final Map<String, Object> cards = {};
+  final Map<int, Object> likers = {};
+  void Function() detach = () {};
 }

@@ -144,7 +144,6 @@ import 'notification_preference_transactions.dart';
 import 'plugin_background_retention.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
-import 'preview_loading.dart';
 import 'preview_requests.dart';
 import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
@@ -8757,7 +8756,6 @@ class ShellController extends FrameSafeNotifier
     store.forget(siteUrl);
     _cookingContextOwner?.rebindStoreReferences(siteUrl);
 
-    _previews.forget(siteUrl);
     _selectedPostModeration.forget(siteUrl);
     _flags.forget(siteUrl);
     _notificationPreferences.forget(siteUrl);
