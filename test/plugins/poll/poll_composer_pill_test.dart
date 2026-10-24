@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
@@ -194,6 +195,43 @@ void main() {
   });
 
   group('collapsed poll projection, layout, and caret', () {
+    testWidgets('keeps examples raw while projecting the active poll', (
+      tester,
+    ) async {
+      const document =
+          '[code]\n[poll]\n* A\n* B\n[/poll]\n[/code]\n'
+          '<!--\n[poll name=poll2]\n* C\n* D\n[/poll]\n-->\n'
+          '$source';
+      final controller = MarkdownEditingController(
+        text: document,
+        syntaxPolicies: const [PollComposerSyntaxPolicy()],
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(body: DTextarea(controller: controller)),
+        ),
+      );
+
+      expect(controller.pollBlocks.map((poll) => poll.name), ['lunch']);
+      expect(controller.pollBlocks.single.start, document.indexOf(source));
+      expect(controller.isPollCollapsed(controller.pollBlocks.single), isTrue);
+      expect(find.byType(PollComposerPill), findsOneWidget);
+      expect(find.text('Poll · Lunch choice · 2 options'), findsOneWidget);
+      expect(nextPollName(document), 'poll');
+      expect(controller.text, document);
+      expect(
+        tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .renderEditable
+            .plainText
+            .length,
+        document.length,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('project huge restored and typed number polls safely', (
       tester,
     ) async {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_parser.dart';
 import 'package:flutter/services.dart';
@@ -94,6 +95,112 @@ void main() {
         expect(parsePollComposerBlocks(source), isEmpty, reason: source);
       }
     });
+
+    test('code and comment examples neither project nor reserve names', () {
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      for (final (before, after) in const [
+        ('[code]', '[/code]'),
+        ('[CoDe]', '[/CODE]'),
+        ('[code=js]', '[/code]'),
+        ('[code language=js]', '[/code]'),
+        ('[code lang="a b"]', '[/code]'),
+        ('[code foo]', '[/code]'),
+        ('[code ]', '[/code]'),
+        ('[code]\n[code]', '[/code]\n[/code]'),
+        ('[code]\n[code]', '[/code]'),
+        ('<!--', '-->'),
+        ('   <!--', '-->'),
+        ('<!--', ''),
+      ]) {
+        final source = '$before\n$poll\n$after';
+        expect(parsePollComposerBlocks(source), isEmpty, reason: source);
+        expect(pollNamesInComposerSource(source), isEmpty, reason: source);
+        expect(nextPollName(source), 'poll', reason: source);
+      }
+    });
+
+    test('preserves active polls after literal code and comment markers', () {
+      const poll = '[poll name=live]\r\n* A\r\n* B\r\n[/poll]';
+      for (final prefix in const [
+        '```\n[code]\n```',
+        '~~~\n<!--\n~~~',
+        '[code]\n```\n[/code]',
+        '[code]\n<!--\n[/code]',
+        '<!--\n[code]\n-->',
+        '<!-->',
+      ]) {
+        final source = '😀\r\n$prefix\r\n$poll\r\n[/code]';
+        final block = parsePollComposerBlocks(source).single;
+        expect(block.start, source.indexOf('[poll name=live]'), reason: source);
+        expect(block.end, block.start + poll.length, reason: source);
+        expect(block.source, poll, reason: source);
+        expect(block.lineEnding, '\r\n', reason: source);
+        expect(pollNamesInComposerSource(source), {'live'}, reason: source);
+      }
+    });
+
+    test('keeps quoted and unmatched or malformed code polls active', () {
+      const poll = '[poll]\n* A\n* B\n[/poll]';
+      for (final (before, after) in const [
+        ('[quote]', '[/quote]'),
+        ('[code]', ''),
+        ('[code] trailing', '[/code]'),
+        ('[code]', '[/code] trailing'),
+        ('before <!--', '-->'),
+        ('    <!--', '-->'),
+      ]) {
+        final source = '$before\n$poll\n$after';
+        expect(parsePollComposerBlocks(source).single.source, poll);
+        expect(nextPollName(source), 'poll2', reason: source);
+      }
+    });
+
+    test(
+      'code and comment recognition agrees with the bundled cooker',
+      () async {
+        final service = OfflineCookingService();
+        addTearDown(service.dispose);
+        const poll = '[poll]\n* A\n* B\n[/poll]';
+        for (final (before, after, active) in const [
+          ('[code]', '[/code]', false),
+          ('[code=js]', '[/code]', false),
+          ('[code language=js]', '[/code]', false),
+          ('<!--', '-->', false),
+          ('<!--', '', false),
+          ('[quote]', '[/quote]', true),
+          ('[code]', '', true),
+          ('before <!--', '-->', true),
+          ('<!-->', '', true),
+          ('```\n[code]\n```', '[/code]', true),
+          ('[code]\n<!--\n[/code]', '', true),
+        ]) {
+          final source = '$before\n$poll\n$after';
+          final result = await service.cook(
+            CookingRequest(
+              raw: source,
+              snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+              configuration: CookingConfiguration(
+                modules: [
+                  CookingModule(id: 'poll', owner: 'poll', version: '1'),
+                ],
+              ),
+            ),
+          );
+          expect(result.failure, isNull, reason: source);
+          expect(result.html.contains('class="poll"'), active, reason: source);
+          expect(
+            parsePollComposerBlocks(source).isNotEmpty,
+            active,
+            reason: source,
+          );
+          expect(
+            pollNamesInComposerSource(source).isNotEmpty,
+            active,
+            reason: source,
+          );
+        }
+      },
+    );
 
     test('an unmatched outer poll does not project an apparent inner poll', () {
       const source =
