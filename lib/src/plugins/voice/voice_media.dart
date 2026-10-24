@@ -379,24 +379,62 @@ final class _MeshRemoteSlots {
     if (video case final track?) yield track;
   }
 
-  void accept(rtc.RTCTrackEvent event) {
+  rtc.MediaStreamTrack? accept(rtc.RTCTrackEvent event) {
     final track = event.track;
+    final rtc.MediaStreamTrack? previous;
     if (track.kind == 'video') {
+      previous = video;
       video = track;
     } else if (event.streams.isEmpty) {
+      previous = screenAudio;
       screenAudio = track;
     } else {
+      previous = microphone;
       microphone = track;
     }
+    return previous;
   }
 
   void remove(rtc.MediaStreamTrack track) {
-    bool matches(rtc.MediaStreamTrack? value) =>
-        identical(value, track) ||
-        (track.id != null && value?.id != null && value?.id == track.id);
-    if (matches(microphone)) microphone = null;
-    if (matches(video)) video = null;
-    if (matches(screenAudio)) screenAudio = null;
+    if (identical(microphone, track)) microphone = null;
+    if (identical(video, track)) video = null;
+    if (identical(screenAudio, track)) screenAudio = null;
+  }
+}
+
+final class _MeshTrackVolume {
+  _MeshTrackVolume(this.track, this._setVolume);
+
+  final rtc.MediaStreamTrack track;
+  final VoiceTrackVolumeSetter _setVolume;
+  double _desired = 1;
+  int _revision = 0;
+  bool _running = false;
+  bool _retired = false;
+
+  void request(double volume) {
+    if (_retired) return;
+    _desired = volume;
+    _revision++;
+    if (_running) return;
+    _running = true;
+    unawaited(_run());
+  }
+
+  void retire() => _retired = true;
+
+  Future<void> _run() async {
+    try {
+      while (!_retired) {
+        final revision = _revision;
+        try {
+          await _setVolume(_desired, track);
+        } catch (_) {}
+        if (revision == _revision) return;
+      }
+    } finally {
+      _running = false;
+    }
   }
 }
 
@@ -440,6 +478,8 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   final Map<int, Future<void>> _peerCreations = {};
   final Map<int, _MeshSendSlots> _sendSlots = {};
   final Map<int, _MeshRemoteSlots> _remoteTracks = {};
+  final Map<rtc.MediaStreamTrack, _MeshTrackVolume> _remoteVolumes =
+      Map<rtc.MediaStreamTrack, _MeshTrackVolume>.identity();
   // Outlives each peer, as under LiveKit: a participant who leaves, or stops
   // being received on a stage, is heard at the volume chosen for them when
   // they return during this session.
@@ -772,17 +812,21 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         _queueCandidate(peerId, candidate);
       };
       peer.onTrack = (event) {
-        if (!identical(_peers[peerId], peer)) return;
+        if (_closing || disposed || !identical(_peers[peerId], peer)) return;
 
         if (!_remoteTrackAllowed(peerId, event)) {
           unawaited(_stopRemoteTrackBestEffort(event.track));
           return;
         }
         final slots = _remoteTracks[peerId] ??= _MeshRemoteSlots();
-        slots.accept(event);
+        final previous = slots.accept(event);
+        if (previous != null && !identical(previous, event.track)) {
+          _remoteVolumes.remove(previous)?.retire();
+        }
         event.track.onEnded = () {
           if (!identical(_peers[peerId], peer)) return;
 
+          _remoteVolumes.remove(event.track)?.retire();
           slots.remove(event.track);
           _applyRemoteAudio(peerId);
           changed();
@@ -1286,25 +1330,18 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   void _applyRemoteAudio(int participantId) {
+    if (_closing || disposed) return;
     final volume = _participantVolumes[participantId] ?? 1;
     for (final track
         in _remoteTracks[participantId]?.audioTracks ??
             const <rtc.MediaStreamTrack>[]) {
       track.enabled = !_deafened;
-      unawaited(
-        _setRemoteTrackVolume(participantId, track, _deafened ? 0 : volume),
+      final state = _remoteVolumes.putIfAbsent(
+        track,
+        () => _MeshTrackVolume(track, _setTrackVolume),
       );
+      state.request(_deafened ? 0 : volume);
     }
-  }
-
-  Future<void> _setRemoteTrackVolume(
-    int participantId,
-    rtc.MediaStreamTrack track,
-    double volume,
-  ) async {
-    try {
-      await _setTrackVolume(volume, track);
-    } catch (_) {}
   }
 
   @override
@@ -1633,6 +1670,9 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     _sendSlots.remove(id);
     final remote = _remoteTracks.remove(id);
     if (remote != null) {
+      for (final track in remote.audioTracks) {
+        _remoteVolumes.remove(track)?.retire();
+      }
       for (final track in remote.tracks) {
         await _stopRemoteTrackBestEffort(track);
       }
@@ -1651,6 +1691,10 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> dispose() async {
     if (_closing || disposed) return;
     _closing = true;
+    for (final state in _remoteVolumes.values) {
+      state.retire();
+    }
+    _remoteVolumes.clear();
     Set<rtc.MediaStream> captureStreams() => Set<rtc.MediaStream>.identity()
       ..addAll(_ownedLocalStreams)
       ..addAll([?_localStream, ?_screenStream]);

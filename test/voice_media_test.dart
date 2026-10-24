@@ -2185,7 +2185,9 @@ void main() {
       final track = _FakeTrack('remote-mic', 'audio');
       peer.onTrack!.call(
         rtc.RTCTrackEvent(
-          streams: [_FakeStream('remote', [track])],
+          streams: [
+            _FakeStream('remote', [track]),
+          ],
           track: track,
         ),
       );
@@ -2199,6 +2201,248 @@ void main() {
       await _pumpEventQueue();
 
       expect(track.volume, 1);
+    });
+
+    group('remote volume ordering', () {
+      late _FakePeerConnection peer;
+      late MeshVoiceMediaSession media;
+
+      Future<void> connect(
+        VoiceTrackVolumeSetter setTrackVolume, {
+        _FakePeerConnection? additionalPeer,
+        VoiceSignalSender? sendSignal,
+      }) async {
+        peer = _FakePeerConnection();
+        final peers = [peer, ?additionalPeer];
+        media = MeshVoiceMediaSession(
+          join: _meshJoin(localUserId: 10, remoteUserId: 20),
+          localUserId: 10,
+          sendSignal: sendSignal ?? ((_, _) async {}),
+          audioPublishingAllowed: false,
+          createPeerConnection: (_) async => peers.removeAt(0),
+          setTrackVolume: setTrackVolume,
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+      }
+
+      void receive(
+        _FakeTrack track, {
+        bool screenAudio = false,
+        _FakePeerConnection? receivingPeer,
+      }) => (receivingPeer ?? peer).onTrack!.call(
+        rtc.RTCTrackEvent(
+          streams: screenAudio
+              ? []
+              : [
+                  _FakeStream('remote', [track]),
+                ],
+          track: track,
+        ),
+      );
+
+      test('slider changes converge on the latest volume', () async {
+        final gate = Completer<void>();
+        final writes = <double>[];
+        await connect((volume, track) async {
+          writes.add(volume);
+          if (volume == .2) await gate.future;
+          (track as _FakeTrack).volume = volume;
+        });
+        final track = _FakeTrack('remote-mic', 'audio');
+        receive(track);
+        await _pumpEventQueue();
+        writes.clear();
+
+        await media.setParticipantVolume(20, .2);
+        await media.setParticipantVolume(20, .4);
+        await media.setParticipantVolume(20, .8);
+        expect(writes, [.2]);
+        expect(track.volume, 1);
+        gate.complete();
+        await _pumpEventQueue();
+
+        expect(writes, [.2, .8]);
+        expect(track.volume, .8);
+      });
+
+      test(
+        'other participants and screen audio do not wait for a track',
+        () async {
+          final gate = Completer<void>();
+          final microphone = _FakeTrack('remote-mic', 'audio');
+          final screenAudio = _FakeTrack('remote-screen', 'audio');
+          final otherMicrophone = _FakeTrack('remote-mic', 'audio');
+          final otherPeer = _FakePeerConnection();
+          await connect((volume, track) async {
+            if (identical(track, microphone) && volume == .2) await gate.future;
+            (track as _FakeTrack).volume = volume;
+          }, additionalPeer: otherPeer);
+          await media.syncParticipants([
+            ...media.join.room.participants,
+            const VoiceParticipant(
+              id: 30,
+              username: 'another',
+              role: VoiceRole.participant,
+            ),
+          ]);
+          receive(microphone);
+          receive(screenAudio, screenAudio: true);
+          receive(otherMicrophone, receivingPeer: otherPeer);
+          await _pumpEventQueue();
+
+          await media.setParticipantVolume(20, .2);
+          await media.setParticipantVolume(30, .7);
+          await _pumpEventQueue();
+          expect(microphone.volume, 1);
+          expect(screenAudio.volume, .2);
+          expect(otherMicrophone.volume, .7);
+
+          gate.complete();
+          await _pumpEventQueue();
+          expect(microphone.volume, .2);
+        },
+      );
+
+      for (final pendingVolume in <double?>[null, .4, .8]) {
+        final newerRequestPending = pendingVolume != null;
+        test(
+          'native failure recovers with ${newerRequestPending ? 'pending volume $pendingVolume' : 'a later request'}',
+          () async {
+            final gate = Completer<void>();
+            final writes = <double>[];
+            var failNext = false;
+            await connect((volume, track) async {
+              writes.add(volume);
+              if (failNext) {
+                failNext = false;
+                await gate.future;
+                throw StateError('native volume failure');
+              }
+              (track as _FakeTrack).volume = volume;
+            });
+            final track = _FakeTrack('remote-mic', 'audio');
+            receive(track);
+            await _pumpEventQueue();
+            writes.clear();
+            failNext = true;
+
+            await media.setParticipantVolume(20, .4);
+            if (pendingVolume != null) {
+              await media.setParticipantVolume(20, pendingVolume);
+            }
+            gate.complete();
+            await _pumpEventQueue();
+            expect(writes, newerRequestPending ? [.4, pendingVolume] : [.4]);
+            expect(track.volume, pendingVolume ?? 1);
+
+            await _pumpEventQueue();
+            expect(writes.length, newerRequestPending ? 2 : 1);
+            await media.setParticipantVolume(20, .4);
+            await _pumpEventQueue();
+            expect(track.volume, .4);
+            expect(writes.length, newerRequestPending ? 3 : 2);
+          },
+        );
+      }
+
+      for (final retirement in [
+        'ended',
+        'replaced',
+        'peer removed',
+        'disposed',
+      ]) {
+        test('a $retirement track receives no queued volume writes', () async {
+          final gate = Completer<void>();
+          final track = _FakeTrack('remote-mic', 'audio');
+          final writes = <double>[];
+          await connect((volume, nativeTrack) async {
+            if (identical(nativeTrack, track)) {
+              writes.add(volume);
+              if (volume == .2) await gate.future;
+            }
+            (nativeTrack as _FakeTrack).volume = volume;
+          });
+          receive(track);
+          await _pumpEventQueue();
+          writes.clear();
+          await media.setParticipantVolume(20, .2);
+          await media.setParticipantVolume(20, .8);
+
+          switch (retirement) {
+            case 'ended':
+              track.onEnded!.call();
+            case 'replaced':
+              final ended = track.onEnded!;
+              final replacement = _FakeTrack(track.id, 'audio');
+              receive(replacement);
+              await _pumpEventQueue();
+              expect(replacement.volume, .8);
+              ended();
+              await media.setParticipantVolume(20, .6);
+              await _pumpEventQueue();
+              expect(replacement.volume, .6);
+            case 'peer removed':
+              await media.syncParticipants([
+                media.join.room.participants.first,
+              ]);
+            case 'disposed':
+              await media.dispose();
+          }
+          gate.complete();
+          await _pumpEventQueue();
+
+          expect(writes, [.2]);
+        });
+      }
+
+      test('disposal retires writes before pending signaling drains', () async {
+        final volumeGate = Completer<void>();
+        final signalGate = Completer<void>();
+        final signalStarted = Completer<void>();
+        final writes = <double>[];
+        var holdSignal = false;
+        await connect(
+          (volume, track) async {
+            writes.add(volume);
+            if (volume == .2) await volumeGate.future;
+            (track as _FakeTrack).volume = volume;
+          },
+          additionalPeer: _FakePeerConnection(),
+          sendSignal: (_, _) async {
+            if (!holdSignal) return;
+            signalStarted.complete();
+            await signalGate.future;
+          },
+        );
+        final track = _FakeTrack('remote-mic', 'audio');
+        receive(track);
+        await _pumpEventQueue();
+        writes.clear();
+        await media.setParticipantVolume(20, .2);
+        await media.setParticipantVolume(20, .8);
+        holdSignal = true;
+        final syncing = media.syncParticipants([
+          ...media.join.room.participants,
+          const VoiceParticipant(
+            id: 30,
+            username: 'another',
+            role: VoiceRole.participant,
+          ),
+        ]);
+        await signalStarted.future;
+
+        final disposing = media.dispose();
+        receive(_FakeTrack('late-track', 'audio'));
+        volumeGate.complete();
+        await _pumpEventQueue();
+        expect(writes, [.2]);
+
+        signalGate.complete();
+        await syncing;
+        await disposing;
+        expect(writes, [.2]);
+      });
     });
 
     test(
