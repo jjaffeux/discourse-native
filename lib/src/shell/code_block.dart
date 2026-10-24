@@ -32,7 +32,7 @@ class CodeBlockData {
 
   String get text => lines.map((line) => line.text).join('\n');
 
-  String get clipboardText => text.replaceAll(_clipboardWhitespace, ' ').trim();
+  String get clipboardText => text.replaceAll(_clipboardWhitespace, ' ');
 
   static CodeBlockData from(dom.Element pre) {
     final code = descendantWhere(pre, (e) => e.localName == 'code');
