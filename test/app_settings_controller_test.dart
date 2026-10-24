@@ -6,6 +6,270 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final saveListener in [false, true]) {
+    test(
+      '${saveListener ? 'save' : 'settings'} listeners can choose a newer value synchronously',
+      () async {
+        final persistence = _ControlledAppSettingsPersistence();
+        final controller = _controller(persistence);
+        await controller.load();
+        Future<void>? newer;
+        void chooseNewer() {
+          if (controller.themeMode != AppThemeMode.dark) return;
+          newer = controller.setThemeMode(AppThemeMode.light);
+        }
+
+        if (saveListener) {
+          controller.saveStates.addListener(chooseNewer);
+        } else {
+          controller.addListener(chooseNewer);
+        }
+        final first = controller.setThemeMode(AppThemeMode.dark);
+        expect(controller.themeMode, AppThemeMode.light);
+        expect(newer, isNotNull);
+        expect(
+          identical(newer, controller.setThemeMode(AppThemeMode.light)),
+          isTrue,
+        );
+        await Future.wait([first, newer!]);
+        expect(persistence.attemptedThemeModeWrites, ['dark', 'light']);
+        expect(controller.themeMode, AppThemeMode.light);
+        expect(
+          controller.saveStates.value[AppSettingsField.themeMode]!.status,
+          AppSettingsSaveStatus.saved,
+        );
+        expect(
+          (await AppSettingsStore(persistence: persistence).read()).themeMode,
+          AppThemeMode.light,
+        );
+      },
+    );
+  }
+
+  test('an unawaited selection records failure on the save notifier', () async {
+    final persistence = _ControlledAppSettingsPersistence()..throwWrites = true;
+    final controller = _controller(persistence);
+    await controller.load();
+    final failed = Completer<void>();
+    controller.saveStates.addListener(() {
+      if (controller.saveStates.value[AppSettingsField.themeMode]!.status ==
+          AppSettingsSaveStatus.failed) {
+        failed.complete();
+      }
+    });
+    unawaited(controller.setThemeMode(AppThemeMode.dark));
+    await failed.future;
+    expect(controller.themeMode, AppThemeMode.dark);
+    expect(
+      controller.saveStates.value[AppSettingsField.themeMode]!.failure!.error,
+      isA<StateError>(),
+    );
+  });
+
+  final choices =
+      <(AppSettingsField, Future<void> Function(AppSettingsController))>[
+        (
+          AppSettingsField.limitContentSize,
+          (c) => c.setLimitContentSize(false),
+        ),
+        (
+          AppSettingsField.disableGifAnimations,
+          (c) => c.setDisableGifAnimations(true),
+        ),
+        (AppSettingsField.reduceMotion, (c) => c.setReduceMotion(false)),
+        (
+          AppSettingsField.rawMarkdownComposers,
+          (c) => c.setRawMarkdownComposers(true),
+        ),
+        (
+          AppSettingsField.textScale,
+          (c) => c.setTextScale(AppTextScale.percent125),
+        ),
+        (AppSettingsField.themeMode, (c) => c.setThemeMode(AppThemeMode.dark)),
+        (
+          AppSettingsField.topicListMode,
+          (c) => c.setTopicListMode(TopicListDisplayMode.compact),
+        ),
+      ];
+
+  for (final (field, choose) in choices) {
+    for (final throws in [false, true]) {
+      test(
+        '$field joins pending writes and retries ${throws ? 'throwing' : 'rejected'} saves',
+        () async {
+          final gate = Completer<void>();
+          final persistence = _ControlledAppSettingsPersistence(
+            firstWriteGate: gate,
+            acceptWrites: false,
+          )..throwWrites = throws;
+          final controller = _controller(persistence);
+          await controller.load();
+          var settingsNotifications = 0;
+          var saveNotifications = 0;
+          controller.addListener(() => settingsNotifications++);
+          controller.saveStates.addListener(() => saveNotifications++);
+          final saving = choose(controller);
+          await persistence.firstWriteStarted.future;
+          final repeated = choose(controller);
+          expect(identical(saving, repeated), isTrue);
+          var completed = false;
+          unawaited(repeated.then((_) => completed = true));
+          await Future<void>.delayed(Duration.zero);
+          expect(completed, isFalse);
+          expect(
+            controller.saveStates.value[field]!.status,
+            AppSettingsSaveStatus.pending,
+          );
+          gate.complete();
+          await saving;
+          final failure = controller.saveStates.value[field]!;
+          expect(failure.status, AppSettingsSaveStatus.failed);
+          expect(failure.failure!.error, isA<StateError>());
+          expect(failure.failure!.stackTrace.toString(), isNotEmpty);
+          final chosen = controller.settings;
+          expect(
+            await AppSettingsStore(persistence: persistence).read(),
+            isNot(chosen),
+          );
+          persistence.acceptWrites = true;
+          persistence.throwWrites = false;
+          await choose(controller);
+          expect(
+            controller.saveStates.value[field]!.status,
+            AppSettingsSaveStatus.saved,
+          );
+          expect(controller.saveStates.value[field]!.failure, isNull);
+          expect(
+            await AppSettingsStore(persistence: persistence).read(),
+            chosen,
+          );
+          await choose(controller);
+          expect(persistence.writeCount, 2);
+          expect(settingsNotifications, 1);
+          expect(saveNotifications, 4);
+        },
+      );
+    }
+  }
+
+  for (final firstFails in [false, true]) {
+    test(
+      'an older ${firstFails ? 'failure' : 'success'} cannot complete a newer choice',
+      () async {
+        final firstGate = Completer<void>();
+        final secondGate = Completer<void>();
+        final persistence =
+            _ControlledAppSettingsPersistence(firstWriteGate: firstGate)
+              ..writeGates[2] = secondGate
+              ..rejectedWriteNumbers.add(firstFails ? 1 : 2);
+        final controller = _controller(persistence);
+        await controller.load();
+        final first = controller.setThemeMode(AppThemeMode.dark);
+        await persistence.firstWriteStarted.future;
+        final second = controller.setThemeMode(AppThemeMode.light);
+        firstGate.complete();
+        await first;
+        expect(controller.themeMode, AppThemeMode.light);
+        expect(
+          controller.saveStates.value[AppSettingsField.themeMode]!.status,
+          AppSettingsSaveStatus.pending,
+        );
+        expect(
+          identical(second, controller.setThemeMode(AppThemeMode.light)),
+          isTrue,
+        );
+        secondGate.complete();
+        await second;
+        expect(
+          controller.saveStates.value[AppSettingsField.themeMode]!.status,
+          firstFails
+              ? AppSettingsSaveStatus.saved
+              : AppSettingsSaveStatus.failed,
+        );
+        expect(controller.themeMode, AppThemeMode.light);
+      },
+    );
+  }
+
+  test('save outcomes remain independent between fields', () async {
+    final persistence = _ControlledAppSettingsPersistence()
+      ..rejectedWriteNumbers.add(1);
+    final controller = _controller(persistence);
+    await controller.load();
+    final first = controller.setThemeMode(AppThemeMode.dark);
+    final second = controller.setDisableGifAnimations(true);
+    await Future.wait([first, second]);
+    expect(
+      controller.saveStates.value[AppSettingsField.themeMode]!.status,
+      AppSettingsSaveStatus.failed,
+    );
+    expect(
+      controller
+          .saveStates
+          .value[AppSettingsField.disableGifAnimations]!
+          .status,
+      AppSettingsSaveStatus.saved,
+    );
+    expect(controller.themeMode, AppThemeMode.dark);
+    expect(controller.disableGifAnimations, isTrue);
+  });
+
+  test(
+    'a hydrated session choice must be confirmed by an explicit save',
+    () async {
+      final persistence = _ControlledAppSettingsPersistence(
+        acceptWrites: false,
+      );
+      final store = AppSettingsStore(persistence: persistence);
+      final first = AppSettingsController(store: store);
+      await first.setThemeMode(AppThemeMode.dark);
+      first.dispose();
+      final replacement = AppSettingsController(store: store);
+      addTearDown(replacement.dispose);
+      await replacement.load();
+      expect(replacement.themeMode, AppThemeMode.dark);
+      expect(
+        replacement.saveStates.value[AppSettingsField.themeMode]!.status,
+        AppSettingsSaveStatus.unconfirmed,
+      );
+      persistence.acceptWrites = true;
+      await replacement.setThemeMode(AppThemeMode.dark);
+      expect(persistence.attemptedThemeModeWrites, ['dark', 'dark']);
+      expect(
+        (await AppSettingsStore(persistence: persistence).read()).themeMode,
+        AppThemeMode.dark,
+      );
+      expect(
+        replacement.saveStates.value[AppSettingsField.themeMode]!.status,
+        AppSettingsSaveStatus.saved,
+      );
+    },
+  );
+
+  test(
+    'disposal suppresses late save notifications and observes failure',
+    () async {
+      final gate = Completer<void>();
+      final persistence = _ControlledAppSettingsPersistence(
+        firstWriteGate: gate,
+      )..throwWrites = true;
+      final controller = _controller(persistence, dispose: false);
+      await controller.load();
+      var notifications = 0;
+      controller.saveStates.addListener(() => notifications++);
+      final saving = controller.setThemeMode(AppThemeMode.dark);
+      await persistence.firstWriteStarted.future;
+      expect(notifications, 1);
+      controller.dispose();
+      gate.complete();
+      await saving;
+      expect(notifications, 1);
+      expect(controller.themeMode, AppThemeMode.dark);
+      await controller.setThemeMode(AppThemeMode.light);
+      expect(persistence.writeCount, 1);
+    },
+  );
+
   for (final reduced in [true, false]) {
     test(
       'motion choice $reduced wins over late hydration and failed saves',
@@ -92,10 +356,11 @@ void main() {
       final compact = controller.setTopicListMode(TopicListDisplayMode.compact);
       await persistence.firstWriteStarted.future;
       final card = controller.setTopicListMode(TopicListDisplayMode.card);
-      await controller.setTopicListMode(TopicListDisplayMode.card);
+      final repeated = controller.setTopicListMode(TopicListDisplayMode.card);
+      expect(identical(card, repeated), isTrue);
       expect(controller.topicListMode, TopicListDisplayMode.card);
       gate.complete();
-      await Future.wait([compact, card]);
+      await Future.wait([compact, card, repeated]);
       expect(persistence.attemptedTopicListModeWrites, ['compact', 'card']);
       expect(
         (await AppSettingsStore(persistence: persistence).read()).topicListMode,
@@ -160,10 +425,11 @@ void main() {
       await persistence.firstWriteStarted.future;
       final light = controller.setThemeMode(AppThemeMode.light);
       final system = controller.setThemeMode(AppThemeMode.system);
-      await controller.setThemeMode(AppThemeMode.system);
+      final repeated = controller.setThemeMode(AppThemeMode.system);
+      expect(identical(system, repeated), isTrue);
       expect(controller.themeMode, AppThemeMode.system);
       persistence.firstWriteGate!.complete();
-      await Future.wait([dark, light, system]);
+      await Future.wait([dark, light, system, repeated]);
       expect(persistence.attemptedThemeModeWrites, ['dark', 'light', 'system']);
       expect(persistence.themeMode, 'system');
     },
@@ -833,7 +1099,11 @@ final class _ControlledAppSettingsPersistence
   String? topicListMode;
   final Completer<void>? readGate;
   final Completer<void>? firstWriteGate;
-  final bool acceptWrites;
+  bool acceptWrites;
+  bool throwWrites = false;
+  int writeCount = 0;
+  final Map<int, Completer<void>> writeGates = {};
+  final Set<int> rejectedWriteNumbers = {};
   final Completer<void> readStarted = Completer<void>();
   final Completer<void> firstWriteStarted = Completer<void>();
   final List<bool> attemptedWrites = [];
@@ -860,7 +1130,7 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<bool> writeReduceMotion(bool value) async {
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     reduceMotion = value;
     return true;
   }
@@ -877,8 +1147,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeLimitContentSize(bool value) async {
     attemptedWrites.add(value);
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     limitContentSize = value;
     return true;
   }
@@ -886,16 +1155,14 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeDisableGifAnimations(bool value) async {
     attemptedGifAnimationWrites.add(value);
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     disableGifAnimations = value;
     return true;
   }
 
   @override
   Future<bool> writeRawMarkdownComposers(bool value) async {
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     rawMarkdownComposers = value;
     return true;
   }
@@ -903,8 +1170,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeTextScale(String value) async {
     attemptedTextScaleWrites.add(value);
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     textScale = value;
     return true;
   }
@@ -912,8 +1178,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeThemeMode(String value) async {
     attemptedThemeModeWrites.add(value);
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     themeMode = value;
     return true;
   }
@@ -924,16 +1189,19 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeTopicListMode(String value) async {
     attemptedTopicListModeWrites.add(value);
-    await _waitForFirstWrite();
-    if (!acceptWrites) return false;
+    if (!await _acceptWrite()) return false;
     topicListMode = value;
     return true;
   }
 
-  Future<void> _waitForFirstWrite() async {
+  Future<bool> _acceptWrite() async {
+    final number = ++writeCount;
     if (!firstWriteStarted.isCompleted) {
       firstWriteStarted.complete();
       await firstWriteGate?.future;
     }
+    await writeGates[number]?.future;
+    if (throwWrites) throw StateError('preferences unavailable');
+    return acceptWrites && !rejectedWriteNumbers.contains(number);
   }
 }

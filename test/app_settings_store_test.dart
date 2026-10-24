@@ -8,6 +8,71 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
+    'write outcomes distinguish acknowledgement from retained session choices',
+    () async {
+      final error = StateError('text scale storage unavailable');
+      final persistence = _ControlledAppSettingsPersistence()
+        ..rejectedFields.add(AppSettingsField.limitContentSize)
+        ..throwingFields[AppSettingsField.textScale] = error;
+      final store = AppSettingsStore(persistence: persistence);
+      final result = await store.update(
+        limitContentSize: false,
+        disableGifAnimations: true,
+        textScale: AppTextScale.percent125,
+      );
+      expect(result.saved, {AppSettingsField.disableGifAnimations});
+      expect(
+        result.failures.keys,
+        unorderedEquals([
+          AppSettingsField.limitContentSize,
+          AppSettingsField.textScale,
+        ]),
+      );
+      expect(
+        result.failures[AppSettingsField.limitContentSize]!.error,
+        isA<StateError>(),
+      );
+      expect(result.failures[AppSettingsField.textScale]!.error, same(error));
+      expect(
+        result.failures[AppSettingsField.textScale]!.stackTrace.toString(),
+        isNotEmpty,
+      );
+      expect(() => result.saved.clear(), throwsUnsupportedError);
+      expect(() => result.failures.clear(), throwsUnsupportedError);
+      expect(
+        await store.read(),
+        const AppSettings(
+          limitContentSize: false,
+          disableGifAnimations: true,
+          textScale: AppTextScale.percent125,
+        ),
+      );
+      expect(
+        await AppSettingsStore(persistence: persistence).read(),
+        const AppSettings(disableGifAnimations: true),
+      );
+    },
+  );
+
+  test('each explicitly written field has a successful outcome', () async {
+    final store = AppSettingsStore(persistence: MemoryAppSettingsPersistence());
+    final result = await store.update(
+      limitContentSize: false,
+      disableGifAnimations: true,
+      reduceMotion: false,
+      rawMarkdownComposers: true,
+      textScale: AppTextScale.percent125,
+      themeMode: AppThemeMode.dark,
+      topicListMode: TopicListDisplayMode.compact,
+    );
+    expect(result.saved, AppSettingsField.values.toSet());
+    expect(result.failures, isEmpty);
+    final empty = await store.update();
+    expect(empty.saved, isEmpty);
+    expect(empty.failures, isEmpty);
+  });
+
+  test(
     'topic list mode defaults to cards and survives a fresh store',
     () async {
       final persistence = MemoryAppSettingsPersistence(
@@ -422,6 +487,15 @@ final class _ControlledAppSettingsPersistence
   final bool failTextScaleRead;
   bool acceptWrites;
   bool throwWrites;
+  final Set<AppSettingsField> rejectedFields = {};
+  final Map<AppSettingsField, Object> throwingFields = {};
+
+  bool _acceptField(AppSettingsField field) {
+    final error = throwingFields[field];
+    if (error != null) throw error;
+    return !rejectedFields.contains(field);
+  }
+
   final Completer<void> firstWriteStarted = Completer<void>();
   final List<bool> attemptedWrites = [];
   final List<bool> attemptedGifAnimationWrites = [];
@@ -479,6 +553,7 @@ final class _ControlledAppSettingsPersistence
       firstWriteStarted.complete();
       await firstWriteGate?.future;
     }
+    if (!_acceptField(AppSettingsField.limitContentSize)) return false;
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     limitContentSize = value;
@@ -488,6 +563,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeDisableGifAnimations(bool value) async {
     attemptedGifAnimationWrites.add(value);
+    if (!_acceptField(AppSettingsField.disableGifAnimations)) return false;
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     disableGifAnimations = value;
@@ -505,6 +581,7 @@ final class _ControlledAppSettingsPersistence
   @override
   Future<bool> writeTextScale(String value) async {
     attemptedTextScaleWrites.add(value);
+    if (!_acceptField(AppSettingsField.textScale)) return false;
     if (throwWrites) throw StateError('preferences unavailable');
     if (!acceptWrites) return false;
     textScale = value;

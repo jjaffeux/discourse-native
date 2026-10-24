@@ -4,6 +4,35 @@ import '../models/app_settings.dart';
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 
+enum AppSettingsField {
+  limitContentSize,
+  disableGifAnimations,
+  reduceMotion,
+  rawMarkdownComposers,
+  textScale,
+  themeMode,
+  topicListMode,
+}
+
+final class AppSettingsWriteFailure {
+  const AppSettingsWriteFailure(this.error, this.stackTrace);
+
+  final Object error;
+  final StackTrace stackTrace;
+}
+
+/// Reports storage acknowledgement separately from the retained session choices.
+final class AppSettingsWriteResult {
+  AppSettingsWriteResult({
+    required Set<AppSettingsField> saved,
+    required Map<AppSettingsField, AppSettingsWriteFailure> failures,
+  }) : saved = Set.unmodifiable(saved),
+       failures = Map.unmodifiable(failures);
+
+  final Set<AppSettingsField> saved;
+  final Map<AppSettingsField, AppSettingsWriteFailure> failures;
+}
+
 abstract interface class AppSettingsPersistence {
   Future<bool?> readLimitContentSize();
 
@@ -344,7 +373,7 @@ final class AppSettingsStore {
     );
   }
 
-  Future<void> write(AppSettings settings) => update(
+  Future<AppSettingsWriteResult> write(AppSettings settings) => update(
     limitContentSize: settings.limitContentSize,
     disableGifAnimations: settings.disableGifAnimations,
     reduceMotion: settings.reduceMotion,
@@ -356,7 +385,7 @@ final class AppSettingsStore {
 
   /// Saves explicit choices without replacing preferences still being read.
   /// Session choices also override late reads when persistence fails.
-  Future<void> update({
+  Future<AppSettingsWriteResult> update({
     bool? limitContentSize,
     bool? disableGifAnimations,
     bool? reduceMotion,
@@ -374,7 +403,7 @@ final class AppSettingsStore {
     _sessionTextScale = textScale ?? _sessionTextScale;
     _sessionThemeMode = themeMode ?? _sessionThemeMode;
     _sessionTopicListMode = topicListMode ?? _sessionTopicListMode;
-    return _operations.write<void>(
+    return _operations.write<AppSettingsWriteResult>(
       owner: _persistence,
       key: _operationKey,
       operation: () => _persist(
@@ -389,7 +418,7 @@ final class AppSettingsStore {
     );
   }
 
-  Future<void> _persist({
+  Future<AppSettingsWriteResult> _persist({
     bool? limitContentSize,
     bool? disableGifAnimations,
     bool? reduceMotion,
@@ -398,50 +427,66 @@ final class AppSettingsStore {
     AppThemeMode? themeMode,
     TopicListDisplayMode? topicListMode,
   }) async {
-    try {
-      if (limitContentSize != null &&
-          !await _persistence.writeLimitContentSize(limitContentSize)) {
-        throw StateError('Could not persist the content size limit.');
+    final saved = <AppSettingsField>{};
+    final failures = <AppSettingsField, AppSettingsWriteFailure>{};
+
+    Future<void> persist(
+      AppSettingsField field,
+      Future<bool> Function() write,
+    ) async {
+      try {
+        if (!await write()) {
+          throw StateError('Could not persist ${field.name}.');
+        }
+        saved.add(field);
+      } catch (error, stackTrace) {
+        failures[field] = AppSettingsWriteFailure(error, stackTrace);
       }
-    } catch (_) {}
-    try {
-      if (disableGifAnimations != null &&
-          !await _persistence.writeDisableGifAnimations(disableGifAnimations)) {
-        throw StateError('Could not persist the GIF animation preference.');
-      }
-    } catch (_) {}
-    try {
-      if (reduceMotion != null &&
-          !await _persistence.writeReduceMotion(reduceMotion)) {
-        throw StateError('Could not persist the reduced motion preference.');
-      }
-    } catch (_) {}
-    try {
-      if (rawMarkdownComposers != null &&
-          !await _persistence.writeRawMarkdownComposers(rawMarkdownComposers)) {
-        throw StateError(
-          'Could not persist the raw Markdown composer preference.',
-        );
-      }
-    } catch (_) {}
-    try {
-      if (textScale != null &&
-          !await _persistence.writeTextScale(textScale.name)) {
-        throw StateError('Could not persist the app text scale.');
-      }
-    } catch (_) {}
-    try {
-      if (themeMode != null &&
-          !await _persistence.writeThemeMode(themeMode.name)) {
-        throw StateError('Could not persist the app theme mode.');
-      }
-    } catch (_) {}
-    try {
-      if (topicListMode != null &&
-          !await _persistence.writeTopicListMode(topicListMode.name)) {
-        throw StateError('Could not persist the topic list mode.');
-      }
-    } catch (_) {}
+    }
+
+    if (limitContentSize != null) {
+      await persist(
+        AppSettingsField.limitContentSize,
+        () => _persistence.writeLimitContentSize(limitContentSize),
+      );
+    }
+    if (disableGifAnimations != null) {
+      await persist(
+        AppSettingsField.disableGifAnimations,
+        () => _persistence.writeDisableGifAnimations(disableGifAnimations),
+      );
+    }
+    if (reduceMotion != null) {
+      await persist(
+        AppSettingsField.reduceMotion,
+        () => _persistence.writeReduceMotion(reduceMotion),
+      );
+    }
+    if (rawMarkdownComposers != null) {
+      await persist(
+        AppSettingsField.rawMarkdownComposers,
+        () => _persistence.writeRawMarkdownComposers(rawMarkdownComposers),
+      );
+    }
+    if (textScale != null) {
+      await persist(
+        AppSettingsField.textScale,
+        () => _persistence.writeTextScale(textScale.name),
+      );
+    }
+    if (themeMode != null) {
+      await persist(
+        AppSettingsField.themeMode,
+        () => _persistence.writeThemeMode(themeMode.name),
+      );
+    }
+    if (topicListMode != null) {
+      await persist(
+        AppSettingsField.topicListMode,
+        () => _persistence.writeTopicListMode(topicListMode.name),
+      );
+    }
+    return AppSettingsWriteResult(saved: saved, failures: failures);
   }
 }
 
