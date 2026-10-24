@@ -22,6 +22,7 @@ const _owners = {
   'lib/src/shell/cooking_context_owner.dart',
   'lib/src/shell/topic_tracking_directory.dart',
   'lib/src/shell/topic_reader_projections.dart',
+  'lib/src/shell/topic_reader_interaction.dart',
   'lib/src/shell/preview_loading.dart',
   'lib/src/shell/profile_write_transactions.dart',
 };
