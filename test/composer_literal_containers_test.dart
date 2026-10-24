@@ -371,6 +371,81 @@ void main() {
     },
   );
 
+  for (final (name, outer, closer, outerImages, outerLinks) in [
+    (
+      'image destination comment',
+      '![caption](https://example.test/a<!--.png)',
+      '-->',
+      1,
+      0,
+    ),
+    (
+      'link destination comment',
+      '[caption](https://example.test/a<!--)',
+      '-->',
+      0,
+      1,
+    ),
+    (
+      'image destination BBCode',
+      '![caption](https://example.test/a[code].png)',
+      '[/code]',
+      1,
+      0,
+    ),
+    (
+      'link destination BBCode',
+      '[caption](https://example.test/a[code])',
+      '[/code]',
+      0,
+      1,
+    ),
+    (
+      'image label BBCode',
+      '![caption [code]](https://example.test/a.png)',
+      '[/code]',
+      0,
+      0,
+    ),
+    (
+      'link label BBCode',
+      '[caption [code]](https://example.test/a)',
+      '[/code]',
+      0,
+      1,
+    ),
+  ]) {
+    test('token boundary preserves later active image: $name', () {
+      const active = '![active](https://example.test/b.png)';
+      final source = '$outer\n$active\n$closer';
+      final images = parseComposerImages(source);
+      expect(images.map((block) => block.start), [
+        if (outerImages > 0) 0,
+        source.indexOf(active),
+      ]);
+      expect(images.last.source, active);
+      expect(
+        parseComposerLinks(source, enableLinkify: false),
+        hasLength(outerLinks),
+      );
+    });
+  }
+
+  for (final outer in [
+    '![caption <!--](https://example.test/a.png)',
+    '[caption <!--](https://example.test/a)',
+  ]) {
+    test('cross-label HTML comment retains later image ownership: $outer', () {
+      const active = '![active](https://example.test/b.png)';
+      final source = '$outer\n$active\n-->';
+      expect(
+        parseComposerImages(source).map((block) => block.start),
+        isNot(contains(source.indexOf(active))),
+      );
+      expect(parseComposerLinks(source, enableLinkify: false), isEmpty);
+    });
+  }
+
   test(
     'actual cooker hides comments and renders BBCode code literally',
     () async {
