@@ -554,6 +554,36 @@ void main() {
     },
   );
 
+  for (final difference in [-1, 1]) {
+    test(
+      'valid image with declared length offset $difference falls back',
+      () async {
+        final bytes = img.encodePng(_image(), level: 0);
+        final source = ComposerUploadFile(
+          name: 'photo.png',
+          length: () async => bytes.length + difference,
+          openRead: () => Stream.value(bytes),
+        );
+        expect((await prepare(source)).file, same(source));
+        expect(await temporary.list().length, 0);
+      },
+    );
+  }
+
+  test('stalled length metadata falls back without reading', () async {
+    optimizer = ComposerImageOptimizer(
+      temporaryDirectory: () async => temporary,
+      workerTimeout: const Duration(milliseconds: 10),
+    );
+    final source = ComposerUploadFile(
+      name: 'photo.png',
+      length: () => Completer<int>().future,
+      openRead: () => throw StateError('Must not read'),
+    );
+    expect((await prepare(source)).file, same(source));
+    expect(await temporary.list().length, 0);
+  });
+
   test('source errors fall back and clean temporary storage', () async {
     final source = ComposerUploadFile(
       name: 'photo.jpg',
