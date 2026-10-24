@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:ui' show AppExitResponse, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -11,16 +10,15 @@ import 'package:flutter/gestures.dart'
 import 'package:flutter/material.dart';
 import 'package:relative_time/relative_time.dart';
 
+import 'app_runtime.dart';
 import 'data/app_settings_store.dart';
 import 'data/authenticator.dart';
-import 'data/destination_bookmarks_store.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
 import 'data/instance_store.dart';
 import 'data/notification_opens.dart';
-import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
@@ -42,8 +40,6 @@ import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
-
-part 'app_notification_ingress.dart';
 
 class DiscourseApp extends StatefulWidget {
   const DiscourseApp({
@@ -86,7 +82,7 @@ class DiscourseApp extends StatefulWidget {
 
   /// How long a quit waits for local state to be written before it goes
   /// ahead regardless; storage that cannot answer must not hold the app open.
-  static const Duration exitFlushTimeout = Duration(milliseconds: 1500);
+  static const Duration exitFlushTimeout = AppRuntime.exitFlushTimeout;
 
   @override
   State<DiscourseApp> createState() => _DiscourseAppState();
@@ -94,25 +90,11 @@ class DiscourseApp extends StatefulWidget {
 
 class _DiscourseAppState extends State<DiscourseApp>
     with WidgetsBindingObserver {
-  late InstanceStore _store;
-  late ShellApiCapabilities _api;
-  late Authenticator _authenticator;
-  late AppSettingsStore _appSettingsStore;
-  late ForumSettingsStore _forumSettingsStore;
-  late DraftStore _drafts;
-  late ForumTabStore _forumTabs;
-  late RecentDestinationsStore _recentDestinations;
-  late DestinationBookmarksStore _destinationBookmarks;
-  late SiteTrackerFactory _trackers;
-  late Updater _updater;
-  late UpdateStore _updateStore;
-
-  late ShellController _controller;
-  late InstalledPlugins _plugins;
-  late bool _ownsPlugins;
-  late bool _foreground;
+  late final AppRuntime _runtime;
   late final PlatformNotificationOpens _platformNotificationOpens;
-  final _notificationIngress = _NotificationIngress();
+
+  ShellController get _controller => _runtime.controller;
+
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   // Theme construction includes Material's seed-color calculation. Keep recent
@@ -172,55 +154,39 @@ class _DiscourseAppState extends State<DiscourseApp>
     return materialTheme;
   }
 
-  ShellController _createController() => ShellController(
-    instanceStore: _store,
-    api: _api,
-    authenticator: _authenticator,
-    appSettingsStore: _appSettingsStore,
-    forumSettingsStore: _forumSettingsStore,
-    drafts: _drafts,
-    forumTabs: _forumTabs,
-    recentDestinations: _recentDestinations,
-    destinationBookmarks: _destinationBookmarks,
+  AppRuntimeDependencies get _dependencies => AppRuntimeDependencies(
+    store: widget.store,
+    api: widget.api,
+    authenticator: widget.authenticator,
+    appSettingsStore: widget.appSettingsStore,
+    forumSettingsStore: widget.forumSettingsStore,
+    drafts: widget.drafts,
+    forumTabs: widget.forumTabs,
+    trackers: widget.trackers,
+    updater: widget.updater,
+    updateStore: widget.updateStore,
+    plugins: widget.plugins,
+    pluginManifest: widget.pluginManifest,
+    initialRootMode: widget.initialRootMode,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     mobileNavigationEnabled: usesMobileNavigation(defaultTargetPlatform),
-    trackers: _trackers,
-    // Linux is updated by apt and cannot replace its own /usr installation.
-    updater: _updater,
-    updateStore: _updateStore,
-    plugins: _plugins,
-
-    ownsApi: false,
-    initialRootMode: usesMobileNavigation(defaultTargetPlatform)
-        ? ShellRootMode.forum
-        : widget.initialRootMode,
   );
 
   @override
   void initState() {
     super.initState();
-    _plugins = widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
-    _ownsPlugins = widget.plugins == null;
-    _store = widget.store ?? InstanceStore(models: _plugins.models);
-    _api = widget.api ?? DiscourseApi(models: _plugins.models);
-    _authenticator = widget.authenticator ?? Authenticator();
-    _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
-    _forumSettingsStore = widget.forumSettingsStore ?? ForumSettingsStore();
-    _drafts = widget.drafts ?? DraftStore();
-    _forumTabs = widget.forumTabs ?? ForumTabStore();
-    _recentDestinations = RecentDestinationsStore();
-    _destinationBookmarks = DestinationBookmarksStore();
-    _trackers = widget.trackers ?? SiteTracker.new;
-    _updater = widget.updater ?? const UnsupportedUpdater();
-    _updateStore = widget.updateStore ?? UpdateStore();
-    _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
-    _controller = _createController()..setForeground(_foreground);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _runtime = AppRuntime(
+      dependencies: _dependencies,
+      foreground: isForegroundLifecycle(state),
+      lifecycleState: state?.name ?? 'unknown',
+    );
     _platformNotificationOpens = PlatformNotificationOpens();
-    _notificationIngress.listen(
+    _runtime.listenNotificationOpens(
       widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
     );
     WidgetsBinding.instance.addObserver(this);
-    _startAfterFirstFrame(_controller, _plugins);
+    _startAfterFirstFrame(_controller);
   }
 
   @override
@@ -230,217 +196,47 @@ class _DiscourseAppState extends State<DiscourseApp>
       widget.notificationOpenUrls,
       oldWidget.notificationOpenUrls,
     )) {
-      _notificationIngress.listen(
+      _runtime.listenNotificationOpens(
         widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
       );
     }
-
-    if (!_dependenciesChanged(oldWidget)) return;
-
-    _notificationIngress.unavailable();
-    final previousController = _controller;
-    final previousPlugins = _plugins;
-    final previousOwnsPlugins = _ownsPlugins;
-    previousController.dispose();
-    final pluginsChanged = _pluginsChanged(oldWidget);
-    final previousTeardown = pluginsChanged && previousOwnsPlugins
-        ? _closePlugins(
-            previousPlugins,
-            after: previousController.pluginTeardown,
-          )
-        : _settled(previousController.pluginTeardown);
-    _updateDependencies(oldWidget, previousTeardown);
-    _controller = _createController()..setForeground(_foreground);
-    _startAfterFirstFrame(_controller, _plugins);
+    if (_runtime.replace(_dependencies)) _startAfterFirstFrame(_controller);
   }
 
-  void _startAfterFirstFrame(
-    ShellController controller,
-    InstalledPlugins plugins,
-  ) {
+  void _startAfterFirstFrame(ShellController controller) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_controller, controller)) return;
-      unawaited(_start(controller, plugins));
+      unawaited(_runtime.start(controller));
     });
-  }
-
-  bool _dependenciesChanged(DiscourseApp oldWidget) =>
-      !identical(widget.store, oldWidget.store) ||
-      !identical(widget.api, oldWidget.api) ||
-      !identical(widget.authenticator, oldWidget.authenticator) ||
-      !identical(widget.appSettingsStore, oldWidget.appSettingsStore) ||
-      !identical(widget.forumSettingsStore, oldWidget.forumSettingsStore) ||
-      !identical(widget.drafts, oldWidget.drafts) ||
-      !identical(widget.forumTabs, oldWidget.forumTabs) ||
-      !identical(widget.trackers, oldWidget.trackers) ||
-      !identical(widget.updater, oldWidget.updater) ||
-      !identical(widget.updateStore, oldWidget.updateStore) ||
-      !identical(widget.plugins, oldWidget.plugins) ||
-      (widget.plugins == null &&
-          widget.pluginManifest != oldWidget.pluginManifest);
-
-  bool _pluginsChanged(DiscourseApp oldWidget) =>
-      !identical(widget.plugins, oldWidget.plugins) ||
-      (widget.plugins == null &&
-          widget.pluginManifest != oldWidget.pluginManifest);
-
-  void _updateDependencies(
-    DiscourseApp oldWidget,
-    Future<void> previousTeardown,
-  ) {
-    final pluginsChanged = _pluginsChanged(oldWidget);
-    if (pluginsChanged) {
-      _plugins =
-          widget.plugins ?? PluginInstaller.install(widget.pluginManifest);
-      _ownsPlugins = widget.plugins == null;
-    }
-    if (!identical(widget.store, oldWidget.store) ||
-        (pluginsChanged && widget.store == null)) {
-      _store = widget.store ?? InstanceStore(models: _plugins.models);
-    }
-    if (!identical(widget.api, oldWidget.api) ||
-        (pluginsChanged && widget.api == null)) {
-      _closeApiAfter(_api, previousTeardown);
-      _api = widget.api ?? DiscourseApi(models: _plugins.models);
-    }
-    if (!identical(widget.authenticator, oldWidget.authenticator)) {
-      _authenticator = widget.authenticator ?? Authenticator();
-    }
-    if (!identical(widget.appSettingsStore, oldWidget.appSettingsStore)) {
-      _appSettingsStore = widget.appSettingsStore ?? AppSettingsStore();
-    }
-    if (!identical(widget.forumSettingsStore, oldWidget.forumSettingsStore)) {
-      _forumSettingsStore = widget.forumSettingsStore ?? ForumSettingsStore();
-    }
-    if (!identical(widget.drafts, oldWidget.drafts)) {
-      _drafts = widget.drafts ?? DraftStore();
-    }
-    if (!identical(widget.forumTabs, oldWidget.forumTabs)) {
-      _forumTabs = widget.forumTabs ?? ForumTabStore();
-    }
-    if (!identical(widget.trackers, oldWidget.trackers)) {
-      _trackers = widget.trackers ?? SiteTracker.new;
-    }
-    if (!identical(widget.updater, oldWidget.updater)) {
-      _updater = widget.updater ?? const UnsupportedUpdater();
-    }
-    if (!identical(widget.updateStore, oldWidget.updateStore)) {
-      _updateStore = widget.updateStore ?? UpdateStore();
-    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _notificationIngress.dispose();
-    final controller = _controller;
-    controller.dispose();
-    final teardown = _ownsPlugins
-        ? _closePlugins(_plugins, after: controller.pluginTeardown)
-        : _settled(controller.pluginTeardown);
-    _closeApiAfter(_api, teardown);
-
+    _runtime.dispose();
     super.dispose();
-  }
-
-  Future<void> _start(
-    ShellController controller,
-    InstalledPlugins plugins,
-  ) async {
-    // A plugin that cannot boot is left behind. The sites must
-    // still load: the only retry the shell offers is on a failed load, so a
-    // load that never starts would leave every launch on the spinner.
-    var pluginsStarted = false;
-    try {
-      await plugins.startPhase(
-        PluginStartupPhase.bootstrap,
-        bindings: const PluginHostBindings.empty(),
-      );
-      if (!mounted || !identical(_controller, controller)) return;
-      await _observePluginAppState(
-        plugins,
-        WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
-      );
-      pluginsStarted = true;
-    } catch (_) {}
-    if (!mounted || !identical(_controller, controller)) return;
-    try {
-      await controller.load();
-      if (!mounted || !identical(_controller, controller)) return;
-      _notificationIngress.ready(controller.openNotificationUrl);
-      if (pluginsStarted) {
-        await plugins.startPhase(
-          PluginStartupPhase.appReady,
-          bindings: const PluginHostBindings.empty(),
-        );
-      }
-    } catch (_) {}
-  }
-
-  /// Completes after the session and [plugins] close, absorbing close failures.
-  Future<void> _closePlugins(InstalledPlugins plugins, {Future<void>? after}) {
-    final closing = _closePluginsAfterSession(
-      plugins,
-      after,
-    ).onError((Object error, StackTrace stackTrace) {});
-    unawaited(closing);
-    return closing;
-  }
-
-  /// Plugins leave the session over the API transport — Voice tells the site
-  /// it left the room — so the transport stays open until they have, whether
-  /// the app is going away or swapping the API underneath a new controller.
-  void _closeApiAfter(ShellApiCapabilities api, Future<void> teardown) {
-    unawaited(teardown.whenComplete(api.close));
-  }
-
-  static Future<void> _settled(Future<void> future) =>
-      future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-
-  Future<void> _closePluginsAfterSession(
-    InstalledPlugins plugins,
-    Future<void>? sessionTeardown,
-  ) async {
-    if (sessionTeardown != null) {
-      try {
-        await sessionTeardown;
-      } on Object catch (_) {
-        // ShellController already observes session teardown failures. App
-        // lifecycle cleanup must still close the installed runtime.
-      }
-    }
-    await plugins.close();
   }
 
   /// `inactive` is transient (for example, a system dialog), so only hidden,
   /// paused, and detached states pace down the live connection.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = isForegroundLifecycle(state);
-    unawaited(_observePluginAppState(_plugins, state.name));
-    _controller.setForeground(_foreground);
+    _runtime.observeAppState(
+      state.name,
+      foreground: isForegroundLifecycle(state),
+    );
     if (state == AppLifecycleState.resumed) {
       unawaited(
         TimezoneEnvironment.instance.refreshDeviceTimezone(forceNotify: true),
       );
     }
-    if (!_foreground) {
-      unawaited(_flushPlugins(_plugins));
-    }
   }
 
-  /// Quitting on desktop — the Quit command, closing the last window, or
-  /// closing the last tab — ends the process with no lifecycle change, so
-  /// the flushes backgrounding runs never happen for it. This is the one
-  /// point where they can: the platform waits for this answer before it
-  /// shuts the engine down.
+  /// Quitting on desktop can end the process without a lifecycle change.
+  /// The platform waits for this answer before it shuts the engine down.
   @override
   Future<AppExitResponse> didRequestAppExit() async {
-    await Future.wait([
-      _controller.flushForExit(),
-
-      _flushPlugins(_plugins),
-    ]).timeout(DiscourseApp.exitFlushTimeout, onTimeout: () => const []);
+    await _runtime.flushForExit();
     return AppExitResponse.exit;
   }
 
@@ -519,21 +315,6 @@ class _DiscourseAppState extends State<DiscourseApp>
       ),
     );
     return app;
-  }
-
-  Future<void> _observePluginAppState(
-    InstalledPlugins plugins,
-    String state,
-  ) async {
-    try {
-      await plugins.observeAppState(state, foreground: _foreground);
-    } catch (_) {}
-  }
-
-  Future<void> _flushPlugins(InstalledPlugins plugins) async {
-    try {
-      await plugins.flush();
-    } catch (_) {}
   }
 
   Widget _materialApp({

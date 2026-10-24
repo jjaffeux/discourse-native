@@ -1,4 +1,4 @@
-part of 'app.dart';
+part of 'app_runtime.dart';
 
 final class _NotificationIngress {
   static const _maximumPendingUrls = 16;
