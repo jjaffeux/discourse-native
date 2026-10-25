@@ -53,7 +53,7 @@ void main() {
             decoration(i).borderRadius,
             BorderRadius.circular(DRadius.pill),
           );
-          expect(decoration(i).boxShadow, isNull);
+          expect(decoration(i).boxShadow ?? const <BoxShadow>[], isEmpty);
           expect(tester.getSize(tabs.at(i)).height, 40);
         }
         await tester.tap(find.text('Replies'));
