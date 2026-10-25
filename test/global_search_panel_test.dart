@@ -83,6 +83,132 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('keyboard result selection updates and resets visible rows', (
+    tester,
+  ) async {
+    final opened = <GlobalSearchResult>[];
+    final controller = await _pump(
+      tester,
+      api: _PagedPanelApi(1),
+      onOpen: opened.add,
+    );
+    controller.setScope(GlobalSearchScope.forum);
+    controller.setQuery('prepared');
+    await tester.pumpAndSettle();
+    final state = tester.state<GlobalSearchPanelState>(
+      find.byType(GlobalSearchPanel),
+    );
+    final selected = find.byWidgetPredicate(
+      (widget) => widget is DItem && widget.selected,
+    );
+    for (var index = 0; index < 5; index++) {
+      expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+      await tester.pumpAndSettle();
+      expect(selected, findsOneWidget);
+      expect(
+        tester.widget<DItem>(selected).key,
+        ValueKey('global-search-result-prepared-$index'),
+      );
+    }
+    expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
+    expect(opened.single.id, 'prepared-4');
+    state.resetSelection();
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
+    expect(selected, findsOneWidget);
+    expect(
+      tester.widget<DItem>(selected).key,
+      const ValueKey('global-search-result-prepared-0'),
+    );
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
+    expect(selected, findsOneWidget);
+    expect(
+      tester.widget<DItem>(selected).key,
+      const ValueKey('global-search-result-prepared-1'),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keyboard wrap schedules reveal when selection is unchanged', (
+    tester,
+  ) async {
+    final controller = await _pump(
+      tester,
+      api: _PanelApi(
+        results: const [
+          GlobalSearchResult(
+            id: 'single',
+            scope: GlobalSearchScope.forum,
+            title: 'Single result',
+            path: '/t/single/1',
+          ),
+        ],
+      ),
+    );
+    controller.setScope(GlobalSearchScope.forum);
+    controller.setQuery('single');
+    await tester.pumpAndSettle();
+    final state = tester.state<GlobalSearchPanelState>(
+      find.byType(GlobalSearchPanel),
+    );
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DItem>(_key('global-search-result-single')).selected,
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keyboard selection crosses result and section actions', (
+    tester,
+  ) async {
+    final controller = await _pump(
+      tester,
+      api: _PanelApi(
+        results: List.generate(
+          3,
+          (index) => GlobalSearchResult(
+            id: 'mixed-$index',
+            scope: GlobalSearchScope.forum,
+            title: 'Mixed result $index',
+            path: '/t/mixed/${index + 1}',
+          ),
+        ),
+      ),
+    );
+    controller.setQuery('mixed');
+    await tester.pumpAndSettle();
+    final state = tester.state<GlobalSearchPanelState>(
+      find.byType(GlobalSearchPanel),
+    );
+    final selected = find.byWidgetPredicate(
+      (widget) => widget is DItem && widget.selected,
+    );
+    for (final expected in [
+      'section:forum:',
+      'global-search-result-mixed-0',
+      'global-search-result-mixed-1',
+    ]) {
+      expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+      await tester.pumpAndSettle();
+      expect(selected, findsOneWidget);
+      expect(tester.widget<DItem>(selected).key, ValueKey(expected));
+    }
+    for (final expected in ['global-search-result-mixed-0', 'section:forum:']) {
+      expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
+      await tester.pumpAndSettle();
+      expect(selected, findsOneWidget);
+      expect(tester.widget<DItem>(selected).key, ValueKey(expected));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   for (final textScale in [1.0, 2.0]) {
     testWidgets(
       'loaded result pages reveal and wrap keyboard selection at $textScale text',

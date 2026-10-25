@@ -22,6 +22,12 @@ try:
         original_test = subprocess.check_output(['git', 'show', f'{args.revision}:test/global_search_panel_test.dart'], cwd=root, text=True)
     assert 'Widget _result(GlobalSearchResult result) {' in original_source or 'Widget _result(_PreparedSearchResult row) {' in original_source, 'Unknown row factory'
     s=original_source.replace('final RegExp _whitespace', 'final globalSearchPreparationCounts = <String, int>{};\nvoid countSearchPreparation(String name) => globalSearchPreparationCounts.update(name, (n) => n + 1, ifAbsent: () => 1);\n\nfinal RegExp _whitespace')
+    s=s.replace('Object? _targetFor(String? id) => widget.controller.results', "Object? _targetFor(String? id) => (() { countSearchPreparation('targetLookup'); final results=widget.controller.results; globalSearchPreparationCounts.update('targetMaterializedEntry', (n) => n + results.length, ifAbsent: () => results.length); return results; })()")
+    s=s.replace('.where((result) => result.id == id)', ".where((result) { countSearchPreparation('targetVisit'); return result.id == id; })")
+    s=s.replace('for (final result in controller.results) {', "for (final result in controller.results) {\n        countSearchPreparation('liveResultVisit');")
+    s=s.replace('for (var index = 0; index < children.length; index++) {', "for (var index = 0; index < children.length; index++) {\n      countSearchPreparation('childIndexEntry');")
+    s=s.replace('_PreparedSearchResult _prepareResult(GlobalSearchResult result) {', "_PreparedSearchResult _prepareResult(GlobalSearchResult result) {\n    countSearchPreparation('descriptorVisit');")
+    s=s.replace('TopicCategory? category,\n  ) {', "TopicCategory? category,\n  ) {\n    countSearchPreparation('resultItemBuild');")
     s=s.replace('Widget _result(GlobalSearchResult result) {', "Widget _result(GlobalSearchResult result) {\n    countSearchPreparation('rowFactory');\n    countSearchPreparation('openCallback');")
     s=s.replace('Widget _result(_PreparedSearchResult row) {', "Widget _result(_PreparedSearchResult row) {\n    countSearchPreparation('rowFactory');")
     s=s.replace('open: () => widget.onOpen(result),', "open: (() { countSearchPreparation('openCallback'); return () => widget.onOpen(result); })(),")
@@ -51,7 +57,7 @@ class _PagedPreparationApi extends _PanelApi {
       final state=tester.state<GlobalSearchPanelState>(find.byType(GlobalSearchPanel));
       final arrivalCounts=Map<String,int>.of(globalSearchPreparationCounts);
       globalSearchPreparationCounts.clear();
-      for(var k=0;k<10;k++){expect(state.handleKey(LogicalKeyboardKey.arrowDown),isTrue);await tester.pumpAndSettle();}
+      for(var k=0;k<10;k++){expect(state.handleKey(LogicalKeyboardKey.arrowDown),isTrue);await tester.pumpAndSettle(); expect(tester.widget<DItem>(find.byKey(ValueKey('global-search-result-prepared-$k'))).selected,isTrue);}
       final counts=Map<String,int>.of(globalSearchPreparationCounts);
       final mounted=find.byWidgetPredicate((w)=>w is DItem && w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('global-search-result-')).evaluate().length;
       expect(mounted,lessThan(c.results.length));

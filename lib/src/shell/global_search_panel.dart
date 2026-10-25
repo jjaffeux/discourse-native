@@ -72,7 +72,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   final Map<String, GlobalKey> _resultKeys = {};
   final _preparedResults =
       Map<GlobalSearchResult, _PreparedSearchResult>.identity();
-  final _actions = <({String id, VoidCallback open, VoidCallback? into})>[];
+  final _resultSelection = ValueNotifier<String?>(null);
+  final _actions =
+      <
+        ({
+          String id,
+          VoidCallback open,
+          VoidCallback? into,
+          GlobalSearchResult? result,
+        })
+      >[];
   String? _selected;
   Object? _selectedNavigationIdentity;
   final _drill = <int>[];
@@ -137,10 +146,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       final next = current < 0
           ? (down ? 0 : _actions.length - 1)
           : (current + (down ? 1 : -1) + _actions.length) % _actions.length;
-      setState(() {
+      void select() {
         _selected = _actions[next].id;
         _selectedNavigationIdentity = _targetFor(_selected);
-      });
+      }
+
+      final updatesOnlyResultSelection =
+          current >= 0 &&
+          _actions[current].result != null &&
+          _actions[next].result != null;
+      if (updatesOnlyResultSelection) {
+        select();
+      } else {
+        setState(select);
+      }
+      _resultSelection.value = _selected;
       _revealSelection(
         _actions[next].id,
         _navigationSignature,
@@ -211,8 +231,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       if (offset == position.pixels) return;
       position.jumpTo(offset);
       _revealSelection(id, signature, forward: forward);
-      WidgetsBinding.instance.ensureVisualUpdate();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void resetSelection() {
@@ -243,7 +263,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     Widget child, {
     VoidCallback? into,
   }) {
-    _actions.add((id: id, open: open, into: into));
+    _actions.add((id: id, open: open, into: into, result: null));
     return KeyedSubtree(
       key: _resultKeys.putIfAbsent(id, GlobalKey.new),
       child: child,
@@ -686,6 +706,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   void dispose() {
     _lookupTimer?.cancel();
     _scroll.dispose();
+    _resultSelection.dispose();
     super.dispose();
   }
 
@@ -1242,7 +1263,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
       _preparedResults[result] = row;
     }
-    _actions.add((id: result.id, open: row.open, into: null));
+    _actions.add((id: result.id, open: row.open, into: null, result: result));
     return row;
   }
 
@@ -1272,7 +1293,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 siteUrl: controller.siteUrl,
               ),
               builder: (context, category, _) =>
-                  _resultItem(context, result, category),
+                  ValueListenableBuilder<String?>(
+                    valueListenable: _resultSelection,
+                    builder: (context, _, _) =>
+                        _resultItem(context, result, category),
+                  ),
             ),
           ),
         ),
