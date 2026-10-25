@@ -219,6 +219,80 @@ void main() {
       ]);
     });
 
+    test(
+      'a refusal without retryAfter waits a second on its own stream',
+      () async {
+        final scheduler = ManualScheduler();
+        final api = FakeDiscourseApi(
+          chatSendFailure: const WriteException(WriteFailure.rateLimited),
+        );
+        final projection = _Projection();
+        final coordinator = DefaultChatSendCoordinator(
+          api: api,
+          requests: _Requests(),
+          host: projection.host,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.dispose);
+        const target = ChatChannelTarget(9);
+        final first = coordinator.sendMessage(
+          _site,
+          target,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        expect(await first.settled, ChatSendResult.failed);
+        expect(projection.staged.single.retryWaiting, isTrue);
+        expect(coordinator.retryMessage(_site, target, first.stagedId), isNull);
+
+        scheduler.advance(const Duration(seconds: 1));
+        api.chatSendFailure = null;
+        expect(
+          coordinator.retryMessage(
+            _site,
+            const ChatThreadTarget(channelId: 9, threadId: 12),
+            first.stagedId,
+          ),
+          isNull,
+        );
+        final retry = coordinator.retryMessage(_site, target, first.stagedId)!;
+        expect(await retry.settled, ChatSendResult.sent);
+        expect(api.chatMessagesSent, hasLength(2));
+      },
+    );
+
+    test('sends an upload-only message', () async {
+      final api = FakeDiscourseApi();
+      final projection = _Projection();
+      final coordinator = DefaultChatSendCoordinator(
+        api: api,
+        requests: _Requests(),
+        host: projection.host,
+      );
+      addTearDown(coordinator.dispose);
+
+      final send = coordinator.sendMessage(
+        _site,
+        const ChatChannelTarget(9),
+        OutgoingChatMessage.text(
+          ' \n',
+          uploads: const [
+            ComposerUploadResult(
+              id: 51,
+              url: '/file.txt',
+              originalFilename: 'file.txt',
+              shortUrl: 'upload://file',
+            ),
+          ],
+        ),
+      )!;
+
+      expect(await send.settled, ChatSendResult.sent);
+      expect(api.chatMessagesSent.single.uploadIds, [51]);
+    });
+
     for (final retirement in ['channel', 'account', 'dispose']) {
       test('cancels retry cooldown on $retirement retirement', () async {
         final scheduler = ManualScheduler();
