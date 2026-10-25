@@ -11,6 +11,137 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final query in ['Sam Smith', "Sam O'Neil"]) {
+    testWidgets('mention picker searches $query and inserts its username', (
+      tester,
+    ) async {
+      final asked = <String>[];
+      const result = ComposerSuggestion(
+        kind: ComposerTriggerKind.mention,
+        value: 'sam_smith',
+        label: 'Sam Smith',
+      );
+      final composer = _mentionComposer((query) async {
+        asked.add(query);
+        return [result];
+      });
+      addTearDown(composer.dispose);
+      const original = TextEditingValue(
+        text: 'Hello @s there',
+        selection: TextSelection.collapsed(offset: 8),
+      );
+      composer.text.value = original;
+      await _pumpMentionField(tester, composer);
+      final search = _mentionSearch();
+      expect(search, findsOneWidget);
+
+      await tester.enterText(search, 'Sam');
+      await tester.pumpAndSettle();
+      expect(asked, contains('Sam'));
+      await tester.enterText(search, query);
+      await tester.pumpAndSettle();
+      expect(asked, contains(query));
+      expect(search, findsOneWidget);
+      expect(tester.widget<EditableText>(search).focusNode.hasFocus, isTrue);
+      expect(composer.text.value, original);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(composer.raw, 'Hello @sam_smith there');
+      expect(composer.text.selection.baseOffset, 17);
+      expect(composer.autocomplete.isOpen, isFalse);
+      expect(composer.focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Escape cancels a mention query without changing the draft', (
+    tester,
+  ) async {
+    final pending = Completer<List<ComposerSuggestion>>();
+    final composer = _mentionComposer(
+      (query) async => query == 'Sam Smith' ? pending.future : const [],
+    );
+    addTearDown(composer.dispose);
+    const original = TextEditingValue(
+      text: 'Hello @s there',
+      selection: TextSelection.collapsed(offset: 8),
+    );
+    composer.text.value = original;
+    await _pumpMentionField(tester, composer);
+    await tester.enterText(_mentionSearch(), 'Sam Smith');
+    await tester.pump(ComposerAutocomplete.debounce);
+    await tester.pump();
+    expect(_mentionSearch(), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    pending.complete(const [
+      ComposerSuggestion(
+        kind: ComposerTriggerKind.mention,
+        value: 'sam_smith',
+        label: 'Sam Smith',
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(composer.text.value, original);
+    expect(_mentionSearch(), findsNothing);
+    expect(composer.autocomplete.isOpen, isFalse);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final change in ['suffix', 'selection', 'mention range']) {
+    testWidgets('a $change edit retires the captured mention query', (
+      tester,
+    ) async {
+      final pending = Completer<List<ComposerSuggestion>>();
+      final asked = <String>[];
+      final composer = _mentionComposer((query) async {
+        asked.add(query);
+        return query == 'Sam Smith' ? pending.future : const [];
+      });
+      addTearDown(composer.dispose);
+      const original = TextEditingValue(
+        text: 'Hello @s there',
+        selection: TextSelection.collapsed(offset: 8),
+      );
+      composer.text.value = original;
+      await _pumpMentionField(tester, composer);
+      await tester.enterText(_mentionSearch(), 'Sam Smith');
+      await tester.pump(ComposerAutocomplete.debounce);
+      await tester.pump();
+      expect(asked, contains('Sam Smith'));
+      expect(_mentionSearch(), findsOneWidget);
+
+      final changed = switch (change) {
+        'suffix' => original.copyWith(text: 'Hello @s elsewhere'),
+        'selection' => original.copyWith(
+          selection: const TextSelection.collapsed(offset: 0),
+        ),
+        _ => const TextEditingValue(
+          text: 'Hello @someone there',
+          selection: TextSelection.collapsed(offset: 14),
+        ),
+      };
+      composer.text.value = changed;
+      await tester.pumpAndSettle();
+      pending.complete(const [
+        ComposerSuggestion(
+          kind: ComposerTriggerKind.mention,
+          value: 'sam_smith',
+          label: 'Sam Smith',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(composer.text.value, changed);
+      expect(_mentionSearch(), findsNothing);
+      expect(composer.autocomplete.isOpen, isFalse);
+      expect(composer.autocomplete.suggestions, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('pending mention results use skeleton rows', (tester) async {
     final pending = Completer<List<ComposerSuggestion>>();
     final composer = ComposerController(
@@ -120,7 +251,7 @@ void main() {
           );
           await tester.enterText(search, 'alice');
           await tester.pump();
-          expect(composer.raw, '@alice');
+          expect(composer.raw, '@sa');
           expect(find.text('sam'), findsOneWidget);
           if (duringLookup) {
             await tester.pump(ComposerAutocomplete.debounce);
@@ -140,7 +271,7 @@ void main() {
               await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           }
           await tester.pump();
-          expect(composer.raw, '@alice');
+          expect(composer.raw, '@sa');
           expect(composer.autocomplete.isOpen, isTrue);
           expect(find.text('sam'), findsOneWidget);
 
@@ -290,7 +421,7 @@ void main() {
         }
 
         await backspace();
-        expect(composer.text.text, 'Hello @ there');
+        expect(composer.text.text, 'Hello @s there');
         expect(composer.autocomplete.isOpen, isTrue);
         expect(search, findsOneWidget);
 
@@ -555,6 +686,46 @@ void main() {
     expect(composer.text.text, ':sm');
     expect(composer.autocomplete.isOpen, isFalse);
   });
+}
+
+Finder _mentionSearch() => find.descendant(
+  of: find.byType(DCommandInput<ComposerSuggestion>),
+  matching: find.byType(EditableText),
+);
+
+ComposerController _mentionComposer(
+  Future<List<ComposerSuggestion>> Function(String) users,
+) => ComposerController(
+  const ReplyComposerTarget(
+    privateMessageTopic: false,
+    siteUrl: 'https://meta.discourse.org',
+    topicId: 1,
+    slug: 'topic',
+    topicTitle: 'Topic',
+  ),
+  search: (
+    users: users,
+    hashtags: (_) async => const [],
+    emojis: (_) async => const [],
+  ),
+);
+
+Future<void> _pumpMentionField(
+  WidgetTester tester,
+  ComposerController composer,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: ComposerSuggestionField(
+          composer: composer,
+          field: DInput(controller: composer.text, focusNode: composer.focus),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 ComposerController _composer(String label) => ComposerController(
