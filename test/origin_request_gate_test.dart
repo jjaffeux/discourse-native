@@ -51,9 +51,14 @@ void main() {
             );
           }
         }
+        final trailing = enqueue(
+          'background-2',
+          origin,
+          OriginRequestPriority.normal,
+        );
         order.clear();
         active.release();
-        await Future.wait([background, ...requests]);
+        await Future.wait([background, ...requests, trailing]);
         expect(order, [
           'interactive-0',
           'interactive-1',
@@ -62,7 +67,52 @@ void main() {
           'interactive-3',
           'interactive-4',
           'interactive-5',
+          'background-2',
         ]);
+      },
+    );
+  }
+
+  for (final aggregate in [false, true]) {
+    test(
+      'interactive grants with no normal waiter keep the allowance in ${aggregate ? 'aggregate' : 'origin'} contention',
+      () async {
+        final gate = OriginRequestGate(
+          maxConcurrent: aggregate ? 1 : null,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 8,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        );
+        addTearDown(gate.close);
+        final origin = Uri.parse('https://first.example');
+        final active = await gate.acquire(origin);
+        final order = <String>[];
+        final hold = Completer<void>();
+        Future<void> enqueue(
+          String name,
+          OriginRequestPriority priority, {
+          Future<void>? until,
+        }) => gate.run(origin, (_) async {
+          order.add(name);
+          await until;
+        }, priority: priority);
+        final early = [
+          for (var i = 0; i < 3; i++)
+            enqueue(
+              'early-$i',
+              OriginRequestPriority.interactive,
+              until: i == 2 ? hold.future : null,
+            ),
+        ];
+        active.release();
+        await pumpEventQueue();
+        expect(order, ['early-0', 'early-1', 'early-2']);
+
+        final background = enqueue('background', OriginRequestPriority.normal);
+        final late = enqueue('late', OriginRequestPriority.interactive);
+        hold.complete();
+        await Future.wait([...early, background, late]);
+        expect(order, ['early-0', 'early-1', 'early-2', 'late', 'background']);
       },
     );
   }
@@ -152,6 +202,39 @@ void main() {
       expect(order, ['older', 'newer']);
     },
   );
+
+  test('acquire re-resolves priority at each admission scan', () async {
+    final gate = OriginRequestGate(
+      maxConcurrentPerOrigin: 1,
+      maxQueuedPerOrigin: 2,
+      cooldownPolicy: OriginRequestCooldownPolicy.wait,
+    );
+    addTearDown(gate.close);
+    final origin = Uri.parse('https://first.example');
+    final active = await gate.acquire(origin);
+    var promoted = false;
+    final order = <String>[];
+    Future<void> record(String name, Future<OriginRequestLease> admission) =>
+        admission.then((lease) {
+          order.add(name);
+          lease.release();
+        });
+    final background = record('background', gate.acquire(origin));
+    final promotable = record(
+      'promotable',
+      gate.acquire(
+        origin,
+        resolvePriority: () => promoted
+            ? OriginRequestPriority.interactive
+            : OriginRequestPriority.normal,
+      ),
+    );
+
+    promoted = true;
+    active.release();
+    await Future.wait([background, promotable]);
+    expect(order, ['promotable', 'background']);
+  });
 
   group('OriginRequestGate', () {
     for (final useRun in [false, true]) {
@@ -685,6 +768,40 @@ void main() {
         expect(scheduler.activeTimerCount, 0);
       });
 
+      test('expiry grants waiting origins in submission order', () async {
+        final gate = createGate();
+        final other = Uri.parse('https://other.example');
+        gate.extendCooldown(other, const Duration(seconds: 1));
+        final started = <String>[];
+        final requests = [
+          gate.run(origin, (_) async => started.add('first')),
+          gate.run(other, (_) async => started.add('second')),
+        ];
+
+        elapsed = const Duration(seconds: 2);
+        requests.add(
+          gate.run(
+            Uri.parse('https://third.example'),
+            (_) async => started.add('third'),
+          ),
+        );
+        expect(started, ['first', 'second', 'third']);
+        await Future.wait(requests);
+        expect(scheduler.activeTimerCount, 0);
+      });
+
+      test('a zero extension admits work whose cooldown has expired', () async {
+        final gate = createGate();
+        var started = false;
+        final queued = gate.run(origin, (_) async => started = true);
+
+        elapsed = const Duration(seconds: 2);
+        gate.extendCooldown(origin, Duration.zero);
+        expect(started, isTrue);
+        await queued;
+        expect(scheduler.activeTimerCount, 0);
+      });
+
       test('reject policy admits work as soon as the clock expires', () async {
         final gate = createGate(
           cooldownPolicy: OriginRequestCooldownPolicy.reject,
@@ -790,6 +907,122 @@ void main() {
       lease.release();
     });
 
+    test('a cooldown rejection empties only its own origin backlog', () async {
+      final scheduler = ManualScheduler();
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.reject,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(gate.close);
+      final limited = Uri.parse('https://limited.example');
+      final unrelated = Uri.parse('https://unrelated.example');
+      final limitedActive = await gate.acquire(limited);
+      final unrelatedActive = await gate.acquire(unrelated);
+      final rejected = expectLater(
+        gate.acquire(limited),
+        throwsA(isA<OriginRequestGateCooldownException>()),
+      );
+      final survivor = gate.acquire(unrelated);
+
+      limitedActive.extendCooldown(const Duration(minutes: 1));
+      await rejected;
+      unrelatedActive.release();
+      (await survivor).release();
+
+      scheduler.advance(const Duration(minutes: 1));
+      final next = gate.acquire(limited);
+      limitedActive.release();
+      (await next).release();
+    });
+
+    test('a released origin keeps its cooldown', () async {
+      final scheduler = ManualScheduler();
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(gate.close);
+      final url = Uri.parse('https://forum.example/request');
+      final lease = await gate.acquire(url);
+      lease.extendCooldown(const Duration(seconds: 5));
+      lease.release();
+
+      var granted = false;
+      final next = gate.acquire(url).then((lease) {
+        granted = true;
+        return lease;
+      });
+      scheduler.advance(const Duration(seconds: 4));
+      await pumpEventQueue();
+      expect(granted, isFalse);
+
+      scheduler.advance(const Duration(seconds: 1));
+      (await next).release();
+    });
+
+    test('a release frees exactly one slot of its origin', () async {
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 2,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      );
+      addTearDown(gate.close);
+      final url = Uri.parse('https://forum.example/request');
+      final first = await gate.acquire(url);
+      final second = await gate.acquire(url);
+
+      first.release();
+      first.release();
+      final third = await gate.acquire(url);
+      var fourthGranted = false;
+      final fourth = gate.acquire(url).then((lease) {
+        fourthGranted = true;
+        return lease;
+      });
+      await pumpEventQueue();
+      expect(fourthGranted, isFalse);
+
+      second.release();
+      (await fourth).release();
+      third.release();
+    });
+
+    test(
+      'a context captured beyond its operation cannot extend the cooldown',
+      () async {
+        final scheduler = ManualScheduler();
+        final gate = OriginRequestGate(
+          maxConcurrentPerOrigin: 2,
+          maxQueuedPerOrigin: 1,
+          cooldownPolicy: OriginRequestCooldownPolicy.reject,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(gate.close);
+        final url = Uri.parse('https://forum.example/request');
+        final held = await gate.acquire(url);
+        late OriginRequestContext captured;
+        await gate.run(url, (context) async => captured = context);
+
+        captured.extendCooldown(const Duration(minutes: 1));
+        expect(scheduler.activeTimerCount, 0);
+        (await gate.acquire(url)).release();
+        held.release();
+      },
+    );
+
     test(
       'run starts synchronously and releases after success or failure',
       () async {
@@ -847,6 +1080,40 @@ void main() {
       final third = await gate.acquire(url);
       expect(cooldownsCreated, 3, reason: 'an expired idle origin is removed');
       third.release();
+
+      gate.extendCooldown(url, Duration.zero);
+      final fourth = await gate.acquire(url);
+      expect(cooldownsCreated, 5, reason: 'a zero extension keeps no origin');
+      fourth.release();
+    });
+
+    test('forgets an origin whose only waiter is cancelled', () async {
+      var cooldownsCreated = 0;
+      final gate = OriginRequestGate(
+        maxConcurrent: 1,
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        cooldownFactory: () {
+          cooldownsCreated++;
+          return OriginCooldown();
+        },
+      );
+      addTearDown(gate.close);
+      final held = await gate.acquire(Uri.parse('https://first.example'));
+      final waiting = Uri.parse('https://second.example');
+      final abort = Completer<void>();
+      final cancelled = expectLater(
+        gate.acquire(waiting, abortTrigger: abort.future),
+        throwsA(isA<OriginRequestGateCancelledException>()),
+      );
+
+      abort.complete();
+      await cancelled;
+      held.release();
+      final lease = await gate.acquire(waiting);
+      expect(cooldownsCreated, 3, reason: 'a cancelled idle origin is removed');
+      lease.release();
     });
 
     test(
