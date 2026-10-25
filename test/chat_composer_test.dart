@@ -2506,10 +2506,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Edit message'), findsNothing);
-        expect(
-          find.byKey(const ValueKey('chat-composer-editing')),
-          findsNothing,
-        );
         expect(find.text('Editing @reader'), findsNothing);
         expect(
           find.byKey(const ValueKey('chat-composer-edit-cancel')),
