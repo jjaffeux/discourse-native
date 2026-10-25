@@ -95,6 +95,7 @@ void main() {
     addTearDown(session.dispose);
     expect(session.composer.raw, 'original message');
     session.composer.text.text = 'independent edit';
+    expect(fixture.draft?.raw, 'ordinary');
     fixture.retain('new ordinary', [_upload(2)]);
     expect(session.composer.raw, 'independent edit');
     expect(fixture.draft?.raw, 'new ordinary');
@@ -105,6 +106,42 @@ void main() {
     expect(session.composer.completedUploads.single.id, 2);
     session.composer.text.text = 'ordinary resumed';
     expect(fixture.draft?.raw, 'ordinary resumed');
+  });
+
+  testWidgets('only a channel binding exposes its retained reply', (
+    tester,
+  ) async {
+    final fixture = _Fixture();
+    addTearDown(fixture.chat.dispose);
+    const thread = ChatThreadTarget(channelId: 9, threadId: 22);
+    const reply = ChatReplyTo(
+      id: 12,
+      userId: 7,
+      excerpt: 'original message',
+      username: 'sam',
+    );
+    for (final target in [_target, thread]) {
+      fixture.chat.retainComposerDraft(
+        _site,
+        target,
+        raw: 'answer',
+        uploads: const [],
+        replyTo: reply,
+      );
+    }
+    final channel = fixture.open();
+    final threaded = fixture.open(target: thread);
+    addTearDown(channel.dispose);
+    addTearDown(threaded.dispose);
+
+    expect(channel.replyTo?.id, 12);
+    expect(channel.replyChanges.value?.id, 12);
+    expect(threaded.replyTo, isNull);
+    expect(threaded.replyChanges.value, isNull);
+    channel.clearReply();
+    expect(fixture.draft?.raw, 'answer');
+    expect(fixture.draft?.replyTo, isNull);
+    expect(channel.replyChanges.value, isNull);
   });
 
   testWidgets('same-user retirement replaces both bound refs', (tester) async {
@@ -174,10 +211,11 @@ final class _Fixture {
   ChatComposerDraftSession open({
     Completer<ComposerUploadResult>? transfer,
     ChatMessage? editingMessage,
+    ChatStreamTarget target = _target,
   }) => ChatComposerDraftSession(
     chat: chat,
     siteUrl: _site,
-    target: _target,
+    target: target,
     editingMessage: editingMessage,
     composer: ComposerController(
       PluginComposerTarget(

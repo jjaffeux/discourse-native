@@ -134,6 +134,13 @@ void main() {
 
       expect(result.reason, ChatPreviewFallbackReason.ambiguousSyntax);
       expect(result.raw, '```dart\ncode');
+      for (final raw in ['```\ncode\n~~~', '````\ncode\n```']) {
+        expect(
+          (project(raw) as SourceFallback).reason,
+          ChatPreviewFallbackReason.ambiguousSyntax,
+          reason: raw,
+        );
+      }
     });
   });
 
@@ -316,6 +323,17 @@ void main() {
       expect(result.reason, ChatPreviewFallbackReason.duplicatePluginId);
     });
 
+    test('a blank feature ID forces raw fallback', () {
+      final result =
+          project(
+                'plain',
+                withEngine: ChatPreviewEngine(plugins: [_EmptyPlugin('  ')]),
+              )
+              as SourceFallback;
+
+      expect(result.reason, ChatPreviewFallbackReason.duplicatePluginId);
+    });
+
     test('overlapping claims force raw fallback', () {
       final result =
           project(
@@ -368,6 +386,20 @@ void main() {
         rewrittenFallback.reason,
         ChatPreviewFallbackReason.invalidPluginClaim,
       );
+      for (final plugin in [
+        _RangePlugin('own', const SourceRange(0, 3), nodeFeatureId: 'other'),
+        _RangePlugin(
+          'own',
+          const SourceRange(0, 3),
+          nodeRange: const SourceRange(0, 2),
+        ),
+        _RangePlugin('own', const SourceRange(1, 1)),
+      ]) {
+        final result =
+            project('abc', withEngine: ChatPreviewEngine(plugins: [plugin]))
+                as SourceFallback;
+        expect(result.reason, ChatPreviewFallbackReason.invalidPluginClaim);
+      }
     });
   });
 
@@ -396,6 +428,35 @@ void main() {
       );
 
       expect((built as Text).data, 'date');
+    });
+
+    testWidgets('contributions sharing a feature ID render nothing', (
+      tester,
+    ) async {
+      final renderer = ChatPreviewEngine(
+        plugins: const [
+          _RenderingPlugin('date', '[date]'),
+          _RenderingPlugin('date', '[date]'),
+        ],
+      );
+      final node = PluginPreviewNode(
+        range: const SourceRange(0, 6),
+        featureId: 'date',
+        kind: 'test',
+        fallbackText: '[date]',
+      );
+      Widget? built = const SizedBox();
+
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) {
+            built = renderer.buildPreviewNode(context, node);
+            return const SizedBox();
+          },
+        ),
+      );
+
+      expect(built, isNull);
     });
 
     testWidgets(
@@ -540,6 +601,22 @@ void main() {
               as SourceFallback;
 
       expect(result.reason, ChatPreviewFallbackReason.invalidTrustedSeed);
+      final valid = Uri.parse('https://media.example/a.gif');
+      for (final seed in [
+        TrustedGifPreviewSeed(url: valid, title: 'x', width: 0, height: 10),
+        TrustedGifPreviewSeed(url: valid, title: '  ', width: 10, height: 10),
+        TrustedGifPreviewSeed(
+          url: Uri.parse('https://media.example/a.gif#frame'),
+          title: 'x',
+          width: 10,
+          height: 10,
+        ),
+      ]) {
+        expect(
+          (project('![x](a.gif)', seed: seed) as SourceFallback).reason,
+          ChatPreviewFallbackReason.invalidTrustedSeed,
+        );
+      }
     });
 
     test('the same image Markdown without a seed stays raw', () {
@@ -551,12 +628,26 @@ void main() {
   });
 
   test('resource limits produce raw fallback', () {
-    final result =
-        project('four', withEngine: ChatPreviewEngine(maxSourceLength: 3))
-            as SourceFallback;
+    final limited = ChatPreviewEngine(maxSourceLength: 3);
+    final result = project('four', withEngine: limited) as SourceFallback;
 
     expect(result.reason, ChatPreviewFallbackReason.resourceLimit);
     expect(result.raw, 'four');
+    expect(project('one', withEngine: limited), isA<ProjectedPreview>());
+    expect(
+      project('one', withEngine: ChatPreviewEngine(maxDocumentNodes: 1)),
+      isA<ProjectedPreview>(),
+    );
+    expect(
+      project(
+        'abc',
+        withEngine: ChatPreviewEngine(
+          maxPluginClaims: 1,
+          plugins: [_RangePlugin('one', const SourceRange(0, 3))],
+        ),
+      ),
+      isA<ProjectedPreview>(),
+    );
   });
 
   test('unpaired UTF-16 and combining marks never throw or lose source', () {
@@ -673,12 +764,20 @@ final class _EmptyPlugin implements ChatPreviewPluginAdapter {
 }
 
 final class _RangePlugin implements ChatPreviewPluginAdapter {
-  _RangePlugin(this.previewFeatureId, this.range, {this.fallbackText});
+  _RangePlugin(
+    this.previewFeatureId,
+    this.range, {
+    this.fallbackText,
+    this.nodeFeatureId,
+    this.nodeRange,
+  });
 
   @override
   final String previewFeatureId;
   final SourceRange range;
   final String? fallbackText;
+  final String? nodeFeatureId;
+  final SourceRange? nodeRange;
 
   @override
   ChatPreviewInspection inspect(ChatPreviewRequest request) {
@@ -690,8 +789,8 @@ final class _RangePlugin implements ChatPreviewPluginAdapter {
         ChatPreviewClaim(
           range: range,
           node: PluginPreviewNode(
-            range: range,
-            featureId: previewFeatureId,
+            range: nodeRange ?? range,
+            featureId: nodeFeatureId ?? previewFeatureId,
             kind: 'range',
             fallbackText: fallbackText ?? exactSource,
           ),

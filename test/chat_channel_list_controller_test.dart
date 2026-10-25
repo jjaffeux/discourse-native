@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -249,6 +250,10 @@ void main() {
       ChatChannelListFilter.unread,
     );
     expect(f.controller.bypassed(_site, _channels), isTrue);
+    expect(
+      f.controller.errorFor(_site, _channels),
+      'Could not save channel preferences. Try again.',
+    );
     expect(f.persisted, 0);
   });
 
@@ -262,12 +267,15 @@ void main() {
           _channels.sortField: 'recent_activity',
           _starred.filterField: 'mentions',
           _starred.sortField: 'priority',
+          _dms.filterField: 'all',
         },
       );
       final c = f.controller;
       c.toggleFilter(_site, _channels);
+      c.toggleFilter(_site, _dms);
       expect(c.bypassed(_site, _channels), isTrue);
       expect(c.bypassed(_site, _starred), isFalse);
+      expect(c.bypassed(_site, _dms), isFalse);
       expect(
         c.preferencesFor(_site).filterFor(_channels),
         ChatChannelListFilter.unread,
@@ -383,6 +391,26 @@ void main() {
     },
   );
 
+  for (final retirement in ['lease invalidation', 'account switch']) {
+    test('$retirement alone discards a late success', () async {
+      final f = _Fixture();
+      final save = f.controller.setFilter(
+        _site,
+        _channels,
+        ChatChannelListFilter.unread,
+      );
+      await f.api.calls[0].started.future;
+      if (retirement == 'lease invalidation') {
+        f.lifecycle.invalidate(_site);
+      } else {
+        f.users[_site] = _user(id: 2);
+      }
+      f.api.calls[0].succeed();
+      expect(await save, isFalse);
+      expect(f.persisted, 0);
+    });
+  }
+
   test(
     'credential response after account invalidation never sends a write',
     () async {
@@ -437,6 +465,51 @@ void main() {
       expect(f.api.count, 0);
     },
   );
+
+  test(
+    'an in-flight write cannot restore a field the session stops advertising',
+    () async {
+      final f = _Fixture();
+      final save = f.controller.setSort(
+        _site,
+        _channels,
+        ChatChannelListSort.priority,
+      );
+      await f.api.calls[0].started.future;
+      f.users[_site] = _user(options: {_channels.filterField: 'all'});
+      expect(
+        f.controller.preferencesFor(_site).supports(_channels.sortField),
+        isFalse,
+      );
+      f.api.calls[0].succeed();
+      await save;
+    },
+  );
+
+  test('the session keeps the value the server confirmed', () async {
+    final f = _Fixture();
+    final save = f.controller.setFilter(
+      _site,
+      _channels,
+      ChatChannelListFilter.unread,
+    );
+    final call = f.api.calls[0];
+    await call.started.future;
+    call.result.complete(
+      call.fallback.withChatPreferences(
+        channelList: call.fallback.chatPreferences.channelList.withValue(
+          _channels.filterField,
+          'mentions',
+        ),
+      ),
+    );
+
+    expect(await save, isTrue);
+    expect(
+      f.controller.preferencesFor(_site).filterFor(_channels),
+      ChatChannelListFilter.mentions,
+    );
+  });
 
   test('fresh session options are accepted after a completed write', () async {
     final f = _Fixture();

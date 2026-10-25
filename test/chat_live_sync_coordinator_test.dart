@@ -481,6 +481,186 @@ void main() {
       },
     );
 
+    test('a mention counts only above the read cursor', () {
+      final fixture = _Fixture()
+        ..channel = _channel.withMembership(
+          const ChatMembership(following: true, lastReadMessageId: 100),
+        );
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+
+      for (final messageId in [99, 100, 101]) {
+        tracker.deliver('/chat/9/new-mentions', {
+          'channel_id': 9,
+          'message_id': messageId,
+        }, messageId: messageId);
+      }
+      tracker.deliver('/chat/9/new-mentions', {
+        'channel_id': 8,
+        'message_id': 200,
+      }, messageId: 102);
+
+      expect(fixture.putChannels.map((c) => c.tracking.mentionCount), [1]);
+    });
+
+    test('a new message counts as unread only above the read cursor', () {
+      final fixture = _Fixture()
+        ..channel = _channel.withMembership(
+          const ChatMembership(following: true, lastReadMessageId: 100),
+        );
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+
+      for (final messageId in [100, 101]) {
+        tracker.deliver(
+          '/chat/9/new-messages',
+          _newMessageEvent(messageId),
+          messageId: messageId,
+        );
+      }
+
+      expect(fixture.putChannels.map((c) => c.tracking.unreadCount), [0, 1]);
+    });
+
+    test(
+      'a thread reply counts by the reader\'s thread notification level',
+      () {
+        final fixture = _Fixture()
+          ..channel = ChatChannel(
+            id: 9,
+            title: 'Bugs',
+            kind: ChatChannelKind.category,
+            membership: const ChatMembership(following: true),
+            threadingEnabled: true,
+            messageBus: _channel.messageBus,
+          );
+        addTearDown(fixture.coordinator.dispose);
+        final tracker = _LiveChannels();
+        fixture.coordinator.replace(_site, _snapshot());
+        fixture.coordinator.attachTracker(_site, tracker);
+
+        for (final level in [
+          ChatThreadNotificationLevel.normal,
+          ChatThreadNotificationLevel.tracking,
+          ChatThreadNotificationLevel.watching,
+        ]) {
+          fixture.heldThread = _thread.copyWith(
+            membership: ChatThreadMembership(
+              threadId: 22,
+              notificationLevel: level,
+              lastReadMessageId: 50,
+            ),
+          );
+          tracker.deliver('/chat/9/new-messages', {
+            ..._newMessageEvent(101),
+            'type': 'thread',
+            'thread_id': 22,
+          }, messageId: 80);
+        }
+
+        expect(
+          fixture.putThreads.map(
+            (thread) => (
+              thread.tracking.unreadCount,
+              thread.tracking.watchedThreadsUnreadCount,
+            ),
+          ),
+          [(0, 0), (1, 0), (0, 1)],
+        );
+        expect(fixture.newMessages, isEmpty);
+      },
+    );
+
+    test('a thread reply in an unthreaded channel is ignored', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+
+      tracker.deliver('/chat/9/new-messages', {
+        ..._newMessageEvent(101),
+        'type': 'thread',
+        'thread_id': 22,
+      }, messageId: 80);
+
+      expect(fixture.putChannels, isEmpty);
+      expect(fixture.putThreads, isEmpty);
+    });
+
+    test('forgetting a site drops its delivered cursors', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+      tracker.deliver(
+        '/chat/9/new-messages',
+        _newMessageEvent(101),
+        messageId: 80,
+      );
+
+      fixture.coordinator.forget(_site);
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+
+      expect(tracker.lastId('/chat/9/new-messages'), 51);
+    });
+
+    test('a kick removes only a channel the reader still holds', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+      final kick = tracker.latest('/chat/9/kick');
+
+      fixture.channel = null;
+      kick.deliver({'channel_id': 9}, 54);
+      expect(fixture.kicked, isEmpty);
+      expect(kick.cancelCalls, 0);
+
+      fixture.channel = _channel;
+      kick.deliver({'channel_id': 8}, 55);
+      expect(fixture.kicked, isEmpty);
+      kick.deliver({'channel_id': 9}, 56);
+      expect(fixture.kicked, [9]);
+      expect(kick.cancelCalls, 1);
+    });
+
+    test('unmuting a stream it already owns keeps the delivered cursor', () {
+      final fixture = _Fixture();
+      addTearDown(fixture.coordinator.dispose);
+      final tracker = _LiveChannels();
+      fixture.coordinator.replace(_site, _snapshot());
+      fixture.coordinator.attachTracker(_site, tracker);
+      tracker.deliver(
+        '/chat/9/new-messages',
+        _newMessageEvent(101),
+        messageId: 80,
+      );
+
+      fixture.coordinator.unmuteChannel(
+        _site,
+        const ChatChannel(
+          id: 9,
+          title: 'Bugs',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+          messageBus: ChatChannelMessageBusState(newMessages: 90),
+        ),
+      );
+      final replacement = _LiveChannels();
+      fixture.coordinator.attachTracker(_site, replacement);
+
+      expect(tracker.registrationsFor('/chat/9/new-messages'), hasLength(1));
+      expect(replacement.lastId('/chat/9/new-messages'), 80);
+    });
+
     test('contiguous presence ids apply their diffs', () {
       final fixture = _Fixture();
       addTearDown(fixture.coordinator.dispose);
@@ -635,11 +815,11 @@ final class _Fixture {
         clock: () => DateTime.utc(2026, 8, 8),
         currentUserFor: (_) =>
             const DiscourseUser(id: 7, username: 'reader', staff: false),
-        channelFor: (_, channelId) => channelId == 9 ? _channel : null,
+        channelFor: (_, channelId) => channelId == 9 ? channel : null,
         messageFor: (_, _) => null,
         threadFor: (_, threadId) => threadId == 22 ? heldThread : null,
         hasThreads: (_) => hasThreads,
-        putChannel: (_, _) {},
+        putChannel: (_, channel) => putChannels.add(channel),
         didReceiveTrackingState: (_, _) {},
         didReceiveChannelEdit: (_, _) {},
         didReceiveChannelStatus: (_, _) {},
@@ -648,10 +828,10 @@ final class _Fixture {
           liveMessages.add(message);
           effects.add(['put', message.id, preserve]);
         },
-        putThread: (_, _) {},
+        putThread: (_, thread) => putThreads.add(thread),
         publishNotificationChange: (_, _, _) {},
         notifyCanonicalChange: () {},
-        removeKickedChannelState: (_, _) {},
+        removeKickedChannelState: (_, channelId) => kicked.add(channelId),
         isChannelListed: (_, _) => false,
         resolvePartialChannel: (_, _) {},
         insertListedChannel: (_, _) {},
@@ -695,13 +875,17 @@ final class _Fixture {
 
   final _Requests requests;
   late final ChatLiveSyncCoordinator coordinator;
+  ChatChannel? channel = _channel;
+  final List<int> kicked = [];
+  final List<ChatThread> putThreads = [];
+  final List<ChatChannel> putChannels = [];
   final List<String> newMessages = [];
   final List<String> resyncs = [];
   bool hasThreads = false;
   bool containsMessage = false;
   final List<List<Object?>> effects = [];
   final List<ChatMessage> liveMessages = [];
-  final heldThread = _thread.copyWith(
+  ChatThread heldThread = _thread.copyWith(
     originalMessage: const ChatThreadOriginalMessage(
       id: 90,
       channelId: 9,
