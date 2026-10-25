@@ -528,4 +528,249 @@ void main() {
     expect(tracking.beginSnapshot(), isNull);
     expect(tracking.revision, 0);
   });
+
+  test('lost account authority ignores local intentions and bootstrap', () {
+    var current = true;
+    final tracking = TopicTrackingReconciler(isCurrent: () => current);
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row]),
+    );
+    final bootstrap = tracking.beginBootstrap();
+    current = false;
+    expect(bootstrap.isCurrent, isFalse);
+    expect(tracking.markRead(7, 95), isFalse);
+    tracking.markLastPostUnread(7, 60);
+    tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.muted,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    tracking.observeNotificationLevel(7, TopicNotificationLevel.watching);
+    expect(tracking.revision, 1);
+    expect(tracking.topic(7)?.lastReadPostNumber, 80);
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.tracking);
+  });
+
+  test('only the newest live bootstrap installs, never over a report', () {
+    final report = TopicTrackingState([_row]);
+    final tracking = TopicTrackingReconciler();
+    final replaced = tracking.beginBootstrap();
+    final cancelled = tracking.beginBootstrap();
+    expect(replaced.isCurrent, isFalse);
+    expect(cancelled.isCurrent, isTrue);
+    expect(tracking.completeBootstrap(replaced, report), isFalse);
+    tracking.cancelBootstrap(cancelled);
+    expect(cancelled.isCurrent, isFalse);
+    expect(tracking.completeBootstrap(cancelled, report), isFalse);
+
+    final superseded = tracking.beginBootstrap();
+    final failed = tracking.beginSnapshot()!;
+    expect(superseded.isCurrent, isFalse);
+    tracking.failSnapshot(failed);
+    expect(tracking.completeBootstrap(superseded, report), isFalse);
+
+    final load = tracking.beginSnapshot()!;
+    final concurrent = tracking.beginBootstrap();
+    expect(tracking.completeBootstrap(concurrent, report), isFalse);
+    expect(load.isCurrent, isTrue);
+    expect(tracking.hasSnapshot, isFalse);
+    expect(tracking.revision, 0);
+  });
+
+  for (final replace in [false, true]) {
+    test('unseeded events replay unless a category read replaces them, '
+        'replace=$replace', () {
+      final tracking = TopicTrackingReconciler();
+      tracking.accept(_newTopic(8));
+      final load = tracking.beginSnapshot(replace: replace)!;
+      tracking.completeSnapshot(load, TopicTrackingState());
+      expect(tracking.topic(8)?.isNew, !replace);
+    });
+  }
+
+  test('seeded events observed during bootstrap IO replay onto it', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(tracking.beginSnapshot()!, TopicTrackingState());
+    final bootstrap = tracking.beginBootstrap();
+    tracking.accept(_newTopic(8));
+    expect(tracking.completeBootstrap(bootstrap, TopicTrackingState()), isTrue);
+    expect(tracking.topic(8)?.isNew, isTrue);
+  });
+
+  test('an installed bootstrap ends the retry phase', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.failSnapshot(tracking.beginSnapshot()!);
+    final bootstrap = tracking.beginBootstrap();
+    expect(tracking.completeBootstrap(bootstrap, TopicTrackingState()), isTrue);
+    expect(tracking.phase, TopicTrackingPhase.live);
+  });
+
+  test('a cancelled bootstrap journal does not replay onto its successor', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(tracking.beginSnapshot()!, TopicTrackingState());
+    final cancelled = tracking.beginBootstrap();
+    tracking.accept(_newTopic(8));
+    tracking.cancelBootstrap(cancelled);
+    final bootstrap = tracking.beginBootstrap();
+    expect(tracking.completeBootstrap(bootstrap, TopicTrackingState()), isTrue);
+    expect(tracking.topic(8)?.isNew, isFalse);
+  });
+
+  for (final ending in ['failed', 'cancelled']) {
+    test('a $ending report journal does not replay onto the next report', () {
+      final tracking = TopicTrackingReconciler();
+      final ended = tracking.beginSnapshot()!;
+      tracking.accept(_newTopic(8));
+      if (ending == 'failed') {
+        tracking.failSnapshot(ended);
+      } else {
+        tracking.cancelSnapshot(ended);
+      }
+      final next = tracking.beginSnapshot()!;
+      tracking.completeSnapshot(next, TopicTrackingState());
+      expect(tracking.topic(8)?.isNew, isFalse);
+    });
+  }
+
+  test('a rejected choice stops overriding before its queue releases', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row]),
+    );
+    final choice = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    expect(
+      tracking.settleNotificationLevel(choice, succeeded: false),
+      TopicNotificationLevel.tracking,
+    );
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.tracking);
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row.copyWith(notificationLevel: 1)]),
+    );
+    expect(tracking.topic(7)?.notificationLevel, 1);
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.normal);
+  });
+
+  test('queued choices keep the first confirmed level as rollback', () {
+    final tracking = TopicTrackingReconciler();
+    final first = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.muted,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    final latest = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: tracking.notificationLevel(7)!,
+    );
+    expect(tracking.settleNotificationLevel(first, succeeded: false), isNull);
+    expect(
+      tracking.settleNotificationLevel(latest, succeeded: false),
+      TopicNotificationLevel.tracking,
+    );
+  });
+
+  test('a choice made on another account cannot settle this one', () {
+    final other = TopicTrackingReconciler();
+    final foreign = other.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.muted,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    final tracking = TopicTrackingReconciler();
+    final choice = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: TopicNotificationLevel.normal,
+    );
+    expect(tracking.settleNotificationLevel(foreign, succeeded: true), isNull);
+    expect(
+      tracking.settleNotificationLevel(choice, succeeded: false),
+      TopicNotificationLevel.normal,
+    );
+  });
+
+  test('a read begun before a rejected write cannot replace its rollback', () {
+    final tracking = TopicTrackingReconciler();
+    final choice = tracking.chooseNotificationLevel(
+      7,
+      TopicNotificationLevel.watching,
+      confirmed: TopicNotificationLevel.tracking,
+    );
+    final read = tracking.beginNotificationRead(7);
+    tracking.settleNotificationLevel(choice, succeeded: false);
+    expect(
+      read.reconcile(TopicNotificationLevel.normal),
+      TopicNotificationLevel.tracking,
+    );
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.tracking);
+  });
+
+  test('an accepted level change reports whether the row changed', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row]),
+    );
+    Map<String, Object?> level(int value) => {
+      'topic_id': 7,
+      'message_type': 'notification_level_change',
+      'payload': {'notification_level': value},
+    };
+    expect(tracking.accept(level(2)), isFalse);
+    expect(tracking.accept(level(3)), isTrue);
+  });
+
+  test('a dropped row answers with the level its last report carried', () {
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(tracking.beginSnapshot()!, TopicTrackingState());
+    tracking.observeNotificationLevel(7, TopicNotificationLevel.normal);
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row]),
+    );
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([
+        for (var id = 100; id < 100 + TopicTrackingState.maxReportTopics; id++)
+          TrackedTopicState(
+            topicId: id,
+            highestPostNumber: 1,
+            createdInNewPeriod: true,
+          ),
+      ]),
+    );
+    expect(tracking.topic(7), isNull);
+    expect(tracking.notificationLevel(7), TopicNotificationLevel.tracking);
+  });
+
+  test('local read positions never regress and yield to mark-unread', () {
+    const other = TrackedTopicState(
+      topicId: 8,
+      highestPostNumber: 100,
+      lastReadPostNumber: 80,
+      notificationLevel: 2,
+    );
+    final tracking = TopicTrackingReconciler();
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row, other]),
+    );
+    tracking.markRead(7, 95);
+    tracking.markRead(7, 90);
+    tracking.markRead(8, 100);
+    tracking.markLastPostUnread(8, 99);
+    tracking.completeSnapshot(
+      tracking.beginSnapshot()!,
+      TopicTrackingState([_row, other]),
+    );
+    expect(tracking.topic(7)?.lastReadPostNumber, 95);
+    expect(tracking.topic(8)?.lastReadPostNumber, 80);
+  });
 }
