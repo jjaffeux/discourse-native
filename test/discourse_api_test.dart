@@ -1197,21 +1197,34 @@ void main() {
     );
 
     test('authenticated reads reject oversized API responses', () async {
-      final api = DiscourseApi(
-        client: MockClient((_) async => http.Response('12345', 200)),
-        maxResponseBytes: 4,
-      );
+      final body = jsonEncode({'notifications': <Object?>[]});
+      final responseBytes = utf8.encode(body).length;
+      for (final limit in [responseBytes, responseBytes - 1]) {
+        final api = DiscourseApi(
+          client: MockClient((_) async => http.Response(body, 200)),
+          maxResponseBytes: limit,
+        );
+        addTearDown(api.close);
+        final read = api.notifications(
+          siteUrl: 'https://example.com',
+          apiKey: 'secret',
+        );
 
-      await expectLater(
-        api.notifications(siteUrl: 'https://example.com', apiKey: 'secret'),
-        throwsA(
-          isA<SiteLookupException>().having(
-            (error) => error.failure,
-            'failure',
-            SiteLookupFailure.unreachable,
-          ),
-        ),
-      );
+        if (limit == responseBytes) {
+          expect(await read, isEmpty);
+        } else {
+          await expectLater(
+            read,
+            throwsA(
+              isA<SiteLookupException>().having(
+                (error) => error.failure,
+                'failure',
+                SiteLookupFailure.unreachable,
+              ),
+            ),
+          );
+        }
+      }
     });
   });
 
@@ -1313,30 +1326,33 @@ void _feedGroups() {
       },
     );
 
-    test('an unauthenticated list omits unread state', () async {
-      final api = DiscourseApi(
-        client: MockClient(
-          (_) async => http.Response(
-            jsonEncode({
-              'topic_list': {
-                'topics': [
-                  {'id': 1, 'title': 'T', 'slug': 't'},
-                ],
-              },
-            }),
-            200,
+    test(
+      'missing per-user fields default to no unread state or avatars',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'topic_list': {
+                  'topics': [
+                    {'id': 1, 'title': 'T', 'slug': 't'},
+                  ],
+                },
+              }),
+              200,
+            ),
           ),
-        ),
-      );
+        );
 
-      final list = await api.topicList(
-        siteUrl: 'https://example.com',
-        path: '/latest.json',
-      );
+        final list = await api.topicList(
+          siteUrl: 'https://example.com',
+          path: '/latest.json',
+        );
 
-      expect(list.topics.single.hasUnread, isFalse);
-      expect(list.topics.single.posterAvatars, isEmpty);
-    });
+        expect(list.topics.single.hasUnread, isFalse);
+        expect(list.topics.single.posterAvatars, isEmpty);
+      },
+    );
 
     for (final siteUrl in [
       'https://example.com',
@@ -1628,16 +1644,17 @@ void _feedGroups() {
         lastReadPostNumber: 4,
         highestPostNumber: 8,
       );
-      const equal = CategoryFeaturedTopic(
-        id: 101,
-        title: 'A topic',
-        slug: 'a-topic',
-        pinned: true,
-        closed: true,
-        archived: true,
-        lastReadPostNumber: 4,
-        highestPostNumber: 8,
-      );
+      const fields = {
+        'id': 101,
+        'title': 'A topic',
+        'slug': 'a-topic',
+        'pinned': true,
+        'closed': true,
+        'archived': true,
+        'last_read_post_number': 4,
+        'highest_post_number': 8,
+      };
+      final equal = CategoryFeaturedTopic.fromJson(fields);
 
       expect(equal, baseline);
       expect(equal.hashCode, baseline.hashCode);
@@ -1659,17 +1676,13 @@ void _feedGroups() {
         ).firstUnreadPostNumber,
         isNull,
       );
-      expect(
-        const CategoryFeaturedTopic(
-          id: 101,
-          title: 'A topic',
-          slug: 'a-topic',
-          archived: false,
-          lastReadPostNumber: 4,
-          highestPostNumber: 8,
-        ),
-        isNot(baseline),
-      );
+      for (final flag in ['pinned', 'closed', 'archived']) {
+        expect(
+          CategoryFeaturedTopic.fromJson({...fields, flag: false}),
+          isNot(baseline),
+          reason: flag,
+        );
+      }
     });
 
     test('presentation fields participate in category value identity', () {
@@ -2863,14 +2876,17 @@ void _feedGroups() {
     });
 
     test('an answer it cannot read is a failure, not an empty map', () async {
-      final api = DiscourseApi(
-        client: MockClient((_) async => http.Response('nope', 500)),
-      );
-
-      expect(
-        () => api.customEmojis(siteUrl: 'https://example.com'),
-        throwsA(isA<SiteLookupException>()),
-      );
+      for (final status in [200, 500]) {
+        final api = DiscourseApi(
+          client: MockClient((_) async => http.Response('nope', status)),
+        );
+        addTearDown(api.close);
+        await expectLater(
+          api.customEmojis(siteUrl: 'https://example.com'),
+          throwsA(isA<SiteLookupException>()),
+          reason: 'HTTP $status',
+        );
+      }
     });
   });
 
@@ -3913,7 +3929,7 @@ void _writeGroups() {
       expect(body['sequence'], 4);
       expect(body['owner'], 'this-client');
       // A String, not an object: the controller rejects anything else outright.
-      expect(body['data'], isA<String>());
+      expect(body['data'], '{"reply":"hi"}');
       expect(body.containsKey('force_save'), isFalse);
 
       expect(sequence, 5);
@@ -4934,6 +4950,12 @@ void _writeGroups() {
 
         final body = jsonDecode(sent.body) as Map<String, dynamic>;
         expect(body.containsKey('topic_id'), isFalse);
+        expect(body['title'], 'Hello world');
+        expect(body['raw'], 'Body');
+        expect(body['category'], 4);
+        expect(body['typing_duration_msecs'], 2000);
+        expect(body['composer_open_duration_msecs'], 8000);
+        expect(body['nested_post'], isTrue);
         expect(body['draft_key'], 'new_topic');
         expect(body['tags'], [
           {'id': 7, 'name': 'existing'},
@@ -6220,6 +6242,7 @@ void _writeGroups() {
         expect(multipart, contains('name="upload_type"'));
         expect(multipart, contains('composer'));
         expect(multipart, contains('name="file"; filename="photo.png"'));
+        expect(multipart, contains('\r\n\r\n\u0001\u0002\u0003\u0004\r\n--'));
         expect(progress, orderedEquals([0.5, 1.0, 1.0]));
         expect(result.id, 73);
         expect(result.shortUrl, 'upload://abc123');
@@ -6452,35 +6475,43 @@ void _writeGroups() {
     });
 
     test('bounds oversized upload error bodies', () async {
-      final api = DiscourseApi(
-        client: MockClient(
-          (_) async => http.Response(List.filled(32, 'x').join(), 500),
-        ),
-        maxResponseBytes: 8,
-      );
-
-      await expectLater(
-        api.uploadComposerImage(
-          siteUrl: 'https://meta.discourse.org',
-          apiKey: 'key',
-          file: _uploadFile,
-          onProgress: (_) {},
-          abortTrigger: Completer<void>().future,
-        ),
-        throwsA(
-          isA<ComposerUploadException>().having(
-            (error) => error.message,
-            'message',
-            "Couldn't upload photo.png.",
+      final body = jsonEncode({
+        'errors': ['Distinct server upload refusal.'],
+      });
+      for (final (limit, message) in [
+        (utf8.encode(body).length, 'Distinct server upload refusal.'),
+        (8, "Couldn't upload photo.png."),
+      ]) {
+        final api = DiscourseApi(
+          client: MockClient((_) async => http.Response(body, 500)),
+          maxResponseBytes: limit,
+        );
+        addTearDown(api.close);
+        await expectLater(
+          api.uploadComposerImage(
+            siteUrl: 'https://meta.discourse.org',
+            apiKey: 'key',
+            file: _uploadFile,
+            onProgress: (_) {},
+            abortTrigger: Completer<void>().future,
           ),
-        ),
-      );
+          throwsA(
+            isA<ComposerUploadException>().having(
+              (error) => error.message,
+              'message',
+              message,
+            ),
+          ),
+        );
+      }
     });
 
     test('cancels an active upload', () async {
       final abort = Completer<void>();
+      final started = Completer<void>();
       final api = DiscourseApi(
         client: MockClient.streaming((request, body) async {
+          started.complete();
           final trigger = (request as http.Abortable).abortTrigger!;
           await trigger;
           throw http.RequestAbortedException(request.url);
@@ -6494,6 +6525,7 @@ void _writeGroups() {
         abortTrigger: abort.future,
       );
 
+      await started.future.timeout(const Duration(seconds: 5));
       abort.complete();
 
       await expectLater(
