@@ -512,44 +512,41 @@ void main() {
     }
   });
 
-  testWidgets(
-    'selected sidebar rows use regular glass and dormant rows stay flat',
-    (tester) async {
-      for (final selected in [false, true, false]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: DMaterialTheme.apply(
-              AppTheme.light,
-              DAppearanceMaterial.liquidGlass,
-            ),
-            home: Center(
-              child: DSidebarRowSurface(
-                selected: selected,
-                hovered: false,
-                radius: BorderRadius.circular(8),
-                child: const SizedBox(
-                  width: 120,
-                  height: 32,
-                  child: Text('Topics'),
-                ),
+  testWidgets('selected and dormant sidebar rows both stay flat under glass', (
+    tester,
+  ) async {
+    for (final selected in [false, true, false]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: DMaterialTheme.apply(
+            AppTheme.light,
+            DAppearanceMaterial.liquidGlass,
+          ),
+          home: Center(
+            child: DSidebarRowSurface(
+              selected: selected,
+              hovered: false,
+              radius: BorderRadius.circular(8),
+              child: const SizedBox(
+                width: 120,
+                height: 32,
+                child: Text('Topics'),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        final lens = find.byType(LiquidGlass);
-        expect(lens, selected ? findsOneWidget : findsNothing);
-        if (selected) {
-          expectStockGlass(tester, lens);
-        }
-        expect(
-          tester.getSize(find.byType(DSidebarRowSurface)),
-          const Size(120, 32),
-        );
-        expect(tester.takeException(), isNull);
-      }
-    },
-  );
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Selection is a flat fill in every appearance; the sidebar row
+      // state tests pin its color.
+      expect(find.byType(LiquidGlass), findsNothing);
+      expect(
+        tester.getSize(find.byType(DSidebarRowSurface)),
+        const Size(120, 32),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('opacity control reports the panel and native ground ceilings', (
     tester,
