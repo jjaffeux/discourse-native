@@ -42,7 +42,13 @@ void boardsReaderTests({
       navigation: fixture.navigation,
     );
     if (settings != null) {
-      body = ContentSettingsScope(controller: settings, child: body);
+      body = ContentSettingsScope(
+        controller: settings,
+        child: DPageContentSettings(
+          limitContentSize: settings.limitContentSize,
+          child: body,
+        ),
+      );
     }
     if (paneWidth != null) {
       body = Align(
@@ -223,6 +229,14 @@ void boardsReaderTests({
       );
       final viewport = tester.getSize(find.byType(Scaffold));
       expect(tester.getSize(horizontal).width, viewport.width);
+      expect(
+        DPageContentSettings.limitOf(tester.element(find.byType(BoardsPage))),
+        isTrue,
+      );
+      expect(
+        tester.getSize(find.byType(DControlWrap)).width,
+        greaterThan(DPageReadingLane.maxWidth),
+      );
       final long = tester.getRect(
         find.byKey(const ValueKey('board-column-10')),
       );
