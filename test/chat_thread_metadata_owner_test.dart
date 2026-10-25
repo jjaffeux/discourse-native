@@ -242,6 +242,23 @@ void main() {
     },
   );
 
+  test('detail for another thread is a failure, never stored', () async {
+    final api = _MetadataApi();
+    final subject = _ownerFor(api, held: _detail('Held'));
+
+    final refreshing = subject.owner.refreshThreadDetail(_site, _target);
+    await _waitUntil(() => api.details.length == 1);
+    api.details.single.complete(
+      const ChatThread(id: 23, channelId: 9, status: 'open', replyCount: 0),
+    );
+
+    expect(await refreshing, isNull);
+    expect(subject.store.read<ChatThread>(_site, 22)?.title, 'Held');
+    expect(subject.store.read<ChatThread>(_site, 23), isNull);
+    expect(subject.events.stored, isEmpty);
+    expect(subject.events.failures, [false]);
+  });
+
   test(
     'revoking a channel abandons detail and rejects its late response',
     () async {
