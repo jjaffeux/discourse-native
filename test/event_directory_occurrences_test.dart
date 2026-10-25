@@ -80,6 +80,33 @@ void main() {
     },
   );
 
+  test('events sharing an instant keep their server order', () {
+    // Past insertion-sort length, where an unstable sort reorders ties.
+    final ids = [for (var id = 1; id <= 40; id++) id];
+    final events = [
+      for (final id in ids)
+        PostEvent.decode({'id': id, 'starts_at': '2026-09-08T21:00:00Z'})!,
+    ];
+
+    final rows = eventDirectoryOccurrences(events, ports.zones);
+
+    expect(rows.map((row) => row.id), ids);
+  });
+
+  test('an occurrence carrying its own id deduplicates under that id', () {
+    final series = PostEvent.decode({
+      'id': 42,
+      'occurrences': [
+        {'id': 77, 'starts_at': '2026-09-08T21:00:00Z'},
+        {'id': 77, 'starts_at': '2026-09-08T21:00:00Z'},
+      ],
+    })!;
+
+    final rows = eventDirectoryOccurrences([series], ports.zones);
+
+    expect(rows.map((row) => row.id), [77]);
+  });
+
   test('projected snapshots omit recurrence arrays and current attendance', () {
     final series = PostEvent.decode(
       eventJson(
