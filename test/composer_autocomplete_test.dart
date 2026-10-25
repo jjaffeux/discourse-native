@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/triggers.dart';
-import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
+import 'package:flutter/widgets.dart'
+    show TextEditingValue, TextRange, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/manual_scheduler.dart';
@@ -164,6 +165,114 @@ void main() {
       final smile = popup.suggestions.first;
       popup.refresh();
       expect(popup.canAccept(smile), isTrue);
+    });
+  });
+
+  group('dedicated mention query', () {
+    testWidgets('preserves its query for an unchanged captured source', (
+      tester,
+    ) async {
+      final source = typed('hey @sa');
+      final result = user('sam_smith');
+      people['Sam Smith'] = [result];
+      popup.update(source);
+      await tester.pump(ComposerAutocomplete.debounce);
+      final old = popup.suggestions.first;
+      expect(popup.canAccept(old), isTrue);
+
+      popup.updateMentionQuery('Sam Smith');
+      popup.update(source.copyWith());
+      expect(popup.query, 'Sam Smith');
+      expect(popup.trigger?.query, 'sa');
+      expect(popup.trigger?.start, 4);
+      expect(popup.trigger?.end, 7);
+      expect(popup.canAccept(old), isFalse);
+      await tester.pump(ComposerAutocomplete.debounce);
+      expect(asked, ['sa', 'Sam Smith']);
+      expect(popup.suggestions, [result]);
+      expect(popup.canAccept(result), isTrue);
+    });
+
+    for (final change in [
+      'suffix',
+      'selection',
+      'composition',
+      'mention range',
+    ]) {
+      testWidgets('retires its range after a $change change', (tester) async {
+        const source = TextEditingValue(
+          text: 'hey @sa there',
+          selection: TextSelection.collapsed(offset: 7),
+        );
+        final result = user('sam_smith');
+        people['Sam Smith'] = [result];
+        popup.update(source);
+        await tester.pump(ComposerAutocomplete.debounce);
+        gate = Completer<void>();
+        popup.updateMentionQuery('Sam Smith');
+        await tester.pump(ComposerAutocomplete.debounce);
+        expect(asked, ['sa', 'Sam Smith']);
+
+        final changed = switch (change) {
+          'suffix' => source.copyWith(text: 'hey @sa elsewhere'),
+          'selection' => source.copyWith(
+            selection: const TextSelection.collapsed(offset: 0),
+          ),
+          'composition' => source.copyWith(
+            composing: const TextRange(start: 5, end: 7),
+          ),
+          _ => const TextEditingValue(
+            text: 'hey @sam there',
+            selection: TextSelection.collapsed(offset: 8),
+          ),
+        };
+        popup.update(changed);
+        expect(popup.isOpen, isFalse);
+        expect(popup.trigger, isNull);
+        expect(popup.suggestions, isEmpty);
+        gate!.complete();
+        await tester.pump();
+        expect(popup.isOpen, isFalse);
+        expect(popup.canAccept(result), isFalse);
+      });
+    }
+
+    testWidgets('admits only the latest free-form query results', (
+      tester,
+    ) async {
+      final smith = user('sam_smith');
+      final oneil = user('sam_oneil');
+      people['Sam Smith'] = [smith];
+      people["Sam O'Neil"] = [oneil];
+      popup.update(typed('@sa'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      gate = Completer<void>();
+      popup.updateMentionQuery('Sam Smith');
+      await tester.pump(ComposerAutocomplete.debounce);
+      popup.updateMentionQuery("Sam O'Neil");
+      await tester.pump(ComposerAutocomplete.debounce);
+      gate!.complete();
+      await tester.pump();
+      expect(asked, ['sa', 'Sam Smith', "Sam O'Neil"]);
+      expect(popup.suggestions, [oneil]);
+      expect(popup.canAccept(smith), isFalse);
+      expect(popup.canAccept(oneil), isTrue);
+    });
+
+    testWidgets('disposal retires a pending detached query', (tester) async {
+      final result = user('sam_smith');
+      people['Sam Smith'] = [result];
+      popup.update(typed('@sa'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      gate = Completer<void>();
+      popup.updateMentionQuery('Sam Smith');
+      await tester.pump(ComposerAutocomplete.debounce);
+      popup.dispose();
+      gate!.complete();
+      await tester.pump();
+      expect(popup.isOpen, isFalse);
+      expect(popup.canAccept(result), isFalse);
+      popup = open();
     });
   });
 
