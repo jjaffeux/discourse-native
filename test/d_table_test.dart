@@ -404,13 +404,13 @@ void main() {
   );
 
   testWidgets(
-    'hover expanded and selected use live multiplied alpha with reduced motion',
+    'hover and selected states use live multiplied alpha with reduced motion',
     (tester) async {
       final colors = ThemeData().colorScheme;
       final tokens = DTokens.fromTheme(
         ThemeData(),
       ).copyWith(muted: const Color(0x80334455));
-      Widget table({bool selected = false, bool expanded = false}) => DTable(
+      Widget table({bool selected = false}) => DTable(
         body: DTableBody(
           rows: [
             DTableRow(
@@ -449,9 +449,11 @@ void main() {
       await mouse.moveTo(tester.getCenter(find.text('Row')));
       await tester.pump();
       expect(background(), tokens.muted.withValues(alpha: tokens.muted.a * .5));
-      await mouse.moveTo(Offset.zero);
-      await pump(table(expanded: true), tokens);
-      expect(background(), tokens.muted.withValues(alpha: tokens.muted.a * .5));
+      await mouse.moveTo(
+        tester.getBottomRight(find.byType(DTable)) + const Offset(10, 10),
+      );
+      await tester.pumpAndSettle();
+      expect(background(), tokens.muted.withValues(alpha: 0));
       final changed = tokens.copyWith(muted: const Color(0x40665544));
       await pump(table(selected: true), changed);
       await tester.pumpAndSettle();

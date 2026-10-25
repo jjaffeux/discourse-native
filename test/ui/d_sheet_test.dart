@@ -36,8 +36,6 @@ Widget _sheet<T>({
   DSheetController<T>? controller,
   bool? open,
   ValueChanged<DSheetChangeDetails<T>>? onOpenChanged,
-  bool dismissOnBarrier = true,
-  bool dismissOnEscape = true,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
   bool showCloseButton = true,

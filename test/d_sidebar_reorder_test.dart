@@ -8,7 +8,6 @@ Widget _fixture({
   required List<int> values,
   required ReorderCallback onReorder,
   FocusNode? focus,
-  ScrollController? scroll,
   bool dark = false,
   double scale = 1,
   TargetPlatform platform = TargetPlatform.macOS,
@@ -53,7 +52,6 @@ Widget _fixture({
 );
 
 Widget _transferFixture({
-  required ScrollController scroll,
   required ValueChanged<DSidebarMove> onMove,
   required ReorderCallback onReorder,
   bool dark = false,
@@ -112,13 +110,10 @@ void main() {
     testWidgets(
       'cross-section drag scrolls and paints a target at large text in ${dark ? 'dark' : 'light'}',
       (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
         final moves = <DSidebarMove>[];
         final reorders = <(int, int)>[];
         await tester.pumpWidget(
           _transferFixture(
-            scroll: scroll,
             dark: dark,
             onMove: moves.add,
             onReorder: (from, to) => reorders.add((from, to)),
@@ -174,13 +169,10 @@ void main() {
   testWidgets('cancelling a cross-section drag does not move or reorder', (
     tester,
   ) async {
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
     final moves = <DSidebarMove>[];
     final reorders = <(int, int)>[];
     await tester.pumpWidget(
       _transferFixture(
-        scroll: scroll,
         onMove: moves.add,
         onReorder: (from, to) => reorders.add((from, to)),
       ),
@@ -241,15 +233,12 @@ void main() {
     testWidgets('touch taps and swipes do not reorder on $platform', (
       tester,
     ) async {
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
       final calls = <(int, int)>[];
       var taps = 0;
       await tester.pumpWidget(
         _fixture(
           values: List.generate(40, (index) => index),
           platform: platform,
-          scroll: scroll,
           onPressed: () => taps++,
           onReorder: (from, to) => calls.add((from, to)),
         ),
@@ -270,13 +259,10 @@ void main() {
     testWidgets(
       'drag scrolls the shared viewport with ${dark ? 'dark' : 'light'} large text',
       (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
         final calls = <(int, int)>[];
         await tester.pumpWidget(
           _fixture(
             values: List.generate(40, (index) => index),
-            scroll: scroll,
             dark: dark,
             scale: 2,
             onReorder: (from, to) => calls.add((from, to)),

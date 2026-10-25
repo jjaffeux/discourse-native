@@ -91,12 +91,9 @@ void main() {
   });
 
   Widget tabs({
-    String? initialValue = 'one',
     bool selectFirst = true,
     bool activateOnFocus = false,
-    bool loopFocus = true,
     Axis orientation = Axis.horizontal,
-    bool secondEnabled = true,
     ValueChanged<String?>? onChanged,
   }) => DTabs<String>(
     selectFirstOnMount: selectFirst,
