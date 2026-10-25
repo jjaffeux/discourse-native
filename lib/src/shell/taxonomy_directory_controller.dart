@@ -455,10 +455,7 @@ final class _TaxonomyDirectoryController
     final site = _site(siteUrl);
     final instance = _shell._instanceAt(siteUrl);
     if (!site.lease.isCurrent) return;
-    if (force && !site.categoryFeed.loading) {
-      site.categorised = false;
-    }
-    if (instance != null) await ensureCategoriesFor(instance);
+    if (instance != null) await ensureCategoriesFor(instance, force: force);
   }
 
   Future<void> loadTags(String siteUrl, {bool force = false}) async {
@@ -657,6 +654,7 @@ final class _TaxonomyDirectoryController
   Future<void> ensureCategoriesFor(
     DiscourseInstance instance, {
     int? categoryId,
+    bool force = false,
   }) async {
     final site = _site(instance.url);
     if (instance.loginRequired && !instance.isConnected) return;
@@ -664,12 +662,7 @@ final class _TaxonomyDirectoryController
     final lease = site.lease;
     if (!lease.isCurrent) return;
     try {
-      final requestSession = AccountRequestSession(instance.url, lease);
-      final credential = instance.isConnected
-          ? await requestSession.credentials(_shell.credentials)
-          : requestSession.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      await _ensureCategories(instance, credential, lease: lease);
+      await _ensureCategories(instance, force: force);
       if (lease.isCurrent && categoryId != null) {
         await ensureCategoryIds(instance, [categoryId]);
       }
@@ -687,41 +680,60 @@ final class _TaxonomyDirectoryController
   }
 
   Future<void> _ensureCategories(
-    DiscourseInstance instance,
-    AccountRequestCredentials credential, {
-    SiteLease? lease,
+    DiscourseInstance instance, {
+    bool force = false,
   }) {
     final site = _site(instance.url);
     if (!site.lease.isCurrent) return Future<void>.value();
     final active = site.categoryRequest;
-    if (active != null) return active.join();
+    if (!force && active != null) return active.join();
+    if (!force && site.categorised) return Future<void>.value();
+    final existingFeed = site.categoryFeed;
+    if (force) site.categoryPageRequest = null;
+    site.categorised = true;
     late final RequestIntentOperation<void> request;
+    bool requestIsCurrent() =>
+        !_shell.accountSessionDisposed &&
+        site.lease.isCurrent &&
+        identical(_sites[instance.url], site) &&
+        identical(site.categoryRequest, request);
     request = RequestIntentOperation(
-      () => _loadCategories(instance, credential, site, lease: lease)
-          .whenComplete(() {
+      () =>
+          Future<void>.microtask(
+            () => _loadCategories(
+              instance,
+              site,
+              existingFeed: existingFeed,
+              replace: force,
+              isCurrent: requestIsCurrent,
+            ),
+          ).whenComplete(() {
             if (identical(site.categoryRequest, request)) {
               site.categoryRequest = null;
             }
           }),
     );
     site.categoryRequest = request;
+    site.categoryFeed = existingFeed.refreshing();
+    _shell._notify();
     return request.future;
   }
 
   Future<void> _loadCategories(
     DiscourseInstance instance,
-    AccountRequestCredentials credential,
     _TaxonomySite site, {
-    SiteLease? lease,
+    required CategoryFeed existingFeed,
+    required bool replace,
+    required bool Function() isCurrent,
   }) async {
-    final session = lease ?? site.lease;
-    if (!session.isCurrent || site.categorised) return;
-    site.categorised = true;
-    final existingFeed = site.categoryFeed;
-    site.categoryFeed = existingFeed.refreshing();
-    _shell._notify();
-
+    if (!isCurrent()) return;
+    final session = site.lease;
     try {
+      final requestSession = AccountRequestSession(instance.url, session);
+      final credential = instance.isConnected
+          ? await requestSession.credentials(_shell.credentials)
+          : requestSession.anonymousCredentials();
+      if (!isCurrent()) return;
       final result = await credential.run(
         () => _shell.api.categories.loadCategories(
           siteUrl: instance.url,
@@ -729,16 +741,20 @@ final class _TaxonomyDirectoryController
           clientId: credential.clientId,
         ),
       );
-      if (_shell.accountSessionDisposed || !session.isCurrent) return;
+      if (!isCurrent()) return;
       await _shell._presentation.ensureConfig(instance.url);
-      if (_shell.accountSessionDisposed || !session.isCurrent) return;
+      if (!isCurrent()) return;
       session.commit(() {
-        mergeCategories(instance.url, result.categories);
-        if (!session.isCurrent) return;
+        mergeCategories(instance.url, result.categories, isCurrent: isCurrent);
+        if (!isCurrent()) return;
 
         final held = site.categoryFeed;
-        final roots = <int>{...result.rootCategoryIds, ...held.categoryIds};
-        final nextPage = existingFeed.loaded && existingFeed.error == null
+        final roots = <int>{
+          ...result.rootCategoryIds,
+          if (!replace) ...held.categoryIds,
+        };
+        final nextPage =
+            !replace && existingFeed.loaded && existingFeed.error == null
             ? held.nextPage
             : result.rootCategoryIds.isNotEmpty
             ? 2
@@ -764,7 +780,7 @@ final class _TaxonomyDirectoryController
         _shell._notify();
       });
     } catch (error) {
-      if (_shell.accountSessionDisposed || !session.isCurrent) return;
+      if (!isCurrent()) return;
 
       session.commit(() {
         site.categorised = false;
@@ -818,6 +834,7 @@ final class _TaxonomyDirectoryController
     final page = feed.nextPage;
     if (instance == null ||
         page == null ||
+        feed.loading ||
         feed.loadingMore ||
         !site.lease.isCurrent) {
       return;
@@ -854,7 +871,11 @@ final class _TaxonomyDirectoryController
 
       lease.commit(() {
         if (!identical(site.categoryPageRequest, request)) return;
-        mergeCategories(siteUrl, result.categories);
+        mergeCategories(
+          siteUrl,
+          result.categories,
+          isCurrent: requestIsCurrent,
+        );
         if (!requestIsCurrent()) return;
         site.categoryPageRequest = null;
         final held = site.categoryFeed;
