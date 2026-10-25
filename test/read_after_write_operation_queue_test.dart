@@ -129,4 +129,155 @@ void main() {
     finishBlocked.complete();
     await blocked;
   });
+
+  test(
+    'a read after the last write settles never delays a later write',
+    () async {
+      final queue = ReadAfterWriteOperationQueue();
+      final owner = Object();
+      await queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async {},
+      );
+      final finishRead = Completer<void>();
+      final read = queue.read<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () => finishRead.future,
+      );
+
+      var wrote = false;
+      final write = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async => wrote = true,
+      );
+      await pumpEventQueue();
+
+      expect(wrote, isTrue);
+      finishRead.complete();
+      await Future.wait([read, write]);
+    },
+  );
+
+  test(
+    'a read accepted after one of two writes settles waits for the other',
+    () async {
+      final queue = ReadAfterWriteOperationQueue();
+      final owner = Object();
+      final finishSecond = Completer<void>();
+      var value = 0;
+      final first = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async => value = 1,
+      );
+      final second = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async {
+          await finishSecond.future;
+          value = 2;
+        },
+      );
+      await first;
+
+      var readCompleted = false;
+      final read = queue.read<int>(
+        owner: owner,
+        key: 'forum',
+        operation: () async => value,
+      );
+      unawaited(read.then<void>((_) => readCompleted = true));
+      await pumpEventQueue();
+      expect(readCompleted, isFalse);
+
+      finishSecond.complete();
+      await second;
+      expect(await read, 2);
+    },
+  );
+
+  test('equal keys share a lane even when they are distinct objects', () async {
+    final queue = ReadAfterWriteOperationQueue();
+    final owner = Object();
+    final writeKey = Uri.parse('https://forum.example/avatar.png');
+    final readKey = Uri.parse('https://forum.example/avatar.png');
+    final finishWrite = Completer<void>();
+    var value = 0;
+    final write = queue.write<void>(
+      owner: owner,
+      key: writeKey,
+      operation: () async {
+        await finishWrite.future;
+        value = 1;
+      },
+    );
+
+    var readCompleted = false;
+    final read = queue.read<int>(
+      owner: owner,
+      key: readKey,
+      operation: () async => value,
+    );
+    unawaited(read.then<void>((_) => readCompleted = true));
+    await pumpEventQueue();
+    expect(readCompleted, isFalse);
+
+    finishWrite.complete();
+    await write;
+    expect(await read, 1);
+  });
+
+  test('an idle read that throws synchronously fails its future', () async {
+    final queue = ReadAfterWriteOperationQueue();
+
+    await expectLater(
+      queue.read<int>(
+        owner: Object(),
+        key: 'forum',
+        operation: () => throw StateError('unreadable'),
+      ),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'a settled write does not release a later write from the lane',
+    () async {
+      final queue = ReadAfterWriteOperationQueue();
+      final owner = Object();
+      final finishSecond = Completer<void>();
+      final events = <String>[];
+      final first = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async {},
+      );
+      final second = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async {
+          events.add('second started');
+          await finishSecond.future;
+          events.add('second finished');
+        },
+      );
+      await first;
+      await pumpEventQueue();
+
+      final third = queue.write<void>(
+        owner: owner,
+        key: 'forum',
+        operation: () async => events.add('third'),
+      );
+      await pumpEventQueue();
+      expect(events, ['second started']);
+
+      finishSecond.complete();
+      await Future.wait([second, third]);
+      expect(events, ['second started', 'second finished', 'third']);
+    },
+  );
 }
