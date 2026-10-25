@@ -22640,6 +22640,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The topic was created. Attach it to this card to finish conversion.'**
   String get boardsPromotionPending;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and manage boards with columns.'**
+  String get boardsDescription;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter boards'**
+  String get boardsFilter;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'All boards'**
+  String get boardsAll;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Active boards'**
+  String get boardsActive;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived boards'**
+  String get boardsArchivedFilter;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Board status'**
+  String get boardsStatus;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'No boards match your filters.'**
+  String get boardsNoMatches;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Simple'**
+  String get boardsSimple;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Private board'**
+  String get boardsPrivate;
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Created by {username}'**
+  String boardsCreatedBy(String username);
+
+  /// Native Boards directory interface.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 column} other{{count} columns}}'**
+  String boardsColumnCount(int count);
 }
 
 class _AppLocalizationsDelegate

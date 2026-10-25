@@ -14376,4 +14376,47 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get boardsPromotionPending =>
       'The topic was created. Attach it to this card to finish conversion.';
+
+  @override
+  String get boardsDescription => 'Create and manage boards with columns.';
+
+  @override
+  String get boardsFilter => 'Filter boards';
+
+  @override
+  String get boardsAll => 'All boards';
+
+  @override
+  String get boardsActive => 'Active boards';
+
+  @override
+  String get boardsArchivedFilter => 'Archived boards';
+
+  @override
+  String get boardsStatus => 'Board status';
+
+  @override
+  String get boardsNoMatches => 'No boards match your filters.';
+
+  @override
+  String get boardsSimple => 'Simple';
+
+  @override
+  String get boardsPrivate => 'Private board';
+
+  @override
+  String boardsCreatedBy(String username) {
+    return 'Created by $username';
+  }
+
+  @override
+  String boardsColumnCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count columns',
+      one: '1 column',
+    );
+    return '$_temp0';
+  }
 }

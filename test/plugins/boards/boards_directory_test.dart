@@ -1,0 +1,340 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
+import 'package:discourse_native/src/plugins/boards/boards_page.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../../support/boards_fixture.dart';
+import '../../support/native_ui_evidence.dart';
+
+Map<String, dynamic> directoryBoard(
+  int id,
+  String name, {
+  bool archived = false,
+  bool simple = false,
+  bool? public,
+  String? creator,
+  List<String> columns = const ['To do', 'Doing', 'Done'],
+  List<String> tags = const [],
+}) => {
+  'id': id,
+  'name': name,
+  'archived': archived,
+  'card_style': simple ? 'simple' : 'detailed',
+  'anonymous_can_read': ?public,
+  if (creator != null) 'created_by': {'username': creator},
+  'tag_names': tags,
+  'columns': [
+    for (var i = 0; i < columns.length; i++)
+      {'id': id * 100 + i, 'title': columns[i], 'icon': 'check'},
+  ],
+};
+
+void main() => boardsDirectoryWidgetTests();
+
+void boardsDirectoryWidgetTests({
+  bool nativeView = false,
+  Future<void> Function(WidgetTester, String)? onCapture,
+}) {
+  void resize(WidgetTester tester, Size size) {
+    if (nativeView) return;
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
+  Widget page(
+    BoardsFixture fixture, {
+    String site = boardsSite,
+    bool dark = false,
+    double scale = 1,
+  }) => MaterialApp(
+    theme: dark ? AppTheme.dark : AppTheme.light,
+    builder: (context, child) => nativeUiEvidenceBuilder(
+      context,
+      MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child!,
+      ),
+    ),
+    home: RepaintBoundary(
+      key: const ValueKey('boards-native-capture'),
+      child: Scaffold(
+        body: BoardsPage(
+          key: const ValueKey('directory-page'),
+          site: site,
+          route: const BoardsRoute(),
+          controller: fixture.controller,
+          navigation: fixture.navigation,
+        ),
+      ),
+    ),
+  );
+
+  void respond(BoardsFixture fixture, List<Map<String, dynamic>> boards) {
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) => {
+      'boards': boards,
+    };
+  }
+
+  testWidgets(
+    'directory uses category cards and exposes board metadata without detail requests',
+    (tester) async {
+      resize(tester, const Size(1100, 800));
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [
+        directoryBoard(
+          1,
+          'AI Team',
+          creator: 'lee',
+          public: false,
+          tags: ['ai'],
+        ),
+        directoryBoard(
+          2,
+          'Design team board',
+          simple: true,
+          public: true,
+          columns: ['UI Kit', 'Blocks'],
+        ),
+        directoryBoard(3, 'Past launches', archived: true, columns: []),
+        directoryBoard(4, 'Operations', columns: ['Triage']),
+      ]);
+      await prepareNativeUiEvidence(tester);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      expect(find.byType(DPlaceCard), findsNWidgets(4));
+      expect(find.text('Created by lee'), findsOneWidget);
+      expect(find.text('3 columns'), findsOneWidget);
+      expect(find.text('2 columns'), findsOneWidget);
+      expect(find.text('0 columns'), findsOneWidget);
+      expect(find.text('Simple'), findsOneWidget);
+      expect(find.text('Archived'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DIcon && widget.semanticLabel == 'Private board',
+        ),
+        findsOneWidget,
+      );
+      expect(fixture.transport.reads.map((request) => request.path), [
+        '/boards/api/boards.json',
+      ]);
+      if (!nativeView) {
+        final cards = find.byType(DPlaceCard);
+        final first = tester.getRect(cards.at(0));
+        final second = tester.getRect(cards.at(1));
+        expect(first.top, second.top);
+        final fourth = tester.getRect(cards.at(3));
+        expect(fourth.top, first.top);
+        expect(fourth.right, greaterThan(1000));
+        await tester.tapAt(
+          Offset((first.right + second.left) / 2, first.center.dy),
+        );
+        expect(fixture.host.currentContent, isNull);
+      }
+      await captureNativeUi(tester, 'boards-directory-wide');
+      await onCapture?.call(tester, 'boards-directory-wide');
+      await tester.tap(find.text('Design team board'));
+      expect(fixture.host.currentContent?.id, 'boards/2');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'directory search and status filter compose without network reads',
+    (tester) async {
+      resize(tester, const Size(900, 800));
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [
+        directoryBoard(1, 'Team roadmap', tags: ['native']),
+        directoryBoard(2, 'Team archive', archived: true, tags: ['native']),
+        directoryBoard(3, 'Marketing'),
+      ]);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DInput), ' NATIVE team ');
+      await tester.pumpAndSettle();
+      expect(find.text('Team roadmap'), findsOneWidget);
+      expect(find.text('Team archive'), findsOneWidget);
+      expect(find.text('Marketing'), findsNothing);
+      await tester.tap(find.text('All boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Archived boards').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Team archive'), findsOneWidget);
+      expect(find.text('Team roadmap'), findsNothing);
+      await tester.enterText(find.byType(DInput), 'unmatched');
+      await tester.pumpAndSettle();
+      expect(find.text('No boards match your filters.'), findsOneWidget);
+      expect(fixture.transport.reads, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'directory refresh retains filters and displays refreshed cards',
+    (tester) async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DInput), 'team');
+      await tester.pumpAndSettle();
+      respond(fixture, [
+        directoryBoard(2, 'Team release'),
+        directoryBoard(3, 'Other'),
+      ]);
+      await tester.tap(find.widgetWithText(DButton, 'Refresh'));
+      await tester.pumpAndSettle();
+      expect(find.text('Team release'), findsOneWidget);
+      expect(find.text('Other'), findsNothing);
+      expect(find.text('Team roadmap'), findsNothing);
+      expect(fixture.transport.reads, hasLength(2));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'directory loading failure can retry and distinguish an empty directory',
+    (tester) async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final pending = Completer<Map<String, dynamic>>();
+      fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+          pending.future;
+      await tester.pumpWidget(page(fixture));
+      await tester.pump();
+      expect(find.byType(DSpinner), findsOneWidget);
+      pending.completeError(StateError('Directory unavailable'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Directory unavailable'), findsOneWidget);
+      respond(fixture, []);
+      await tester.tap(find.widgetWithText(DButton, 'Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('No boards are available.'), findsOneWidget);
+      expect(find.text('No boards match your filters.'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('directory filters reset after site and account changes', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(DInput), 'unmatched');
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(page(fixture, site: 'https://other.example'));
+    await tester.pumpAndSettle();
+    expect(find.text('Team roadmap'), findsOneWidget);
+    await tester.enterText(find.byType(DInput), 'unmatched');
+    await tester.pumpAndSettle();
+    fixture.requests.forget('https://other.example');
+    fixture.controller.forget('https://other.example');
+    await tester.pumpAndSettle();
+    expect(find.text('Team roadmap'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('directory scroll resets for another site and account', (
+    tester,
+  ) async {
+    resize(tester, const Size(800, 600));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [
+      for (var id = 1; id <= 40; id++) directoryBoard(id, 'Board $id'),
+    ]);
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
+    await tester.pumpAndSettle();
+    expect(position().pixels, greaterThan(0));
+    await tester.pumpWidget(page(fixture, site: 'https://other.example'));
+    await tester.pumpAndSettle();
+    expect(position().pixels, 0);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -450));
+    await tester.pumpAndSettle();
+    expect(position().pixels, greaterThan(0));
+    fixture.requests.forget('https://other.example');
+    fixture.controller.forget('https://other.example');
+    await tester.pumpAndSettle();
+    expect(position().pixels, 0);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final width in [320.0, 390.0]) {
+    testWidgets(
+      'narrow directory wraps long columns and creator at 2x text at width $width',
+      (tester) async {
+        resize(tester, Size(width, 1100));
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        respond(fixture, [
+          directoryBoard(
+            1,
+            'Enterprise setup',
+            creator: 'a_very_long_creator_username_for_this_board',
+            public: false,
+            columns: [
+              'Active concerns',
+              'AWS Setup',
+              'Metal setup',
+              'Community Success',
+              'Training',
+              'Site customization',
+              'Launching this month',
+              'Balance due',
+              'POST LAUNCH CHECK-IN',
+              'Case study opportunity',
+            ],
+          ),
+        ]);
+        await prepareNativeUiEvidence(tester);
+        await tester.pumpWidget(page(fixture, dark: true, scale: 2));
+        await tester.pumpAndSettle();
+        expect(find.byType(DPlaceCard), findsOneWidget);
+        expect(find.text('10 columns'), findsOneWidget);
+        expect(find.text('Case study opportunity'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await captureNativeUi(
+          tester,
+          'boards-directory-narrow-${width.toInt()}',
+        );
+        await onCapture?.call(
+          tester,
+          'boards-directory-narrow-${width.toInt()}',
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+}

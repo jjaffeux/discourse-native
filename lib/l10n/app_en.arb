@@ -18935,5 +18935,59 @@
   "boardsPromotionPending": "The topic was created. Attach it to this card to finish conversion.",
   "@boardsPromotionPending": {
     "description": "Native Boards plugin interface."
+  },
+  "boardsDescription": "Create and manage boards with columns.",
+  "@boardsDescription": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsFilter": "Filter boards",
+  "@boardsFilter": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsAll": "All boards",
+  "@boardsAll": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsActive": "Active boards",
+  "@boardsActive": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsArchivedFilter": "Archived boards",
+  "@boardsArchivedFilter": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsStatus": "Board status",
+  "@boardsStatus": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsNoMatches": "No boards match your filters.",
+  "@boardsNoMatches": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsSimple": "Simple",
+  "@boardsSimple": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsPrivate": "Private board",
+  "@boardsPrivate": {
+    "description": "Native Boards directory interface."
+  },
+  "boardsCreatedBy": "Created by {username}",
+  "@boardsCreatedBy": {
+    "description": "Native Boards directory interface.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "boardsColumnCount": "{count, plural, =1{1 column} other{{count} columns}}",
+  "@boardsColumnCount": {
+    "description": "Native Boards directory interface.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

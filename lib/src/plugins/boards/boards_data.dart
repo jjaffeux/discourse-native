@@ -123,6 +123,7 @@ final class BoardColumn {
     this.moveCategoryId,
     this.moveAssigned,
     this.moveStatus,
+    this.icon,
   );
   static BoardColumn? decode(Object? value) {
     final json = boardObject(value);
@@ -148,6 +149,7 @@ final class BoardColumn {
       boardInt(json['move_to_category_id']),
       boardText(json['move_to_assigned']),
       boardText(json['move_to_status']),
+      boardText(json['icon']),
     );
   }
 
@@ -155,8 +157,24 @@ final class BoardColumn {
   final String title;
   final BoardColumnOrder order;
   final List<BoardCard> cards;
-  final String tagName, moveAssigned, moveStatus;
+  final String tagName, moveAssigned, moveStatus, icon;
   final int? moveCategoryId;
+}
+
+final class BoardCreator {
+  const BoardCreator({required this.username, required this.avatarTemplate});
+
+  static BoardCreator? decode(Object? value) {
+    final json = boardObject(value);
+    final username = boardText(json['username']);
+    if (username.isEmpty) return null;
+    return BoardCreator(
+      username: username,
+      avatarTemplate: boardText(json['avatar_template']),
+    );
+  }
+
+  final String username, avatarTemplate;
 }
 
 final class BoardSnapshot {
@@ -174,6 +192,8 @@ final class BoardSnapshot {
     this.showTags,
     this.showThumbnail,
     this.detailed,
+    this.createdBy,
+    this.anonymousCanRead,
   );
   static BoardSnapshot? decode(Object? value, {Object? columns}) {
     final json = boardObject(value);
@@ -197,6 +217,10 @@ final class BoardSnapshot {
       json['show_tags'] == true,
       json['show_topic_thumbnail'] == true,
       json['card_style'] != 'simple',
+      BoardCreator.decode(json['created_by']),
+      json['anonymous_can_read'] is bool
+          ? json['anonymous_can_read'] as bool
+          : null,
     );
   }
 
@@ -204,6 +228,8 @@ final class BoardSnapshot {
   final String name, slug;
   final bool archived, canWrite, canManage, requireConfirmation;
   final bool showTags, showThumbnail, detailed;
+  final BoardCreator? createdBy;
+  final bool? anonymousCanRead;
   final List<BoardColumn> columns;
   final List<int> categoryIds;
   final List<String> tagNames;

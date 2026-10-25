@@ -10,6 +10,7 @@ import 'board_card_editor.dart';
 import 'board_move_dialog.dart';
 import 'boards_controller.dart';
 import 'boards_data.dart';
+import 'boards_directory.dart';
 import 'boards_navigation.dart';
 
 class BoardsPage extends StatefulWidget {
@@ -143,24 +144,21 @@ class _BoardsPageState extends State<BoardsPage> {
     }
     final handle = _handle;
     if (handle == null) {
-      return DPageSurface.headed(
-        title: Text(l10n.boardsTitle),
-        controls: DButton(
-          label: Text(l10n.refresh),
-          onPressed: _directoryLoading ? null : _directory,
-        ),
-        child: _directoryLoading
-            ? const Center(child: DSpinner())
-            : _directoryError != null
-            ? Center(
-                child: DEmpty(
-                  children: [
-                    Text(_directoryError!),
-                    DButton(label: Text(l10n.retry), onPressed: _directory),
-                  ],
-                ),
-              )
-            : _directoryList(),
+      return BoardsDirectory(
+        key: PageStorageKey(_identity),
+        site: widget.site,
+        boards: widget.controller.directory(widget.site),
+        categories: {
+          for (final board in widget.controller.directory(widget.site))
+            for (final id in board.categoryIds)
+              id: ?widget.controller.siteState.categoryFor
+                  ?.call(widget.site, id)
+                  ?.name,
+        },
+        loading: _directoryLoading,
+        error: _directoryError,
+        onRefresh: _directory,
+        onOpen: (board) => widget.navigation.open(board: board),
       );
     }
     final board = handle.snapshot;
@@ -281,36 +279,6 @@ class _BoardsPageState extends State<BoardsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _directoryList() {
-    final boards = widget.controller.directory(widget.site);
-    if (boards.isEmpty) {
-      return Center(
-        child: DEmpty(children: [Text(context.l10n.boardsNoBoards)]),
-      );
-    }
-    return ListView.builder(
-      itemCount: boards.length,
-      itemBuilder: (context, index) {
-        final board = boards[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: DItem(
-            onPressed: () => widget.navigation.open(board: board),
-            children: [
-              DItemContent(
-                children: [
-                  DItemTitle(child: Text(board.name)),
-                  if (board.archived)
-                    DItemDescription(child: Text(context.l10n.boardsArchived)),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
