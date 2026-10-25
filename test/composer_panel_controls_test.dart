@@ -363,11 +363,15 @@ void main() {
 
         await tester.tap(button);
         await tester.pumpAndSettle();
+        // The picker searches free-form names; a space stays in its query
+        // and the draft keeps only the bare @ until a result is chosen.
         await tester.enterText(filter, 'literal ');
         await tester.pumpAndSettle();
-        expect(search, findsNothing);
-        expect(composer.text.text, '@staff @stan @literal ');
-        expect(composer.focus.hasFocus, isTrue);
+        expect(search, findsOneWidget);
+        expect(tester.widget<EditableText>(filter).controller.text, 'literal ');
+        expect(tester.widget<EditableText>(filter).focusNode.hasFocus, isTrue);
+        expect(queries.last, 'literal ');
+        expect(composer.text.text, '@staff @stan @');
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
@@ -470,7 +474,7 @@ void main() {
           tester.getRect(input).intersect(loadingBounds),
           tester.getRect(input),
         );
-        expect(composer.raw, '$prefix@sam');
+        expect(composer.raw, '$prefix@');
         expect(requests.last.$1, 'sam');
         requests.last.$2.complete([people.first]);
         await tester.pumpAndSettle();
@@ -498,7 +502,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(menu, findsNothing);
-        expect(composer.raw, '$prefix@missing');
+        expect(composer.raw, '$prefix@');
         expect(composer.focus.hasFocus, isTrue);
         expect(tester.takeException(), isNull);
       },

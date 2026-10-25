@@ -73,7 +73,9 @@ final class _ChatMessageRead {
     if (_deletion.containsKey(incoming.id) && _deletion[incoming.id] == null) {
       return null;
     }
-    final held = owner.chat._store.read<ChatMessage>(
+    // Only a message this read holds a mutation for consults the store: a
+    // page of untouched messages must not read, and so reorder, the cache.
+    late final held = owner.chat._store.read<ChatMessage>(
       owner.siteUrl,
       incoming.id,
     );

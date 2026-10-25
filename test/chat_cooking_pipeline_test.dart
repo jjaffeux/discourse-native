@@ -500,11 +500,13 @@ Future<void> _until(WidgetTester tester, bool Function() ready) async {
   final timeout = Stopwatch()..start();
   while (!ready() && timeout.elapsed < const Duration(seconds: 15)) {
     // Worker events need real time; pump then delivers their widget-zone
-    // continuations. Advancing fake time would expire unrelated watchdogs.
+    // continuations. A zero elapse also runs the zero-delay timers a long
+    // cooked body yields through while it converts, without advancing fake
+    // time far enough to expire unrelated watchdogs.
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 5)),
     );
-    await tester.pump();
+    await tester.pump(Duration.zero);
   }
   expect(ready(), isTrue, reason: 'Real worker/rendering failed to settle');
 }
