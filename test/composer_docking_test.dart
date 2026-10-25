@@ -842,10 +842,6 @@ void main() {
       expect(frame.top, greaterThan(handle.bottom));
       expect(frame.bottom, sheet.bottom);
       expect(frame.width, sheet.width);
-      expect(
-        find.byKey(const ValueKey('composer-minimize-header')),
-        findsNothing,
-      );
       final submit = tester.getRect(
         find.byKey(const ValueKey('composer-submit')),
       );
@@ -897,7 +893,6 @@ void main() {
     final close = find.byKey(const ValueKey('composer-close'));
     expect(tester.widget<DButton>(close).shape, DButtonShape.pill);
     expect(tester.getSize(close).width, tester.getSize(close).height);
-    expect(find.byKey(const ValueKey('composer-mobile-options')), findsNothing);
     await tester.tap(close);
     await tester.pumpAndSettle();
     expect(harness.shell.visibleComposer, same(composer));

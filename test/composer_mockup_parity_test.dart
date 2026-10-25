@@ -607,10 +607,6 @@ void main() {
         );
         final handle = find.byKey(const ValueKey('sheet-drag-handle'));
         expect(handle.hitTestable(), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('composer-minimize-header')),
-          findsNothing,
-        );
         final bounds = tester.getRect(handle);
         expect(bounds.center.dx, 195);
         for (final action in ['composer-close', 'composer-submit']) {

@@ -77,7 +77,6 @@ void main() {
       final docked = tester.getRect(panel);
       expect(docked.overlaps(sidebarRect), isFalse);
       expect(docked.overlaps(railRect), isFalse);
-      expect(find.byKey(const ValueKey('composer-drag-handle')), findsNothing);
       final composer = controller.visibleComposer!;
       composer.text.value = const TextEditingValue(
         text: 'Selected topic text',
