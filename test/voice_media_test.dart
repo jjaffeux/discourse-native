@@ -3860,11 +3860,11 @@ void main() {
       expect(timers, hasLength(1));
 
       coordinator.cancel();
+      expect(timers.single.isActive, isFalse);
       await reconnect;
       timers.single.fire();
       await coordinator.reconnect();
 
-      expect(timers.single.isActive, isFalse);
       expect(attempts, 1);
       expect(
         coordinator.connectionState,

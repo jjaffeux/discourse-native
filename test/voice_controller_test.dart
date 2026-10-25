@@ -1941,6 +1941,38 @@ void main() {
     );
 
     test(
+      'a rejoin after the site is forgotten does not wait on the retired join',
+      () async {
+        final gate = Completer<void>();
+        requests = _GatedRequestHost(credentialsGate: gate);
+        useTransport(transport);
+        final room = VoiceRoom.fromJson(fixture('room'));
+
+        final retired = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: room,
+        );
+        await pumpEventQueue();
+        controller.forget(firstSite);
+        final rejoining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: room,
+        );
+        gate.complete();
+        await Future.wait([retired, rejoining]);
+
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+        expect(controller.call?.room.id, 7);
+        expect(mediaFactory.sessions, hasLength(1));
+      },
+    );
+
+    test(
       'prevent an in-flight join response from creating media after the site is forgotten',
       () async {
         final controlled = _ControlledVoiceTransport()
@@ -3143,6 +3175,21 @@ void main() {
 
         expect(controller.room(firstSite, 7)?.name, 'Renamed Room');
       });
+
+      test(
+        'takes the reload over a kick, which carries no room state',
+        () async {
+          await requestReload();
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'kicked',
+            'room_id': 7,
+          }, messageId: 95);
+
+          await answerReload({...fixture('room'), 'name': 'Reloaded Room'});
+
+          expect(controller.room(firstSite, 7)?.name, 'Reloaded Room');
+        },
+      );
 
       test('keeps a roster received after it was requested', () async {
         await requestReload();
@@ -6452,6 +6499,29 @@ void main() {
         expect(systemCall.ends, 1);
       },
     );
+
+    test('a kick from another room leaves the call alone', () async {
+      transport.responses['GET /voice/rooms.json'] = {
+        'index_message_bus_last_id': 144,
+        'rooms': [
+          fixture('room'),
+          {...fixture('room'), 'id': 8, 'slug': 'other-room'},
+        ],
+      };
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      final media = mediaFactory.sessions.single;
+
+      firstTracker.deliver('/voice/rooms/8', {'type': 'kicked', 'room_id': 8});
+      await pumpEventQueue();
+
+      expect(controller.call?.room.id, 7);
+      expect(media.disposeCount, 0);
+    });
 
     test(
       'tears media down after kicks, room destruction, and account removal',

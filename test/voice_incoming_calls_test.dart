@@ -147,6 +147,113 @@ void main() {
     ]);
   });
 
+  test('detaching the ringing site ends its ring', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    await pumpEventQueue();
+    expect(harness.owner.handledBySystem, isTrue);
+
+    harness.owner.detach(_site);
+    await pumpEventQueue();
+    expect(harness.owner.call, isNull);
+    expect(harness.system.ends, [VoiceIncomingCallEndReason.unanswered]);
+    expect(harness.scheduler.activeTimerCount, 0);
+    expect(harness.tracker.subscription.cancelCount, 1);
+  });
+
+  for (final presented in [true, false]) {
+    test('an in-app answer takes over the system ring only when the system '
+        '${presented ? 'presented' : 'declined to present'} it', () async {
+      final harness = _Harness();
+      addTearDown(harness.close);
+      harness.system.presentation = Completer<bool>()..complete(presented);
+      harness.ring();
+      await pumpEventQueue();
+
+      final accepted = await harness.owner.accept();
+      expect(accepted?.isCurrent, isTrue);
+      expect(harness.system.answers, presented ? 1 : 0);
+    });
+  }
+
+  test('joining another room leaves the ring alone', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    await pumpEventQueue();
+
+    harness.owner.roomJoined(_site, 10);
+    expect(harness.owner.call?.roomId, 9);
+    harness.owner.roomJoined(_site, 9);
+    await pumpEventQueue();
+    expect(harness.owner.call, isNull);
+    expect(harness.system.ends, [VoiceIncomingCallEndReason.answeredElsewhere]);
+  });
+
+  test('retiring an answer that was not waiting publishes nothing', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    var changes = 0;
+    harness.ring();
+    await harness.owner.accept();
+    harness.onChanged = () => changes++;
+
+    harness.owner.retireAnswer();
+    expect(changes, 0);
+  });
+
+  test('hanging up a parked answer spares an answer still joining', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    await pumpEventQueue();
+    final accepted = await harness.owner.accept();
+
+    harness.owner.cancelAwaitingAnswer();
+    await pumpEventQueue();
+    expect(accepted?.isCurrent, isTrue);
+    expect(harness.system.hangUps, 0);
+  });
+
+  for (final (ringSeconds, rings) in [(10, false), (11, true)]) {
+    test('a ring ${rings ? 'with time left' : 'whose window ends now'} '
+        '${rings ? 'rings' : 'is dropped'}', () async {
+      final harness = _Harness();
+      addTearDown(harness.close);
+      harness.ring(ringSeconds: ringSeconds);
+      await pumpEventQueue();
+      expect(harness.owner.call != null, rings);
+      expect(harness.system.reported, hasLength(rings ? 1 : 0));
+    });
+  }
+
+  test('a newer ring ends the ring the system is showing', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    await pumpEventQueue();
+
+    harness.ring(sentAt: 1786204805);
+    await pumpEventQueue();
+    expect(harness.owner.call?.sentAt, DateTime.utc(2026, 8, 8, 16, 0, 5));
+    expect(harness.system.ends, [VoiceIncomingCallEndReason.unanswered]);
+    expect(harness.system.reported, hasLength(2));
+  });
+
+  test('a redelivered earlier ring cannot replace a newer one', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    harness.ring(sentAt: 1786204805);
+    await pumpEventQueue();
+
+    harness.ring();
+    await pumpEventQueue();
+    expect(harness.owner.call?.sentAt, DateTime.utc(2026, 8, 8, 16, 0, 5));
+    expect(harness.system.reported, hasLength(2));
+  });
+
   test('a ring never outlives one window, whatever it claims', () async {
     final harness = _Harness();
     addTearDown(harness.close);
@@ -382,6 +489,7 @@ final class _SystemCall implements VoiceSystemCall {
   Completer<bool>? presentation;
   final reported = <({String callerName, String handle})>[];
   final ends = <VoiceIncomingCallEndReason>[];
+  int answers = 0;
   int failures = 0;
   int hangUps = 0;
   @override
@@ -400,7 +508,7 @@ final class _SystemCall implements VoiceSystemCall {
   Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async =>
       ends.add(reason);
   @override
-  Future<void> answerIncomingCall() async {}
+  Future<void> answerIncomingCall() async => answers++;
   @override
   Future<void> declineIncomingCall() async {}
   @override

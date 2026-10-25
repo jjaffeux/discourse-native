@@ -4387,7 +4387,12 @@ void _directCallTests() {
       });
     }
 
-    for (final boundary in ['privacy read', 'privacy dialog', 'navigation']) {
+    for (final boundary in [
+      'privacy read',
+      'privacy dialog',
+      'privacy acknowledgement',
+      'navigation',
+    ]) {
       testWidgets('answer stops after account removal during $boundary', (
         tester,
       ) async {
@@ -4408,6 +4413,9 @@ void _directCallTests() {
         final preferences = _Preferences();
         final gate = Completer<void>();
         if (boundary == 'privacy read') preferences.meshPrivacyReadGate = gate;
+        if (boundary == 'privacy acknowledgement') {
+          preferences.meshPrivacyWriteGate = gate;
+        }
         final harness = _Harness(
           discourseApi: transport,
           tracker: tracker,
@@ -4458,6 +4466,14 @@ void _directCallTests() {
           expect(find.text('Before you join this room'), findsOneWidget);
           harness.controller.forget(_siteUrl);
           await tester.tap(find.text('Join room'));
+        } else if (boundary == 'privacy acknowledgement') {
+          await tester.tap(find.text("Don't show this again"));
+          await tester.pump();
+          await tester.tap(find.text('Join room'));
+          await tester.pumpAndSettle();
+          expect(preferences.meshPrivacyWrites, [true]);
+          harness.controller.forget(_siteUrl);
+          gate.complete();
         } else if (boundary == 'privacy read') {
           harness.controller.forget(_siteUrl);
           gate.complete();
@@ -6997,6 +7013,7 @@ final class _Preferences implements VoicePreferences {
 
   bool meshPrivacyAcknowledged = false;
   Completer<void>? meshPrivacyReadGate;
+  Completer<void>? meshPrivacyWriteGate;
   int meshPrivacyReads = 0;
   final List<bool> meshPrivacyWrites = [];
   bool? autoStatusEnabled;
@@ -7012,6 +7029,7 @@ final class _Preferences implements VoicePreferences {
   @override
   Future<void> writeMeshPrivacyAcknowledged(bool acknowledged) async {
     meshPrivacyWrites.add(acknowledged);
+    await meshPrivacyWriteGate?.future;
     meshPrivacyAcknowledged = acknowledged;
   }
 
