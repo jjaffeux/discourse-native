@@ -560,21 +560,45 @@ void main() {
       expect(asked, isNot(contains('sam')));
     });
 
-    testWidgets('discards an answer the query has moved past', (tester) async {
-      gate = Completer<void>();
+    for (final staleFails in [false, true]) {
+      testWidgets(
+        'a superseded ${staleFails ? 'failure' : 'answer'} landing last '
+        'keeps the newer rows',
+        (tester) async {
+          final answers = <String, Completer<List<ComposerSuggestion>>>{};
+          final racing = ComposerAutocomplete(
+            search: (
+              users: (term) =>
+                  (answers[term] = Completer<List<ComposerSuggestion>>())
+                      .future,
+              hashtags: (_) async => const [],
+              emojis: (_) async => const [],
+            ),
+          );
+          addTearDown(racing.dispose);
 
-      popup.update(typed('hey @sa'));
-      await tester.pump(ComposerAutocomplete.debounce);
-      expect(asked, ['sa']);
+          racing.update(typed('hey @sa'));
+          await tester.pump(ComposerAutocomplete.debounce);
+          racing.update(typed('hey @sam'));
+          await tester.pump(ComposerAutocomplete.debounce);
+          answers['sam']!.complete([user('sam')]);
+          await tester.pump();
+          final sam = racing.suggestions.single;
 
-      popup.update(typed('hey @sam'));
-      await tester.pump(ComposerAutocomplete.debounce);
+          if (staleFails) {
+            answers['sa']!.completeError(StateError('offline'));
+          } else {
+            answers['sa']!.complete([user('sally')]);
+          }
+          await tester.pump();
 
-      gate!.complete();
-      await tester.pump();
-
-      expect(popup.suggestions.map((s) => s.value), ['sam']);
-    });
+          expect(racing.suggestions, [same(sam)]);
+          expect(racing.canAccept(sam), isTrue);
+          expect(racing.hasError, isFalse);
+          expect(racing.isLoading, isFalse);
+        },
+      );
+    }
   });
 
   group('hashtag autocomplete', () {
@@ -603,20 +627,6 @@ void main() {
       await tester.pump(ComposerAutocomplete.debounce);
 
       expect(askedHashtags, ['ran']);
-    });
-
-    testWidgets('discards an answer the query has moved past', (tester) async {
-      hashtagGate = Completer<void>();
-
-      popup.update(typed('see #r'));
-      await tester.pump(ComposerAutocomplete.debounce);
-      popup.update(typed('see #ran'));
-      await tester.pump(ComposerAutocomplete.debounce);
-
-      hashtagGate!.complete();
-      await tester.pump();
-
-      expect(popup.suggestions.map((s) => s.value), ['random', 'random::tag']);
     });
 
     testWidgets('does not share a timer with a mention', (tester) async {

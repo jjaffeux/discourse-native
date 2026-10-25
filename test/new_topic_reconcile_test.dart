@@ -374,6 +374,26 @@ void main() {
     expect(api.topicCreates, hasLength(1));
   });
 
+  test('a create the site refused is not looked for', () async {
+    final composer = await compose('Printer is on fire', 'Please send help.');
+    api.createLands = false;
+    api.createFailure = const WriteException(
+      WriteFailure.validation,
+      errors: ['Title is too short'],
+    );
+    final draftReads = api.draftReads.length;
+    final topicListReads = api.topicListReads.length;
+
+    await shell.submitComposer();
+
+    expect(api.topicCreates, hasLength(1));
+    expect(api.draftReads, hasLength(draftReads));
+    expect(api.topicListReads, hasLength(topicListReads));
+    expect(composer.state, ComposerState.editing);
+    expect(composer.canSubmit, isTrue);
+    expect(composer.error?.message, 'Title is too short');
+  });
+
   test('a create that never reached the site is not looked for', () async {
     final composer = await compose('Printer is on fire', 'Please send help.');
     api.createLands = false;

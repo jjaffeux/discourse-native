@@ -73,6 +73,17 @@ void main() {
     },
   );
 
+  test('a term evicted past the limit stays gone after a removal', () async {
+    final rig = _Rig();
+    for (final term in ['one', 'two', 'three', 'four', 'five', 'six']) {
+      rig.history.remember(_request(term));
+    }
+    expect(rig.history.terms, ['six', 'five', 'four', 'three', 'two']);
+    expect(rig.history.savedRequest('one'), isNull);
+    rig.history.remove('six');
+    expect(rig.history.terms, ['five', 'four', 'three', 'two']);
+  });
+
   for (final edit in ['remove', 'clear']) {
     test('a delayed server read cannot undo $edit', () async {
       final rig = _Rig();
@@ -184,6 +195,52 @@ void main() {
       });
     });
   }
+
+  for (final edit in ['none', 'remember', 'account']) {
+    test('accepted clear reports a newer $edit operation', () async {
+      final rig = _Rig();
+      rig.history.remember(_request('old'));
+      rig.api.clearGates.add(Completer<void>());
+      final clearing = rig.history.clear();
+      await pumpEventQueue();
+      switch (edit) {
+        case 'remember':
+          rig.history.remember(_request('new'));
+        case 'account':
+          rig.history.configure(siteUrl: _site, username: 'other');
+      }
+      rig.api.clearGates.single.complete();
+      expect(
+        await clearing,
+        edit == 'none'
+            ? RecentSearchClearOutcome.cleared
+            : RecentSearchClearOutcome.superseded,
+      );
+      expect(rig.history.terms, edit == 'remember' ? ['new'] : isEmpty);
+    });
+  }
+
+  test('a failed clear shows the server history again', () async {
+    final rig = _Rig();
+    rig.server.recent = ['server'];
+    await rig.history.load();
+    rig.api.clearGates.add(Completer<void>());
+    final clearing = rig.history.clear();
+    await pumpEventQueue();
+    expect(rig.history.terms, isEmpty);
+    rig.api.clearGates.single.completeError(StateError('offline'));
+    expect(await clearing, RecentSearchClearOutcome.failed);
+    expect(rig.history.terms, ['server']);
+  });
+
+  test('an account switch before credentials resolve sends no clear', () async {
+    final rig = _Rig();
+    rig.history.remember(_request('old'));
+    final clearing = rig.history.clear();
+    rig.history.configure(siteUrl: _site, username: 'other');
+    expect(await clearing, RecentSearchClearOutcome.superseded);
+    expect(rig.api.clears, 0);
+  });
 
   test(
     'late stored removals merge before newer edits and persist together',

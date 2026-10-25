@@ -2053,6 +2053,26 @@ void main() {
       expect(caps.enabledContributions.contains('chat'), isTrue);
     },
   );
+
+  testWidgets('a rejected submit drops the search already in flight', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.setQuery('hello status:bogus');
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(api.pending, hasLength(1));
+    controller.submit();
+    expect(controller.phase, GlobalSearchPhase.failed);
+    final rejection = controller.error;
+    expect(rejection, isNotNull);
+    api.pending.single.complete(_page('late'));
+    await tester.pump();
+    expect(controller.phase, GlobalSearchPhase.failed);
+    expect(controller.error, rejection);
+    expect(controller.sections, isEmpty);
+  });
 }
 
 GlobalSearchController _controller(
