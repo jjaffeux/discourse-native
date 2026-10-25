@@ -306,7 +306,7 @@ final class _ChatThreadCatalog {
             store.put(siteUrl, incoming);
           } else {
             store.update<ChatThread>(siteUrl, thread.id, (current) {
-              final merged = run.refresh.projectSourceMoves(
+              final merged = run.refresh.projectSourceMoveContent(
                 current.merge(incoming),
               );
               return merged.title == incoming.title

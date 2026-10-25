@@ -36,6 +36,13 @@ final class ChatThreadListRefresh {
         : incoming;
   }
 
+  ChatThread projectSourceMoveContent(ChatThread incoming) {
+    final move = _sourceMoves[incoming.id];
+    return move != null && move.channelId == incoming.channelId
+        ? incoming.withSourceMoveContent(move.deletedAt)
+        : incoming;
+  }
+
   /// Answers [incoming] carrying [held]'s values for every field changed
   /// since the request began, for the store to merge as usual.
   ChatThread reconcile(ChatThread incoming, ChatThread? held) {

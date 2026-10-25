@@ -59,10 +59,7 @@ void main() {
   group('Store', () {
     test('reads a retained matching snapshot without touching cache state', () {
       final store = Store(
-        policy: const StorePolicy(
-          maxEntries: 100,
-          maxEntriesPerSiteAndType: 4,
-        ),
+        policy: const StorePolicy(maxEntries: 100, maxEntriesPerSiteAndType: 4),
       );
       const first = _Record(1, 'match');
       const third = _Record(3, 'match');

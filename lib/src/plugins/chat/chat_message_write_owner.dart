@@ -43,9 +43,12 @@ final class _ChatSourceMessageMove {
   final DateTime deletedAt;
   final int? deletedById;
 
-  bool contains(ChatMessage message) =>
-      message.channelId == channelId &&
-      (messageIds.contains(message.id) || threadIds.contains(message.threadId));
+  bool contains(ChatMessage message) {
+    final serverId = message.serverId ?? message.id;
+    return serverId > 0 &&
+        message.channelId == channelId &&
+        (messageIds.contains(serverId) || threadIds.contains(message.threadId));
+  }
 
   ChatMessage project(ChatMessage message) {
     if (!contains(message)) return message;
