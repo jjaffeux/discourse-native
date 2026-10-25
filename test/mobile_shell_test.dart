@@ -1847,19 +1847,19 @@ void main() {
     (tester) async {
       await pumpMobileShellFixture(tester);
       final button = find.byKey(const ValueKey('mobile-mode-panel/chat'));
-      Color? fill() => tester.widget<DMobileDockItem>(button).selected
-          ? Colors.black
-          : Colors.transparent;
-      expect(fill(), Colors.transparent);
+      final bounds = tester.getRect(button);
+      expect(tester.widget<DMobileDockItem>(button).selected, isFalse);
 
       await tester.tap(button);
       await tester.pumpAndSettle();
-      expect(fill(), isNot(Colors.transparent));
+      expect(tester.widget<DMobileDockItem>(button).selected, isTrue);
+      expect(tester.getRect(button), bounds);
       expect(tester.getSize(button).height, closeTo(52.36, .01));
 
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
-      expect(fill(), Colors.transparent);
+      expect(tester.widget<DMobileDockItem>(button).selected, isFalse);
+      expect(tester.getRect(button), bounds);
       expect(tester.takeException(), isNull);
     },
   );
@@ -3156,9 +3156,9 @@ void main() {
 
   _mobileTest('users and events keep their own page headings', (tester) async {
     await pumpMobileShellFixture(tester, events: true);
-    for (final (tab, heading, duplicate) in [
-      ('users', 'Users', 'Users'),
-      ('destination/events-upcoming', 'Events', 'Events'),
+    for (final (tab, heading) in [
+      ('users', 'Users'),
+      ('destination/events-upcoming', 'Events'),
     ]) {
       await _tapDockTab(tester, tab);
       expect(
@@ -3168,15 +3168,6 @@ void main() {
         ),
         findsOneWidget,
       );
-      if (duplicate != heading) {
-        expect(
-          find.descendant(
-            of: find.byType(MainContent),
-            matching: find.text(duplicate),
-          ),
-          findsNothing,
-        );
-      }
       expect(tester.takeException(), isNull);
     }
   });

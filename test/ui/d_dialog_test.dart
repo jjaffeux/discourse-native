@@ -805,35 +805,48 @@ void main() {
   testWidgets('showDDialog uses nearest Navigator and returns typed result', (
     tester,
   ) async {
+    final root = GlobalKey<NavigatorState>();
+    final nested = GlobalKey<NavigatorState>();
     String? result;
     await tester.pumpWidget(
-      _host(
-        Builder(
-          builder: (context) => DButton(
-            onPressed: () async {
-              result = await showDDialog<String>(
-                context: context,
-                builder: (_, controller) => DDialogContent(
-                  children: [
-                    DDialogClose<String>(
-                      result: 'done',
-                      builder: (context, close) =>
-                          DButton(onPressed: close, label: const Text('Done')),
+      MaterialApp(
+        navigatorKey: root,
+        home: Navigator(
+          key: nested,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (context) => Scaffold(
+              body: DButton(
+                onPressed: () async {
+                  result = await showDDialog<String>(
+                    context: context,
+                    builder: (_, controller) => DDialogContent(
+                      children: [
+                        DDialogClose<String>(
+                          result: 'done',
+                          builder: (context, close) => DButton(
+                            onPressed: close,
+                            label: const Text('Done'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            },
-            label: const Text('Helper'),
+                  );
+                },
+                label: const Text('Helper'),
+              ),
+            ),
           ),
         ),
       ),
     );
     await tester.tap(find.text('Helper'));
     await tester.pumpAndSettle();
+    expect(nested.currentState!.canPop(), isTrue);
+    expect(root.currentState!.canPop(), isFalse);
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(result, 'done');
+    expect(nested.currentState!.canPop(), isFalse);
   });
 
   testWidgets('showDDialog keeps live caller scope and route context', (

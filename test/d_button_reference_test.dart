@@ -444,6 +444,10 @@ void main() {
       );
       await hover(tester, find.byType(FilledButton));
       expect(buttonSurface(tester).color, tokens.buttonTheme.outline.hover);
+      expect(
+        buttonSurface(tester).borderColor,
+        tokens.buttonTheme.outline.hoverBorder,
+      );
     },
   );
 
@@ -799,11 +803,7 @@ void main() {
         TargetPlatform.iOS,
         TargetPlatform.android,
       ]) {
-        for (final variant in [
-          DButtonVariant.ghost,
-          DButtonVariant.ghost,
-          DButtonVariant.outline,
-        ]) {
+        for (final variant in [DButtonVariant.ghost, DButtonVariant.outline]) {
           var presses = 0;
           await pump(
             tester,

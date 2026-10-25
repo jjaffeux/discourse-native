@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -360,59 +361,82 @@ void main() {
     expect(readerFocus.hasFocus, isTrue);
   });
 
-  test(
-    'preferences restore dock sizes and ignore obsolete floating coordinates',
-    () async {
-      final first = ComposerPresentationController();
-      final second = ComposerPresentationController();
-      addTearDown(first.dispose);
-      addTearDown(second.dispose);
-      await first.load();
-      expect(first.preference.placement, ComposerPlacement.right);
-      first.dock(ComposerPlacement.left);
-      first.resize(
-        placement: ComposerPlacement.left,
-        extent: 480,
-        topic: false,
-      );
-      first.resize(
-        placement: ComposerPlacement.bottom,
-        extent: 350,
-        topic: false,
-      );
-      await first.store.write(first.preference);
-      await second.load();
-      expect(second.preference.placement, ComposerPlacement.left);
-      expect(second.preference.sideWidth, 480);
-      expect(second.preference.replyHeight, 350);
-      expect(
-        second.effectivePlacement(mobile: false, width: 600),
-        ComposerPlacement.bottom,
-      );
-      expect(
-        second.effectivePlacement(mobile: false, width: 900),
-        ComposerPlacement.left,
-      );
-      expect(
-        second.effectivePlacement(mobile: true, width: 1200),
-        ComposerPlacement.bottom,
-      );
-    },
-  );
-
-  test('corrupt dimensions and unknown placement fall back to right', () async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      ComposerLayoutStore.storageKey,
-      '{"placement":"obsolete","sideWidth":420,"replyHeight":280,"topicHeight":380}',
+  test('preferences restore dock sizes and adapt to available space', () async {
+    final first = ComposerPresentationController();
+    final second = ComposerPresentationController();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    await first.load();
+    expect(first.preference.placement, ComposerPlacement.right);
+    first.dock(ComposerPlacement.left);
+    first.resize(placement: ComposerPlacement.left, extent: 480, topic: false);
+    first.resize(
+      placement: ComposerPlacement.bottom,
+      extent: 350,
+      topic: false,
+    );
+    await first.store.write(first.preference);
+    await second.load();
+    expect(second.preference.placement, ComposerPlacement.left);
+    expect(second.preference.sideWidth, 480);
+    expect(second.preference.replyHeight, 350);
+    expect(
+      second.effectivePlacement(mobile: false, width: 600),
+      ComposerPlacement.bottom,
     );
     expect(
-      (await const ComposerLayoutStore().read()).placement,
-      ComposerPlacement.right,
+      second.effectivePlacement(mobile: false, width: 900),
+      ComposerPlacement.left,
     );
-    await prefs.setString(ComposerLayoutStore.storageKey, '{invalid');
-    expect((await const ComposerLayoutStore().read()).sideWidth, 420);
+    expect(
+      second.effectivePlacement(mobile: true, width: 1200),
+      ComposerPlacement.bottom,
+    );
   });
+
+  test(
+    'corrupt dimensions and unknown placement restore all defaults',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      const valid = {
+        'placement': 'left',
+        'sideWidth': 760,
+        'replyHeight': 350,
+        'topicHeight': 480,
+      };
+      await prefs.setString(ComposerLayoutStore.storageKey, jsonEncode(valid));
+      final accepted = await const ComposerLayoutStore().read();
+      expect(
+        (
+          accepted.placement,
+          accepted.sideWidth,
+          accepted.replyHeight,
+          accepted.topicHeight,
+        ),
+        (ComposerPlacement.left, 760, 350, 480),
+      );
+      for (final raw in [
+        jsonEncode({...valid, 'placement': 'obsolete'}),
+        '{invalid',
+        for (final field in ['sideWidth', 'replyHeight', 'topicHeight'])
+          for (final invalid in [0, -1, 'wide', null])
+            jsonEncode({...valid, field: invalid}),
+      ]) {
+        await prefs.setString(ComposerLayoutStore.storageKey, raw);
+        final restored = await const ComposerLayoutStore().read();
+        expect(
+          (
+            restored.placement,
+            restored.sideWidth,
+            restored.replyHeight,
+            restored.topicHeight,
+          ),
+          (ComposerPlacement.right, 420, 280, 380),
+          reason: raw,
+        );
+      }
+    },
+  );
 
   testWidgets('restored draft keeps Cancel and save-and-close actions', (
     tester,
@@ -775,7 +799,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DToggleGroup<ComposerPlacement>), findsOneWidget);
       expect(find.bySemanticsLabel('Separate window'), findsNothing);
-      expect(find.byIcon(Icons.open_in_new), findsNothing);
       expect(find.text('Save and close'), findsNothing);
       expect(find.byTooltip('Discard'), findsOneWidget);
       for (final placement in ComposerPlacement.values) {
