@@ -5,6 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
+import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
 
 Future<void> showPostNoticeEditor({
@@ -58,6 +60,12 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
   );
   bool _saving = false;
   String? _error;
+  PostMutationOutcome? _outcome;
+  PostMutationRecovery? _recovery;
+
+  bool get _requiresNewIntent =>
+      _outcome is PostMutationAccepted ||
+      (_outcome != null && postMutationRequiresNewIntent(_outcome!));
 
   @override
   void dispose() {
@@ -66,26 +74,56 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
   }
 
   Future<void> _set(String? notice) async {
-    if (_saving) return;
+    if (_saving || _requiresNewIntent) return;
     setState(() {
       _saving = true;
       _error = null;
     });
-    final error = await widget.controller.setPostNotice(widget.target, notice);
+    final outcome = await widget.controller.setPostNotice(
+      widget.target,
+      notice,
+    );
     if (!mounted) return;
-    if (error != null) {
-      setState(() {
-        _saving = false;
-        _error = error;
-      });
+    if (outcome is PostMutationAccepted &&
+            outcome.projection == PostProjectionFreshness.fresh ||
+        outcome is PostMutationNoChange) {
+      _saving = false;
+      widget.onClose();
       return;
     }
-    _saving = false;
-    widget.onClose();
+    setState(() {
+      _saving = false;
+      _outcome = outcome;
+      _recovery = postMutationRecoveryOf(outcome);
+      _error = postMutationMessage(
+        context,
+        outcome,
+        retiredMessage:
+            context.l10n.yourConnectionChangedReopenThePostNoticeAndTryAgain,
+      );
+    });
+  }
+
+  void _refreshed(PostProjectionFreshness projection) {
+    if (_outcome is PostMutationAccepted &&
+        projection == PostProjectionFreshness.fresh) {
+      widget.onClose();
+      return;
+    }
+    setState(() {
+      if (projection != PostProjectionFreshness.stale) _recovery = null;
+      _error = postMutationRefreshMessage(
+        context,
+        projection,
+        retiredMessage:
+            context.l10n.yourConnectionChangedReopenThePostNoticeAndTryAgain,
+      );
+    });
   }
 
   bool get _canSave =>
       !_saving &&
+      !_requiresNewIntent &&
       _text.text.trim().isNotEmpty &&
       _text.text != widget.post.notice?.raw;
 
@@ -121,7 +159,7 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
               key: const ValueKey('post-notice-text'),
               controller: _text,
               autofocus: true,
-              enabled: !_saving,
+              enabled: !_saving && !_requiresNewIntent,
               minLines: 4,
               maxLines: 8,
               onChanged: (_) => setState(() => _error = null),
@@ -138,15 +176,24 @@ class _PostNoticeDialogState extends State<_PostNoticeDialog> {
       ),
       DDialogFooter(
         children: [
+          if (_recovery case final recovery?)
+            PostMutationRecoveryButton(
+              recovery: recovery,
+              onRefreshed: _refreshed,
+            ),
           if (widget.post.notice != null)
             DButton(
               key: const ValueKey('post-notice-delete'),
               label: Text(context.l10n.deleteNotice),
-              onPressed: _saving ? null : () => unawaited(_set(null)),
+              onPressed: _saving || _requiresNewIntent
+                  ? null
+                  : () => unawaited(_set(null)),
               variant: DButtonVariant.destructive,
             ),
           DButton(
-            label: Text(context.l10n.cancel),
+            label: Text(
+              _requiresNewIntent ? context.l10n.close : context.l10n.cancel,
+            ),
             onPressed: _saving ? null : widget.onClose,
             variant: DButtonVariant.outline,
           ),

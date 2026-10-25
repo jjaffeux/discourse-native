@@ -7277,63 +7277,94 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  static String get _obsoletePostNotice =>
-      appL10n.yourConnectionChangedReopenThePostNoticeAndTryAgain;
-
-  String? _postNoticeRefusal(PostNoticeTarget target) {
-    if (isDisposed || !target._lease.isCurrent) return _obsoletePostNotice;
+  PostMutationOutcome? _postNoticeRefusal(PostNoticeTarget target) {
+    if (isDisposed || !target._lease.isCurrent) {
+      return const PostMutationRetired();
+    }
     if (!canEditPostNotice(
       siteUrl: target.siteUrl,
       topicId: target.topicId,
       postId: target.postId,
     )) {
-      return appL10n.thisPostNoticeCanNoLongerBeEdited;
+      return PostMutationNotSent(
+        PostMutationProblem(
+          PostMutationProblemKind.invalidTarget,
+          serverMessages: [appL10n.thisPostNoticeCanNoLongerBeEdited],
+        ),
+      );
     }
     return null;
   }
 
-  Future<String?> setPostNotice(PostNoticeTarget target, String? notice) async {
-    if (_postNoticeRefusal(target) case final error?) return error;
+  Future<PostMutationOutcome> setPostNotice(
+    PostNoticeTarget target,
+    String? notice,
+  ) async {
+    if (_postNoticeRefusal(target) case final refusal?) return refusal;
     final siteUrl = target.siteUrl;
     final postId = target.postId;
     final lease = target._lease;
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null) return const PostMutationRetired();
+    final unresolved = data.moderationRecoveryFor(target.topicId, [postId]);
+    if (unresolved != null) {
+      return PostMutationNotSent.recoveryRequired(unresolved);
+    }
     final next = notice == null || notice.trim().isEmpty ? null : notice;
-    if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
-    final releasePost = _topicData
-        .forLease(siteUrl, lease)
-        ?.beginPostWrite(postId);
+    if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) {
+      return const PostMutationNoChange();
+    }
+    final releasePost = data.beginPostWrite(postId);
     if (releasePost == null) {
-      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.busyPost),
+      );
     }
 
     try {
-      // Acquiring the write guard notifies listeners, which may retire the
-      // opening account. Keep that lease through credential reads and refresh.
-      if (_postNoticeRefusal(target) case final error?) return error;
+      if (_postNoticeRefusal(target) case final refusal?) return refusal;
       final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (_postNoticeRefusal(target) case final error?) return error;
-      if (credential.failure case final failure?) return failure.message;
-      if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
+      if (_postNoticeRefusal(target) case final refusal?) return refusal;
+      if (credential.failure case final failure?) {
+        return PostMutationNotSent(_postMutationPolicy.problem(failure));
+      }
+      if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) {
+        return const PostMutationNoChange();
+      }
 
-      await credential.request!.run(
-        () => api.postMutations.updatePostNotice(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          postId: postId,
-          notice: next,
-        ),
+      var sent = false;
+      try {
+        await credential.request!.run(() {
+          sent = true;
+          return api.postMutations.updatePostNotice(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            postId: postId,
+            notice: next,
+          );
+        });
+      } catch (error, stackTrace) {
+        return await _postMutationPolicy.failed(
+          data,
+          target.topicId,
+          [postId],
+          credential.apiKey,
+          error,
+          stackTrace,
+          sent: sent,
+        );
+      }
+      if (!lease.isCurrent) return const PostMutationAccepted.retired();
+      final projection = await data.repairPost(
+        target.topicId,
+        postId,
+        credential.apiKey,
+        lease,
       );
-      if (!lease.isCurrent) return _obsoletePostNotice;
-      await _topicData
-          .forLease(siteUrl, lease)
-          ?.repairPost(target.topicId, postId, credential.apiKey, lease);
-      return lease.isCurrent ? null : _obsoletePostNotice;
-    } on WriteException catch (error) {
-      return lease.isCurrent ? error.message : _obsoletePostNotice;
-    } catch (error) {
-      if (!lease.isCurrent) return _obsoletePostNotice;
-
-      return const WriteException(WriteFailure.unreachable).message;
+      return _postMutationPolicy.accepted(
+        projection,
+        data.postMutationRecovery(target.topicId, [postId], credential.apiKey),
+      );
     } finally {
       lease.commit(releasePost);
     }
