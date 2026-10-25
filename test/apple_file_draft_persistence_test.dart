@@ -293,28 +293,34 @@ void main() {
       expect(legacy.events, isEmpty);
     });
 
-    test('clearing a site blocks its unknown Keychain drafts only', () async {
-      final legacy = _LegacyDraftStorage({key: 'stale', otherKey: 'other-old'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
-      await storage.write(key, 'current');
-      await storage.write(otherKey, 'other-current');
-      legacy.events.clear();
+    test(
+      'clearing a site removes current drafts and preserves other sites',
+      () async {
+        final legacy = _LegacyDraftStorage({
+          key: 'stale',
+          otherKey: 'other-old',
+        });
+        final storage = AppleFileDraftPersistence(
+          file: file,
+          legacyStorage: legacy,
+        );
+        await storage.write(key, 'current');
+        await storage.write(otherKey, 'other-current');
+        legacy.events.clear();
 
-      await storage.deletePrefix(sitePrefix);
+        await storage.deletePrefix(sitePrefix);
 
-      expect(await storage.read(key), (
-        value: null,
-        allowPreferenceFallback: false,
-      ));
-      expect(await storage.read(otherKey), (
-        value: 'other-current',
-        allowPreferenceFallback: false,
-      ));
-      expect(legacy.events, isEmpty);
-    });
+        expect(await storage.read(key), (
+          value: null,
+          allowPreferenceFallback: false,
+        ));
+        expect(await storage.read(otherKey), (
+          value: 'other-current',
+          allowPreferenceFallback: false,
+        ));
+        expect(legacy.events, isEmpty);
+      },
+    );
 
     test('persist a site blocker across reopened instances', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});

@@ -51,6 +51,7 @@ void main() {
         ContentRoute.filteredTopicList(TopicListMode.latest, categoryId: 12),
       )!;
       expect(category.kind, DestinationBookmarkKind.category);
+      expect(category.identity, 'category:12');
       expect(link.identity, category.identity);
       expect(filtered.identity, category.identity);
       expect(DestinationBookmark.fromRoute(_chat)!.identity, 'chat:9');
