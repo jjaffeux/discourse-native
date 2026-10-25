@@ -6,6 +6,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const site = 'https://example.com/forum';
+  test(
+    'badge identity includes its user filter and ignores descriptive slug',
+    () {
+      final route = BadgeRoute.detail(12, slug: 'reader', username: 'sam');
+      final renamed = BadgeRoute.detail(12, slug: 'renamed', username: 'sam');
+      expect(renamed, route);
+      expect(renamed.hashCode, route.hashCode);
+      expect(
+        BadgeRoute.detail(13, slug: 'reader', username: 'sam'),
+        isNot(route),
+      );
+      expect(
+        BadgeRoute.detail(12, slug: 'reader', username: 'alex'),
+        isNot(route),
+      );
+    },
+  );
+
   test('reads directory, badge, and username-filtered subfolder links', () {
     expect(
       BadgeRoute.parse('$site/badges/', siteUrl: site),

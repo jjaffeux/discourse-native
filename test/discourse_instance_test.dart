@@ -8,6 +8,23 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('forum identity follows its URL across metadata refreshes', () {
+    const original = DiscourseInstance(
+      url: 'https://example.com/forum',
+      title: 'Forum',
+    );
+    final renamed = DiscourseInstance(url: original.url, title: 'Renamed');
+    expect(renamed, original);
+    expect(renamed.hashCode, original.hashCode);
+    expect(
+      const DiscourseInstance(
+        url: 'https://other.example/forum',
+        title: 'Forum',
+      ),
+      isNot(original),
+    );
+  });
+
   test('removing a forum prefix preserves encoded segment boundaries', () {
     const instance = DiscourseInstance(
       url: 'https://example.com/my%20forum',

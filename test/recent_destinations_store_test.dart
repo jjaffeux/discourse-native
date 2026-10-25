@@ -37,6 +37,34 @@ const _other = ContentRoute(
 
 void main() {
   group('RecentDestinationsStore categories', () {
+    test(
+      'a renamed category updates its single recent visit and saved title',
+      () async {
+        final persistence = MemoryRecentDestinationsPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        expect(store.remember(_site, _account, _fromSidebar), isTrue);
+        final renamed = _fromSidebar.withDisplay(title: 'Native App renamed');
+
+        expect(store.remember(_site, _account, renamed), isTrue);
+        expect(store.categoriesFor(_site, _account), hasLength(1));
+        expect(
+          store.categoriesFor(_site, _account).single.title,
+          'Native App renamed',
+        );
+        expect(store.categoriesFor(_site, _account).single.id, _fromSidebar.id);
+        expect(store.remember(_site, _account, renamed), isFalse);
+        await store.save();
+
+        final restored = RecentDestinationsStore(persistence: persistence);
+        await restored.load();
+        expect(restored.categoriesFor(_site, _account), hasLength(1));
+        expect(
+          restored.categoriesFor(_site, _account).single.title,
+          'Native App renamed',
+        );
+      },
+    );
+
     test('a category opened from the sidebar and from a link is one visit', () {
       final store = RecentDestinationsStore.memory();
 
