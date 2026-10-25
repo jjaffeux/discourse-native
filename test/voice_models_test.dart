@@ -187,7 +187,7 @@ void main() {
   });
 
   test(
-    'participant parses negative agent IDs and verified provider identities',
+    'participant parses independent agent signals and verified provider identities',
     () {
       final participant = VoiceParticipant.fromJson(const {
         'id': -1400,
@@ -200,6 +200,17 @@ void main() {
       expect(participant.externalAgent, isTrue);
       expect(participant.isAgent, isTrue);
       expect(participant.livekitIdentity, 'agent-dashboard');
+      for (final (id, externalAgent) in [(-1400, false), (2, true)]) {
+        final agent = VoiceParticipant.fromJson({
+          'id': id,
+          'external_agent': externalAgent,
+        });
+        expect(
+          agent.isAgent,
+          isTrue,
+          reason: 'id=$id, external_agent=$externalAgent',
+        );
+      }
       final human = VoiceParticipant.fromJson(const {'id': 2});
       expect(human.externalAgent, isFalse);
       expect(human.livekitIdentity, isNull);

@@ -30,19 +30,30 @@ void main() {
   test(
     'absence, null, malformed payload and reply records stay unavailable',
     () {
-      for (final fields in <Map<String, dynamic>>[
-        <String, dynamic>{},
-        {'calendar_details': null},
-        {'calendar_details': <String, Object?>{}},
-        {'calendar_details': <Object?>[], 'topic_id': 700, 'post_number': 2},
-        {'calendar_details': <Object?>[], 'post_number': 1},
-      ]) {
-        expect(TopicCalendarData.decode(fields), isNull);
+      final valid = calendarPostJson(details: []);
+      for (final entry in {
+        'empty record': <String, dynamic>{},
+        'absent details': Map<String, dynamic>.of(valid)
+          ..remove('calendar_details'),
+        'null details': {...valid, 'calendar_details': null},
+        'malformed details': {
+          ...valid,
+          'calendar_details': <String, Object?>{},
+        },
+        'reply record': {...valid, 'post_number': 2},
+        'absent post number': Map<String, dynamic>.of(valid)
+          ..remove('post_number'),
+        'absent topic': Map<String, dynamic>.of(valid)..remove('topic_id'),
+        'zero topic': {...valid, 'topic_id': 0},
+        'negative topic': {...valid, 'topic_id': -1},
+      }.entries) {
+        expect(
+          TopicCalendarData.decode(entry.value),
+          isNull,
+          reason: entry.key,
+        );
       }
-      expect(
-        TopicCalendarData.decode(calendarPostJson(details: []))!.details,
-        isEmpty,
-      );
+      expect(TopicCalendarData.decode(valid)!.details, isEmpty);
     },
   );
 
