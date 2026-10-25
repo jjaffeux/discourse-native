@@ -30,7 +30,13 @@ class BoardsPage extends StatefulWidget {
 
 class _BoardsPageState extends State<BoardsPage> {
   BoardHandle? _handle;
-  ({BoardsController controller, String site, int? boardId, bool enabled})?
+  ({
+    BoardsController controller,
+    String site,
+    int? boardId,
+    bool enabled,
+    int? directoryRevision,
+  })?
   _identity;
   int? _column;
   String? _directoryError;
@@ -75,6 +81,9 @@ class _BoardsPageState extends State<BoardsPage> {
       site: widget.site,
       boardId: widget.route.boardId,
       enabled: widget.controller.enabled(widget.site),
+      directoryRevision: widget.route.boardId == null
+          ? widget.controller.accountRevision(widget.site)
+          : null,
     );
     if (_identity == identity) return;
     _identity = identity;
