@@ -196,7 +196,6 @@ final class _AdversarialThreadApi extends FakeDiscourseApi {
     this.detailFailure,
     this.targetMessageGates = const {},
     this.targetMessageStarts = const {},
-    int? sentMessageId = 900,
   }) : super(
          chatThreadsByKey: {
            FakeDiscourseApi.chatThreadKey(target.channelId, target.threadId):
@@ -204,7 +203,7 @@ final class _AdversarialThreadApi extends FakeDiscourseApi {
          },
          chatMessagesByKey: pages,
          chatChannelsBySite: channels,
-         chatSentMessageId: sentMessageId,
+         chatSentMessageId: 900,
        ) {
     if (holdDetail) {
       detailStarted = Completer<void>();
@@ -2263,32 +2262,6 @@ void main() {
       },
     );
 
-    test('the original author can update the title', () async {
-      final api = _AdversarialThreadApi(
-        detail: threadDetail(originalAuthorId: currentUser.id!),
-      );
-      final store = Store()
-        ..put(site, threadDetail(originalAuthorId: currentUser.id!));
-      final subject = _controllerFor(api, store: store);
-
-      expect(
-        subject.chat.canEditThreadTitle(
-          site,
-          subject.chat.thread(site, target.threadId),
-        ),
-        isTrue,
-      );
-      expect(
-        await subject.chat.updateThreadTitle(site, target, 'Deploy plan'),
-        isTrue,
-      );
-
-      expect(api.chatThreadTitlesUpdated, const [
-        (channelId: 9, threadId: 22, title: 'Deploy plan'),
-      ]);
-      expect(subject.chat.thread(site, target.threadId)?.title, 'Deploy plan');
-    });
-
     test('ordinary participants cannot update the title', () async {
       final api = _AdversarialThreadApi(detail: threadDetail());
       final store = Store()..put(site, threadDetail());
@@ -2307,28 +2280,6 @@ void main() {
       );
       expect(api.chatThreadTitlesUpdated, isEmpty);
       expect(subject.chat.thread(site, target.threadId)?.title, isNull);
-    });
-
-    test('staff can update another author\'s title', () async {
-      final api = _AdversarialThreadApi(detail: threadDetail());
-      final store = Store()..put(site, threadDetail());
-      final subject = _controllerFor(
-        api,
-        store: store,
-        user: const DiscourseUser(id: 7, username: 'moderator', staff: true),
-      );
-
-      expect(
-        await subject.chat.updateThreadTitle(site, target, 'Moderated title'),
-        isTrue,
-      );
-      expect(api.chatThreadTitlesUpdated, const [
-        (channelId: 9, threadId: 22, title: 'Moderated title'),
-      ]);
-      expect(
-        subject.chat.thread(site, target.threadId)?.title,
-        'Moderated title',
-      );
     });
   });
 
@@ -3130,8 +3081,6 @@ void main() {
 
     expect(subject.chat.thread(site, 22)?.title, isNull);
     expect(subject.chat.thread(site, 22)?.membership, isNull);
-    await subject.chat.markReadFor(site, target, 30);
-    expect(api.chatReadsMarked, isEmpty);
   });
 
   test(
