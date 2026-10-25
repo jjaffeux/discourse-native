@@ -165,6 +165,7 @@ void main() {
       for (final source in [
         '[date=2026-09-08 calendar=on]',
         '[date=2026-09-08 calendar=off]',
+        '[date-range from=2026-09-08 to=2026-09-09]',
       ]) {
         expect(projected(source), [source], reason: source);
       }
