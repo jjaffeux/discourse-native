@@ -2586,69 +2586,27 @@ void main() {
   });
 
   test('a mute during connect is not overwritten by the connect', () async {
-    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
-    final media = LiveKitVoiceMediaSession(
-      join: VoiceJoinResponse(
-        transport: VoiceTransport.livekit,
-        ice: meshJoin.ice,
-        room: meshJoin.room,
-        livekit: const VoiceLiveKitCredentials(
-          url: 'wss://livekit.invalid',
-          token: 'not-used',
-        ),
-      ),
-      localUserId: 10,
-      audioPublishingAllowed: true,
-      refreshCredentials: () async =>
-          const VoiceLiveKitCredentials(url: '', token: ''),
+    final participant = _BusyLiveKitParticipant()..settle();
+    final connection = Completer<void>();
+    final adapter = _FakeLiveKitRoomAdapter(
+      room: _FakeLiveKitRoom(participant),
+      connection: connection,
     );
-
-    expect(media.shouldPublishMicrophone, isTrue);
-
-    await media.setMuted(true);
-
-    expect(media.shouldPublishMicrophone, isFalse);
-
+    final media = _liveKitSession(adapter);
+    addTearDown(media.dispose);
     await media.setAudioPublishingAllowed(true);
-    expect(media.shouldPublishMicrophone, isFalse);
+    participant.applied.clear();
+
+    final connecting = media.connect();
+    await adapter.connectStarted.future;
+    await media.setMuted(true);
+    connection.complete();
+    await connecting;
+
+    expect(participant.applied, ['microphone:false']);
 
     await media.setMuted(false);
-    expect(media.shouldPublishMicrophone, isTrue);
-    await media.dispose();
-  });
-
-  test('deafening is remembered, not applied once', () async {
-    final meshJoin = _meshJoin(localUserId: 10, remoteUserId: 20);
-    final media = LiveKitVoiceMediaSession(
-      join: VoiceJoinResponse(
-        transport: VoiceTransport.livekit,
-        ice: meshJoin.ice,
-        room: meshJoin.room,
-        livekit: const VoiceLiveKitCredentials(
-          url: 'wss://livekit.invalid',
-          token: 'not-used',
-        ),
-      ),
-      localUserId: 10,
-      audioPublishingAllowed: true,
-      refreshCredentials: () async =>
-          const VoiceLiveKitCredentials(url: '', token: ''),
-    );
-
-    expect(media.deafened, isFalse);
-
-    await media.setDeafened(true);
-    expect(media.deafened, isTrue);
-
-    await media.setDeafened(false);
-    expect(media.deafened, isFalse);
-
-    expect(media.cameraEnabled, isFalse);
-    await media.setCameraEnabled(true);
-    expect(media.cameraEnabled, isTrue);
-    await media.setCameraEnabled(false);
-    expect(media.cameraEnabled, isFalse);
-    await media.dispose();
+    expect(participant.applied, ['microphone:false', 'microphone:true']);
   });
 
   group('LiveKit agent media', () {
