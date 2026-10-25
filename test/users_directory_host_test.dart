@@ -34,6 +34,55 @@ void main() {
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('Users host refresh reloads current directory columns', (
+    tester,
+  ) async {
+    final api = _DirectoryApi();
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([instance('users.example')]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    shell.pushContent(_users);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.forBrightness(Brightness.light),
+        home: Material(
+          child: ShellScope(
+            controller: shell,
+            child: const UsersDirectoryHost(siteUrl: _site),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<UsersPage>(find.byType(UsersPage)).data.columns.single.id,
+      1,
+    );
+    api.customColumn = true;
+    await tester.widget<UsersPage>(find.byType(UsersPage)).onRefresh!();
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<UsersPage>(find.byType(UsersPage)).data.columns.single.id,
+      14,
+    );
+    final rows = api.pluginReadPaths.where(
+      (path) => path.startsWith('/directory_items.json'),
+    );
+    expect(Uri.parse(rows.last).queryParameters['user_field_ids'], '42');
+    expect(
+      api.pluginReadPaths.where((path) => path == '/directory-columns.json'),
+      hasLength(2),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('unfocused displayed Users pane owns its search', (tester) async {
     final api = _DirectoryApi();
     final shell = ShellController(
@@ -192,6 +241,7 @@ void main() {
 }
 
 class _DirectoryApi extends FakeDiscourseApi {
+  bool customColumn = false;
   @override
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
@@ -204,12 +254,20 @@ class _DirectoryApi extends FakeDiscourseApi {
     if (uri.path == '/directory-columns.json') {
       return {
         'directory_columns': [
-          {
-            'id': 1,
-            'name': 'likes_received',
-            'type': 'automatic',
-            'position': 1,
-          },
+          if (customColumn)
+            {
+              'id': 14,
+              'name': 'GitHub Username',
+              'type': 'user_field',
+              'user_field_id': 42,
+            }
+          else
+            {
+              'id': 1,
+              'name': 'likes_received',
+              'type': 'automatic',
+              'position': 1,
+            },
         ],
       };
     }

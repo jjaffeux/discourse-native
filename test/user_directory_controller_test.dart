@@ -14,6 +14,297 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const defaultQuery = UserDirectoryQuery();
 
+  group('explicit metadata refresh', () {
+    const site = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+      user: DiscourseUser(username: 'admin', staff: true),
+    );
+    const otherQuery = UserDirectoryQuery(search: 'other');
+    late _ControllerTransport transport;
+    late UserDirectoryController controller;
+
+    setUp(() {
+      transport = _ControllerTransport();
+      controller = UserDirectoryController(
+        api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+        credentials: const _Credentials(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(controller.dispose);
+    });
+
+    void enableCustomColumn() {
+      transport.columnEnabled[1] = false;
+      transport.columnEnabled[14] = true;
+    }
+
+    List<Uri> rowRequests() => [
+      for (final path in transport.requests)
+        if (path.startsWith('/directory_items.json')) Uri.parse(path),
+    ];
+
+    test(
+      'reloads columns and field IDs while ordinary loads share metadata',
+      () async {
+        await controller.load(site, query: defaultQuery);
+        await controller.load(site, query: otherQuery);
+        await controller.load(site, query: otherQuery, more: true);
+        enableCustomColumn();
+
+        await controller.load(site, query: defaultQuery, refresh: true);
+
+        expect(
+          controller.stateFor(site.url, defaultQuery).columns.map((c) => c.id),
+          [14],
+        );
+        expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+        final stale = controller.stateFor(site.url, otherQuery);
+        expect(stale.loaded, isFalse);
+        expect(stale.loading, isFalse);
+        expect(stale.columns.map((c) => c.id), [14]);
+        await controller.load(site, query: otherQuery);
+        expect(rowRequests().last.queryParameters['page'], isNull);
+        expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+        await controller.load(site, query: otherQuery, more: true);
+        expect(rowRequests().last.queryParameters['page'], '1');
+        expect(
+          transport.requests.where((p) => p == '/edit-directory-columns.json'),
+          hasLength(2),
+        );
+      },
+    );
+
+    for (final fails in [false, true]) {
+      test(
+        'superseded metadata ${fails ? 'failure' : 'success'} joins refreshed metadata',
+        () async {
+          final started = Completer<void>();
+          final oldMetadata = Completer<Map<String, dynamic>>();
+          transport.nextColumns = () {
+            started.complete();
+            return oldMetadata.future;
+          };
+          final oldLoad = controller.load(site, query: defaultQuery);
+          await started.future;
+          enableCustomColumn();
+          await controller.load(site, query: otherQuery, refresh: true);
+          if (fails) {
+            oldMetadata.completeError(StateError('old metadata'));
+          } else {
+            oldMetadata.complete(const {
+              'directory_columns': [
+                {'id': 1, 'name': 'likes_received', 'type': 'automatic'},
+              ],
+            });
+          }
+          await oldLoad;
+          for (final query in [defaultQuery, otherQuery]) {
+            final state = controller.stateFor(site.url, query);
+            expect(state.columns.map((c) => c.id), [14]);
+            expect(state.loaded, isTrue);
+            expect(state.loading, isFalse);
+            expect(state.error, isNull);
+          }
+          expect(rowRequests(), hasLength(2));
+          expect(
+            rowRequests().every(
+              (uri) => uri.queryParameters['user_field_ids'] == '42',
+            ),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'superseded page ${fails ? 'failure' : 'success'} restarts at page zero',
+        () async {
+          await controller.load(site, query: defaultQuery);
+          final started = Completer<void>();
+          final oldRows = Completer<void>();
+          transport.beforeDirectoryReply = (uri) async {
+            if (started.isCompleted || uri.queryParameters['page'] != '1')
+              return;
+            started.complete();
+            await oldRows.future;
+            if (fails) throw StateError('old rows');
+          };
+          final oldLoad = controller.load(
+            site,
+            query: defaultQuery,
+            more: true,
+          );
+          await started.future;
+          enableCustomColumn();
+          await controller.load(site, query: otherQuery, refresh: true);
+          oldRows.complete();
+          await oldLoad;
+
+          final state = controller.stateFor(site.url, defaultQuery);
+          expect(state.columns.map((c) => c.id), [14]);
+          expect(state.items.map((item) => item.user.username), [
+            'sam',
+            'hawk',
+          ]);
+          expect(state.nextPage, 1);
+          expect(state.loadingMore, isFalse);
+          expect(state.error, isNull);
+          expect(rowRequests().last.queryParameters['page'], isNull);
+          expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+        },
+      );
+    }
+
+    test('concurrent queries share the pending refreshed metadata', () async {
+      await controller.load(site, query: defaultQuery);
+      enableCustomColumn();
+      final started = Completer<void>();
+      final metadata = Completer<Map<String, dynamic>>();
+      transport.nextColumns = () {
+        started.complete();
+        return metadata.future;
+      };
+      final refresh = controller.load(site, query: defaultQuery, refresh: true);
+      await started.future;
+      final other = controller.load(site, query: otherQuery);
+      await pumpEventQueue();
+      expect(
+        transport.requests.where((p) => p == '/edit-directory-columns.json'),
+        hasLength(2),
+      );
+      metadata.complete(const {
+        'directory_columns': [
+          {
+            'id': 14,
+            'name': 'GitHub Username',
+            'type': 'user_field',
+            'user_field_id': 42,
+          },
+        ],
+      });
+      await Future.wait([refresh, other]);
+      for (final query in [defaultQuery, otherQuery]) {
+        final state = controller.stateFor(site.url, query);
+        expect(state.loaded, isTrue);
+        expect(state.columns.single.id, 14);
+      }
+      expect(
+        rowRequests()
+            .skip(1)
+            .every((uri) => uri.queryParameters['user_field_ids'] == '42'),
+        isTrue,
+      );
+    });
+
+    test(
+      'metadata failure retains coherent rows and an explicit retry recovers',
+      () async {
+        await controller.load(site, query: defaultQuery);
+        final held = controller.stateFor(site.url, defaultQuery);
+        transport.columnsError = StateError('metadata unavailable');
+        enableCustomColumn();
+        await controller.load(site, query: defaultQuery, refresh: true);
+        final failed = controller.stateFor(site.url, defaultQuery);
+        expect(failed.items, held.items);
+        expect(failed.columns.map((c) => c.id), [1]);
+        expect(failed.error, isNotNull);
+        expect(failed.loading, isFalse);
+        expect(rowRequests(), hasLength(1));
+        transport.columnsError = null;
+        await controller.load(site, query: defaultQuery, refresh: true);
+        final recovered = controller.stateFor(site.url, defaultQuery);
+        expect(recovered.columns.single.id, 14);
+        expect(recovered.error, isNull);
+        expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+      },
+    );
+
+    test(
+      'row refresh failure retains old columns and later paging restarts',
+      () async {
+        await controller.load(site, query: defaultQuery);
+        await controller.load(site, query: defaultQuery, more: true);
+        enableCustomColumn();
+        transport.beforeDirectoryReply = (_) async =>
+            throw StateError('rows unavailable');
+        await controller.load(site, query: defaultQuery, refresh: true);
+        final failed = controller.stateFor(site.url, defaultQuery);
+        expect(failed.columns.single.id, 1);
+        expect(failed.items, hasLength(3));
+        expect(failed.error, isNotNull);
+        transport.beforeDirectoryReply = null;
+        await controller.load(site, query: defaultQuery, more: true);
+        final recovered = controller.stateFor(site.url, defaultQuery);
+        expect(recovered.columns.single.id, 14);
+        expect(recovered.items, hasLength(2));
+        expect(recovered.nextPage, 1);
+        expect(rowRequests().last.queryParameters['page'], isNull);
+        expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+      },
+    );
+
+    test('acknowledged column writes supersede a pending refresh', () async {
+      await controller.load(site, query: defaultQuery);
+      final columns = controller
+          .stateFor(site.url, defaultQuery)
+          .availableColumns;
+      final started = Completer<void>();
+      final oldMetadata = Completer<Map<String, dynamic>>();
+      transport.nextColumns = () {
+        started.complete();
+        return oldMetadata.future;
+      };
+      final refresh = controller.load(site, query: defaultQuery, refresh: true);
+      await started.future;
+      expect(
+        await controller.updateColumns(site, [
+          for (final column in columns)
+            column.copyWith(enabled: column.id == 14),
+        ], query: defaultQuery),
+        isTrue,
+      );
+      oldMetadata.complete(const {
+        'directory_columns': [
+          {'id': 1, 'name': 'likes_received', 'type': 'automatic'},
+        ],
+      });
+      await refresh;
+      final state = controller.stateFor(site.url, defaultQuery);
+      expect(state.columns.single.id, 14);
+      expect(state.error, isNull);
+      expect(controller.updatingColumnsFor(site.url), isFalse);
+      expect(rowRequests().last.queryParameters['user_field_ids'], '42');
+    });
+
+    test(
+      'retired refresh cannot restore columns in a replacement account',
+      () async {
+        await controller.load(site, query: defaultQuery);
+        final started = Completer<void>();
+        final oldMetadata = Completer<Map<String, dynamic>>();
+        transport.nextColumns = () {
+          started.complete();
+          return oldMetadata.future;
+        };
+        final refresh = controller.load(
+          site,
+          query: defaultQuery,
+          refresh: true,
+        );
+        await started.future;
+        controller.lifecycle.invalidate(site.url);
+        enableCustomColumn();
+        await controller.load(site, query: defaultQuery);
+        oldMetadata.completeError(StateError('retired metadata'));
+        await refresh;
+        final state = controller.stateFor(site.url, defaultQuery);
+        expect(state.columns.single.id, 14);
+        expect(state.loaded, isTrue);
+        expect(state.error, isNull);
+      },
+    );
+  });
+
   for (final dispose in [false, true]) {
     test(
       'a ${dispose ? 'disposed' : 'forgotten'} directory does not start metadata after credential lookup',
@@ -688,6 +979,7 @@ final class _ControllerTransport
   final Map<int, bool> columnEnabled = {1: true, 9: false, 14: false};
   final Map<String, List<String>> usernamesBySearch = {};
   Future<Map<String, dynamic>> Function()? nextColumns;
+  Object? columnsError;
   Future<void> Function(Uri uri)? beforeDirectoryReply;
   Future<void> Function()? beforeWriteReply;
 
@@ -700,6 +992,11 @@ final class _ControllerTransport
   }) async {
     requests.add(path);
     final uri = Uri.parse(path);
+    if (columnsError case final error?
+        when uri.path == '/directory-columns.json' ||
+            uri.path == '/edit-directory-columns.json') {
+      throw error;
+    }
     if (nextColumns case final load?
         when uri.path == '/directory-columns.json' ||
             uri.path == '/edit-directory-columns.json') {
