@@ -61,7 +61,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => MobileFooterActionScope(
+    controller: _footerAction,
+    child: UserMenuButton.drawer(
+      onBeforeProfileOpen: ShellScope.read(context).closeMobileSidebar,
+      builder: _buildWithProfileFooter,
+    ),
+  );
+
+  Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     // The chrome reads facade and plugin state only. Topic feeds notify
@@ -78,9 +86,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
-        final showProfile =
-            shell.rootMode == ShellRootMode.forum && instance.isConnected;
-        final profileExtent = UserMenuButton.footerExtent(context) + 1;
         final navigationPage = CallbackShortcuts(
           key: _navigationPageKey,
           bindings: {
@@ -110,9 +115,20 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           key: ValueKey(('mobile-navigation', owner)),
                           mobile: true,
                           onNavigate: shell.closeMobileSidebar,
-                          footer: showProfile
-                              ? SizedBox(height: profileExtent)
-                              : null,
+                          footer: profileFooter == null
+                              ? null
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const DSeparator(),
+                                    Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: profileFooter,
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ),
@@ -469,104 +485,67 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ),
           ],
         );
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            MobileHistoryGestures(
-              tabIndex: tabOrder.indexOf(selected),
-              navigationPreview: navigationPage,
-              frameBuilder: frame,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Offstage(
-                    offstage: sidebarOpen,
-                    child: TickerMode(
-                      enabled: !sidebarOpen,
-                      child: ExcludeFocus(
-                        excluding: sidebarOpen,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: ForumMobileSurface(
-                            key: const ValueKey('mobile-content-panel'),
-                            coveredBySheet: pageSheetOpen,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                for (final entry in panels)
-                                  Offstage(
-                                    offstage:
+        return MobileHistoryGestures(
+          tabIndex: tabOrder.indexOf(selected),
+          navigationPreview: navigationPage,
+          frameBuilder: frame,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Offstage(
+                offstage: sidebarOpen,
+                child: TickerMode(
+                  enabled: !sidebarOpen,
+                  child: ExcludeFocus(
+                    excluding: sidebarOpen,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: ForumMobileSurface(
+                        key: const ValueKey('mobile-content-panel'),
+                        coveredBySheet: pageSheetOpen,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            for (final entry in panels)
+                              Offstage(
+                                offstage:
+                                    !(panelRoot &&
+                                        panelOwner == entry.owner.value),
+                                child: TickerMode(
+                                  enabled:
+                                      panelRoot &&
+                                      panelOwner == entry.owner.value,
+                                  child: ExcludeFocus(
+                                    excluding:
                                         !(panelRoot &&
                                             panelOwner == entry.owner.value),
-                                    child: TickerMode(
-                                      enabled:
-                                          panelRoot &&
-                                          panelOwner == entry.owner.value,
-                                      child: ExcludeFocus(
-                                        excluding:
-                                            !(panelRoot &&
-                                                panelOwner ==
-                                                    entry.owner.value),
-                                        child: InstanceSidebar(
-                                          key: ValueKey((
-                                            'mobile-panel',
-                                            entry.owner.value,
-                                            owner,
-                                          )),
-                                          mobile: true,
-                                          panelOwner: entry.owner.value,
-                                        ),
-                                      ),
+                                    child: InstanceSidebar(
+                                      key: ValueKey((
+                                        'mobile-panel',
+                                        entry.owner.value,
+                                        owner,
+                                      )),
+                                      mobile: true,
+                                      panelOwner: entry.owner.value,
                                     ),
                                   ),
-                                if (!panelRoot) widget.content,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (sidebarOpen) navigationPage,
-                ],
-              ),
-            ),
-            if (showProfile)
-              PositionedDirectional(
-                start: _mobileRailWidth + 6,
-                end: 6,
-                bottom: MediaQuery.paddingOf(context).bottom + 6,
-                height: profileExtent,
-                child: Offstage(
-                  offstage: !sidebarOpen,
-                  child: ExcludeFocus(
-                    excluding: !sidebarOpen,
-                    child: ExcludeSemantics(
-                      excluding: !sidebarOpen,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const DSeparator(),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: UserMenuButton(
-                                presentation: UserMenuPresentation.profileCard,
-                                onBeforeProfileOpen: shell.closeMobileSidebar,
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                            if (!panelRoot) widget.content,
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-          ],
+              if (sidebarOpen) navigationPage,
+            ],
+          ),
         );
       },
     );
-    return MobileFooterActionScope(controller: _footerAction, child: body);
+    return body;
   }
 
   Widget _buildBottomBar(

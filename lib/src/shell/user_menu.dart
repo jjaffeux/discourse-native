@@ -787,23 +787,30 @@ class UserPresenceMenu extends StatefulWidget {
     this.iconOnly = false,
     this.side = DPopoverSide.bottom,
     this.onBeforeOpen,
+    this.triggerWrapper,
+    this.controller,
+    this.contentKey,
   });
 
   final String siteUrl;
   final bool iconOnly;
   final DPopoverSide side;
   final VoidCallback? onBeforeOpen;
+  final Widget Function(BuildContext, Widget)? triggerWrapper;
+  final DDropdownMenuController? controller;
+  final Key? contentKey;
 
   @override
   State<UserPresenceMenu> createState() => _UserPresenceMenuState();
 }
 
 class _UserPresenceMenuState extends State<UserPresenceMenu> {
-  final _menu = DDropdownMenuController();
+  final _ownedMenu = DDropdownMenuController();
+  DDropdownMenuController get _menu => widget.controller ?? _ownedMenu;
 
   @override
   void dispose() {
-    _menu.dispose();
+    _ownedMenu.dispose();
     super.dispose();
   }
 
@@ -835,6 +842,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
             semanticLabel: context.l10n.statusAndNotifications,
             children: [
               UserProfileMenuItems(
+                key: widget.contentKey,
                 siteUrl: widget.siteUrl,
                 statusOnly: true,
                 onDismiss: _menu.close,
@@ -843,6 +851,8 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
           ),
           child: DDropdownMenuTrigger(
             builder: (context, state) {
+              Widget wrap(Widget trigger) =>
+                  widget.triggerWrapper?.call(context, trigger) ?? trigger;
               void toggle() {
                 if (!state.open) {
                   AccountMenuScope.activate(context, _menu);
@@ -858,37 +868,41 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
                     : DTokens.of(context).mutedForeground,
               );
               if (widget.iconOnly) {
-                return DButton.iconOnly(
+                return wrap(
+                  DButton.iconOnly(
+                    key: const ValueKey('user-presence-menu'),
+                    icon: icon,
+                    variant: DButtonVariant.ghost,
+                    shape: DButtonShape.pill,
+                    size: DControlSize.filter,
+                    tooltip: label,
+                    semanticLabel: context.l10n.statusAndNotificationsUsermenu(
+                      label,
+                    ),
+                    focusNode: state.focusNode,
+                    hasPopup: true,
+                    expanded: state.open,
+                    onPressed: toggle,
+                  ),
+                );
+              }
+              return wrap(
+                DButton(
                   key: const ValueKey('user-presence-menu'),
-                  icon: icon,
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.secondary,
                   shape: DButtonShape.pill,
                   size: DControlSize.filter,
-                  tooltip: label,
+                  tooltip: context.l10n.statusAndNotifications,
                   semanticLabel: context.l10n.statusAndNotificationsUsermenu(
-                    label,
+                    (label).toString(),
                   ),
                   focusNode: state.focusNode,
                   hasPopup: true,
                   expanded: state.open,
                   onPressed: toggle,
-                );
-              }
-              return DButton(
-                key: const ValueKey('user-presence-menu'),
-                variant: DButtonVariant.secondary,
-                shape: DButtonShape.pill,
-                size: DControlSize.filter,
-                tooltip: context.l10n.statusAndNotifications,
-                semanticLabel: context.l10n.statusAndNotificationsUsermenu(
-                  (label).toString(),
+                  icon: icon,
+                  label: const DIcon(DNativeIcons.filterChevron, size: 10),
                 ),
-                focusNode: state.focusNode,
-                hasPopup: true,
-                expanded: state.open,
-                onPressed: toggle,
-                icon: icon,
-                label: const DIcon(DNativeIcons.filterChevron, size: 10),
               );
             },
           ),

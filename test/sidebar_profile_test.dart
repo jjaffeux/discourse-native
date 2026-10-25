@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/account_menu_scope.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -104,6 +105,168 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
+  for (final key in [
+    UserMenuButton.avatarKey,
+    const ValueKey('user-presence-menu'),
+  ]) {
+    testWidgets('Escape from drawer footer $key closes navigation', (
+      tester,
+    ) async {
+      final shell = await _pumpProduction(tester, phone);
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      tester.widget<DButton>(find.byKey(key)).focusNode!.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  }
+
+  testWidgets('opening drawer preview includes an inert profile footer', (
+    tester,
+  ) async {
+    final shell = await _pumpProduction(tester, phone);
+    final profile = find.byKey(UserMenuButton.avatarKey);
+    final open = await tester.startGesture(const Offset(8, 400));
+    await open.moveBy(
+      const Offset(120, 0),
+      timeStamp: const Duration(milliseconds: 200),
+    );
+    await tester.pump();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(profile, findsOneWidget);
+    expect(profile.hitTestable(), findsNothing);
+    await open.cancel();
+    await tester.pumpAndSettle();
+    expect(profile, findsNothing);
+
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('closing drawer footer follows its page and ignores input', (
+    tester,
+  ) async {
+    final shell = await _pumpProduction(tester, phone);
+    final profile = find.byKey(UserMenuButton.avatarKey);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    final before = tester.getRect(profile);
+    final page = find.byKey(const ValueKey('mobile-navigation-page'));
+    final pageBefore = tester.getRect(page);
+    final close = await tester.startGesture(const Offset(386, 400));
+    await close.moveBy(
+      const Offset(-120, 0),
+      timeStamp: const Duration(milliseconds: 200),
+    );
+    await tester.pump();
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    final during = tester.getRect(profile);
+    final pageDuring = tester.getRect(page);
+    expect(during, isNot(before));
+    expect(
+      (during.left - pageDuring.left) / pageDuring.width,
+      closeTo((before.left - pageBefore.left) / pageBefore.width, .00001),
+    );
+    expect(
+      during.width / before.width,
+      closeTo(pageDuring.width / pageBefore.width, .00001),
+    );
+    expect(profile.hitTestable(), findsNothing);
+    await close.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(profile), before);
+    expect(profile.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'drawer presence retires on site change while profile follows selection',
+    (tester) async {
+      const otherSite = 'https://team.example';
+      await pumpShell(
+        tester,
+        phone,
+        instances: [
+          instance('meta.example').copyWith(user: _user),
+          instance('team.example').copyWith(user: _user),
+        ],
+        authenticator: FakeAuthenticator()
+          ..keys[_site] = 'key'
+          ..keys[otherSite] = 'other-key',
+        api: FakeDiscourseApi(user: _user, feeds: const {'/latest.json': []}),
+      );
+      final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
+      final body = tester.element(find.byType(MobileHistoryGestures));
+      Future<void> drawer() async {
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+      }
+
+      await drawer();
+      final presence = find.byKey(const ValueKey('user-presence-menu'));
+      await tester.tap(presence);
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(tester.widget<DButton>(presence).expanded, isTrue);
+      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(tester.element(find.byType(MobileHistoryGestures)), same(body));
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(tester.element(find.byType(MobileHistoryGestures)), same(body));
+      await drawer();
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
+      shell.selectInstance(0);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('user-menu-hide-presence')));
+      await tester.pumpAndSettle();
+      expect(shell.hidePresenceFor(_site), isTrue);
+      expect(shell.hidePresenceFor(otherSite), isFalse);
+      await shell.connectCurrentInstance();
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(tester.element(find.byType(MobileHistoryGestures)), same(body));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets('drawer host preserves its body without an account', (
+    tester,
+  ) async {
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([]),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    await shell.load();
+    addTearDown(shell.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          home: UserMenuButton.drawer(
+            onBeforeProfileOpen: null,
+            builder: (context, footer) =>
+                Text(footer == null ? 'Body without account' : 'Account body'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Body without account'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
       'mobile drawer profile opens an independent sheet on $platform',
@@ -137,6 +300,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
         expect(profile, findsNothing);
+        final focus = FocusManager.instance.primaryFocus?.context;
+        expect(
+          focus?.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false,
+          isFalse,
+        );
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
@@ -245,40 +413,30 @@ void main() {
     await _capture(tester, 'profile-dark-rtl-2x');
     expect(tester.takeException(), isNull);
   });
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('drawer profile sheet survives closing drawer on $platform', (
-      tester,
-    ) async {
-      final drawer = ValueNotifier(true);
-      addTearDown(drawer.dispose);
-      await _pump(tester, platform: platform, drawer: drawer);
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
-      await tester.pumpAndSettle();
-      expect(drawer.value, isFalse);
-      expect(find.byType(DSheetContent), findsOneWidget);
-      expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
-      final online = find.byKey(const ValueKey('user-menu-hide-presence'));
-      expect(online.hitTestable(), findsOneWidget);
-      await tester.tap(online);
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsOneWidget);
-      await tester.binding.handlePopRoute();
+  testWidgets(
+    'mobile profile supports Native Tab dismissal and menu selection',
+    (tester) async {
+      final shell = await _pumpProduction(tester, phone);
+      Future<void> profile() async {
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(UserMenuButton.avatarKey));
+        await tester.pumpAndSettle();
+      }
+
+      await profile();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
-      expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
-      final focus = FocusManager.instance.primaryFocus?.context;
-      expect(
-        focus?.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false,
-        isFalse,
-      );
-      drawer.value = true;
+      await profile();
+      await tester.tap(find.byKey(const ValueKey('user-menu-row-summary')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(UserMenuButton.avatarKey));
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsOneWidget);
+      expect(shell.currentContent?.id, 'summary');
+      expect(find.byType(DSheetContent), findsNothing);
       expect(tester.takeException(), isNull);
-    });
-  }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   testWidgets('separate header and profile controls close the other menu', (
     tester,
@@ -416,7 +574,6 @@ Future<void> _capture(WidgetTester tester, String name) async {
 Future<ShellController> _pump(
   WidgetTester tester, {
   TargetPlatform platform = TargetPlatform.macOS,
-  ValueNotifier<bool>? drawer,
   DiscourseUser user = _user,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
@@ -442,12 +599,9 @@ Future<ShellController> _pump(
   );
   await shell.load();
   addTearDown(shell.dispose);
-  final profile = SizedBox(
+  const profile = SizedBox(
     width: 300,
-    child: UserMenuButton(
-      presentation: UserMenuPresentation.profileCard,
-      onBeforeProfileOpen: () => drawer?.value = false,
-    ),
+    child: UserMenuButton(presentation: UserMenuPresentation.profileCard),
   );
   await tester.pumpWidget(
     ShellScope(
@@ -468,28 +622,18 @@ Future<ShellController> _pump(
             child: child!,
           ),
         ),
-        home: AccountMenuScope(
+        home: const AccountMenuScope(
           child: Scaffold(
             body: Column(
               children: [
-                const Align(
+                Align(
                   alignment: AlignmentDirectional.topEnd,
                   child: UserMenuButton(
                     presentation: UserMenuPresentation.notifications,
                   ),
                 ),
-                const Spacer(),
-                if (drawer == null)
-                  profile
-                else
-                  ValueListenableBuilder<bool>(
-                    valueListenable: drawer,
-                    child: profile,
-                    builder: (context, open, child) => Offstage(
-                      offstage: !open,
-                      child: ExcludeFocus(excluding: !open, child: child!),
-                    ),
-                  ),
+                Spacer(),
+                profile,
               ],
             ),
           ),

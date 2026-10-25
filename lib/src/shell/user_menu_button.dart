@@ -41,7 +41,17 @@ class UserMenuButton extends StatefulWidget {
     this.leadingActions,
     this.presentation = UserMenuPresentation.combined,
     this.onBeforeProfileOpen,
-  });
+  }) : drawerBuilder = null;
+
+  const UserMenuButton.drawer({
+    super.key,
+    required Widget Function(BuildContext, Widget?) builder,
+    required this.onBeforeProfileOpen,
+  }) : drawerBuilder = builder,
+       presentation = UserMenuPresentation.profileCard,
+       ringColor = null,
+       compact = false,
+       leadingActions = null;
 
   final Color? ringColor;
 
@@ -51,6 +61,7 @@ class UserMenuButton extends StatefulWidget {
   final List<Widget>? leadingActions;
   final UserMenuPresentation presentation;
   final VoidCallback? onBeforeProfileOpen;
+  final Widget Function(BuildContext, Widget?)? drawerBuilder;
 
   static double footerExtent(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -88,6 +99,7 @@ typedef _AccountMenuOwner = ({
 class _UserMenuButtonState extends State<UserMenuButton> {
   final _notifications = DPopoverController();
   final _profile = DPopoverController();
+  final _drawerPresence = DPopoverController();
   _AccountMenuOwner? _menuOwner;
   var _menuGeneration = 0;
   ShellController? _shell;
@@ -132,6 +144,9 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       _notifications.close();
       _profile.close();
     }
+    if (previous != null && (retired || previous.siteUrl != owner.siteUrl)) {
+      _drawerPresence.close();
+    }
     _menuOwner = owner;
   }
 
@@ -140,6 +155,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     _shell?.removeListener(_handleShellChanged);
     _notifications.dispose();
     _profile.dispose();
+    _drawerPresence.dispose();
     super.dispose();
   }
 
@@ -187,16 +203,18 @@ class _UserMenuButtonState extends State<UserMenuButton> {
     },
     builder: (context, account, _) {
       final theme = Theme.of(context);
-      if (!account.showAccountControls) return const SizedBox.shrink();
+      Widget withoutProfile() =>
+          widget.drawerBuilder?.call(context, null) ?? const SizedBox.shrink();
+      if (!account.showAccountControls) return withoutProfile();
       final siteUrl = account.siteUrl;
-      if (siteUrl == null) return const SizedBox.shrink();
+      if (siteUrl == null) return withoutProfile();
       final profileOnly = switch (widget.presentation) {
         UserMenuPresentation.profileCard ||
         UserMenuPresentation.profileRail => true,
         _ => false,
       };
       if (account.username == null) {
-        if (profileOnly) return const SizedBox.shrink();
+        if (profileOnly) return withoutProfile();
         return _SignedOutAccountActions(
           connecting: account.connecting,
           onSignUp: () => unawaited(_signUp(siteUrl)),
@@ -243,9 +261,31 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 connecting: connecting,
               ),
             );
+            Widget card(Widget profile, Widget? presence) => DCard(
+              key: const ValueKey('user-profile-card'),
+              border: false,
+              spacing: 0,
+              backgroundColor: rail
+                  ? Colors.transparent
+                  : tokens.primary.withValues(alpha: .10),
+              child: Padding(
+                padding: EdgeInsets.all(rail ? 0 : 4),
+                child: Row(
+                  children: [
+                    Expanded(child: Align(child: profile)),
+                    ?presence,
+                  ],
+                ),
+              ),
+            );
             final profile = _AccountMenuPopover(
-              key: ValueKey((UserMenuView.profile, _menuGeneration)),
+              key: widget.drawerBuilder == null
+                  ? ValueKey((UserMenuView.profile, _menuGeneration))
+                  : const ValueKey('drawer-profile-menu'),
               view: UserMenuView.profile,
+              contentKey: widget.drawerBuilder == null
+                  ? null
+                  : ValueKey(_menuGeneration),
               presentation: widget.presentation,
               isCurrent: isCurrentMenu,
               controller: _profile,
@@ -259,6 +299,24 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   '${context.l10n.profileUsermenubutton(account.displayName ?? account.username!)}, $presence',
               icon: avatar,
               compact: widget.compact,
+              triggerWrapper: widget.drawerBuilder == null
+                  ? null
+                  : (context, profileTrigger) => UserPresenceMenu(
+                      controller: _drawerPresence,
+                      contentKey: ValueKey((
+                        siteUrl,
+                        account.userId,
+                        account.session,
+                      )),
+                      siteUrl: siteUrl,
+                      side: DPopoverSide.top,
+                      onBeforeOpen: _profile.close,
+                      triggerWrapper: (context, presenceTrigger) =>
+                          widget.drawerBuilder!(
+                            context,
+                            card(profileTrigger, presenceTrigger),
+                          ),
+                    ),
               profileLabel: rail
                   ? null
                   : Row(
@@ -318,36 +376,21 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       ],
                     ),
             );
-            return DCard(
-              key: const ValueKey('user-profile-card'),
-              border: false,
-              spacing: 0,
-              backgroundColor: rail
-                  ? Colors.transparent
-                  : tokens.primary.withValues(alpha: .10),
-              child: Padding(
-                padding: EdgeInsets.all(rail ? 0 : 4),
-                child: Row(
-                  children: [
-                    Expanded(child: Align(child: profile)),
-                    if (!rail)
-                      UserPresenceMenu(
-                        key: ValueKey((
-                          siteUrl,
-                          account.userId,
-                          account.session,
-                        )),
-                        siteUrl: siteUrl,
-                        iconOnly: !context.isTouch,
-                        side: DPopoverSide.top,
-                        onBeforeOpen: () {
-                          _profile.close();
-                          widget.onBeforeProfileOpen?.call();
-                        },
-                      ),
-                  ],
-                ),
-              ),
+            if (widget.drawerBuilder != null) return profile;
+            return card(
+              profile,
+              rail
+                  ? null
+                  : UserPresenceMenu(
+                      key: ValueKey((siteUrl, account.userId, account.session)),
+                      siteUrl: siteUrl,
+                      iconOnly: !context.isTouch,
+                      side: DPopoverSide.top,
+                      onBeforeOpen: () {
+                        _profile.close();
+                        widget.onBeforeProfileOpen?.call();
+                      },
+                    ),
             );
           }
           return Wrap(
@@ -456,6 +499,8 @@ class _AccountMenuPopover extends StatelessWidget {
     this.notificationSurface,
     this.presentation = UserMenuPresentation.combined,
     this.profileLabel,
+    this.triggerWrapper,
+    this.contentKey,
   });
 
   final UserMenuView view;
@@ -472,6 +517,8 @@ class _AccountMenuPopover extends StatelessWidget {
   final Color? notificationSurface;
   final UserMenuPresentation presentation;
   final Widget? profileLabel;
+  final Widget Function(BuildContext, Widget)? triggerWrapper;
+  final Key? contentKey;
 
   @override
   Widget build(BuildContext context) {
@@ -588,9 +635,16 @@ class _AccountMenuPopover extends StatelessWidget {
           padding: const EdgeInsets.all(7),
           variant: DPopoverVariant.timeline,
           highlightInitialFocus: false,
-          children: [UserProfileMenuItems(onDismiss: controller.close)],
+          children: [
+            UserProfileMenuItems(key: contentKey, onDismiss: controller.close),
+          ],
         ),
-        child: DDropdownMenuTrigger(builder: buildTrigger),
+        child: DDropdownMenuTrigger(
+          builder: (context, trigger) {
+            final button = buildTrigger(context, trigger);
+            return triggerWrapper?.call(context, button) ?? button;
+          },
+        ),
       );
     }
     if (view == UserMenuView.notifications) {
