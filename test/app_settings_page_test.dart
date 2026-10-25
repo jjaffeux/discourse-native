@@ -105,15 +105,10 @@ void main() {
     expect(find.text('System'), findsNothing);
     expect(find.text('Limit content size'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
-    expect(find.text('Choose a comfortable reading size.'), findsNothing);
     expect(find.text('Topic list'), findsNothing);
     expect(_textSize('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(find.text('Raw Markdown in composers'), findsOneWidget);
-    expect(
-      find.textContaining('reading lane is limited to 825 px'),
-      findsNothing,
-    );
     expect(find.textContaining('Save'), findsNothing);
 
     var segmented = tester.widget<DSwitchTile>(

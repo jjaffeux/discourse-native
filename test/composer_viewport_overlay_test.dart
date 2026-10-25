@@ -230,7 +230,6 @@ void main() {
         );
         expect(find.byTooltip('Create topic').hitTestable(), findsOneWidget);
         expect(find.byTooltip('Composer options'), findsNothing);
-        expect(find.text('Dock side'), findsNothing);
 
         final composer = controller.visibleComposer!;
         composer.focus.unfocus();

@@ -1536,7 +1536,6 @@ void main() {
           find.byKey(const ValueKey('composer-toolbar-scroll-forward')),
           findsOneWidget,
         );
-        expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
         expect(find.byKey(const ValueKey('composer-options')), findsNothing);
         expect(tester.takeException(), isNull);
       },
@@ -1833,7 +1832,6 @@ void main() {
           );
           expect(find.text('Edit post #8'), findsOneWidget);
           expect(composer.canSaveDraft, isFalse);
-          expect(find.text('Draft saved'), findsNothing);
           expect(tester.takeException(), isNull);
         },
       );

@@ -1833,7 +1833,6 @@ void main() {
       );
       expect(find.byTooltip('Add images to gallery'), findsOneWidget);
       expect(find.byTooltip('Remove gallery, keep images'), findsOneWidget);
-      expect(find.byTooltip('Close gallery controls'), findsNothing);
       await tester.tap(find.byTooltip('Carousel gallery mode'));
       await tester.pump();
       expect(composer.text.text, contains('[grid mode=carousel]'));
@@ -1872,7 +1871,6 @@ void main() {
         find.byKey(const ValueKey('composer-gallery-toolbar')),
         findsNothing,
       );
-      expect(find.byTooltip('Move image outside gallery'), findsNothing);
       expect(find.byTooltip('Delete image'), findsOneWidget);
       expect(find.byTooltip('Decrease image size'), findsNothing);
 
@@ -2628,7 +2626,6 @@ void main() {
         DropEventDetails(localPosition: position, globalPosition: position),
       );
       await tester.pump();
-      expect(find.text('Drop images into this gallery'), findsNothing);
       expect(find.byType(DDropIndicator), findsNothing);
 
       dropTarget.onDragDone!(

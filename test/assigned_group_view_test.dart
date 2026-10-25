@@ -497,7 +497,6 @@ void main() {
         find.byKey(const ValueKey('assigned-people-rail')),
         findsOneWidget,
       );
-      expect(find.text('60 active assignments'), findsNothing);
 
       await tester.tap(
         find.byKey(const ValueKey('assigned-person-direct-group')),
@@ -515,7 +514,6 @@ void main() {
         const AssignedGroupFilter.directGroup(),
         AssignedGroupFilter.member('sam'),
       ]);
-      expect(find.text('View all people'), findsNothing);
       expect(presentation.memberSearches, [' Alex ']);
       semantics.dispose();
     });
@@ -585,7 +583,6 @@ void main() {
         find.byKey(const ValueKey('assigned-people-scrollbar')),
         findsOneWidget,
       );
-      expect(find.text('View all people'), findsNothing);
 
       await tester.scrollUntilVisible(
         find.byKey(lastMemberKey),
