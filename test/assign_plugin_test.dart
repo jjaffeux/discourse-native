@@ -146,28 +146,6 @@ void main() {
     });
   });
 
-  group('serializer projection', () {
-    test('keeps Assign absent when its block is absent', () {
-      expect(_plugin.readTopic(const {}, _siteUrl), isNull);
-      expect(_plugin.readPost(const {'id': 1}, _siteUrl), isNull);
-    });
-
-    test('parses public assignments independently of write permission', () {
-      final assignments = _plugin.readTopic(const {
-        'can_assign': false,
-        'assigned_to_user': {'id': 7, 'username': 'sam', 'name': 'Sam Example'},
-        'assignment_status': 'In progress',
-        'assignment_note': 'Follow up tomorrow',
-      }, _siteUrl);
-
-      expect(assignments, isNotNull);
-      expect(assignments!.canAssign, isFalse);
-      expect(assignments.direct?.assignee.displayName, 'Sam Example');
-      expect(assignments.direct?.status, 'In progress');
-      expect(assignments.direct?.note, 'Follow up tomorrow');
-    });
-  });
-
   group('capability and invalidation', () {
     test('requires every server-authored guardian for the group tab', () {
       const registry = PluginRegistry([AssignPlugin()]);

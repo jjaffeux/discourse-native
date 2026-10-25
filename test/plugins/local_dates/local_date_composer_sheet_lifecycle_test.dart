@@ -39,7 +39,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }
 
-  testWidgets('date picker completion ignores a disposed sheet', (
+  testWidgets('removing the sheet retires its open date picker', (
     tester,
   ) async {
     final hostKey = GlobalKey<_PickerHostState>();
@@ -56,6 +56,7 @@ void main() {
     hostKey.currentState!.removeSheet();
     await tester.pumpAndSettle();
     expect(find.byType(LocalDateComposerSheet), findsNothing);
+    expect(find.byType(DCalendar), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

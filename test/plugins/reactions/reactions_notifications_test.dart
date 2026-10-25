@@ -7,22 +7,60 @@ import 'package:flutter_test/flutter_test.dart';
 const _siteUrl = 'https://forum.example';
 
 void main() {
-  test('Reactions owns notification decoding, route, wording and icon', () {
-    const registry = PluginRegistry([ReactionsPlugin()]);
-    final notification = DiscourseNotification.fromJson(const {
-      'id': 1,
-      'notification_type': 25,
-      'topic_id': 12,
-      'post_number': 4,
-      'slug': 'emoji',
-      'data': {'display_username': 'sam', 'topic_title': 'Emoji'},
-    });
+  final registry = PluginRegistry.validated(const [ReactionsPlugin()]);
 
-    final resolved = registry.resolveNotification(_siteUrl, notification);
+  test('reactions on one post open that post, whatever their count', () {
+    final resolved = registry.resolveNotification(
+      _siteUrl,
+      DiscourseNotification.fromJson(const {
+        'id': 6,
+        'notification_type': 25,
+        'topic_id': 7,
+        'post_number': 12,
+        'slug': 'better-image-handling',
+        'data': {
+          'topic_title': 'Better image handling',
+          'display_username': 'sam',
+          'username2': 'alex',
+          'count': 2,
+        },
+      }),
+    );
 
     expect(resolved.presentation.actor, 'sam');
-    expect(resolved.presentation.phrase, 'reacted to your post in Emoji');
+    expect(
+      resolved.presentation.phrase,
+      'reacted to your post in Better image handling',
+    );
     expect(resolved.presentation.icon, DIcons.discourseEmojis);
-    expect(resolved.path, '/t/emoji/12/4');
+    expect(resolved.path, '/t/better-image-handling/7/12');
+  });
+
+  test('consolidated reactions count posts and filter by the actor', () {
+    final resolved = registry.resolveNotification(
+      _siteUrl,
+      DiscourseNotification.fromJson(const {
+        'id': 5,
+        'notification_type': 25,
+        'topic_id': null,
+        'post_number': null,
+        'data': {
+          'topic_title': 'The last topic reacted to',
+          'display_username': 'Sam',
+          'username': 'sam&alex',
+          'consolidated': true,
+          'count': 3,
+        },
+      }),
+    );
+
+    expect(resolved.presentation.actor, 'Sam');
+    expect(resolved.presentation.phrase, 'reacted to 3 of your posts');
+    final uri = Uri.parse(resolved.path!);
+    expect(uri.path, '/my/notifications/reactions-received');
+    expect(uri.queryParameters, {
+      'acting_username': 'sam&alex',
+      'include_likes': 'true',
+    });
   });
 }
