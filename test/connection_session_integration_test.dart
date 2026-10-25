@@ -2702,7 +2702,14 @@ final class _FailingUserActivityApi extends FakeDiscourseApi {
   }
 }
 
+/// Opens the account actions; on a phone the avatar lives in the navigation
+/// drawer's footer rather than the header.
 Future<void> _openProfileSection(WidgetTester tester) async {
+  final drawer = find.byKey(const ValueKey('mobile-menu-button'));
+  if (userMenu.evaluate().isEmpty && drawer.evaluate().isNotEmpty) {
+    await tester.tap(drawer);
+    await tester.pumpAndSettle();
+  }
   await tester.tap(userMenu);
   await tester.pumpAndSettle();
 }
