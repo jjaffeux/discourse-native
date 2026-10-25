@@ -2338,6 +2338,91 @@ void main() {
       expect(renderedText('the category'), findsOneWidget);
     });
 
+    testWidgets('a blank type or label declines the pill', (tester) async {
+      for (final source in [
+        cooked(type: '  ', slug: 'bug', id: 5, href: '/c/bug/5'),
+        cooked(
+          type: 'category',
+          slug: 'bug',
+          id: 5,
+          href: '/c/bug/5',
+          text: ' ',
+        ),
+      ]) {
+        await pumpCooked(tester, source);
+
+        expect(find.byType(HashtagPill), findsNothing, reason: source);
+      }
+    });
+
+    testWidgets('draws the trimmed label', (tester) async {
+      await pumpCooked(
+        tester,
+        cooked(type: 'tag', slug: 'ux', id: 3, href: '/tag/ux', text: '  ux  '),
+      );
+
+      expect(tester.widget<HashtagPill>(find.byType(HashtagPill)).label, 'ux');
+    });
+
+    testWidgets('a two-colour supplied square splits parent and child', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: HashtagPill(
+              label: 'room',
+              baseStyle: null,
+              presentation: HashtagPresentation(
+                type: 'room',
+                style: HashtagStyle.square,
+                fallbackIcon: DIcons.link,
+                colorPolicy: HashtagColorPolicy.supplied,
+                colorValues: const [0xFFFF0000, 0xFF00FF00],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final square = tester.widget<CategorySquare>(find.byType(CategorySquare));
+      expect(square.parentColor, const Color(0xFFFF0000));
+      expect(square.color, const Color(0xFF00FF00));
+    });
+
+    test('a plugin answer for another kind is not used', () {
+      final request = HashtagPresentationRequest(
+        type: 'room',
+        style: HashtagStyle.icon,
+      );
+      final presentation = resolveHashtagPresentation(
+        request,
+        pluginPresentation: (request) => HashtagPresentation(
+          type: 'other',
+          style: request.style,
+          fallbackIcon: DIcons.microphoneLines,
+          colorPolicy: HashtagColorPolicy.none,
+        ),
+      );
+
+      expect(presentation.type, 'room');
+      expect(presentation.fallbackIcon, DIcons.link);
+    });
+
+    testWidgets('leave a hand-written data-type link alone', (tester) async {
+      // Upstream allowlists `a[data-type]` apart from `a.hashtag-cooked`, so
+      // an author can write the attributes without being a hashtag.
+      await pumpCooked(
+        tester,
+        '<p><a href="/c/bug/5" data-type="category" data-id="5">'
+        '<span>the category</span></a></p>',
+      );
+
+      expect(find.byType(HashtagPill), findsNothing);
+      expect(renderedText('the category'), findsOneWidget);
+    });
+
     testWidgets('a post that is nothing but a hashtag still draws a chip', (
       tester,
     ) async {
