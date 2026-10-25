@@ -285,13 +285,11 @@ void main() {
       await tester.enterText(find.byType(EditableText), 'assistant');
       await tester.tap(find.text('Send invitation'));
       await tester.pump();
-      expect(
-        tester
-            .widget<DButton>(find.widgetWithText(DButton, 'Send invitation'))
-            .loading,
-        isTrue,
+      final sending = tester.widget<DButton>(
+        find.widgetWithText(DButton, 'Send invitation'),
       );
-      await tester.tap(find.text('Send invitation'));
+      expect(sending.loading, isTrue);
+      expect(sending.onPressed, isNull);
       expect(submits, 1);
       dispatch.completeError(StateError('failed'));
       await tester.pumpAndSettle();
