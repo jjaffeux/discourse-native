@@ -130,6 +130,9 @@ void main() {
             contains(invalid.startsWith('Description') ? '100' : '1000'),
           );
           expect(find.byType(InviteEditor), findsOneWidget);
+          // On iOS, Form announces the first error after a fixed delay that
+          // nothing can cancel; let it fire before the tree is torn down.
+          await tester.pump(const Duration(seconds: 1));
           // A corrected value submits through the production API.
           await tester.enterText(field, 'Corrected');
           await _tap(
