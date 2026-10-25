@@ -154,6 +154,8 @@ final class GroupManageController extends ChangeNotifier {
     'incoming_email' => !group.automatic && currentUserStaff,
     'visibility_level' || 'members_visibility_level' => currentUserStaff,
     'full_name' => !group.automatic,
+    'automatic_membership_email_domains' =>
+      !group.automatic && group.canAdminGroup,
     'associated_group_ids' => currentUserAdmin && group.canAssociateGroups,
     'smtp_server' ||
     'smtp_port' ||
@@ -313,9 +315,10 @@ final class GroupManageController extends ChangeNotifier {
           'membership_request_template': textController(
             'membership_request_template',
           ).text,
-          'automatic_membership_email_domains': _value(
-            'automatic_membership_email_domains',
-          ),
+          if (canEditField('automatic_membership_email_domains'))
+            'automatic_membership_email_domains': _value(
+              'automatic_membership_email_domains',
+            ),
           if (canEditField('associated_group_ids'))
             'associated_group_ids': _integerList('associated_group_ids'),
           if (canEditField('grant_trust_level'))

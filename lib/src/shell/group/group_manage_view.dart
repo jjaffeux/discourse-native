@@ -63,7 +63,7 @@ class _ManageSection extends StatelessWidget {
               key: ValueKey(
                 'group-manage-form-${group.id}-$selected-'
                 '${group.automatic}-${data.currentUserStaff}-${data.isAdmin}-'
-                '${group.canAssociateGroups}',
+                '${group.canAssociateGroups}-${group.canAdminGroup}',
               ),
               group: group,
               currentUserStaff: data.currentUserStaff,
