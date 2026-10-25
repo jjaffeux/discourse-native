@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/pixel_samples.dart';
+
 Widget host(
   Widget child, {
   double width = 360,
@@ -312,32 +314,49 @@ void main() {
   testWidgets('editor focus repaints the shared group ring', (tester) async {
     final focus = FocusNode();
     addTearDown(focus.dispose);
+    const boundaryKey = ValueKey('input-group-focus-pixels');
+    final base = AppTheme.light;
+    final tokens = base.extension<DTokens>()!.copyWith(
+      colors: base.colorScheme.copyWith(primary: const Color(0x800000ff)),
+    );
     await tester.pumpWidget(
       host(
-        DInputGroup(
-          children: [
-            DInputGroupInput(focusNode: focus, semanticLabel: 'Query'),
-            const DInputGroupAddon(child: Icon(Icons.search)),
-          ],
+        RepaintBoundary(
+          key: boundaryKey,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: DInputGroup(
+              children: [
+                DInputGroupInput(focusNode: focus, semanticLabel: 'Query'),
+                const DInputGroupAddon(child: Icon(Icons.search)),
+              ],
+            ),
+          ),
         ),
+        theme: base.copyWith(extensions: [tokens]),
       ),
     );
-    await tester.pump();
-
-    AnimatedContainer surface() => tester.widget<AnimatedContainer>(
-      find.descendant(
-        of: find.byType(DInputGroup),
-        matching: find.byType(AnimatedContainer),
-      ),
-    );
-
-    final unfocusedDecoration = surface().foregroundDecoration;
+    await tester.pumpAndSettle();
+    final boundary = find.byKey(boundaryKey);
+    final bounds = tester.getRect(find.byType(DInputGroup));
+    final top = bounds.topCenter - tester.getRect(boundary).topLeft;
+    Future<List<Color>> pixels() => samplePixels(tester, boundary, [
+      top + const Offset(0, -1.5),
+      top + const Offset(0, -4.5),
+    ]);
+    expect(focus.hasFocus, isFalse);
+    expect((await pixels()).map((color) => color.toARGB32() >>> 24), [0, 0]);
     focus.requestFocus();
-    await tester.pump();
-    await tester.pump();
-
+    await tester.pumpAndSettle();
     expect(focus.hasFocus, isTrue);
-    expect(surface().foregroundDecoration, isNot(same(unfocusedDecoration)));
+    expect(tester.getRect(find.byType(DInputGroup)), bounds);
+    final focused = await pixels();
+    expect(focused.first.toARGB32(), 0x400000ff);
+    expect(focused.last.toARGB32() >>> 24, 0);
+    focus.unfocus();
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isFalse);
+    expect((await pixels()).map((color) => color.toARGB32() >>> 24), [0, 0]);
   });
 
   testWidgets('group-level disabled state disables and dims its editor', (

@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 import 'package:webview_all/webview_all.dart';
 
+import '../support/blank_png.dart';
 import '../support/fake_media_webview.dart';
 
 const _source = 'flowchart TD\n    A --> B';
@@ -715,17 +716,52 @@ void main() {
     );
   });
 
-  testWidgets('malformed image output produces a recoverable error', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host());
-    send(
-      jsonEncode({'type': 'rendered', 'width': 0, 'height': 100, 'png': _png}),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Could not read the rendered diagram.'), findsOneWidget);
-    expect(find.byType(WebViewWidget), findsNothing);
-  });
+  final damagedSignature = base64Decode(_png)..[0] = 0;
+  for (final (name, width, height, png) in [
+    ('logical width', 0, 100, _png),
+    ('logical height', 600, -1, _png),
+    ('base64', 600, 300, '!'),
+    ('signature', 600, 300, base64Encode(damagedSignature)),
+    ('zero PNG width', 600, 300, base64Encode(blankPng(width: 0, height: 1))),
+    ('zero PNG height', 600, 300, base64Encode(blankPng(width: 1, height: 0))),
+    (
+      'PNG width limit',
+      600,
+      300,
+      base64Encode(blankPng(width: 4097, height: 1)),
+    ),
+    (
+      'PNG height limit',
+      600,
+      300,
+      base64Encode(blankPng(width: 1, height: 4097)),
+    ),
+    (
+      'PNG area limit',
+      600,
+      300,
+      base64Encode(blankPng(width: 2001, height: 2000)),
+    ),
+  ]) {
+    testWidgets('malformed image output produces a recoverable error ($name)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host());
+      send(
+        jsonEncode({
+          'type': 'rendered',
+          'width': width,
+          'height': height,
+          'png': png,
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Could not read the rendered diagram.'), findsOneWidget);
+      expect(find.byType(WebViewWidget), findsNothing);
+      expect(find.byType(Image), findsNothing);
+      expect(find.text('View source'), findsOneWidget);
+    });
+  }
 
   testWidgets('narrow RTL and large text preserve actions without overflow', (
     tester,

@@ -678,6 +678,8 @@ void optionListVirtualizationTests() {
         jsonEncode({'component': 'select', 'scale': scale, 'mounted': mounted}),
       );
       expect(mounted, lessThan(40));
+      expect(mounted, greaterThan(0));
+      expect(find.byKey(const ValueKey<int>(0)).hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
     testWidgets('long combobox builds bounded options at ${scale}x', (
@@ -713,7 +715,10 @@ void optionListVirtualizationTests() {
         }),
       );
       expect(mounted, lessThan(40));
+      expect(mounted, greaterThan(0));
       expect(builtOptions.length, lessThan(40));
+      expect(builtOptions, contains(0));
+      expect(find.text('Option 0').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
