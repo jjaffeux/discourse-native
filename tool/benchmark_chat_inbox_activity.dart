@@ -77,7 +77,10 @@ Future<void> main() async {
     final rows = <Map<String, Object?>>[];
     final profiles = <Object?>[];
     for (final (size, threads) in [
+      (50, 0),
       (50, 32),
+      (175, 0),
+      (175, 4),
       (175, 32),
       (1000, 32),
       (175, 256),
@@ -104,7 +107,7 @@ Future<void> main() async {
           },
           _site,
           unreadThreadOverview: {
-            for (var t = 0; t < threads; t++)
+            for (var t = 0; t < (threads == 4 && i % 5 != 0 ? 0 : threads); t++)
               t: now.add(Duration(minutes: (i * 37 + t * 11) % size)),
           },
         ),
@@ -137,7 +140,10 @@ Future<void> main() async {
           ).map((c) => c.id).join(','),
           reference.map((c) => c.id).join(','),
         );
-        expect(chatInboxConversations(chat, _site, filter).length, size);
+        expect(
+          chatInboxConversations(chat, _site, filter).length,
+          reference.length,
+        );
         for (final event in ['unchanged', 'preview']) {
           var checksum = 0;
           var callbacks = 0;
@@ -181,6 +187,9 @@ Future<void> main() async {
             rows.add({
               'size': size,
               'threads': threads,
+              'threadDistribution': threads == 4
+                  ? 'one_in_five_channels'
+                  : 'all_channels',
               'unreadOnly': unread,
               'event': event,
               'round': round,
