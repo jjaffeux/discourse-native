@@ -21,6 +21,7 @@ import 'package:vm_service/vm_service_io.dart';
 const _outputPath = String.fromEnvironment('COMPOSER_ANALYSIS_OUTPUT');
 const _cpuOnly = bool.fromEnvironment('COMPOSER_ANALYSIS_CPU_ONLY');
 const _structure = bool.fromEnvironment('COMPOSER_ANALYSIS_STRUCTURE');
+const _caret = bool.fromEnvironment('COMPOSER_ANALYSIS_CARET');
 const _structureSections = 160;
 const _structureWarmup = 12;
 const _structureSamples = 100;
@@ -30,6 +31,8 @@ const _samples = 7;
 const _editsPerSample = 5;
 const _diagnosticEdits = 20;
 const _timeout = Duration(seconds: 10);
+
+final _benchmarkTheme = AppTheme.light;
 
 Future<void> main() async {
   final report = _Report();
@@ -43,7 +46,52 @@ Future<void> main() async {
       return true;
     };
     _require(kProfileMode, 'Run this benchmark in Flutter profile mode.');
-    if (_structure) {
+    if (_caret) {
+      runApp(const _BenchmarkApp());
+      await _nextFrame(binding);
+      BuildContext? context;
+      void findContext(Element element) {
+        if (element.widget is DPageSurface) context = element;
+        element.visitChildren(findContext);
+      }
+
+      findContext(binding.rootElement!);
+      final spanContext = context;
+      if (spanContext == null || !spanContext.mounted) {
+        throw const _BenchmarkFailure('The benchmark theme is not mounted.');
+      }
+      for (final sections in [6, 60, 300]) {
+        report.stage = 'caret_$sections';
+        report.rows.add(_measureCaret(_draft(sections), spanContext, report));
+        report.rows.add(
+          _measureCaret(_draft(sections), spanContext, report, editing: true),
+        );
+      }
+      final inlineDraft = _draft(60).replaceAll(
+        'and enough words',
+        'with @sam #general :smile: <kbd>**Ctrl** + K</kbd> and enough words',
+      );
+      report.rows.add(_measureCaret(inlineDraft, spanContext, report));
+      report.rows.add(
+        _measureCaret(inlineDraft, spanContext, report, editing: true),
+      );
+      if (Platform.environment['COMPOSER_CARET_DIAGNOSTICS'] == '1') {
+        report.diagnostics = await _caretDiagnostics(spanContext, report);
+      }
+      for (final sections in [6, 60, 300]) {
+        report.stage = 'caret_frame_$sections';
+        report.rows.add(
+          await _measureFrames(
+            _draft(sections),
+            sections,
+            _Position.middle,
+            binding,
+            report,
+            caret: true,
+          ),
+        );
+      }
+    } else if (_structure) {
       for (final draft in _StructureDraft.values) {
         for (final edit in _StructureEdit.values) {
           report.stage = 'structure_${draft.name}_${edit.name}';
@@ -228,6 +276,136 @@ Map<String, Object?> _measureCpu(
     };
   } finally {
     composer?.dispose();
+  }
+}
+
+Map<String, Object?> _measureCaret(
+  String source,
+  BuildContext context,
+  _Report report, {
+  bool editing = false,
+}) {
+  final composer = _composer(
+    TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(
+        offset: source.indexOf('enough words'),
+      ),
+    ),
+  );
+  final controller = composer.text;
+  final style = Theme.of(context).textTheme.bodyLarge;
+  final initialSourceUnits = source.length;
+  final offset = controller.selection.start;
+  final buildSamples = <int>[];
+  final totalSamples = <int>[];
+  final checksums = <int>[];
+  var reused = 0;
+  TextSpan? previous;
+  try {
+    for (var sample = 0; sample < 120; sample++) {
+      if (editing) source = source.replaceRange(offset, offset, 'x');
+      final next = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(
+          offset: offset + (editing ? 0 : sample % 6),
+        ),
+      );
+      final total = Stopwatch()..start();
+      controller.value = next;
+      final build = Stopwatch()..start();
+      final span = controller.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: true,
+      );
+      build.stop();
+      total.stop();
+      final painted = span.toPlainText(includeSemanticsLabels: false);
+      _require(
+        painted.length == source.length,
+        'The caret projection lost offsets.',
+      );
+      _require(controller.text == source, 'Caret movement changed the source.');
+      final checksum = _sourceChecksum(painted);
+      report.consume(checksum);
+      if (sample >= 20) {
+        buildSamples.add(build.elapsedMicroseconds);
+        totalSamples.add(total.elapsedMicroseconds);
+        checksums.add(checksum);
+        if (identical(previous, span)) reused++;
+      }
+      previous = span;
+    }
+    return {
+      'kind': editing ? 'editBuild' : 'caretBuild',
+      'initialSourceUnits': initialSourceUnits,
+      'sourceUnits': source.length,
+      'warmupOperations': 20,
+      'buildMicroseconds': buildSamples,
+      'setterAndBuildMicroseconds': totalSamples,
+      'sourceChecksum': _sourceChecksum(source),
+      'paintedChecksums': checksums,
+      'reusedSpans': reused,
+    };
+  } finally {
+    composer.dispose();
+  }
+}
+
+Future<Map<String, Object?>> _caretDiagnostics(
+  BuildContext context,
+  _Report report,
+) async {
+  final info = await developer.Service.getInfo().timeout(_timeout);
+  final uri = info.serverWebSocketUri;
+  final isolateId = developer.Service.getIsolateId(Isolate.current);
+  _require(
+    uri != null && isolateId != null,
+    'The profiling service is unavailable.',
+  );
+  final service = await vmServiceConnectUri(uri.toString()).timeout(_timeout);
+  final source = _draft(300);
+  final composer = _composer(TextEditingValue(text: source));
+  final offset = source.indexOf('enough words');
+  try {
+    if (!context.mounted) {
+      throw const _BenchmarkFailure('The profiling context was unmounted.');
+    }
+    final origin = developer.Timeline.now;
+    for (var i = 0; i < 10000; i++) {
+      composer.text.selection = TextSelection.collapsed(offset: offset + i % 6);
+      final span = composer.text.buildTextSpan(
+        context: context,
+        withComposing: true,
+      );
+      report.consume(span.children!.length);
+    }
+    final extent = developer.Timeline.now - origin;
+    final profile = await service
+        .getCpuSamples(isolateId!, origin, extent)
+        .timeout(_timeout);
+    final functions = [
+      ...?profile.functions,
+    ]..sort((a, b) => (b.exclusiveTicks ?? 0).compareTo(a.exclusiveTicks ?? 0));
+    return {
+      'status': 'available',
+      'timed': false,
+      'operations': 10000,
+      'sampleCount': profile.sampleCount,
+      'topFunctions': [
+        for (final entry in functions.take(30))
+          {
+            'name': _profileFunctionName(entry),
+            'script': entry.resolvedUrl,
+            'inclusiveTicks': entry.inclusiveTicks,
+            'exclusiveTicks': entry.exclusiveTicks,
+          },
+      ],
+    };
+  } finally {
+    composer.dispose();
+    await service.dispose();
   }
 }
 
@@ -648,8 +826,9 @@ Future<Map<String, Object?>> _measureFrames(
   int sections,
   _Position position,
   _BenchmarkBinding binding,
-  _Report report,
-) async {
+  _Report report, {
+  bool caret = false,
+}) async {
   final edits = _EditStream(source, sections, position);
   final composer = _composer(edits.value);
   final key = GlobalKey();
@@ -657,7 +836,9 @@ Future<Map<String, Object?>> _measureFrames(
   final frameSamples = <int>[];
   final framesPerEdit = <int>[];
   try {
-    runApp(_BenchmarkApp(composer: composer, editorKey: key));
+    runApp(
+      _BenchmarkApp(composer: composer, editorKey: key, autofocus: !caret),
+    );
     await _nextFrame(binding);
     await _nextFrame(binding);
     final editable = _editableFor(key, composer);
@@ -666,7 +847,13 @@ Future<Map<String, Object?>> _measureFrames(
       'The actual editor has no layout.',
     );
     for (var edit = 0; edit < _frameWarmupEdits + _samples; edit++) {
-      final value = edits.next();
+      final value = caret
+          ? edits.value.copyWith(
+              selection: TextSelection.collapsed(
+                offset: edits.offset + edit % 6,
+              ),
+            )
+          : edits.next();
       final beforeFrame = binding.frames;
       final watch = Stopwatch()..start();
       composer.text.value = value;
@@ -675,7 +862,10 @@ Future<Map<String, Object?>> _measureFrames(
       watch.stop();
       final frames = binding.frames - beforeFrame;
       _require(frames > 0, 'The edit did not complete a frame.');
-      _require(composer.text.value == value, 'The rendered edit changed.');
+      _require(
+        composer.text.value == value,
+        'The rendered edit changed. Expected selection ${value.selection} and composing ${value.composing}; got ${composer.text.selection} and ${composer.text.value.composing}.',
+      );
       final render = _editableFor(key, composer).renderEditable;
       _require(
         render.hasSize && !render.size.isEmpty,
@@ -696,7 +886,8 @@ Future<Map<String, Object?>> _measureFrames(
     final outputChecksum = _validateIndex(composer.blocks.index, edits.source);
     report.consume(outputChecksum);
     return {
-      'kind': 'mountedEditor',
+      'kind': caret ? 'mountedCaret' : 'mountedEditor',
+      'autofocus': !caret,
       'sections': sections,
       'sourceUnits': source.length,
       'position': position.name,
@@ -760,15 +951,16 @@ final class _BenchmarkBinding extends WidgetsFlutterBinding {
 }
 
 final class _BenchmarkApp extends StatelessWidget {
-  const _BenchmarkApp({this.composer, this.editorKey});
+  const _BenchmarkApp({this.composer, this.editorKey, this.autofocus = true});
 
   final ComposerController? composer;
   final GlobalKey? editorKey;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: AppTheme.light,
+    theme: _benchmarkTheme,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: DPageSurface(
@@ -777,9 +969,10 @@ final class _BenchmarkApp extends StatelessWidget {
           : ComposerEditor(
               key: editorKey,
               composer: composer!,
+              autofocus: autofocus,
               hintText: '',
-              textStyle: AppTheme.light.textTheme.bodyLarge,
-              hintStyle: AppTheme.light.textTheme.bodyLarge,
+              textStyle: _benchmarkTheme.textTheme.bodyLarge,
+              hintStyle: _benchmarkTheme.textTheme.bodyLarge,
             ),
     ),
   );
@@ -1198,7 +1391,9 @@ final class _Report {
     'platform': Platform.operatingSystem,
     'dartVersion': Platform.version,
     'processors': Platform.numberOfProcessors,
-    'surface': _structure
+    'surface': _caret
+        ? 'caretBuildAndMountedEditor'
+        : _structure
         ? 'controllerAndStructuralConsumers'
         : _cpuOnly
         ? 'synchronousController'
@@ -1206,10 +1401,14 @@ final class _Report {
     'fixture': _structure
         ? '160-section plain and rich drafts with core syntax, media and galleries'
         : 'composer_analysis_benchmark_test structured draft',
-    'edit': _structure
+    'edit': _caret
+        ? 'Collapsed caret movement within prose; editBuild inserts one letter per operation.'
+        : _structure
         ? 'Middle and top prose insertion, distinct heading delimiter edits, and actual history undo with exact caret and identity checks.'
         : 'Cumulative single-letter insertion inside a prose word; markdownWhitespace inserts spaces for contextual fallback.',
-    'cpuTiming': _structure
+    'cpuTiming': _caret
+        ? 'buildTextSpan and selection setter plus buildTextSpan measured separately. Style resolution, edit generation, result consumption and validation excluded.'
+        : _structure
         ? 'Synchronous text.value setter or history.undo plus blocks.index, text.blockGaps and text.todos getters. Excludes edit generation, undo setup, checksum consumption and verification.'
         : 'Analysis or synchronous setter only. Excludes edit generation and verification.',
     'frameTiming': _cpuOnly || _structure

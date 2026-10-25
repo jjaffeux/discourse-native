@@ -23,3 +23,19 @@ Run CPU profiling in separate processes and exclude their timings from the compa
 The VM diagnostic interval includes operation preparation, result consumption, and service messages. Undo diagnostics also include two setup insertions per restoration. In Dart 3.13.5, allocation-profile accumulated counters alias current object-heap counters. Their deltas are heap snapshots, not total bytes or objects allocated per edit. Verify the runtime's counter semantics before making allocation claims.
 
 The structural workload excludes keyboard and IME delivery, widget layout, rasterization, and display presentation. Its results describe desktop profile controller work and do not establish physical-device typing latency.
+
+## Caret builds
+
+`COMPOSER_ANALYSIS_CARET=true` measures `buildTextSpan` and selection-update-plus-build CPU time separately. It uses 6, 60, and 300 structured sections, plus a 60-section variant with mentions, hashtags, emoji shortcodes, and mixed-style keycaps. Each CPU case warms up for 20 operations and records 100 samples. `caretBuild` moves the caret through six prose offsets without changing source. `editBuild` inserts one letter before each build to check edit overhead. Theme style resolution, edit generation, and output validation occur outside the stopwatch.
+
+The mode also mounts the actual `ComposerEditor` for each structured draft size and measures selection update through `endOfFrame`. The trace disables autofocus and excludes native text-input delivery. It retains one theme across fixtures to avoid theme-change animations during timed frames. That includes vsync, build, layout, and paint. It excludes keyboard delivery, raster completion, and physical display latency. The CPU cases build spans with a mounted theme but do not mount the editor. Do not treat their savings as a measured frame-rate improvement.
+
+```sh
+flutter run -d macos --profile --no-resident \
+  --target tool/benchmark_composer_analysis.dart \
+  --dart-define=COMPOSER_ANALYSIS_CARET=true
+```
+
+The CPU rows record source and painted-text checksums and reused span count. The mounted rows record rendered text, block output, frame count, and editor dimensions. Require equivalent outputs before comparing timings. Retain separate baseline and candidate bundles with identical harnesses, alternate at least five processes per side, and report the median and range of process medians.
+
+Set `COMPOSER_CARET_DIAGNOSTICS=1` in the app process environment for a separate CPU profile of 10,000 selection updates and span builds. Enable Dart CPU sampling through the engine switches described above. Exclude that process from timing comparisons. The output lists sampled functions and distinguishes this diagnostic interval from measured rows.

@@ -1366,8 +1366,10 @@ class MarkdownEditingController extends TextEditingController {
     return _syntaxBlocks = blocks;
   }
 
-  static String _syntaxKey(ComposerSyntaxOccurrence block) =>
-      '${block.kind.id}:${block.start}';
+  static String _syntaxKey(
+    ComposerSyntaxOccurrence block, {
+    ComposerSyntaxKind? kind,
+  }) => '${(kind ?? block.kind).id}:${block.start}';
 
   String? _quoteScanned;
   List<ComposerQuoteBlock> _quoteBlocks = const [];
@@ -1665,6 +1667,11 @@ class MarkdownEditingController extends TextEditingController {
 
     final locale = Localizations.localeOf(context);
     final syntaxBlocks = _syntaxBlocksFor(source);
+    final syntaxKinds =
+        Map<ComposerSyntaxPolicy, ComposerSyntaxKind>.identity();
+    ComposerSyntaxKind kindFor(ComposerSyntaxPolicy policy) =>
+        syntaxKinds.putIfAbsent(policy, () => policy.kind);
+
     final collapsedSyntax = [
       for (final block in syntaxBlocks)
         if ((protectComponentSource &&
@@ -1677,7 +1684,8 @@ class MarkdownEditingController extends TextEditingController {
           block,
     ];
     _collapsedSyntaxKeys = {
-      for (final block in collapsedSyntax) _syntaxKey(block),
+      for (final block in collapsedSyntax)
+        _syntaxKey(block, kind: kindFor(block.policy)),
     };
     if (!_collapsedSyntaxKeys.contains(_hoveredSyntaxKey)) {
       _hoveredSyntaxKey = null;
@@ -1686,18 +1694,18 @@ class MarkdownEditingController extends TextEditingController {
       locale,
       Object.hashAll(
         syntaxPolicies.map(
-          (policy) => Object.hash(policy.kind, policy.projectionState),
+          (policy) => Object.hash(kindFor(policy), policy.projectionState),
         ),
       ),
       Object.hashAll(
         collapsedSyntax.map(
           (block) => Object.hash(
-            block.kind,
+            kindFor(block.policy),
             block.start,
             block.end,
             block.source,
             _isSyntaxHighlighted(block),
-            isSyntaxHovered(block),
+            _hoveredSyntaxKey == _syntaxKey(block, kind: kindFor(block.policy)),
           ),
         ),
       ),
@@ -2116,13 +2124,15 @@ class MarkdownEditingController extends TextEditingController {
               scrollController: _imageScrollController,
               locale: locale,
               pillKey: _syntaxPillKeys.putIfAbsent(
-                _syntaxKey(block),
+                _syntaxKey(block, kind: kindFor(block.policy)),
                 () => GlobalKey(
-                  debugLabel: '${block.kind.id}-pill-${block.start}',
+                  debugLabel: '${kindFor(block.policy).id}-pill-${block.start}',
                 ),
               ),
               highlighted: _isSyntaxHighlighted(block),
-              hovered: isSyntaxHovered(block),
+              hovered:
+                  _hoveredSyntaxKey ==
+                  _syntaxKey(block, kind: kindFor(block.policy)),
               followedByLineBreak: syntaxCaretAfter(block) > block.end,
             ),
           ),

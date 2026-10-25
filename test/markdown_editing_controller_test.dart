@@ -374,6 +374,84 @@ void main() {
     expect(controller.scans, after);
   });
 
+  testWidgets('syntax kind and presentation refresh without source edits', (
+    tester,
+  ) async {
+    const source = 'before [[token]] after';
+    final policy = _ConfigurableSyntaxPolicy(
+      const ComposerSyntaxKind(owner: PluginId('configured'), name: 'first'),
+      [TextRange(start: source.indexOf('[['), end: source.indexOf(']]') + 2)],
+      presentation: 'initial',
+    );
+    await pumpField(tester, source, syntaxPolicies: [policy]);
+    final initialSpan = painted(tester);
+    final initialKey = tester
+        .widget<_FakeSyntaxPill>(find.byType(_FakeSyntaxPill))
+        .key;
+    expect(find.text('initial'), findsOneWidget);
+
+    policy.kind = const ComposerSyntaxKind(
+      owner: PluginId('configured'),
+      name: 'second',
+    );
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump();
+    expect(painted(tester), isNot(same(initialSpan)));
+    expect(
+      controller.isSyntaxCollapsed(controller.syntaxBlocks.single),
+      isTrue,
+    );
+    final changedKey = tester
+        .widget<_FakeSyntaxPill>(find.byType(_FakeSyntaxPill))
+        .key;
+    expect(changedKey, isNot(same(initialKey)));
+
+    policy.presentation = 'updated';
+    controller.selection = const TextSelection.collapsed(offset: 1);
+    await tester.pump();
+    expect(find.text('updated'), findsOneWidget);
+    expect(find.text('initial'), findsNothing);
+    expect(
+      tester.widget<_FakeSyntaxPill>(find.byType(_FakeSyntaxPill)).key,
+      same(changedKey),
+    );
+    final updatedSpan = painted(tester);
+    for (final offset in [2, 3, 4]) {
+      controller.selection = TextSelection.collapsed(offset: offset);
+      await tester.pump();
+      expect(painted(tester), same(updatedSpan));
+    }
+    expect(controller.text, source);
+  });
+
+  testWidgets('equal policy instances retain separate collapsed components', (
+    tester,
+  ) async {
+    const source = '[[one]] [[two]]';
+    final first = _ConfigurableSyntaxPolicy(
+      const ComposerSyntaxKind(owner: PluginId('configured'), name: 'first'),
+      const [TextRange(start: 0, end: 7)],
+      presentation: 'first',
+    );
+    final second = _ConfigurableSyntaxPolicy(
+      const ComposerSyntaxKind(owner: PluginId('configured'), name: 'second'),
+      const [TextRange(start: 8, end: 15)],
+      presentation: 'second',
+    );
+    expect(first, second);
+    await pumpField(tester, source, syntaxPolicies: [first, second]);
+    expect(find.text('first'), findsOneWidget);
+    expect(find.text('second'), findsOneWidget);
+    for (final block in controller.syntaxBlocks) {
+      expect(controller.isSyntaxCollapsed(block), isTrue);
+    }
+    final span = painted(tester);
+    controller.selection = const TextSelection.collapsed(offset: 0);
+    await tester.pump();
+    expect(painted(tester), same(span));
+    expect(controller.text, source);
+  });
+
   test('every keyboard-selected projection hides the cursor', () {
     final selectedController = MarkdownEditingController(
       text: '![alt](https://example.com/a.png) [[token]]',
@@ -1865,6 +1943,42 @@ final class _FakeSyntaxPolicy implements ComposerSyntaxPolicy {
   ];
 }
 
+final class _ConfigurableSyntaxPolicy implements ComposerSyntaxPolicy {
+  _ConfigurableSyntaxPolicy(
+    this.kind,
+    this.ranges, {
+    required this.presentation,
+  });
+
+  @override
+  ComposerSyntaxKind kind;
+  final List<TextRange> ranges;
+  String presentation;
+
+  @override
+  Object get projectionState => presentation;
+
+  @override
+  TextInputFormatter? get inputFormatter => null;
+
+  @override
+  List<ComposerSyntaxProjection> parse(String source) => [
+    for (final range in ranges)
+      _FakeSyntaxProjection(
+        range.start,
+        range.end,
+        range.textInside(source),
+        label: () => presentation,
+      ),
+  ];
+
+  @override
+  bool operator ==(Object other) => other is _ConfigurableSyntaxPolicy;
+
+  @override
+  int get hashCode => 0;
+}
+
 final class _RoomHashtagPlugin implements SitePlugin, HashtagKindPlugin {
   const _RoomHashtagPlugin();
 
@@ -1885,7 +1999,9 @@ HashtagPresentation _presentRoomHashtag(HashtagPresentationRequest request) =>
     );
 
 final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
-  const _FakeSyntaxProjection(this.start, this.end, this.source);
+  const _FakeSyntaxProjection(this.start, this.end, this.source, {this.label});
+
+  final String Function()? label;
 
   @override
   final int start;
@@ -1928,7 +2044,7 @@ final class _FakeSyntaxProjection implements ComposerSyntaxProjection {
             alignment: PlaceholderAlignment.middle,
             child: _FakeSyntaxPill(
               key: context.pillKey,
-              label: source.substring(2, source.length - 2),
+              label: label?.call() ?? source.substring(2, source.length - 2),
             ),
           ),
         ],
