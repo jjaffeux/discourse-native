@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -490,6 +491,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<DButton>(toggle).onPressed, isNotNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  for (final scale in [AppTextScale.percent100, AppTextScale.percent200]) {
+    testWidgets(
+      'sidebar resizing keeps rail geometry stable at ${scale.name}',
+      (tester) async {
+        final controller = await _controller();
+        await controller.appSettings.setTextScale(scale);
+        await _pumpShell(tester, controller, const Size(1400, 1000));
+        final railControls = [
+          find.byKey(const ValueKey('rail-sidebar-toggle')),
+          find.byKey(const ValueKey('https://meta.discourse.org')),
+          find.byKey(const ValueKey('settings-rail-button')),
+        ];
+        final originalRects = railControls.map(tester.getRect).toList();
+        final header = find.byType(ShellTitleBar);
+        final originalHeaderHeight = tester.getSize(header).height;
+        final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
+
+        await tester.drag(handle, const Offset(620, 0));
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(header).height, originalHeaderHeight * 2);
+        for (var index = 0; index < railControls.length; index++) {
+          expect(tester.getRect(railControls[index]), originalRects[index]);
+        }
+
+        await tester.drag(handle, const Offset(-620, 0));
+        await tester.pumpAndSettle();
+
+        expect(tester.getSize(header).height, originalHeaderHeight);
+        for (var index = 0; index < railControls.length; index++) {
+          expect(tester.getRect(railControls[index]), originalRects[index]);
+        }
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 
   testWidgets('live drag leaves the shell and pane content unrebuilt', (
     tester,
