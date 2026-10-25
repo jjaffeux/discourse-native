@@ -57,6 +57,50 @@ class _MergingRecord with Storable<_MergingRecord> {
 
 void main() {
   group('Store', () {
+    test('reads a retained matching snapshot without touching cache state', () {
+      final store = Store(
+        policy: const StorePolicy(
+          maxEntries: 100,
+          maxEntriesPerSiteAndType: 4,
+        ),
+      );
+      const first = _Record(1, 'match');
+      const third = _Record(3, 'match');
+      store
+        ..put(_site, first)
+        ..put(_site, const _Record(2, 'other'))
+        ..put(_site, third);
+      final missing = store.ref<_Record>(_site, 99);
+      store
+        ..put(_otherSite, const _Record(1, 'match'))
+        ..put(_site, const _OtherRecord(1));
+      final length = store.length;
+      final generation = store.generationOf<_Record>(_site);
+      final structure = store.structureGenerationOf<_Record>(_site);
+
+      final snapshot = store.readMatching<_Record>(
+        _site,
+        (record) => record.label == 'match',
+      );
+
+      expect(snapshot, [same(first), same(third)]);
+      expect(store.readMatching<_Record>(_thirdSite, (_) => true), isEmpty);
+      expect(store.length, length);
+      expect(store.generationOf<_Record>(_site), generation);
+      expect(store.structureGenerationOf<_Record>(_site), same(structure));
+      expect(store.generationOf<_Record>(_thirdSite), 0);
+      expect(missing.value, isNull);
+
+      store.put(_site, const _Record(4, 'new'));
+      expect(store.containsRecord<_Record>(_site, 1), isFalse);
+      expect(store.containsRecord<_Record>(_site, 2), isTrue);
+      expect(store.containsRecord<_Record>(_site, 3), isTrue);
+      store.update<_Record>(_site, 3, (_) => const _Record(3, 'changed'));
+      expect(snapshot, [same(first), same(third)]);
+      expect(store.read<_Record>(_otherSite, 1)?.label, 'match');
+      expect(store.read<_OtherRecord>(_site, 1)?.id, 1);
+    });
+
     test('removes matching records only from the selected site and type', () {
       final store = Store();
       store.put(_site, const _Record(1, 'private'));

@@ -27,6 +27,35 @@ final class _MessageWrite {
   final _PinWriteSettlement? pin;
 }
 
+final class _ChatSourceMessageMove {
+  _ChatSourceMessageMove({
+    required this.channelId,
+    required Iterable<int> messageIds,
+    required Iterable<int> threadIds,
+    required this.deletedAt,
+    required this.deletedById,
+  }) : messageIds = Set.unmodifiable(messageIds),
+       threadIds = Set.unmodifiable(threadIds);
+
+  final int channelId;
+  final Set<int> messageIds;
+  final Set<int> threadIds;
+  final DateTime deletedAt;
+  final int? deletedById;
+
+  bool contains(ChatMessage message) =>
+      message.channelId == channelId &&
+      (messageIds.contains(message.id) || threadIds.contains(message.threadId));
+
+  ChatMessage project(ChatMessage message) {
+    if (!contains(message)) return message;
+    final deleted = message.isDeleted
+        ? message
+        : message.withDeletedAt(deletedAt, deletedById: deletedById);
+    return deleted.thread == null ? deleted : deleted.withThreadPreview(null);
+  }
+}
+
 final class _AccountMessageWrites {
   _AccountMessageWrites(this.chat, this.siteUrl, this.lease);
 
@@ -347,6 +376,13 @@ final class _AccountMessageWrites {
         );
       }
 
+      final threadIds = <int>{
+        for (final id in ids)
+          if (chat._store.read<ChatMessage>(siteUrl, id)?.threadId
+              case final threadId?)
+            threadId,
+      };
+
       final move = await requestCredentials.run(
         () => chat.api.moveChatMessages(
           siteUrl: siteUrl,
@@ -359,7 +395,8 @@ final class _AccountMessageWrites {
       );
       if (!ownsRequest()) return (move: null, error: null);
 
-      lease.commit(() => chat._markMessagesDeleted(siteUrl, channelId, ids));
+      lease.commit(() => _markMessagesMoved(ticket, channelId, ids, threadIds));
+      if (!ownsRequest()) return (move: null, error: null);
       return (move: move, error: null);
     } on WriteException catch (error) {
       return (move: null, error: error.message);
@@ -371,6 +408,76 @@ final class _AccountMessageWrites {
     } finally {
       _release(ticket);
     }
+  }
+
+  void _markMessagesMoved(
+    _MessageWrite ticket,
+    int channelId,
+    List<int> ids,
+    Set<int> threadIds,
+  ) {
+    final move = _ChatSourceMessageMove(
+      channelId: channelId,
+      messageIds: ids,
+      threadIds: threadIds,
+      deletedAt: chat._clock().toUtc(),
+      deletedById: chat._currentUserFor(siteUrl)?.id,
+    );
+    final messages = chat._store.readMatching<ChatMessage>(
+      siteUrl,
+      move.contains,
+    );
+    for (final owner in chat._conversations.values) {
+      if (owner.siteUrl == siteUrl &&
+          owner.target.channelId == channelId &&
+          (owner.target.threadId == null ||
+              threadIds.contains(owner.target.threadId))) {
+        owner.recordSourceMoved(move);
+      }
+    }
+    chat
+        ._heldThreadCatalog(siteUrl)
+        ?.recordSourceMoved(channelId, threadIds, move.deletedAt);
+    chat._clearDeletedChannelPreview(siteUrl, channelId, {
+      ...ids,
+      ...messages.map((message) => message.id),
+    });
+    for (final threadId in threadIds) {
+      if (!_owns(ticket)) return;
+      chat._threadMetadata.recordSourceMoved(
+        siteUrl,
+        ChatThreadTarget(channelId: channelId, threadId: threadId),
+        move.deletedAt,
+      );
+    }
+    for (final message in messages) {
+      if (!_owns(ticket)) return;
+      final latest = chat._store.read<ChatMessage>(siteUrl, message.id);
+      if (latest == null) continue;
+      final next = move.project(latest);
+      if (identical(latest, next)) continue;
+      chat._store.update<ChatMessage>(siteUrl, message.id, (_) => next);
+      if (!_owns(ticket)) return;
+      chat._bumpStreamsHolding(siteUrl, message.id);
+    }
+    for (final thread in chat._store.readMatching<ChatThread>(
+      siteUrl,
+      (thread) =>
+          thread.channelId == channelId && threadIds.contains(thread.id),
+    )) {
+      if (!_owns(ticket)) return;
+      final before = chat.thread(siteUrl, thread.id);
+      if (before == null || before.channelId != channelId) continue;
+      chat._store.update<ChatThread>(siteUrl, thread.id, (current) {
+        if (current.channelId != channelId) return current;
+        return current.withSourceMoved(move.deletedAt);
+      });
+      if (!_owns(ticket)) return;
+      if (chat.thread(siteUrl, thread.id) case final after?) {
+        chat._recordThreadChange(siteUrl, before, after);
+      }
+    }
+    if (_owns(ticket)) chat.notifySafely();
   }
 
   Future<String?> setDeleted(int messageId, {required bool deleted}) async {

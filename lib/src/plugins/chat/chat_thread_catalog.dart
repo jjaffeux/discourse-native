@@ -161,6 +161,16 @@ final class _ChatThreadCatalog {
     }
   }
 
+  void recordSourceMoved(
+    int channelId,
+    Set<int> threadIds,
+    DateTime deletedAt,
+  ) {
+    for (final entry in _lists.values) {
+      entry.request?.refresh.recordSourceMoved(channelId, threadIds, deletedAt);
+    }
+  }
+
   Set<int> loadedIdsForChannel(int channelId) => {
     ...?snapshot(_ChatThreadListId.mine).ids,
     ...?snapshot(_ChannelChatThreadList(channelId)).ids,
@@ -296,7 +306,9 @@ final class _ChatThreadCatalog {
             store.put(siteUrl, incoming);
           } else {
             store.update<ChatThread>(siteUrl, thread.id, (current) {
-              final merged = current.merge(incoming);
+              final merged = run.refresh.projectSourceMoves(
+                current.merge(incoming),
+              );
               return merged.title == incoming.title
                   ? merged
                   : merged.copyWith(clearTitle: true);

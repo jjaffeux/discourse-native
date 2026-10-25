@@ -269,6 +269,17 @@ class Store {
     return (slot.ref as Ref<T>).value;
   }
 
+  /// Takes a snapshot of matching retained records without allocating refs or
+  /// changing their least-recently-used order.
+  List<T> readMatching<T extends Storable<T>>(
+    String siteUrl,
+    bool Function(T) matches,
+  ) => [
+    for (final slot in _partitions[siteUrl]?[T] ?? const <_Slot>[])
+      if (slot.ref.value case final T record)
+        if (matches(record)) record,
+  ];
+
   /// Answers without changing least-recently-used order or allocating a ref.
   ///
   /// Consumers which retain record IDs separately from this bounded store use

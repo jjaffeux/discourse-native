@@ -7,6 +7,17 @@ import 'chat_thread.dart';
 /// starting value, also preserves changes that return to their original value.
 final class ChatThreadListRefresh {
   final Map<int, _ThreadChanges> _changes = {};
+  final Map<int, ({int channelId, DateTime deletedAt})> _sourceMoves = {};
+
+  void recordSourceMoved(
+    int channelId,
+    Set<int> threadIds,
+    DateTime deletedAt,
+  ) {
+    for (final threadId in threadIds) {
+      _sourceMoves[threadId] = (channelId: channelId, deletedAt: deletedAt);
+    }
+  }
 
   void recordChange(ChatThread? before, ChatThread after) {
     final changes = _changes[after.id] ?? _ThreadChanges();
@@ -18,9 +29,17 @@ final class ChatThreadListRefresh {
     (_changes[threadId] ??= _ThreadChanges()).title = true;
   }
 
+  ChatThread projectSourceMoves(ChatThread incoming) {
+    final move = _sourceMoves[incoming.id];
+    return move != null && move.channelId == incoming.channelId
+        ? incoming.withSourceMoved(move.deletedAt)
+        : incoming;
+  }
+
   /// Answers [incoming] carrying [held]'s values for every field changed
   /// since the request began, for the store to merge as usual.
   ChatThread reconcile(ChatThread incoming, ChatThread? held) {
+    incoming = projectSourceMoves(incoming);
     final changes = _changes[incoming.id];
     if (changes == null || held == null) return incoming;
     final kept = held.membership;

@@ -1,12 +1,30 @@
 part of 'chat_controller.dart';
 
-final class _ChatWindowGeneration {}
+final class _ChatWindowGeneration {
+  final List<_ChatSourceMessageMove> sourceMoves = [];
+}
 
 final class _ChatPageRequest {
   _ChatPageRequest(this.generation);
 
   final _ChatWindowGeneration generation;
+  final List<_ChatSourceMessageMove> sourceMoves = [];
 }
+
+ChatMessagePage _projectSourceMoves(
+  ChatMessagePage page,
+  List<_ChatSourceMessageMove> moves,
+) => moves.isEmpty
+    ? page
+    : (
+        messages: [
+          for (final message in page.messages)
+            moves.fold(message, (current, move) => move.project(current)),
+        ],
+        canLoadMorePast: page.canLoadMorePast,
+        canLoadMoreFuture: page.canLoadMoreFuture,
+        targetMessageId: page.targetMessageId,
+      );
 
 final class _ChatConversationStream {
   _ChatConversationStream(this._controller, this.siteUrl, this.target)
@@ -33,6 +51,12 @@ final class _ChatConversationStream {
 
   bool get isCurrent =>
       !_retired && identical(_controller._conversations[key], this);
+
+  void recordSourceMoved(_ChatSourceMessageMove move) {
+    if (_loading) _generation?.sourceMoves.add(move);
+    _olderRequest?.sourceMoves.add(move);
+    _newerRequest?.sourceMoves.add(move);
+  }
 
   ChatStreamState get snapshot => _window ?? const ChatStreamState();
 
@@ -351,7 +375,7 @@ final class _ChatConversationStream {
       }
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
-      final page = target.threadId == null
+      final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
                 siteUrl: siteUrl,
@@ -377,6 +401,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return _ChatWindowFetchResult.cancelled;
       }
+      final page = _projectSourceMoves(response, generation.sourceMoves);
       lease.commit(() {
         if (!ownsRequest()) return;
         final current = _window ?? held;
@@ -494,7 +519,10 @@ final class _ChatConversationStream {
           if (current != null && current.loading) {
             publish(current.copyWith(loading: false));
           }
-          if (ownsRequest()) _loading = false;
+          if (ownsRequest()) {
+            _loading = false;
+            generation.sourceMoves.clear();
+          }
         });
       }
     }
@@ -528,7 +556,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
-      final page = target.threadId == null
+      final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
                 siteUrl: siteUrl,
@@ -551,6 +579,7 @@ final class _ChatConversationStream {
               ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
+      final page = _projectSourceMoves(response, request.sourceMoves);
       lease.commit(() {
         if (!ownsRequest()) {
           return;
@@ -634,7 +663,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
-      final page = target.threadId == null
+      final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
                 siteUrl: siteUrl,
@@ -657,6 +686,7 @@ final class _ChatConversationStream {
               ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
+      final page = _projectSourceMoves(response, request.sourceMoves);
       lease.commit(() {
         if (!ownsRequest()) {
           return;

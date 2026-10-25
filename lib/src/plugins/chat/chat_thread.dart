@@ -320,6 +320,20 @@ final class ChatThread with Storable<ChatThread> {
     originalMessage: originalMessage ?? this.originalMessage,
   );
 
+  ChatThread withSourceMoved(DateTime deletedAt) {
+    final original = originalMessage;
+    return copyWith(
+      replyCount: 0,
+      preview: ChatThreadPreview(threadId: id, replyCount: 0),
+      clearLastMessageId: true,
+      membership: membership?.copyWith(clearLastReadMessageId: true),
+      tracking: ChatTracking.none,
+      originalMessage: original == null || original.channelId != channelId
+          ? original
+          : original.copyWith(deletedAt: original.deletedAt ?? deletedAt),
+    );
+  }
+
   /// Treats absent detail fields as authoritative while keeping an existing
   /// read cursor monotonic and preserving incremental tracking omitted by some
   /// endpoints.

@@ -90,6 +90,15 @@ final class ChatThreadMetadataOwner {
   bool preventsEviction(String siteUrl, ChatThreadTarget target) =>
       _metadata[(siteUrl: siteUrl, target: target)]?.preventsEviction ?? false;
 
+  void recordSourceMoved(
+    String siteUrl,
+    ChatThreadTarget target,
+    DateTime deletedAt,
+  ) {
+    _metadata[(siteUrl: siteUrl, target: target)]?.detail?.sourceMovedAt =
+        deletedAt;
+  }
+
   void revokeChannel(String siteUrl, int channelId) {
     _metadata.removeWhere((key, metadata) {
       if (key.siteUrl != siteUrl || key.target.channelId != channelId) {
@@ -156,6 +165,7 @@ final class ChatThreadMetadataOwner {
         identical(metadata.detail, run);
     _events.detailLoading(siteUrl, target);
     while (metadata.takeDetailDirty()) {
+      run.sourceMovedAt = null;
       try {
         final requestCredentials = await _requests.credentialsFor(siteUrl);
         final apiKey = requestCredentials.apiKey;
@@ -177,17 +187,21 @@ final class ChatThreadMetadataOwner {
           throw StateError('Thread detail did not match its requested target.');
         }
         if (metadata.detailDirty) continue;
+        final movedAt = run.sourceMovedAt;
+        final projected = movedAt == null
+            ? detail
+            : detail.withSourceMoved(movedAt);
 
         ChatThread? stored;
         lease.commit(() {
           final held = _thread(siteUrl, detail.id);
           if (held == null) {
-            stored = _store.put(siteUrl, detail);
+            stored = _store.put(siteUrl, projected);
           } else {
             _store.update<ChatThread>(
               siteUrl,
               detail.id,
-              (current) => current.withDetail(detail),
+              (current) => current.withDetail(projected),
             );
             stored = _thread(siteUrl, detail.id);
           }
@@ -544,6 +558,7 @@ final class _ChatThreadMetadata {
 
 final class _ThreadDetailRun {
   final Completer<ChatThread?> result = Completer();
+  DateTime? sourceMovedAt;
 
   Future<ChatThread?> get future => result.future;
 }
