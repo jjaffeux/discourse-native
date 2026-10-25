@@ -479,14 +479,17 @@ class GlobalSearchApi {
     );
     final records = jsonObjects(
       body[users ? 'directory_items' : 'groups'],
-    ).take(50).toList();
+    ).take(users && r.page == 0 ? 51 : 50).toList();
+    final consumedCount = records.length.clamp(0, 50);
     final results = <GlobalSearchResult>[];
+    final userIds = <String>{};
     for (final row in records) {
       final source = users
           ? SearchUserHit.fromJson(jsonObject(row['user']), siteUrl)
           : SearchGroupHit.fromJson(row, siteUrl);
       if (source == null) continue;
       final hit = _result(source);
+      if (users && !userIds.add(hit.id)) continue;
       results.add(
         GlobalSearchResult(
           id: hit.id,
@@ -515,7 +518,7 @@ class GlobalSearchApi {
         r.page < (users ? 10 : 100) &&
         records.isNotEmpty &&
         (total != null
-            ? (r.offset + records.length) < total
+            ? (r.offset + consumedCount) < total
             : jsonText(
                     metadata[users
                         ? 'load_more_directory_items'
@@ -531,7 +534,7 @@ class GlobalSearchApi {
         ),
       ],
       hasMore: hasMore,
-      consumedCount: records.length,
+      consumedCount: consumedCount,
       groupMemberOrder: users
           ? null
           : records.isNotEmpty && records.every((r) => r['user_count'] != null),
