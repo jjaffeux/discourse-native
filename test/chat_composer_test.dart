@@ -1891,10 +1891,14 @@ void main() {
             widget is Scrollable && widget.axisDirection == AxisDirection.up,
       );
       expect(scrollable, findsOneWidget);
+      final position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.maxScrollExtent, greaterThan(0));
+      final beforeScroll = position.pixels;
 
       await tester.drag(scrollable, const Offset(0, 400));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
+      expect(position.pixels, isNot(beforeScroll));
       expect(tester.getRect(bar), before);
       expect(before.bottom, closeTo(588, 1));
     }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
@@ -3345,11 +3349,15 @@ void main() {
         await tester.enterText(_composerField(), 'channel ten draft');
         await tester.pump();
 
+        _field(tester).focusNode!.unfocus();
+        await tester.pump();
+        expect(_field(tester).focusNode!.hasFocus, isFalse);
+
         sendGate.complete();
         await tester.pumpAndSettle();
 
         expect(_text(tester), 'channel ten draft');
-        expect(_field(tester).focusNode!.hasFocus, isTrue);
+        expect(_field(tester).focusNode!.hasFocus, isFalse);
       },
     );
   });
