@@ -1084,6 +1084,24 @@ abstract class AppLocalizations {
   /// **'Could not load this embed.'**
   String get couldNotLoadThisEmbed;
 
+  /// Title of the confirmation shown when embedded content asks to open a link outside its provider. Used by ui/components/d_embed.dart.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this link?'**
+  String get embedLinkPromptTitle;
+
+  /// Body of the embed link confirmation; url is the complete destination so the reader can judge it. Used by ui/components/d_embed.dart.
+  ///
+  /// In en, this message translates to:
+  /// **'This embed wants to open {url}'**
+  String embedLinkPromptDescription(String url);
+
+  /// Confirms opening the link an embed asked for. Used by ui/components/d_embed.dart.
+  ///
+  /// In en, this message translates to:
+  /// **'Open link'**
+  String get embedLinkPromptOpen;
+
   /// English UI message used by ui/components/d_embed.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

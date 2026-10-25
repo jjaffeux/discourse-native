@@ -548,6 +548,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldNotLoadThisEmbed => 'Could not load this embed.';
 
   @override
+  String get embedLinkPromptTitle => 'Open this link?';
+
+  @override
+  String embedLinkPromptDescription(String url) {
+    return 'This embed wants to open $url';
+  }
+
+  @override
+  String get embedLinkPromptOpen => 'Open link';
+
+  @override
   String get retry => 'Retry';
 
   @override

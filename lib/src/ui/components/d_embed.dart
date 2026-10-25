@@ -6,10 +6,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_all/webview_all.dart';
+import 'package:webview_all_linux/webview_all_linux.dart';
+import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../foundation/embed_document.dart';
 import '../foundation/native_webview_scroll.dart';
 import '../foundation/tokens.dart';
+import 'd_alert_dialog.dart';
 import 'd_button.dart';
 import 'd_card.dart';
 import 'd_skeleton.dart';
@@ -25,7 +28,10 @@ enum DEmbedPresentation { card, provider }
 /// The caller validates the provider's URL and supplies its exact trusted
 /// [origins], including redirect origins. [canNavigate] can recognize canonical
 /// URLs for the same content; otherwise only the original path may navigate
-/// inside the view. Other HTTP(S) destinations go to [onOpenLink].
+/// inside the view. Nested frames load in place or not at all. Other HTTP(S)
+/// destinations go to [onOpenLink]: directly when they stay on the provider,
+/// and after the reader confirms otherwise. Content that keeps asking after a
+/// refusal is ignored until the embed reloads.
 /// The provider owns the embedded content and its appearance. Surrounding
 /// chrome uses Native tokens. Touch readers retain vertical drag scrolling;
 /// macOS views use a root overlay to keep native pointer interaction above
@@ -72,8 +78,13 @@ class DEmbed extends StatefulWidget {
   State<DEmbed> createState() => _DEmbedState();
 }
 
+enum _Navigation { load, ignore, open, confirm }
+
+enum _LinkPrompt { ready, showing, declined }
+
 class _DEmbedState extends State<DEmbed> {
   WebViewController? _controller;
+  _LinkPrompt _linkPrompt = _LinkPrompt.ready;
   Timer? _timeout;
   int _generation = 0;
   bool _loading = true;
@@ -104,6 +115,7 @@ class _DEmbedState extends State<DEmbed> {
     _height = _boundedHeight(widget.height);
     _loading = true;
     _failed = false;
+    if (_linkPrompt == _LinkPrompt.declined) _linkPrompt = _LinkPrompt.ready;
     if (!_isEmbedUri(widget.uri)) {
       _failed = true;
       _loading = false;
@@ -141,10 +153,81 @@ class _DEmbedState extends State<DEmbed> {
         (widget.canNavigate?.call(uri) ?? uri.path == widget.uri.path);
   }
 
+  bool _isProviderUri(Uri uri) =>
+      uri.scheme == 'https' &&
+      (widget.origins.contains(uri.origin) ||
+          uri.origin == widget.externalUri.origin);
+
+  _Navigation _navigation(
+    NavigationRequest request, {
+    required bool loadingDocument,
+    required String? documentBase,
+  }) {
+    if (request.isMainFrame &&
+        loadingDocument &&
+        (request.url == 'about:blank' || request.url == documentBase)) {
+      return _Navigation.load;
+    }
+    final uri = Uri.tryParse(request.url);
+    if (uri == null) return _Navigation.ignore;
+    // webview_all_linux reports every request, frame loads included, as the
+    // main frame, so none of them can be trusted as a link the reader chose.
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      if (_isEmbedUri(uri)) return _Navigation.load;
+      return _isExternalUri(uri) ? _Navigation.confirm : _Navigation.ignore;
+    }
+    // Scripts start frame loads at will; they never leave the post.
+    if (!request.isMainFrame) {
+      return _isEmbedUri(uri) ? _Navigation.load : _Navigation.ignore;
+    }
+    // The sandbox and WebKit's popup blocking leave the host page reachable
+    // only through a user activation, or through the provider's own origin.
+    if (!_isExternalUri(uri)) return _Navigation.ignore;
+    return _isProviderUri(uri) ? _Navigation.open : _Navigation.confirm;
+  }
+
+  Future<void> _confirmOpen(Uri uri, int generation) async {
+    if (_linkPrompt != _LinkPrompt.ready) return;
+    _linkPrompt = _LinkPrompt.showing;
+    final confirmed = await showDAlertDialog<bool>(
+      context: context,
+      barrierLabel: context.l10n.embedLinkPromptTitle,
+      builder: (context, _) => DAlertDialogContent(
+        size: DAlertDialogSize.small,
+        semanticLabel: context.l10n.embedLinkPromptTitle,
+        children: [
+          DAlertDialogHeader(
+            title: Text(context.l10n.embedLinkPromptTitle),
+            description: Text(
+              context.l10n.embedLinkPromptDescription(uri.toString()),
+            ),
+          ),
+          DAlertDialogFooter(
+            children: [
+              DAlertDialogCancel<bool>(
+                label: Text(context.l10n.cancel),
+                result: false,
+              ),
+              DAlertDialogAction<bool>(
+                label: Text(context.l10n.embedLinkPromptOpen),
+                result: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    _linkPrompt = confirmed == true ? _LinkPrompt.ready : _LinkPrompt.declined;
+    if (confirmed == true && _current(generation)) widget.onOpenLink(uri);
+  }
+
   Future<void> _configure(int generation) async {
     WebViewController? controller;
     try {
-      controller = WebViewController();
+      controller = WebViewController.fromPlatformCreationParams(
+        _creationParams(),
+      );
       _controller = controller;
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       if (!_current(generation)) return;
@@ -154,6 +237,8 @@ class _DEmbedState extends State<DEmbed> {
         'NativeEmbed',
         onMessageReceived: (message) {
           if (!_current(generation)) return;
+          // WebKit exposes the channel to every frame, nested ones included.
+          if (message.isMainFrame != true) return;
           if (message.message == 'loaded') {
             _timeout?.cancel();
             setState(() => _loading = false);
@@ -183,17 +268,20 @@ class _DEmbedState extends State<DEmbed> {
                   ? NavigationDecision.navigate
                   : NavigationDecision.prevent;
             }
-            if (request.isMainFrame &&
-                loadingDocument &&
-                (request.url == 'about:blank' || request.url == documentBase)) {
-              return NavigationDecision.navigate;
+            switch (_navigation(
+              request,
+              loadingDocument: loadingDocument,
+              documentBase: documentBase,
+            )) {
+              case _Navigation.load:
+                return NavigationDecision.navigate;
+              case _Navigation.ignore:
+                break;
+              case _Navigation.open:
+                widget.onOpenLink(Uri.parse(request.url));
+              case _Navigation.confirm:
+                unawaited(_confirmOpen(Uri.parse(request.url), generation));
             }
-            final uri = Uri.tryParse(request.url);
-            if (uri == null) return NavigationDecision.prevent;
-            if (!request.isMainFrame && _isEmbedUri(uri)) {
-              return NavigationDecision.navigate;
-            }
-            if (_isExternalUri(uri)) widget.onOpenLink(uri);
             return NavigationDecision.prevent;
           },
           onPageFinished: (_) => loadingDocument = false,
@@ -510,6 +598,26 @@ class _EmbedViewportClipper extends CustomClipper<Rect> {
   @override
   bool shouldReclip(_EmbedViewportClipper oldClipper) =>
       viewport != oldClipper.viewport;
+}
+
+// macOS lets scripts open popups without a user activation by default, and
+// every popup becomes a navigation request of this view.
+PlatformWebViewControllerCreationParams _creationParams() {
+  const base = PlatformWebViewControllerCreationParams();
+  final platform = WebViewPlatform.instance;
+  if (platform is WebKitWebViewPlatform) {
+    return WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(
+      base,
+      javaScriptCanOpenWindowsAutomatically: false,
+    );
+  }
+  if (platform is LinuxWebViewPlatform) {
+    return const LinuxWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(
+      base,
+      javascriptCanOpenWindowsAutomatically: false,
+    );
+  }
+  return base;
 }
 
 bool _isExternalUri(Uri uri) =>

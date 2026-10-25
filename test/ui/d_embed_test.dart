@@ -56,9 +56,10 @@ void main() {
     ),
   );
 
-  void send(String message, [FakeMediaWebViewController? controller]) =>
-      (controller ?? platform.controllers.last).channels['NativeEmbed']!
-          .onMessageReceived(JavaScriptMessage(message: message));
+  void send(String message, {bool isMainFrame = true}) =>
+      platform.controllers.last.channels['NativeEmbed']!.onMessageReceived(
+        JavaScriptMessage(message: message, isMainFrame: isMainFrame),
+      );
 
   test(
     'iframe attributes and script values cannot escape the host document',
@@ -75,6 +76,18 @@ void main() {
       expect(document.querySelectorAll('script'), hasLength(1));
       expect(document.querySelectorAll('iframe'), hasLength(1));
       expect(document.querySelector('iframe')!.attributes['title'], hostile);
+      expect(
+        document.querySelector('iframe')!.attributes['sandbox']!.split(' '),
+        unorderedEquals([
+          'allow-scripts',
+          'allow-same-origin',
+          'allow-forms',
+          'allow-popups',
+          'allow-presentation',
+          'allow-storage-access-by-user-activation',
+          'allow-top-navigation-by-user-activation',
+        ]),
+      );
       expect(
         document.querySelector('script')!.text,
         contains(r'\u003c/script>'),
@@ -101,6 +114,12 @@ void main() {
       await tester.pump();
       expect(find.byType(DSkeletonRegion), findsOneWidget);
       expect(find.byType(DSpinner), findsNothing);
+      // Every nested frame can reach the channel; only the host page counts.
+      send('loaded', isMainFrame: false);
+      send('{"height":420}', isMainFrame: false);
+      await tester.pump();
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(tester.getSize(find.byType(WebViewWidget)).height, 300);
       send('loaded');
       send('{"height":420}');
       await tester.pumpAndSettle();
@@ -206,7 +225,7 @@ void main() {
   );
 
   testWidgets(
-    'allows provider redirects and sends other destinations to the caller',
+    'allows provider redirects and opens provider links from the page',
     (tester) async {
       await tester.pumpWidget(host());
       await tester.pump();
@@ -226,11 +245,20 @@ void main() {
         ),
         NavigationDecision.navigate,
       );
+      delegate.onPageFinished!('https://embed.example.com/');
       expect(
-        await delegate.navigate(_externalUri.toString(), isMainFrame: false),
+        await delegate.navigate(_externalUri.toString()),
         NavigationDecision.prevent,
       );
-      expect(opened, [_externalUri]);
+      expect(
+        await delegate.navigate('https://redirect.example.com/post/other/'),
+        NavigationDecision.prevent,
+      );
+      expect(opened, [
+        _externalUri,
+        Uri.parse('https://redirect.example.com/post/other/'),
+      ]);
+      opened.clear();
       for (final url in [
         'javascript:alert(1)',
         'file:///private/file',
@@ -238,7 +266,9 @@ void main() {
       ]) {
         expect(await delegate.navigate(url), NavigationDecision.prevent);
       }
-      expect(opened, [_externalUri]);
+      await tester.pump();
+      expect(opened, isEmpty);
+      expect(find.byType(DAlertDialogContent), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(
         await delegate.navigate('about:blank'),
@@ -248,8 +278,122 @@ void main() {
         await delegate.navigate('https://example.com/stale'),
         NavigationDecision.prevent,
       );
+      expect(opened, isEmpty);
+    },
+  );
+
+  testWidgets('frame loads never open a link or ask to', (tester) async {
+    await tester.pumpWidget(host());
+    await tester.pump();
+    final delegate = platform.controllers.single.delegate!;
+    delegate.onPageFinished!('https://embed.example.com/');
+    send('loaded');
+    // A script adding frames on a timer, to the provider and elsewhere.
+    for (var index = 0; index < 5; index++) {
+      for (final url in [
+        'https://phish.example/$index',
+        _externalUri.toString(),
+        'https://embed.example.com/other/$index',
+      ]) {
+        expect(
+          await delegate.navigate(url, isMainFrame: false),
+          NavigationDecision.prevent,
+        );
+      }
+    }
+    await tester.pumpAndSettle();
+    expect(opened, isEmpty);
+    expect(find.byType(DAlertDialogContent), findsNothing);
+  });
+
+  testWidgets(
+    'asks once before leaving the provider and stops asking after a refusal',
+    (tester) async {
+      await tester.pumpWidget(host());
+      await tester.pump();
+      final delegate = platform.controllers.single.delegate!;
+      delegate.onPageFinished!('https://embed.example.com/');
+      send('loaded');
+      expect(
+        await delegate.navigate('https://phish.example/login'),
+        NavigationDecision.prevent,
+      );
+      expect(
+        await delegate.navigate('https://phish.example/again'),
+        NavigationDecision.prevent,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DAlertDialogContent), findsOneWidget);
+      expect(find.text('Open this link?'), findsOneWidget);
+      expect(
+        find.text('This embed wants to open https://phish.example/login'),
+        findsOneWidget,
+      );
+      expect(opened, isEmpty);
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
+      expect(opened, [Uri.parse('https://phish.example/login')]);
+
+      await delegate.navigate('https://phish.example/next');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      for (var index = 0; index < 3; index++) {
+        await delegate.navigate('https://phish.example/loop/$index');
+        await tester.pumpAndSettle();
+      }
+      expect(find.byType(DAlertDialogContent), findsNothing);
+      expect(opened, [Uri.parse('https://phish.example/login')]);
+
+      // Reloading the embed is a fresh start for its links.
+      await tester.pumpWidget(
+        host(uri: Uri.parse('https://embed.example.com/post/second/')),
+      );
+      await tester.pump();
+      final reloaded = platform.controllers.last.delegate!;
+      reloaded.onPageFinished!('https://embed.example.com/');
+      send('loaded');
+      await reloaded.navigate('https://phish.example/after-reload');
+      await tester.pumpAndSettle();
+      expect(find.byType(DAlertDialogContent), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(opened, [Uri.parse('https://phish.example/login')]);
+    },
+  );
+
+  testWidgets(
+    'Linux loads the embed but confirms every link, since it cannot tell '
+    'frames from the page',
+    (tester) async {
+      await tester.pumpWidget(host());
+      await tester.pump();
+      final delegate = platform.controllers.single.delegate!;
+      expect(
+        await delegate.navigate('https://embed.example.com/'),
+        NavigationDecision.navigate,
+      );
+      delegate.onPageFinished!('https://embed.example.com/');
+      expect(
+        await delegate.navigate(_embedUri.toString()),
+        NavigationDecision.navigate,
+      );
+      send('loaded');
+      expect(
+        await delegate.navigate(_externalUri.toString()),
+        NavigationDecision.prevent,
+      );
+      await tester.pumpAndSettle();
+      expect(opened, isEmpty);
+      expect(
+        find.text('This embed wants to open $_externalUri'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
       expect(opened, [_externalUri]);
     },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   testWidgets(

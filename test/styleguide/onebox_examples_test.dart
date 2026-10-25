@@ -193,7 +193,7 @@ void main() {
     final postController = platform.controllers.single;
     expect(find.byType(DSkeletonRegion), findsOneWidget);
     postController.channels['NativeEmbed']!.onMessageReceived(
-      const JavaScriptMessage(message: 'loaded'),
+      const JavaScriptMessage(message: 'loaded', isMainFrame: true),
     );
     await tester.pumpAndSettle();
     expect(find.byType(DSkeletonRegion), findsNothing);
@@ -209,7 +209,7 @@ void main() {
     expect(commentController, isNot(same(postController)));
     expect(commentController.documents.single.html, contains('/ihrafxr/'));
     commentController.channels['NativeEmbed']!.onMessageReceived(
-      const JavaScriptMessage(message: 'loaded'),
+      const JavaScriptMessage(message: 'loaded', isMainFrame: true),
     );
     await tester.pumpAndSettle();
 

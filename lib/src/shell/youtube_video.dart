@@ -737,7 +737,9 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
       await controller.addJavaScriptChannel(
         _youtubeVisibilityChannel,
         onMessageReceived: (message) {
-          if (message.message == 'ready' &&
+          // WebKit exposes the channel to the player's frames as well.
+          if (message.isMainFrame == true &&
+              message.message == 'ready' &&
               _isCurrent(controller, attachment)) {
             mediaActivity.refresh(attachment);
           }
