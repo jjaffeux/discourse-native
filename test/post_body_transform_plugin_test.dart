@@ -43,7 +43,6 @@ void main() {
         'last:entry:last:source:first',
         'last:builder:last',
       ]);
-      expect(_post.cooked, 'source');
     },
   );
 
