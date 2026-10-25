@@ -87,7 +87,7 @@ void main() {
         // The avatar trigger uses the mockup's 22% outline around the avatar,
         // with no fill of its own at rest or on hover.
         'lib/src/shell/user_menu_button.dart': {
-          'shape': 1,
+          'shape': 2,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
           'borderColor': 1,
@@ -102,6 +102,14 @@ void main() {
           'interactiveBackgroundColor': 1,
         },
         'lib/src/shell/composer/components/image.dart': {'foregroundColor': 1},
+        // The chat composer's add and emoji tools use the same muted tool
+        // foreground; its Send action pins the primary palette so the glass
+        // scope around it cannot restyle the one solid control in the dock.
+        'lib/src/plugins/chat/chat_composer.dart': {
+          'foregroundColor': 4,
+          'backgroundColor': 2,
+          'interactiveBackgroundColor': 2,
+        },
         // A day separator is a pill on the stream's own surface and border.
         'lib/src/shell/stream_day_separator.dart': {
           'shape': 1,
@@ -136,22 +144,30 @@ void main() {
         },
         // These are container/rail/navigation geometry, not alternative palettes.
         // Rail actions use the rail foreground on the rail's own surface;
-        // collapsed sidebar is muted.
+        // collapsed sidebar is muted, and a failed load retries in the error tint.
         'lib/src/shell/instance_rail.dart': {
           'shape': 1,
-          'foregroundColor': 3,
-          'backgroundColor': 3,
+          'foregroundColor': 5,
+          'backgroundColor': 5,
           'interactiveBackgroundColor': 3,
         },
         // Window/sidebar destinations and their search/close actions are pills.
         'lib/src/shell/title_bar.dart': {'shape': 2},
         'lib/src/shell/global_search_panel.dart': {'shape': 1},
         'lib/src/shell/main_content.dart': {'shape': 1},
-        'lib/src/shell/user_menu.dart': {'shape': 1, 'foregroundColor': 1},
+        'lib/src/shell/user_menu.dart': {'shape': 2, 'foregroundColor': 1},
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
+        // Inline taxonomy edit actions are the same pill as the tag chips.
+        'lib/src/shell/topic_taxonomy_fields.dart': {'shape': 1},
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Shared category paths and list filters supply their quiet selection fill.
+        // The incoming-topics pill stays flat (quiet) in every material yet
+        // keeps the primary fill, so glass cannot turn it into a lens.
+        'lib/src/shell/topic_list_view.dart': {
+          'backgroundColor': 1,
+          'foregroundColor': 1,
+        },
         // Topic metadata actions retain the metadata row's text foreground.
         'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},
         // Chat search/navigation and the local-date sheet use pill controls.
