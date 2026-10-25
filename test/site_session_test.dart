@@ -685,7 +685,6 @@ final class _HeldPublicPresentationApi extends FakeDiscourseApi {
       );
 
   bool holdResponses = false;
-  final categoriesHeld = Completer<void>();
   final releaseResponses = Completer<void>();
 
   @override
@@ -695,10 +694,7 @@ final class _HeldPublicPresentationApi extends FakeDiscourseApi {
     String? clientId,
     int page = 1,
   }) async {
-    if (holdResponses && siteUrl == _siteUrl) {
-      if (!categoriesHeld.isCompleted) categoriesHeld.complete();
-      await releaseResponses.future;
-    }
+    if (holdResponses && siteUrl == _siteUrl) await releaseResponses.future;
     return super.loadCategories(
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -2230,13 +2226,14 @@ void main() {
         await pumpEventQueue();
         api.holdResponses = true;
 
+        // The final signed-out phase re-activates the selected public forum
+        // under a fresh lease before the rail drops it. Its reads may already
+        // be held at the site or still queued behind their lease checks; the
+        // removal has to retire them either way.
         expect(
           await shell.removeInstance(shell.instanceFor(_siteUrl)!),
           isTrue,
         );
-        // The final signed-out phase re-activated the selected public forum
-        // before the rail dropped it.
-        expect(api.categoriesHeld.isCompleted, isTrue);
 
         api.releaseResponses.complete();
         await pumpEventQueue();

@@ -863,11 +863,14 @@ class _TopicListViewState extends State<TopicListView> {
                 commands: {
                   ReadingCommand.nextTopic: () => _moveSelection(1),
                   ReadingCommand.previousTopic: () => _moveSelection(-1),
+                  // Unshifted J/K fall back to the list only while no reader
+                  // owns keyboard input. A reader beside the list belongs to
+                  // the focused tab, not to this list's tab.
                   ReadingCommand.nextPost: () =>
-                      _tab!.currentContent?.isTopic != true &&
+                      controller.currentContent?.isTopic != true &&
                       _moveSelection(1),
                   ReadingCommand.previousPost: () =>
-                      _tab!.currentContent?.isTopic != true &&
+                      controller.currentContent?.isTopic != true &&
                       _moveSelection(-1),
                   ReadingCommand.openTopic: _cursorOwner!.openSelection,
                 },

@@ -2059,13 +2059,21 @@ void main() {
       await hover(secondRect.right - 2);
       expect(indicator, findsNothing);
 
-      // Either half of a neighbour answers that neighbour's far side.
-      for (final dx in [firstRect.right - 2, firstRect.left + 2]) {
+      // Either half of a neighbour answers that neighbour's far side. A
+      // scrolling strip centers the pressed tab and clips its neighbours, so
+      // each half is sampled where the strip still shows it.
+      for (final dx in [
+        firstRect.right - 2,
+        firstRect.left + firstRect.width / 4,
+      ]) {
         await hover(dx);
         expect(indicator, findsOneWidget);
         expect(tester.getRect(indicator).right, lessThan(firstRect.left));
       }
-      for (final dx in [thirdRect.left + 2, thirdRect.right - 2]) {
+      for (final dx in [
+        thirdRect.left + 2,
+        thirdRect.right - thirdRect.width / 4,
+      ]) {
         await hover(dx);
         expect(indicator, findsOneWidget);
         expect(tester.getRect(indicator).left, greaterThan(thirdRect.right));
