@@ -1572,53 +1572,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop row geometry stays compact', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    try {
-      await pumpMenu(tester);
-      await open(tester);
-      expect(
-        tester.getSize(find.text('Profile').first).height,
-        closeTo(20, 0.1),
-      );
-      final profile = tester.getRect(find.text('Profile').first);
-      final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(33.5, 0.1));
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('row geometry stays compact on $platform', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        await pumpMenu(tester);
+        await open(tester);
+        final profile = tester.getRect(find.text('Profile').first);
+        final billing = tester.getRect(find.text('Billing').first);
+        expect(profile.height, closeTo(20, 0.1));
+        expect(billing.top - profile.top, closeTo(33.5, 0.1));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
 
   testWidgets('desktop items retain the reference default cursor', (
     tester,
   ) async {
     await pumpMenu(tester);
     await open(tester);
-    final regions = tester.widgetList<MouseRegion>(
-      find.ancestor(
-        of: find.text('Profile'),
-        matching: find.byType(MouseRegion),
-      ),
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('Profile').first));
+    await tester.pump();
+
+    expect(
+      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+      SystemMouseCursors.basic,
     );
-    final itemRegion = regions.firstWhere((region) => region.onEnter != null);
-
-    expect(itemRegion.cursor, SystemMouseCursors.basic);
-  });
-
-  testWidgets('iOS rows use their visible bounds and typography', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    try {
-      await pumpMenu(tester);
-      await open(tester);
-      final profile = tester.getRect(find.text('Profile').first);
-      final billing = tester.getRect(find.text('Billing').first);
-      expect(billing.top - profile.top, closeTo(33.5, 0.1));
-      expect(profile.height, closeTo(20, 0.1));
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
   });
 
   testWidgets('semantics expose popup, enabled, checked, and radio state', (
