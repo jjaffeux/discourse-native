@@ -1981,7 +1981,8 @@ void main() {
         resolveUploadUrls: (_) async => const {},
       );
       addTearDown(composer.dispose);
-      composer.text.text = '$_source\n![Moved|200x100](upload://moved)\n';
+      const standalone = '![Moved|200x100](upload://moved)';
+      composer.text.text = '$_source\n$standalone\n';
       final source = composer.text.text;
       await tester.pumpWidget(
         MaterialApp(
@@ -1999,11 +2000,55 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final start = tester.getCenter(find.byType(ComposerImagePreview));
-      await tester.dragFrom(start, const Offset(250, 0));
+      final preview = find.byType(ComposerImagePreview);
+      final firstTile = find.byType(ComposerImageGalleryTile).first;
+      final draggable = tester.widget<Draggable<ComposerImageBlock>>(
+        find.descendant(
+          of: preview,
+          matching: find.byType(Draggable<ComposerImageBlock>),
+        ),
+      );
+      final feedback = draggable.feedback;
+      final target = tester.getCenter(firstTile);
+      expect(find.byWidget(feedback), findsNothing);
+      final gesture = await tester.startGesture(
+        tester.getCenter(preview),
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      try {
+        await gesture.moveBy(const Offset(20, 0));
+        await tester.pump();
+        await gesture.moveTo(target);
+        await tester.pump();
+        expect(find.byWidget(feedback), findsOneWidget);
+        expect(composer.text.text, source);
+        expect(
+          tester.widget<ComposerImageGalleryTile>(firstTile).dropTarget,
+          isTrue,
+        );
+      } finally {
+        await gesture.cancel();
+      }
       await tester.pumpAndSettle();
       expect(composer.text.text, source);
-      expect(find.byType(ComposerImagePreview), findsOneWidget);
+      expect(composer.standaloneImages.map((image) => image.source), [
+        standalone,
+      ]);
+      expect(composer.text.galleryBlocks.single.mode, ComposerGalleryMode.grid);
+      expect(
+        composer.text.galleryBlocks.single.images.map((image) => image.url),
+        ['upload://first', 'upload://second', 'upload://third'],
+      );
+      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+      expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
+      expect(preview, findsOneWidget);
+      expect(find.byWidget(feedback), findsNothing);
+      expect(
+        tester.widget<ComposerImageGalleryTile>(firstTile).dropTarget,
+        isFalse,
+      );
+      expect(find.byType(DDragHighlight), findsNothing);
+      expect(find.byType(DDropIndicator), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
