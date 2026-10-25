@@ -161,6 +161,8 @@ class _BoardsPageState extends State<BoardsPage> {
         limitContentSize: false,
         title: Text(l10n.boardsTitle),
         controls: DButton(
+          size: DButtonSize.filter,
+          variant: DButtonVariant.quiet,
           label: Text(l10n.refresh),
           onPressed: handle.reading ? null : handle.refresh,
         ),
@@ -193,6 +195,7 @@ class _BoardsPageState extends State<BoardsPage> {
                   constraints.maxWidth < 400 &&
                   MediaQuery.textScalerOf(context).scale(14) > 21;
               final back = DButton(
+                size: DButtonSize.filter,
                 variant: DButtonVariant.link,
                 icon: const DIcon(DIcons.chevronLeft),
                 label: Text(l10n.boardsAll),
@@ -236,7 +239,8 @@ class _BoardsPageState extends State<BoardsPage> {
                     child: DDropdownMenuTrigger(
                       builder: (context, state) => DButton.iconOnly(
                         key: const ValueKey('board-controls'),
-                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.quiet,
                         icon: const DIcon(DIcons.ellipsis),
                         tooltip: l10n.moreActions,
                         onPressed: state.toggle,

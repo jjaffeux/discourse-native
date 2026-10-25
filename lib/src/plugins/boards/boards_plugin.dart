@@ -20,7 +20,7 @@ final class BoardsPlugin
         TopicRecordPlugin<BoardMemberships>,
         CommunitySidebarPlugin,
         ContentPlugin,
-        ContentPageTitlePlugin,
+        ContentChromePlugin,
         TopicPropertiesPlugin,
         TopicListMetadataPlugin,
         TopicMapActionPlugin {
@@ -67,7 +67,7 @@ final class BoardsPlugin
   }
 
   @override
-  bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
+  bool ownsContentChrome(BuildContext context, ContentRoute route) =>
       BoardsRoute.parse(route.id) != null;
   @override
   Widget? content(BuildContext context, ContentRoute route) {

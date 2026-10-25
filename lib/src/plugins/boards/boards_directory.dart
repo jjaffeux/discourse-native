@@ -63,53 +63,55 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
       return words.every(text.contains);
     }).toList();
     return DPageSurface.headed(
-      limitContentSize: false,
+      identity: widget.site,
       title: Text(l10n.boardsTitle),
-      controls: ContentReadingLaneBox(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wrap =
-                constraints.maxWidth < 520 ||
-                MediaQuery.textScalerOf(context).scale(14) > 21;
-            final search = DInput(
-              value: _query,
-              hintText: l10n.boardsFilter,
-              semanticLabel: l10n.boardsFilter,
-              prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
-              onChanged: (value) => setState(() => _query = value),
-            );
-            return DControlWrap(
-              spacing: 8,
-              runSpacing: 8,
-              wrap: wrap,
-              children: [
-                if (wrap)
-                  SizedBox(width: constraints.maxWidth, child: search)
-                else
-                  DControlExpanded(child: search),
-                DSelect<_BoardStatus>.controlled(
-                  value: _status,
-                  semanticLabel: l10n.boardsStatus,
-                  entries: [
-                    for (final status in _BoardStatus.values)
-                      DSelectOption(
-                        value: status,
-                        label: _statusLabel(status),
-                        child: Text(_statusLabel(status)),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) setState(() => _status = value);
-                  },
-                ),
-                DButton(
-                  label: Text(l10n.refresh),
-                  onPressed: widget.loading ? null : widget.onRefresh,
-                ),
-              ],
-            );
-          },
-        ),
+      controls: LayoutBuilder(
+        builder: (context, constraints) {
+          final wrap =
+              constraints.maxWidth < 520 ||
+              MediaQuery.textScalerOf(context).scale(14) > 21;
+          final search = DInput(
+            size: DControlSize.field,
+            value: _query,
+            hintText: l10n.boardsFilter,
+            semanticLabel: l10n.boardsFilter,
+            prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
+            onChanged: (value) => setState(() => _query = value),
+          );
+          return DControlWrap(
+            spacing: 8,
+            runSpacing: 8,
+            wrap: wrap,
+            children: [
+              if (wrap)
+                SizedBox(width: constraints.maxWidth, child: search)
+              else
+                DControlExpanded(child: search),
+              DSelect<_BoardStatus>.controlled(
+                size: DControlSize.filter,
+                value: _status,
+                semanticLabel: l10n.boardsStatus,
+                entries: [
+                  for (final status in _BoardStatus.values)
+                    DSelectOption(
+                      value: status,
+                      label: _statusLabel(status),
+                      child: Text(_statusLabel(status)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _status = value);
+                },
+              ),
+              DButton(
+                size: DButtonSize.filter,
+                variant: DButtonVariant.quiet,
+                label: Text(l10n.refresh),
+                onPressed: widget.loading ? null : widget.onRefresh,
+              ),
+            ],
+          );
+        },
       ),
       bodyBuilder: (context, header) => ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

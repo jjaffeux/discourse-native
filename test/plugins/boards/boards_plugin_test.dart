@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_module.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/plugins/boards/boards_plugin.dart';
+import 'package:discourse_native/src/shell/content_page_contract.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -91,7 +92,43 @@ void main() {
               home: Scaffold(
                 body: Builder(
                   builder: (context) {
-                    expect(plugin.ownsContentPageTitle(context, route), isTrue);
+                    for (final id in ['boards', 'boards/1']) {
+                      final ownedRoute = ContentRoute(
+                        destination: ExtensionDestination(id),
+                        title: 'Boards',
+                        icon: boardsIcon,
+                      );
+                      final ownsChrome = plugin.ownsContentChrome(
+                        context,
+                        ownedRoute,
+                      );
+                      expect(ownsChrome, isTrue);
+                      for (final touch in [false, true]) {
+                        expect(
+                          ContentPageContract.resolve(ownedRoute).headerFor(
+                            hasSite: true,
+                            connected: enabled,
+                            touch: touch,
+                            canPop: true,
+                            mobileNavigation: touch,
+                            nativeTitleBar: !touch,
+                            pluginOwnsChrome: ownsChrome,
+                          ),
+                          PageHeader.none,
+                        );
+                      }
+                    }
+                    expect(
+                      plugin.ownsContentChrome(
+                        context,
+                        const ContentRoute(
+                          destination: ExtensionDestination('other'),
+                          title: 'Other',
+                          icon: boardsIcon,
+                        ),
+                      ),
+                      isFalse,
+                    );
                     final owned = PluginUiScope.contextFor(
                       context,
                       boardsPluginId,

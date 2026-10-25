@@ -4,8 +4,11 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/plugins/boards/boards_page.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/boards_fixture.dart';
 import '../../support/native_ui_evidence.dart';
@@ -52,35 +55,90 @@ void boardsDirectoryWidgetTests({
     String site = boardsSite,
     bool dark = false,
     double scale = 1,
-  }) => MaterialApp(
-    theme: dark ? AppTheme.dark : AppTheme.light,
-    builder: (context, child) => nativeUiEvidenceBuilder(
-      context,
-      MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(scale)),
-        child: child!,
-      ),
-    ),
-    home: RepaintBoundary(
-      key: const ValueKey('boards-native-capture'),
-      child: Scaffold(
-        body: BoardsPage(
-          key: const ValueKey('directory-page'),
-          site: site,
-          route: const BoardsRoute(),
-          controller: fixture.controller,
-          navigation: fixture.navigation,
+    AppSettingsController? settings,
+  }) {
+    Widget body = BoardsPage(
+      key: const ValueKey('directory-page'),
+      site: site,
+      route: const BoardsRoute(),
+      controller: fixture.controller,
+      navigation: fixture.navigation,
+    );
+    if (settings != null) {
+      body = ContentSettingsScope(
+        controller: settings,
+        child: DPageContentSettings(
+          limitContentSize: settings.limitContentSize,
+          child: body,
+        ),
+      );
+    }
+    return MaterialApp(
+      theme: dark ? AppTheme.dark : AppTheme.light,
+      builder: (context, child) => nativeUiEvidenceBuilder(
+        context,
+        MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
         ),
       ),
-    ),
-  );
+      home: RepaintBoundary(
+        key: const ValueKey('boards-native-capture'),
+        child: Scaffold(body: body),
+      ),
+    );
+  }
 
   void respond(BoardsFixture fixture, List<Map<String, dynamic>> boards) {
     fixture.transport.responders['GET /boards/api/boards.json'] = (_) => {
       'boards': boards,
     };
+  }
+
+  for (final limited in [false, true]) {
+    testWidgets(
+      'directory heading and filters share the width preference $limited',
+      (tester) async {
+        resize(tester, const Size(1280, 800));
+        SharedPreferences.setMockInitialValues({});
+        final settings = AppSettingsController();
+        addTearDown(settings.dispose);
+        await settings.setLimitContentSize(limited);
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+        await prepareNativeUiEvidence(tester);
+        await tester.pumpWidget(page(fixture, settings: settings));
+        await tester.pumpAndSettle();
+        final title = tester.getRect(find.text('Boards'));
+        final search = tester.getRect(find.byType(DInput));
+        final controls = tester.getRect(find.byType(DControlWrap));
+        final content = tester.getRect(
+          find.text('Create and manage boards with columns.'),
+        );
+        expect(title.left, closeTo(search.left, 0.01));
+        expect(controls.center.dx, closeTo(content.center.dx, 0.01));
+        final viewportWidth = tester.getSize(find.byType(Scaffold)).width;
+        final headerWidth = limited
+            ? viewportWidth.clamp(0.0, DPageReadingLane.maxWidth)
+            : viewportWidth;
+        final contentWidth = limited
+            ? (viewportWidth - 32).clamp(0.0, DPageReadingLane.maxWidth)
+            : viewportWidth - 32;
+        expect(
+          title.left,
+          closeTo((viewportWidth - headerWidth) / 2 + 16, 0.01),
+        );
+        expect(controls.width, closeTo(headerWidth - 32, 0.01));
+        expect(content.width, closeTo(contentWidth, 0.01));
+        await captureNativeUi(tester, 'boards-directory-header-$limited');
+        await onCapture?.call(tester, 'boards-directory-header-$limited');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
 
   testWidgets(
