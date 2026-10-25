@@ -12,6 +12,8 @@ import '../test/plugins/boards/boards_widget_test.dart' as boards;
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+  setUp(binding.testTextInput.register);
+  tearDown(binding.testTextInput.unregister);
   Future<void> capture(WidgetTester tester, String name) async {
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(const ValueKey('boards-native-capture')),
