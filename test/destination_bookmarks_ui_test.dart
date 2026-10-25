@@ -50,11 +50,7 @@ const _chat = ContentRoute(
 const _captureKey = ValueKey('destination-bookmarks-capture');
 
 void main() {
-  setUp(
-    () => SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    }),
-  );
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     if (Platform.environment['DESTINATION_BOOKMARK_CAPTURE_DIR'] == null) {
       return;

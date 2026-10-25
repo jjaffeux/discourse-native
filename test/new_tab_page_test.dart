@@ -39,9 +39,7 @@ void main() {
     testWidgets(
       'Start begins with launchers and has no forum header or Filters on $platform',
       (tester) async {
-        SharedPreferences.setMockInitialValues({
-          'discourse_native.panel_tutorial_dismissed': true,
-        });
+        SharedPreferences.setMockInitialValues({});
         await pumpShell(
           tester,
           size,
@@ -76,9 +74,7 @@ void main() {
   }
 
   testWidgets('the app width setting applies to tab content', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
+    SharedPreferences.setMockInitialValues({});
     await pumpShell(tester, const Size(3000, 900));
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
@@ -104,9 +100,7 @@ void main() {
   testWidgets('Start page links to upcoming events when the site offers them', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
+    SharedPreferences.setMockInitialValues({});
     SiteConfig config({required bool events}) =>
         installedPlugins.models.siteConfig({
           'discourse_events_enabled': events,
@@ -154,9 +148,7 @@ void main() {
   testWidgets('Start page uses chrome search and Cmd+F focuses it', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
+    SharedPreferences.setMockInitialValues({});
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
@@ -190,27 +182,6 @@ void main() {
     }
   });
 
-  testWidgets(
-    'mobile Start page hides panel keyboard instructions',
-    (tester) async {
-      tester.view.physicalSize = const Size(1200, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: NewTabPage(onBrowseTopics: () {})),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Work with two panels'), findsNothing);
-      expect(find.byType(DKbd), findsNothing);
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.iOS,
-      TargetPlatform.android,
-    }),
-  );
-
   testWidgets('first and subsequent tabs have the same launcher', (
     tester,
   ) async {
@@ -228,8 +199,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Work with two panels'), findsNothing);
-      expect(find.byKey(const ValueKey('start-page-density')), findsNothing);
       await tester.tap(find.text('Browse latest topics'));
     }
     expect(opened, 2);
@@ -238,9 +207,7 @@ void main() {
   testWidgets('Topics opens its feed from a new start page tab', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
+    SharedPreferences.setMockInitialValues({});
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
@@ -374,9 +341,7 @@ void main() {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-      });
+      SharedPreferences.setMockInitialValues({});
       await pumpShell(tester, desktop);
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
@@ -415,116 +380,38 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
-    for (final compact in [true, false]) {
-      testWidgets(
-        '${platform.name} Start page links do not drag in '
-        '${compact ? 'compact' : 'comfortable'} layout but still open on tap',
-        (tester) async {
-          final previousPlatform = debugDefaultTargetPlatformOverride;
-          debugDefaultTargetPlatformOverride = platform;
-          try {
-            SharedPreferences.setMockInitialValues({
-              'discourse_native.panel_tutorial_dismissed': true,
-              'discourse_native.start_page_compact': compact,
-            });
-            await pumpShell(tester, phone, api: _apiWithLatestTopic());
-            final shell = ShellScope.read(
-              tester.element(find.byType(MainContent).first),
-            );
-            shell.pushContent(ContentRoute.newTab());
-            await tester.pumpAndSettle();
-
-            final source = startPageItem(
-              const ValueKey('start-page-section-link-Topics'),
-            );
-            expect(source, findsOneWidget);
-            final gesture = await tester.startGesture(tester.getCenter(source));
-            await gesture.moveBy(const Offset(60, 0));
-            await tester.pump();
-            expect(
-              find.byKey(const ValueKey('start-page-drag-feedback')),
-              findsNothing,
-            );
-            await gesture.up();
-            await tester.pumpAndSettle();
-            expect(find.byType(NewTabPage), findsOneWidget);
-
-            await tester.tap(source);
-            await tester.pumpAndSettle();
-            expect(shell.currentContent?.id, 'latest');
-          } finally {
-            debugDefaultTargetPlatformOverride = previousPlatform;
-          }
-        },
-      );
-    }
-  }
-
-  for (final compact in [true, false]) {
     testWidgets(
-      'dragging a ${compact ? 'compact' : 'comfortable'} Start page row onto tabs opens a new tab',
+      '${platform.name} Start page links do not drag but still open on tap',
       (tester) async {
         final previousPlatform = debugDefaultTargetPlatformOverride;
-        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        debugDefaultTargetPlatformOverride = platform;
         try {
-          SharedPreferences.setMockInitialValues({
-            'discourse_native.panel_tutorial_dismissed': true,
-            'discourse_native.start_page_compact': compact,
-          });
-          await pumpShell(tester, desktop, api: _apiWithLatestTopic());
+          SharedPreferences.setMockInitialValues({});
+          await pumpShell(tester, phone, api: _apiWithLatestTopic());
           final shell = ShellScope.read(
             tester.element(find.byType(MainContent).first),
           );
-          shell.selectInstance(0);
-          shell.createTab(panel: ForumPanel.main);
-          shell.pushContent(
-            ContentRoute.topic(
-              topicId: 42,
-              slug: 'recent-topic',
-              title: 'Recent topic',
-            ),
-          );
-          final closedId = shell.activeTabId!;
-          shell.closeTab(closedId);
           shell.pushContent(ContentRoute.newTab());
           await tester.pumpAndSettle();
-          final before = shell.tabsForCurrentForum.length;
-          final existingIds = shell.tabsForCurrentForum
-              .map((tab) => tab.id)
-              .toSet();
+
           final source = startPageItem(
-            ValueKey('start-page-recent-closed-$closedId'),
+            const ValueKey('start-page-section-link-Topics'),
           );
           expect(source, findsOneWidget);
-          final target = find.byType(CurrentForumTabsBar).first;
           final gesture = await tester.startGesture(tester.getCenter(source));
-          await gesture.moveTo(tester.getCenter(target));
+          await gesture.moveBy(const Offset(60, 0));
           await tester.pump();
           expect(
             find.byKey(const ValueKey('start-page-drag-feedback')),
-            findsOneWidget,
+            findsNothing,
           );
-          final placeholder = find.byKey(
-            const ValueKey('forum-tab-drop-placeholder'),
-          );
-          expect(placeholder, findsOneWidget);
-          final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
-          await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
-          await tester.pump();
-          final leftInsertion = tester.getRect(placeholder).left;
-          await gesture.moveTo(Offset(tabBar.right - 8, tabBar.center.dy));
-          await tester.pump();
-          expect(tester.getRect(placeholder).left, greaterThan(leftInsertion));
-          await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
-          await tester.pump();
           await gesture.up();
           await tester.pumpAndSettle();
-          expect(shell.tabsForCurrentForum, hasLength(before + 1));
-          expect(
-            existingIds,
-            isNot(contains(shell.tabsForCurrentForum.first.id)),
-          );
-          expect(shell.tabsForCurrentForum.first.currentContent.topicId, 42);
+          expect(find.byType(NewTabPage), findsOneWidget);
+
+          await tester.tap(source);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.id, 'latest');
         } finally {
           debugDefaultTargetPlatformOverride = previousPlatform;
         }
@@ -532,15 +419,76 @@ void main() {
     );
   }
 
+  testWidgets('dragging a Start page row onto tabs opens a new tab', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      SharedPreferences.setMockInitialValues({});
+      await pumpShell(tester, desktop, api: _apiWithLatestTopic());
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.selectInstance(0);
+      shell.createTab(panel: ForumPanel.main);
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 42,
+          slug: 'recent-topic',
+          title: 'Recent topic',
+        ),
+      );
+      final closedId = shell.activeTabId!;
+      shell.closeTab(closedId);
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      final before = shell.tabsForCurrentForum.length;
+      final existingIds = shell.tabsForCurrentForum
+          .map((tab) => tab.id)
+          .toSet();
+      final source = startPageItem(
+        ValueKey('start-page-recent-closed-$closedId'),
+      );
+      expect(source, findsOneWidget);
+      final target = find.byType(CurrentForumTabsBar).first;
+      final gesture = await tester.startGesture(tester.getCenter(source));
+      await gesture.moveTo(tester.getCenter(target));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('start-page-drag-feedback')),
+        findsOneWidget,
+      );
+      final placeholder = find.byKey(
+        const ValueKey('forum-tab-drop-placeholder'),
+      );
+      expect(placeholder, findsOneWidget);
+      final tabBar = tester.getRect(find.byType(ForumTabsBar).first);
+      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+      await tester.pump();
+      final leftInsertion = tester.getRect(placeholder).left;
+      await gesture.moveTo(Offset(tabBar.right - 8, tabBar.center.dy));
+      await tester.pump();
+      expect(tester.getRect(placeholder).left, greaterThan(leftInsertion));
+      await gesture.moveTo(Offset(tabBar.left + 8, tabBar.center.dy));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.tabsForCurrentForum, hasLength(before + 1));
+      expect(existingIds, isNot(contains(shell.tabsForCurrentForum.first.id)));
+      expect(shell.tabsForCurrentForum.first.currentContent.topicId, 42);
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('dragging a closed filtered category keeps its native route', (
     tester,
   ) async {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-      });
+      SharedPreferences.setMockInitialValues({});
       const site = 'https://forum.example/forum';
       await pumpShell(
         tester,
@@ -606,9 +554,7 @@ void main() {
     final previousPlatform = debugDefaultTargetPlatformOverride;
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     try {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-      });
+      SharedPreferences.setMockInitialValues({});
       await pumpShell(tester, desktop, api: _apiWithLatestTopic());
       final shell = ShellScope.read(
         tester.element(find.byType(MainContent).first),
