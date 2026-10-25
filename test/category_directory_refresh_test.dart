@@ -68,8 +68,9 @@ void main() {
       final refreshedPage = Completer<CategoryLoadResult>();
       addTearDown(() async {
         shell.dispose();
-        if (!oldPage.isCompleted)
+        if (!oldPage.isCompleted) {
           oldPage.complete(CategoryLoadResult(const []));
+        }
         if (!refreshedPage.isCompleted) {
           refreshedPage.complete(CategoryLoadResult(const []));
         }
