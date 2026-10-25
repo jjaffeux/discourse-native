@@ -12,7 +12,6 @@ Widget fixture({
   DSidebarCollapsible mode = DSidebarCollapsible.icon,
   DSidebarSide side = DSidebarSide.left,
   bool? open,
-  ValueChanged<bool>? onChange,
   FocusNode? focus,
   ThemeData? theme,
   double scale = 1,
@@ -798,14 +797,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Header'), findsNothing);
       expect(focus.hasFocus, true);
-      await tester.tap(find.byType(DSidebarTrigger));
-      await tester.pumpAndSettle();
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pumpAndSettle();
-      expect(find.text('Header'), findsNothing);
-      expect(focus.hasFocus, true);
+      for (final modifier in [
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.metaLeft,
+      ]) {
+        await tester.tap(find.byType(DSidebarTrigger));
+        await tester.pumpAndSettle();
+        await tester.sendKeyDownEvent(modifier);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+        await tester.sendKeyUpEvent(modifier);
+        await tester.pumpAndSettle();
+        expect(find.text('Header'), findsNothing, reason: modifier.debugName);
+        expect(focus.hasFocus, true);
+      }
       await tester.tap(find.byType(DSidebarTrigger));
       await tester.pumpAndSettle();
       await tester.tapAt(

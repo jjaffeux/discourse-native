@@ -327,7 +327,13 @@ class _DSidebarState extends State<DSidebar> {
                 mobile: true,
                 child: CallbackShortcuts(
                   bindings: _mobileShortcuts(p),
-                  child: _panel(context, false, mobile: true),
+                  // Default modal focus must sit below the shortcut handler.
+                  child: Focus(
+                    autofocus: p._mobileInitialFocusNode == null,
+                    skipTraversal: true,
+                    includeSemantics: false,
+                    child: _panel(context, false, mobile: true),
+                  ),
                 ),
               ),
             ),
