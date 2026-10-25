@@ -55,6 +55,26 @@ void main() {
     },
   );
 
+  test('columns with an unsupported sort cannot be edited natively', () async {
+    final json = boardFixtureJson();
+    ((json['columns'] as List).first as Map)['default_sort'] = 'votes';
+    final fixture = BoardsFixture(json: json);
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    expect(
+      (await handle.updateColumn(
+        10,
+        title: 'Ready',
+        icon: '',
+        order: BoardColumnOrder.priority,
+      )).state,
+      BoardWriteState.refused,
+    );
+    expect(fixture.transport.writes, isEmpty);
+  });
+
   test('column movement respects edges and management permission', () async {
     final fixture = BoardsFixture();
     addTearDown(fixture.dispose);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/topic.dart' show TopicCategory;
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/plugins/boards/boards_page.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
@@ -246,6 +247,47 @@ void boardsDirectoryWidgetTests({
   );
 
   testWidgets(
+    'directory search matches column and category names and active hides archives',
+    (tester) async {
+      resize(tester, const Size(900, 800));
+      final fixture = BoardsFixture(
+        categories: {
+          7: const TopicCategory(id: 7, name: 'Support', color: '12b5d8'),
+        },
+      );
+      addTearDown(fixture.dispose);
+      respond(fixture, [
+        directoryBoard(1, 'Roadmap', columns: ['Triage']),
+        {
+          ...directoryBoard(2, 'Helpdesk'),
+          'category_ids': [7],
+        },
+        directoryBoard(3, 'Old roadmap', archived: true),
+      ]);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(DInput), 'triage');
+      await tester.pumpAndSettle();
+      expect(find.text('Roadmap'), findsOneWidget);
+      expect(find.text('Helpdesk'), findsNothing);
+      await tester.enterText(find.byType(DInput), 'support');
+      await tester.pumpAndSettle();
+      expect(find.text('Helpdesk'), findsOneWidget);
+      expect(find.text('Roadmap'), findsNothing);
+      await tester.enterText(find.byType(DInput), '');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Active boards').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Roadmap'), findsOneWidget);
+      expect(find.text('Helpdesk'), findsOneWidget);
+      expect(find.text('Old roadmap'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'directory refresh retains filters and displays refreshed cards',
     (tester) async {
       final fixture = BoardsFixture();
@@ -283,6 +325,12 @@ void boardsDirectoryWidgetTests({
       await tester.pumpWidget(page(fixture));
       await tester.pump();
       expect(find.byType(DSpinner), findsOneWidget);
+      expect(
+        tester
+            .widget<DButton>(find.widgetWithText(DButton, 'Refresh'))
+            .onPressed,
+        isNull,
+      );
       pending.completeError(StateError('Directory unavailable'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Directory unavailable'), findsOneWidget);
