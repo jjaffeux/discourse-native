@@ -12,28 +12,15 @@ import 'package:flutter/material.dart';
 import 'fakes.dart';
 
 /// Public Meta root categories captured on 2026-09-18, without user data.
-List<TopicCategory> categoryGridFixture({int copies = 1}) {
-  final path =
-      Platform.environment['CATEGORY_FIXTURE_FILE'] ??
-      'test/fixtures/categories/meta.json';
-  const embedded = String.fromEnvironment('CATEGORY_FIXTURE_BASE64');
-  final data =
-      (jsonDecode(
-                embedded.isEmpty
-                    ? File(path).readAsStringSync()
-                    : utf8.decode(base64Decode(embedded)),
+List<TopicCategory> categoryGridFixture() => [
+  for (final item
+      in (jsonDecode(
+                File('test/fixtures/categories/meta.json').readAsStringSync(),
               )
               as List)
-          .cast<Map<String, dynamic>>();
-  return [
-    for (var copy = 0; copy < copies; copy++)
-      for (final item in data)
-        TopicCategory.fromJson({
-          ...item,
-          'id': (item['id'] as int) + copy * 10000,
-        }),
-  ];
-}
+          .cast<Map<String, dynamic>>())
+    TopicCategory.fromJson(item),
+];
 
 Future<ShellController> categoryGridController(
   List<TopicCategory> categories,
@@ -60,11 +47,7 @@ Future<ShellController> categoryGridController(
   return controller;
 }
 
-Widget categoryGridHost(
-  ShellController controller,
-  double width, {
-  Key? pageKey,
-}) {
+Widget categoryGridHost(ShellController controller, double width) {
   const siteUrl = 'https://meta.discourse.org';
   return ContentSettingsScope(
     controller: controller.appSettings,
@@ -78,7 +61,6 @@ Widget categoryGridHost(
             child: SizedBox(
               width: width,
               child: CategoriesPage(
-                key: pageKey,
                 siteUrl: siteUrl,
                 feed: controller.categoryFeedFor(siteUrl),
               ),
