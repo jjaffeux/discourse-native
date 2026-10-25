@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/cooked_dom.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 import 'support/scaling_benchmark.dart';
@@ -43,6 +44,27 @@ void main() {
     ]);
     expect(descendantWhere(root, (e) => e.localName == 'nothing'), isNull);
     expect(descendantsWhere(root, (e) => e.localName == 'nothing'), isEmpty);
+  });
+
+  test('searches every depth below the root, not the root itself', () {
+    final root = html
+        .parseFragment(
+          '<div class="hit" id="root">'
+          '<p class="hit" id="1"><span class="hit" id="2"></span></p>'
+          '<p id="3"><b><i class="deep" id="4"></i></b></p>'
+          '</div>',
+        )
+        .children
+        .single;
+    bool hit(dom.Element element) => element.classes.contains('hit');
+
+    expect(descendantWhere(root, hit)?.id, '1');
+    expect(descendantsWhere(root, hit).map((e) => e.id), ['1', '2']);
+    expect(
+      descendantWhere(root, (e) => e.classes.contains('deep'))?.id,
+      '4',
+      reason: 'a match below the first level',
+    );
   });
 
   test('a wide element costs its width, not its square', () {

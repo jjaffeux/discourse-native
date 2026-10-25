@@ -14,9 +14,15 @@ void main() {
     });
 
     test('reads a site\'s UTC stamp in the reader\'s days', () {
-      final at = DateTime.utc(2026, 3, 9, 12);
-      expect(calendarDay(at), calendarDay(at.toLocal()));
-      expect(calendarDay(at)!.isUtc, isFalse);
+      // Just after and just before UTC midnight: in any reader zone with an
+      // offset, one of the two falls on a different local day than in UTC.
+      for (final at in [
+        DateTime.utc(2026, 3, 9, 0, 30),
+        DateTime.utc(2026, 3, 9, 23, 30),
+      ]) {
+        expect(calendarDay(at), calendarDay(at.toLocal()), reason: '$at');
+        expect(calendarDay(at)!.isUtc, isFalse);
+      }
     });
 
     test('has nothing to say about a moment that is not there', () {

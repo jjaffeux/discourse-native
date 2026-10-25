@@ -271,6 +271,27 @@ void main() {
       }
     });
 
+    test(
+      'runs one path\'s transactions in the order they were issued',
+      () async {
+        final first = _mapDocument(target.path);
+        final second = _mapDocument(target.path);
+        final order = <int>[];
+
+        await Future.wait([
+          for (var index = 0; index < 20; index++)
+            (index.isEven ? first : second).update<void>((values) {
+              order.add(index);
+              values['last'] = '$index';
+              return PrivateFileResult.done;
+            }),
+        ]);
+
+        expect(order, [for (var index = 0; index < 20; index++) index]);
+        expect(await target.readAsString(), '{"last":"19"}');
+      },
+    );
+
     test('coordinates independent isolates through the sidecar lock', () async {
       await Future.wait([
         Isolate.run(() => _writeSeries(target.path, 'first')),
@@ -370,6 +391,20 @@ void main() {
 
       expect(await target.exists(), isFalse);
     });
+
+    test('rejects a Stream-valued result without committing', () async {
+      final document = _mapDocument(target.path);
+
+      await expectLater(
+        document.update((values) {
+          values['late'] = 'never committed';
+          return PrivateFileResult(const Stream<void>.empty());
+        }),
+        throwsStateError,
+      );
+
+      expect(await target.exists(), isFalse);
+    });
   });
 
   group('undecodable documents set aside on request', () {
@@ -377,6 +412,10 @@ void main() {
       ('text the codec rejects', utf8.encode('{"kept":')),
       // A write torn between the two bytes of "é".
       ('bytes torn inside a character', [...utf8.encode('{"kept":"caf'), 0xc3]),
+      (
+        'a stray byte inside otherwise valid JSON',
+        [...utf8.encode('{"kept":"caf'), 0xc3, ...utf8.encode('"}')],
+      ),
     ]) {
       test('moves $name aside once and continues from empty', () async {
         await target.writeAsBytes(bytes);
@@ -409,6 +448,8 @@ void main() {
       }
       final unrelated = File('${target.path}.damaged-notes');
       await unrelated.writeAsString('not ours');
+      final suffixed = File('${target.path}.damaged-0.notes');
+      await suffixed.writeAsString('not ours either');
       await target.writeAsString('not json');
       final setAside = <File>[];
 
@@ -423,6 +464,7 @@ void main() {
         setAside.single.path,
       ]);
       expect(await unrelated.exists(), isTrue);
+      expect(await suffixed.exists(), isTrue);
     });
   });
 
@@ -438,9 +480,16 @@ void main() {
         '${target.path}.1234.gggggggggggggggggggggggggggggggg'
         '.private-document.tmp',
       );
+      final suffixed = File('${abandoned.path}.keep');
+      final nonNumericPid = File(
+        '${target.path}.pid.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        '.private-document.tmp',
+      );
       await abandoned.writeAsString('old secret');
       await fixedTemporary.writeAsString('another protocol');
       await similarlyNamed.writeAsString('not our random suffix');
+      await suffixed.writeAsString('not a stage');
+      await nonNumericPid.writeAsString('not our process id');
 
       await _mapDocument(
         target.path,
@@ -449,6 +498,8 @@ void main() {
       expect(await abandoned.exists(), isFalse);
       expect(await fixedTemporary.exists(), isTrue);
       expect(await similarlyNamed.exists(), isTrue);
+      expect(await suffixed.exists(), isTrue);
+      expect(await nonNumericPid.exists(), isTrue);
     });
 
     test(
