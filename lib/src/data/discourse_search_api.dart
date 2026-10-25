@@ -387,14 +387,12 @@ final class DiscourseSearchApi {
       ];
       return <FoundHashtag>{
         for (final ref in requested)
-          if (FoundHashtag.resolveRef(
-                ref,
-                candidates: candidates,
-                order: order,
-                requestedRefs: requested,
-              )
-              case final hashtag?)
-            hashtag,
+          ?FoundHashtag.resolveRef(
+            ref,
+            candidates: candidates,
+            order: order,
+            requestedRefs: requested,
+          ),
       }.toList(growable: false);
     } catch (error, stackTrace) {
       throw SiteLookupException(
