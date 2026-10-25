@@ -165,8 +165,11 @@ void main() {
           .channelList(_site, _section)
           .map((channel) => channel.id)
           .toList();
-      final expected = project();
-      expect(expected, hasLength(50));
+      final expected = [
+        for (var id = 75; id > 0; id -= 2) id,
+        for (var id = 74; id >= 52; id -= 2) id,
+      ];
+      expect(project(), expected);
       for (final channel in channels) {
         channel.titleReads.value = 0;
       }

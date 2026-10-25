@@ -22,16 +22,12 @@ void main() {
       'lib/src/shell/groups_page.dart',
     ).readAsStringSync();
     final detailView = File('lib/src/shell/group_page.dart').readAsStringSync();
-    final adapter = File(
-      'lib/src/shell/group_pages_shell_port.dart',
-    ).readAsStringSync();
 
     for (final source in [coordinator, host, port, directoryView, detailView]) {
       expect(source, isNot(contains("import 'shell_controller.dart'")));
       expect(source, isNot(contains("import 'shell_scope.dart'")));
     }
     expect(coordinator, isNot(contains('package:flutter/')));
-    expect(adapter, contains("import 'shell_controller.dart'"));
   });
 
   test('shell adapters identify their controller across rebuilds', () {

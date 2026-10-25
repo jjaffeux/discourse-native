@@ -121,13 +121,20 @@ void main() {
         ),
       );
       expect(bookmark.copyWith(clearName: true).name, isNull);
-      expect(
-        bookmark.copyWith(
-          reminderAt: DateTime.utc(2030),
-          autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
-        ),
-        isNot(bookmark),
+      final reminded = bookmark.copyWith(reminderAt: DateTime.utc(2030));
+      expect(reminded.reminderAt, DateTime.utc(2030));
+      expect(reminded.autoDeletePreference, bookmark.autoDeletePreference);
+      expect(reminded, isNot(bookmark));
+
+      final autoDeleted = bookmark.copyWith(
+        autoDeletePreference: BookmarkAutoDeletePreference.whenReminderSent,
       );
+      expect(autoDeleted.reminderAt, bookmark.reminderAt);
+      expect(
+        autoDeleted.autoDeletePreference,
+        BookmarkAutoDeletePreference.whenReminderSent,
+      );
+      expect(autoDeleted, isNot(bookmark));
     });
   });
 

@@ -45,7 +45,7 @@ List<SemanticsData> radioSemantics(WidgetTester tester) {
 }
 
 void main() {
-  test('all snippets are runnable and match their actual example source', () {
+  test('all snippets include an entrypoint and match their example source', () {
     final source = File(
       'lib/src/styleguide/examples/radio_group_examples.dart',
     ).readAsStringSync();

@@ -722,8 +722,16 @@ void main() {
     final controller = await _controller(_message(author: 2));
     await tester.pumpWidget(_tile(controller, site: _otherSite));
     await tester.pumpAndSettle();
+    expect(controller.instanceFor(_otherSite)?.user?.id, 2);
+    expect(controller.instanceFor(_site)?.user?.id, 1);
+    final bubble = tester.getRect(find.byType(DBubbleContent));
+    final avatar = tester.getRect(find.byType(ChatUserAvatar));
+    final header = tester.getRect(find.byType(DMessageHeader));
     await tester.pumpWidget(_tile(controller));
     await tester.pumpAndSettle();
+    expect(tester.getRect(find.byType(DBubbleContent)), bubble);
+    expect(tester.getRect(find.byType(ChatUserAvatar)), avatar);
+    expect(tester.getRect(find.byType(DMessageHeader)), header);
   });
 
   testWidgets(

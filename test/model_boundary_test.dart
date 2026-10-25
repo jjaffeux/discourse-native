@@ -128,7 +128,6 @@ void main() {
     expect(first.mentionedUserStatuses, isNotEmpty);
     expect(second, first);
     expect(second.hashCode, first.hashCode);
-    expect(first.hashCode, first.hashCode);
   });
 
   test('whole-topic edit permission includes tag editing', () {

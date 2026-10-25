@@ -601,6 +601,40 @@ void main() {
       );
     });
 
+    test(
+      'an installed plugin distinguishes omitted and empty recommendations',
+      () {
+        const plugins = PluginRegistry([AiSummaryPlugin()]);
+        final partial = TopicDetail.parse(
+          const {'id': 7, 'title': 'A real topic'},
+          site,
+          extensions: plugins,
+          recommendationSources: plugins,
+        );
+        final finalPage = TopicDetail.parse(
+          const {
+            'id': 7,
+            'title': 'A real topic',
+            'related_topics': <Object>[],
+          },
+          site,
+          extensions: plugins,
+          recommendationSources: plugins,
+        );
+
+        expect(partial.detail.recommendations, isNull);
+        expect(finalPage.detail.recommendations, isNotNull);
+        expect(
+          finalPage.detail.recommendations!.sources.map((source) => source.id),
+          [discourseAiRelatedTopicRecommendationSourceId],
+        );
+        expect(
+          finalPage.detail.recommendations!.sources.single.topics,
+          isEmpty,
+        );
+      },
+    );
+
     test('distinguishes a partial response from an empty final response', () {
       final partial = TopicDetail.parse(const {
         'id': 7,
