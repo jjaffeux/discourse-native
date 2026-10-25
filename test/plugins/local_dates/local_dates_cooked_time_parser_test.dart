@@ -23,6 +23,22 @@ void main() {
     expect(parser.parseDescendant(scope), DateTime.utc(2026, 8, 1, 8, 24));
   });
 
+  test('skips a sanitizer-allowed data-date span without the class', () {
+    // Upstream allowlists `span[data-date]` and friends on their own, so an
+    // author can hand-write one; only `span.discourse-local-date` is a date.
+    final scope = html
+        .parseFragment(
+          '<div><p><span data-date="2020-01-01" data-time="00:00:00" '
+          'data-timezone="UTC">hand-written</span> then '
+          '<span class="discourse-local-date" data-date="2026-08-01" '
+          'data-time="10:24:00" data-timezone="Europe/Paris">fallback</span>'
+          '</p></div>',
+        )
+        .querySelector('div')!;
+
+    expect(parser.parseDescendant(scope), DateTime.utc(2026, 8, 1, 8, 24));
+  });
+
   test('declines cooked markup without a Local Dates descendant', () {
     final unrelated = html
         .parseFragment(
