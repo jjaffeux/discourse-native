@@ -167,10 +167,7 @@ class RecentSearchHistory extends ChangeNotifier {
       _serverTerms = List.unmodifiable(recent);
       _loaded = true;
       _notify();
-    } catch (error) {
-      if (current()) {
-        _loaded = true;
-      }
+    } catch (_) {
     } finally {
       if (identical(_loadRequest, request)) _loadRequest = null;
     }
