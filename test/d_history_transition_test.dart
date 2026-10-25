@@ -181,7 +181,7 @@ void main() {
   });
 
   for (final direction in TextDirection.values) {
-    for (final livePreviews in [false]) {
+    for (final livePreviews in [false, true]) {
       testWidgets(
         '${livePreviews ? 'live' : 'snapshot'} previews grow with back and '
         'forward swipes in $direction',
@@ -198,20 +198,15 @@ void main() {
           final header = tester.getRect(find.text('Header action'));
           final footer = tester.getRect(find.text('Footer action'));
 
-          for (final back in [true, false]) {
+          // Forward swipes have no live preview; they always use a snapshot.
+          for (final back in [true, if (!livePreviews) false]) {
             final fromRight = back
                 ? direction == TextDirection.rtl
                 : direction != TextDirection.rtl;
             final sign = fromRight ? -1.0 : 1.0;
             final preview = livePreviews
                 ? find.descendant(
-                    of: find.byKey(
-                      ValueKey(
-                        back
-                            ? 'history-previous-preview'
-                            : 'history-next-preview',
-                      ),
-                    ),
+                    of: find.byKey(const ValueKey('history-previous-preview')),
                     matching: find.byType(DPageSurface),
                   )
                 : find.byType(RawImage);
@@ -301,7 +296,7 @@ void main() {
             expect(state.index, back ? 0 : 1);
             expect(_paintedRect(tester, _live), pageRect);
           }
-          expect(state.swipes, 2);
+          expect(state.swipes, livePreviews ? 1 : 2);
           expect(tester.takeException(), isNull);
         },
       );
@@ -720,7 +715,7 @@ void main() {
   }
 
   for (final direction in TextDirection.values) {
-    for (final livePreviews in [false]) {
+    for (final livePreviews in [false, true]) {
       testWidgets(
         '${livePreviews ? 'live' : 'snapshot'} swipe backgrounds preserve '
         'rounded corners and gutters in $direction',

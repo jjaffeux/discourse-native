@@ -36,23 +36,21 @@ Future<void> pump(
 
 void main() {
   testWidgets('inline preserves source geometry', (tester) async {
-    for (final variant in [DMarkerVariant.inline]) {
-      await pump(
-        tester,
-        DMarker(
-          variant: variant,
-          icon: const DMarkerIcon(child: Icon(Icons.check)),
-          child: const DMarkerContent(child: Text('Complete')),
-        ),
-      );
-      expect(tester.getSize(find.byType(DMarker)).height, 20);
-      expect(tester.getSize(find.byType(DMarkerIcon)), const Size(16, 16));
-      expect(
-        tester.getTopLeft(find.text('Complete')).dx -
-            tester.getTopRight(find.byType(DMarkerIcon)).dx,
-        8,
-      );
-    }
+    await pump(
+      tester,
+      const DMarker(
+        variant: DMarkerVariant.inline,
+        icon: DMarkerIcon(child: Icon(Icons.check)),
+        child: DMarkerContent(child: Text('Complete')),
+      ),
+    );
+    expect(tester.getSize(find.byType(DMarker)).height, 20);
+    expect(tester.getSize(find.byType(DMarkerIcon)), const Size(16, 16));
+    expect(
+      tester.getTopLeft(find.text('Complete')).dx -
+          tester.getTopRight(find.byType(DMarkerIcon)).dx,
+      8,
+    );
   });
 
   testWidgets('separator centers intrinsic label and retains equal lines', (
@@ -191,24 +189,23 @@ void main() {
     },
   );
 
-  testWidgets(
-    'live theme changes foreground and border without replacing content',
-    (tester) async {
-      const child = DMarker(
-        variant: DMarkerVariant.inline,
-        child: DMarkerContent(child: Text('Note')),
-      );
-      await pump(tester, child);
-      final state = tester.state(find.byType(DMarkerContent));
-      Color? textColor() =>
-          DefaultTextStyle.of(tester.element(find.text('Note'))).style.color;
-      final light = textColor();
-      await pump(tester, child, dark: true);
-      await tester.pumpAndSettle();
-      expect(textColor(), isNot(light));
-      expect(tester.state(find.byType(DMarkerContent)), same(state));
-    },
-  );
+  testWidgets('live theme changes foreground without replacing content', (
+    tester,
+  ) async {
+    const child = DMarker(
+      variant: DMarkerVariant.inline,
+      child: DMarkerContent(child: Text('Note')),
+    );
+    await pump(tester, child);
+    final state = tester.state(find.byType(DMarkerContent));
+    Color? textColor() =>
+        DefaultTextStyle.of(tester.element(find.text('Note'))).style.color;
+    final light = textColor();
+    await pump(tester, child, dark: true);
+    await tester.pumpAndSettle();
+    expect(textColor(), isNot(light));
+    expect(tester.state(find.byType(DMarkerContent)), same(state));
+  });
 
   testWidgets(
     'migrated date keeps label-only callback and fixed timeline slot',

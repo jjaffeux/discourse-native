@@ -168,7 +168,7 @@ void main() {
     }
   }
 
-  for (final disabled in [false]) {
+  for (final disabled in [false, true]) {
     testWidgets(
       'workspace grip hover and drag colors with disabled=$disabled',
       (tester) async {
@@ -181,9 +181,8 @@ void main() {
                 child: DResizableHandle.standalone(
                   withHandle: true,
                   dividerThickness: 0,
-
                   value: 100,
-                  onChanged: (_) {},
+                  onChanged: disabled ? null : (_) {},
                 ),
               ),
             ),
