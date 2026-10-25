@@ -425,9 +425,15 @@ void main() {
     expect(await failed, isFalse);
     final oldRead = data.refresh(7);
     await f.api.waitTopics(2);
-    final retired = data.refreshAfterMutation(7);
+    bool? retired;
+    unawaited(data.refreshAfterMutation(7).then((value) => retired = value));
     f.lifecycle.invalidate(_site);
-    expect(await retired, isFalse);
+    await _drain();
+    expect(
+      retired,
+      isFalse,
+      reason: 'retirement releases the waiter instead of its load timeout',
+    );
     f.api.topicReads.last.result.complete(_payload([]));
     await oldRead;
   });
@@ -928,6 +934,203 @@ void main() {
     expect(f.store.read<Post>(_site, 2)?.cooked, '<p>successor</p>');
     expect(successor.paging(7, newer: true), isFalse);
   });
+
+  test('a retirement observer that reopens the site gets the successor', () {
+    final f = _Fixture()..seed();
+    TopicDataSession? reopened;
+    f.lifecycle
+        .capture(_site)
+        .onRetire(() => reopened = f.owner.forSite(_site));
+    final old = f.data;
+
+    f.lifecycle.invalidate(_site);
+
+    expect(reopened, isNot(same(old)));
+    expect(reopened!.isCurrent, isTrue);
+    expect(f.data, same(reopened));
+  });
+
+  test(
+    'forgetting a site retires its page reads under the same lease',
+    () async {
+      final f = _Fixture()..seed();
+      final old = f.data;
+      final paging = old.pageIds(7, ids: [2], newer: true);
+      await f.api.waitPosts(1);
+
+      f.owner.forget(_site);
+      f.store.forget(_site);
+      f.seed();
+      final successor = f.data;
+      final credentialReads = f.credentials.reads;
+      await old.pageIds(7, ids: [2], newer: false);
+      f.api.postReads.single.result.complete([_post(2, 'forgotten')]);
+      await paging;
+
+      expect(old.isCurrent, isFalse);
+      expect(successor, isNot(same(old)));
+      expect(f.credentials.reads, credentialReads);
+      expect(f.api.postReads, hasLength(1));
+      expect(f.store.read<Post>(_site, 2), isNull);
+      expect(successor.paging(7, newer: true), isFalse);
+    },
+  );
+
+  test(
+    'a page forgotten before its credential resolves sends nothing',
+    () async {
+      final f = _Fixture()..seed();
+      final paging = f.data.pageIds(7, ids: [2], newer: true);
+      f.owner.forget(_site);
+      await _drain();
+
+      expect(f.api.postReads, isEmpty);
+      await paging;
+    },
+  );
+
+  test('a page read already in flight is not requested again', () async {
+    final f = _Fixture()..seed();
+    f.store.put(
+      _site,
+      const TopicDetail(
+        id: 7,
+        title: 'Topic',
+        stream: [1],
+        postsCount: 3,
+        isMegaTopic: true,
+        lastPostId: 3,
+        gapsAfter: {
+          1: [2],
+        },
+      ),
+    );
+    final data = f.data;
+    final detail = f.store.read<TopicDetail>(_site, 7)!;
+    final reads = [
+      data.pageIds(7, ids: [2], newer: true),
+      data.pageIds(7, ids: [2], newer: true),
+    ];
+    await f.api.waitPosts(1);
+    await _drain();
+    expect(f.api.postReads, hasLength(1));
+    f.api.postReads.single.result.complete([_post(2, 'page')]);
+    await Future.wait(reads);
+
+    final mega = [
+      data.pageMega(detail, _post(1, 'edge'), newer: false),
+      data.pageMega(detail, _post(1, 'edge'), newer: false),
+    ];
+    await f.api.waitPosts(2);
+    await _drain();
+    expect(f.api.postReads, hasLength(2));
+    f.api.postReads.last.result.complete(const []);
+    await Future.wait(mega);
+
+    final gaps = [
+      data.expandGap(7, anchorPostId: 1, before: false),
+      data.expandGap(7, anchorPostId: 1, before: false),
+    ];
+    await f.api.waitPosts(3);
+    await _drain();
+    expect(f.api.postReads, hasLength(3));
+    f.api.postReads.last.result.complete([_post(2, 'gap')]);
+    await Future.wait(gaps);
+  });
+
+  test(
+    'an ID page publishes only its requested window and drops omitted posts',
+    () async {
+      final f = _Fixture();
+      final ids = [for (var id = 1; id <= 30; id++) id];
+      f.store
+        ..put(_site, _payload([], stream: ids).detail)
+        ..put(_site, _post(1, 'initial'));
+      final data = f.data;
+      final paging = data.pageIds(7, ids: ids.skip(1).toList(), newer: true);
+      await f.api.waitPosts(1);
+      final requested = f.api.postReads.single.ids;
+      expect(requested, ids.skip(1).take(TopicDetail.maximumInitialPosts));
+
+      // Post 3 arrives by another path while the page is in flight; the
+      // server omits it and post 4, and answers post 30, which was not asked.
+      f.store.put(_site, _post(3, 'live'));
+      f.api.postReads.single.result.complete([
+        for (final id in requested)
+          if (id != 3 && id != 4) _post(id, 'page'),
+        _post(30, 'unrequested'),
+      ]);
+      await paging;
+
+      expect(f.store.read<Post>(_site, 30), isNull);
+      expect(f.store.read<Post>(_site, 3)?.cooked, '<p>live</p>');
+      expect(f.store.read<TopicDetail>(_site, 7)!.stream, [
+        for (final id in ids)
+          if (id != 4) id,
+      ]);
+    },
+  );
+
+  test('an expanded gap consumes posts the server no longer returns', () async {
+    final f = _Fixture()..seed();
+    f.store.put(
+      _site,
+      const TopicDetail(
+        id: 7,
+        title: 'Topic',
+        stream: [1, 5],
+        postsCount: 5,
+        gapsAfter: {
+          1: [2, 3, 4],
+        },
+      ),
+    );
+    final data = f.data;
+    final expanding = data.expandGap(7, anchorPostId: 1, before: false);
+    await f.api.waitPosts(1);
+    f.api.postReads.single.result.complete([_post(3, 'kept')]);
+    await expanding;
+
+    final detail = f.store.read<TopicDetail>(_site, 7)!;
+    expect(detail.stream, [1, 3, 5]);
+    expect(detail.gapsAfter, isEmpty);
+  });
+
+  for (final raced in [false, true]) {
+    test('an empty mega page concludes the end only against its dispatch read '
+        '(raced: $raced)', () async {
+      final f = _Fixture();
+      f.store.put(
+        _site,
+        const TopicDetail(
+          id: 7,
+          title: 'Topic',
+          stream: [1],
+          postsCount: 3,
+          isMegaTopic: true,
+          lastPostId: 3,
+        ),
+      );
+      final data = f.data;
+      final paging = data.pageMega(
+        f.store.read<TopicDetail>(_site, 7)!,
+        _post(1, 'edge'),
+        newer: true,
+      );
+      await f.api.waitPosts(1);
+      if (raced) {
+        f.store.update<TopicDetail>(
+          _site,
+          7,
+          (held) => held.copyWith(lastPostId: 5),
+        );
+      }
+      f.api.postReads.single.result.complete(const []);
+      await paging;
+
+      expect(f.store.read<TopicDetail>(_site, 7)!.lastPostId, raced ? 5 : 1);
+    });
+  }
 
   test(
     'reentrant account retirement stops a multi-record publication',
