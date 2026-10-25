@@ -393,6 +393,7 @@ void main() {
       await loading;
       expect(h.api.postFetches, isEmpty);
       expect(composer.originalRaw, isNull);
+      expect(composer.error, isNull);
     },
   );
 
