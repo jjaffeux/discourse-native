@@ -433,7 +433,14 @@ final class GroupsApi {
     String? clientId,
   }) async {
     final normalizedEmail = _optionalQuery(email, 'email');
-    final normalizedMessage = _optionalQuery(customMessage, 'customMessage');
+    final normalizedMessage = customMessage?.trim();
+    if (normalizedMessage != null &&
+        !GroupInvite.customMessageFits(normalizedMessage)) {
+      throw ArgumentError(
+        'Must be at most ${GroupInvite.maximumCustomMessageLength} characters.',
+        'customMessage',
+      );
+    }
     if (maxRedemptionsAllowed < 1) {
       throw RangeError.value(
         maxRedemptionsAllowed,
@@ -451,7 +458,8 @@ final class GroupsApi {
         body: {
           'group_ids': '${_positiveId(groupId, 'groupId')}',
           'email': ?normalizedEmail,
-          'custom_message': ?normalizedMessage,
+          if (normalizedMessage != null && normalizedMessage.isNotEmpty)
+            'custom_message': normalizedMessage,
           if (normalizedEmail == null)
             'max_redemptions_allowed': maxRedemptionsAllowed,
           if (expiresAt != null)

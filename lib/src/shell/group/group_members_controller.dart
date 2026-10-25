@@ -209,6 +209,13 @@ final class GroupInviteController extends ChangeNotifier {
     if (_disposed || _saving) return GroupInviteSubmission.failed;
     final normalizedEmail = email.text.trim();
     final normalizedMessage = message.text.trim();
+    if (!GroupInvite.customMessageFits(normalizedMessage)) {
+      _error = appL10n.useAtMostCharacters(
+        GroupInvite.maximumCustomMessageLength.toString(),
+      );
+      notifyListeners();
+      return GroupInviteSubmission.failed;
+    }
     _saving = true;
     _error = null;
     notifyListeners();

@@ -760,6 +760,12 @@ final class GroupMembershipMutationResult {
 final class GroupInvite {
   const GroupInvite({required this.id, this.link, this.email, this.expiresAt});
 
+  static const int maximumCustomMessageLength = 1000;
+
+  static bool customMessageFits(String message) =>
+      message.runes.take(maximumCustomMessageLength + 1).length <=
+      maximumCustomMessageLength;
+
   factory GroupInvite.fromWire(Map<String, dynamic> json) => GroupInvite(
     id: jsonInt(json['id']),
     link: jsonText(json['link']),
