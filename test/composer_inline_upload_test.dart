@@ -834,11 +834,14 @@ void main() {
     request.complete(_result);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 1));
+    expect(composer.text.text, '![photo|100x100](upload://photo)\nCaption');
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
-    expect(composer.text.text, isNot(contains('upload-')));
+    // Undo steps back to the in-flight slot, which is stripped rather than
+    // restored as a placeholder for an upload that no longer exists.
+    expect(composer.text.text, 'Caption');
     expect(composer.uploads, isEmpty);
     expect(tester.takeException(), isNull);
   });

@@ -383,7 +383,14 @@ void main() {
         ),
       );
 
+      // Each frame paints the text again while the first lookup is pending.
+      final context = tester.element(find.byType(TextField));
       for (var frame = 0; frame < 10; frame++) {
+        controller.buildTextSpan(
+          context: context,
+          style: const TextStyle(),
+          withComposing: false,
+        );
         await tester.pump();
       }
       expect(requests, [
