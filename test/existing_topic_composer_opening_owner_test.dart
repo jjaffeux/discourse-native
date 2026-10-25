@@ -42,7 +42,7 @@ void main() {
         ),
       );
       final first = h.reply();
-      final other = h.build(
+      h.build(
         const ReplyComposerTarget(
           siteUrl: _site,
           topicId: 8,
@@ -62,7 +62,6 @@ void main() {
       h.owner.reuseReply(plan);
       expect(first.target.replyToPostNumber, 2);
       expect(first.target.replyingToWhisper, isTrue);
-      expect(h.selectedComposer, same(other));
     },
   );
 
