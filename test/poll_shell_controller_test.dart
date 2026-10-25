@@ -27,6 +27,10 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 const _site2 = 'https://community.example.com';
 
+/// The stored account and the one the server reports for its key: a mismatch
+/// would replace the account and its tracker during load.
+const _reader = DiscourseUser(id: 1, username: 'reader');
+
 DiscourseUser _pollUser({
   required int id,
   required String username,
@@ -244,9 +248,7 @@ Future<({ShellController shell, FakeSiteTracker tracker})> _loadShell(
   final shell = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
-      instance(
-        'meta.discourse.org',
-      ).copyWith(user: const DiscourseUser(id: 1, username: 'reader')),
+      instance('meta.discourse.org').copyWith(user: _reader),
     ]),
     api: api,
     authenticator: authenticator,
@@ -280,6 +282,7 @@ FakeDiscourseApi _api({
   },
   postsById: postsById,
   postGate: postGate,
+  user: _reader,
   siteConfigs: const {_site: SiteConfig.unknown()},
   pollVoteResponses: voteResponses,
   pollRemovalResponses: removalResponses,
