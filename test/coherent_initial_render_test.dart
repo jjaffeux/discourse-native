@@ -43,50 +43,55 @@ const _topic = Topic(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('a feed first appears with its category, parent, and tags', (
-    tester,
-  ) async {
-    final api = _DelayedNavigationApi();
-    final shell = await _shell(api);
-    final loading = shell.loadFeed('latest');
-    await tester.pumpWidget(
-      _app(
-        shell,
-        ListenableBuilder(
-          listenable: shell.topicFeeds,
-          builder: (context, _) =>
-              TopicListView(feed: shell.currentFeed ?? const TopicFeed()),
+  testWidgets(
+    'a feed appears before its taxonomy and keeps its layout as labels arrive',
+    (tester) async {
+      final api = _DelayedNavigationApi();
+      final shell = await _shell(api);
+      final loading = shell.loadFeed('latest');
+      await tester.pumpWidget(
+        _app(
+          shell,
+          ListenableBuilder(
+            listenable: shell.topicFeeds,
+            builder: (context, _) =>
+                TopicListView(feed: shell.currentFeed ?? const TopicFeed()),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    expect(api.categoryLookups.single.ids, [9]);
-    expect(find.text(_topic.title), findsNothing);
-    expect(
-      find.byKey(const ValueKey('topic-list-loading-skeleton')),
-      findsOneWidget,
-    );
+      // Topics publish while the missing category is still being looked up.
+      // The row reserves the taxonomy line, so labels arriving later slide
+      // the tags along that line without moving the title or the line.
+      expect(api.categoryLookups.single.ids, [9]);
+      expect(find.text(_topic.title), findsOneWidget);
+      expect(find.text('#smooth'), findsOneWidget);
+      expect(find.text('Interface'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('topic-list-loading-skeleton')),
+        findsNothing,
+      );
+      final tagTop = tester.getRect(find.text('#smooth')).top;
+      final titleBounds = tester.getRect(find.text(_topic.title));
 
-    api.categoryLookups.single.response.complete([_category]);
-    await tester.pump();
-    expect(api.categoryLookups.last.ids, [8]);
-    expect(find.text(_topic.title), findsNothing);
+      api.categoryLookups.single.response.complete([_category]);
+      await tester.pump();
+      expect(api.categoryLookups.last.ids, [8]);
+      expect(tester.getRect(find.text('#smooth')).top, tagTop);
+      expect(tester.getRect(find.text(_topic.title)), titleBounds);
 
-    api.categoryLookups.last.response.complete([_parent]);
-    await tester.pump();
-    await loading;
-    expect(find.text(_topic.title), findsOneWidget);
-    expect(find.text('Interface'), findsOneWidget);
-    expect(find.text('Design'), findsOneWidget);
-    expect(find.text('#smooth'), findsOneWidget);
-    final tagBounds = tester.getRect(find.text('#smooth'));
-    final titleBounds = tester.getRect(find.text(_topic.title));
-    await tester.pump(const Duration(milliseconds: 16));
-    expect(tester.getRect(find.text('#smooth')), tagBounds);
-    expect(tester.getRect(find.text(_topic.title)), titleBounds);
-    expect(tester.takeException(), isNull);
-  });
+      api.categoryLookups.last.response.complete([_parent]);
+      await tester.pump();
+      await loading;
+      await tester.pump();
+      expect(find.text('Interface'), findsOneWidget);
+      expect(find.text('Design'), findsOneWidget);
+      expect(tester.getRect(find.text('#smooth')).top, tagTop);
+      expect(tester.getRect(find.text(_topic.title)), titleBounds);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('a topic joins a pending feed lookup before showing its posts', (
     tester,
