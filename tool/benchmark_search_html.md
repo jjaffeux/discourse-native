@@ -1,0 +1,11 @@
+# Search HTML preparation benchmark
+
+Build `tool/benchmark_search_html.dart` in macOS profile mode. Run the built application's executable and retain its `SEARCH_HTML_REPORT` JSON record. The process fails on Flutter errors, missing body text, or an incorrect number of highlighted characters.
+
+The workload uses 20 paragraphs for an ordinary searched post, 400 paragraphs near the proposed worker threshold, and 1,800 paragraphs for a large searched post. Each paragraph contains three literal matches across plain, bold, and italic text. Each process performs one warmup and five measured repetitions per workload. A second mount reuses the same input. Ordinary input fits the existing shared cache; expanded large output exceeds its admission limit.
+
+`legacyPreprocessUs` times the synchronous transformation helper on a distinct, equally shaped source so this probe does not prime the rendered body's cache. `uiFramesUs` measures `drawFrame` work. Its first entry includes the application build that previously ran highlighting synchronously. Engine DOM conversion can occur between frames, so summed frame time is not total UI-isolate CPU time. `eventLoopGapsUs` records a 1 ms heartbeat during preparation and mounting. These diagnostic gaps also include scheduling and output-inspection overhead. `endToEndUs` measures complete body mounting with text-inspection time subtracted. Raster completion and display presentation are outside these measurements.
+
+Compare at least five alternating baseline and candidate processes built from identical harnesses and surrounding source. Check complete text, highlight counts, failure arrays, executable hashes, and revision provenance. Report per-process medians and their range. Keep ordinary cached cases alongside large cache misses. Moving preprocessing to a native worker can reduce synchronous frame work while increasing completion latency. Flutter compute does not provide a separate isolate on web, so native results establish no web gain.
+
+This benchmark uses synthetic long posts on a desktop. It does not establish a mobile frame-rate improvement or a system-wide speedup. It retains the existing duplicate preprocessing and engine parsing. The separate giant HTML conversion work changes another phase of this same pipeline; their savings must not be added together.

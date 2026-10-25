@@ -315,6 +315,15 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
   late CookedRenderContext _render;
   CookedDocument? _document;
   (String, String?, bool, PostChecklistDocument?)? _documentKey;
+  late final _searchHtml = SearchHtmlPreparation(
+    onChanged: () => setState(() {}),
+  );
+
+  @override
+  void dispose() {
+    _searchHtml.dispose();
+    super.dispose();
+  }
 
   @override
   Future<bool> openUrl(String url, {bool newTab = false}) =>
@@ -464,13 +473,22 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
       linkCountForeground: linkCountForeground,
     );
 
+    final highlightedHtml = _searchHtml.resolve(
+      options._fragment?.html ?? document.root.html,
+      searchQuery,
+    );
+    if (highlightedHtml == null) {
+      return HtmlBodyLoading(
+        child: renderMode == RenderMode.sliverList
+            ? const SliverToBoxAdapter(child: SizedBox.shrink())
+            : const SizedBox.shrink(),
+      );
+    }
+
     return PluginRegistryScope(
       registry: resolvedRegistry,
       child: HtmlWidget(
-        highlightSearchHtml(
-          options._fragment?.html ?? document.root.html,
-          searchQuery,
-        ),
+        highlightedHtml,
         buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
         textStyle: style,
