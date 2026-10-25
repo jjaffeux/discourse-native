@@ -1907,12 +1907,7 @@ class _StreamState extends State<ChatMessageStream>
         bottomExtent: context.isTouch ? _composerFadeExtent : 0,
         topInset: header == null ? null : () => header.visibleExtent,
         bottomInset: context.isTouch && header != null
-            ? () => math.max(
-                0,
-                header.footerExtent -
-                    DComposerDock.topInset -
-                    _composerFadeExtent / 2,
-              )
+            ? () => math.max(0, header.footerExtent - DComposerDock.topInset)
             : null,
         repaint: header,
         child: content,
