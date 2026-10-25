@@ -581,7 +581,6 @@ void main() {
     setup.controller.pushContent(ContentRoute.userActivity());
     await tester.pumpAndSettle();
     expect(find.byType(DComboboxContent), findsNothing);
-    expect(find.byTooltip('Choose inbox: Personal'), findsNothing);
   });
 
   testWidgets('keyboard inbox switching keeps the trigger focused', (

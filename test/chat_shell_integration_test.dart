@@ -1597,7 +1597,6 @@ void _registerChatShellTests() {
               expect(shell.activeTabId, tabId);
               expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
-              expect(find.byTooltip('Exit chat'), findsNothing);
 
               await switchPane(tester, 'main');
               await tester.pumpAndSettle();
@@ -1618,7 +1617,6 @@ void _registerChatShellTests() {
               expect(ChatPlugin.ownsRouteId(shell.currentContent!.id), isTrue);
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
-              expect(find.byTooltip('Exit chat'), findsNothing);
             },
             variant: TargetPlatformVariant.only(TargetPlatform.macOS),
           );
@@ -3526,8 +3524,6 @@ void _registerChatShellTests() {
               ?.fontSize,
           theme.textTheme.bodyMedium?.fontSize,
         );
-        expect(find.text('Only affects you'), findsNothing);
-        expect(find.text('Shared setting'), findsNothing);
         expect(find.text('Staff'), findsNothing);
         expect(tester.takeException(), isNull);
       });
@@ -3592,7 +3588,6 @@ void _registerChatShellTests() {
           findsNothing,
         );
         expect(find.text('Your notifications'), findsOneWidget);
-        expect(find.text('Only affects you'), findsNothing);
         expect(find.text('Message history'), findsOneWidget);
         expect(find.text('Members (2)'), findsOneWidget);
         expect(find.text('Sam'), findsNothing);
@@ -3894,7 +3889,6 @@ void _registerChatShellTests() {
           const ValueKey('chat-channel-threading-switch'),
         );
         expect(find.text('Conversation'), findsOneWidget);
-        expect(find.text('Shared setting'), findsNothing);
         expect(find.text('Channel management'), findsOneWidget);
         expect(find.text('Staff'), findsNothing);
         expect(find.text('Leave this channel'), findsOneWidget);

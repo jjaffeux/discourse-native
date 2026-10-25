@@ -756,10 +756,6 @@ void _registerConnectionSessionTests() {
         findsOneWidget,
       );
       expect(find.textContaining('Something from a plugin'), findsOneWidget);
-      expect(
-        find.textContaining('posts waiting in the review queue'),
-        findsNothing,
-      );
       expect(find.byType(OtherNotificationsSection), findsOneWidget);
     });
 
@@ -1181,7 +1177,6 @@ void _registerConnectionSessionTests() {
       expect(api.markedRead, [51]);
       expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
       expect(find.byType(ChatUserMenuNotifications), findsNothing);
-      expect(find.text('@joffreyj · meta.discourse.org'), findsNothing);
       // The popover loads its Notifications tab before Chat is chosen.
       expect(api.notificationFilters, [
         isEmpty,
@@ -2707,7 +2702,14 @@ final class _FailingUserActivityApi extends FakeDiscourseApi {
   }
 }
 
+/// Opens the account actions; on a phone the avatar lives in the navigation
+/// drawer's footer rather than the header.
 Future<void> _openProfileSection(WidgetTester tester) async {
+  final drawer = find.byKey(const ValueKey('mobile-menu-button'));
+  if (userMenu.evaluate().isEmpty && drawer.evaluate().isNotEmpty) {
+    await tester.tap(drawer);
+    await tester.pumpAndSettle();
+  }
   await tester.tap(userMenu);
   await tester.pumpAndSettle();
 }

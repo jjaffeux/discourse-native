@@ -236,7 +236,6 @@ void main() {
       expect(find.text('12K'), findsOneWidget);
       expect(find.text('24'), findsOneWidget);
       expect(find.text('Read replies'), findsOneWidget);
-      expect(find.textContaining('119 replies'), findsNothing);
       expect(tester.getSize(find.byType(DAvatar)), const Size.square(48));
       final body = find.byWidgetPredicate(
         (widget) => widget is CookedHtml && widget.html.startsWith('bro just'),

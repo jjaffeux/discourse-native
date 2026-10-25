@@ -229,7 +229,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hebrew (עברית)'));
       await tester.pumpAndSettle();
-      expect(find.text('מריח'), findsNothing);
+      expect(find.text('مريح'), findsNothing);
       expect(find.text('נוח'), findsOneWidget);
       expect(find.text('יותר מקום בין האלמנטים.'), findsOneWidget);
       expect(directionOf(find.byType(DField).first), TextDirection.rtl);

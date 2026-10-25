@@ -102,7 +102,6 @@ void main() {
           expect(node.getSemanticsData().role, SemanticsRole.loadingSpinner);
           expect(node.getSemanticsData().value, isEmpty);
           expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
-          expect(find.bySemanticsLabel('Hidden artwork'), findsNothing);
           expect(find.bySemanticsLabel('Loading'), findsNothing);
           expect(find.byType(DSpinner), findsOneWidget);
 

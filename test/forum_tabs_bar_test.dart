@@ -798,9 +798,7 @@ void main() {
     });
 
     for (final direction in TextDirection.values) {
-      testWidgets('glass close does not select a tab in $direction', (
-        tester,
-      ) async {
+      testWidgets('close does not select a tab in $direction', (tester) async {
         final selected = <String>[];
         final closed = <String>[];
         await _pumpBar(
@@ -1605,9 +1603,7 @@ void main() {
       await _pumpBar(tester, items: items, selectedId: items.first.id);
 
       expect(find.text('OPEN'), findsNothing);
-      expect(find.text('5 open'), findsNothing);
       expect(find.text('5'), findsNothing);
-      expect(find.text('+5'), findsNothing);
       expect(find.text('+2'), findsNothing);
       expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
     });

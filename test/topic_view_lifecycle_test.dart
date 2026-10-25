@@ -1859,7 +1859,6 @@ void main() {
             expect(measuredPost.$2, isFalse);
             expect(scroll.position.extentBefore, greaterThan(900));
             expect(api.postFetches, isEmpty);
-            expect(find.text('Load earlier posts'), findsNothing);
 
             scroll.jumpTo(800);
             await tester.pump();

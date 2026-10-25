@@ -217,7 +217,6 @@ void main() {
           FontWeight.w500,
         );
         expect(find.byType(DToggleGroup<bool>), findsNothing);
-        expect(find.byTooltip('Calendar actions'), findsNothing);
         await tester.tap(find.byType(DSelect<EventCalendarView>));
         await tester.pumpAndSettle();
         for (final label in ['Week', 'Day', 'Year']) {

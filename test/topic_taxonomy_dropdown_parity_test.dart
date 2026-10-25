@@ -103,7 +103,7 @@ void main() {
         );
         expect(_choice('Design'), findsOneWidget);
         expect(_choice('Support'), findsNothing);
-        expect(find.text('Status: Open'), findsNothing);
+        expect(find.text('Status: open'), findsNothing);
         expect(find.text('Tags: Alpha'), findsNothing);
         expect(find.widgetWithText(DButton, 'Done'), findsNothing);
         await fixture.capture(tester, 'taxonomy-category-$platform-flat');

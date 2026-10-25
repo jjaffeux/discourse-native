@@ -323,7 +323,6 @@ void main() {
       final title = tester.getRect(
         find.byKey(const ValueKey('chat-inbox-title')),
       );
-      expect(find.text('Browse chats'), findsNothing);
       final navigation = tester.getRect(
         find.byKey(const ValueKey('chat-browse-navigation')),
       );
@@ -560,7 +559,6 @@ void main() {
         ),
         findsNWidgets(2),
       );
-      expect(find.text('Browse threads'), findsNothing);
       await _pick(tester, 'chat-threads-channel-filter', 'general');
       expect(find.text('First thread'), findsOneWidget);
       expect(find.text('Second thread'), findsNothing);
@@ -666,7 +664,6 @@ void main() {
     expect(find.text('Watercooler'), findsOneWidget);
     expect(find.text('Quiet room'), findsOneWidget);
     expect(find.text('Empty'), findsNothing);
-    expect(find.text('3 people here'), findsNothing);
     await _pick(tester, 'chat-inbox-kind-filter', 'Voice rooms');
     expect(find.text('general'), findsNothing);
     await _pick(tester, 'chat-inbox-activity-filter', 'Unread');

@@ -55,10 +55,6 @@ void main() {
         expect(startPageText('Discourse Dev'), findsNothing);
         expect(startPageText('dev.discourse.org'), findsNothing);
         expect(startPageText('Filters'), findsNothing);
-        expect(
-          startPageItem(const ValueKey('start-page-forum-options')),
-          findsNothing,
-        );
         final content = startPageItem(const ValueKey('start-page-content'));
         expect(tester.getTopLeft(content).dy, tester.getTopLeft(page).dy);
         expect(

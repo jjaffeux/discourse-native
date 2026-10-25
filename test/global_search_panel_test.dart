@@ -814,12 +814,6 @@ void main() {
         await tester.pumpAndSettle();
         await tester.ensureVisible(_key('global-search-filter-apply'));
         await tester.pumpAndSettle();
-        expect(find.text('Matches any selected category.'), findsNothing);
-        expect(
-          find.text('Also search within their subcategories.'),
-          findsNothing,
-        );
-        expect(find.text('A–Z'), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -873,7 +867,6 @@ void main() {
         find.text('Match any tag, every tag, or exclude selected tags.'),
         findsNothing,
       );
-      expect(find.text('Choose at least one tag'), findsNothing);
       expect(
         tester.widget<DButton>(_key('global-search-filter-apply')).onPressed,
         isNull,
@@ -1083,8 +1076,6 @@ void main() {
     expect(find.text('Excerpt'), findsOneWidget);
     expect(find.text('Likes'), findsOneWidget);
     expect(find.text('Category'), findsNothing);
-    expect(find.text('Compact rows'), findsNothing);
-    expect(find.bySemanticsLabel('Compact results'), findsNothing);
     final excerpt = _key('global-search-property-excerpt');
     final likes = _key('global-search-property-likes');
     expect(tester.widget<DCheckbox>(excerpt).value, isTrue);

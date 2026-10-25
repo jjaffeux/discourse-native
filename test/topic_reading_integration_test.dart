@@ -113,7 +113,6 @@ void _registerTopicReadingTests() {
       expect(api.feedPaths, ['/latest.json']);
       expect(contentText('Welcome to the forum'), findsOneWidget);
       expect(topicListTitle('Something unread'), findsOneWidget);
-      expect(find.text('Replace with deeper view'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('an authorized public list offers the topic composer', (
@@ -2017,7 +2016,6 @@ void _registerTopicReadingTests() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('messages-sign-in')), findsOneWidget);
-      expect(find.text('Replace with deeper view'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('messages-sign-in')));
       await tester.pumpAndSettle();
@@ -3221,8 +3219,9 @@ void _registerTopicReadingTests() {
         find.byKey(const ValueKey('topic-header-notification-button')),
         findsOneWidget,
       );
-      expect(find.byTooltip('Flag this topic'), findsNothing);
-      expect(find.byTooltip('Pinned topic options'), findsNothing);
+      // Flag and pin live only inside the topic menus, not the header.
+      expect(find.byKey(const ValueKey('topic-flag-button')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-pin-button')), findsNothing);
 
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();

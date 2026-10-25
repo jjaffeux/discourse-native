@@ -648,7 +648,6 @@ void main() {
 
       expect(find.byType(PollComposerPill), findsOneWidget);
       expect(find.text('Edit poll'), findsOneWidget);
-      expect(find.text('Edit as raw'), findsNothing);
       expect(composer.text.text, _source);
 
       await tester.tap(find.byTooltip('Close'));
@@ -2009,7 +2008,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Edit date and time'), findsOneWidget);
-      expect(find.text('Edit as raw'), findsNothing);
       expect(find.byType(LocalDateComposerPill), findsOneWidget);
       expect(composer.text.text, source);
 

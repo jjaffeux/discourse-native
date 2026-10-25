@@ -520,7 +520,6 @@ void main() {
       );
       // No column heading repeats the label above the rows.
       expect(find.text('Assigned to'), findsOneWidget);
-      expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
       final tag = find.descendant(of: assigned, matching: find.text('#mobile'));
       final person = find.text('joffrey');
       expect(

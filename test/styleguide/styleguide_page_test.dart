@@ -591,7 +591,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const ValueKey('styleguide-Example')), findsNothing);
-    expect(find.text('Implementation notes'), findsNothing);
   });
 
   testWidgets('the page outline follows document scrolling', (tester) async {

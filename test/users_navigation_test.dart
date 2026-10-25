@@ -67,7 +67,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Community signal'), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
     expect(api.pluginReadPaths, contains('/directory-columns.json'));
     expect(

@@ -489,7 +489,7 @@ void main() {
   });
 
   group('storage failure handling', () {
-    test('falls back safely and reports a corrupt read', () async {
+    test('falls back safely from a corrupt read', () async {
       final persistence = _MemoryPersistence()..values[meta] = '{not json';
 
       final store = EmojiPickerStore(persistence: persistence);
@@ -505,18 +505,15 @@ void main() {
       );
     });
 
-    test(
-      'reports a rejected write while retaining the in-memory mutation',
-      () async {
-        final persistence = _MemoryPersistence(acceptWrites: false);
+    test('a rejected write retains the in-memory mutation', () async {
+      final persistence = _MemoryPersistence(acceptWrites: false);
 
-        final store = EmojiPickerStore(persistence: persistence);
+      final store = EmojiPickerStore(persistence: persistence);
 
-        await store.writeSkinTone(siteUrl: meta, tone: EmojiSkinTone.t6);
+      await store.writeSkinTone(siteUrl: meta, tone: EmojiSkinTone.t6);
 
-        expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.t6);
-      },
-    );
+      expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.t6);
+    });
   });
 
   group('write ordering', () {

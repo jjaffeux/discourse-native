@@ -2445,36 +2445,31 @@ void main() {
       });
     });
 
-    test(
-      'contains detached remote volume failures without exposing raw cause',
-      () async {
-        const privateCause = 'volume-private-user track-private 203.0.113.121';
-        final uncaught = <Object>[];
+    test('contains detached remote volume failures', () async {
+      const privateCause = 'volume-private-user track-private 203.0.113.121';
+      final uncaught = <Object>[];
 
-        final peer = _FakePeerConnection();
-        final media = _meshSession(
-          peer: peer,
-          audioPublishingAllowed: false,
+      final peer = _FakePeerConnection();
+      final media = _meshSession(
+        peer: peer,
+        audioPublishingAllowed: false,
 
-          setTrackVolume: (_, _) async => throw StateError(privateCause),
-        );
-        await media.connect();
+        setTrackVolume: (_, _) async => throw StateError(privateCause),
+      );
+      await media.connect();
 
-        final operation = runZonedGuarded<Future<void>>(() async {
-          final track = _FakeTrack('track-private', 'audio');
-          final stream = _FakeStream('stream-private', [track]);
-          peer.onTrack?.call(
-            rtc.RTCTrackEvent(streams: [stream], track: track),
-          );
-          await _pumpEventQueue();
-        }, (error, _) => uncaught.add(error));
-        await operation;
+      final operation = runZonedGuarded<Future<void>>(() async {
+        final track = _FakeTrack('track-private', 'audio');
+        final stream = _FakeStream('stream-private', [track]);
+        peer.onTrack?.call(rtc.RTCTrackEvent(streams: [stream], track: track));
+        await _pumpEventQueue();
+      }, (error, _) => uncaught.add(error));
+      await operation;
 
-        expect(uncaught, isEmpty);
+      expect(uncaught, isEmpty);
 
-        await media.dispose();
-      },
-    );
+      await media.dispose();
+    });
 
     test('a participant who leaves and returns keeps their volume', () async {
       final firstPeer = _FakePeerConnection();

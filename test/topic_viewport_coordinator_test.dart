@@ -611,7 +611,6 @@ final class _Owner {
   bool forumActive = true;
   int? savedPostNumber;
   int loadMoreCount = 0;
-  int loadEarlierCount = 0;
   int flushCount = 0;
   final List<({int postNumber, bool caughtUp})> reads = [];
   final List<({int postNumber, double viewportOffset})> anchors = [];
@@ -629,7 +628,7 @@ final class _Owner {
     currentSnapshot: () => snapshot,
     forumActive: () => forumActive,
     loadMore: () async => loadMoreCount++,
-    loadEarlier: () async => loadEarlierCount++,
+    loadEarlier: () async {},
     markRead:
         ({
           required siteUrl,

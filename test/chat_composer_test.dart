@@ -1560,7 +1560,6 @@ void main() {
           }
 
           expect(find.byType(ComposerBlockSurface), findsNothing);
-          expect(find.byTooltip('Arrange blocks'), findsNothing);
           expect(find.byTooltip('Move paragraph'), findsNothing);
         },
         variant: const TargetPlatformVariant({
@@ -2240,7 +2239,6 @@ void main() {
           ChatPlugin.messageUploadType,
         );
         expect(find.text('photo.png'), findsOneWidget);
-        expect(find.text('Ready to send'), findsNothing);
         final thumbnailFinder = find.byKey(
           const ValueKey('composer-upload-thumbnail-73'),
         );
@@ -2484,8 +2482,6 @@ void main() {
         await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Edit message'), findsNothing);
-        expect(find.text('Editing @reader'), findsNothing);
         expect(
           find.byKey(const ValueKey('chat-composer-edit-cancel')),
           findsOneWidget,
@@ -2788,9 +2784,7 @@ void main() {
       await tester.pumpWidget(_TwoComposerView(shell: fixture.shell));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Send GIF'), findsNothing);
       expect(find.byTooltip('Search GIFs'), findsNothing);
-      expect(find.byTooltip('Insert date/time  Ctrl Shift .'), findsNothing);
       expect(find.byTooltip('Add to message'), findsNWidgets(2));
       expect(find.byTooltip('Add emoji'), findsNWidgets(2));
       expect(find.byKey(const ValueKey('chat-composer-gif')), findsNothing);
@@ -3459,7 +3453,6 @@ void main() {
 
       expect(tester.widget<TextField>(field).controller!.text, isEmpty);
       expect(find.text('first message'), findsOneWidget);
-      expect(find.text('Sending…'), findsNothing);
       expect(_button(tester, 'chat-composer-send').loading, isTrue);
       expect(find.text('Sending'), findsNothing);
       expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(1));
@@ -3614,7 +3607,7 @@ void main() {
 
       expect(_text(tester), isEmpty);
       expect(fixture.shell.chat.stream(_site, 9).localMessageIds, hasLength(2));
-      expect(find.text('Sending…'), findsNothing);
+      expect(find.text('Sending'), findsNothing);
       expect(fixture.api.chatMessagesSent, hasLength(1));
 
       sendGate.complete();

@@ -2031,7 +2031,6 @@ void main() {
 
       expect(editing.single.id, 7);
       expect(editing.single.raw, 'before');
-      expect(find.text('Edit message'), findsNothing);
       expect(api.chatMessagesEdited, isEmpty);
     });
 

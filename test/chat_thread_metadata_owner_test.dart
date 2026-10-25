@@ -69,7 +69,6 @@ final class _MetadataEvents implements ChatThreadMetadataEvents {
   final stored = <ChatThread>[];
   final failures = <bool>[];
   final subscriptions = <ChatThreadTarget>[];
-  final created = <ChatThread>[];
   final changes = <({ChatThread before, ChatThread after})>[];
   final storedTitles = <int>[];
 
@@ -102,9 +101,11 @@ final class _MetadataEvents implements ChatThreadMetadataEvents {
   }
 
   @override
-  void threadCreated(String siteUrl, ChatThread detail, int originalMessageId) {
-    created.add(detail);
-  }
+  void threadCreated(
+    String siteUrl,
+    ChatThread detail,
+    int originalMessageId,
+  ) {}
 
   @override
   void threadTitleStored(String siteUrl, int threadId) {

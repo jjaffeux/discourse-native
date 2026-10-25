@@ -358,7 +358,6 @@ final class _RealStoreFixture {
   }
 
   final List<String> events = [];
-  final reports = <({String operation, bool warning})>[];
   final snapshotsAtDeletion = <String, List<DiscourseInstance>>{};
   final persistence = _GatedInstancePersistence();
   final lifecycle = SiteLifecycle();

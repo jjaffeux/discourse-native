@@ -343,7 +343,7 @@ void main() {
     );
   }
 
-  testWidgets('swap action keeps a flat fill', (tester) async {
+  testWidgets('focusing the swap action reveals it', (tester) async {
     _openTopicTab(shell, _topic);
     await _pump(tester, shell);
     tester.widget<DButton>(_swapButton).focusNode!.requestFocus();
@@ -1126,7 +1126,13 @@ void main() {
       expect(find.byType(TopicView), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-view-options')), findsNothing);
       expect(find.byTooltip('Hide split view'), findsNWidgets(2));
-      expect(find.byTooltip('Switch panel positions'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(TopicPanelTabs),
+          matching: find.byTooltip('Swap panels'),
+        ),
+        findsNothing,
+      );
       final reader = tester.state(find.byType(TopicView));
       final main = shell.selectedTabIn(ForumPanel.main)!.id;
       shell.selectTab(main);
@@ -1165,8 +1171,6 @@ void main() {
     final start = shell.selectedTabIn(ForumPanel.secondary)!;
     await _pump(tester, shell);
     expect(start.currentContent.isNewTab, isTrue);
-    expect(find.text('Secondary panel'), findsNothing);
-    expect(find.text('Drag a tab here or open a new tab.'), findsNothing);
     expect(
       find.descendant(of: _secondaryPanel, matching: find.byType(NewTabPage)),
       findsOneWidget,

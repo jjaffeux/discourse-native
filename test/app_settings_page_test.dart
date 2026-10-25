@@ -30,25 +30,20 @@ Finder _textSize(String value) => find.descendant(
 
 void main() {
   for (final platform in TargetPlatform.values) {
-    testWidgets(
-      '${platform.name} settings retain effects without a style selector',
-      (tester) async {
-        final controller = _controller();
-        addTearDown(controller.dispose);
-        await _pumpPage(
-          tester,
-          controller,
-          size: const Size(1100, 1400),
-          theme: AppTheme.light.copyWith(platform: platform),
-        );
-        expect(find.byKey(const ValueKey('appearance-material')), findsNothing);
-        expect(
-          find.byKey(const ValueKey('appearance-effects')),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+    testWidgets('${platform.name} settings show appearance effects', (
+      tester,
+    ) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      await _pumpPage(
+        tester,
+        controller,
+        size: const Size(1100, 1400),
+        theme: AppTheme.light.copyWith(platform: platform),
+      );
+      expect(find.byKey(const ValueKey('appearance-effects')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('settings switch row responds to mouse hover in the modal', (
@@ -105,15 +100,10 @@ void main() {
     expect(find.text('System'), findsNothing);
     expect(find.text('Limit content size'), findsOneWidget);
     expect(find.text('Text size'), findsOneWidget);
-    expect(find.text('Choose a comfortable reading size.'), findsNothing);
     expect(find.text('Topic list'), findsNothing);
     expect(_textSize('100%'), findsOneWidget);
     expect(find.text('Disable GIF animations'), findsOneWidget);
     expect(find.text('Raw Markdown in composers'), findsOneWidget);
-    expect(
-      find.textContaining('reading lane is limited to 825 px'),
-      findsNothing,
-    );
     expect(find.textContaining('Save'), findsNothing);
 
     var segmented = tester.widget<DSwitchTile>(

@@ -179,7 +179,8 @@ void main() {
     addTearDown(port.close);
     await _pump(tester, port);
 
-    await tester.tap(find.text('Planning'));
+    expect(find.text('Planning'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Return to room'));
     await tester.tap(find.byTooltip('Mute'));
     await tester.tap(find.byTooltip('Leave room'));
 

@@ -44,16 +44,6 @@ Finder minimumHeightDescendants(Finder root, double minimumHeight) =>
       ),
     );
 
-Finder minimumHeightAncestors(Finder child, double minimumHeight) =>
-    find.ancestor(
-      of: child,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is ConstrainedBox &&
-            widget.constraints.minHeight == minimumHeight,
-      ),
-    );
-
 final List<DiscourseInstance> twoSites = List.unmodifiable([
   instance('meta.discourse.org', title: 'Discourse Meta'),
   instance('team.discourse.org', title: 'Discourse Team'),

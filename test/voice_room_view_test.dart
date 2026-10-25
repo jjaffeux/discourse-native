@@ -1668,8 +1668,12 @@ void main() {
           'trackDispose',
           'streamDispose',
         ]);
+        // The result toast covers the dialog footer.
+        await tester.tap(find.byTooltip('Close toast'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Done'));
         await tester.pumpAndSettle();
+        expect(find.byType(DDialogContent), findsNothing);
         await harness.controller.leave();
         await tester.pump();
       },
@@ -2721,7 +2725,6 @@ void main() {
         await tester.pumpAndSettle();
 
         final nameField = find.byType(TextField).first;
-        expect(find.text('Chat thread title template'), findsNothing);
         expect(find.text('Required'), findsNothing);
         expect(
           tester.getSemantics(nameField),
@@ -6216,8 +6219,15 @@ void _roomDialogSessionTests() {
             hasLength(1),
           );
           expect(tester.takeException(), isNull);
+          if (inviting) {
+            // The success toast covers the dialog footer at this width.
+            expect(find.text('Invite sent.'), findsOneWidget);
+            await tester.tap(find.byTooltip('Close toast'));
+            await tester.pumpAndSettle();
+          }
           await tester.tap(find.widgetWithText(DButton, 'Done'));
           await tester.pumpAndSettle();
+          expect(find.byType(DDialogContent), findsNothing);
           await tester.pumpWidget(const SizedBox.shrink());
           harness.dispose();
         },

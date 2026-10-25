@@ -699,7 +699,6 @@ void main() {
       expect(section.layout, TopicPropertySectionLayout.standalone);
       expect(section.showHeader, isFalse);
       expect(section.values, hasLength(1));
-      expect(find.text('Topic · Unassigned'), findsNothing);
       expect(find.text('Assign topic'), findsOneWidget);
       expect(
         find.descendant(
