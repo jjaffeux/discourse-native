@@ -22028,6 +22028,474 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'\'t refresh the view. Refresh again to check its saved state.'**
   String get postMutationRefreshFailed;
+
+  /// Staff dashboard. Dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get dashboardTitle;
+
+  /// Staff dashboard. Only staff can see the dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Only staff can see the dashboard.'**
+  String get dashboardStaffOnly;
+
+  /// Staff dashboard. Last 7 days
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get dashboardLast7Days;
+
+  /// Staff dashboard. Last 30 days
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get dashboardLast30Days;
+
+  /// Staff dashboard. Last 3 months
+  ///
+  /// In en, this message translates to:
+  /// **'Last 3 months'**
+  String get dashboardLast3Months;
+
+  /// Staff dashboard. Last 6 months
+  ///
+  /// In en, this message translates to:
+  /// **'Last 6 months'**
+  String get dashboardLast6Months;
+
+  /// Staff dashboard. Last year
+  ///
+  /// In en, this message translates to:
+  /// **'Last year'**
+  String get dashboardLastYear;
+
+  /// Staff dashboard. Highlights
+  ///
+  /// In en, this message translates to:
+  /// **'Highlights'**
+  String get dashboardHighlights;
+
+  /// Staff dashboard. Reports
+  ///
+  /// In en, this message translates to:
+  /// **'Reports'**
+  String get dashboardReports;
+
+  /// Staff dashboard. Site traffic
+  ///
+  /// In en, this message translates to:
+  /// **'Site traffic'**
+  String get dashboardTraffic;
+
+  /// Staff dashboard. Engagement
+  ///
+  /// In en, this message translates to:
+  /// **'Engagement'**
+  String get dashboardEngagement;
+
+  /// Staff dashboard. Search
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get dashboardSearch;
+
+  /// Staff dashboard. System
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get dashboardSystem;
+
+  /// Staff dashboard. Configure
+  ///
+  /// In en, this message translates to:
+  /// **'Configure'**
+  String get dashboardConfigure;
+
+  /// Staff dashboard. Open dashboard in browser
+  ///
+  /// In en, this message translates to:
+  /// **'Open dashboard in browser'**
+  String get dashboardOpenBrowser;
+
+  /// Staff dashboard. This forum does not provide the redesigned dashboard yet.
+  ///
+  /// In en, this message translates to:
+  /// **'This forum does not provide the redesigned dashboard yet.'**
+  String get dashboardUnsupported;
+
+  /// Staff dashboard. Could not load the dashboard. Try again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the dashboard. Try again.'**
+  String get dashboardLoadError;
+
+  /// Staff dashboard. Could not save this change. Try again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this change. Try again.'**
+  String get dashboardMutationError;
+
+  /// Staff dashboard. No sections are enabled. An administrator can enable them in Configure.
+  ///
+  /// In en, this message translates to:
+  /// **'No sections are enabled. An administrator can enable them in Configure.'**
+  String get dashboardNoSections;
+
+  /// Staff dashboard. This section could not be loaded. Refresh to try again.
+  ///
+  /// In en, this message translates to:
+  /// **'This section could not be loaded. Refresh to try again.'**
+  String get dashboardSectionError;
+
+  /// Staff dashboard. Open this section in the browser to view its content.
+  ///
+  /// In en, this message translates to:
+  /// **'Open this section in the browser to view its content.'**
+  String get dashboardSectionUnsupported;
+
+  /// Staff dashboard. No data for the selected period.
+  ///
+  /// In en, this message translates to:
+  /// **'No data for the selected period.'**
+  String get dashboardNoData;
+
+  /// Staff dashboard. No reports are pinned to the dashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'No reports are pinned to the dashboard.'**
+  String get dashboardNoReports;
+
+  /// Staff dashboard. Open report
+  ///
+  /// In en, this message translates to:
+  /// **'Open report'**
+  String get dashboardOpenReport;
+
+  /// Staff dashboard. New sign-ups
+  ///
+  /// In en, this message translates to:
+  /// **'New sign-ups'**
+  String get dashboardNewSignups;
+
+  /// Staff dashboard. DAU / MAU stickiness
+  ///
+  /// In en, this message translates to:
+  /// **'DAU / MAU stickiness'**
+  String get dashboardStickiness;
+
+  /// Staff dashboard. New contributors
+  ///
+  /// In en, this message translates to:
+  /// **'New contributors'**
+  String get dashboardNewContributors;
+
+  /// Staff dashboard. Daily engaged users
+  ///
+  /// In en, this message translates to:
+  /// **'Daily engaged users'**
+  String get dashboardDailyEngaged;
+
+  /// Staff dashboard. Browser pageviews
+  ///
+  /// In en, this message translates to:
+  /// **'Browser pageviews'**
+  String get dashboardBrowserPageviews;
+
+  /// Staff dashboard. Logged-in share
+  ///
+  /// In en, this message translates to:
+  /// **'Logged-in share'**
+  String get dashboardLoggedInShare;
+
+  /// Staff dashboard. Direct traffic
+  ///
+  /// In en, this message translates to:
+  /// **'Direct traffic'**
+  String get dashboardDirectTraffic;
+
+  /// Staff dashboard. Bounce rate
+  ///
+  /// In en, this message translates to:
+  /// **'Bounce rate'**
+  String get dashboardBounceRate;
+
+  /// Staff dashboard. Average session duration
+  ///
+  /// In en, this message translates to:
+  /// **'Average session duration'**
+  String get dashboardSessionDuration;
+
+  /// Staff dashboard. Total searches
+  ///
+  /// In en, this message translates to:
+  /// **'Total searches'**
+  String get dashboardTotalSearches;
+
+  /// Staff dashboard. No-result rate
+  ///
+  /// In en, this message translates to:
+  /// **'No-result rate'**
+  String get dashboardNoResultRate;
+
+  /// Staff dashboard. Search query logging is disabled on this forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Search query logging is disabled on this forum.'**
+  String get dashboardSearchDisabled;
+
+  /// Staff dashboard. Top referrers
+  ///
+  /// In en, this message translates to:
+  /// **'Top referrers'**
+  String get dashboardTopReferrers;
+
+  /// Staff dashboard. Top entry URLs
+  ///
+  /// In en, this message translates to:
+  /// **'Top entry URLs'**
+  String get dashboardTopEntryUrls;
+
+  /// Staff dashboard. Top countries
+  ///
+  /// In en, this message translates to:
+  /// **'Top countries'**
+  String get dashboardTopCountries;
+
+  /// Staff dashboard. Trust level pipeline
+  ///
+  /// In en, this message translates to:
+  /// **'Trust level pipeline'**
+  String get dashboardTrustPipeline;
+
+  /// Staff dashboard. Who's posting?
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'\'s posting?'**
+  String get dashboardWhosPosting;
+
+  /// Staff dashboard. Activity by category
+  ///
+  /// In en, this message translates to:
+  /// **'Activity by category'**
+  String get dashboardCategoryActivity;
+
+  /// Staff dashboard. Trending searches
+  ///
+  /// In en, this message translates to:
+  /// **'Trending searches'**
+  String get dashboardTrendingSearches;
+
+  /// Staff dashboard. Content gaps
+  ///
+  /// In en, this message translates to:
+  /// **'Content gaps'**
+  String get dashboardContentGaps;
+
+  /// Staff dashboard. Name
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get dashboardName;
+
+  /// Staff dashboard. Count
+  ///
+  /// In en, this message translates to:
+  /// **'Count'**
+  String get dashboardCount;
+
+  /// Staff dashboard. Share
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get dashboardShare;
+
+  /// Staff dashboard. Vs prior
+  ///
+  /// In en, this message translates to:
+  /// **'Vs prior'**
+  String get dashboardChange;
+
+  /// Staff dashboard. Topics
+  ///
+  /// In en, this message translates to:
+  /// **'Topics'**
+  String get dashboardTopics;
+
+  /// Staff dashboard. Posts
+  ///
+  /// In en, this message translates to:
+  /// **'Posts'**
+  String get dashboardPosts;
+
+  /// Staff dashboard. Pageviews
+  ///
+  /// In en, this message translates to:
+  /// **'Pageviews'**
+  String get dashboardViews;
+
+  /// Staff dashboard. No match
+  ///
+  /// In en, this message translates to:
+  /// **'No match'**
+  String get dashboardNoMatch;
+
+  /// Staff dashboard. Poor match
+  ///
+  /// In en, this message translates to:
+  /// **'Poor match'**
+  String get dashboardPoorMatch;
+
+  /// Staff dashboard. Promoted
+  ///
+  /// In en, this message translates to:
+  /// **'Promoted'**
+  String get dashboardPromoted;
+
+  /// Staff dashboard. Demoted
+  ///
+  /// In en, this message translates to:
+  /// **'Demoted'**
+  String get dashboardDemoted;
+
+  /// Staff dashboard. Version
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get dashboardVersion;
+
+  /// Staff dashboard. Storage
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get dashboardStorage;
+
+  /// Staff dashboard. Status
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get dashboardStatus;
+
+  /// Staff dashboard. Uploads
+  ///
+  /// In en, this message translates to:
+  /// **'Uploads'**
+  String get dashboardUploads;
+
+  /// Staff dashboard. Backups
+  ///
+  /// In en, this message translates to:
+  /// **'Backups'**
+  String get dashboardBackups;
+
+  /// Staff dashboard. Remote storage
+  ///
+  /// In en, this message translates to:
+  /// **'Remote storage'**
+  String get dashboardRemoteStorage;
+
+  /// Staff dashboard. Version check unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Version check unavailable'**
+  String get dashboardVersionCheckFailed;
+
+  /// Staff dashboard. View on GitHub
+  ///
+  /// In en, this message translates to:
+  /// **'View on GitHub'**
+  String get dashboardViewGithub;
+
+  /// Staff dashboard. What's new in Discourse?
+  ///
+  /// In en, this message translates to:
+  /// **'What\'\'s new in Discourse?'**
+  String get dashboardWhatsNew;
+
+  /// Staff dashboard. Latest version
+  ///
+  /// In en, this message translates to:
+  /// **'Latest version'**
+  String get dashboardLatestVersion;
+
+  /// Staff dashboard. Site advice
+  ///
+  /// In en, this message translates to:
+  /// **'Site advice'**
+  String get dashboardAdvice;
+
+  /// Staff dashboard. Dismiss notice
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss notice'**
+  String get dashboardDismiss;
+
+  /// Staff dashboard. Time to first response
+  ///
+  /// In en, this message translates to:
+  /// **'Time to first response'**
+  String get dashboardFirstResponse;
+
+  /// Staff dashboard. Selected pageviews
+  ///
+  /// In en, this message translates to:
+  /// **'Selected pageviews'**
+  String get dashboardSelectedPageviews;
+
+  /// Staff dashboard. Use the legend to choose which traffic appears in the chart.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the legend to choose which traffic appears in the chart.'**
+  String get dashboardTrafficHelp;
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} used'**
+  String dashboardUsedSpace(String size);
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} free'**
+  String dashboardFreeSpace(String size);
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Discourse updated {date}'**
+  String dashboardDiscourseUpdated(String date);
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard updated {date}'**
+  String dashboardUpdated(String date);
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s'**
+  String dashboardDurationSeconds(String seconds);
+
+  /// Staff dashboard summary.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} percentage points'**
+  String dashboardPercentagePoints(String value);
+
+  /// Storage size in megabytes.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} MB'**
+  String dashboardMegabytes(String value);
+
+  /// Dashboard time to first response in hours.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} h'**
+  String dashboardDurationHours(String value);
 }
 
 class _AppLocalizationsDelegate

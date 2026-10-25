@@ -24,6 +24,7 @@ import 'category_icon.dart';
 import 'category_notifications.dart';
 import 'content_page_contract.dart';
 import 'content_reading_lane.dart';
+import 'dashboard_host.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
 import 'forum_about_host.dart';
@@ -78,6 +79,7 @@ class MainContent extends StatefulWidget {
 
 class _MainContentState extends State<MainContent> {
   final _aboutPageKey = GlobalKey<ForumAboutPageState>();
+  final _dashboardPageKey = GlobalKey<DashboardHostState>();
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
   VoidCallback? _unregisterRefresher;
 
@@ -95,6 +97,7 @@ class _MainContentState extends State<MainContent> {
     _unregisterRefresher = shell.registerContentRefresher(
       () =>
           _aboutPageKey.currentState?.refresh() ??
+          _dashboardPageKey.currentState?.refresh() ??
           (_groupPages.page.isOwned
               ? _groupPages.requestLoad(refresh: true)
               : null),
@@ -204,6 +207,7 @@ class _MainContentState extends State<MainContent> {
                       groupPages: _groupPages,
                       groupPagesPort: port,
                       aboutPageKey: _aboutPageKey,
+                      dashboardPageKey: _dashboardPageKey,
                     ),
                   ),
                 ],
@@ -234,6 +238,7 @@ class _MainContentBody extends StatelessWidget {
     required this.groupPages,
     required this.groupPagesPort,
     required this.aboutPageKey,
+    required this.dashboardPageKey,
   });
 
   final ShellLayout layout;
@@ -242,6 +247,7 @@ class _MainContentBody extends StatelessWidget {
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
   final GlobalKey<ForumAboutPageState> aboutPageKey;
+  final GlobalKey<DashboardHostState> dashboardPageKey;
 
   @override
   Widget build(BuildContext context) => _buildPanel(context);
@@ -423,6 +429,7 @@ class _MainContentBody extends StatelessWidget {
               groupPages: groupPages,
               groupPagesPort: groupPagesPort,
               aboutPageKey: aboutPageKey,
+              dashboardPageKey: dashboardPageKey,
               topicListActions: topicListActions,
             ),
           ),
@@ -847,6 +854,7 @@ class _ContentViewport extends StatelessWidget {
     required this.groupPages,
     required this.groupPagesPort,
     required this.aboutPageKey,
+    required this.dashboardPageKey,
     this.topicListActions,
   });
 
@@ -862,6 +870,7 @@ class _ContentViewport extends StatelessWidget {
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
   final GlobalKey<ForumAboutPageState> aboutPageKey;
+  final GlobalKey<DashboardHostState> dashboardPageKey;
   final Widget? topicListActions;
 
   @override
@@ -888,6 +897,10 @@ class _ContentViewport extends StatelessWidget {
         site == null
             ? fallback
             : switch (page) {
+                CorePage.dashboard => DashboardHost(
+                  key: dashboardPageKey,
+                  siteUrl: site,
+                ),
                 CorePage.drafts => DraftListView(siteUrl: site),
                 CorePage.summary => UserSummaryView(siteUrl: site),
                 CorePage.bookmarks =>

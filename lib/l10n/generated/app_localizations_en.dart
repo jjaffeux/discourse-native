@@ -14045,4 +14045,260 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get postMutationRefreshFailed =>
       'Couldn\'t refresh the view. Refresh again to check its saved state.';
+
+  @override
+  String get dashboardTitle => 'Dashboard';
+
+  @override
+  String get dashboardStaffOnly => 'Only staff can see the dashboard.';
+
+  @override
+  String get dashboardLast7Days => 'Last 7 days';
+
+  @override
+  String get dashboardLast30Days => 'Last 30 days';
+
+  @override
+  String get dashboardLast3Months => 'Last 3 months';
+
+  @override
+  String get dashboardLast6Months => 'Last 6 months';
+
+  @override
+  String get dashboardLastYear => 'Last year';
+
+  @override
+  String get dashboardHighlights => 'Highlights';
+
+  @override
+  String get dashboardReports => 'Reports';
+
+  @override
+  String get dashboardTraffic => 'Site traffic';
+
+  @override
+  String get dashboardEngagement => 'Engagement';
+
+  @override
+  String get dashboardSearch => 'Search';
+
+  @override
+  String get dashboardSystem => 'System';
+
+  @override
+  String get dashboardConfigure => 'Configure';
+
+  @override
+  String get dashboardOpenBrowser => 'Open dashboard in browser';
+
+  @override
+  String get dashboardUnsupported =>
+      'This forum does not provide the redesigned dashboard yet.';
+
+  @override
+  String get dashboardLoadError => 'Could not load the dashboard. Try again.';
+
+  @override
+  String get dashboardMutationError => 'Could not save this change. Try again.';
+
+  @override
+  String get dashboardNoSections =>
+      'No sections are enabled. An administrator can enable them in Configure.';
+
+  @override
+  String get dashboardSectionError =>
+      'This section could not be loaded. Refresh to try again.';
+
+  @override
+  String get dashboardSectionUnsupported =>
+      'Open this section in the browser to view its content.';
+
+  @override
+  String get dashboardNoData => 'No data for the selected period.';
+
+  @override
+  String get dashboardNoReports => 'No reports are pinned to the dashboard.';
+
+  @override
+  String get dashboardOpenReport => 'Open report';
+
+  @override
+  String get dashboardNewSignups => 'New sign-ups';
+
+  @override
+  String get dashboardStickiness => 'DAU / MAU stickiness';
+
+  @override
+  String get dashboardNewContributors => 'New contributors';
+
+  @override
+  String get dashboardDailyEngaged => 'Daily engaged users';
+
+  @override
+  String get dashboardBrowserPageviews => 'Browser pageviews';
+
+  @override
+  String get dashboardLoggedInShare => 'Logged-in share';
+
+  @override
+  String get dashboardDirectTraffic => 'Direct traffic';
+
+  @override
+  String get dashboardBounceRate => 'Bounce rate';
+
+  @override
+  String get dashboardSessionDuration => 'Average session duration';
+
+  @override
+  String get dashboardTotalSearches => 'Total searches';
+
+  @override
+  String get dashboardNoResultRate => 'No-result rate';
+
+  @override
+  String get dashboardSearchDisabled =>
+      'Search query logging is disabled on this forum.';
+
+  @override
+  String get dashboardTopReferrers => 'Top referrers';
+
+  @override
+  String get dashboardTopEntryUrls => 'Top entry URLs';
+
+  @override
+  String get dashboardTopCountries => 'Top countries';
+
+  @override
+  String get dashboardTrustPipeline => 'Trust level pipeline';
+
+  @override
+  String get dashboardWhosPosting => 'Who\'s posting?';
+
+  @override
+  String get dashboardCategoryActivity => 'Activity by category';
+
+  @override
+  String get dashboardTrendingSearches => 'Trending searches';
+
+  @override
+  String get dashboardContentGaps => 'Content gaps';
+
+  @override
+  String get dashboardName => 'Name';
+
+  @override
+  String get dashboardCount => 'Count';
+
+  @override
+  String get dashboardShare => 'Share';
+
+  @override
+  String get dashboardChange => 'Vs prior';
+
+  @override
+  String get dashboardTopics => 'Topics';
+
+  @override
+  String get dashboardPosts => 'Posts';
+
+  @override
+  String get dashboardViews => 'Pageviews';
+
+  @override
+  String get dashboardNoMatch => 'No match';
+
+  @override
+  String get dashboardPoorMatch => 'Poor match';
+
+  @override
+  String get dashboardPromoted => 'Promoted';
+
+  @override
+  String get dashboardDemoted => 'Demoted';
+
+  @override
+  String get dashboardVersion => 'Version';
+
+  @override
+  String get dashboardStorage => 'Storage';
+
+  @override
+  String get dashboardStatus => 'Status';
+
+  @override
+  String get dashboardUploads => 'Uploads';
+
+  @override
+  String get dashboardBackups => 'Backups';
+
+  @override
+  String get dashboardRemoteStorage => 'Remote storage';
+
+  @override
+  String get dashboardVersionCheckFailed => 'Version check unavailable';
+
+  @override
+  String get dashboardViewGithub => 'View on GitHub';
+
+  @override
+  String get dashboardWhatsNew => 'What\'s new in Discourse?';
+
+  @override
+  String get dashboardLatestVersion => 'Latest version';
+
+  @override
+  String get dashboardAdvice => 'Site advice';
+
+  @override
+  String get dashboardDismiss => 'Dismiss notice';
+
+  @override
+  String get dashboardFirstResponse => 'Time to first response';
+
+  @override
+  String get dashboardSelectedPageviews => 'Selected pageviews';
+
+  @override
+  String get dashboardTrafficHelp =>
+      'Use the legend to choose which traffic appears in the chart.';
+
+  @override
+  String dashboardUsedSpace(String size) {
+    return '$size used';
+  }
+
+  @override
+  String dashboardFreeSpace(String size) {
+    return '$size free';
+  }
+
+  @override
+  String dashboardDiscourseUpdated(String date) {
+    return 'Discourse updated $date';
+  }
+
+  @override
+  String dashboardUpdated(String date) {
+    return 'Dashboard updated $date';
+  }
+
+  @override
+  String dashboardDurationSeconds(String seconds) {
+    return '$seconds s';
+  }
+
+  @override
+  String dashboardPercentagePoints(String value) {
+    return '$value percentage points';
+  }
+
+  @override
+  String dashboardMegabytes(String value) {
+    return '$value MB';
+  }
+
+  @override
+  String dashboardDurationHours(String value) {
+    return '$value h';
+  }
 }

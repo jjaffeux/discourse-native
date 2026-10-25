@@ -23,7 +23,7 @@ Widget chart({
   List<int> data = const [186, 305, 73],
   ValueChanged<int?>? onChanged,
   bool tooltip = true,
-}) => DBarChart<int>(
+}) => DCartesianChart<int>(
   data: data,
   controller: controller,
   focusNode: focusNode,
@@ -69,6 +69,45 @@ Future<void> pump(
 );
 
 void main() {
+  for (final kind in [DChartPlot.line, DChartPlot.stackedArea]) {
+    testWidgets(
+      '$kind reuses keyboard inspection and preserves missing values',
+      (tester) async {
+        final controller = DChartController();
+        addTearDown(controller.dispose);
+        await pump(
+          tester,
+          DCartesianChart<int>(
+            plot: kind,
+            data: const [1, 2, 3],
+            series: [
+              DChartSeries(
+                key: 'desktop',
+                value: (value) => value == 2 ? null : value,
+              ),
+              DChartSeries(key: 'mobile', value: (value) => value * 2),
+            ],
+            controller: controller,
+            label: (value) => 'Day $value',
+            semanticLabel: 'Daily views',
+            grid: true,
+            axis: true,
+            valueAxis: true,
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        expect(controller.value, 0);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        expect(controller.value, 1);
+        expect(tester.takeException(), isNull);
+        expect(find.text('Day 2'), findsWidgets);
+      },
+    );
+  }
+
   testWidgets('Escape dismisses chart inspection then reaches its parent', (
     tester,
   ) async {
@@ -92,7 +131,7 @@ void main() {
             },
             child: DChartContainer(
               config: const {'value': DChartConfigEntry(label: 'Value')},
-              child: DBarChart<int>(
+              child: DCartesianChart<int>(
                 data: const [1, 2],
                 series: [DChartSeries(key: 'value', value: (value) => value)],
                 label: (value) => '$value',
@@ -172,7 +211,7 @@ void main() {
       chart(controller: controller),
       direction: TextDirection.rtl,
     );
-    final bounds = tester.getRect(find.byType(DBarChart<int>));
+    final bounds = tester.getRect(find.byType(DCartesianChart<int>));
     final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
     await mouse.addPointer(location: const Offset(700, 500));
     await mouse.moveTo(bounds.topRight + const Offset(-30, 40));
@@ -343,7 +382,7 @@ void main() {
       final controller = DChartController(2);
       await pump(
         tester,
-        DBarChart<num?>(
+        DCartesianChart<num?>(
           data: const [-20, 0, null, 80],
           series: [DChartSeries(key: 'desktop', value: (value) => value)],
           label: (value) => '$value',

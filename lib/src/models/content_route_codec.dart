@@ -358,6 +358,10 @@ final class ContentRouteCodec {
     }
     final path = instance.pathWithin(target);
     if (!target.hasQuery && !target.hasFragment) {
+      if (instance.user?.staff == true &&
+          (path == '/admin/dashboard' || path == '/admin')) {
+        return ContentRoute.dashboard();
+      }
       if (path == '/about') return ContentRoute.forumAbout();
       if (path == '/u') {
         return ContentRoute(

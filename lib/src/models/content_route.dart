@@ -234,6 +234,12 @@ class ContentRoute {
         icon: DIcons.certificate,
       );
 
+  factory ContentRoute.dashboard() => ContentRoute(
+    destination: const PageDestination(CorePage.dashboard),
+    title: appL10n.dashboardTitle,
+    icon: DIcons.barsStaggered,
+  );
+
   factory ContentRoute.forumAbout() => ContentRoute(
     destination: const PageDestination(CorePage.forumAbout),
     title: appL10n.forumAboutTitle,

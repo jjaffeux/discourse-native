@@ -203,6 +203,13 @@ final class ContentPageContract {
             title: _PageTitle.page,
             header: _ShellHeader.desktopHidden,
           ),
+          CorePage.dashboard => const ContentPageContract._(
+            coreUrl: CoreUrlPolicy.direct,
+            title: _PageTitle.page,
+            header: _ShellHeader.none,
+            allowsTopicCreation: false,
+            showSearchWords: false,
+          ),
           CorePage.forumAbout => const ContentPageContract._(
             coreUrl: CoreUrlPolicy.direct,
             title: _PageTitle.page,

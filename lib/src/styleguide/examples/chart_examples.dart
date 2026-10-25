@@ -40,7 +40,7 @@ final chartExamples = ComponentExamples(
   notes:
       'Ports the frozen Chart documentation, including its six-month grouped bars '
       'and interactive daily visitor chart. DChartContainer accepts any drawing widget; '
-      'DBarChart supplies the documented native bar plotting owner without a new package. '
+      'DCartesianChart supplies native bars, lines, and stacked areas without a new package. '
       'Config colors are live callbacks (the CSS variable/theme equivalent); data accessors '
       'accept arbitrary Dart models. Literal Flutter Color values replace CSS color syntax. '
       'Chart inspection is not editable form data. Tab enters once, arrows inspect, Home/End '
@@ -76,7 +76,7 @@ final chartExamples = ComponentExamples(
             mainAxisSize: MainAxisSize.min,
             children: [
               LayoutBuilder(
-                builder: (context, constraints) => DBarChart<_Month>(
+                builder: (context, constraints) => DCartesianChart<_Month>(
                   height:
                       (constraints.maxWidth * 9 / 16).clamp(
                         200,
@@ -213,7 +213,7 @@ final chartExamples = ComponentExamples(
             mainAxisSize: MainAxisSize.min,
             children: [
               LayoutBuilder(
-                builder: (context, constraints) => DBarChart<_Month>(
+                builder: (context, constraints) => DCartesianChart<_Month>(
                   height:
                       (constraints.maxWidth * 9 / 16).clamp(
                         200,
@@ -258,6 +258,14 @@ final chartExamples = ComponentExamples(
       code: _controlledCode,
       builder: (_) => const _ControlledChart(),
     ),
+    StyleguideExample(
+      title: 'Dashboard plots',
+      description:
+          'The dashboard uses line reports and stacked traffic with the same keyboard inspection as bars.',
+      code:
+          'DCartesianChart(plot: DChartPlot.line, data: data, series: series, label: label, semanticLabel: label)',
+      builder: (_) => const _DashboardChartExample(),
+    ),
   ],
 );
 
@@ -277,7 +285,7 @@ DChartContainer(config: {
     color: (context) => DChartColors.series(context, 1)),
 }, child: Column(mainAxisSize: MainAxisSize.min, children: [
   LayoutBuilder(builder: (context, constraints) =>
-    DBarChart<({String month, int desktop, int mobile})>(
+    DCartesianChart<({String month, int desktop, int mobile})>(
     height: (constraints.maxWidth * 9 / 16).clamp(200, double.infinity)${stage >= 4 ? " - 12 - MediaQuery.textScalerOf(context).scale(16)" : ""},
     data: data, label: (datum) => datum.month,
     semanticLabel: 'Monthly visitors',
@@ -452,7 +460,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
               ),
               child: DChartContainer(
                 config: _config,
-                child: DBarChart<_Day>(
+                child: DCartesianChart<_Day>(
                   data: _days,
                   series: [
                     DChartSeries(
@@ -559,7 +567,7 @@ class _CustomChart extends StatelessWidget {
           spacing: 16,
           children: [
             DChartLegendContent(items: items, nameKey: 'browser', atTop: true),
-            DBarChart<DChartItem>(
+            DCartesianChart<DChartItem>(
               data: items,
               series: [
                 DChartSeries(
@@ -650,7 +658,7 @@ class _ControlledChartState extends State<_ControlledChart> {
             ),
           ],
         ),
-        DBarChart<num?>(
+        DCartesianChart<num?>(
           data: _empty ? const [] : const [-20, 0, null, 80],
           series: [DChartSeries(key: 'desktop', value: (value) => value)],
           label: (value) => value == null ? 'Missing' : '$value',
@@ -708,7 +716,7 @@ DChartContainer(config: {
 const _rtlCode = '''Directionality(textDirection: TextDirection.rtl,
   child: DChartContainer(config: {
     'desktop': DChartConfigEntry(label: 'سطح المكتب', color: (c) => DTokens.of(c).primary),
-  }, child: DBarChart<({String month, int visitors})>(
+  }, child: DCartesianChart<({String month, int visitors})>(
     data: [(month: 'يناير', visitors: 186), (month: 'فبراير', visitors: 305)],
     series: [DChartSeries(key: 'desktop', value: (datum) => datum.visitors)],
     label: (datum) => datum.month, semanticLabel: 'الزوار شهريا',
@@ -730,7 +738,7 @@ class _InspectionExampleState extends State<InspectionExample> {
     'desktop': DChartConfigEntry(label: 'Desktop'),
   }, child: Column(mainAxisSize: MainAxisSize.min, children: [
     DButton(onPressed: () => controller.value = null, label: Text('Dismiss')),
-    DBarChart<num?>(data: [-20, 0, null, 80], controller: controller,
+    DCartesianChart<num?>(data: [-20, 0, null, 80], controller: controller,
       series: [DChartSeries(key: 'desktop', value: (value) => value)],
       label: (value) => value == null ? 'Missing' : '$value',
       semanticLabel: 'Net change', grid: true, axis: true, valueAxis: true),
@@ -918,7 +926,7 @@ class _ChartInteractiveExampleState extends State<ChartInteractiveExample> {
               ),
               child: DChartContainer(
                 config: _config,
-                child: DBarChart<_Day>(
+                child: DCartesianChart<_Day>(
                   data: _days,
                   series: [
                     DChartSeries(
@@ -988,3 +996,55 @@ const _days = <_Day>[
   (day: 30, desktop: 454, mobile: 380),
 ];
 ''';
+
+class _DashboardChartExample extends StatefulWidget {
+  const _DashboardChartExample();
+  @override
+  State<_DashboardChartExample> createState() => _DashboardChartExampleState();
+}
+
+class _DashboardChartExampleState extends State<_DashboardChartExample> {
+  DChartPlot _plot = DChartPlot.line;
+  @override
+  Widget build(BuildContext context) => DChartContainer(
+    config: _config,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 12,
+      children: [
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: DSelect<DChartPlot>(
+            value: _plot,
+            entries: const [
+              DSelectItem(
+                value: DChartPlot.line,
+                textValue: 'Line',
+                child: Text('Line'),
+              ),
+              DSelectItem(
+                value: DChartPlot.stackedArea,
+                textValue: 'Stacked area',
+                child: Text('Stacked area'),
+              ),
+            ],
+            onChanged: (plot) {
+              if (plot != null) setState(() => _plot = plot);
+            },
+          ),
+        ),
+        DCartesianChart<_Month>(
+          plot: _plot,
+          data: _months,
+          series: _series,
+          label: (month) => month.month,
+          semanticLabel: 'Sample monthly activity',
+          grid: true,
+          axis: true,
+        ),
+        const DChartLegendContent(items: _legend),
+      ],
+    ),
+  );
+}

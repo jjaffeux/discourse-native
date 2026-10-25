@@ -147,7 +147,8 @@ enum CorePage {
   activity('activity'),
   preferences('preferences'),
   appearance('appearance'),
-  forumAbout('forum-about');
+  forumAbout('forum-about'),
+  dashboard('dashboard');
 
   const CorePage(this.key);
   final String key;

@@ -18506,5 +18506,343 @@
   "postMutationRefreshFailed": "Couldn''t refresh the view. Refresh again to check its saved state.",
   "@postMutationRefreshFailed": {
     "description": "Feedback for a typed post moderation outcome or its read-only recovery."
-  }
+  },
+  "dashboardTitle": "Dashboard",
+  "@dashboardTitle": {
+    "description": "Staff dashboard. Dashboard"
+  },
+  "dashboardStaffOnly": "Only staff can see the dashboard.",
+  "@dashboardStaffOnly": {
+    "description": "Staff dashboard. Only staff can see the dashboard."
+  },
+  "dashboardLast7Days": "Last 7 days",
+  "@dashboardLast7Days": {
+    "description": "Staff dashboard. Last 7 days"
+  },
+  "dashboardLast30Days": "Last 30 days",
+  "@dashboardLast30Days": {
+    "description": "Staff dashboard. Last 30 days"
+  },
+  "dashboardLast3Months": "Last 3 months",
+  "@dashboardLast3Months": {
+    "description": "Staff dashboard. Last 3 months"
+  },
+  "dashboardLast6Months": "Last 6 months",
+  "@dashboardLast6Months": {
+    "description": "Staff dashboard. Last 6 months"
+  },
+  "dashboardLastYear": "Last year",
+  "@dashboardLastYear": {
+    "description": "Staff dashboard. Last year"
+  },
+  "dashboardHighlights": "Highlights",
+  "@dashboardHighlights": {
+    "description": "Staff dashboard. Highlights"
+  },
+  "dashboardReports": "Reports",
+  "@dashboardReports": {
+    "description": "Staff dashboard. Reports"
+  },
+  "dashboardTraffic": "Site traffic",
+  "@dashboardTraffic": {
+    "description": "Staff dashboard. Site traffic"
+  },
+  "dashboardEngagement": "Engagement",
+  "@dashboardEngagement": {
+    "description": "Staff dashboard. Engagement"
+  },
+  "dashboardSearch": "Search",
+  "@dashboardSearch": {
+    "description": "Staff dashboard. Search"
+  },
+  "dashboardSystem": "System",
+  "@dashboardSystem": {
+    "description": "Staff dashboard. System"
+  },
+  "dashboardConfigure": "Configure",
+  "@dashboardConfigure": {
+    "description": "Staff dashboard. Configure"
+  },
+  "dashboardOpenBrowser": "Open dashboard in browser",
+  "@dashboardOpenBrowser": {
+    "description": "Staff dashboard. Open dashboard in browser"
+  },
+  "dashboardUnsupported": "This forum does not provide the redesigned dashboard yet.",
+  "@dashboardUnsupported": {
+    "description": "Staff dashboard. This forum does not provide the redesigned dashboard yet."
+  },
+  "dashboardLoadError": "Could not load the dashboard. Try again.",
+  "@dashboardLoadError": {
+    "description": "Staff dashboard. Could not load the dashboard. Try again."
+  },
+  "dashboardMutationError": "Could not save this change. Try again.",
+  "@dashboardMutationError": {
+    "description": "Staff dashboard. Could not save this change. Try again."
+  },
+  "dashboardNoSections": "No sections are enabled. An administrator can enable them in Configure.",
+  "@dashboardNoSections": {
+    "description": "Staff dashboard. No sections are enabled. An administrator can enable them in Configure."
+  },
+  "dashboardSectionError": "This section could not be loaded. Refresh to try again.",
+  "@dashboardSectionError": {
+    "description": "Staff dashboard. This section could not be loaded. Refresh to try again."
+  },
+  "dashboardSectionUnsupported": "Open this section in the browser to view its content.",
+  "@dashboardSectionUnsupported": {
+    "description": "Staff dashboard. Open this section in the browser to view its content."
+  },
+  "dashboardNoData": "No data for the selected period.",
+  "@dashboardNoData": {
+    "description": "Staff dashboard. No data for the selected period."
+  },
+  "dashboardNoReports": "No reports are pinned to the dashboard.",
+  "@dashboardNoReports": {
+    "description": "Staff dashboard. No reports are pinned to the dashboard."
+  },
+  "dashboardOpenReport": "Open report",
+  "@dashboardOpenReport": {
+    "description": "Staff dashboard. Open report"
+  },
+  "dashboardNewSignups": "New sign-ups",
+  "@dashboardNewSignups": {
+    "description": "Staff dashboard. New sign-ups"
+  },
+  "dashboardStickiness": "DAU / MAU stickiness",
+  "@dashboardStickiness": {
+    "description": "Staff dashboard. DAU / MAU stickiness"
+  },
+  "dashboardNewContributors": "New contributors",
+  "@dashboardNewContributors": {
+    "description": "Staff dashboard. New contributors"
+  },
+  "dashboardDailyEngaged": "Daily engaged users",
+  "@dashboardDailyEngaged": {
+    "description": "Staff dashboard. Daily engaged users"
+  },
+  "dashboardBrowserPageviews": "Browser pageviews",
+  "@dashboardBrowserPageviews": {
+    "description": "Staff dashboard. Browser pageviews"
+  },
+  "dashboardLoggedInShare": "Logged-in share",
+  "@dashboardLoggedInShare": {
+    "description": "Staff dashboard. Logged-in share"
+  },
+  "dashboardDirectTraffic": "Direct traffic",
+  "@dashboardDirectTraffic": {
+    "description": "Staff dashboard. Direct traffic"
+  },
+  "dashboardBounceRate": "Bounce rate",
+  "@dashboardBounceRate": {
+    "description": "Staff dashboard. Bounce rate"
+  },
+  "dashboardSessionDuration": "Average session duration",
+  "@dashboardSessionDuration": {
+    "description": "Staff dashboard. Average session duration"
+  },
+  "dashboardTotalSearches": "Total searches",
+  "@dashboardTotalSearches": {
+    "description": "Staff dashboard. Total searches"
+  },
+  "dashboardNoResultRate": "No-result rate",
+  "@dashboardNoResultRate": {
+    "description": "Staff dashboard. No-result rate"
+  },
+  "dashboardSearchDisabled": "Search query logging is disabled on this forum.",
+  "@dashboardSearchDisabled": {
+    "description": "Staff dashboard. Search query logging is disabled on this forum."
+  },
+  "dashboardTopReferrers": "Top referrers",
+  "@dashboardTopReferrers": {
+    "description": "Staff dashboard. Top referrers"
+  },
+  "dashboardTopEntryUrls": "Top entry URLs",
+  "@dashboardTopEntryUrls": {
+    "description": "Staff dashboard. Top entry URLs"
+  },
+  "dashboardTopCountries": "Top countries",
+  "@dashboardTopCountries": {
+    "description": "Staff dashboard. Top countries"
+  },
+  "dashboardTrustPipeline": "Trust level pipeline",
+  "@dashboardTrustPipeline": {
+    "description": "Staff dashboard. Trust level pipeline"
+  },
+  "dashboardWhosPosting": "Who''s posting?",
+  "@dashboardWhosPosting": {
+    "description": "Staff dashboard. Who's posting?"
+  },
+  "dashboardCategoryActivity": "Activity by category",
+  "@dashboardCategoryActivity": {
+    "description": "Staff dashboard. Activity by category"
+  },
+  "dashboardTrendingSearches": "Trending searches",
+  "@dashboardTrendingSearches": {
+    "description": "Staff dashboard. Trending searches"
+  },
+  "dashboardContentGaps": "Content gaps",
+  "@dashboardContentGaps": {
+    "description": "Staff dashboard. Content gaps"
+  },
+  "dashboardName": "Name",
+  "@dashboardName": {
+    "description": "Staff dashboard. Name"
+  },
+  "dashboardCount": "Count",
+  "@dashboardCount": {
+    "description": "Staff dashboard. Count"
+  },
+  "dashboardShare": "Share",
+  "@dashboardShare": {
+    "description": "Staff dashboard. Share"
+  },
+  "dashboardChange": "Vs prior",
+  "@dashboardChange": {
+    "description": "Staff dashboard. Vs prior"
+  },
+  "dashboardTopics": "Topics",
+  "@dashboardTopics": {
+    "description": "Staff dashboard. Topics"
+  },
+  "dashboardPosts": "Posts",
+  "@dashboardPosts": {
+    "description": "Staff dashboard. Posts"
+  },
+  "dashboardViews": "Pageviews",
+  "@dashboardViews": {
+    "description": "Staff dashboard. Pageviews"
+  },
+  "dashboardNoMatch": "No match",
+  "@dashboardNoMatch": {
+    "description": "Staff dashboard. No match"
+  },
+  "dashboardPoorMatch": "Poor match",
+  "@dashboardPoorMatch": {
+    "description": "Staff dashboard. Poor match"
+  },
+  "dashboardPromoted": "Promoted",
+  "@dashboardPromoted": {
+    "description": "Staff dashboard. Promoted"
+  },
+  "dashboardDemoted": "Demoted",
+  "@dashboardDemoted": {
+    "description": "Staff dashboard. Demoted"
+  },
+  "dashboardVersion": "Version",
+  "@dashboardVersion": {
+    "description": "Staff dashboard. Version"
+  },
+  "dashboardStorage": "Storage",
+  "@dashboardStorage": {
+    "description": "Staff dashboard. Storage"
+  },
+  "dashboardStatus": "Status",
+  "@dashboardStatus": {
+    "description": "Staff dashboard. Status"
+  },
+  "dashboardUploads": "Uploads",
+  "@dashboardUploads": {
+    "description": "Staff dashboard. Uploads"
+  },
+  "dashboardBackups": "Backups",
+  "@dashboardBackups": {
+    "description": "Staff dashboard. Backups"
+  },
+  "dashboardRemoteStorage": "Remote storage",
+  "@dashboardRemoteStorage": {
+    "description": "Staff dashboard. Remote storage"
+  },
+  "dashboardVersionCheckFailed": "Version check unavailable",
+  "@dashboardVersionCheckFailed": {
+    "description": "Staff dashboard. Version check unavailable"
+  },
+  "dashboardViewGithub": "View on GitHub",
+  "@dashboardViewGithub": {
+    "description": "Staff dashboard. View on GitHub"
+  },
+  "dashboardWhatsNew": "What''s new in Discourse?",
+  "@dashboardWhatsNew": {
+    "description": "Staff dashboard. What's new in Discourse?"
+  },
+  "dashboardLatestVersion": "Latest version",
+  "@dashboardLatestVersion": {
+    "description": "Staff dashboard. Latest version"
+  },
+  "dashboardAdvice": "Site advice",
+  "@dashboardAdvice": {
+    "description": "Staff dashboard. Site advice"
+  },
+  "dashboardDismiss": "Dismiss notice",
+  "@dashboardDismiss": {
+    "description": "Staff dashboard. Dismiss notice"
+  },
+  "dashboardFirstResponse": "Time to first response",
+  "@dashboardFirstResponse": {
+    "description": "Staff dashboard. Time to first response"
+  },
+  "dashboardSelectedPageviews": "Selected pageviews",
+  "@dashboardSelectedPageviews": {
+    "description": "Staff dashboard. Selected pageviews"
+  },
+  "dashboardTrafficHelp": "Use the legend to choose which traffic appears in the chart.",
+  "@dashboardTrafficHelp": {
+    "description": "Staff dashboard. Use the legend to choose which traffic appears in the chart."
+  },
+  "dashboardUsedSpace": "{size} used",
+  "@dashboardUsedSpace": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardFreeSpace": "{size} free",
+  "@dashboardFreeSpace": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardDiscourseUpdated": "Discourse updated {date}",
+  "@dashboardDiscourseUpdated": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardUpdated": "Dashboard updated {date}",
+  "@dashboardUpdated": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardDurationSeconds": "{seconds} s",
+  "@dashboardDurationSeconds": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardPercentagePoints": "{value} percentage points",
+  "@dashboardPercentagePoints": {
+    "description": "Staff dashboard summary.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardMegabytes": "{value} MB",
+  "@dashboardMegabytes": {"description": "Storage size in megabytes.", "placeholders": {"value": {"type": "String"}}},
+  "dashboardDurationHours": "{value} h",
+  "@dashboardDurationHours": {"description": "Dashboard time to first response in hours.", "placeholders": {"value": {"type": "String"}}}
 }

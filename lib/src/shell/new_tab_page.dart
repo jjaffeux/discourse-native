@@ -170,6 +170,16 @@ class NewTabPage extends StatelessWidget {
             siteUrl: siteUrl,
             onHeading: openChat,
           ),
+        if (forum?.user?.staff == true)
+          _StartSection(
+            id: 'dashboard',
+            title: context.l10n.dashboardTitle,
+            icon: DIcons.barsStaggered,
+            rows: const [],
+            siteUrl: siteUrl,
+            onHeading: () =>
+                shell.selectDestination(SidebarDestination.dashboard()),
+          ),
         _StartSection(
           id: 'topics',
           title: context.l10n.topics,

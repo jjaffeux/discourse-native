@@ -120,14 +120,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             .sidebarPanels(context)
             .where((entry) => entry.panel.showSwitch)
             .toList();
-        final shortcuts = registry
-            .communitySidebarDestinations(context)
-            .where(
-              (destination) =>
-                  destination.mobileNavigationLabel != null &&
-                  destination.enabled,
-            )
-            .toList();
+        final shortcuts = [
+          ...registry
+              .communitySidebarDestinations(context)
+              .where(
+                (destination) =>
+                    destination.mobileNavigationLabel != null &&
+                    destination.enabled,
+              ),
+          if (instance.user?.staff == true) SidebarDestination.dashboard(),
+        ];
         final destinations = instance.sections
             .expand(
               (section) => [

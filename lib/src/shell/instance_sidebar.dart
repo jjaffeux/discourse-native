@@ -571,12 +571,22 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                             linkEdit: _linkEdit,
                                             appendedDestinations:
                                                 section.id == 'community'
-                                                ? registry
-                                                      .communitySidebarDestinations(
-                                                        context,
-                                                        includeOwner:
-                                                            includePluginOwner,
-                                                      )
+                                                ? [
+                                                    ...registry
+                                                        .communitySidebarDestinations(
+                                                          context,
+                                                          includeOwner:
+                                                              includePluginOwner,
+                                                        ),
+                                                    if (controller
+                                                            .instanceFor(
+                                                              sidebar.siteUrl!,
+                                                            )
+                                                            ?.user
+                                                            ?.staff ==
+                                                        true)
+                                                      SidebarDestination.dashboard(),
+                                                  ]
                                                 : const [],
                                             store: sectionStore,
                                             selectedId: sidebar.destinationId,

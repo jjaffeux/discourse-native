@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../plugin_api/plugin_icon_catalog.dart';
@@ -35,6 +36,13 @@ class SidebarBadge {
 
 @immutable
 class SidebarDestination {
+  factory SidebarDestination.dashboard() => SidebarDestination(
+    id: 'dashboard',
+    label: appL10n.dashboardTitle,
+    icon: DIcons.barsStaggered,
+    mobileNavigationLabel: appL10n.dashboardTitle,
+  );
+
   const SidebarDestination({
     required this.id,
     required this.label,

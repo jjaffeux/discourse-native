@@ -99,7 +99,7 @@ void main() {
     expect(find.text('7,250'), findsOneWidget);
     await tester.tapAt(
       tester.getTopLeft(
-            find.byWidgetPredicate((widget) => widget is DBarChart),
+            find.byWidgetPredicate((widget) => widget is DCartesianChart),
           ) +
           const Offset(12, 80),
     );

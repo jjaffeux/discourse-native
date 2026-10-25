@@ -30,6 +30,13 @@ abstract final class DChartColors {
     final tokens = DTokens.of(context);
     final primary = tokens.primary;
     if (index == 0) return primary;
+    if (index >= 3) {
+      return Color.lerp(
+        primary,
+        tokens.background,
+        .5 + (index - 3).clamp(0, 3) * .1,
+      )!;
+    }
     final candidate = switch (index % 3) {
       1 => tokens.colors.tertiary,
       2 => tokens.colors.secondary,
@@ -480,7 +487,7 @@ class DChartSeries<T> {
   final Color? Function(BuildContext context, T datum)? color;
 }
 
-/// A borrowed selection controller is never disposed by [DBarChart]. Null hides
+/// A borrowed selection controller is never disposed by [DCartesianChart]. Null hides
 /// the cursor/tooltip. Selection indexes refer to the current input list.
 class DChartController extends ValueNotifier<int?> {
   DChartController([super.value]);
@@ -489,16 +496,16 @@ class DChartController extends ValueNotifier<int?> {
 typedef DChartTooltipBuilder =
     Widget Function(BuildContext context, String label, List<DChartItem> items);
 
-/// Native plotting owner for the frozen grouped-bar compositions. Adds no
-/// dependency or abstraction over an external plotting engine. Other plotting
-/// widgets can reuse [DChartContainer] and its tooltip/legend content directly.
+enum DChartPlot { bar, line, stackedArea }
+
+/// Native Cartesian plotting with shared inspection, axes, and accessibility.
 ///
 /// Tab enters once; arrows inspect categories (physical directions in RTL),
 /// Home/End select endpoints, Escape dismisses. Mouse hover and touch inspect
 /// the same data. An optional controller supplies persistent controlled state;
 /// [initialIndex] is consumed only when creating an owned controller.
-class DBarChart<T> extends StatefulWidget {
-  const DBarChart({
+class DCartesianChart<T> extends StatefulWidget {
+  const DCartesianChart({
     super.key,
     required this.data,
     required this.series,
@@ -518,6 +525,7 @@ class DBarChart<T> extends StatefulWidget {
     this.valueFormatter,
     this.height = 200,
     this.barRadius = 4,
+    this.plot = DChartPlot.bar,
     this.margin = const EdgeInsets.all(5),
     this.tickMargin = 10,
     this.minTickGap = 5,
@@ -559,6 +567,7 @@ class DBarChart<T> extends StatefulWidget {
   /// Minimum total height; grows to retain a 120px plot with scaled axis text.
   final double height;
   final double barRadius;
+  final DChartPlot plot;
   final EdgeInsetsGeometry margin;
   final double tickMargin;
   final double minTickGap;
@@ -568,10 +577,10 @@ class DBarChart<T> extends StatefulWidget {
   final double? maxValue;
 
   @override
-  State<DBarChart<T>> createState() => _DBarChartState<T>();
+  State<DCartesianChart<T>> createState() => _DCartesianChartState<T>();
 }
 
-class _DBarChartState<T> extends State<DBarChart<T>> {
+class _DCartesianChartState<T> extends State<DCartesianChart<T>> {
   late DChartController _controller;
   late FocusNode _focus;
   bool _focusHighlight = false;
@@ -597,7 +606,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
   }
 
   @override
-  void didUpdateWidget(covariant DBarChart<T> oldWidget) {
+  void didUpdateWidget(covariant DCartesianChart<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.controller != oldWidget.controller) {
       final previous = _selected;
@@ -698,7 +707,15 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
         }
       }
     }
-    final values = rows.expand((row) => row).map((item) => item.value).nonNulls;
+    final values = widget.plot == DChartPlot.stackedArea
+        ? rows.map(
+            (row) => row.fold<num>(0, (sum, item) => sum + (item.value ?? 0)),
+          )
+        : rows.expand((row) => row).map((item) => item.value).nonNulls;
+    if (widget.plot == DChartPlot.stackedArea &&
+        rows.expand((row) => row).any((item) => (item.value ?? 0) < 0)) {
+      throw ArgumentError('Stacked area values must be nonnegative.');
+    }
     var low =
         widget.minValue ??
         values.fold<double>(0, (a, b) => math.min(a, b.toDouble()));
@@ -791,7 +808,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                   builder: (context, constraints) {
                     if (!constraints.hasBoundedWidth) {
                       throw FlutterError(
-                        'DBarChart requires a bounded width. Use SizedBox or Expanded.',
+                        'DCartesianChart requires a bounded width. Use SizedBox or Expanded.',
                       );
                     }
                     final rtl = Directionality.of(context) == TextDirection.rtl;
@@ -859,6 +876,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
                               child: CustomPaint(
                                 painter: _BarPainter(
                                   rows: rows,
+                                  kind: widget.plot,
                                   labels: labels,
                                   plot: plot,
                                   low: low,
@@ -956,6 +974,7 @@ class _DBarChartState<T> extends State<DBarChart<T>> {
 class _BarPainter extends CustomPainter {
   const _BarPainter({
     required this.rows,
+    required this.kind,
     required this.labels,
     required this.plot,
     required this.low,
@@ -977,6 +996,7 @@ class _BarPainter extends CustomPainter {
     required this.minTickGap,
   });
   final List<List<DChartItem>> rows;
+  final DChartPlot kind;
   final List<String> labels;
   final Rect plot;
   final double low, high, radius;
@@ -1041,7 +1061,7 @@ class _BarPainter extends CustomPainter {
         );
       }
       final row = rows[index];
-      if (row.isNotEmpty) {
+      if (kind == DChartPlot.bar && row.isNotEmpty) {
         final gap = math.min(4.0, slot * .8 / math.max(1, row.length * 2 - 1));
         final rawWidth = math.max(
           0.0,
@@ -1066,6 +1086,7 @@ class _BarPainter extends CustomPainter {
         }
       }
     }
+    if (kind != DChartPlot.bar) _paths(canvas, paint, slot);
     if (axis) {
       var boundary = rtl ? 0.0 : size.width;
       for (var index = rows.length - 1; index >= 0; index--) {
@@ -1097,6 +1118,74 @@ class _BarPainter extends CustomPainter {
         }
       }
     }
+  }
+
+  void _paths(Canvas canvas, Paint paint, double slot) {
+    final count = rows.first.length;
+    double x(int index) =>
+        plot.left + ((rtl ? rows.length - index - 1 : index) + .5) * slot;
+    canvas.save();
+    canvas.clipRect(plot);
+    for (var series = 0; series < count; series++) {
+      bool present(int index) =>
+          rows[index][series].value != null &&
+          (kind != DChartPlot.stackedArea ||
+              rows[index].take(series).every((item) => item.value != null));
+      var start = 0;
+      while (start < rows.length) {
+        while (start < rows.length && !present(start)) {
+          start++;
+        }
+        if (start == rows.length) break;
+        var end = start;
+        while (end + 1 < rows.length && present(end + 1)) {
+          end++;
+        }
+        num base(int index) => rows[index]
+            .take(series)
+            .fold<num>(0, (sum, item) => sum + (item.value ?? 0));
+        num top(int index) =>
+            (kind == DChartPlot.stackedArea ? base(index) : 0) +
+            rows[index][series].value!;
+        final path = Path()..moveTo(x(start), y(top(start)));
+        for (var index = start + 1; index <= end; index++) {
+          path.lineTo(x(index), y(top(index)));
+        }
+        final color = rows[start][series].color!;
+        if (kind == DChartPlot.stackedArea) {
+          for (var index = end; index >= start; index--) {
+            path.lineTo(x(index), y(base(index)));
+          }
+          path.close();
+          canvas.drawPath(
+            path,
+            paint
+              ..style = PaintingStyle.fill
+              ..color = color.withValues(alpha: .72),
+          );
+        } else if (start == end) {
+          canvas.drawCircle(
+            Offset(x(start), y(top(start))),
+            2,
+            paint
+              ..style = PaintingStyle.fill
+              ..color = color,
+          );
+        } else {
+          canvas.drawPath(
+            path,
+            paint
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2
+              ..strokeJoin = StrokeJoin.round
+              ..color = color,
+          );
+        }
+        start = end + 1;
+      }
+    }
+    paint.style = PaintingStyle.fill;
+    canvas.restore();
   }
 
   void _text(
