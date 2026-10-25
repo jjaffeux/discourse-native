@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -7,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -646,9 +646,46 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     final body = super.buildBodyWidget(context, child);
     final mode = columnBodyMode;
     if (mode != null && body is Column) {
-      return mode.buildBodyWidget(this, context, body.children);
+      final rendered = mode.buildBodyWidget(this, context, body.children);
+      if (mode is! ProgressiveHtmlMode) return rendered;
+      final generation = _anchorBody;
+      return NotificationListener<HtmlBodyMountingNotification>(
+        onNotification: (notification) {
+          if (identical(generation, _anchorBody) &&
+              identical(notification.ownerFactory, this) &&
+              !notification.layoutPending) {
+            final completion = notification.completion;
+            _progressiveMounting = completion;
+            unawaited(
+              completion.whenComplete(() {
+                if (identical(_progressiveMounting, completion)) {
+                  _progressiveMounting = null;
+                }
+              }),
+            );
+          }
+          return false;
+        },
+        child: rendered,
+      );
     }
     return body;
+  }
+
+  Object _anchorBody = Object();
+  Future<void>? _progressiveMounting;
+
+  @override
+  void reset(State state) {
+    _anchorBody = Object();
+    super.reset(state);
+  }
+
+  @override
+  void dispose() {
+    _anchorBody = Object();
+    _progressiveMounting = null;
+    super.dispose();
   }
 
   final Set<dom.Element> _excludeLinkSemantics = Set.identity();
@@ -662,6 +699,37 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     final recognizer = super.buildGestureRecognizer(tree, onTap: onTap);
     final href = tree.element.attributes['href'];
     if (recognizer is TapGestureRecognizer && href != null) {
+      String? fragmentId;
+      if (href.startsWith('#') && href.length > 1) {
+        try {
+          fragmentId = Uri.decodeComponent(href.substring(1));
+        } on FormatException {
+          fragmentId = null;
+        }
+      }
+      if (fragmentId != null) {
+        final id = fragmentId;
+        final generation = _anchorBody;
+        recognizer.onTap = () async {
+          if (!identical(generation, _anchorBody)) return;
+          final keyboard = HardwareKeyboard.instance;
+          final modified =
+              keyboard.isShiftPressed ||
+              keyboard.isControlPressed ||
+              keyboard.isMetaPressed;
+          if (!modified) {
+            final mounting = _progressiveMounting;
+            if (mounting != null) {
+              await mounting;
+              await WidgetsBinding.instance.endOfFrame;
+              if (!identical(generation, _anchorBody)) return;
+            }
+            final handled = await onTapAnchorWrapper(id);
+            if (handled || !identical(generation, _anchorBody)) return;
+          }
+          onTap?.call();
+        };
+      }
       final url = urlFull(href) ?? href;
       _inlineLinkUrls[recognizer] = url;
       if (onMiddleClickUrl != null) {

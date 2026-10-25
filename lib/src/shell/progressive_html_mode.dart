@@ -22,7 +22,7 @@ class ProgressiveHtmlMode extends RenderMode {
     List<Widget> children,
   ) => children.length <= _ProgressiveHtmlBodyState.batchSize * 2
       ? RenderMode.column.buildBodyWidget(wf, context, children)
-      : _ProgressiveHtmlBody(children: children);
+      : _ProgressiveHtmlBody(ownerFactory: wf, children: children);
 }
 
 /// Lets the topic track unfinished parsing and mounting of a post body.
@@ -30,9 +30,11 @@ class HtmlBodyMountingNotification extends Notification {
   const HtmlBodyMountingNotification(
     this.completion, {
     this.layoutPending = true,
+    this.ownerFactory,
   });
 
   final Future<void> completion;
+  final WidgetFactory? ownerFactory;
 
   /// False when only the offscreen tail remains to be mounted.
   final bool layoutPending;
@@ -69,8 +71,12 @@ class _HtmlBodyLoadingState extends State<HtmlBodyLoading> {
 }
 
 class _ProgressiveHtmlBody extends StatefulWidget {
-  const _ProgressiveHtmlBody({required this.children});
+  const _ProgressiveHtmlBody({
+    required this.ownerFactory,
+    required this.children,
+  });
 
+  final WidgetFactory ownerFactory;
   final List<Widget> children;
 
   @override
@@ -91,6 +97,7 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
     HtmlBodyMountingNotification(
       _completion.future,
       layoutPending: false,
+      ownerFactory: widget.ownerFactory,
     ).dispatch(context);
   }
 
