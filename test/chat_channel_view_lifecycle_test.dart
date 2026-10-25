@@ -2926,41 +2926,42 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
-    testWidgets('live thread creation keeps the channel header on one line', (
-      tester,
-    ) async {
-      final controller = await _controller(
-        _ChatApi(
-          openPages: {
-            firstSite: [_messagesPage(1, 2)],
-          },
-        ),
-        sites: const [firstSite],
-      );
-      addTearDown(controller.dispose);
-      controller.chatRecords.put(firstSite, _channel(lastRead: 2));
-      await tester.pumpWidget(_TestView(controller: controller));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('chat-channel-header')), findsOneWidget);
-      expect(find.text('1 thread', findRichText: true), findsNothing);
-      final tracker = FakeSiteTracker.built.singleWhere(
-        (tracker) => tracker.siteUrl == firstSite,
-      );
-      void update(int replies) => tracker.deliverPluginMessage('/chat/9', {
-        'type': 'update_thread_original_message',
-        'original_message_id': 1,
-        'thread_id': 3,
-        'preview': {'reply_count': replies},
-      });
-      update(1);
-      await tester.pump();
-      expect(find.text('1 thread', findRichText: true), findsNothing);
-      final revision = controller.chat.stream(firstSite, 9).revision;
-      update(2);
-      await tester.pump();
-      expect(find.text('1 thread', findRichText: true), findsNothing);
-      expect(controller.chat.stream(firstSite, 9).revision, revision);
-    });
+    testWidgets(
+      'a live thread reply count leaves the header and window alone',
+      (tester) async {
+        final controller = await _controller(
+          _ChatApi(
+            openPages: {
+              firstSite: [_messagesPage(1, 2)],
+            },
+          ),
+          sites: const [firstSite],
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 2));
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        final header = find.byKey(const ValueKey('chat-channel-header'));
+        final headerSize = tester.getSize(header);
+        final tracker = FakeSiteTracker.built.singleWhere(
+          (tracker) => tracker.siteUrl == firstSite,
+        );
+        void update(int replies) => tracker.deliverPluginMessage('/chat/9', {
+          'type': 'update_thread_original_message',
+          'original_message_id': 1,
+          'thread_id': 3,
+          'preview': {'reply_count': replies},
+        });
+        update(1);
+        await tester.pump();
+        final revision = controller.chat.stream(firstSite, 9).revision;
+        update(2);
+        await tester.pump();
+        expect(controller.chat.message(firstSite, 1)?.thread?.replyCount, 2);
+        expect(controller.chat.stream(firstSite, 9).revision, revision);
+        expect(tester.getSize(header), headerSize);
+      },
+    );
 
     testWidgets(
       'a large-text channel keeps a single-line header and a reachable transcript',

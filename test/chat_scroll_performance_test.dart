@@ -560,54 +560,58 @@ void main() {
     }
   });
 
-  testWidgets('account changes rows do not read keep held message bodies', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(900, 700);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    const reader = DiscourseUser(id: 1, username: 'reader1');
-    final controller = await chatScrollController(reader: reader);
-    addTearDown(controller.dispose);
+  testWidgets(
+    'account changes that rows do not read keep held message bodies',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const reader = DiscourseUser(id: 1, username: 'reader1');
+      final controller = await chatScrollController(reader: reader);
+      addTearDown(controller.dispose);
 
-    // Close under the fake clock even when the body fails: a close first
-    // reached from a tearDown never completes, because it waits on futures
-    // created under the fake clock, which nothing drives once the body has
-    // returned.
-    try {
-      await tester.pumpWidget(ChatScrollFixture(controller: controller));
-      await tester.pumpAndSettle();
-      final held = await _fillRetentionWindow(tester);
-      final shell = controller.pluginSession.require(chatShellService);
-      var shellChanges = 0;
-      void countShellChange() => shellChanges++;
-      shell.addListener(countShellChange);
-      addTearDown(() => shell.removeListener(countShellChange));
-      final tracker = FakeSiteTracker.built.lastWhere(
-        (tracker) => tracker.siteUrl == chatScrollSite,
-      );
-      final rebuilt = _recordMessageRebuilds();
+      // Close under the fake clock even when the body fails: a close first
+      // reached from a tearDown never completes, because it waits on futures
+      // created under the fake clock, which nothing drives once the body has
+      // returned.
+      try {
+        await tester.pumpWidget(ChatScrollFixture(controller: controller));
+        await tester.pumpAndSettle();
+        final held = await _fillRetentionWindow(tester);
+        final shell = controller.pluginSession.require(chatShellService);
+        var shellChanges = 0;
+        void countShellChange() => shellChanges++;
+        shell.addListener(countShellChange);
+        addTearDown(() => shell.removeListener(countShellChange));
+        final tracker = FakeSiteTracker.built.lastWhere(
+          (tracker) => tracker.siteUrl == chatScrollSite,
+        );
+        final rebuilt = _recordMessageRebuilds();
 
-      // Each replaces the account record the rows' permission checks read.
-      tracker.deliverPluginMessage('/user-drafts/1', const {'draft_count': 4});
-      await tester.pumpAndSettle();
-      tracker.deliverPluginMessage('/user-status', const {
-        '1': {'description': 'In a meeting', 'emoji': 'calendar'},
-      });
-      await tester.pumpAndSettle();
+        // Each replaces the account record the rows' permission checks read.
+        tracker.deliverPluginMessage('/user-drafts/1', const {
+          'draft_count': 4,
+        });
+        await tester.pumpAndSettle();
+        tracker.deliverPluginMessage('/user-status', const {
+          '1': {'description': 'In a meeting', 'emoji': 'calendar'},
+        });
+        await tester.pumpAndSettle();
 
-      expect(shell.currentUser?.draftCount, 4);
-      expect(shell.currentUser?.status?.description, 'In a meeting');
-      expect(shellChanges, 2);
-      expect(rebuilt, isEmpty);
-      expect(find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(), {
-        ...held,
-      });
-    } finally {
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-    }
-  });
+        expect(shell.currentUser?.draftCount, 4);
+        expect(shell.currentUser?.status?.description, 'In a meeting');
+        expect(shellChanges, 2);
+        expect(rebuilt, isEmpty);
+        expect(
+          find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(),
+          {...held},
+        );
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
+    },
+  );
 
   testWidgets('an account change rows read updates held message actions', (
     tester,

@@ -1402,31 +1402,25 @@ void _registerChatShellTests() {
 
         for (final scenario in [
           (
-            name: 'tabs replace an explicit never preference',
             userMode: ChatSeparateSidebarMode.never,
             siteMode: ChatSeparateSidebarMode.always,
-            effectiveMode: ChatSeparateSidebarMode.never,
           ),
           (
-            name: 'tabs retain explicit always separation',
             userMode: ChatSeparateSidebarMode.always,
             siteMode: ChatSeparateSidebarMode.never,
-            effectiveMode: ChatSeparateSidebarMode.always,
           ),
           (
-            name: 'tabs separate fullscreen Chat before entry',
             userMode: ChatSeparateSidebarMode.fullscreen,
             siteMode: ChatSeparateSidebarMode.never,
-            effectiveMode: ChatSeparateSidebarMode.fullscreen,
           ),
           (
-            name: 'tabs separate Chat with the default preference',
             userMode: ChatSeparateSidebarMode.siteDefault,
             siteMode: ChatSeparateSidebarMode.always,
-            effectiveMode: ChatSeparateSidebarMode.always,
           ),
         ]) {
-          testWidgets(scenario.name, (tester) async {
+          testWidgets('tabs switch destinations whatever the user mode '
+              '${scenario.userMode.wireName} and site mode '
+              '${scenario.siteMode.wireName}', (tester) async {
             await pumpChat(
               tester,
               public: [channel(9)],
@@ -1517,20 +1511,20 @@ void _registerChatShellTests() {
           }
         }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-        for (final scenario in [
-          (mode: ChatSeparateSidebarMode.never, separates: false),
-          (mode: ChatSeparateSidebarMode.always, separates: true),
-          (mode: ChatSeparateSidebarMode.fullscreen, separates: true),
+        for (final mode in [
+          ChatSeparateSidebarMode.never,
+          ChatSeparateSidebarMode.always,
+          ChatSeparateSidebarMode.fullscreen,
         ]) {
           testWidgets(
-            'anonymous public Chat has tabs with site mode ${scenario.mode.wireName}',
+            'anonymous public Chat has tabs with site mode ${mode.wireName}',
             (tester) async {
               await pumpChat(
                 tester,
                 public: [channel(9)],
                 messages: {key(9): page(const [])},
                 user: null,
-                config: chatConfig(separateSidebarMode: scenario.mode),
+                config: chatConfig(separateSidebarMode: mode),
               );
               final shell = ShellScope.read(tester.element(primaryMainContent));
               await shell.chat.loadChannels(site);
@@ -1990,17 +1984,33 @@ void _registerChatShellTests() {
         expect(shellNotifications, 0);
       }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
 
-      testWidgets('draws nothing for an account that follows no channels', (
-        tester,
-      ) async {
-        await pumpChat(tester);
+      testWidgets(
+        'shows an empty inbox for an account that follows no channels',
+        (tester) async {
+          await pumpChat(tester);
 
-        expect(find.widgetWithText(DSidebarMenuButton, 'Chat'), findsNothing);
-        expect(
-          find.widgetWithText(DSidebarMenuButton, 'Direct messages'),
-          findsNothing,
-        );
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+          final empty = find.byKey(const ValueKey('chat-inbox-empty'));
+          expect(empty, findsOneWidget);
+          expect(
+            find.descendant(
+              of: empty,
+              matching: find.text('No conversations yet.'),
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget.key is ValueKey<String> &&
+                  (widget.key! as ValueKey<String>).value.startsWith(
+                    'chat-inbox-channel-',
+                  ),
+            ),
+            findsNothing,
+          );
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      );
 
       testWidgets(
         'omits sidebar search even when the site enables chat search',

@@ -870,9 +870,9 @@ void main() {
       (name: 'Enter', key: LogicalKeyboardKey.enter),
       (name: 'Space', key: LogicalKeyboardKey.space),
     ]) {
-      testWidgets('opens the whole thread card with ${activation.name}', (
-        tester,
-      ) async {
+      final opens = activation.key == LogicalKeyboardKey.enter;
+      testWidgets('${activation.name} ${opens ? 'opens' : 'does not open'} '
+          'the whole thread card', (tester) async {
         final thread = _thread();
         final controller = await _controller(_message(thread));
         final opened = <ChatThreadPreview>[];
@@ -903,12 +903,7 @@ void main() {
           await tester.sendKeyEvent(activation.key);
           await tester.pump();
 
-          expect(
-            opened,
-            activation.key == LogicalKeyboardKey.enter
-                ? [same(thread)]
-                : isEmpty,
-          );
+          expect(opened, opens ? [same(thread)] : isEmpty);
         } finally {
           semantics.dispose();
         }
@@ -1047,28 +1042,38 @@ void main() {
       );
     });
 
-    testWidgets('suppresses the original message card in thread context', (
-      tester,
-    ) async {
-      final thread = _thread();
-      final controller = await _controller(_message(thread));
-      addTearDown(controller.dispose);
+    for (final suppression in [
+      (name: 'in thread context', contextThreadId: 3, showThreadSummary: true),
+      (
+        name: 'when summaries are off',
+        contextThreadId: null,
+        showThreadSummary: false,
+      ),
+    ]) {
+      testWidgets('suppresses the original message card ${suppression.name}', (
+        tester,
+      ) async {
+        final thread = _thread();
+        final controller = await _controller(_message(thread));
+        addTearDown(controller.dispose);
 
-      await tester.pumpWidget(
-        _TestTile(
-          controller: controller,
-          onOpenThread: (_) {},
-          showThreadSummary: false,
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            contextThreadId: suppression.contextThreadId,
+            showThreadSummary: suppression.showThreadSummary,
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(ChatMessageTile.threadPreviewKey(thread.threadId)),
-        findsNothing,
-      );
-      expect(find.text('5 replies'), findsNothing);
-    });
+        expect(
+          find.byKey(ChatMessageTile.threadPreviewKey(thread.threadId)),
+          findsNothing,
+        );
+        expect(find.text('5 replies'), findsNothing);
+      });
+    }
 
     for (final chained in [false, true]) {
       testWidgets(
@@ -2183,7 +2188,10 @@ void main() {
     testWidgets('a pinned message badge is visible without pin permission', (
       tester,
     ) async {
-      final controller = await _controller(_message(null, pinned: true));
+      final controller = await _controller(
+        _message(null, pinned: true),
+        signedIn: true,
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
@@ -2193,7 +2201,11 @@ void main() {
 
       expect(_pinnedBadge(), findsOneWidget);
       await _hoverMessage(tester);
-      expect(find.byTooltip('Unpin'), findsNothing);
+      await tester.tap(find.byTooltip('More message actions').hitTestable());
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(find.widgetWithText(DDropdownMenuItem, 'Unpin'), findsNothing);
+      expect(find.widgetWithText(DDropdownMenuItem, 'Pin'), findsNothing);
     });
 
     testWidgets('staff can queue an HTML rebuild from message actions', (

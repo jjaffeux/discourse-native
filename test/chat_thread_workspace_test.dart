@@ -213,10 +213,6 @@ void main() {
         await _openThreadActions(tester);
         expect(find.byTooltip('Back'), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
-        if (find.byTooltip('Close thread').evaluate().isEmpty &&
-            find.byTooltip('Back').evaluate().isEmpty) {
-          await _openThreadActions(tester);
-        }
         expect(
           find.byWidgetPredicate(
             (widget) =>
@@ -312,10 +308,7 @@ void main() {
         expect(find.byTooltip('Back'), findsNothing);
         expect(find.text(_channelTitle), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
-        if (find.byTooltip('Close thread').evaluate().isEmpty &&
-            find.byTooltip('Back').evaluate().isEmpty) {
-          await _openThreadActions(tester);
-        }
+        await _openThreadActions(tester);
         expect(
           find.byWidgetPredicate(
             (widget) =>
@@ -723,7 +716,7 @@ void main() {
     );
 
     testWidgets(
-      'account changes rows do not read keep held messages at $width pixels',
+      'account changes that rows do not read keep held messages at $width pixels',
       (tester) async {
         final fixture = await _fixture(
           channelPage: _workspaceMessagesPage(1),
@@ -1459,7 +1452,6 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(fixture.api.chatThreadTitlesUpdated, isEmpty);
-          expect(fixture.api.titleKeys, isEmpty);
         },
       );
     }
@@ -1692,7 +1684,6 @@ void _expectThreadBodyTargets(WidgetTester tester) {
 }
 
 Future<({ShellController shell, _WorkspaceApi api})> _fixture({
-  bool terminalThread = false,
   bool editableThread = false,
   ChatThread? thread,
   List<ChatChannel> channels = const [_channel],
@@ -1704,7 +1695,6 @@ Future<({ShellController shell, _WorkspaceApi api})> _fixture({
   FakeAuthenticator? authenticator,
 }) async {
   final api = _WorkspaceApi(
-    terminalThread: terminalThread,
     thread: thread ?? (editableThread ? _editableThread : _thread),
     channels: channels,
     channelPage: channelPage,
@@ -1795,7 +1785,6 @@ final class _MemoryPanelWidthPersistence
 
 final class _WorkspaceApi extends FakeDiscourseApi {
   _WorkspaceApi({
-    this.terminalThread = false,
     this.thread = _thread,
     List<ChatChannel> channels = const [_channel],
     ChatMessagePage channelPage = _channelPage,
@@ -1827,7 +1816,6 @@ final class _WorkspaceApi extends FakeDiscourseApi {
       super.currentUser(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
 
   Completer<void>? titleResponse;
-  final List<String> titleKeys = [];
 
   @override
   Future<void> updateChatThreadTitle({
@@ -1838,7 +1826,6 @@ final class _WorkspaceApi extends FakeDiscourseApi {
     required String title,
     String? clientId,
   }) async {
-    titleKeys.add(apiKey);
     await super.updateChatThreadTitle(
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -1850,49 +1837,7 @@ final class _WorkspaceApi extends FakeDiscourseApi {
     await titleResponse?.future;
   }
 
-  final bool terminalThread;
   final ChatThread thread;
-  final List<({int channelId, int threadId, int messageId})> threadReads = [];
-
-  @override
-  Future<ChatThread> chatThread({
-    required String siteUrl,
-    required int channelId,
-    required int threadId,
-    String? apiKey,
-    String? clientId,
-  }) {
-    if (terminalThread) {
-      throw const SiteLookupException(
-        SiteLookupFailure.unreachable,
-        _siteUrl,
-        statusCode: 404,
-      );
-    }
-    return super.chatThread(
-      siteUrl: siteUrl,
-      channelId: channelId,
-      threadId: threadId,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-  }
-
-  @override
-  Future<void> markChatThreadRead({
-    required String siteUrl,
-    required String apiKey,
-    required int channelId,
-    required int threadId,
-    required int messageId,
-    String? clientId,
-  }) async {
-    threadReads.add((
-      channelId: channelId,
-      threadId: threadId,
-      messageId: messageId,
-    ));
-  }
 }
 
 final class _ThreadSettingsAuthenticator extends FakeAuthenticator {
