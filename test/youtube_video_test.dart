@@ -258,14 +258,25 @@ void main() {
         ),
         isTrue,
       );
-      expect(
-        isYoutubeInitialEmbedNavigation(
-          'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      for (final other in [
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        expected.replace(path: '/embed/otherVideo1').toString(),
+        expected
+            .replace(
+              queryParameters: {...expected.queryParameters, 'autoplay': '0'},
+            )
+            .toString(),
+        youtubeEmbedUri(
           _video,
-          forumOrigin: origin,
-        ),
-        isFalse,
-      );
+          forumOrigin: Uri.parse('https://other.example'),
+        ).toString(),
+      ]) {
+        expect(
+          isYoutubeInitialEmbedNavigation(other, _video, forumOrigin: origin),
+          isFalse,
+          reason: other,
+        );
+      }
     });
   });
 

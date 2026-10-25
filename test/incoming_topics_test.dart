@@ -120,24 +120,11 @@ void main() {
     });
 
     for (final messageType in ['new_topic', 'latest']) {
-      test('ignores an overflowing JSON identifier in $messageType', () {
-        final incoming = IncomingTopics();
-        final message = jsonDecode(
-          '{"topic_id":1e999,"message_type":"$messageType"}',
-        );
-
-        expect(incoming.notify(message), isFalse);
-        expect(incoming.topicIds('latest'), isEmpty);
-        expect(incoming.topicIds('new'), isEmpty);
-        expect(incoming.notify(newTopic(42)), isTrue);
-        expect(incoming.topicIds('latest'), [42]);
-        expect(incoming.topicIds('new'), [42]);
-      });
-
       test('rejects invalid numeric identifiers in $messageType', () {
         final incoming = IncomingTopics()..notify(newTopic(42));
         for (final id in <Object?>[
           double.infinity,
+          jsonDecode('1e999'),
           double.negativeInfinity,
           double.nan,
           0,

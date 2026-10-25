@@ -21,9 +21,7 @@ import 'support/shell_test_harness.dart';
 
 void main() {
   setUp(() {
-    SharedPreferences.setMockInitialValues({
-      'discourse_native.panel_tutorial_dismissed': true,
-    });
+    SharedPreferences.setMockInitialValues({});
   });
 
   testStartPage('Topics shortcut keeps the feed filter builder available', (
@@ -160,20 +158,11 @@ void main() {
   });
 
   testStartPage(
-    'closed topic, category and DM previews retain cached details',
+    'closed topic, category and DM tabs reopen from full-width chips',
     (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'discourse_native.panel_tutorial_dismissed': true,
-        'discourse_native.start_page_compact': false,
-      });
       const site = 'https://one.example';
       const user = DiscourseUser(username: 'reader');
-      const topic = Topic(
-        id: 10,
-        title: 'Closed topic',
-        slug: 'closed',
-        excerpt: 'Topic excerpt',
-      );
+      const topic = Topic(id: 10, title: 'Closed topic', slug: 'closed');
       await pumpShell(
         tester,
         const Size(1800, 1000),
@@ -192,7 +181,6 @@ void main() {
               name: 'Support',
               slug: 'support',
               color: '0088cc',
-              descriptionExcerpt: 'Category details',
             ),
           ],
           chatChannelsBySite: {
@@ -210,7 +198,6 @@ void main() {
                       avatarUrl: '$site/alex.png',
                     ),
                   ],
-                  lastMessagePreview: 'DM excerpt',
                 ),
               ],
             ),

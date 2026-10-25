@@ -148,20 +148,25 @@ void main() {
   });
 
   group('SafeHttpClient', () {
-    for (final host in [
-      '0127.0.0.1',
-      '00127.0.0.1',
-      '0x7f.0.0.1',
-      '+127.0.0.1',
-      '127.00.0.1',
-      '127.0.0.01',
-      '127.0x0.0.1',
-      '127.0.0.+1',
-      '127.0.0.1.',
-      '127.1',
-      '2130706433',
+    for (final url in [
+      for (final host in [
+        '0127.0.0.1',
+        '00127.0.0.1',
+        '0x7f.0.0.1',
+        '+127.0.0.1',
+        '127.00.0.1',
+        '127.0.0.01',
+        '127.0x0.0.1',
+        '127.0.0.+1',
+        '127.0.0.1.',
+        '127.1',
+        '2130706433',
+      ])
+        'http://$host/',
+      'http://forum.example/',
+      'https://reader:password@forum.example/path',
     ]) {
-      test('rejects noncanonical HTTP host $host before delegation', () async {
+      test('rejects unsafe request $url before delegation', () async {
         final delegated = <Uri>[];
         final client = SafeHttpClient.owned(
           _Client((request) async {
@@ -172,7 +177,7 @@ void main() {
         addTearDown(client.close);
 
         await expectLater(
-          () => client.send(http.Request('GET', Uri.parse('http://$host/'))),
+          () => client.send(http.Request('GET', Uri.parse(url))),
           throwsA(isA<UnsafeHttpTransportException>()),
         );
 
@@ -216,45 +221,6 @@ void main() {
       await client.send(http.Request('GET', Uri.https('forum.example', '/')));
 
       expect(followRedirects, isFalse);
-    });
-
-    test('rejects an unsafe request before delegation', () async {
-      var delegated = false;
-      final client = SafeHttpClient.owned(
-        _Client((request) async {
-          delegated = true;
-          return _response(request);
-        }),
-      );
-      addTearDown(client.close);
-
-      expect(
-        () => client.send(http.Request('GET', Uri.http('forum.example', '/'))),
-        throwsA(isA<UnsafeHttpTransportException>()),
-      );
-      expect(delegated, isFalse);
-    });
-
-    test('rejects request credentials before delegation', () async {
-      var delegated = false;
-      final client = SafeHttpClient.owned(
-        _Client((request) async {
-          delegated = true;
-          return _response(request);
-        }),
-      );
-      addTearDown(client.close);
-
-      expect(
-        () => client.send(
-          http.Request(
-            'GET',
-            Uri.parse('https://reader:password@forum.example/path'),
-          ),
-        ),
-        throwsA(isA<UnsafeHttpTransportException>()),
-      );
-      expect(delegated, isFalse);
     });
 
     test('closes owned clients but leaves borrowed clients open', () {

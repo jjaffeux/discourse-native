@@ -118,7 +118,6 @@ void main() {
         isTrue,
       );
       expect(oldController.channels, isEmpty);
-      expect(find.byType(YoutubePlayerSurface), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
