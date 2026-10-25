@@ -1419,6 +1419,9 @@ void main() {
 
       expect(seen.path, '/chat/api/channels/9/messages.json');
       expect(seen.queryParameters['page_size'], '50');
+      expect(seen.queryParameters, isNot(contains('target_message_id')));
+      expect(seen.queryParameters, isNot(contains('direction')));
+      expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
       expect(page.messages.single.id, 40);
     });
 
@@ -1465,20 +1468,6 @@ void main() {
         await expectLater(call(), throwsArgumentError);
       }
       expect(requests, 0);
-    });
-
-    test('omits the target message rather than sending an empty one', () async {
-      // `target_message_id=` reads as 0 server side and 404s for a message
-      // that cannot exist.
-      late Uri seen;
-      final api = DiscourseApi(client: serving((r) => seen = r.url));
-
-      await ChatApiClient(
-        api,
-      ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
-
-      expect(seen.queryParameters, isNot(contains('target_message_id')));
-      expect(seen.queryParameters, isNot(contains('direction')));
     });
 
     test(
@@ -1529,20 +1518,6 @@ void main() {
       expect(seen.queryParameters, isNot(contains('direction')));
       expect(page.targetMessageId, 40);
     });
-
-    test(
-      'never asks to fetch from last read, there being no way to page forward',
-      () async {
-        late Uri seen;
-        final api = DiscourseApi(client: serving((r) => seen = r.url));
-
-        await ChatApiClient(
-          api,
-        ).chatMessages(siteUrl: 'https://example.com', channelId: 9);
-
-        expect(seen.queryParameters, isNot(contains('fetch_from_last_read')));
-      },
-    );
 
     test(
       'sends the page size the site caps at, so the code names the real one',

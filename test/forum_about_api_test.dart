@@ -39,21 +39,32 @@ void main() {
           sent.single.headers['user-api-key'],
           authenticated ? 'test-key' : isNull,
         );
+        expect(
+          sent.single.headers['user-api-client-id'],
+          authenticated ? 'test-client' : isNull,
+        );
         expect(about.voiceParticipants(voiceEnabled: true), 17);
       },
     );
   }
 
   test('About keeps HTTP and invalid response failures visible', () async {
-    for (final response in [
-      http.Response('{"errors":["Not permitted"]}', 403),
-      http.Response('<html>Sign in</html>', 200),
-      http.Response('{}', 200),
+    for (final (response, failure) in [
+      (
+        http.Response('{"errors":["Not permitted"]}', 403),
+        isA<SiteLookupException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          403,
+        ),
+      ),
+      (http.Response('<html>Sign in</html>', 200), isA<Exception>()),
+      (http.Response('{}', 200), isA<Exception>()),
     ]) {
       final api = DiscourseApi(client: MockClient((_) async => response));
       await expectLater(
         api.forumAbout(siteUrl: 'https://forum.example'),
-        throwsA(isA<Exception>()),
+        throwsA(failure),
       );
       api.close();
     }

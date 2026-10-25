@@ -230,28 +230,41 @@ void main() {
     },
   );
 
-  test('validates core page and query limits', () {
-    final api = UserDirectoryApi(
-      _DirectoryTransport(),
-      const DiscourseModelCodec.core(),
-    );
-    expect(
-      () => api.directory(
-        siteUrl: siteUrl,
-        period: UserDirectoryPeriod.weekly,
-        columns: const [],
-        page: 11,
-      ),
-      throwsRangeError,
-    );
-    expect(
-      () => api.directory(
+  test('validates core page and query limits', () async {
+    final transport = _DirectoryTransport();
+    final api = UserDirectoryApi(transport, const DiscourseModelCodec.core());
+    for (final page in [-1, 11]) {
+      await expectLater(
+        api.directory(
+          siteUrl: siteUrl,
+          period: UserDirectoryPeriod.weekly,
+          columns: const [],
+          page: page,
+        ),
+        throwsRangeError,
+        reason: 'page=$page',
+      );
+    }
+    await expectLater(
+      api.directory(
         siteUrl: siteUrl,
         period: UserDirectoryPeriod.weekly,
         columns: const [],
         name: 'x' * 256,
       ),
       throwsArgumentError,
+    );
+    expect(transport.requests, isEmpty);
+
+    await api.directory(
+      siteUrl: siteUrl,
+      period: UserDirectoryPeriod.weekly,
+      columns: const [],
+      page: 10,
+    );
+    expect(
+      Uri.parse(transport.requests.single.path).queryParameters['page'],
+      '10',
     );
   });
 

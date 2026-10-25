@@ -587,7 +587,12 @@ void main() {
       postId: 1,
       limit: PostReactors.maximumPageSize,
     );
-    expect(calls, 2);
+    await ReactionsApiClient(api, api.models).postReactors(
+      siteUrl: 'https://example.com',
+      postId: 1,
+      reaction: 'x' * 100,
+    );
+    expect(calls, 3);
 
     await expectLater(
       api.postLikers(siteUrl: 'https://example.com', postId: 0),
@@ -626,11 +631,11 @@ void main() {
       ReactionsApiClient(api, api.models).postReactors(
         siteUrl: 'https://example.com',
         postId: 1,
-        reaction: 'x' * (DiscourseApi.maximumSearchTermLength + 1),
+        reaction: 'x' * 101,
       ),
       throwsArgumentError,
     );
-    expect(calls, 2, reason: 'invalid inputs must fail before transport');
+    expect(calls, 3, reason: 'invalid inputs must fail before transport');
   });
 
   test(

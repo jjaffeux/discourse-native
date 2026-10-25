@@ -43,10 +43,11 @@ void main() {
 
   group('authUrl', () {
     test('carries everything the site needs to answer', () {
+      const publicKeyPem =
+          '-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----';
       final url = protocol.authUrl(
         siteUrl: 'https://meta.discourse.org',
-        publicKeyPem:
-            '-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----',
+        publicKeyPem: publicKeyPem,
         nonce: 'nonce-123',
         clientId: 'client-abc',
         applicationName: 'Discourse Native',
@@ -57,9 +58,13 @@ void main() {
       expect(url.queryParameters['nonce'], 'nonce-123');
       expect(url.queryParameters['client_id'], 'client-abc');
       expect(url.queryParameters['auth_redirect'], 'discourse://auth_redirect');
-      expect(url.queryParameters['scopes'], contains('session_info'));
+      expect(
+        url.queryParameters['scopes']!.split(','),
+        unorderedEquals(['read', 'write', 'session_info', 'notifications']),
+      );
       expect(url.queryParameters, isNot(contains('push_url')));
-      expect(url.queryParameters['public_key'], contains('BEGIN PUBLIC KEY'));
+      expect(url.queryParameters['public_key'], publicKeyPem);
+      expect(url.queryParameters['application_name'], 'Discourse Native');
     });
 
     test('registers an optional push provider with the site', () {
