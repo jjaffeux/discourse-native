@@ -1804,6 +1804,130 @@ void main() {
     },
   );
 
+  for (final selfId in [25, 75]) {
+    testWidgets(
+      'prioritized directory user $selfId keeps all three ranked pages',
+      (tester) async {
+        final pages = <int>[];
+        final transport = DiscourseApi(
+          client: MockClient((request) async {
+            if (request.url.path != '/directory_items.json') {
+              return http.Response('{}', 200);
+            }
+            final page = int.parse(request.url.queryParameters['page']!);
+            pages.add(page);
+            return http.Response(
+              jsonEncode({
+                'directory_items': [
+                  for (final id in [
+                    if (page == 0) selfId,
+                    for (
+                      var id = page * 50 + 1;
+                      id <= (page == 2 ? 101 : (page + 1) * 50);
+                      id++
+                    )
+                      id,
+                  ])
+                    {
+                      'user': {'id': id, 'username': 'user$id'},
+                    },
+                ],
+                'meta': {'total_rows_directory_items': 101},
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        );
+        addTearDown(transport.close);
+        final controller =
+            GlobalSearchController(
+                api: GlobalSearchApi(transport: transport),
+                credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+                lifecycle: SiteLifecycle(),
+                debounceDuration: const Duration(milliseconds: 1),
+              )
+              ..configure(
+                siteUrl: _site,
+                capabilities: GlobalSearchCapabilities(
+                  authenticated: true,
+                  username: 'user$selfId',
+                ),
+              )
+              ..setScope(GlobalSearchScope.users)
+              ..setQuery('sailor')
+              ..submit();
+        addTearDown(controller.dispose);
+        expect(controller.wordsQuery, 'sailor');
+        await tester.pump(const Duration(seconds: 1));
+        expect(pages, [0]);
+        expect(controller.error, isNull);
+        expect(controller.results.map((row) => row.id), contains('users:50'));
+        expect(controller.results, hasLength(selfId <= 50 ? 50 : 51));
+        expect(controller.hasMore, isTrue);
+        controller.loadMore();
+        await tester.pump(const Duration(seconds: 1));
+        expect(controller.error, isNull);
+        expect(controller.results, hasLength(100));
+        expect(controller.hasMore, isTrue);
+        controller.loadMore();
+        await tester.pump(const Duration(seconds: 1));
+        expect(controller.error, isNull);
+        expect(pages, [0, 1, 2]);
+        expect(controller.results, hasLength(101));
+        expect(controller.results.map((row) => row.id).toSet(), {
+          for (var id = 1; id <= 101; id++) 'users:$id',
+        });
+        expect(controller.hasMore, isFalse);
+        controller.loadMore();
+        await tester.pump(const Duration(seconds: 1));
+        expect(pages, [0, 1, 2]);
+      },
+    );
+  }
+
+  for (final (scope, pageNumber, maximum) in [
+    (GlobalSearchScope.users, 0, 51),
+    (GlobalSearchScope.users, 1, 50),
+    (GlobalSearchScope.groups, 0, 50),
+  ]) {
+    test('directory ${scope.name} page $pageNumber remains bounded', () async {
+      final users = scope == GlobalSearchScope.users;
+      final transport = _Transport()
+        ..response = {
+          users ? 'directory_items' : 'groups': [
+            for (var id = 1; id <= 75; id++)
+              if (users)
+                {
+                  'user': {'id': id, 'username': 'user$id'},
+                }
+              else
+                {'id': id, 'name': 'group$id', 'user_count': id},
+          ],
+          if (users)
+            'meta': {'total_rows_directory_items': 101}
+          else
+            'total_rows_groups': 101,
+        };
+      final page = await GlobalSearchApi(transport: transport).search(
+        siteUrl: _site,
+        apiKey: 'key',
+        request: GlobalSearchRequest(
+          scope: scope,
+          query: '',
+          capabilities: _caps,
+          order: users ? 'username' : 'name',
+          page: pageNumber,
+          offset: pageNumber * 50,
+        ),
+      );
+      expect(page.results, hasLength(maximum));
+      expect(page.consumedCount, 50);
+      expect(page.hasMore, isTrue);
+      expect(page.groupMemberOrder, users ? isNull : isTrue);
+    });
+  }
+
   test(
     'forum wire query preserves exact category, date range and page one',
     () async {
