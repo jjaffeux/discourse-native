@@ -44,4 +44,32 @@ void main() {
     lease.onRetire(() => alreadyRetired = true);
     expect(alreadyRetired, isTrue);
   });
+
+  test('an observer registered during retirement still runs', () {
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture('https://forum.example');
+    var lateObserverRan = false;
+    lease.onRetire(() {
+      lease.onRetire(() => lateObserverRan = true);
+    });
+
+    lifecycle.invalidate('https://forum.example');
+
+    expect(lateObserverRan, isTrue);
+  });
+
+  test('a retired lease keeps its own session identity', () {
+    final lifecycle = SiteLifecycle();
+    final first = lifecycle.capture('https://forum.example');
+    final joined = lifecycle.capture('https://forum.example');
+    final firstSession = first.session;
+
+    expect(joined.session, same(firstSession));
+
+    lifecycle.invalidate('https://forum.example');
+    final successor = lifecycle.capture('https://forum.example');
+
+    expect(first.session, same(firstSession));
+    expect(successor.session, isNot(same(firstSession)));
+  });
 }

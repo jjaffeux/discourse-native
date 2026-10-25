@@ -325,6 +325,18 @@ void main() {
       expect(clientIds.events, ['read', 'write']);
     });
 
+    test('replaces an empty old private-storage ID with a new one', () async {
+      final clientIds = _FakeClientIds();
+      final store = SecureStore(
+        storage: _FakeStorage({'client_id': ''}),
+        clientIds: clientIds,
+        tokenGenerator: () => 'generated-id',
+      );
+
+      expect(await store.readOrCreateClientId(), 'generated-id');
+      expect(clientIds.value, 'generated-id');
+    });
+
     test('coalesces simultaneous creation requests', () async {
       final readGate = Completer<void>();
       final readStarted = Completer<void>();
@@ -533,6 +545,70 @@ void main() {
       ]);
       expect(await store.readPushClientId(), 'new-token');
       expect(pushClientIds.events, ['read', 'read', 'write', 'read', 'read']);
+    });
+
+    test(
+      'a read failure overtaken by a write answers the written ID',
+      () async {
+        final readGate = Completer<void>();
+        final readStarted = Completer<void>();
+        final pushClientIds = _FakeClientIds('old-token')
+          ..readError = StateError('preferences unavailable')
+          ..readGate = readGate
+          ..readStarted = readStarted;
+        final store = SecureStore(
+          storage: _FakeStorage(),
+          pushClientIds: pushClientIds,
+        );
+
+        final read = store.readPushClientId();
+        await readStarted.future;
+        final write = store.writePushClientId('new-token');
+        readGate.complete();
+
+        expect(await read, 'new-token');
+        await write;
+        expect(pushClientIds.value, 'new-token');
+      },
+    );
+
+    test('a read during a write answers the written ID', () async {
+      final writeGate = Completer<void>();
+      final pushClientIds = _FakeClientIds('old-token');
+      final store = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+      expect(await store.readPushClientId(), 'old-token');
+
+      pushClientIds.writeGates.add(writeGate);
+      final write = store.writePushClientId('new-token');
+      final read = store.readPushClientId();
+      writeGate.complete();
+
+      expect(await read, 'new-token');
+      await write;
+    });
+
+    test('a superseded write is not answered while a newer one runs', () async {
+      final firstGate = Completer<void>();
+      final secondGate = Completer<void>();
+      final pushClientIds = _FakeClientIds('old-token')
+        ..writeGates.addAll([firstGate, secondGate]);
+      final store = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: pushClientIds,
+      );
+
+      final first = store.writePushClientId('first-token');
+      final second = store.writePushClientId('second-token');
+      firstGate.complete();
+      await first;
+      final read = store.readPushClientId();
+      secondGate.complete();
+
+      expect(await read, 'second-token');
+      await second;
     });
 
     test('a failed write keeps the stored ID and can be retried', () async {
@@ -828,6 +904,164 @@ void main() {
       expect(await store.readApiKey(siteUrl), 'new-key');
     });
 
+    test('a read during a write answers the written key', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = gate
+        ..writeStarted = started;
+      final store = SecureStore(storage: storage);
+      expect(await store.readApiKey(siteUrl), 'old-key');
+
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      await started.future;
+      final read = store.readApiKey(siteUrl);
+      gate.complete();
+      await write;
+
+      expect(await read, 'new-key');
+      expect(storage.events, [
+        'read:api_key::$siteUrl',
+        'write:api_key::$siteUrl',
+      ]);
+    });
+
+    test('a read during a delete answers the deletion', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedDeleteKey = 'api_key::$siteUrl'
+        ..deleteGate = gate
+        ..deleteStarted = started;
+      final store = SecureStore(storage: storage);
+      expect(await store.readApiKey(siteUrl), 'old-key');
+
+      final deletion = store.deleteApiKey(siteUrl);
+      await started.future;
+      final read = store.readApiKey(siteUrl);
+      gate.complete();
+      await deletion;
+
+      expect(await read, isNull);
+    });
+
+    test('a read after a superseded write answers the newer delete', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final writeGate = Completer<void>();
+      final deleteGate = Completer<void>();
+      final storage = _FakeStorage()
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = writeGate
+        ..gatedDeleteKey = 'api_key::$siteUrl'
+        ..deleteGate = deleteGate;
+      final store = SecureStore(storage: storage);
+
+      final write = store.writeApiKey(siteUrl, 'superseded-key');
+      final deletion = store.deleteApiKey(siteUrl);
+      writeGate.complete();
+      await write;
+      final read = store.readApiKey(siteUrl);
+      deleteGate.complete();
+      await deletion;
+
+      expect(await read, isNull);
+    });
+
+    test('a read after a superseded delete answers the newer write', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final writeGate = Completer<void>();
+      final deleteGate = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = writeGate
+        ..gatedDeleteKey = 'api_key::$siteUrl'
+        ..deleteGate = deleteGate;
+      final store = SecureStore(storage: storage);
+
+      final deletion = store.deleteApiKey(siteUrl);
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      deleteGate.complete();
+      await deletion;
+      final read = store.readApiKey(siteUrl);
+      writeGate.complete();
+      await write;
+
+      expect(await read, 'new-key');
+    });
+
+    test('a delete queued behind a failed write still runs', () async {
+      const siteUrl = 'https://meta.discourse.org';
+      final gate = Completer<void>();
+      final storage = _FakeStorage({'api_key::$siteUrl': 'old-key'})
+        ..gatedWriteKey = 'api_key::$siteUrl'
+        ..writeGate = gate
+        ..writeErrors['api_key::$siteUrl'] = StateError('keychain refused');
+      final store = SecureStore(storage: storage);
+
+      final write = store.writeApiKey(siteUrl, 'new-key');
+      final deletion = store.deleteApiKey(siteUrl);
+      gate.complete();
+
+      await expectLater(write, throwsStateError);
+      await deletion;
+      expect(storage.values, isEmpty);
+      expect(await store.readApiKey(siteUrl), isNull);
+    });
+
+    for (final mutation in ['write', 'delete']) {
+      test(
+        'a read after a failed $mutation answers what storage holds',
+        () async {
+          const siteUrl = 'https://meta.discourse.org';
+          const entry = 'api_key::$siteUrl';
+          final readGate = Completer<void>();
+          final readStarted = Completer<void>();
+          final mutationGate = Completer<void>();
+          final mutationStarted = Completer<void>();
+          final error = StateError('keychain refused');
+          final storage = _FakeStorage({entry: 'old-key'})
+            ..gatedReadKey = entry
+            ..snapshotGatedRead = true
+            ..readGate = readGate
+            ..readStarted = readStarted;
+          if (mutation == 'write') {
+            storage
+              ..gatedWriteKey = entry
+              ..writeGate = mutationGate
+              ..writeStarted = mutationStarted
+              ..writeErrors[entry] = error;
+          } else {
+            storage
+              ..gatedDeleteKey = entry
+              ..deleteGate = mutationGate
+              ..deleteStarted = mutationStarted
+              ..deleteErrors[entry] = error;
+          }
+          final store = SecureStore(storage: storage);
+
+          final staleRead = store.readApiKey(siteUrl);
+          await readStarted.future;
+          final failed = mutation == 'write'
+              ? store.writeApiKey(siteUrl, 'new-key')
+              : store.deleteApiKey(siteUrl);
+          await mutationStarted.future;
+          // The old item was removed before the platform reported failure,
+          // as a legacy-keychain replacement deletes before it writes.
+          storage.values.remove(entry);
+          mutationGate.complete();
+          await expectLater(failed, throwsA(same(error)));
+          final laterRead = store.readApiKey(siteUrl);
+          readGate.complete();
+
+          expect(await laterRead, isNull);
+          expect(await staleRead, isNull);
+        },
+      );
+    }
+
     test('asks storage for an idempotent deletion of a missing key', () async {
       final storage = _FakeStorage();
       final store = SecureStore(storage: storage);
@@ -965,9 +1199,15 @@ final class _FakeClientIds implements ClientIdPersistence {
 
   String? value;
   Object? writeError;
+
+  /// Thrown by the next read only.
+  Object? readError;
   bool snapshotGatedRead = false;
   Completer<void>? readGate;
   Completer<void>? readStarted;
+
+  /// Each write waits on the next gate in order; later writes run ungated.
+  final List<Completer<void>> writeGates = [];
   final List<String> events = [];
 
   @override
@@ -978,12 +1218,17 @@ final class _FakeClientIds implements ClientIdPersistence {
       started.complete();
     }
     await readGate?.future;
+    if (readError case final error?) {
+      readError = null;
+      throw error;
+    }
     return snapshotGatedRead ? snapshot : value;
   }
 
   @override
   Future<void> write(String value) async {
     events.add('write');
+    if (writeGates.isNotEmpty) await writeGates.removeAt(0).future;
     if (writeError case final error?) throw error;
     this.value = value;
   }

@@ -82,6 +82,26 @@ void main() {
     expect(await file.readAsString(), 'not json');
   });
 
+  for (final (description, contents) in <(String, String)>[
+    ('an unknown format version', '{"version":2,"values":{"secret":"old"}}'),
+    ('a non-string value', '{"version":1,"values":{"secret":1}}'),
+  ]) {
+    test('rejects and preserves a store with $description', () async {
+      final file = File('${directory.path}/private-storage.json');
+      await file.writeAsString(contents);
+
+      await expectLater(
+        storage.read('secret'),
+        throwsA(isA<FormatException>()),
+      );
+      await expectLater(
+        storage.write('secret', 'value'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(await file.readAsString(), contents);
+    });
+  }
+
   group('Apple Keychain options', () {
     const channel = MethodChannel('test.discourse.native/keychain');
     final calls = <MethodCall>[];
@@ -210,6 +230,47 @@ void main() {
       );
       expect(calls.map((call) => call.method), ['delete']);
     });
+
+    for (final (description, usesDataProtectionKeychain, code, details)
+        in <(String, bool, String, Object?)>[
+          (
+            'the Data Protection keychain',
+            true,
+            'Unexpected security result code',
+            -34018,
+          ),
+          ('another code', false, 'acl-refused', -34018),
+          (
+            'another security result',
+            false,
+            'Unexpected security result code',
+            -25293,
+          ),
+        ]) {
+      test('a delete failure from $description is not a miss', () async {
+        final error = PlatformException(code: code, details: details);
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              calls.add(call);
+              if (call.method == 'delete') throw error;
+              return null;
+            });
+        final storage = AppleKeychainStorage(
+          channel: channel,
+          usesDataProtectionKeychain: usesDataProtectionKeychain,
+        );
+
+        await expectLater(
+          storage.delete('present'),
+          throwsA(
+            isA<PlatformException>()
+                .having((failure) => failure.code, 'code', code)
+                .having((failure) => failure.details, 'details', details),
+          ),
+        );
+        expect(calls.map((call) => call.method), ['delete']);
+      });
+    }
   });
 
   test(
@@ -420,6 +481,49 @@ void main() {
       expect(events.where((event) => event == 'legacy.read:$key'), isEmpty);
     });
 
+    test('a failed write cannot lift a tombstone over a stale value', () async {
+      final events = <String>[];
+      final error = StateError('data protection write failed');
+      final primary = _MemoryPrivateStorage('primary', events, {
+        key: 'stale',
+        stateKey: 'deleted',
+      })..writeErrors[key] = error;
+      final storage = MigratingPrivateStorage(
+        primary: primary,
+        legacy: _MemoryPrivateStorage('legacy', events),
+      );
+
+      await expectLater(storage.write(key, 'new'), throwsA(same(error)));
+
+      expect(primary.values[stateKey], 'deleted');
+      expect(await storage.read(key), isNull);
+    });
+
+    test('a write issued during a delete wins', () async {
+      final events = <String>[];
+      final started = Completer<void>();
+      final gate = Completer<void>();
+      final primary = _MemoryPrivateStorage('primary', events, {key: 'old'})
+        ..gatedWriteKey = stateKey
+        ..writeGate = gate
+        ..writeStarted = started;
+      final storage = MigratingPrivateStorage(
+        primary: primary,
+        legacy: _MemoryPrivateStorage('legacy', events),
+      );
+
+      final deletion = storage.delete(key);
+      await started.future;
+      final replacement = storage.write(key, 'new');
+      await Future<void>.delayed(Duration.zero);
+      gate.complete();
+      await Future.wait([deletion, replacement]);
+
+      expect(primary.values[key], 'new');
+      expect(primary.values[stateKey], 'active');
+      expect(await storage.read(key), 'new');
+    });
+
     test('a write queued behind migration wins', () async {
       final events = <String>[];
       final gate = Completer<void>();
@@ -535,6 +639,9 @@ final class _MemoryPrivateStorage implements PrivateStorage {
   String? gatedReadKey;
   Completer<void>? readGate;
   Completer<void>? readStarted;
+  String? gatedWriteKey;
+  Completer<void>? writeGate;
+  Completer<void>? writeStarted;
 
   @override
   Future<String?> read(String key) async {
@@ -551,6 +658,13 @@ final class _MemoryPrivateStorage implements PrivateStorage {
   @override
   Future<void> write(String key, String value) async {
     events.add('$name.write:$key');
+    if (key == gatedWriteKey) {
+      // Only the first write to the gated key waits.
+      gatedWriteKey = null;
+      final started = writeStarted;
+      if (started != null && !started.isCompleted) started.complete();
+      await writeGate?.future;
+    }
     if (writeErrors[key] case final error?) throw error;
     values[key] = value;
   }
