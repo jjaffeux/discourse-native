@@ -333,42 +333,66 @@ void main() {
   testWidgets(
     'connected outline geometry keeps outer logical radii and one shared seam',
     (tester) async {
-      await mount(
-        tester,
-        const UnconstrainedBox(
-          child: DToggleGroup<String>(
-            variant: DToggleVariant.outline,
-            spacing: 0,
-            items: [
-              DToggleGroupItem(
-                value: 'a',
-                semanticLabel: 'Alpha',
-                child: Text('A'),
-              ),
-              DToggleGroupItem(
-                value: 'b',
-                semanticLabel: 'Beta',
-                child: Text('B'),
-              ),
-              DToggleGroupItem(
-                value: 'c',
-                semanticLabel: 'Gamma',
-                child: Text('C'),
-              ),
-            ],
+      for (final direction in TextDirection.values) {
+        await mount(
+          tester,
+          const UnconstrainedBox(
+            child: DToggleGroup<String>(
+              variant: DToggleVariant.outline,
+              spacing: 0,
+              items: [
+                DToggleGroupItem(
+                  value: 'a',
+                  semanticLabel: 'Alpha',
+                  child: Text('A'),
+                ),
+                DToggleGroupItem(
+                  value: 'b',
+                  semanticLabel: 'Beta',
+                  child: Text('B'),
+                ),
+                DToggleGroupItem(
+                  value: 'c',
+                  semanticLabel: 'Gamma',
+                  child: Text('C'),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+          direction: direction,
+        );
 
-      final decorations = tester
-          .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
-          .map((container) => container.decoration! as BoxDecoration)
-          .toList();
-      expect(decorations, hasLength(3));
-      expect(decorations[0].borderRadius, isA<BorderRadius>());
-      expect(decorations[1].borderRadius, BorderRadius.zero);
-      expect((decorations[1].border! as Border).left, BorderSide.none);
-      expect((decorations[2].border! as Border).left, BorderSide.none);
+        final decorations = tester
+            .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+            .map((container) => container.decoration! as BoxDecoration)
+            .toList();
+        final ltr = direction == TextDirection.ltr;
+        const outer = Radius.circular(DRadius.control);
+        BorderSide start(int index) {
+          final border = decorations[index].border! as Border;
+          return ltr ? border.left : border.right;
+        }
+
+        expect(decorations, hasLength(3));
+        expect(
+          decorations[0].borderRadius,
+          ltr
+              ? const BorderRadius.horizontal(left: outer)
+              : const BorderRadius.horizontal(right: outer),
+          reason: '$direction',
+        );
+        expect(decorations[1].borderRadius, BorderRadius.zero);
+        expect(
+          decorations[2].borderRadius,
+          ltr
+              ? const BorderRadius.horizontal(right: outer)
+              : const BorderRadius.horizontal(left: outer),
+          reason: '$direction',
+        );
+        expect(start(0), isNot(BorderSide.none), reason: '$direction');
+        expect(start(1), BorderSide.none, reason: '$direction');
+        expect(start(2), BorderSide.none, reason: '$direction');
+      }
     },
   );
 

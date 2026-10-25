@@ -101,14 +101,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('disabled resume card does not restore', (tester) async {
-    await _pump(tester);
-    await tester.tap(find.byKey(_restore));
-    expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNull,
-    );
-    expect(tester.takeException(), isNull);
+  testWidgets('disabled resume card neither reveals restore nor activates', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(tester);
+      final artwork = find
+          .ancestor(
+            of: find.byKey(_restore),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first;
+      Color tint() =>
+          (tester.widget<AnimatedContainer>(artwork).decoration!
+                  as BoxDecoration)
+              .color!;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.text('12 words')));
+      await tester.pump();
+      expect(tint().a, 0);
+      await mouse.down(tester.getCenter(find.byKey(_restore)));
+      await tester.pump();
+      expect(tint().a, 0);
+      await mouse.up();
+      expect(
+        tester.getSemantics(find.byKey(_card)),
+        isSemantics(
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
   });
 }
 

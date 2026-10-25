@@ -453,9 +453,15 @@ void main() {
         expect(node.flagsCollection.isButton, isFalse);
         expect(node.flagsCollection.isLink, isFalse);
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        final focused = FocusManager.instance.primaryFocus?.context;
         expect(
-          FocusManager.instance.primaryFocus?.context?.widget,
-          isNot(isA<DBadge>()),
+          find.descendant(
+            of: find.byType(DBadge),
+            matching: find.byElementPredicate(
+              (element) => identical(element, focused),
+            ),
+          ),
+          findsNothing,
         );
       } finally {
         semantics.dispose();

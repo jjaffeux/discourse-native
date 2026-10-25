@@ -11,11 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  for (final variant in [
-    DButtonVariant.ghost,
-    DButtonVariant.ghost,
-    DButtonVariant.inline,
-  ]) {
+  for (final variant in [DButtonVariant.ghost, DButtonVariant.inline]) {
     testWidgets(
       '$variant uses the mockup secondary text ramp across palettes',
       (tester) async {

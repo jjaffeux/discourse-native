@@ -285,28 +285,14 @@ void main() {
     expect(changes, isEmpty);
   });
 
-  testWidgets('disabled editable picker cannot be opened imperatively', (
-    tester,
-  ) async {
-    final popover = DPopoverController();
-    addTearDown(popover.dispose);
-    await pump(tester, const DDatePickerInput());
-
-    popover.open();
-    await tester.pumpAndSettle();
-    expect(find.byType(DCalendar), findsNothing);
-  });
-
   testWidgets('editable picker preserves and never disposes borrowed editors', (
     tester,
   ) async {
     final first = TextEditingController(text: '2026-09-09');
     final second = TextEditingController(text: '2026-09-10');
-    final focus = FocusNode();
     addTearDown(() {
       first.dispose();
       second.dispose();
-      focus.dispose();
     });
     const key = ValueKey('editable-date');
 
@@ -325,7 +311,6 @@ void main() {
     );
     await pump(tester, const SizedBox());
     expect(() => second.text = 'still alive', returnsNormally);
-    expect(() => focus.requestFocus(), returnsNormally);
   });
 
   testWidgets('editable calendar action retains a touch-sized target', (

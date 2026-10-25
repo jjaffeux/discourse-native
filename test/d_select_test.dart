@@ -634,36 +634,54 @@ void main() {
   testWidgets('selected item aligns with trigger until alignment is disabled', (
     tester,
   ) async {
-    await _mount(
-      tester,
-      Center(
-        child: DSelect<String>(
-          value: 'banana',
-          semanticLabel: 'Fruit',
-          entries: const [
-            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-            DSelectOption(
-              value: 'banana',
-              label: 'Banana',
-              child: Text('Banana'),
-            ),
-            DSelectOption(
-              value: 'grapes',
-              label: 'Grapes',
-              child: Text('Grapes'),
-            ),
-          ],
-          onChanged: _noopString,
+    for (final align in [true, false]) {
+      await _mount(
+        tester,
+        Center(
+          child: DSelect<String>(
+            key: ValueKey(align),
+            value: 'banana',
+            semanticLabel: 'Fruit',
+            alignItemWithTrigger: align,
+            entries: const [
+              DSelectOption(
+                value: 'apple',
+                label: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectOption(
+                value: 'banana',
+                label: 'Banana',
+                child: Text('Banana'),
+              ),
+              DSelectOption(
+                value: 'grapes',
+                label: 'Grapes',
+                child: Text('Grapes'),
+              ),
+            ],
+            onChanged: _noopString,
+          ),
         ),
-      ),
-    );
-    final triggerCenter = tester.getCenter(find.text('Banana').first);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    final selectedCenter = tester.getCenter(find.text('Banana').last);
-    expect((selectedCenter.dy - triggerCenter.dy).abs(), lessThanOrEqualTo(4));
+      );
+      final trigger = tester.getRect(find.byType(DSelect<String>));
+      final triggerCenter = tester.getCenter(find.text('Banana').first);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final selected = tester.getRect(find.text('Banana').last);
+      if (align) {
+        expect(
+          (selected.center.dy - triggerCenter.dy).abs(),
+          lessThanOrEqualTo(4),
+        );
+      } else {
+        expect(selected.top, greaterThan(trigger.bottom));
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('selected last item aligns with the trigger when space permits', (
@@ -1126,17 +1144,32 @@ void main() {
       final focus = FocusNode();
       final popover = DPopoverController();
       final scroll = ScrollController();
+      const entries = [
+        DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+      ];
       await _mount(
         tester,
-        DSelect<String>(
-          focusNode: focus,
+        DSelect<String>(focusNode: focus, entries: entries, onChanged: (_) {}),
+      );
+      await tester.pumpWidget(const SizedBox());
+      expect(() => focus.requestFocus(), returnsNormally);
 
-          entries: const [
-            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-          ],
+      // Only the multiple-selection Select borrows popover and scroll
+      // controllers; open it so both are attached before it unmounts.
+      await _mount(
+        tester,
+        DMultiSelect<String>(
+          focusNode: focus,
+          popoverController: popover,
+          scrollController: scroll,
+          entries: entries,
           onChanged: (_) {},
         ),
       );
+      popover.open();
+      await tester.pumpAndSettle();
+      expect(find.text('Apple'), findsOneWidget);
+      expect(scroll.hasClients, isTrue);
       await tester.pumpWidget(const SizedBox());
 
       expect(() => focus.requestFocus(), returnsNormally);

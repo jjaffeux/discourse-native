@@ -324,50 +324,47 @@ void main() {
   testWidgets(
     'track bounds match the target through directional thumb travel',
     (tester) async {
-      for (final small in [false]) {
-        for (final rtl in [false, true]) {
-          var checked = false;
-          late StateSetter update;
-          await mount(
-            tester,
-            StatefulBuilder(
-              builder: (_, setState) {
-                update = setState;
-                return DSwitch(
-                  size: small ? DSwitchSize.standard : DSwitchSize.standard,
-                  value: checked,
-                  onChanged: (v) => setState(() => checked = v),
-                );
-              },
-            ),
-            rtl: rtl,
-            reduced: true,
-          );
-          final track = find.descendant(
-            of: find.byType(DSwitch),
-            matching: find.byType(AnimatedContainer),
-          );
-          final thumb = find.descendant(
-            of: track,
-            matching: find.byWidgetPredicate(
-              (w) => w is SizedBox && w.width == (small ? 10 : 14),
-            ),
-          );
-          expect(tester.getSize(track), Size(small ? 24 : 30, small ? 16 : 20));
-          expect(tester.getSize(thumb), Size.square(small ? 10 : 14));
-          final start = tester.getCenter(thumb).dx;
-          update(() => checked = true);
-          await tester.pump();
-          expect(
-            tester.getCenter(thumb).dx - start,
-            closeTo((small ? 8 : 10) * (rtl ? -1 : 1), .001),
-          );
-          final target = find.descendant(
-            of: find.byType(DSwitch),
-            matching: find.byType(GestureDetector),
-          );
-          expect(tester.getSize(target), tester.getSize(track));
-        }
+      for (final rtl in [false, true]) {
+        var checked = false;
+        late StateSetter update;
+        await mount(
+          tester,
+          StatefulBuilder(
+            builder: (_, setState) {
+              update = setState;
+              return DSwitch(
+                value: checked,
+                onChanged: (v) => setState(() => checked = v),
+              );
+            },
+          ),
+          rtl: rtl,
+          reduced: true,
+        );
+        final track = find.descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(AnimatedContainer),
+        );
+        final thumb = find.descendant(
+          of: track,
+          matching: find.byWidgetPredicate(
+            (w) => w is SizedBox && w.width == 14,
+          ),
+        );
+        expect(tester.getSize(track), const Size(30, 20));
+        expect(tester.getSize(thumb), const Size.square(14));
+        final start = tester.getCenter(thumb).dx;
+        update(() => checked = true);
+        await tester.pump();
+        expect(
+          tester.getCenter(thumb).dx - start,
+          closeTo(10 * (rtl ? -1 : 1), .001),
+        );
+        final target = find.descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(GestureDetector),
+        );
+        expect(tester.getSize(target), tester.getSize(track));
       }
     },
   );
