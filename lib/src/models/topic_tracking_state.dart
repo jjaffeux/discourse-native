@@ -12,8 +12,8 @@ final class TopicTrackingState {
   ]);
 
   /// A settled row, neither new nor unread, counts toward nothing, yet a long
-  /// session would keep one for every topic read or dismissed, and each change
-  /// rescans them all for the badges. Only the most recently changed are kept:
+  /// session would keep one for every topic read or dismissed. Only the most
+  /// recently changed are kept:
   /// they let a topic read on another device leave an unread list before that
   /// list reloads (`UnreadTopicFeed.isRead`), which concerns the pages a list
   /// has loaded, and 1024 is over thirty of core's 30-topic pages. Dropping an
@@ -28,11 +28,10 @@ final class TopicTrackingState {
   final Set<int> _settled = {};
 
   /// Sidebar badges are asked for per visible row on every sidebar rebuild.
-  /// Both indexes are built from the current topics on first use and dropped
-  /// by any change [applyMessage] makes, so a row costs the topics in its own
-  /// categories or tag rather than a pass over every tracked topic.
-  Map<int, List<TrackedTopicState>>? _topicsByCategory;
-  Map<int, List<TrackedTopicState>>? _topicsByTag;
+  /// Indexes are built on first use and patched when a topic changes. Keys
+  /// inside each bucket let replacement and removal avoid searching its rows.
+  Map<int, Map<int, TrackedTopicState>>? _topicsByCategory;
+  Map<int, Map<int, TrackedTopicState>>? _topicsByTag;
 
   /// The parent-to-children map depends only on the category list, which a
   /// site keeps by identity between configuration loads.
@@ -45,14 +44,14 @@ final class TopicTrackingState {
 
   void _put(TrackedTopicState topic) {
     final topicId = topic.topicId;
+    _updateDerived(_topics[topicId], topic);
     _topics[topicId] = topic;
     _settled.remove(topicId);
     if (topic.isNew || topic.isUnread) return;
     _settled.add(topicId);
     if (_settled.length > _maxSettledTopics) {
       final oldest = _settled.first;
-      _settled.remove(oldest);
-      _topics.remove(oldest);
+      _remove(oldest);
     }
   }
 
@@ -62,7 +61,6 @@ final class TopicTrackingState {
       return false;
     }
     _put(held.copyWith(lastReadPostNumber: postNumber, isSeen: true));
-    _invalidateCounts();
     return true;
   }
 
@@ -71,7 +69,6 @@ final class TopicTrackingState {
     final held = _topics[topicId];
     if (held == null) return;
     _put(held.copyWith(lastReadPostNumber: lastReadPostNumber, isSeen: true));
-    _invalidateCounts();
   }
 
   /// Core's report stops at `TopicTrackingState::MAX_TOPICS` rows, so one
@@ -109,20 +106,18 @@ final class TopicTrackingState {
     // The report and what was replayed onto it are newer than anything kept,
     // so its own settled rows stay the most recently changed.
     final own = [for (final topicId in _settled) _topics[topicId]!];
+    _invalidateCounts();
     _settled.clear();
     kept.forEach(_put);
     own.forEach(_put);
-    _invalidateCounts();
   }
 
-  /// Selected for every mounted topic list on every shell notification, so
-  /// the pass over the tracked topics is made once per change, not per read.
+  /// Count queries stay lazy; initialized counts follow per-topic deltas.
   ({int newTopics, int newReplies})? _newActivityCounts;
 
   static const _maxScopedCounts = 64;
   static const _maxScopeTags = 8;
-  final Map<_TopicTrackingScope, ({int newTopics, int newReplies})>
-  _scopedCounts = {};
+  final Map<_TopicTrackingScope, _ScopedActivityCounts> _scopedCounts = {};
 
   ({int newTopics, int newReplies}) get newActivityCounts =>
       _newActivityCounts ??= _countNewActivity(topics);
@@ -139,10 +134,13 @@ final class TopicTrackingState {
         : null;
     if (scope != null) {
       final held = _scopedCounts[scope];
-      if (held != null) return held;
+      if (held != null) return held.counts;
     }
+    final descendants = categoryId != null
+        ? _descendantCategoryIds(categoryId, _childrenFor(categories))
+        : null;
     final candidates = categoryId != null
-        ? _categoryTopics(categoryId, categories)
+        ? _categoryTopics(categoryId, descendants!)
         : _tagTopics(tagIds.first);
     final counts = _countNewActivity(
       tagIds.isEmpty
@@ -153,7 +151,7 @@ final class TopicTrackingState {
       if (_scopedCounts.length == _maxScopedCounts) {
         _scopedCounts.remove(_scopedCounts.keys.first);
       }
-      _scopedCounts[scope] = counts;
+      _scopedCounts[scope] = _ScopedActivityCounts(counts, descendants);
     }
     return counts;
   }
@@ -164,11 +162,9 @@ final class TopicTrackingState {
     var newTopics = 0;
     var newReplies = 0;
     for (final topic in candidates) {
-      if (topic.isUnread) {
-        newReplies++;
-      } else if (topic.isNew) {
-        newTopics++;
-      }
+      final contribution = _activityFor(topic);
+      newTopics += contribution.newTopics;
+      newReplies += contribution.newReplies;
     }
     return (newTopics: newTopics, newReplies: newReplies);
   }
@@ -186,17 +182,14 @@ final class TopicTrackingState {
 
   Iterable<TrackedTopicState> _categoryTopics(
     int categoryId,
-    Iterable<TopicCategory> categories,
+    Set<int> descendants,
   ) sync* {
-    final descendants = _descendantCategoryIds(
-      categoryId,
-      _childrenFor(categories),
-    );
     final byCategory = _topicsByCategory ??= _indexBy(
       (topic) => [?topic.categoryId],
     );
     for (final id in descendants) {
-      for (final topic in byCategory[id] ?? const <TrackedTopicState>[]) {
+      for (final topic
+          in byCategory[id]?.values ?? const <TrackedTopicState>[]) {
         // Core excludes descendant category definition topics from the parent.
         if (!topic.isCategoryTopic || topic.categoryId == categoryId) {
           yield topic;
@@ -216,19 +209,81 @@ final class TopicTrackingState {
   );
 
   Iterable<TrackedTopicState> _tagTopics(int tagId) =>
-      (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId] ??
+      (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId]?.values ??
       const <TrackedTopicState>[];
 
-  Map<int, List<TrackedTopicState>> _indexBy(
+  Map<int, Map<int, TrackedTopicState>> _indexBy(
     Iterable<int> Function(TrackedTopicState topic) keysOf,
   ) {
-    final index = <int, List<TrackedTopicState>>{};
+    final index = <int, Map<int, TrackedTopicState>>{};
     for (final topic in _topics.values) {
       for (final key in keysOf(topic)) {
-        (index[key] ??= []).add(topic);
+        (index[key] ??= {})[topic.topicId] = topic;
       }
     }
     return index;
+  }
+
+  TrackedTopicState? _remove(int topicId) {
+    final previous = _topics.remove(topicId);
+    _settled.remove(topicId);
+    if (previous != null) _updateDerived(previous, null);
+    return previous;
+  }
+
+  void _updateDerived(TrackedTopicState? previous, TrackedTopicState? next) {
+    if (_topicsByCategory == null &&
+        _topicsByTag == null &&
+        _newActivityCounts == null &&
+        _scopedCounts.isEmpty) {
+      return;
+    }
+    _updateIndex(
+      _topicsByCategory,
+      previous,
+      next,
+      (topic) => [?topic.categoryId],
+    );
+    _updateIndex(_topicsByTag, previous, next, (topic) => topic.tagIds);
+    final before = _activityFor(previous);
+    final after = _activityFor(next);
+    if (_newActivityCounts case final counts?) {
+      _newActivityCounts = _adjustCounts(counts, before, after);
+    }
+    for (final entry in _scopedCounts.entries) {
+      final scope = entry.key;
+      final held = entry.value;
+      held.counts = _adjustCounts(
+        held.counts,
+        previous != null && scope.includes(previous, held.categoryIds)
+            ? before
+            : (newTopics: 0, newReplies: 0),
+        next != null && scope.includes(next, held.categoryIds)
+            ? after
+            : (newTopics: 0, newReplies: 0),
+      );
+    }
+  }
+
+  void _updateIndex(
+    Map<int, Map<int, TrackedTopicState>>? index,
+    TrackedTopicState? previous,
+    TrackedTopicState? next,
+    Iterable<int> Function(TrackedTopicState topic) keysOf,
+  ) {
+    if (index == null) return;
+    if (previous != null) {
+      for (final key in keysOf(previous)) {
+        final bucket = index[key];
+        bucket?.remove(previous.topicId);
+        if (bucket != null && bucket.isEmpty) index.remove(key);
+      }
+    }
+    if (next != null) {
+      for (final key in keysOf(next)) {
+        (index[key] ??= {})[next.topicId] = next;
+      }
+    }
   }
 
   Map<int, List<int>> _childrenFor(Iterable<TopicCategory> categories) {
@@ -253,12 +308,6 @@ final class TopicTrackingState {
     return showCount ? SidebarBadge.count(count) : const SidebarBadge.dot();
   }
 
-  bool applyMessage(Object? value) {
-    final changed = _applyMessage(value);
-    if (changed) _invalidateCounts();
-    return changed;
-  }
-
   void _invalidateCounts() {
     _topicsByCategory = null;
     _topicsByTag = null;
@@ -266,7 +315,7 @@ final class TopicTrackingState {
     _scopedCounts.clear();
   }
 
-  bool _applyMessage(Object? value) {
+  bool applyMessage(Object? value) {
     if (value is! Map) return false;
     final topicId = jsonIntOrNull(value['topic_id']);
     final type = jsonText(value['message_type']);
@@ -284,6 +333,7 @@ final class TopicTrackingState {
             ? held.copyWith(isSeen: true)
             : held.copyWith(lastReadPostNumber: held.highestPostNumber);
         if (next != held) {
+          if (ids.length > 1 && !changed) _invalidateCounts();
           _put(next);
           changed = true;
         }
@@ -311,8 +361,7 @@ final class TopicTrackingState {
         _put(held.copyWith(deleted: false));
         return true;
       case 'destroy':
-        _settled.remove(topicId);
-        return _topics.remove(topicId) != null;
+        return _remove(topicId) != null;
       case 'new_topic':
       case 'unread':
       case 'read':
@@ -363,12 +412,40 @@ final class TopicTrackingState {
   }
 }
 
+({int newTopics, int newReplies}) _activityFor(TrackedTopicState? topic) {
+  if (topic == null) return (newTopics: 0, newReplies: 0);
+  if (topic.isUnread) return (newTopics: 0, newReplies: 1);
+  return (newTopics: topic.isNew ? 1 : 0, newReplies: 0);
+}
+
+({int newTopics, int newReplies}) _adjustCounts(
+  ({int newTopics, int newReplies}) counts,
+  ({int newTopics, int newReplies}) before,
+  ({int newTopics, int newReplies}) after,
+) => (
+  newTopics: counts.newTopics - before.newTopics + after.newTopics,
+  newReplies: counts.newReplies - before.newReplies + after.newReplies,
+);
+
+final class _ScopedActivityCounts {
+  _ScopedActivityCounts(this.counts, this.categoryIds);
+
+  ({int newTopics, int newReplies}) counts;
+  final Set<int>? categoryIds;
+}
+
 final class _TopicTrackingScope {
   _TopicTrackingScope(this.categoryId, Set<int> tagIds)
     : tagIds = Set.unmodifiable(tagIds);
 
   final int? categoryId;
   final Set<int> tagIds;
+
+  bool includes(TrackedTopicState topic, Set<int>? categoryIds) =>
+      (categoryId == null ||
+          (categoryIds!.contains(topic.categoryId) &&
+              (!topic.isCategoryTopic || topic.categoryId == categoryId))) &&
+      topic.tagIds.containsAll(tagIds);
 
   @override
   bool operator ==(Object other) =>
