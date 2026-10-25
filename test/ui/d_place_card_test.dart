@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -291,11 +293,13 @@ void main() {
     },
   );
 
-  testWidgets(
-    'card grows with text and disabling prevents pointer and keyboard actions',
-    (tester) async {
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
+  testWidgets('card grows with text and exposes its disabled action state', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    final semantics = tester.ensureSemantics();
+    try {
       await _mount(tester, _card(onPressed: () {}, focus: focus));
       final initial = tester.getSize(find.byType(DPlaceCard));
       await _mount(tester, _card(focus: focus), scale: 2);
@@ -303,9 +307,16 @@ void main() {
         tester.getSize(find.byType(DPlaceCard)).height,
         greaterThan(initial.height),
       );
+      final data = tester
+          .getSemantics(find.byType(DPlaceCard))
+          .getSemanticsData();
+      expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isFalse);
       await tester.tap(find.byType(DPlaceCard));
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       expect(tester.takeException(), isNull);
-    },
-  );
+    } finally {
+      semantics.dispose();
+    }
+  });
 }

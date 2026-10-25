@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
@@ -236,18 +238,26 @@ void main() {
     expect(opened, 1);
   });
 
-  testWidgets('disabled previews do not react to hover or activation', (
+  testWidgets('disabled previews hide metadata and expose no image action', (
     tester,
   ) async {
-    await _pump(tester, enabled: false);
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: tester.getCenter(_preview));
-    await tester.pumpAndSettle();
-    expect(tester.widget<AnimatedOpacity>(_opacity).opacity, 0);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pump();
-    expect(tester.widget<AnimatedOpacity>(_opacity).opacity, 0);
-    await mouse.removePointer();
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(tester, enabled: false);
+      final data = tester.getSemantics(_preview).getSemanticsData();
+      expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isFalse);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(_preview));
+      await tester.pumpAndSettle();
+      expect(tester.widget<AnimatedOpacity>(_opacity).opacity, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(tester.widget<AnimatedOpacity>(_opacity).opacity, 0);
+      await mouse.removePointer();
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('metadata stays supplementary to the named image action', (
