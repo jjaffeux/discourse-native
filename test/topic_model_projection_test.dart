@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
@@ -94,7 +95,7 @@ void main() {
     final result = await api.topic(siteUrl: _site, slug: 'topic', id: 7);
     expect(
       result.detail.plugins.get(_probeKey),
-      isNot(Isolate.current.controlPort),
+      allOf(isA<SendPort>(), isNot(Isolate.current.controlPort)),
     );
   });
 
@@ -156,7 +157,7 @@ void main() {
       final result = await api.topic(siteUrl: _site, slug: 'topic', id: 7);
       expect(
         result.detail.plugins.get(_probeKey),
-        isNot(Isolate.current.controlPort),
+        allOf(isA<SendPort>(), isNot(Isolate.current.controlPort)),
       );
       expect(
         result.detail.recommendations!.sources.last.definition.id,
@@ -165,73 +166,121 @@ void main() {
     },
   );
 
-  test('bundled recipes preserve fields for a French locale request', () async {
-    final installed = PluginInstaller.install(bundledPluginManifest);
-    final models = installed.models;
-    expect(models.topicModelRecipe, isNotNull);
-    await Intl.withLocale('fr', () async {
-      final api = _api(models);
-      addTearDown(api.close);
-      final result = await api.topic(siteUrl: _site, slug: 'topic', id: 7);
-      final expected = models.topic(_topicPayload(large: true), _site);
-      expect(result.detail, expected.detail);
-      expect(result.posts, expected.posts);
-      final topicKeys = installed.registry.plugins
-          .whereType<TopicRecordPlugin<Object>>()
-          .map((plugin) => plugin.record)
-          .toList();
-      final postKeys = installed.registry.plugins
-          .whereType<PostRecordPlugin<Object>>()
-          .map((plugin) => plugin.record)
-          .toList();
-      expect(topicKeys, hasLength(4));
-      expect(postKeys, hasLength(6));
-      for (final key in topicKeys) {
-        expect(expected.detail.plugins.get(key), isNotNull, reason: key.id);
-        expect(
-          result.detail.plugins.get(key),
-          expected.detail.plugins.get(key),
-          reason: key.id,
-        );
-      }
-      for (final key in postKeys) {
-        expect(
-          expected.posts.first.plugins.get(key),
-          isNotNull,
-          reason: key.id,
-        );
-        expect(
-          result.posts.first.plugins.get(key),
-          expected.posts.first.plugins.get(key),
-          reason: key.id,
-        );
-      }
-      expect(
-        result.detail.plugins.get(alertDataKey)!.alerts.single.linkText,
-        appL10n.openLink,
-      );
-      expect(
-        result.detail.recommendations!.sources.last.definition.label,
-        appL10n.related,
-      );
-      final list = await api.topicList(siteUrl: _site, path: '/latest.json');
-      final expectedList = models.topicList(_listPayload(large: true), _site);
-      expect(list.topics, expectedList.topics);
-      expect(list.categories, expectedList.categories);
-      expect(list.moreTopicsUrl, expectedList.moreTopicsUrl);
-      expect(list.canCreateTopic, expectedList.canCreateTopic);
-      expect(list.filterOptions, expectedList.filterOptions);
-      expect(list.filter, expectedList.filter);
-      expect(list.tagIds, expectedList.tagIds);
-      for (final key in topicKeys) {
-        expect(
-          list.topics.first.plugins.get(key),
-          expectedList.topics.first.plugins.get(key),
-          reason: key.id,
-        );
-      }
-    });
-  });
+  for (final large in [false, true]) {
+    test(
+      'bundled recipes preserve fields for a French locale request (${large ? 'worker' : 'caller'})',
+      () async {
+        final installed = PluginInstaller.install(bundledPluginManifest);
+        addTearDown(installed.close);
+        final models = installed.models;
+        expect(models.topicModelRecipe, isNotNull);
+        await Intl.withLocale('fr', () async {
+          final api = _api(models, large: large);
+          addTearDown(api.close);
+          final result = await api.topic(siteUrl: _site, slug: 'topic', id: 7);
+          final expected = models.topic(_topicPayload(large: large), _site);
+          expect(
+            result.detail.withPlugins(_withoutBoards(result.detail.plugins)),
+            expected.detail.withPlugins(
+              _withoutBoards(expected.detail.plugins),
+            ),
+          );
+          _expectFixtureMemberships(
+            result.detail.plugins.get(boardsMembershipKey),
+          );
+          _expectFixtureMemberships(
+            expected.detail.plugins.get(boardsMembershipKey),
+          );
+          expect(result.posts, expected.posts);
+          final topicKeys = installed.registry.plugins
+              .whereType<TopicRecordPlugin<Object>>()
+              .map((plugin) => plugin.record)
+              .toList();
+          final postKeys = installed.registry.plugins
+              .whereType<PostRecordPlugin<Object>>()
+              .map((plugin) => plugin.record)
+              .toList();
+          expect(topicKeys, isNotEmpty);
+          expect(postKeys, isNotEmpty);
+          for (final key in topicKeys) {
+            expect(expected.detail.plugins.get(key), isNotNull, reason: key.id);
+            expect(result.detail.plugins.get(key), isNotNull, reason: key.id);
+            if (key != boardsMembershipKey) {
+              expect(
+                result.detail.plugins.get(key),
+                expected.detail.plugins.get(key),
+                reason: key.id,
+              );
+            }
+          }
+          for (final key in postKeys) {
+            expect(
+              expected.posts.first.plugins.get(key),
+              isNotNull,
+              reason: key.id,
+            );
+            expect(
+              result.posts.first.plugins.get(key),
+              expected.posts.first.plugins.get(key),
+              reason: key.id,
+            );
+          }
+          expect(
+            result.detail.plugins.get(alertDataKey)!.alerts.single.linkText,
+            appL10n.openLink,
+          );
+          expect(
+            result.detail.recommendations!.sources.last.definition.label,
+            appL10n.related,
+          );
+          final list = await api.topicList(
+            siteUrl: _site,
+            path: '/latest.json',
+          );
+          final expectedList = models.topicList(
+            _listPayload(large: large),
+            _site,
+          );
+          expect(
+            list.topics.map(
+              (topic) => topic.withPlugins(_withoutBoards(topic.plugins)),
+            ),
+            expectedList.topics.map(
+              (topic) => topic.withPlugins(_withoutBoards(topic.plugins)),
+            ),
+          );
+          for (final topic in [...list.topics, ...expectedList.topics]) {
+            _expectFixtureMemberships(topic.plugins.get(boardsMembershipKey));
+          }
+          expect(list.categories, expectedList.categories);
+          expect(list.moreTopicsUrl, expectedList.moreTopicsUrl);
+          expect(list.canCreateTopic, expectedList.canCreateTopic);
+          expect(list.filterOptions, expectedList.filterOptions);
+          expect(list.filter, expectedList.filter);
+          expect(list.tagIds, expectedList.tagIds);
+          for (final key in topicKeys) {
+            expect(
+              expectedList.topics.first.plugins.get(key),
+              isNotNull,
+              reason: key.id,
+            );
+            expect(
+              list.topics.first.plugins.get(key),
+              isNotNull,
+              reason: key.id,
+            );
+            if (key != boardsMembershipKey) {
+              expect(
+                list.topics.first.plugins.get(key),
+                expectedList.topics.first.plugins.get(key),
+                reason: key.id,
+              );
+            }
+          }
+        });
+      },
+    );
+  }
 
   for (final large in [false, true]) {
     test(
@@ -342,7 +391,61 @@ DiscourseApi _api(DiscourseModelCodec models, {bool large = true}) =>
       ),
     );
 
+PluginData _withoutBoards(PluginData values) =>
+    values.withValue(boardsMembershipKey, null);
+
+void _expectFixtureMemberships(BoardMemberships? memberships) {
+  expect(memberships, isNotNull);
+  expect(
+    memberships!.values.map(
+      (value) => (
+        boardId: value.boardId,
+        name: value.name,
+        slug: value.slug,
+        cardId: value.cardId,
+        columnTitle: value.columnTitle,
+      ),
+    ),
+    const [
+      (
+        boardId: 17,
+        name: 'Équipe',
+        slug: 'equipe',
+        cardId: 101,
+        columnTitle: 'À faire',
+      ),
+      (
+        boardId: 17,
+        name: 'Équipe',
+        slug: 'equipe',
+        cardId: 102,
+        columnTitle: 'En cours',
+      ),
+    ],
+  );
+}
+
 Map<String, dynamic> _topicFields() => {
+  'board_memberships': [
+    {
+      'board_id': 17,
+      'unicode_board_name': 'Équipe',
+      'board_name': 'Fallback board',
+      'board_slug': 'equipe',
+      'cards': [
+        {
+          'card_id': 101,
+          'unicode_column_title': 'À faire',
+          'column_title': 'Fallback column',
+        },
+        {
+          'card_id': 102,
+          'unicode_column_title': 'En cours',
+          'column_title': 'Other fallback',
+        },
+      ],
+    },
+  ],
   'summarizable': true,
   'has_cached_summary': true,
   'can_assign': true,

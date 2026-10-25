@@ -151,7 +151,7 @@ void main() {
       expect(merged.actedFlagSummaries.single.id, 3);
     });
 
-    test('an authoritative read replaces personalized flag state', () {
+    test('decodes available and acted personalized flag state', () {
       final available = _post({
         'actions_summary': [
           {'id': 3, 'can_act': true},
