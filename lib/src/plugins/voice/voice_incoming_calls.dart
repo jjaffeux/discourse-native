@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import '../../plugin_api/live_channels.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+
 import 'voice_callkit.dart';
 import 'voice_models.dart';
 

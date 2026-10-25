@@ -141,6 +141,8 @@ export 'src/shell/composer/components/emoji.dart'
 export 'src/shell/composer/components/image_source.dart'
     show escapeImageAlt, flattenImageAlt;
 export 'src/shell/composer/components/link.dart' show showComposerLinkDialog;
+export 'src/shell/composer/components/list_source.dart'
+    show ComposerListItem, ComposerListBody, composerListItems;
 export 'src/shell/composer/controller.dart'
     show
         ComposerController,

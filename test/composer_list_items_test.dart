@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show BoxHeightStyle;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show composerListItems;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer/blocks.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/list.dart';
-import 'package:discourse_native/src/shell/composer/components/list_source.dart';
 import 'package:discourse_native/src/shell/composer/components/todo.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';

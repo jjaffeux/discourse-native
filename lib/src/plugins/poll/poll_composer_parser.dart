@@ -1,8 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../shell/composer/components/list_source.dart';
-
 const pollComposerSyntaxId = 'poll/poll';
 
 abstract interface class PollComposerProjectionData {
