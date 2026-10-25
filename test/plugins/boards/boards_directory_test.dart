@@ -211,9 +211,11 @@ void boardsDirectoryWidgetTests({
     (tester) async {
       final fixture = BoardsFixture();
       addTearDown(fixture.dispose);
-      final pending = Completer<Map<String, dynamic>>();
-      fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
-          pending.future;
+      late final Completer<Map<String, dynamic>> pending;
+      fixture.transport.responders['GET /boards/api/boards.json'] = (_) {
+        pending = Completer<Map<String, dynamic>>();
+        return pending.future;
+      };
       await tester.pumpWidget(page(fixture));
       await tester.pump();
       expect(find.byType(DSpinner), findsOneWidget);

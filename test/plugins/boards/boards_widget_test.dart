@@ -223,16 +223,19 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     final fixture = BoardsFixture();
     addTearDown(fixture.dispose);
     fixture.controller.activatePluginSite(boardsSite, connected: true);
-    final old = Completer<Map<String, dynamic>>();
+    late final Completer<Map<String, dynamic>> old;
     var reads = 0;
-    fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
-        ++reads == 1
-        ? old.future
-        : {
-            'boards': [
-              {'id': 2, 'name': 'Current directory board'},
-            ],
-          };
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) {
+      if (++reads == 1) {
+        old = Completer<Map<String, dynamic>>();
+        return old.future;
+      }
+      return {
+        'boards': [
+          {'id': 2, 'name': 'Current directory board'},
+        ],
+      };
+    };
     await tester.pumpWidget(retainedPage(fixture, route: const BoardsRoute()));
     await tester.pump();
     expect(reads, 1);
@@ -412,15 +415,18 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     (tester) async {
       final fixture = BoardsFixture();
       addTearDown(fixture.dispose);
-      final old = Completer<Map<String, dynamic>>();
-      fixture.transport.responders['GET /boards/api/boards.json'] = (request) =>
-          request.siteUrl == boardsSite
-          ? old.future
-          : {
-              'boards': [
-                {'id': 2, 'name': 'Second community board'},
-              ],
-            };
+      late final Completer<Map<String, dynamic>> old;
+      fixture.transport.responders['GET /boards/api/boards.json'] = (request) {
+        if (request.siteUrl == boardsSite) {
+          old = Completer<Map<String, dynamic>>();
+          return old.future;
+        }
+        return {
+          'boards': [
+            {'id': 2, 'name': 'Second community board'},
+          ],
+        };
+      };
       Widget page(String site) => MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
