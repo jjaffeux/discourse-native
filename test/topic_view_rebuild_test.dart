@@ -435,7 +435,9 @@ Future<void> _pumpUntilRendered(WidgetTester tester, String text) async {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 5)),
     );
-    await tester.pump();
+    // A zero elapse runs the zero-delay timers an asynchronous cooked body
+    // yields through while it converts; a bare pump never fires them.
+    await tester.pump(Duration.zero);
   }
   if (rendered.evaluate().isNotEmpty) return;
   fail('Cooked HTML did not finish rendering "$text" within $timeout.');

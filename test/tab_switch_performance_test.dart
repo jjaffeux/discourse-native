@@ -143,10 +143,15 @@ void main() {
     expect(tester.element(paragraphs('Reader A').first), same(firstParagraph));
     await tester.pumpAndSettle();
     expect(count('Reader A'), 450);
-    expect(count('Reader B'), 450);
+    // A hidden reader's unfinished body resumes only once its tab is shown.
+    expect(count('Reader B'), hiddenCount);
+    expect(hiddenCount, lessThan(450));
+    final secondParagraph = tester.element(paragraphs('Reader B').first);
     await tapDocumentTab(tester, 'reader-b');
     await tester.pumpAndSettle();
     expect(tester.state(_page('reader-b')), same(secondPage));
+    expect(count('Reader B'), 450);
+    expect(tester.element(paragraphs('Reader B').first), same(secondParagraph));
     expect(tester.takeException(), isNull);
   });
 

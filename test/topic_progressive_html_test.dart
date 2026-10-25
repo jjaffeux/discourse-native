@@ -193,7 +193,9 @@ Future<void> _until(WidgetTester tester, bool Function() ready) async {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
-    await tester.pump();
+    // A zero elapse runs the zero-delay timers an asynchronous cooked body
+    // yields through while it converts; a bare pump never fires them.
+    await tester.pump(Duration.zero);
   }
   expect(ready(), isTrue);
 }
