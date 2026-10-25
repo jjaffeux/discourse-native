@@ -188,13 +188,18 @@ final class ChatThreadMetadataOwner {
         }
         if (metadata.detailDirty) continue;
         final movedAt = run.sourceMovedAt;
-        final projected = movedAt == null
-            ? detail
-            : detail.withSourceMoved(movedAt);
 
         ChatThread? stored;
         lease.commit(() {
           final held = _thread(siteUrl, detail.id);
+          final projected = movedAt == null
+              ? detail
+              : detail
+                    .withSourceMoved(movedAt)
+                    .copyWith(
+                      membership: held?.membership,
+                      tracking: held?.tracking,
+                    );
           if (held == null) {
             stored = _store.put(siteUrl, projected);
           } else {

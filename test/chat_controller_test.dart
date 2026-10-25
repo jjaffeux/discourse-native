@@ -8523,7 +8523,12 @@ void main() {
       'a delayed pre-move thread detail cannot revive the source preview',
       () async {
         final root = threadMessage(1, 3, root: true);
-        final staleDetail = detailFor(root);
+        final detail = detailFor(root);
+        final staleDetail = detail.copyWith(
+          membership: detail.membership!.withNotificationLevel(
+            ChatThreadNotificationLevel.tracking,
+          ),
+        );
         final api = _DelayedMoveThreadDetailApi(
           ChatThread(
             id: 3,
@@ -8537,6 +8542,7 @@ void main() {
         );
         final subject = build(api: api, currentUser: currentUser);
         addTearDown(subject.chat.dispose);
+        final tracker = attachTracker(subject.chat);
         await subject.chat.loadChannels(site);
         subject.store
           ..put(site, root)
@@ -8556,12 +8562,27 @@ void main() {
         ));
         expect((await moving).error, isNull);
         expect(retained.value?.originalMessage?.deletedAt, isNotNull);
+        tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+          'channel_id': 9,
+          'thread_id': 3,
+          'last_read_message_id': 33,
+          'thread_tracking': {'unread_count': 2, 'mention_count': 1},
+        });
+        expect(
+          retained.value?.tracking,
+          const ChatTracking(unreadCount: 2, mentionCount: 1),
+        );
         api.firstDetail.complete(staleDetail);
         await refreshing;
 
         expect(retained.value?.originalMessage?.deletedAt, isNotNull);
         expect(retained.value?.replyCount, 0);
         expect(retained.value?.preview?.lastReplyId, isNull);
+        expect(retained.value?.membership?.lastReadMessageId, 33);
+        expect(
+          retained.value?.tracking,
+          const ChatTracking(unreadCount: 2, mentionCount: 1),
+        );
         expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
         expect(subject.chat.message(site, 1)?.thread?.replyCount ?? 0, 0);
         expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
