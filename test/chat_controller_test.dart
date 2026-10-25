@@ -8579,10 +8579,8 @@ void main() {
         expect(retained.value?.replyCount, 0);
         expect(retained.value?.preview?.lastReplyId, isNull);
         expect(retained.value?.membership?.lastReadMessageId, 33);
-        expect(
-          retained.value?.tracking,
-          const ChatTracking(unreadCount: 2, mentionCount: 1),
-        );
+        expect(retained.value?.tracking.unreadCount, 2);
+        expect(retained.value?.tracking.mentionCount, 1);
         expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
         expect(subject.chat.message(site, 1)?.thread?.replyCount ?? 0, 0);
         expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
@@ -8770,8 +8768,8 @@ void main() {
 
         expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
         for (final local in [queued, limited, notSent]) {
-          expect(subject.chat.message(site, local.id), same(local));
           expect(subject.chat.message(site, local.id)?.isDeleted, isFalse);
+          expect(subject.chat.message(site, local.id), same(local));
         }
         for (final local in [acknowledged, canonicalOverlay]) {
           final settled = subject.chat.message(site, local.id)!;
