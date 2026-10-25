@@ -251,15 +251,29 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Remove report.pdf'));
       expect((opens, removes), (0, 1));
       await tester.tapAt(tester.getCenter(find.byType(DAttachment)));
+      await tester.pump();
       expect((opens, removes), (1, 1));
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      final triggerFocus = tester
+          .widget<InkWell>(
+            find.descendant(
+              of: find.byType(DAttachmentTrigger),
+              matching: find.byType(InkWell),
+            ),
+          )
+          .focusNode!;
+      triggerFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(triggerFocus.hasFocus, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
+      expect((opens, removes), (2, 1));
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(triggerFocus.hasFocus, isFalse);
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await tester.pump();
-      expect(opens + removes, 4);
+      expect((opens, removes), (2, 2));
 
       final semantics = tester.getSemantics(find.byType(DAttachment));
       expect(
