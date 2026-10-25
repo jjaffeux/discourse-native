@@ -25,11 +25,10 @@ Future<void> focusBody(
   WidgetTester tester,
   ComposerListBodyController body, {
   int? caret,
-  TextSelection? selection,
 }) async {
-  body.text.selection =
-      selection ??
-      TextSelection.collapsed(offset: caret ?? body.text.text.length);
+  body.text.selection = TextSelection.collapsed(
+    offset: caret ?? body.text.text.length,
+  );
   body.requestFocus();
   await tester.pumpAndSettle();
 }
