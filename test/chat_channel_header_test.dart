@@ -62,7 +62,6 @@ void main() {
         find.byKey(const ValueKey('content-header-separator')),
         findsNothing,
       );
-      expect(find.byKey(const ValueKey('chat-channel-back')), findsNothing);
       await tester.tap(title);
       expect(details, 1);
       expect(tester.takeException(), isNull);

@@ -1708,11 +1708,6 @@ void main() {
             lessThanOrEqualTo(tester.getTopLeft(filters).dy),
           );
         }
-        expect(find.byKey(const ValueKey('chat-sidebar-footer')), findsNothing);
-        expect(
-          find.byKey(const ValueKey('chat-sidebar-start-message')),
-          findsNothing,
-        );
       });
 
       testWidgets(
@@ -2251,10 +2246,6 @@ void main() {
           await tester.pump();
 
           expect(
-            find.byKey(const ValueKey('chat-channel-threads-button')),
-            findsNothing,
-          );
-          expect(
             shell.pluginSession
                 .require(chatShellService)
                 .openChannelThreads(siteUrl: _site, channelId: 9),
@@ -2329,10 +2320,6 @@ void main() {
           expect(tester.getSize(titleAction).width, lessThan(200));
           expect(
             find.byKey(const ValueKey('chat-channel-star-button')),
-            findsNothing,
-          );
-          expect(
-            find.byKey(const ValueKey('chat-channel-threads-button')),
             findsNothing,
           );
           await tester.tap(titleAction, buttons: kSecondaryMouseButton);

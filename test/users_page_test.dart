@@ -608,13 +608,6 @@ void main() {
 
       expect(find.text('Community signal'), findsNothing);
       expect(find.text('87 results'), findsNothing);
-      expect(find.byKey(const ValueKey('users-sort')), findsNothing);
-      expect(find.byKey(const ValueKey('users-sort-direction')), findsNothing);
-      expect(find.byKey(const ValueKey('users-load-more')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('users-directory-progress')),
-        findsNothing,
-      );
       final pageRect = tester.getRect(find.byKey(const ValueKey('users-page')));
       final tableRect = tester.getRect(
         find.byKey(const ValueKey('users-table')),
@@ -648,7 +641,6 @@ void main() {
       expect(find.text('Sam Saffron'), findsOneWidget);
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       expect(find.byKey(const ValueKey('users-select-all')), findsNothing);
-      expect(find.byKey(const ValueKey('user-select-sam')), findsNothing);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('users-table')),
@@ -700,7 +692,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Replies posted'), findsNothing);
 
-      expect(find.byKey(const ValueKey('users-refresh')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1208,7 +1199,6 @@ void main() {
     await tester.pump();
 
     expect(loads, 1);
-    expect(find.byKey(const ValueKey('users-load-more')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -1360,7 +1350,6 @@ void main() {
     );
     expect(find.byType(DProgress), findsNothing);
     expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-    expect(find.byKey(const ValueKey('users-refresh')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

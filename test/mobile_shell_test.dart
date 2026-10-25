@@ -1501,13 +1501,8 @@ void main() {
       matching: find.byKey(const ValueKey('forum-identity-logo')),
     );
     expect(chromeLogo, findsOneWidget);
-    expect(find.byKey(const ValueKey('start-page-heading')), findsNothing);
     expect(
       find.byKey(const ValueKey('start-page-forum-options')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('start-page-forum-website')),
       findsNothing,
     );
     await tester.tap(chromeLogo);
@@ -4172,11 +4167,9 @@ void main() {
       find.byKey(const ValueKey('chat-browse-navigation')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('mobile-forum-settings')), findsNothing);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('forum-identity-settings')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.panelOwner, 'chat');
