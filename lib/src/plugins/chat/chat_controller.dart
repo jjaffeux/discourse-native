@@ -1934,6 +1934,7 @@ class ChatController extends FrameSafeNotifier {
           : incoming,
     );
     for (final message in incoming) {
+      _messageWriteOwners[siteUrl]?.recordCanonicalRead(message);
       _forgetHiddenDelete(siteUrl, message.id);
       _updateChannelMessagePreview(siteUrl, message);
     }
@@ -2245,6 +2246,8 @@ class ChatController extends FrameSafeNotifier {
       final writes = _messageWriteOwners[siteUrl];
       writes?.recordContent(effective);
       writes?.recordDeletion(effective.channelId, effective.id, effective);
+    } else {
+      _messageWriteOwners[siteUrl]?.recordCanonicalRead(effective);
     }
     _forgetHiddenDelete(siteUrl, message.id);
     _updateChannelMessagePreview(siteUrl, effective);
@@ -2346,28 +2349,32 @@ class ChatController extends FrameSafeNotifier {
 
   /// Tombstones [ids] locally once the site has accepted their deletion or
   /// move, ahead of the bus echo that confirms it.
-  void _markMessagesDeleted(String siteUrl, int channelId, List<int> ids) {
+  void _markMessagesDeleted(
+    String siteUrl,
+    int channelId,
+    List<int> ids,
+    Map<int, ChatMessage> fallbacks,
+  ) {
     _clearDeletedChannelPreview(siteUrl, channelId, ids);
     final deletedAt = _clock().toUtc();
     final deletedById = _currentUserFor(siteUrl)?.id;
     for (final id in ids) {
-      final latest = _store.read<ChatMessage>(siteUrl, id);
-      if (latest == null || latest.isDeleted) continue;
-      _store.put(
-        siteUrl,
-        latest.withDeletedAt(deletedAt, deletedById: deletedById),
-      );
-      _messageWriteOwners[siteUrl]?.recordDeletion(
-        channelId,
-        id,
-        _store.read<ChatMessage>(siteUrl, id),
-      );
-      _bumpStreamsHolding(siteUrl, id);
+      final retained = _store.read<ChatMessage>(siteUrl, id);
+      final latest = retained ?? fallbacks[id];
+      if (latest == null) continue;
+      final updated = latest.isDeleted
+          ? latest
+          : latest.withDeletedAt(deletedAt, deletedById: deletedById);
+      if (retained != null && !identical(latest, updated)) {
+        _store.put(siteUrl, updated);
+        _bumpStreamsHolding(siteUrl, id);
+      }
+      _messageWriteOwners[siteUrl]?.recordDeletion(channelId, id, updated);
       _setLoadedThreadOriginalDeleted(
         siteUrl,
         channelId,
         id,
-        deletedAt: deletedAt,
+        deletedAt: updated.deletedAt,
       );
     }
   }

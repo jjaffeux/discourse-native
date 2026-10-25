@@ -25,6 +25,7 @@ final class _MessageWrite {
   final _MessageWriteKind kind;
   final List<int> ids;
   final _PinWriteSettlement? pin;
+  final Map<int, ChatMessage> messages = {};
 }
 
 final class _ChatSourceMessageMove {
@@ -133,7 +134,9 @@ final class _AccountMessageWrites {
     final read = _ChatMessageRead(this, channelId);
     for (final entry in _active.entries) {
       if (entry.value.kind != _MessageWriteKind.edit) continue;
-      final message = chat._store.read<ChatMessage>(siteUrl, entry.key);
+      final message =
+          chat._store.read<ChatMessage>(siteUrl, entry.key) ??
+          entry.value.messages[entry.key];
       if (message != null && message.channelId == channelId) {
         read._content[message.id] = message;
       }
@@ -144,10 +147,35 @@ final class _AccountMessageWrites {
 
   void recordContent(ChatMessage message) {
     if (!isCurrent) return;
+    final write = _active[message.id];
+    if (write != null && write.kind == _MessageWriteKind.edit) {
+      write.messages[message.id] = message;
+    }
     for (final read in _reads) {
       if (read.channelId == message.channelId) {
         read._content[message.id] = message;
       }
+    }
+  }
+
+  void recordCanonicalRead(ChatMessage message) {
+    final write = _active[message.id];
+    final submitted = write?.messages[message.id];
+    if (write?.kind == _MessageWriteKind.edit &&
+        message.canonicalReceived &&
+        submitted != null &&
+        message.raw == submitted.raw &&
+        listEquals(
+          [
+            for (final upload in message.uploads)
+              if (upload.id > 0) upload.id,
+          ],
+          [
+            for (final upload in submitted.uploads)
+              if (upload.id > 0) upload.id,
+          ],
+        )) {
+      recordContent(message);
     }
   }
 
@@ -173,6 +201,11 @@ final class _AccountMessageWrites {
     if (ids.any(_active.containsKey)) return null;
     final ticket = _MessageWrite(kind, ids, pin: pin);
     for (final id in ticket.ids) {
+      if (kind == _MessageWriteKind.edit ||
+          kind == _MessageWriteKind.deletion) {
+        final message = chat._store.read<ChatMessage>(siteUrl, id);
+        if (message != null) ticket.messages[id] = message;
+      }
       _active[id] = ticket;
     }
     return ticket;
@@ -425,7 +458,10 @@ final class _AccountMessageWrites {
       );
       if (!ownsRequest()) return null;
 
-      lease.commit(() => chat._markMessagesDeleted(siteUrl, channelId, ids));
+      lease.commit(
+        () =>
+            chat._markMessagesDeleted(siteUrl, channelId, ids, ticket.messages),
+      );
       return null;
     } on WriteException catch (error) {
       return error.message;
@@ -634,8 +670,8 @@ final class _AccountMessageWrites {
       }
       if (!ownsRequest()) return null;
       lease.commit(() {
-        final latest = chat._store.read<ChatMessage>(siteUrl, messageId);
-        if (latest == null) return;
+        final retained = chat._store.read<ChatMessage>(siteUrl, messageId);
+        final latest = retained ?? held;
         if (latest.isDeleted == deleted) {
           recordDeletion(latest.channelId, messageId, latest);
           return;
@@ -646,7 +682,7 @@ final class _AccountMessageWrites {
           deletedById: deleted ? chat._currentUserFor(siteUrl)?.id : null,
           clearDeletedById: !deleted,
         );
-        chat._store.put(siteUrl, updated);
+        if (retained != null) chat._store.put(siteUrl, updated);
         recordDeletion(updated.channelId, messageId, updated);
         chat._updateChannelMessagePreview(siteUrl, updated);
         chat._bumpStreamsHolding(siteUrl, messageId);
@@ -763,7 +799,9 @@ final class _AccountMessageWrites {
       if (ready == null) chat._cookMessage(siteUrl, pending, author: held);
 
       bool canonicalEditArrived() {
-        final current = chat._store.read<ChatMessage>(siteUrl, messageId);
+        final current =
+            chat._store.read<ChatMessage>(siteUrl, messageId) ??
+            ticket.messages[messageId];
         return current?.canonicalReceived == true &&
             current?.raw == raw &&
             hasUploadIds(current!.uploads);
@@ -773,12 +811,13 @@ final class _AccountMessageWrites {
         if (!ownsRequest()) return;
         chat._cancelMessageCooking(siteUrl, messageId);
         lease.commit(() {
-          final latest = chat._store.read<ChatMessage>(siteUrl, messageId);
+          final retained = chat._store.read<ChatMessage>(siteUrl, messageId);
+          final latest = retained ?? ticket.messages[messageId];
           if (latest == null || latest.canonicalReceived || latest.raw != raw) {
             return;
           }
           final restored = latest.withContentOf(held);
-          chat._store.put(siteUrl, restored);
+          if (retained != null) chat._store.put(siteUrl, restored);
           recordContent(restored);
           chat._updateChannelMessagePreview(siteUrl, restored);
         });
@@ -810,7 +849,9 @@ final class _AccountMessageWrites {
           ),
         );
         if (ownsRequest()) {
-          final current = chat._store.read<ChatMessage>(siteUrl, messageId);
+          final current =
+              chat._store.read<ChatMessage>(siteUrl, messageId) ??
+              ticket.messages[messageId];
           if (current != null) recordContent(current);
         }
         return null;

@@ -76,7 +76,17 @@ final class _ChatChannelPins {
                   message: message,
                   pinnedBy: pin.pinnedBy,
                   pinnedAt: pin.pinnedAt,
-                  excerpt: pin.excerpt,
+                  excerpt: identical(message, pin.message)
+                      ? pin.excerpt
+                      : chatMessageSummary(
+                              cooked: message.canonicalReceived
+                                  ? message.cooked
+                                  : null,
+                              raw: message.raw,
+                              deleted: message.isDeleted,
+                              hasUploads: message.uploads.isNotEmpty,
+                            ) ??
+                            '',
                 ),
           ];
           lease.commit(() {

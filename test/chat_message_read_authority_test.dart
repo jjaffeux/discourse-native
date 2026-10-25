@@ -358,64 +358,91 @@ void main() {
     );
   }
 
-  test(
-    'a matching canonical HTTP echo settles a pending edit despite a refused response',
-    () async {
-      final editGate = Completer<void>();
-      addTearDown(() {
-        if (!editGate.isCompleted) editGate.complete();
-      });
-      final before = fixtures.message(12, raw: 'Original text');
-      final api = _SnapshotApi(
-        before,
-        editGate: editGate,
-        editFailure: const WriteException(WriteFailure.forbidden),
-      );
-      final subject = fixtures.build(api: api, currentUser: user);
-      addTearDown(subject.chat.dispose);
-      await subject.chat.loadChannels(fixtures.site);
-      await subject.chat.openChannel(fixtures.site, 9);
-      const replacement = ChatUpload(
-        id: 44,
-        url: '/uploads/new.png',
-        originalFilename: 'new.png',
-        kind: ChatUploadKind.image,
-      );
+  for (final evictAfterEcho in [false, true]) {
+    test(
+      'a matching canonical HTTP echo settles a pending edit despite a refused response${evictAfterEcho ? ' after eviction' : ''}',
+      () async {
+        final editGate = Completer<void>();
+        addTearDown(() {
+          if (!editGate.isCompleted) editGate.complete();
+        });
+        final before = fixtures.message(12, raw: 'Original text');
+        final api = _SnapshotApi(
+          before,
+          editGate: editGate,
+          editFailure: const WriteException(WriteFailure.forbidden),
+        );
+        final subject = fixtures.build(
+          api: api,
+          currentUser: user,
+          store: evictAfterEcho
+              ? Store(
+                  policy: const StorePolicy(
+                    maxEntries: 64,
+                    maxEntriesPerSiteAndType: 1,
+                  ),
+                )
+              : null,
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(fixtures.site);
+        await subject.chat.openChannel(fixtures.site, 9);
+        const replacement = ChatUpload(
+          id: 44,
+          url: '/uploads/new.png',
+          originalFilename: 'new.png',
+          kind: ChatUploadKind.image,
+        );
 
-      final edit = subject.chat.editMessage(
-        fixtures.site,
-        12,
-        'Accepted canonical text',
-        uploads: const [replacement],
-      );
-      await api.editStarted.future;
-      api.snapshot = ChatMessage(
-        id: 12,
-        channelId: 9,
-        raw: 'Accepted canonical text',
-        cooked: '<p>Canonical server cook</p>',
-        author: before.author,
-        createdAt: before.createdAt,
-        uploads: const [replacement],
-      );
-      await subject.chat.openChannel(fixtures.site, 9, force: true);
-      expect(
-        subject.chat.message(fixtures.site, 12)?.canonicalReceived,
-        isTrue,
-      );
-      expect(
-        subject.chat.message(fixtures.site, 12)?.cooked,
-        '<p>Canonical server cook</p>',
-      );
-      editGate.complete();
-      expect(await edit, isNull);
-      final settled = subject.chat.message(fixtures.site, 12)!;
-      expect(settled.raw, 'Accepted canonical text');
-      expect(settled.cooked, '<p>Canonical server cook</p>');
-      expect(settled.uploads, const [replacement]);
-      expect(settled.canonicalReceived, isTrue);
-    },
-  );
+        final edit = subject.chat.editMessage(
+          fixtures.site,
+          12,
+          'Accepted canonical text',
+          uploads: const [replacement],
+        );
+        await api.editStarted.future;
+        final canonical = ChatMessage(
+          id: 12,
+          channelId: 9,
+          raw: 'Accepted canonical text',
+          cooked: '<p>Canonical server cook</p>',
+          author: before.author,
+          createdAt: before.createdAt,
+          uploads: const [replacement],
+        );
+        api.snapshot = canonical;
+        await subject.chat.openChannel(fixtures.site, 9, force: true);
+        expect(
+          subject.chat.message(fixtures.site, 12)?.canonicalReceived,
+          isTrue,
+        );
+        expect(
+          subject.chat.message(fixtures.site, 12)?.cooked,
+          '<p>Canonical server cook</p>',
+        );
+        if (evictAfterEcho) {
+          api.snapshot = fixtures.message(13);
+          await subject.chat.resolveBookmarkMessage(
+            fixtures.site,
+            ChatLink(route: ChatRoute.channel(9), messageId: 13),
+          );
+          expect(subject.chat.message(fixtures.site, 12), isNull);
+        }
+        editGate.complete();
+        expect(await edit, isNull);
+        if (evictAfterEcho) {
+          expect(subject.chat.message(fixtures.site, 12), isNull);
+          api.snapshot = canonical;
+          await subject.chat.openChannel(fixtures.site, 9, force: true);
+        }
+        final settled = subject.chat.message(fixtures.site, 12)!;
+        expect(settled.raw, 'Accepted canonical text');
+        expect(settled.cooked, '<p>Canonical server cook</p>');
+        expect(settled.uploads, const [replacement]);
+        expect(settled.canonicalReceived, isTrue);
+      },
+    );
+  }
 
   test(
     'an old read cannot resurrect a message hidden by an actual live delete',
