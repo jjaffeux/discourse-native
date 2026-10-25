@@ -98,17 +98,20 @@ void main() {
               noiseIntensity: intensity,
             ),
           );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.fromPalette(palette.resolve(Brightness.dark)),
-          home: const MediaQuery(
-            data: MediaQueryData(disableAnimations: true),
-            child: Center(
-              child: RepaintBoundary(
-                key: ValueKey('texture-capture'),
-                child: SizedBox.square(
-                  dimension: 256,
-                  child: ForumWindowBackground(child: SizedBox.expand()),
+      // Outside fake async, for the once-per-isolate shader load.
+      await tester.runAsync(
+        () => tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.fromPalette(palette.resolve(Brightness.dark)),
+            home: const MediaQuery(
+              data: MediaQueryData(disableAnimations: true),
+              child: Center(
+                child: RepaintBoundary(
+                  key: ValueKey('texture-capture'),
+                  child: SizedBox.square(
+                    dimension: 256,
+                    child: ForumWindowBackground(child: SizedBox.expand()),
+                  ),
                 ),
               ),
             ),
@@ -167,23 +170,29 @@ void main() {
         'TickerMode=$tickersEnabled does not schedule decorative frames', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: MediaQuery(
-            data: MediaQueryData(disableAnimations: reducedMotion),
-            child: TickerMode(
-              enabled: tickersEnabled,
-              child: RepaintBoundary(
-                key: const ValueKey('texture-capture'),
-                child: SizedBox.square(
-                  dimension: 256,
-                  child: ForumTexture(
-                    background: ForumBackground.appearance(
-                      effect: effect,
-                      noiseIntensity: intensity,
+      // ForumTexture loads its shader program once per isolate. Whichever
+      // test mounts it first must do so outside fake async: a load started
+      // in a fake zone that the test then leaves never completes, and every
+      // later test waits on it.
+      await tester.runAsync(
+        () => tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: MediaQuery(
+              data: MediaQueryData(disableAnimations: reducedMotion),
+              child: TickerMode(
+                enabled: tickersEnabled,
+                child: RepaintBoundary(
+                  key: const ValueKey('texture-capture'),
+                  child: SizedBox.square(
+                    dimension: 256,
+                    child: ForumTexture(
+                      background: ForumBackground.appearance(
+                        effect: effect,
+                        noiseIntensity: intensity,
+                      ),
+                      accent: const Color(0xff5078cc),
                     ),
-                    accent: const Color(0xff5078cc),
                   ),
                 ),
               ),
