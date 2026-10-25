@@ -54,6 +54,7 @@ final class BoardCard {
     this.position,
     this.assignee,
     this.closed,
+    this.imageUrl,
   );
   static BoardCard? decode(Object? value) {
     final json = boardObject(value);
@@ -98,6 +99,7 @@ final class BoardCard {
       json['position'] is int ? json['position'] as int : 0,
       boardText(assignment['username'] ?? assignment['name']),
       topic['closed'] == true,
+      boardText(topic['image_url']),
     );
   }
 
@@ -108,6 +110,7 @@ final class BoardCard {
   final List<String> tags;
   final int position;
   final bool closed;
+  final String imageUrl;
 }
 
 final class BoardColumn {
@@ -168,6 +171,9 @@ final class BoardSnapshot {
     this.columns,
     this.categoryIds,
     this.tagNames,
+    this.showTags,
+    this.showThumbnail,
+    this.detailed,
   );
   static BoardSnapshot? decode(Object? value, {Object? columns}) {
     final json = boardObject(value);
@@ -188,12 +194,16 @@ final class BoardSnapshot {
       ]),
       boardIds(json['category_ids']),
       boardTexts(json['tag_names']),
+      json['show_tags'] == true,
+      json['show_topic_thumbnail'] == true,
+      json['card_style'] != 'simple',
     );
   }
 
   final int id;
   final String name, slug;
   final bool archived, canWrite, canManage, requireConfirmation;
+  final bool showTags, showThumbnail, detailed;
   final List<BoardColumn> columns;
   final List<int> categoryIds;
   final List<String> tagNames;

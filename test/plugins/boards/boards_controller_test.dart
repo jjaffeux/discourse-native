@@ -9,6 +9,239 @@ import '../../support/boards_fixture.dart';
 
 void main() {
   test(
+    'setting disabling immediately clears mounted snapshots and subscriptions',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.config = SiteConfig(
+        plugins: PluginData.none.withValue(
+          boardsSettingsKey,
+          const BoardsSettings(),
+        ),
+      );
+      expect(handle.snapshot, isNull);
+      expect(fixture.live.channels, isEmpty);
+      expect(
+        (await handle.saveStandalone(10, 'Task', '')).state,
+        BoardWriteState.refused,
+      );
+      final reads = fixture.transport.reads.length;
+      await handle.refresh();
+      expect(fixture.transport.reads.length, reads);
+      fixture.config = SiteConfig(
+        plugins: PluginData.none.withValue(
+          boardsSettingsKey,
+          const BoardsSettings(enabled: true),
+        ),
+      );
+      await handle.refresh();
+      expect(handle.snapshot, isNotNull);
+    },
+  );
+  test(
+    'disposing the controller before releasing mounted handles is safe',
+    () async {
+      final fixture = BoardsFixture();
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      await handle.refresh();
+      fixture.dispose();
+      handle.release();
+      handle.release();
+      expect(fixture.live.channels, isEmpty);
+    },
+  );
+  test(
+    'account reset during a write leaves successor handle writable',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      final pending = Completer<Map<String, dynamic>>();
+      fixture.transport.responders['POST /boards/api/boards/1/cards'] = (_) =>
+          pending.future;
+      final write = handle.saveStandalone(10, 'Old account task', '');
+      await Future<void>.delayed(Duration.zero);
+      fixture.requests.forget(boardsSite);
+      fixture.controller.forget(boardsSite);
+      await handle.refresh();
+      pending.complete({
+        'card': {'id': 900},
+      });
+      expect((await write).state, BoardWriteState.cancelled);
+      expect(handle.canWrite, isTrue);
+      expect(handle.snapshot!.card(900), isNull);
+    },
+  );
+  test(
+    'column recency, tag visibility and card detail settings are decoded',
+    () {
+      final json = boardFixtureJson();
+      final raw = json['board'] as Map;
+      raw['show_tags'] = false;
+      raw['show_topic_thumbnail'] = true;
+      raw['card_style'] = 'simple';
+      final board = BoardSnapshot.decode(raw, columns: json['columns'])!;
+      expect(board.showTags, isFalse);
+      expect(board.showThumbnail, isTrue);
+      expect(board.detailed, isFalse);
+      expect(board.column(12)!.order, BoardColumnOrder.recency);
+    },
+  );
+  test(
+    'promotion binds exact composer result and seeds title, body, category and tags',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      expect(
+        await handle.createTopic('boards/1', 10, cardId: 102),
+        OpenComposerResult.opened,
+      );
+      expect(request!.initialTitle, 'Write release notes');
+      expect(request!.seed.raw, 'Review the release with the team.');
+      expect(request!.initialTags, ['docs']);
+      expect(handle.composing(10, cardId: 102), isTrue);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Write release notes',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(fixture.transport.writes.single.body['card'], {'topic_id': 777});
+      expect(handle.composing(10, cardId: 102), isFalse);
+      request!.onCompleted!(
+        const PluginTopicCreated(topicId: 778, slug: 'other', title: 'Other'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(fixture.transport.writes, hasLength(1));
+    },
+  );
+  test('queued or cancelled composer does not attach a floater', () async {
+    late BoardsFixture fixture;
+    OpenNewTopicComposerRequest? request;
+    final composer = PluginComposerHost(
+      buildComposer: (_) => null,
+      openNewTopic: (value) async {
+        request = value;
+        return OpenComposerResult.opened;
+      },
+      isActive: (_) => true,
+      siteConfigFor: (_) => fixture.config,
+      siteConfigListenableFor: (_) => fixture.settings,
+    );
+    fixture = BoardsFixture(composer: composer);
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    await handle.createTopic('boards/1', 10, cardId: 102);
+    request!.onCompleted!(const PluginTopicCreationQueued());
+    await Future<void>.delayed(Duration.zero);
+    expect(fixture.transport.writes, isEmpty);
+    expect(handle.composing(10, cardId: 102), isFalse);
+    await handle.createTopic('boards/1', 10, cardId: 102);
+    request!.onCompleted!(const PluginTopicCreationCancelled());
+    await Future<void>.delayed(Duration.zero);
+    expect(fixture.transport.writes, isEmpty);
+  });
+  test(
+    'failed promotion attachment retains topic ID for retry without another creation',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      var opens = 0;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          opens++;
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.transport.failures['PUT /boards/api/boards/1/cards/102'] =
+          const WriteException(WriteFailure.forbidden);
+      await handle.createTopic('boards/1', 10, cardId: 102);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Release',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.createdTopic(10, cardId: 102), 777);
+      expect((await handle.attachCreatedTopic(10, cardId: 102)).saved, isTrue);
+      expect(opens, 1);
+      expect(handle.createdTopic(10, cardId: 102), isNull);
+    },
+  );
+  test(
+    'late composer completion after account retirement cannot attach',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      await handle.createTopic('boards/1', 10, cardId: 102);
+      fixture.requests.forget(boardsSite);
+      fixture.controller.forget(boardsSite);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Release',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(fixture.transport.writes, isEmpty);
+      expect(handle.createdTopic(10, cardId: 102), isNull);
+    },
+  );
+  test(
     'missing setting disables directory, board reads, links and writes',
     () async {
       final fixture = BoardsFixture(enabled: false);

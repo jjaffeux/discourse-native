@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart' show SiteImage;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import 'board_card_editor.dart';
+import 'board_move_dialog.dart';
 import 'boards_controller.dart';
 import 'boards_data.dart';
 import 'boards_navigation.dart';
@@ -35,6 +38,11 @@ class _BoardsPageState extends State<BoardsPage> {
   final _lists = <int, ListController>{};
   final _cardKeys = <int, GlobalKey>{};
   int? _highlighted;
+  int? _dropCard;
+  void _setDrop(int? id) {
+    if (mounted && _dropCard != id) setState(() => _dropCard = id);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -296,6 +304,28 @@ class _BoardsPageState extends State<BoardsPage> {
                   label: Text(context.l10n.boardsAddTopic),
                   onPressed: () => _addTopic(column),
                 ),
+                if (widget.controller.composer != null)
+                  DButton(
+                    label: Text(
+                      handle.createdTopic(column.id) == null
+                          ? context.l10n.boardsNewTopic
+                          : context.l10n.boardsAttachTopic,
+                    ),
+                    onPressed: handle.composing(column.id)
+                        ? null
+                        : () async {
+                            if (handle.createdTopic(column.id) != null) {
+                              _report(
+                                await handle.attachCreatedTopic(column.id),
+                              );
+                            } else {
+                              await handle.createTopic(
+                                widget.route.id,
+                                column.id,
+                              );
+                            }
+                          },
+                  ),
               ],
             ),
           if (column.order == BoardColumnOrder.unsupported)
@@ -361,13 +391,23 @@ class _BoardsPageState extends State<BoardsPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (card.notes.isNotEmpty)
+                if (board.showThumbnail && card.imageUrl.isNotEmpty)
+                  DItemMedia(
+                    child: SiteImage(
+                      siteUrl: widget.site,
+                      url: card.imageUrl,
+                      width: 260,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                if (board.detailed && card.notes.isNotEmpty)
                   Text(
                     card.notes,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
-                if (card.tags.isNotEmpty)
+                if (board.showTags && card.tags.isNotEmpty)
                   Wrap(
                     spacing: 4,
                     runSpacing: 4,
@@ -375,7 +415,8 @@ class _BoardsPageState extends State<BoardsPage> {
                       for (final tag in card.tags) DBadge(child: Text(tag)),
                     ],
                   ),
-                if (card.assignee.isNotEmpty) Text(card.assignee),
+                if (board.detailed && card.assignee.isNotEmpty)
+                  Text(card.assignee),
                 if (card.closed) Text(context.l10n.closed),
               ],
             ),
@@ -395,10 +436,22 @@ class _BoardsPageState extends State<BoardsPage> {
       accepts: (data) =>
           _accepts(data) &&
           data.cardId != card.id &&
-          column.order == BoardColumnOrder.priority,
-      onMove: (_, _) {},
-      onLeave: () {},
-      onDrop: (data, _) => _move(data.cardId, column.id, PlaceAfter(card.id)),
+          (column.order == BoardColumnOrder.priority ||
+              board.card(data.cardId)?.columnId != column.id),
+      onMove: (_, _) => _setDrop(card.id),
+      onLeave: () => _setDrop(null),
+      onDrop: (data, _) {
+        _setDrop(null);
+        unawaited(
+          _move(
+            data.cardId,
+            column.id,
+            column.order == BoardColumnOrder.recency
+                ? const PlaceLast()
+                : PlaceAfter(card.id),
+          ),
+        );
+      },
       child: DContentDrag(
         data: drag,
         feedback: SizedBox(
@@ -410,7 +463,19 @@ class _BoardsPageState extends State<BoardsPage> {
             ),
           ),
         ),
-        child: item,
+        onDragEnd: () => _setDrop(null),
+        child: Stack(
+          children: [
+            item,
+            if (_dropCard == card.id)
+              const Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: DDropIndicator(),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -429,10 +494,49 @@ class _BoardsPageState extends State<BoardsPage> {
                 onPressed: () => _edit(column, card: card),
                 child: Text(context.l10n.edit),
               ),
+            if (card.kind == BoardCardKind.standalone &&
+                widget.controller.composer != null)
+              DDropdownMenuItem(
+                onPressed: _handle!.composing(column.id, cardId: card.id)
+                    ? null
+                    : () async {
+                        if (_handle!.createdTopic(column.id, cardId: card.id) !=
+                            null) {
+                          _report(
+                            await _handle!.attachCreatedTopic(
+                              column.id,
+                              cardId: card.id,
+                            ),
+                          );
+                        } else {
+                          await _handle!.createTopic(
+                            widget.route.id,
+                            column.id,
+                            cardId: card.id,
+                          );
+                        }
+                      },
+                child: Text(
+                  _handle!.createdTopic(column.id, cardId: card.id) == null
+                      ? context.l10n.boardsConvertTopic
+                      : context.l10n.boardsAttachTopic,
+                ),
+              ),
             DDropdownMenuItem(
               onPressed: () async {
+                final handle = _handle!;
+                final lease = widget.controller.requests.capture(widget.site);
+                final revision = widget.controller.accountRevision(widget.site);
                 final confirmed = await _confirm(context.l10n.boardsRemoveCard);
-                if (confirmed) _report(await _handle!.removeCard(card.id));
+                if (confirmed &&
+                    identical(handle, _handle) &&
+                    widget.controller.sourceCurrent(
+                      widget.site,
+                      lease,
+                      revision,
+                    )) {
+                  _report(await handle.removeCard(card.id));
+                }
               },
               child: Text(context.l10n.delete),
             ),
@@ -453,7 +557,8 @@ class _BoardsPageState extends State<BoardsPage> {
                   onPressed: () => dialog.close(false),
                 ),
                 DButton(
-                  label: Text(context.l10n.save),
+                  label: Text(context.l10n.delete),
+                  variant: DButtonVariant.destructive,
                   onPressed: () => dialog.close(true),
                 ),
               ],
@@ -487,16 +592,31 @@ class _BoardsPageState extends State<BoardsPage> {
   }
 
   Future<void> _moveDialog(BoardSnapshot board, BoardCard card) async {
+    final handle = _handle!;
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
     final selection = await showDDialog<(int, CardPlacement)>(
       context: context,
-      builder: (context, dialog) => _MovePicker(
-        board: board,
-        card: card,
-        onChosen: (id, placement) => dialog.close((id, placement)),
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        BoardMovePicker(
+          board: board,
+          card: card,
+          onChosen: (id, placement) => dialog.close((id, placement)),
+        ),
+        sourceCurrent: () => handle.enabled && handle.snapshot != null,
       ),
     );
-    if (selection != null && mounted) {
-      await _move(card.id, selection.$1, selection.$2);
+    if (selection != null &&
+        mounted &&
+        identical(handle, _handle) &&
+        widget.controller.sourceCurrent(widget.site, lease, revision)) {
+      _report(
+        await handle.move(card.id, selection.$1, selection.$2, review: _review),
+      );
     }
   }
 
@@ -504,33 +624,58 @@ class _BoardsPageState extends State<BoardsPage> {
     BoardSnapshot board,
     BoardColumn column,
     BoardConstraintCheck check,
-  ) => showDDialog<BoardRepair>(
-    context: context,
-    builder: (context, dialog) => _MoveReview(
-      board: board,
-      column: column,
-      check: check,
-      controller: widget.controller,
-      site: widget.site,
-      onChosen: dialog.close,
-    ),
-  );
+  ) {
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
+    return showDDialog<BoardRepair>(
+      context: context,
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        BoardMoveReview(
+          board: board,
+          column: column,
+          check: check,
+          controller: widget.controller,
+          site: widget.site,
+          onChosen: dialog.close,
+        ),
+        sourceCurrent: () =>
+            _handle?.enabled == true && _handle?.snapshot != null,
+      ),
+    );
+  }
+
   Future<void> _edit(BoardColumn column, {BoardCard? card}) async {
     final handle = _handle;
     if (handle == null) return;
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
     final result = await showDDialog<BoardWriteResult>(
       context: context,
-      builder: (context, dialog) => _CardEditor(
-        handle: handle,
-        column: column,
-        card: card,
-        onSaved: dialog.close,
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        BoardCardEditor(
+          handle: handle,
+          column: column,
+          card: card,
+          onSaved: dialog.close,
+        ),
+        sourceCurrent: () => handle.enabled && handle.snapshot != null,
       ),
     );
     if (result != null) _report(result);
   }
 
   Future<void> _addTopic(BoardColumn column) async {
+    final handle = _handle!;
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
     final input = TextEditingController();
     final value = await showDDialog<String>(
       context: context,
@@ -558,7 +703,12 @@ class _BoardsPageState extends State<BoardsPage> {
       ),
     );
     input.dispose();
-    if (value == null || !mounted) return;
+    if (value == null ||
+        !mounted ||
+        !identical(handle, _handle) ||
+        !widget.controller.sourceCurrent(widget.site, lease, revision)) {
+      return;
+    }
     final id =
         int.tryParse(value.trim()) ??
         int.tryParse(
@@ -568,7 +718,7 @@ class _BoardsPageState extends State<BoardsPage> {
       _report(const BoardWriteResult(BoardWriteState.refused));
       return;
     }
-    _report(await _handle!.addTopic(id, column.id, review: _review));
+    _report(await handle.addTopic(id, column.id, review: _review));
   }
 }
 
@@ -576,353 +726,4 @@ final class _BoardDrag {
   const _BoardDrag(this.site, this.boardId, this.cardId);
   final String site;
   final int boardId, cardId;
-}
-
-Future<void> addTopicToBoard(
-  BuildContext context,
-  BoardsController controller,
-  String site,
-  int topicId,
-  List<BoardSnapshot> boards,
-) async {
-  final selected = await showDDialog<(int, int)>(
-    context: context,
-    builder: (context, dialog) => DDialogContent(
-      children: [
-        Text(context.l10n.boardsAddTopic),
-        for (final board in boards) ...[
-          Text(board.name),
-          for (final column in board.columns)
-            DButton(
-              label: Text(column.title),
-              onPressed: () => dialog.close((board.id, column.id)),
-            ),
-        ],
-        if (boards.isEmpty) Text(context.l10n.boardsNoBoards),
-      ],
-    ),
-  );
-  if (selected == null || !context.mounted || !controller.enabled(site)) return;
-  final handle = controller.acquire(site, selected.$1);
-  try {
-    await handle.refresh();
-    if (!context.mounted || !handle.canWrite) return;
-    final result = await handle.addTopic(
-      topicId,
-      selected.$2,
-      review: (board, column, check) => showDDialog<BoardRepair>(
-        context: context,
-        builder: (context, dialog) => _MoveReview(
-          board: board,
-          column: column,
-          check: check,
-          controller: controller,
-          site: site,
-          onChosen: dialog.close,
-        ),
-      ),
-    );
-    if (context.mounted &&
-        result.state != BoardWriteState.saved &&
-        result.state != BoardWriteState.cancelled) {
-      DToast.show(
-        context,
-        result.error ??
-            (result.saved
-                ? context.l10n.boardsSavedRefresh
-                : context.l10n.boardsRefused),
-      );
-    }
-  } finally {
-    handle.release();
-  }
-}
-
-class _MovePicker extends StatefulWidget {
-  const _MovePicker({
-    required this.board,
-    required this.card,
-    required this.onChosen,
-  });
-  final BoardSnapshot board;
-  final BoardCard card;
-  final void Function(int, CardPlacement) onChosen;
-  @override
-  State<_MovePicker> createState() => _MovePickerState();
-}
-
-class _MovePickerState extends State<_MovePicker> {
-  late int _column = widget.card.columnId;
-  int _after = -1;
-  @override
-  Widget build(BuildContext context) {
-    final column = widget.board.column(_column)!;
-    return DDialogContent(
-      children: [
-        Text(context.l10n.boardsMoveTo),
-        DSelect<int>.controlled(
-          value: _column,
-          label: Text(context.l10n.boardsColumn),
-          entries: [
-            for (final column in widget.board.columns)
-              if (column.order != BoardColumnOrder.unsupported)
-                DSelectItem(
-                  value: column.id,
-                  child: Text(column.title),
-                  textValue: column.title,
-                ),
-          ],
-          onChanged: (value) {
-            if (value != null) {
-              setState(() {
-                _column = value;
-                _after = -1;
-              });
-            }
-          },
-        ),
-        if (column.order == BoardColumnOrder.priority)
-          DSelect<int>.controlled(
-            value: _after,
-            label: Text(context.l10n.boardsPlacement),
-            entries: [
-              DSelectItem(
-                value: -1,
-                child: Text(context.l10n.boardsLast),
-                textValue: context.l10n.boardsLast,
-              ),
-              DSelectItem(
-                value: 0,
-                child: Text(context.l10n.boardsFirst),
-                textValue: context.l10n.boardsFirst,
-              ),
-              for (final card in column.cards)
-                if (card.id != widget.card.id)
-                  DSelectItem(
-                    value: card.id,
-                    child: Text(card.title),
-                    textValue: card.title,
-                  ),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _after = value);
-            },
-          ),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: Text(context.l10n.move),
-              onPressed:
-                  column.order == BoardColumnOrder.recency &&
-                      _column == widget.card.columnId
-                  ? null
-                  : () => widget.onChosen(
-                      _column,
-                      _after == -1
-                          ? const PlaceLast()
-                          : _after == 0
-                          ? const PlaceFirst()
-                          : PlaceAfter(_after),
-                    ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _MoveReview extends StatefulWidget {
-  const _MoveReview({
-    required this.board,
-    required this.column,
-    required this.check,
-    required this.controller,
-    required this.site,
-    required this.onChosen,
-  });
-  final BoardSnapshot board;
-  final BoardColumn column;
-  final BoardConstraintCheck check;
-  final BoardsController controller;
-  final String site;
-  final ValueChanged<BoardRepair> onChosen;
-  @override
-  State<_MoveReview> createState() => _MoveReviewState();
-}
-
-class _MoveReviewState extends State<_MoveReview> {
-  int? _category;
-  String? _tag;
-  @override
-  Widget build(BuildContext context) => DDialogContent(
-    children: [
-      Text(context.l10n.boardsMoveReview),
-      Text(widget.column.title),
-      Text(context.l10n.boardsMoveEffects),
-      if (widget.column.tagName.isNotEmpty) Text('#${widget.column.tagName}'),
-      if (widget.column.moveStatus.isNotEmpty) Text(widget.column.moveStatus),
-      if (widget.column.moveAssigned.isNotEmpty)
-        Text(widget.column.moveAssigned),
-      if (widget.check.categoryIds.isNotEmpty)
-        DSelect<int>.controlled(
-          value: _category,
-          label: Text(context.l10n.boardsRequiredCategory),
-          entries: [
-            for (final id in widget.check.categoryIds)
-              DSelectItem(
-                value: id,
-                child: Text(
-                  widget.controller.siteState.categoryFor
-                          ?.call(widget.site, id)
-                          ?.name ??
-                      '#$id',
-                ),
-                textValue:
-                    widget.controller.siteState.categoryFor
-                        ?.call(widget.site, id)
-                        ?.name ??
-                    '#$id',
-              ),
-          ],
-          onChanged: (value) => setState(() => _category = value),
-        ),
-      if (widget.check.tagNames.isNotEmpty)
-        DSelect<String>.controlled(
-          value: _tag,
-          label: Text(context.l10n.boardsRequiredTag),
-          entries: [
-            for (final tag in widget.check.tagNames)
-              DSelectItem(value: tag, child: Text(tag), textValue: tag),
-          ],
-          onChanged: (value) => setState(() => _tag = value),
-        ),
-      DDialogFooter(
-        children: [
-          DButton(
-            label: Text(context.l10n.move),
-            onPressed:
-                (widget.check.categoryIds.isEmpty || _category != null) &&
-                    (widget.check.tagNames.isEmpty || _tag != null)
-                ? () => widget.onChosen(
-                    BoardRepair(
-                      categoryId: _category,
-                      tagNames: _tag == null ? const [] : [_tag!],
-                    ),
-                  )
-                : null,
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _CardEditor extends StatefulWidget {
-  const _CardEditor({
-    required this.handle,
-    required this.column,
-    required this.card,
-    required this.onSaved,
-  });
-  final BoardHandle handle;
-  final BoardColumn column;
-  final BoardCard? card;
-  final ValueChanged<BoardWriteResult> onSaved;
-  @override
-  State<_CardEditor> createState() => _CardEditorState();
-}
-
-class _CardEditorState extends State<_CardEditor> {
-  late final _title = TextEditingController(text: widget.card?.title);
-  late final _notes = TextEditingController(text: widget.card?.notes);
-  late final _tags = TextEditingController(text: widget.card?.tags.join(', '));
-  bool _saving = false;
-  String? _error;
-  @override
-  void initState() {
-    super.initState();
-    widget.handle.addListener(_changed);
-  }
-
-  void _changed() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    widget.handle.removeListener(_changed);
-    _title.dispose();
-    _notes.dispose();
-    _tags.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.handle.enabled || widget.handle.snapshot == null) {
-      return DDialogContent(children: [Text(context.l10n.boardsRefused)]);
-    }
-    final writable =
-        widget.handle.canWrite &&
-        widget.card?.kind != BoardCardKind.unsupported;
-    return DDialogContent(
-      children: [
-        Text(
-          widget.card == null ? context.l10n.boardsNewCard : context.l10n.edit,
-        ),
-        DInput(
-          controller: _title,
-          labelText: context.l10n.title,
-          enabled: writable && !_saving,
-          onChanged: (_) => setState(() {}),
-        ),
-        DTextarea(
-          controller: _notes,
-          labelText: context.l10n.boardsNotes,
-          minLines: 3,
-          maxLines: 8,
-          enabled: writable && !_saving,
-        ),
-        DInput(
-          controller: _tags,
-          labelText: context.l10n.boardsTags,
-          enabled: writable && !_saving,
-        ),
-        if (_error != null) Text(_error!),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: Text(context.l10n.save),
-              onPressed: writable && !_saving && _title.text.trim().isNotEmpty
-                  ? () async {
-                      setState(() => _saving = true);
-                      final result = await widget.handle.saveStandalone(
-                        widget.column.id,
-                        _title.text,
-                        _notes.text,
-                        cardId: widget.card?.id,
-                        tags: _tags.text
-                            .split(',')
-                            .map((tag) => tag.trim())
-                            .where((tag) => tag.isNotEmpty)
-                            .toList(),
-                      );
-                      if (!mounted) return;
-                      if (result.saved) {
-                        widget.onSaved(result);
-                      } else {
-                        setState(() {
-                          _saving = false;
-                          _error = result.error ?? context.l10n.boardsRefused;
-                        });
-                      }
-                    }
-                  : null,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 }

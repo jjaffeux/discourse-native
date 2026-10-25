@@ -31,6 +31,7 @@ final class BoardsModule implements PluginModule {
           siteState: bindings.require(corePluginSiteStatePort),
           trackers: bindings.require(corePluginTrackerPort),
           topics: bindings.require(corePluginTopicRefreshPort),
+          composer: bindings.require(corePluginComposerPort),
         );
         final navigation = BoardsNavigation(
           host: bindings.require(corePluginRouteNavigationPort),
@@ -51,6 +52,7 @@ final class BoardsModule implements PluginModule {
         corePluginSiteStatePort,
         corePluginTrackerPort,
         corePluginTopicRefreshPort,
+        corePluginComposerPort,
         corePluginRouteNavigationPort,
       ],
     );

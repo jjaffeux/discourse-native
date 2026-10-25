@@ -21,19 +21,25 @@ final class BoardsController extends FrameSafeNotifier
     implements
         PluginCurrentUserObserver,
         PluginTrackerAttachment,
-        PluginRouteHydrator {
+        PluginRouteHydrator,
+        PluginSiteActivator {
   BoardsController({
     required this.api,
     required this.requests,
     required this.siteState,
     required this.trackers,
     required this.topics,
+    this.composer,
   });
   final BoardsApi api;
   final PluginRequestHost requests;
   final PluginSiteStateHost siteState;
   final PluginTrackerReader trackers;
   final PluginTopicRefreshHost topics;
+  final PluginComposerHost? composer;
+  final _settingsListeners = <String, (Listenable, VoidCallback)>{};
+  final _composing = <(String, int, int)>{};
+  final _createdTopics = <(String, int, int), int>{};
   final _entries = <(String, int), BoardHandle>{};
   final _directory = <String, List<BoardSnapshot>>{};
   final _directoryReads = <String, Future<List<BoardSnapshot>>>{};
@@ -41,6 +47,9 @@ final class BoardsController extends FrameSafeNotifier
   final _trackers = <String, PluginLiveChannelHandle>{};
   bool _foreground = true;
   void changed() => notifySafely();
+  int accountRevision(String site) => _revisions[site] ?? 0;
+  bool sourceCurrent(String site, PluginSiteLease lease, int revision) =>
+      enabled(site) && lease.isCurrent && accountRevision(site) == revision;
 
   bool enabled(String site) =>
       !isDisposed &&
@@ -50,6 +59,7 @@ final class BoardsController extends FrameSafeNotifier
       enabled(site) ? _directory[site] ?? const [] : const [];
 
   Future<List<BoardSnapshot>> loadDirectory(String site, {int? topicId}) async {
+    _observeSettings(site);
     if (!enabled(site)) return const [];
     if (topicId == null) {
       final held = _directoryReads[site];
@@ -87,6 +97,7 @@ final class BoardsController extends FrameSafeNotifier
   }
 
   BoardHandle acquire(String site, int id) {
+    _observeSettings(site);
     final handle = _entries.putIfAbsent((
       site,
       id,
@@ -98,6 +109,7 @@ final class BoardsController extends FrameSafeNotifier
   }
 
   void _release(BoardHandle entry) {
+    if (entry._references <= 0) return;
     if (--entry._references > 0) return;
     if (identical(_entries[(entry.site, entry.id)], entry)) {
       _entries.remove((entry.site, entry.id));
@@ -110,6 +122,8 @@ final class BoardsController extends FrameSafeNotifier
     _directory.remove(site);
     final _ = _directoryReads.remove(site);
     _trackers.remove(site);
+    _createdTopics.removeWhere((key, _) => key.$1 == site);
+    _composing.removeWhere((key) => key.$1 == site);
     for (final entry
         in _entries.values.where((entry) => entry.site == site).toList()) {
       entry._reset();
@@ -119,6 +133,25 @@ final class BoardsController extends FrameSafeNotifier
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) => forget(siteUrl);
+  void _observeSettings(String site) {
+    if (_settingsListeners.containsKey(site)) return;
+    final source = siteState.siteConfigListenableFor?.call(site);
+    if (source == null) return;
+    var wasEnabled = enabled(site);
+    void changedSettings() {
+      final nowEnabled = enabled(site);
+      if (nowEnabled == wasEnabled) return;
+      wasEnabled = nowEnabled;
+      forget(site);
+    }
+
+    source.addListener(changedSettings);
+    _settingsListeners[site] = (source, changedSettings);
+  }
+
+  @override
+  void activatePluginSite(String siteUrl, {required bool connected}) =>
+      _observeSettings(siteUrl);
   @override
   void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels) {
     _trackers[siteUrl] = channels;
@@ -169,6 +202,10 @@ final class BoardsController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    for (final listener in _settingsListeners.values) {
+      listener.$1.removeListener(listener.$2);
+    }
+    _settingsListeners.clear();
     for (final entry in _entries.values.toList()) {
       entry._retire();
     }
@@ -230,6 +267,7 @@ final class BoardHandle extends ChangeNotifier {
   }
 
   void _retire() {
+    if (_disposed) return;
     _disposed = true;
     _generation++;
     snapshot = null;
@@ -355,7 +393,19 @@ final class BoardHandle extends ChangeNotifier {
     await refresh();
     if (saved && topicId != null && enabled && lease.isCurrent) {
       try {
-        await owner.topics.reloadTopic(site, topicId);
+        final repair = owner.topics.refreshAfterMutation;
+        if (repair != null) {
+          final result = await repair(
+            siteUrl: site,
+            topicId: topicId,
+            lease: lease,
+          );
+          if (result != PluginTopicRefreshResult.refreshed) {
+            return const BoardWriteResult(BoardWriteState.refreshNeeded);
+          }
+        } else {
+          await owner.topics.reloadTopic(site, topicId);
+        }
       } catch (_) {
         return const BoardWriteResult(BoardWriteState.refreshNeeded);
       }
@@ -364,6 +414,120 @@ final class BoardHandle extends ChangeNotifier {
         BoardWriteResult(
           error == null ? BoardWriteState.saved : BoardWriteState.refreshNeeded,
         );
+  }
+
+  bool composing(int columnId, {int? cardId}) =>
+      owner._composing.contains((site, id, cardId ?? -columnId));
+  int? createdTopic(int columnId, {int? cardId}) =>
+      owner._createdTopics[(site, id, cardId ?? -columnId)];
+
+  Future<OpenComposerResult> createTopic(
+    String sourceRouteId,
+    int columnId, {
+    int? cardId,
+  }) async {
+    final composer = owner.composer;
+    final board = snapshot;
+    final column = board?.column(columnId);
+    final card = cardId == null ? null : board?.card(cardId);
+    final key = (site, id, cardId ?? -columnId);
+    if (!canWrite ||
+        composer == null ||
+        board == null ||
+        column == null ||
+        owner._composing.contains(key) ||
+        cardId != null && card?.kind != BoardCardKind.standalone) {
+      return OpenComposerResult.unavailable;
+    }
+    final lease = owner.requests.capture(site);
+    owner._composing.add(key);
+    _references++;
+    _changed();
+    var completed = false;
+    Future<void> finish(PluginTopicCreationOutcome outcome) async {
+      if (completed) return;
+      completed = true;
+      owner._composing.remove(key);
+      try {
+        if (!enabled || !lease.isCurrent) return;
+        if (outcome case PluginTopicCreated(:final topicId)) {
+          owner._createdTopics[key] = topicId;
+          await attachCreatedTopic(columnId, cardId: cardId, lease: lease);
+        }
+      } finally {
+        _changed();
+        release();
+      }
+    }
+
+    try {
+      final result = await composer.openNewTopic(
+        OpenNewTopicComposerRequest(
+          siteUrl: site,
+          sourceRouteId: sourceRouteId,
+          seed: ComposerSeed(raw: card?.notes ?? ''),
+          initialTitle: card?.title,
+          initialCategoryId:
+              column.moveCategoryId ?? board.categoryIds.firstOrNull,
+          initialTags: {
+            ...?card?.tags,
+            ...board.tagNames,
+            if (column.tagName.isNotEmpty) column.tagName,
+          }.toList(),
+          sourceStillCurrent: () =>
+              enabled &&
+              lease.isCurrent &&
+              (cardId == null || snapshot?.card(cardId) != null),
+          onCompleted: (outcome) => unawaited(finish(outcome)),
+        ),
+      );
+      if (result != OpenComposerResult.opened) {
+        await finish(const PluginTopicCreationCancelled());
+      }
+      return result;
+    } catch (_) {
+      await finish(const PluginTopicCreationCancelled());
+      return OpenComposerResult.unavailable;
+    }
+  }
+
+  Future<BoardWriteResult> attachCreatedTopic(
+    int columnId, {
+    int? cardId,
+    PluginSiteLease? lease,
+  }) async {
+    final key = (site, id, cardId ?? -columnId);
+    final topicId = owner._createdTopics[key];
+    if (topicId == null || !enabled || lease != null && !lease.isCurrent) {
+      return const BoardWriteResult(BoardWriteState.cancelled);
+    }
+    if (reading) await _read;
+    if (lease != null && !lease.isCurrent) {
+      return const BoardWriteResult(BoardWriteState.cancelled);
+    }
+    if (!canWrite ||
+        cardId != null &&
+            snapshot?.card(cardId)?.kind != BoardCardKind.standalone) {
+      return const BoardWriteResult(BoardWriteState.refused);
+    }
+    final result = await _write(
+      (credentials) => owner.api.write(
+        site,
+        'boards/$id/cards${cardId == null ? '' : '/$cardId'}',
+        credentials,
+        method: cardId == null ? 'POST' : 'PUT',
+        body: {
+          'card': {
+            'topic_id': topicId,
+            if (cardId == null) 'column_id': columnId,
+          },
+        },
+      ),
+      topicId: topicId,
+    );
+    if (result.saved) owner._createdTopics.remove(key);
+    _changed();
+    return result;
   }
 
   Future<BoardWriteResult> move(
@@ -384,6 +548,11 @@ final class BoardHandle extends ChangeNotifier {
         (card.columnId == columnId &&
             target.order == BoardColumnOrder.recency)) {
       return const BoardWriteResult(BoardWriteState.refused);
+    }
+    if (placement case PlaceAfter(:final cardId)) {
+      if (target.cards.every((card) => card.id != cardId) || cardId == card.id) {
+        return const BoardWriteResult(BoardWriteState.refused);
+      }
     }
     final lease = owner.requests.capture(site);
     final generation = _generation;

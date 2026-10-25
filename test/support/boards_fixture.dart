@@ -6,6 +6,7 @@ import 'package:discourse_native/src/plugins/boards/boards_api.dart';
 import 'package:discourse_native/src/plugins/boards/boards_controller.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
+import 'package:flutter/foundation.dart';
 
 const boardsSite = 'https://forum.example/community';
 
@@ -93,11 +94,14 @@ final class BoardsFixture {
     bool enabled = true,
     bool connected = true,
     Map<String, dynamic>? json,
+    PluginComposerHost? composer,
   }) {
-    config = SiteConfig(
-      plugins: PluginData.none.withValue(
-        boardsSettingsKey,
-        BoardsSettings(enabled: enabled),
+    settings = ValueNotifier(
+      SiteConfig(
+        plugins: PluginData.none.withValue(
+          boardsSettingsKey,
+          BoardsSettings(enabled: enabled),
+        ),
       ),
     );
     data = (jsonDecode(jsonEncode(json ?? boardFixtureJson())) as Map)
@@ -136,6 +140,7 @@ final class BoardsFixture {
         currentUserFor: (_) =>
             connected ? const DiscourseUser(username: 'lee', id: 2) : null,
         siteConfigFor: (_) => config,
+        siteConfigListenableFor: (_) => settings,
       ),
       trackers: (_) => live,
       topics: PluginTopicRefreshHost(
@@ -143,11 +148,14 @@ final class BoardsFixture {
           refreshedTopics.add(id);
         },
       ),
+      composer: composer,
     );
     host = BoardsFixtureNavigation(connected: connected);
     navigation = BoardsNavigation(host: host, controller: controller);
   }
-  late SiteConfig config;
+  late final ValueNotifier<SiteConfig> settings;
+  SiteConfig get config => settings.value;
+  set config(SiteConfig value) => settings.value = value;
   late Map<String, dynamic> data;
   late PluginTestRequestHost requests;
   late RecordingPluginTransport transport;

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'board_move_dialog.dart';
 import 'boards_controller.dart';
 import 'boards_data.dart';
 import 'boards_navigation.dart';
