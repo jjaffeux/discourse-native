@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -8,9 +10,15 @@ import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/pills.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 
@@ -25,6 +33,166 @@ const _hashtag = FoundHashtag(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final mentions in [true, false]) {
+    final kind = mentions ? 'mentions' : 'hashtags';
+    testWidgets('pasted $kind resolve beyond the first request', (
+      tester,
+    ) async {
+      final wire = _IdentityWire()..gate = Completer<void>();
+      final api = _IdentityApi()..wire = wire.api;
+      final shell = (await tester.runAsync(() => _shell(api)))!;
+      final pills = _pills(shell);
+      final composer = shell.visibleComposer!;
+      final identities = {
+        for (var i = 0; i < 45; i++) '${mentions ? 'user' : 'tag'}$i',
+        'missing',
+      };
+      final prefix = mentions ? '@' : '#';
+      final raw = [
+        ...identities,
+        identities.first,
+        identities.last,
+      ].map((identity) => '$prefix$identity').join(' ');
+      final before = shell.cookingRequest(siteUrl: _site, raw: raw);
+      composer.text.text = '$raw ';
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ComposerEditor(
+                composer: composer,
+                hintText: 'Reply',
+                textStyle: const TextStyle(fontSize: 16),
+                hintStyle: null,
+                enableDropTarget: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() => pumpEventQueue());
+      final requests = mentions ? wire.mentionRequests : wire.hashtagRequests;
+      expect(requests, isNotEmpty);
+      final pendingRequests = requests.length;
+      pills.resolve(mentions ? {} : identities, mentions ? identities : {});
+      await tester.pump();
+      await tester.runAsync(() => pumpEventQueue());
+      expect(requests, hasLength(pendingRequests));
+      wire.gate!.complete();
+      await tester.runAsync(() => pumpEventQueue());
+      await tester.pump();
+      await tester.runAsync(() => pumpEventQueue());
+      await tester.pump();
+
+      for (var i = 0; i < 45; i++) {
+        if (mentions) {
+          expect(
+            pills.mention('user$i'),
+            isTrue,
+            reason: 'user$i must resolve',
+          );
+        } else {
+          expect(pills.hashtag('tag$i')?.ref, 'tag$i');
+        }
+      }
+      expect(requests.every((batch) => batch.length <= 20), isTrue);
+      expect(requests.expand((batch) => batch), unorderedEquals(identities));
+      final after = shell.cookingRequest(siteUrl: _site, raw: raw);
+      expect(before.snapshot.mentions, isEmpty);
+      expect(before.snapshot.hashtags, isEmpty);
+      if (mentions) {
+        expect(pills.mention('missing'), isFalse);
+        expect(after.snapshot.mentions['user44'], isTrue);
+        expect(after.snapshot.mentions['missing'], isFalse);
+      } else {
+        expect(pills.hashtag('missing'), isNull);
+        expect(after.snapshot.hashtags['tag44'], containsPair('id', 45));
+        expect(after.snapshot.hashtags, isNot(contains('missing')));
+      }
+      final completedRequests = requests.length;
+      pills.resolve(mentions ? {} : identities, mentions ? identities : {});
+      composer.text.text = '$raw  ';
+      await tester.pump();
+      await tester.runAsync(() => pumpEventQueue());
+      expect(requests, hasLength(completedRequests));
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  test(
+    'failed identity batches retry without repeating successful batches',
+    () async {
+      final wire = _IdentityWire()
+        ..failMentionBatchOnce = true
+        ..failHashtagBatchOnce = true;
+      final api = _IdentityApi()..wire = wire.api;
+      final shell = await _shell(api);
+      final pills = _pills(shell);
+      final refs = {for (var i = 0; i < 45; i++) 'tag$i'};
+      final names = {for (var i = 0; i < 45; i++) 'user$i'};
+      pills.resolve(refs, names);
+      await pumpEventQueue();
+      expect(pills.mention('user0'), isTrue);
+      expect(pills.hashtag('tag0')?.ref, 'tag0');
+      expect(pills.mention('user20'), isNull);
+      expect(pills.hashtag('tag20'), isNull);
+      expect(pills.mention('user44'), isTrue);
+      expect(pills.hashtag('tag44')?.ref, 'tag44');
+      pills.resolve(refs, names);
+      await pumpEventQueue();
+      for (var i = 0; i < 45; i++) {
+        expect(pills.mention('user$i'), isTrue);
+        expect(pills.hashtag('tag$i')?.ref, 'tag$i');
+      }
+      expect(
+        wire.mentionRequests.where((batch) => batch.contains('user0')),
+        hasLength(1),
+      );
+      expect(
+        wire.hashtagRequests.where((batch) => batch.contains('tag0')),
+        hasLength(1),
+      );
+      expect(
+        wire.mentionRequests.where((batch) => batch.contains('user20')),
+        hasLength(2),
+      );
+      expect(
+        wire.hashtagRequests.where((batch) => batch.contains('tag20')),
+        hasLength(2),
+      );
+      expect(wire.mentionRequests.every((batch) => batch.length <= 20), isTrue);
+      expect(wire.hashtagRequests.every((batch) => batch.length <= 20), isTrue);
+    },
+  );
+
+  test('retirement cancels remaining identity batches', () async {
+    final wire = _IdentityWire()..gate = Completer<void>();
+    final api = _IdentityApi()..wire = wire.api;
+    final shell = await _shell(api);
+    final pills = _pills(shell);
+    final refs = {for (var i = 0; i < 45; i++) 'tag$i'};
+    final names = {for (var i = 0; i < 45; i++) 'user$i'};
+    pills.resolve(refs, names);
+    await pumpEventQueue();
+    expect(wire.hashtagRequests, hasLength(1));
+    expect(wire.mentionRequests, hasLength(1));
+    shell.lifecycle.invalidate(_site);
+    shell.clearAccountSessionState(_site);
+    wire.gate!.complete();
+    await pumpEventQueue();
+    pills.resolve(refs, names);
+    await pumpEventQueue();
+    expect(wire.hashtagRequests, hasLength(1));
+    expect(wire.mentionRequests, hasLength(1));
+    expect(pills.hashtag('tag0'), isNull);
+    expect(pills.mention('user0'), isNull);
+    final snapshot = shell.cookingRequest(siteUrl: _site, raw: '#tag0 @user0');
+    expect(snapshot.snapshot.hashtags, isEmpty);
+    expect(snapshot.snapshot.mentions, isEmpty);
+  });
 
   test('search seeds the same pills and frozen cooking identity', () async {
     final api = _IdentityApi();
@@ -218,6 +386,7 @@ final class _IdentityApi extends FakeDiscourseApi {
   bool failLookup = false;
   bool bulk = false;
   bool failSearch = false;
+  DiscourseApi? wire;
   final hashtagReplies = <Completer<List<FoundHashtag>>>[];
   final mentionSearchTopicIds = <int?>[];
   final mentionTopicIds = <int?>[];
@@ -293,6 +462,15 @@ final class _IdentityApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
   }) async {
+    if (wire case final wire?) {
+      return wire.lookupHashtags(
+        siteUrl: siteUrl,
+        refs: refs,
+        order: order,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
     await super.lookupHashtags(
       siteUrl: siteUrl,
       refs: refs,
@@ -316,6 +494,15 @@ final class _IdentityApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     mentionTopicIds.add(topicId);
+    if (wire case final wire?) {
+      return wire.checkMentions(
+        siteUrl: siteUrl,
+        names: names,
+        topicId: topicId,
+        apiKey: apiKey,
+        clientId: clientId,
+      );
+    }
     await super.checkMentions(
       siteUrl: siteUrl,
       names: names,
@@ -334,5 +521,60 @@ final class _GatedAuthenticator extends FakeAuthenticator {
   Future<String?> apiKeyFor(String siteUrl) async {
     await gate?.future;
     return super.apiKeyFor(siteUrl);
+  }
+}
+
+final class _IdentityWire {
+  final mentionRequests = <List<String>>[];
+  final hashtagRequests = <List<String>>[];
+  Completer<void>? gate;
+  bool failMentionBatchOnce = false;
+  bool failHashtagBatchOnce = false;
+  late final api = DiscourseApi(client: MockClient(_respond));
+
+  Future<http.Response> _respond(http.Request request) async {
+    if (request.url.path == '/composer/mentions') {
+      final names = request.url.queryParametersAll['names[]']!;
+      mentionRequests.add(names);
+      expect(request.url.queryParameters['topic_id'], '7');
+      await gate?.future;
+      if (failMentionBatchOnce && names.contains('user20')) {
+        failMentionBatchOnce = false;
+        return http.Response('{}', 500);
+      }
+      return http.Response(
+        jsonEncode({
+          'users': names.where((name) => name != 'missing').toList(),
+          'groups': {},
+        }),
+        200,
+      );
+    }
+    if (request.url.path == '/hashtags.json') {
+      final refs = request.url.queryParametersAll['slugs[]']!;
+      hashtagRequests.add(refs);
+      await gate?.future;
+      if (failHashtagBatchOnce && refs.contains('tag20')) {
+        failHashtagBatchOnce = false;
+        return http.Response('{}', 500);
+      }
+      return http.Response(
+        jsonEncode({
+          'tag': [
+            for (final ref in refs.where((ref) => ref != 'missing'))
+              {
+                'type': 'tag',
+                'ref': ref,
+                'slug': ref,
+                'text': ref,
+                'relative_url': '/tag/$ref',
+                'id': int.parse(ref.substring(3)) + 1,
+              },
+          ],
+        }),
+        200,
+      );
+    }
+    throw StateError('Unexpected identity request ${request.url}');
   }
 }
