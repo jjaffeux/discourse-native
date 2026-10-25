@@ -433,8 +433,31 @@ void main() {
     }
     await tester.pump();
 
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(find.textContaining('Notice 3'), findsOneWidget);
+    final oldest = find.textContaining('Notice 1;');
+    final owner = Scrollable.of(tester.element(oldest), axis: Axis.vertical);
+    final viewport = find.byElementPredicate(
+      (element) => identical(element, owner.context),
+    );
+    final before = owner.position.pixels;
+    expect(owner.position.maxScrollExtent, greaterThan(0));
+    expect(oldest.hitTestable(), findsNothing);
+    await tester.drag(viewport, const Offset(0, 80));
+    await tester.pumpAndSettle();
+    expect(owner.position.pixels, greaterThan(before));
+    await tester.scrollUntilVisible(
+      oldest.hitTestable(),
+      80,
+      scrollable: viewport,
+      maxScrolls: 10,
+    );
+    await tester.pumpAndSettle();
+    expect(owner.position.pixels, greaterThan(before));
+    expect(oldest.hitTestable(), findsOneWidget);
+    final visible = tester.getRect(viewport);
+    final reached = tester.getRect(oldest);
+    expect(reached.top, greaterThanOrEqualTo(visible.top - 1));
+    expect(reached.bottom, lessThanOrEqualTo(visible.bottom + 1));
     expect(tester.takeException(), isNull);
   });
 }
