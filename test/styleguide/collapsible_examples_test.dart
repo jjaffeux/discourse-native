@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/collapsible_examples.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -51,13 +52,32 @@ void main() {
       ),
     );
 
-    final trigger = tester.widget<DCollapsibleTrigger>(
-      find.byType(DCollapsibleTrigger),
+    final outline = find
+        .descendant(
+          of: find.byType(DCollapsibleTrigger),
+          matching: find.byType(CustomPaint),
+        )
+        .first;
+    expect(outline, isNot(paints..rrect()));
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+
+    // The reference treatment: a one-pixel border inside the control and a
+    // three-pixel ring at half the focus colour outside it.
+    final ring = DTokens.of(tester.element(outline)).focusRing;
+    final bounds = BorderRadius.circular(
+      DTokens.of(tester.element(outline)).radius,
+    ).toRRect(Offset.zero & tester.getSize(outline));
+    expect(
+      outline,
+      paints
+        ..rrect(rrect: bounds.deflate(.5), color: ring, strokeWidth: 1)
+        ..drrect(
+          outer: bounds.inflate(3),
+          inner: bounds,
+          color: ring.withValues(alpha: ring.a * .5),
+        ),
     );
-    expect(trigger.focusBorderRadius, isNotNull);
-    expect(trigger.focusBorder, isTrue);
-    expect(trigger.focusRingWidth, 3);
-    expect(trigger.focusRingOpacity, 0.5);
   });
 
   testWidgets('file tree uses the current 16rem reference width', (
