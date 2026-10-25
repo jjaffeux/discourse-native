@@ -273,8 +273,6 @@ void main() {
         switch (how) {
           case _Hide.escape:
             await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          case _Hide.controller:
-            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           case _Hide.lifecycle:
             tester.binding.handleAppLifecycleStateChanged(
               AppLifecycleState.inactive,
@@ -421,7 +419,7 @@ void main() {
     expect(reasons.last, DHoverCardChangeReason.escape);
   });
 
-  testWidgets('controller ignores detached calls and never disposes borrowed', (
+  testWidgets('a detached controller reports closed and stays caller owned', (
     tester,
   ) async {
     final controller = DHoverCardController();
@@ -446,8 +444,8 @@ void main() {
     rebuild(() => mounted = false);
     await tester.pump();
     expect(controller.isOpen, isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    controller.addListener(() {});
+    // A disposed ChangeNotifier rejects new listeners.
+    expect(() => controller.addListener(() {}), returnsNormally);
   });
 
   testWidgets('disable cancels a pending opening timer', (tester) async {
@@ -898,7 +896,7 @@ void main() {
   });
 }
 
-enum _Hide { escape, controller, lifecycle, viewFocus }
+enum _Hide { escape, lifecycle, viewFocus }
 
 class _Card extends StatelessWidget {
   const _Card({
@@ -1030,7 +1028,7 @@ Future<void> _focusCard(
     (widget) =>
         widget is DHoverCard && identical(widget.controller, controller),
   );
-  if (card.evaluate().isEmpty) return;
+  expect(card, findsWidgets);
   final owner = card.last;
   await tester.sendKeyEvent(LogicalKeyboardKey.tab);
   final trigger = tester.widget<DHoverCard>(owner).trigger;
