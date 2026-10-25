@@ -161,24 +161,36 @@ final class _ComposerIdentityResolution {
     ];
     if (ask.isEmpty) return;
     try {
-      final found = await _run(
-        (credential) => _lookups.lookupHashtags(
-          siteUrl: _siteUrl,
-          refs: ask,
-          order: _hashtagTypes,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      if (!isCurrent) return;
-      for (final ref in ask) {
-        _hashtags.put(ref, null);
+      for (
+        var offset = 0;
+        offset < ask.length;
+        offset += maximumDiscourseHashtagsPerRequest
+      ) {
+        if (!isCurrent) return;
+        final batch = ask
+            .skip(offset)
+            .take(maximumDiscourseHashtagsPerRequest)
+            .toList(growable: false);
+        try {
+          final found = await _run(
+            (credential) => _lookups.lookupHashtags(
+              siteUrl: _siteUrl,
+              refs: batch,
+              order: _hashtagTypes,
+              apiKey: credential.apiKey,
+              clientId: credential.clientId,
+            ),
+          );
+          if (!isCurrent) return;
+          for (final ref in batch) {
+            _hashtags.put(ref, null);
+          }
+          for (final hashtag in found) {
+            _hashtags.put(hashtag.ref, hashtag);
+          }
+          _onChanged(true);
+        } catch (_) {}
       }
-      for (final hashtag in found) {
-        _hashtags.put(hashtag.ref, hashtag);
-      }
-      _onChanged(true);
-    } catch (_) {
     } finally {
       _hashtagsInFlight.removeAll(ask);
     }
@@ -192,21 +204,33 @@ final class _ComposerIdentityResolution {
     ];
     if (ask.isEmpty) return;
     try {
-      final real = await _run(
-        (credential) => _lookups.checkMentions(
-          siteUrl: _siteUrl,
-          names: ask,
-          topicId: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      if (!isCurrent) return;
-      for (final name in ask) {
-        _mentions.put(name, real.contains(name));
+      for (
+        var offset = 0;
+        offset < ask.length;
+        offset += maximumDiscourseHashtagsPerRequest
+      ) {
+        if (!isCurrent) return;
+        final batch = ask
+            .skip(offset)
+            .take(maximumDiscourseHashtagsPerRequest)
+            .toList(growable: false);
+        try {
+          final real = await _run(
+            (credential) => _lookups.checkMentions(
+              siteUrl: _siteUrl,
+              names: batch,
+              topicId: topicId,
+              apiKey: credential.apiKey,
+              clientId: credential.clientId,
+            ),
+          );
+          if (!isCurrent) return;
+          for (final name in batch) {
+            _mentions.put(name, real.contains(name));
+          }
+          _onChanged(true);
+        } catch (_) {}
       }
-      _onChanged(true);
-    } catch (_) {
     } finally {
       _mentionsInFlight.removeAll(ask);
     }

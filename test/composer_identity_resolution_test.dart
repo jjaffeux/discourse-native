@@ -119,6 +119,8 @@ void main() {
       await tester.runAsync(() => pumpEventQueue());
       expect(requests, hasLength(completedRequests));
       await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 2));
+      await tester.runAsync(() => pumpEventQueue());
     });
   }
 
@@ -545,7 +547,7 @@ final class _IdentityWire {
       return http.Response(
         jsonEncode({
           'users': names.where((name) => name != 'missing').toList(),
-          'groups': {},
+          'groups': <String, Object?>{},
         }),
         200,
       );
