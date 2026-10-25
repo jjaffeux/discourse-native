@@ -291,6 +291,13 @@ Future<void> _pumpDialog(
   );
   await tester.tap(find.byKey(_open));
   await tester.pumpAndSettle();
+  // The mark is parsed once per isolate. The first dialog to open awaits the
+  // bundle's real-async read, which fake time alone never delivers; later
+  // openings reuse the parsed mark. Land that read so every test starts from
+  // a drawn mark whichever test opens the dialog first.
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('about-mark-artwork')), findsOneWidget);
 }
 
 Future<void> _pumpMenu(WidgetTester tester, TargetPlatform platform) async {
