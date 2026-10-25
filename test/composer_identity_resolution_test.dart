@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/pills.dart';
+import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -214,6 +215,114 @@ void main() {
     expect(before.snapshot.mentions, isEmpty);
     expect(after.snapshot.hashtags['sailing'], containsPair('id', 8));
     expect(after.snapshot.mentions['Alice'], isTrue);
+  });
+
+  testWidgets(
+    'canonical hashtag case resolves authored pills and cooking keys',
+    (tester) async {
+      final requests = <List<String>>[];
+      final api = _IdentityApi()
+        ..wire = DiscourseApi(
+          client: MockClient((request) async {
+            expect(request.url.path, '/hashtags.json');
+            requests.add(request.url.queryParametersAll['slugs[]']!);
+            return http.Response(
+              jsonEncode({
+                'tag': [
+                  {'type': 'tag', 'ref': 'sailing', 'slug': 'sailing', 'id': 8},
+                ],
+                'category': [
+                  {
+                    'type': 'category',
+                    'ref': 'sailing',
+                    'slug': 'sailing',
+                    'id': 3,
+                  },
+                ],
+              }),
+              200,
+            );
+          }),
+        );
+      final shell = (await tester.runAsync(() => _shell(api)))!;
+      final pills = _pills(shell);
+      final composer = shell.visibleComposer!;
+      const authored = '#SAILING #SAILING::tag ';
+      composer.text.text = authored;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark,
+          home: ShellScope(
+            controller: shell,
+            child: Scaffold(
+              body: ComposerEditor(
+                composer: composer,
+                hintText: 'Reply',
+                textStyle: const TextStyle(fontSize: 16),
+                hintStyle: null,
+                enableDropTarget: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() => pumpEventQueue());
+      await tester.pump();
+      expect(requests, [
+        ['SAILING', 'SAILING::tag'],
+      ]);
+      expect(pills.hashtag('SAILING')?.type, 'category');
+      expect(pills.hashtag('SAILING::tag')?.type, 'tag');
+      expect(
+        tester
+            .widgetList<HashtagPill>(find.byType(HashtagPill))
+            .map((pill) => pill.label),
+        ['#SAILING', '#SAILING::tag'],
+      );
+      expect(composer.text.text, authored);
+      final snapshot = shell
+          .cookingRequest(siteUrl: _site, raw: authored)
+          .snapshot;
+      expect(snapshot.hashtags['SAILING'], containsPair('id', 3));
+      expect(snapshot.hashtags['SAILING::tag'], containsPair('id', 8));
+      pills.resolve({'SAILING', 'SAILING::tag'}, {});
+      await tester.runAsync(() => pumpEventQueue());
+      expect(requests, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  test('canonical tag result resolves the authored spelling', () async {
+    final reply = Completer<List<FoundHashtag>>()..complete([_hashtag]);
+    final api = _IdentityApi()..hashtagReplies.add(reply);
+    final shell = await _shell(api);
+    final pills = _pills(shell);
+    pills.resolve({'SAILING'}, {});
+    await pumpEventQueue();
+    expect(pills.hashtag('SAILING'), _hashtag);
+    expect(
+      shell
+          .cookingRequest(siteUrl: _site, raw: '#SAILING')
+          .snapshot
+          .hashtags['SAILING'],
+      containsPair('id', 8),
+    );
+  });
+
+  test('typed hashtag results do not seed an ambiguous bare alias', () async {
+    final reply = Completer<List<FoundHashtag>>()..complete([_hashtag]);
+    final api = _IdentityApi()..hashtagReplies.add(reply);
+    final shell = await _shell(api);
+    final pills = _pills(shell);
+    pills.resolve({'SAILING', 'SAILING::tag'}, {});
+    await pumpEventQueue();
+    expect(pills.hashtag('SAILING'), isNull);
+    expect(pills.hashtag('SAILING::tag'), _hashtag);
+    final snapshot = shell
+        .cookingRequest(siteUrl: _site, raw: '#SAILING #SAILING::tag')
+        .snapshot;
+    expect(snapshot.hashtags, isNot(contains('SAILING')));
+    expect(snapshot.hashtags['SAILING::tag'], containsPair('id', 8));
   });
 
   test('negative lookup entries deduplicate and failures can retry', () async {

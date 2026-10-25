@@ -695,6 +695,106 @@ void main() {
   );
 
   test(
+    'hashtag lookup matches canonical case without changing typed identities',
+    () async {
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          expect(request.url.queryParametersAll['slugs[]'], [
+            'SAILING',
+            'SAILING::tag',
+          ]);
+          return http.Response(
+            jsonEncode({
+              'tag': [
+                {'type': 'tag', 'ref': 'sailing', 'slug': 'sailing', 'id': 8},
+                {
+                  'type': 'tag',
+                  'ref': 'unrelated',
+                  'slug': 'unrelated',
+                  'id': 9,
+                },
+                {
+                  'type': 'tag',
+                  'ref': 'sailing::category',
+                  'slug': 'sailing',
+                  'id': 10,
+                },
+                {
+                  'type': 'tag',
+                  'ref': 'sailing::TAG',
+                  'slug': 'sailing',
+                  'id': 11,
+                },
+                {
+                  'type': 'unrequested',
+                  'ref': 'sailing',
+                  'slug': 'sailing',
+                  'id': 12,
+                },
+              ],
+              'category': [
+                {
+                  'type': 'category',
+                  'ref': 'sailing',
+                  'slug': 'sailing',
+                  'id': 3,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final found = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: ['SAILING', 'SAILING::tag'],
+      );
+      expect(found.map((item) => item.id), [8, 3]);
+      expect(found.map((item) => item.ref), ['sailing', 'sailing']);
+    },
+  );
+
+  test(
+    'typed hashtag lookup rejects another type and suffix spelling',
+    () async {
+      final api = DiscourseApi(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'category': [
+                {'type': 'category', 'ref': 'sailing', 'id': 3},
+              ],
+              'tag': [
+                {'type': 'tag', 'ref': 'sailing::tag', 'id': 8},
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+      expect(
+        await api.lookupHashtags(
+          siteUrl: 'https://example.com',
+          refs: ['SAILING::category'],
+        ),
+        hasLength(1),
+      );
+      final tag = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: ['SAILING::tag'],
+      );
+      expect(tag.single.ref, 'sailing::tag');
+      expect(
+        await api.lookupHashtags(
+          siteUrl: 'https://example.com',
+          refs: ['SAILING::TAG'],
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'hashtag and mention responses cannot exceed their request budget',
     () async {
       var calls = 0;
