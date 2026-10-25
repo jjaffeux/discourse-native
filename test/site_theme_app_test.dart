@@ -976,14 +976,11 @@ void main() {
       controller.selectInstance(0);
       controller.selectInstance(1);
       controller.selectInstance(0);
-
       await tester.pump();
 
       expect(controller.currentInstance?.url, siteA);
-
-      controller.selectInstance(1);
-      controller.selectInstance(0);
-      await tester.pump();
+      expect(_materialApp(tester).theme, same(light));
+      expect(_materialApp(tester).darkTheme, same(dark));
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets(

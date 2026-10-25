@@ -212,7 +212,7 @@ void main() {
     });
   });
 
-  group('plugin lifecycle and diagnostics', () {
+  group('plugin lifecycle', () {
     for (final injected in [false, true]) {
       testWidgets(
         'replacement waits for session teardown with ${injected ? 'injected' : 'owned'} plugins',
