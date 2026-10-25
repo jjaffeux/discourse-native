@@ -155,8 +155,7 @@ void main() {
             expect(totalPaints, greaterThan(0));
             expect(headerPaints, 0);
 
-            // Keep the settled navigation control's artwork cached. Its outer
-            // live glass lens may still repaint to update its backdrop.
+            // Keep the settled navigation control's artwork cached.
             await tester.pump(const Duration(milliseconds: 450));
             position.pointerScroll(160);
             await tester.pumpAndSettle();

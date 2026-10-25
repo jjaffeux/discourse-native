@@ -159,61 +159,54 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      {
-        for (final dark in [false, true]) {
-          for (final scale in [1.0, 2.0]) {
-            for (final direction in TextDirection.values) {
-              final shell = await _loadShell(FakeDiscourseApi(user: _user));
-              await _openProgress(
-                tester,
-                shell,
-                platform,
-                dark: dark,
-                scale: scale,
-                direction: direction,
-              );
-              expect(find.text('sam'), findsOneWidget);
-              expect(find.text('17 May 2026'), findsNWidgets(2));
-              expect(find.text('14 October 2026'), findsOneWidget);
-              expect(
-                tester.getSize(find.byType(DAvatar)),
-                Size(32 * scale, 32 * scale),
-              );
-              final panel = tester.getRect(_panelFinder(platform));
-              for (final label in ['First post', 'Latest post']) {
-                final button = find.widgetWithText(DButton, label);
-                final rect = tester.getRect(button);
-                expect(panel.contains(rect.topLeft), isTrue);
-                expect(panel.contains(rect.bottomRight), isTrue);
-                expect(
-                  rect.height,
-                  closeTo(34 + 12.5 * (scale - 1) * 1.5, .01),
-                );
-              }
-              await _capture(
-                tester,
-                '${platform.name}-flat-${dark ? 'dark' : 'light'}-$scale-${direction.name}',
-              );
-              await tester.tap(find.text('First post'));
-              await tester.pumpAndSettle();
-              expect(shell.currentContent?.postNumber, 1);
-              if (platform == TargetPlatform.macOS) {
-                expect(
-                  tester
-                      .widget<DButton>(
-                        find.widgetWithText(DButton, 'First post'),
-                      )
-                      .onPressed,
-                  isNull,
-                );
-                expect(_selection('1 / 3'), findsOneWidget);
-                await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-                await tester.pumpAndSettle();
-              }
-              expect(_panelFinder(platform), findsNothing);
-              expect(tester.takeException(), isNull);
-              await tester.pumpWidget(const SizedBox.shrink());
+      for (final dark in [false, true]) {
+        for (final scale in [1.0, 2.0]) {
+          for (final direction in TextDirection.values) {
+            final shell = await _loadShell(FakeDiscourseApi(user: _user));
+            await _openProgress(
+              tester,
+              shell,
+              platform,
+              dark: dark,
+              scale: scale,
+              direction: direction,
+            );
+            expect(find.text('sam'), findsOneWidget);
+            expect(find.text('17 May 2026'), findsNWidgets(2));
+            expect(find.text('14 October 2026'), findsOneWidget);
+            expect(
+              tester.getSize(find.byType(DAvatar)),
+              Size(32 * scale, 32 * scale),
+            );
+            final panel = tester.getRect(_panelFinder(platform));
+            for (final label in ['First post', 'Latest post']) {
+              final button = find.widgetWithText(DButton, label);
+              final rect = tester.getRect(button);
+              expect(panel.contains(rect.topLeft), isTrue);
+              expect(panel.contains(rect.bottomRight), isTrue);
+              expect(rect.height, closeTo(34 + 12.5 * (scale - 1) * 1.5, .01));
             }
+            await _capture(
+              tester,
+              '${platform.name}-flat-${dark ? 'dark' : 'light'}-$scale-${direction.name}',
+            );
+            await tester.tap(find.text('First post'));
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.postNumber, 1);
+            if (platform == TargetPlatform.macOS) {
+              expect(
+                tester
+                    .widget<DButton>(find.widgetWithText(DButton, 'First post'))
+                    .onPressed,
+                isNull,
+              );
+              expect(_selection('1 / 3'), findsOneWidget);
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+            }
+            expect(_panelFinder(platform), findsNothing);
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox.shrink());
           }
         }
       }

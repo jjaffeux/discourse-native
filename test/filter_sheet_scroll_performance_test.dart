@@ -59,98 +59,93 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    {
-      testWidgets(
-        'Filters scroll reuses stationary artwork on $platform (flat)',
-        (tester) async {
-          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
-          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
-          final (shell: shell, api: _) = await fixture.fixture(
-            tester,
-            size: const Size(390, 700),
-            filterOptions: fixture.filterMenuOptions,
-          );
-          await shell.forumSettings.setShared(
-            shell.forumSettings.shared.copyWith(),
-          );
-          await tester.pumpAndSettle();
-          await fixture.openFilters(tester);
-          await tester.drag(
-            find.byKey(const ValueKey('sheet-drag-handle')),
-            const Offset(0, -350),
-          );
-          await tester.pumpAndSettle();
-          final results = find.descendant(
-            of: find.byType(DCommandList<String>),
-            matching: find.byType(Scrollable),
-          );
-          expect(results, findsOneWidget);
-          final position = tester.state<ScrollableState>(results).position;
-          expect(position.maxScrollExtent, greaterThan(100));
-          position.jumpTo(position.maxScrollExtent / 2);
-          await tester.pumpAndSettle();
-          final viewport = tester.getRect(results);
-          final input = _artwork(fixture.field);
-          final handle = _artwork(
-            find.byKey(const ValueKey('sheet-drag-handle')),
-          );
-          final page = _artwork(primaryMainContent);
-          final rows = _artwork(
-            find.byType(DCommandList<String>),
-          ).whereType<RenderParagraph>().toSet();
-          var inputPaints = 0;
-          var handlePaints = 0;
-          var pagePaints = 0;
-          var rowPaints = 0;
-          var totalPaints = 0;
-          final previous = debugOnProfilePaint;
-          debugOnProfilePaint = (object) {
-            previous?.call(object);
-            totalPaints++;
-            if (input.contains(object)) inputPaints++;
-            if (handle.contains(object)) handlePaints++;
-            if (page.contains(object)) pagePaints++;
-            if (rows.contains(object)) rowPaints++;
-          };
-          try {
-            final gesture = await tester.startGesture(
-              tester.getCenter(results),
+    testWidgets(
+      'Filters scroll reuses stationary artwork on $platform (flat)',
+      (tester) async {
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        final (shell: shell, api: _) = await fixture.fixture(
+          tester,
+          size: const Size(390, 700),
+          filterOptions: fixture.filterMenuOptions,
+        );
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(),
+        );
+        await tester.pumpAndSettle();
+        await fixture.openFilters(tester);
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -350),
+        );
+        await tester.pumpAndSettle();
+        final results = find.descendant(
+          of: find.byType(DCommandList<String>),
+          matching: find.byType(Scrollable),
+        );
+        expect(results, findsOneWidget);
+        final position = tester.state<ScrollableState>(results).position;
+        expect(position.maxScrollExtent, greaterThan(100));
+        position.jumpTo(position.maxScrollExtent / 2);
+        await tester.pumpAndSettle();
+        final viewport = tester.getRect(results);
+        final input = _artwork(fixture.field);
+        final handle = _artwork(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+        );
+        final page = _artwork(primaryMainContent);
+        final rows = _artwork(
+          find.byType(DCommandList<String>),
+        ).whereType<RenderParagraph>().toSet();
+        var inputPaints = 0;
+        var handlePaints = 0;
+        var pagePaints = 0;
+        var rowPaints = 0;
+        var totalPaints = 0;
+        final previous = debugOnProfilePaint;
+        debugOnProfilePaint = (object) {
+          previous?.call(object);
+          totalPaints++;
+          if (input.contains(object)) inputPaints++;
+          if (handle.contains(object)) handlePaints++;
+          if (page.contains(object)) pagePaints++;
+          if (rows.contains(object)) rowPaints++;
+        };
+        try {
+          final gesture = await tester.startGesture(tester.getCenter(results));
+          await gesture.moveBy(const Offset(0, -40));
+          await gesture.moveBy(const Offset(0, -8));
+          await tester.pump();
+          inputPaints = handlePaints = pagePaints = rowPaints = totalPaints = 0;
+          for (var frame = 0; frame < 24; frame++) {
+            final before = position.pixels;
+            final delta = frame < 12 ? -4.0 : 4.0;
+            await gesture.moveBy(Offset(0, delta));
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(
+              position.pixels,
+              delta < 0 ? greaterThan(before) : lessThan(before),
             );
-            await gesture.moveBy(const Offset(0, -40));
-            await gesture.moveBy(const Offset(0, -8));
-            await tester.pump();
-            inputPaints = handlePaints = pagePaints = rowPaints = totalPaints =
-                0;
-            for (var frame = 0; frame < 24; frame++) {
-              final before = position.pixels;
-              final delta = frame < 12 ? -4.0 : 4.0;
-              await gesture.moveBy(Offset(0, delta));
-              await tester.pump(const Duration(milliseconds: 16));
-              expect(
-                position.pixels,
-                delta < 0 ? greaterThan(before) : lessThan(before),
-              );
-              expect(tester.getRect(results), viewport);
-            }
-            await gesture.cancel();
-            await tester.pumpAndSettle();
-            debugPrint(
-              'FILTER_SCROLL_PAINTS platform=$platform material=flat '
-              'total=$totalPaints input=$inputPaints handle=$handlePaints '
-              'page=$pagePaints rows=$rowPaints',
-            );
-            expect(totalPaints, greaterThan(0));
-            expect(inputPaints, 0);
-            expect(handlePaints, 0);
-            expect(pagePaints, 0);
-            expect(rowPaints, 0);
-            expect(tester.takeException(), isNull);
-          } finally {
-            debugOnProfilePaint = previous;
+            expect(tester.getRect(results), viewport);
           }
-        },
-        variant: TargetPlatformVariant.only(platform),
-      );
-    }
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+          debugPrint(
+            'FILTER_SCROLL_PAINTS platform=$platform material=flat '
+            'total=$totalPaints input=$inputPaints handle=$handlePaints '
+            'page=$pagePaints rows=$rowPaints',
+          );
+          expect(totalPaints, greaterThan(0));
+          expect(inputPaints, 0);
+          expect(handlePaints, 0);
+          expect(pagePaints, 0);
+          expect(rowPaints, 0);
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugOnProfilePaint = previous;
+        }
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
   }
 }

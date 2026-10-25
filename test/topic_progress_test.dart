@@ -24,32 +24,28 @@ void main() {
     try {
       for (final floating in [false, true]) {
         for (final dark in [false, true]) {
-          {
-            const capture = ValueKey('progress-button-capture');
-            await tester.pumpWidget(
-              MaterialApp(
-                theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                  platform: floating
-                      ? TargetPlatform.macOS
-                      : TargetPlatform.iOS,
-                  textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
-                      .apply(fontFamily: 'Lato'),
-                ),
-                home: Scaffold(
-                  body: Center(
-                    child: RepaintBoundary(
-                      key: capture,
-                      child: Builder(
-                        builder: (context) => ColoredBox(
-                          color: DTokens.of(context).background,
-                          child: Padding(
-                            padding: const EdgeInsets.all(28),
-                            child: TopicProgressButton(
-                              position: 1,
-                              total: 16,
-                              floating: floating,
-                              onPressed: () {},
-                            ),
+          const capture = ValueKey('progress-button-capture');
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                platform: floating ? TargetPlatform.macOS : TargetPlatform.iOS,
+                textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
+                    .apply(fontFamily: 'Lato'),
+              ),
+              home: Scaffold(
+                body: Center(
+                  child: RepaintBoundary(
+                    key: capture,
+                    child: Builder(
+                      builder: (context) => ColoredBox(
+                        color: DTokens.of(context).background,
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: TopicProgressButton(
+                            position: 1,
+                            total: 16,
+                            floating: floating,
+                            onPressed: () {},
                           ),
                         ),
                       ),
@@ -57,33 +53,33 @@ void main() {
                   ),
                 ),
               ),
-            );
-            await tester.pumpAndSettle();
-            final trigger = find.byKey(const ValueKey('topic-progress-button'));
-            expect(tester.getSize(trigger).height, floating ? 26 : 30);
+            ),
+          );
+          await tester.pumpAndSettle();
+          final trigger = find.byKey(const ValueKey('topic-progress-button'));
+          expect(tester.getSize(trigger).height, floating ? 26 : 30);
 
-            final output =
-                Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
-            if (output != null) {
-              await tester.runAsync(() async {
-                final image = await tester
-                    .renderObject<RenderRepaintBoundary>(find.byKey(capture))
-                    .toImage(pixelRatio: 3);
-                try {
-                  final bytes = await image.toByteData(
-                    format: ui.ImageByteFormat.png,
-                  );
-                  await Directory(output).create(recursive: true);
-                  await File(
-                    '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-flat.png',
-                  ).writeAsBytes(bytes!.buffer.asUint8List());
-                } finally {
-                  image.dispose();
-                }
-              });
-            }
-            expect(tester.takeException(), isNull);
+          final output =
+              Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
+          if (output != null) {
+            await tester.runAsync(() async {
+              final image = await tester
+                  .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                  .toImage(pixelRatio: 3);
+              try {
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                await Directory(output).create(recursive: true);
+                await File(
+                  '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-flat.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+              } finally {
+                image.dispose();
+              }
+            });
           }
+          expect(tester.takeException(), isNull);
         }
       }
     } finally {

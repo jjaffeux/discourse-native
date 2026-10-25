@@ -206,9 +206,7 @@ void main() {
     );
   });
 
-  testWidgets('glass palette pools fade out without a visible edge', (
-    tester,
-  ) async {
+  testWidgets('palette pools fade out without a visible edge', (tester) async {
     tester.view.physicalSize = const Size(400, 260);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

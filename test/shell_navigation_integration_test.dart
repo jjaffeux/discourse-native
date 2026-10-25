@@ -1017,13 +1017,11 @@ void _registerShellNavigationTests() {
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     try {
-      for (final title in ['Projects']) {
-        await mouse.moveTo(
-          tester.getCenter(find.widgetWithText(DSidebarGroupLabel, title)),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Collapse $title'), findsNothing);
-      }
+      await mouse.moveTo(
+        tester.getCenter(find.widgetWithText(DSidebarGroupLabel, 'Projects')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Collapse Projects'), findsNothing);
 
       await tester.tap(projectsHeader);
       await tester.pumpAndSettle();

@@ -19,114 +19,107 @@ void main() {
   });
 
   for (final width in [390.0, 1100.0]) {
-    {
-      for (final thread in [false, true]) {
-        testWidgets('conversation header $width flat thread=$thread', (
-          tester,
-        ) async {
-          await tester.binding.setSurfaceSize(Size(width, 700));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
-          final scroll = ScrollController();
-          addTearDown(scroll.dispose);
-          final theme = AppTheme.dark;
-          Widget header(bool compact) => ChatConversationHeader(
-            key: ValueKey(compact ? 'compact' : 'full'),
-            title: thread
-                ? 'Rate limiting logging added by Discourse'
-                : 'general',
-            kindLabel: thread ? 'Thread in #general' : 'Channel',
-            color: const Color(0xff888888),
-            messageCount: 19,
-            threadCount: thread ? 1 : 3,
-            latest: DateTime(2026, 10, 15, 11, 14),
-            now: DateTime(2026, 10, 15, 12),
-            compact: compact,
-          );
-          late DPageHeaderGeometry geometry;
-          await tester.pumpWidget(
-            RepaintBoundary(
-              key: _capture,
-              child: MaterialApp(
-                debugShowCheckedModeBanner: false,
-                theme: theme.copyWith(
-                  platform: width < 500
-                      ? TargetPlatform.iOS
-                      : TargetPlatform.macOS,
-                  textTheme: theme.textTheme.apply(fontFamily: 'HeaderReview'),
-                ),
-                home: Scaffold(
-                  body: DPageSurface.scrollable(
-                    framed: false,
-                    hideHeaderOnScroll: true,
-                    measureCompactHeader: true,
-                    limitContentSize: true,
-                    header: header(false),
-                    compactHeader: header(true),
-                    bodyBuilder: (_, value) {
-                      geometry = value;
-                      return ListView(
-                        controller: scroll,
-                        children: [
-                          value.spacer,
-                          for (var i = 0; i < 40; i++)
-                            const SizedBox(height: 60),
-                        ],
-                      );
-                    },
-                  ),
+    for (final thread in [false, true]) {
+      testWidgets('conversation header $width flat thread=$thread', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(Size(width, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        final theme = AppTheme.dark;
+        Widget header(bool compact) => ChatConversationHeader(
+          key: ValueKey(compact ? 'compact' : 'full'),
+          title: thread
+              ? 'Rate limiting logging added by Discourse'
+              : 'general',
+          kindLabel: thread ? 'Thread in #general' : 'Channel',
+          color: const Color(0xff888888),
+          messageCount: 19,
+          threadCount: thread ? 1 : 3,
+          latest: DateTime(2026, 10, 15, 11, 14),
+          now: DateTime(2026, 10, 15, 12),
+          compact: compact,
+        );
+        late DPageHeaderGeometry geometry;
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: _capture,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: theme.copyWith(
+                platform: width < 500
+                    ? TargetPlatform.iOS
+                    : TargetPlatform.macOS,
+                textTheme: theme.textTheme.apply(fontFamily: 'HeaderReview'),
+              ),
+              home: Scaffold(
+                body: DPageSurface.scrollable(
+                  framed: false,
+                  hideHeaderOnScroll: true,
+                  measureCompactHeader: true,
+                  limitContentSize: true,
+                  header: header(false),
+                  compactHeader: header(true),
+                  bodyBuilder: (_, value) {
+                    geometry = value;
+                    return ListView(
+                      controller: scroll,
+                      children: [
+                        value.spacer,
+                        for (var i = 0; i < 40; i++) const SizedBox(height: 60),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
-          );
-          await tester.pumpAndSettle();
-          final fullExtent = geometry.naturalExtent;
-          final marker = find.byKey(
-            const ValueKey('chat-channel-header-marker'),
-          );
-          final title = find
-              .byType(DText)
-              .evaluate()
-              .map((element) => element.widget as DText)
-              .singleWhere((text) => text.headingLevel == 1);
-          expect(title.variant, DTextVariant.h3);
-          expect(tester.getSize(marker), const Size.square(12));
-          final titleRect = tester.getRect(find.byWidget(title));
-          expect(titleRect.left - tester.getRect(marker).right, 10);
-          expect(
-            find.byKey(const ValueKey('content-header-separator')),
-            findsOneWidget,
-          );
-          final name = '${width.toInt()}-flat-${thread ? 'thread' : 'channel'}';
-          await _export(tester, '$name-full');
+          ),
+        );
+        await tester.pumpAndSettle();
+        final fullExtent = geometry.naturalExtent;
+        final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
+        final title = find
+            .byType(DText)
+            .evaluate()
+            .map((element) => element.widget as DText)
+            .singleWhere((text) => text.headingLevel == 1);
+        expect(title.variant, DTextVariant.h3);
+        expect(tester.getSize(marker), const Size.square(12));
+        final titleRect = tester.getRect(find.byWidget(title));
+        expect(titleRect.left - tester.getRect(marker).right, 10);
+        expect(
+          find.byKey(const ValueKey('content-header-separator')),
+          findsOneWidget,
+        );
+        final name = '${width.toInt()}-flat-${thread ? 'thread' : 'channel'}';
+        await _export(tester, '$name-full');
 
-          scroll.jumpTo(200);
-          await tester.pumpAndSettle();
-          expect(find.byKey(const ValueKey('compact')), findsOneWidget);
-          expect(find.byKey(const ValueKey('full')), findsNothing);
-          expect(geometry.naturalExtent, fullExtent);
-          expect(scroll.offset, 200);
-          expect(
-            find.byKey(const ValueKey('content-header-separator')),
-            findsNothing,
-          );
-          expect(tester.getSize(marker), const Size.square(10));
-          final count = find.byKey(
-            const ValueKey('chat-compact-message-count'),
-          );
-          expect(find.text('19 messages'), findsOneWidget);
-          final compactTitle = find
-              .byType(DText)
-              .evaluate()
-              .map((element) => element.widget as DText)
-              .singleWhere((text) => text.headingLevel == 1);
-          expect(
-            tester.getRect(find.byWidget(compactTitle)).right,
-            lessThanOrEqualTo(tester.getRect(count).left - 8),
-          );
-          await _export(tester, '$name-compact');
-          expect(tester.takeException(), isNull);
-        });
-      }
+        scroll.jumpTo(200);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('compact')), findsOneWidget);
+        expect(find.byKey(const ValueKey('full')), findsNothing);
+        expect(geometry.naturalExtent, fullExtent);
+        expect(scroll.offset, 200);
+        expect(
+          find.byKey(const ValueKey('content-header-separator')),
+          findsNothing,
+        );
+        expect(tester.getSize(marker), const Size.square(10));
+        final count = find.byKey(const ValueKey('chat-compact-message-count'));
+        expect(find.text('19 messages'), findsOneWidget);
+        final compactTitle = find
+            .byType(DText)
+            .evaluate()
+            .map((element) => element.widget as DText)
+            .singleWhere((text) => text.headingLevel == 1);
+        expect(
+          tester.getRect(find.byWidget(compactTitle)).right,
+          lessThanOrEqualTo(tester.getRect(count).left - 8),
+        );
+        await _export(tester, '$name-compact');
+        expect(tester.takeException(), isNull);
+      });
     }
   }
 

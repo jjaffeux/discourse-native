@@ -6,87 +6,83 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  {
-    for (final brightness in Brightness.values) {
-      testWidgets(
-        'quiet pickers stay flat with exact colors in flat $brightness',
-        (tester) async {
-          final theme = ThemeData(
-            platform: TargetPlatform.macOS,
-            brightness: brightness,
-          );
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: theme,
-              home: Scaffold(
-                body: Row(
-                  children: [
-                    for (final variant in [
-                      DButtonVariant.quiet,
-                      DButtonVariant.quietSelected,
-                    ])
-                      DButton(
-                        key: ValueKey(variant),
-                        variant: variant,
-                        size: DButtonSize.filter,
-                        label: Text(variant.name),
-                        onPressed: () {},
-                      ),
-                  ],
-                ),
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'quiet pickers stay flat with exact colors in flat $brightness',
+      (tester) async {
+        final theme = ThemeData(
+          platform: TargetPlatform.macOS,
+          brightness: brightness,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Row(
+                children: [
+                  for (final variant in [
+                    DButtonVariant.quiet,
+                    DButtonVariant.quietSelected,
+                  ])
+                    DButton(
+                      key: ValueKey(variant),
+                      variant: variant,
+                      size: DButtonSize.filter,
+                      label: Text(variant.name),
+                      onPressed: () {},
+                    ),
+                ],
               ),
             ),
-          );
-          await tester.pumpAndSettle();
-          final quiet = find.byKey(const ValueKey(DButtonVariant.quiet));
-          final selected = find.byKey(
-            const ValueKey(DButtonVariant.quietSelected),
-          );
-          final tokens = DTokens.of(tester.element(quiet));
+          ),
+        );
+        await tester.pumpAndSettle();
+        final quiet = find.byKey(const ValueKey(DButtonVariant.quiet));
+        final selected = find.byKey(
+          const ValueKey(DButtonVariant.quietSelected),
+        );
+        final tokens = DTokens.of(tester.element(quiet));
+        expect(
+          buttonSurface(tester, of: quiet).color,
+          tokens.foreground.withValues(alpha: .05),
+        );
+        expect(
+          buttonSurface(tester, of: selected).color,
+          tokens.raisedBackground,
+        );
+        for (final control in [quiet, selected]) {
+          expect(tester.getSize(control).height, 30);
+          expect(buttonSurface(tester, of: control).borderColor.a, 0);
           expect(
-            buttonSurface(tester, of: quiet).color,
-            tokens.foreground.withValues(alpha: .05),
+            buttonSurface(tester, of: control).borderRadius,
+            BorderRadius.circular(DRadius.pill),
+          );
+          final text = find.descendant(
+            of: control,
+            matching: find.byType(Text),
           );
           expect(
-            buttonSurface(tester, of: selected).color,
-            tokens.raisedBackground,
+            DefaultTextStyle.of(tester.element(text)).style.fontWeight,
+            FontWeight.w500,
           );
-          for (final control in [quiet, selected]) {
-            expect(tester.getSize(control).height, 30);
-            expect(buttonSurface(tester, of: control).borderColor.a, 0);
-            expect(
-              buttonSurface(tester, of: control).borderRadius,
-              BorderRadius.circular(DRadius.pill),
-            );
-            final text = find.descendant(
-              of: control,
-              matching: find.byType(Text),
-            );
-            expect(
-              DefaultTextStyle.of(tester.element(text)).style.fontWeight,
-              FontWeight.w500,
-            );
-          }
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          await mouse.moveTo(tester.getCenter(quiet));
-          await tester.pump();
-          expect(
-            buttonSurface(tester, of: quiet).color,
-            tokens.foreground.withValues(alpha: .08),
-          );
-          await mouse.moveTo(tester.getCenter(selected));
-          await tester.pump();
-          expect(
-            buttonSurface(tester, of: selected).color,
-            tokens.raisedBackground,
-          );
-          await mouse.removePointer();
-        },
-      );
-    }
+        }
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(quiet));
+        await tester.pump();
+        expect(
+          buttonSurface(tester, of: quiet).color,
+          tokens.foreground.withValues(alpha: .08),
+        );
+        await mouse.moveTo(tester.getCenter(selected));
+        await tester.pump();
+        expect(
+          buttonSurface(tester, of: selected).color,
+          tokens.raisedBackground,
+        );
+        await mouse.removePointer();
+      },
+    );
   }
 
   testWidgets(

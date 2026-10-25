@@ -95,16 +95,14 @@ void main() {
           expect(buttonSurface(tester, of: button).borderRadius, radius);
         }
         expect(filter.borderRadius, BorderRadius.circular(999));
-        for (final surface in [select]) {
-          expect(surface.borderRadius, radius);
-          expect(surface.borderColor, action.borderColor);
-          expect(
-            surface.color,
-            DTokens.of(
-              tester.element(find.byType(DSelect<String>)),
-            ).buttonTheme.outline.background,
-          );
-        }
+        expect(select.borderRadius, radius);
+        expect(select.borderColor, action.borderColor);
+        expect(
+          select.color,
+          DTokens.of(
+            tester.element(find.byType(DSelect<String>)),
+          ).buttonTheme.outline.background,
+        );
         expect(select.strokeWidth, 1);
         expect(
           tester

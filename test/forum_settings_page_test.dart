@@ -764,8 +764,7 @@ void mobileSettingsPanelClipTests() {
                   expect(
                     rimContrast,
                     greaterThan(8),
-                    reason:
-                        '$key keeps its visible glass surface inside the panel.',
+                    reason: '$key keeps its visible surface inside the panel.',
                   );
                 }
               }

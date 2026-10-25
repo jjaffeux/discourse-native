@@ -29,78 +29,74 @@ BoxDecoration _previewPaint(WidgetTester tester) =>
 
 void main() {
   for (final brightness in Brightness.values) {
-    {
-      testWidgets(
-        'nested preview retains hover focus and press in $brightness flat',
-        (tester) async {
-          final focus = FocusNode();
-          addTearDown(focus.dispose);
-          final theme =
-              (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
-                  .copyWith(platform: TargetPlatform.macOS);
-          var activations = 0;
-          await tester.pumpWidget(
-            _host(
-              SizedBox(
-                width: 320,
-                child: DItem.preview(
-                  focusNode: focus,
-                  onPressed: () => activations++,
-                  builder: (_, _) =>
-                      (header: null, preview: const SizedBox(height: 60)),
-                ),
+    testWidgets(
+      'nested preview retains hover focus and press in $brightness flat',
+      (tester) async {
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        final theme =
+            (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+                .copyWith(platform: TargetPlatform.macOS);
+        var activations = 0;
+        await tester.pumpWidget(
+          _host(
+            SizedBox(
+              width: 320,
+              child: DItem.preview(
+                focusNode: focus,
+                onPressed: () => activations++,
+                builder: (_, _) =>
+                    (header: null, preview: const SizedBox(height: 60)),
               ),
-              theme: theme,
             ),
-          );
-          final resting = theme.colorScheme.surfaceContainerHighest;
-          final emphasized = Color.alphaBlend(
-            theme.colorScheme.onSurface.withValues(
-              alpha: brightness == Brightness.dark ? .055 : .035,
-            ),
-            resting,
-          );
-          expect(_previewPaint(tester).color, resting);
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          addTearDown(mouse.removePointer);
-          await mouse.addPointer(location: const Offset(600, 500));
-          final target = tester.getCenter(find.byType(DItem));
-          await mouse.moveTo(target);
-          await tester.pumpAndSettle();
-          expect(_previewPaint(tester).color, emphasized);
-          expect(
-            (_previewPaint(tester).border! as Border).top.color,
-            theme.colorScheme.onSurface.withValues(alpha: .1),
-          );
-          await mouse.down(target);
-          await tester.pump();
-          expect(
-            DItemInteraction.of(tester.element(find.byType(DCard))).pressed,
-            isTrue,
-          );
-          expect(_previewPaint(tester).color, emphasized);
-          await mouse.cancel();
-          await mouse.moveTo(const Offset(600, 500));
-          await tester.pumpAndSettle();
-          expect(_previewPaint(tester).color, resting);
-          expect(activations, 0);
-          focus.requestFocus();
-          await tester.pumpAndSettle();
-          expect(_previewPaint(tester).color, emphasized);
-          expect(
-            (_previewPaint(tester).border! as Border).top.color,
-            theme.colorScheme.primary.withValues(alpha: .7),
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          expect(activations, 1);
-          focus.unfocus();
-          await tester.pumpAndSettle();
-          expect(_previewPaint(tester).color, resting);
-        },
-      );
-    }
+            theme: theme,
+          ),
+        );
+        final resting = theme.colorScheme.surfaceContainerHighest;
+        final emphasized = Color.alphaBlend(
+          theme.colorScheme.onSurface.withValues(
+            alpha: brightness == Brightness.dark ? .055 : .035,
+          ),
+          resting,
+        );
+        expect(_previewPaint(tester).color, resting);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(600, 500));
+        final target = tester.getCenter(find.byType(DItem));
+        await mouse.moveTo(target);
+        await tester.pumpAndSettle();
+        expect(_previewPaint(tester).color, emphasized);
+        expect(
+          (_previewPaint(tester).border! as Border).top.color,
+          theme.colorScheme.onSurface.withValues(alpha: .1),
+        );
+        await mouse.down(target);
+        await tester.pump();
+        expect(
+          DItemInteraction.of(tester.element(find.byType(DCard))).pressed,
+          isTrue,
+        );
+        expect(_previewPaint(tester).color, emphasized);
+        await mouse.cancel();
+        await mouse.moveTo(const Offset(600, 500));
+        await tester.pumpAndSettle();
+        expect(_previewPaint(tester).color, resting);
+        expect(activations, 0);
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        expect(_previewPaint(tester).color, emphasized);
+        expect(
+          (_previewPaint(tester).border! as Border).top.color,
+          theme.colorScheme.primary.withValues(alpha: .7),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        expect(activations, 1);
+        focus.unfocus();
+        await tester.pumpAndSettle();
+        expect(_previewPaint(tester).color, resting);
+      },
+    );
   }
 
   testWidgets('nested Native links retain their own action and semantics', (

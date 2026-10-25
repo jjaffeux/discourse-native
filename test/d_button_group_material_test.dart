@@ -14,127 +14,120 @@ void main() {
     final shadowsDisabled = debugDisableShadows;
     debugDisableShadows = false;
     try {
-      {
-        for (final brightness in Brightness.values) {
-          for (final direction in TextDirection.values) {
-            for (final axis in Axis.values) {
-              const capture = ValueKey('joined-fill');
-              final horizontal = axis == Axis.horizontal;
-              await tester.pumpWidget(
-                MaterialApp(
-                  themeAnimationStyle: AnimationStyle.noAnimation,
-                  theme: AppTheme.forBrightness(
-                    brightness,
-                  ).copyWith(platform: TargetPlatform.iOS),
-                  home: Directionality(
-                    textDirection: direction,
-                    child: Center(
-                      child: RepaintBoundary(
-                        key: capture,
-                        child: ColoredBox(
-                          color: const Color(0xff2154c1),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: DButtonGroup(
-                              orientation: horizontal
-                                  ? DButtonGroupOrientation.horizontal
-                                  : DButtonGroupOrientation.vertical,
-                              children: [
-                                for (final label in [
-                                  'Bookmark',
-                                  'Notifications',
-                                ])
-                                  DButton.iconOnly(
-                                    size: DButtonSize.filter,
-                                    icon: const SizedBox.shrink(),
-                                    tooltip: label,
-                                    variant: DButtonVariant.outline,
-                                    onPressed: () {},
-                                  ),
-                              ],
-                            ),
+      for (final brightness in Brightness.values) {
+        for (final direction in TextDirection.values) {
+          for (final axis in Axis.values) {
+            const capture = ValueKey('joined-fill');
+            final horizontal = axis == Axis.horizontal;
+            await tester.pumpWidget(
+              MaterialApp(
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: AppTheme.forBrightness(
+                  brightness,
+                ).copyWith(platform: TargetPlatform.iOS),
+                home: Directionality(
+                  textDirection: direction,
+                  child: Center(
+                    child: RepaintBoundary(
+                      key: capture,
+                      child: ColoredBox(
+                        color: const Color(0xff2154c1),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: DButtonGroup(
+                            orientation: horizontal
+                                ? DButtonGroupOrientation.horizontal
+                                : DButtonGroupOrientation.vertical,
+                            children: [
+                              for (final label in ['Bookmark', 'Notifications'])
+                                DButton.iconOnly(
+                                  size: DButtonSize.filter,
+                                  icon: const SizedBox.shrink(),
+                                  tooltip: label,
+                                  variant: DButtonVariant.outline,
+                                  onPressed: () {},
+                                ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              );
-              await tester.pumpAndSettle();
-              final origin = tester.getTopLeft(find.byKey(capture));
-              final group = tester
-                  .getRect(find.byType(DButtonGroup))
-                  .shift(-origin);
-              final description = 'flat $brightness $direction $axis';
-              await tester.runAsync(() async {
-                final image = await tester
-                    .renderObject<RenderRepaintBoundary>(find.byKey(capture))
-                    .toImage(pixelRatio: 3);
-                try {
-                  final directory =
-                      Platform.environment['JOINED_MATERIAL_EXPORT_DIR'];
-                  if (directory != null) {
-                    await Directory(directory).create(recursive: true);
-                    final png = (await image.toByteData(
-                      format: ui.ImageByteFormat.png,
-                    ))!;
-                    await File(
-                      '$directory/$description.png',
-                    ).writeAsBytes(png.buffer.asUint8List());
-                  }
-                  final bytes = (await image.toByteData(
-                    format: ui.ImageByteFormat.rawRgba,
+              ),
+            );
+            await tester.pumpAndSettle();
+            final origin = tester.getTopLeft(find.byKey(capture));
+            final group = tester
+                .getRect(find.byType(DButtonGroup))
+                .shift(-origin);
+            final description = 'flat $brightness $direction $axis';
+            await tester.runAsync(() async {
+              final image = await tester
+                  .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                  .toImage(pixelRatio: 3);
+              try {
+                final directory =
+                    Platform.environment['JOINED_MATERIAL_EXPORT_DIR'];
+                if (directory != null) {
+                  await Directory(directory).create(recursive: true);
+                  final png = (await image.toByteData(
+                    format: ui.ImageByteFormat.png,
                   ))!;
-                  int blueAt(double x, double y) => bytes.getUint8(
-                    ((y * 3).floor() * image.width + (x * 3).floor()) * 4 + 2,
-                  );
-                  // Allow backdrop blur to pick up the divider, but never a
-                  // hole where a rounded lens fails to fill a square join.
-                  for (final inset in [3.0, 4.0]) {
-                    for (final trailing in [false, true]) {
-                      final cross = horizontal
-                          ? trailing
-                                ? group.bottom - inset
-                                : group.top + inset
-                          : trailing
-                          ? group.right - inset
-                          : group.left + inset;
-                      final start = horizontal
-                          ? group.left + 13
-                          : group.top + 13;
-                      final end = horizontal
-                          ? group.right - 13
-                          : group.bottom - 13;
-                      final expected = horizontal
-                          ? blueAt(start, cross)
-                          : blueAt(cross, start);
-                      for (
-                        var position = start;
-                        position <= end;
-                        position += .5
-                      ) {
-                        final seam = horizontal
-                            ? group.center.dx
-                            : group.center.dy;
-                        if ((position - seam).abs() < 1.5) continue;
-                        final actual = horizontal
-                            ? blueAt(position, cross)
-                            : blueAt(cross, position);
-                        expect(
-                          actual,
-                          closeTo(expected, 12),
-                          reason:
-                              '$description inset=$inset trailing=$trailing position=$position',
-                        );
-                      }
+                  await File(
+                    '$directory/$description.png',
+                  ).writeAsBytes(png.buffer.asUint8List());
+                }
+                final bytes = (await image.toByteData(
+                  format: ui.ImageByteFormat.rawRgba,
+                ))!;
+                int blueAt(double x, double y) => bytes.getUint8(
+                  ((y * 3).floor() * image.width + (x * 3).floor()) * 4 + 2,
+                );
+                // A square join must never show a hole where a rounded
+                // segment fails to fill it.
+                for (final inset in [3.0, 4.0]) {
+                  for (final trailing in [false, true]) {
+                    final cross = horizontal
+                        ? trailing
+                              ? group.bottom - inset
+                              : group.top + inset
+                        : trailing
+                        ? group.right - inset
+                        : group.left + inset;
+                    final start = horizontal ? group.left + 13 : group.top + 13;
+                    final end = horizontal
+                        ? group.right - 13
+                        : group.bottom - 13;
+                    final expected = horizontal
+                        ? blueAt(start, cross)
+                        : blueAt(cross, start);
+                    for (
+                      var position = start;
+                      position <= end;
+                      position += .5
+                    ) {
+                      final seam = horizontal
+                          ? group.center.dx
+                          : group.center.dy;
+                      if ((position - seam).abs() < 1.5) continue;
+                      final actual = horizontal
+                          ? blueAt(position, cross)
+                          : blueAt(cross, position);
+                      expect(
+                        actual,
+                        closeTo(expected, 12),
+                        reason:
+                            '$description inset=$inset trailing=$trailing position=$position',
+                      );
                     }
                   }
-                } finally {
-                  image.dispose();
                 }
-              });
-              expect(tester.takeException(), isNull);
-            }
+              } finally {
+                image.dispose();
+              }
+            });
+            expect(tester.takeException(), isNull);
           }
         }
       }

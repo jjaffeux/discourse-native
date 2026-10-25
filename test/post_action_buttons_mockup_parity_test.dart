@@ -45,75 +45,72 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    for (final glass in [false, true]) {
-      testWidgets(
-        'production Reply and More match bare post actions ($dark, $glass)',
-        (tester) async {
-          final shell = ShellController(
-            instanceStore: FakeInstanceStore([
-              instance(
-                'meta.example',
-              ).copyWith(user: const DiscourseUser(username: 'reader')),
-            ]),
-            api: FakeDiscourseApi(
-              topics: {
-                7: topicPayload(
-                  id: 7,
-                  title: 'A topic',
-                  posts: const [_post],
-                  canCreatePost: true,
-                ),
-              },
+    testWidgets('production Reply and More match bare post actions ($dark)', (
+      tester,
+    ) async {
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance(
+            'meta.example',
+          ).copyWith(user: const DiscourseUser(username: 'reader')),
+        ]),
+        api: FakeDiscourseApi(
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'A topic',
+              posts: const [_post],
+              canCreatePost: true,
             ),
-            authenticator: FakeAuthenticator()..keys[_site] = 'key',
-            drafts: FakeDraftStore(),
-            trackers: FakeSiteTracker.reset(),
-            updateStore: FakeUpdateStore(),
-          );
-          await shell.load();
-          addTearDown(shell.dispose);
-          shell.pushContent(
-            ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
-          );
-          await shell.loadTopic(7, 'a-topic');
-          final key = GlobalKey();
-          final theme = AppTheme.forBrightness(
-            dark ? Brightness.dark : Brightness.light,
-            fontFamily: 'Lato',
-          );
-          Future<void> mount({
-            double scale = 1,
-            TargetPlatform platform = TargetPlatform.macOS,
-            bool reduced = false,
-          }) => tester.pumpWidget(
-            ShellScope(
-              controller: shell,
-              child: MaterialApp(
-                theme: theme.copyWith(platform: platform),
-                home: MediaQuery(
-                  data: MediaQueryData(
-                    textScaler: TextScaler.linear(scale),
-                    disableAnimations: reduced,
-                  ),
-                  child: Scaffold(
-                    body: Center(
-                      child: RepaintBoundary(
-                        key: key,
-                        child: ColoredBox(
-                          color: theme.scaffoldBackgroundColor,
-                          child: SizedBox(
-                            width: scale == 1 ? 440 : 320,
-                            height: 130,
-                            child: const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: PostActions(
-                                siteUrl: _site,
-                                post: _post,
-                                persistent: true,
-                                child: PostActionsFooter(
-                                  child: PostLikes(siteUrl: _site, post: _post),
-                                ),
-                              ),
+          },
+        ),
+        authenticator: FakeAuthenticator()..keys[_site] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      await shell.load();
+      addTearDown(shell.dispose);
+      shell.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'a-topic', title: 'A topic'),
+      );
+      await shell.loadTopic(7, 'a-topic');
+      final key = GlobalKey();
+      final theme = AppTheme.forBrightness(
+        dark ? Brightness.dark : Brightness.light,
+        fontFamily: 'Lato',
+      );
+      Future<void> mount({
+        double scale = 1,
+        TargetPlatform platform = TargetPlatform.macOS,
+        bool reduced = false,
+      }) => tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: theme.copyWith(platform: platform),
+            home: MediaQuery(
+              data: MediaQueryData(
+                textScaler: TextScaler.linear(scale),
+                disableAnimations: reduced,
+              ),
+              child: Scaffold(
+                body: Center(
+                  child: RepaintBoundary(
+                    key: key,
+                    child: ColoredBox(
+                      color: theme.scaffoldBackgroundColor,
+                      child: SizedBox(
+                        width: scale == 1 ? 440 : 320,
+                        height: 130,
+                        child: const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: PostActions(
+                            siteUrl: _site,
+                            post: _post,
+                            persistent: true,
+                            child: PostActionsFooter(
+                              child: PostLikes(siteUrl: _site, post: _post),
                             ),
                           ),
                         ),
@@ -123,124 +120,111 @@ void main() {
                 ),
               ),
             ),
-          );
-          await mount();
-          await tester.pumpAndSettle();
-          final more = find.byKey(const ValueKey('post-more-actions-1'));
-          final reply = find.byKey(
-            const ValueKey(('post-footer-action', 1, 'Reply')),
-          );
-          final tokens = DTokens.of(tester.element(reply));
-          for (final button in [more, reply]) {
-            expect(
-              tester.widget<DButton>(button).density,
-              DButtonDensity.postAction,
-            );
-            expect(tester.getSize(button), const Size.square(30));
-            expect(buttonSurface(tester, of: button).color, Colors.transparent);
-            expect(
-              buttonSurface(tester, of: button).borderColor,
-              Colors.transparent,
-            );
-            expect(
-              buttonSurface(tester, of: button).borderRadius,
-              BorderRadius.circular(8),
-            );
-
-            final icon = find.descendant(
-              of: button,
-              matching: find.byType(DIcon),
-            );
-            expect(IconTheme.of(tester.element(icon)).size, 13);
-            expect(
-              IconTheme.of(tester.element(icon)).color,
-              Color.lerp(tokens.background, tokens.foreground, .32),
-            );
-          }
-          expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
-          await _capture(
-            tester,
-            key,
-            'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-rest',
-          );
-          final mouse = await tester.createGesture(
-            kind: ui.PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          await mouse.moveTo(tester.getCenter(reply));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 150));
-          final icon = find.descendant(of: reply, matching: find.byType(DIcon));
-          expect(
-            IconTheme.of(tester.element(icon)).color,
-            Color.lerp(tokens.background, tokens.foreground, .62),
-          );
-          expect(
-            buttonSurface(tester, of: reply).borderColor,
-            Colors.transparent,
-          );
-          expect(
-            buttonSurface(tester, of: reply).color,
-            tokens.foreground.withValues(alpha: .08),
-          );
-
-          await _capture(
-            tester,
-            key,
-            'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-hover',
-          );
-          final primitive = find.descendant(
-            of: reply,
-            matching: find.byType(FilledButton),
-          );
-          await mouse.down(tester.getCenter(reply));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 80));
-          expect(
-            (tester.getBottomRight(primitive) - tester.getTopLeft(primitive))
-                .dx,
-            closeTo(27.6, .01),
-          );
-          await mouse.cancel();
-          await tester.pumpAndSettle();
-          await mouse.removePointer();
-          await tester.tapAt(
-            Offset(
-              tester.getRect(more).right + 2,
-              tester.getRect(more).center.dy,
-            ),
-          );
-          await tester.pumpAndSettle();
-          expect(find.byType(DDropdownMenuContent), findsNothing);
-          expect(shell.visibleComposer, isNull);
-          await tester.tap(more);
-          await tester.pumpAndSettle();
-          expect(find.byType(DDropdownMenuContent), findsOneWidget);
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-          await tester.pumpAndSettle();
-          expect(shell.visibleComposer!.target.replyToPostNumber, 1);
-          await mount(scale: 2, platform: TargetPlatform.iOS, reduced: true);
-          await tester.pumpAndSettle();
-          expect(tester.getSize(reply).height, greaterThan(30));
-          expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
-          expect(
-            tester
-                .widget<AnimatedScale>(
-                  find.descendant(
-                    of: reply,
-                    matching: find.byType(AnimatedScale),
-                  ),
-                )
-                .duration,
-            Duration.zero,
-          );
-          expect(tester.takeException(), isNull);
-        },
+          ),
+        ),
       );
-    }
+      await mount();
+      await tester.pumpAndSettle();
+      final more = find.byKey(const ValueKey('post-more-actions-1'));
+      final reply = find.byKey(
+        const ValueKey(('post-footer-action', 1, 'Reply')),
+      );
+      final tokens = DTokens.of(tester.element(reply));
+      for (final button in [more, reply]) {
+        expect(
+          tester.widget<DButton>(button).density,
+          DButtonDensity.postAction,
+        );
+        expect(tester.getSize(button), const Size.square(30));
+        expect(buttonSurface(tester, of: button).color, Colors.transparent);
+        expect(
+          buttonSurface(tester, of: button).borderColor,
+          Colors.transparent,
+        );
+        expect(
+          buttonSurface(tester, of: button).borderRadius,
+          BorderRadius.circular(8),
+        );
+
+        final icon = find.descendant(of: button, matching: find.byType(DIcon));
+        expect(IconTheme.of(tester.element(icon)).size, 13);
+        expect(
+          IconTheme.of(tester.element(icon)).color,
+          Color.lerp(tokens.background, tokens.foreground, .32),
+        );
+      }
+      expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
+      await _capture(
+        tester,
+        key,
+        'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-rest',
+      );
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(reply));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      final icon = find.descendant(of: reply, matching: find.byType(DIcon));
+      expect(
+        IconTheme.of(tester.element(icon)).color,
+        Color.lerp(tokens.background, tokens.foreground, .62),
+      );
+      expect(buttonSurface(tester, of: reply).borderColor, Colors.transparent);
+      expect(
+        buttonSurface(tester, of: reply).color,
+        tokens.foreground.withValues(alpha: .08),
+      );
+
+      await _capture(
+        tester,
+        key,
+        'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-hover',
+      );
+      final primitive = find.descendant(
+        of: reply,
+        matching: find.byType(FilledButton),
+      );
+      await mouse.down(tester.getCenter(reply));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(
+        (tester.getBottomRight(primitive) - tester.getTopLeft(primitive)).dx,
+        closeTo(27.6, .01),
+      );
+      await mouse.cancel();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+      await tester.tapAt(
+        Offset(tester.getRect(more).right + 2, tester.getRect(more).center.dy),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(shell.visibleComposer, isNull);
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer!.target.replyToPostNumber, 1);
+      await mount(scale: 2, platform: TargetPlatform.iOS, reduced: true);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(reply).height, greaterThan(30));
+      expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
+      expect(
+        tester
+            .widget<AnimatedScale>(
+              find.descendant(of: reply, matching: find.byType(AnimatedScale)),
+            )
+            .duration,
+        Duration.zero,
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 }
 

@@ -166,104 +166,101 @@ void main() {
     }
   });
   for (final dark in [false, true]) {
-    {
-      for (final inThread in [false, true]) {
-        testWidgets(
-          'chat reaction artwork parity ($dark, flat, thread=$inThread)',
-          (tester) async {
-            final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
-            installTestMediaPipeline(
-              client: MockClient((request) async {
-                final emojiDir =
-                    Platform.environment['CHAT_REACTION_EMOJI_DIR'];
-                if (request.url.path.endsWith('/clap.png') ||
-                    request.url.path.endsWith('/heart.png')) {
-                  return http.Response.bytes(
-                    emojiDir == null
-                        ? _emojiPng
-                        : File(
-                            '$emojiDir/${request.url.path.split('/').last}',
-                          ).readAsBytesSync(),
-                    200,
-                    headers: {'content-type': 'image/png'},
-                  );
-                }
-                return http.Response('', 404);
-              }),
-            );
-            final controller = await _controller(
-              _message(
-                null,
-                threadId: inThread ? 3 : null,
-                reactions: const [
-                  ChatReaction(emoji: 'clap', count: 2),
-                  ChatReaction(emoji: 'heart', count: 12, reacted: true),
-                ],
-              ),
-            );
-            addTearDown(controller.dispose);
-            final captureKey = GlobalKey();
-            await tester.pumpWidget(
-              _TestTile(
-                controller: controller,
-                onOpenThread: (_) {},
-                contextThreadId: inThread ? 3 : null,
-                brightness: dark ? Brightness.dark : Brightness.light,
-                captureKey: captureKey,
-              ),
-            );
-            await tester.pumpAndSettle();
-            final pills = find.byType(ReactionPill);
-            expect(pills, findsNWidgets(2));
-            for (var i = 0; i < 2; i++) {
-              final toggle = find.descendant(
-                of: pills.at(i),
-                matching: find.byType(DToggle),
-              );
-              final artwork = find.descendant(
-                of: toggle,
-                matching: find.byType(AnimatedContainer),
-              );
-              final tokens = DTokens.of(tester.element(toggle));
-              final decoration =
-                  tester.widget<AnimatedContainer>(artwork).decoration!
-                      as BoxDecoration;
-              expect(tester.getSize(artwork).height, 24);
-              expect(
-                decoration.color,
-                Color.lerp(
-                  tokens.colors.surface,
-                  tokens.foreground,
-                  i == 0 ? .10 : .15,
-                ),
-              );
-            }
-            if (output != null) {
-              await tester.runAsync(() async {
-                for (final element in find.byType(Image).evaluate()) {
-                  await precacheImage((element.widget as Image).image, element);
-                }
-              });
-              await tester.pumpAndSettle();
-              await tester.runAsync(() async {
-                final boundary =
-                    captureKey.currentContext!.findRenderObject()!
-                        as RenderRepaintBoundary;
-                final image = await boundary.toImage(pixelRatio: 2);
-                final bytes = await image.toByteData(
-                  format: ui.ImageByteFormat.png,
+    for (final inThread in [false, true]) {
+      testWidgets(
+        'chat reaction artwork parity ($dark, flat, thread=$inThread)',
+        (tester) async {
+          final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
+          installTestMediaPipeline(
+            client: MockClient((request) async {
+              final emojiDir = Platform.environment['CHAT_REACTION_EMOJI_DIR'];
+              if (request.url.path.endsWith('/clap.png') ||
+                  request.url.path.endsWith('/heart.png')) {
+                return http.Response.bytes(
+                  emojiDir == null
+                      ? _emojiPng
+                      : File(
+                          '$emojiDir/${request.url.path.split('/').last}',
+                        ).readAsBytesSync(),
+                  200,
+                  headers: {'content-type': 'image/png'},
                 );
-                final dir = Directory(output)..createSync(recursive: true);
-                await File(
-                  '${dir.path}/${dark ? 'dark' : 'light'}-flat-${inThread ? 'thread' : 'channel'}.png',
-                ).writeAsBytes(bytes!.buffer.asUint8List());
-                image.dispose();
-              });
-            }
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+              }
+              return http.Response('', 404);
+            }),
+          );
+          final controller = await _controller(
+            _message(
+              null,
+              threadId: inThread ? 3 : null,
+              reactions: const [
+                ChatReaction(emoji: 'clap', count: 2),
+                ChatReaction(emoji: 'heart', count: 12, reacted: true),
+              ],
+            ),
+          );
+          addTearDown(controller.dispose);
+          final captureKey = GlobalKey();
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              contextThreadId: inThread ? 3 : null,
+              brightness: dark ? Brightness.dark : Brightness.light,
+              captureKey: captureKey,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final pills = find.byType(ReactionPill);
+          expect(pills, findsNWidgets(2));
+          for (var i = 0; i < 2; i++) {
+            final toggle = find.descendant(
+              of: pills.at(i),
+              matching: find.byType(DToggle),
+            );
+            final artwork = find.descendant(
+              of: toggle,
+              matching: find.byType(AnimatedContainer),
+            );
+            final tokens = DTokens.of(tester.element(toggle));
+            final decoration =
+                tester.widget<AnimatedContainer>(artwork).decoration!
+                    as BoxDecoration;
+            expect(tester.getSize(artwork).height, 24);
+            expect(
+              decoration.color,
+              Color.lerp(
+                tokens.colors.surface,
+                tokens.foreground,
+                i == 0 ? .10 : .15,
+              ),
+            );
+          }
+          if (output != null) {
+            await tester.runAsync(() async {
+              for (final element in find.byType(Image).evaluate()) {
+                await precacheImage((element.widget as Image).image, element);
+              }
+            });
+            await tester.pumpAndSettle();
+            await tester.runAsync(() async {
+              final boundary =
+                  captureKey.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              final image = await boundary.toImage(pixelRatio: 2);
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              final dir = Directory(output)..createSync(recursive: true);
+              await File(
+                '${dir.path}/${dark ? 'dark' : 'light'}-flat-${inThread ? 'thread' : 'channel'}.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 

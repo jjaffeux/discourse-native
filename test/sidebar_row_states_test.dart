@@ -30,160 +30,138 @@ void main() {
   });
   for (final kind in ['menu', 'navigation', 'conversation']) {
     for (final dark in [false, true]) {
-      {
-        for (final reduced in [false]) {
-          testWidgets(
-            'sidebar $kind hover and selection: $dark flat reduced=$reduced',
-            (tester) async {
-              final semantics = tester.ensureSemantics();
-              var selected = true;
-              late StateSetter rebuild;
-              await tester.pumpWidget(
-                MaterialApp(
-                  theme: dark ? AppTheme.dark : AppTheme.light,
-                  home: MediaQuery(
-                    data: MediaQueryData(highContrast: reduced),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: RepaintBoundary(
-                        key: _paint,
-                        child: ColoredBox(
-                          color: _backdrop,
-                          child: SizedBox(
-                            width: 320,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: StatefulBuilder(
-                                builder: (context, setState) {
-                                  rebuild = setState;
-                                  Widget row(
-                                    Key key,
-                                    String label, {
-                                    required bool active,
-                                  }) => kind == 'conversation'
-                                      ? DItem(
-                                          key: key,
-                                          shape: DItemShape.menu,
-                                          selectionStyle:
-                                              DItemSelectionStyle.sidebar,
-                                          selected: active,
-                                          showSelectionIndicator: false,
-                                          onPressed: () {},
-                                          children: [
-                                            DItemContent(
-                                              children: [
-                                                DItemTitle(child: Text(label)),
-                                                const DItemDescription(
-                                                  child: Text('Last message'),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        )
-                                      : DSidebarMenuButton(
-                                          key: key,
-                                          variant: kind == 'navigation'
-                                              ? DSidebarMenuButtonVariant
-                                                    .navigation
-                                              : DSidebarMenuButtonVariant.menu,
-                                          isActive: active,
-                                          onPressed: () {},
-                                          child: Text(label),
-                                        );
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
+      testWidgets('sidebar $kind hover and selection: $dark', (tester) async {
+        final semantics = tester.ensureSemantics();
+        var selected = true;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? AppTheme.dark : AppTheme.light,
+            home: MediaQuery(
+              data: const MediaQueryData(),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: RepaintBoundary(
+                  key: _paint,
+                  child: ColoredBox(
+                    color: _backdrop,
+                    child: SizedBox(
+                      width: 320,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: StatefulBuilder(
+                          builder: (context, setState) {
+                            rebuild = setState;
+                            Widget row(
+                              Key key,
+                              String label, {
+                              required bool active,
+                            }) => kind == 'conversation'
+                                ? DItem(
+                                    key: key,
+                                    shape: DItemShape.menu,
+                                    selectionStyle: DItemSelectionStyle.sidebar,
+                                    selected: active,
+                                    showSelectionIndicator: false,
+                                    onPressed: () {},
                                     children: [
-                                      row(
-                                        _selected,
-                                        'General',
-                                        active: selected,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      row(
-                                        _other,
-                                        'Other channel',
-                                        active: false,
+                                      DItemContent(
+                                        children: [
+                                          DItemTitle(child: Text(label)),
+                                          const DItemDescription(
+                                            child: Text('Last message'),
+                                          ),
+                                        ],
                                       ),
                                     ],
+                                  )
+                                : DSidebarMenuButton(
+                                    key: key,
+                                    variant: kind == 'navigation'
+                                        ? DSidebarMenuButtonVariant.navigation
+                                        : DSidebarMenuButtonVariant.menu,
+                                    isActive: active,
+                                    onPressed: () {},
+                                    child: Text(label),
                                   );
-                                },
-                              ),
-                            ),
-                          ),
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                row(_selected, 'General', active: selected),
+                                const SizedBox(height: 8),
+                                row(_other, 'Other channel', active: false),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
                   ),
                 ),
-              );
-              await tester.pumpAndSettle();
-              final tokens = DTokens.of(tester.element(find.byKey(_selected)));
-              final tint = kind == 'navigation'
-                  ? Color.lerp(tokens.background, tokens.foreground, .12)!
-                  : tokens.foreground.withValues(alpha: .13);
-              final selectedPixel = await _sample(tester, _selected);
-              final upperPixel = await _sample(
-                tester,
-                _selected,
-                fraction: const Offset(.7, .15),
-              );
-              await _capture(
-                tester,
-                'sidebar-$kind-$dark-flat-$reduced-selected',
-              );
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final tokens = DTokens.of(tester.element(find.byKey(_selected)));
+        final tint = kind == 'navigation'
+            ? Color.lerp(tokens.background, tokens.foreground, .12)!
+            : tokens.foreground.withValues(alpha: .13);
+        final selectedPixel = await _sample(tester, _selected);
+        final upperPixel = await _sample(
+          tester,
+          _selected,
+          fraction: const Offset(.7, .15),
+        );
+        await _capture(tester, 'sidebar-$kind-$dark-selected');
 
-              final mouse = await tester.createGesture(
-                kind: PointerDeviceKind.mouse,
-              );
-              await mouse.addPointer(location: const Offset(700, 500));
-              await mouse.moveTo(tester.getCenter(find.byKey(_other)));
-              await tester.pumpAndSettle();
-              await _capture(tester, 'sidebar-$kind-$dark-flat-$reduced-hover');
-              final hoverPixel = await _sample(tester, _other);
-              final activeUnderHover = await _sample(tester, _selected);
-              expect(
-                tester
-                    .getSemantics(find.byKey(_selected))
-                    .getSemanticsData()
-                    .flagsCollection
-                    .isSelected,
-                ui.Tristate.isTrue,
-              );
-              expect(
-                tester
-                    .getSemantics(find.byKey(_other))
-                    .getSemanticsData()
-                    .flagsCollection
-                    .isSelected,
-                isNot(ui.Tristate.isTrue),
-              );
-              semantics.dispose();
-              await mouse.removePointer();
-              await tester.pumpAndSettle();
-              final restingPixel = await _sample(tester, _other);
-              rebuild(() => selected = false);
-              await tester.pumpAndSettle();
-              final clearedPixel = await _sample(tester, _selected);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(700, 500));
+        await mouse.moveTo(tester.getCenter(find.byKey(_other)));
+        await tester.pumpAndSettle();
+        await _capture(tester, 'sidebar-$kind-$dark-hover');
+        final hoverPixel = await _sample(tester, _other);
+        final activeUnderHover = await _sample(tester, _selected);
+        expect(
+          tester
+              .getSemantics(find.byKey(_selected))
+              .getSemanticsData()
+              .flagsCollection
+              .isSelected,
+          ui.Tristate.isTrue,
+        );
+        expect(
+          tester
+              .getSemantics(find.byKey(_other))
+              .getSemanticsData()
+              .flagsCollection
+              .isSelected,
+          isNot(ui.Tristate.isTrue),
+        );
+        semantics.dispose();
+        await mouse.removePointer();
+        await tester.pumpAndSettle();
+        final restingPixel = await _sample(tester, _other);
+        rebuild(() => selected = false);
+        await tester.pumpAndSettle();
+        final clearedPixel = await _sample(tester, _selected);
 
-              _expectColor(selectedPixel, Color.alphaBlend(tint, _backdrop));
-              _expectColor(upperPixel, Color.alphaBlend(tint, _backdrop));
-              _expectColor(activeUnderHover, selectedPixel);
-              _expectColor(
-                hoverPixel,
-                kind == 'navigation'
-                    ? _backdrop
-                    : Color.alphaBlend(
-                        tokens.foreground.withValues(alpha: .08),
-                        _backdrop,
-                      ),
-              );
-              _expectColor(restingPixel, _backdrop);
-              _expectColor(clearedPixel, _backdrop);
-              expect(tester.takeException(), isNull);
-            },
-          );
-        }
-      }
+        _expectColor(selectedPixel, Color.alphaBlend(tint, _backdrop));
+        _expectColor(upperPixel, Color.alphaBlend(tint, _backdrop));
+        _expectColor(activeUnderHover, selectedPixel);
+        _expectColor(
+          hoverPixel,
+          kind == 'navigation'
+              ? _backdrop
+              : Color.alphaBlend(
+                  tokens.foreground.withValues(alpha: .08),
+                  _backdrop,
+                ),
+        );
+        _expectColor(restingPixel, _backdrop);
+        _expectColor(clearedPixel, _backdrop);
+        expect(tester.takeException(), isNull);
+      });
     }
   }
 }

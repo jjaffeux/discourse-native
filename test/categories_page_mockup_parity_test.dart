@@ -41,90 +41,88 @@ void main() {
     (TargetPlatform.macOS, 825.0),
   ]) {
     for (final dark in [false, true]) {
-      {
-        testWidgets('categories reference on $platform, dark $dark, flat', (
-          tester,
-        ) async {
-          final prior = debugDefaultTargetPlatformOverride;
-          debugDefaultTargetPlatformOverride = platform;
-          final shadows = debugDisableShadows;
-          debugDisableShadows = false;
-          try {
-            await _mount(tester, width: width, dark: dark);
-            final first = tester.getRect(_card(1));
-            expect(first.left, 16);
-            expect(first.height, greaterThanOrEqualTo(100));
-            expect(
-              tester.getRect(find.byType(DPlaceCardMark).first).size,
-              const Size(29, 29),
+      testWidgets('categories reference on $platform, dark $dark, flat', (
+        tester,
+      ) async {
+        final prior = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = platform;
+        final shadows = debugDisableShadows;
+        debugDisableShadows = false;
+        try {
+          await _mount(tester, width: width, dark: dark);
+          final first = tester.getRect(_card(1));
+          expect(first.left, 16);
+          expect(first.height, greaterThanOrEqualTo(100));
+          expect(
+            tester.getRect(find.byType(DPlaceCardMark).first).size,
+            const Size(29, 29),
+          );
+          expect(
+            find.text('Hydration, crumb and the long arguments about both.'),
+            findsOneWidget,
+          );
+          expect(find.text('Featured topic title'), findsNothing);
+          final footer = find.descendant(
+            of: _card(1),
+            matching: find.text('8 topics'),
+          );
+          expect(footer, findsOneWidget);
+          final second = tester.getRect(_card(2));
+          if (platform == TargetPlatform.iOS) {
+            expect(first.width, 358);
+            expect(second.top - first.bottom, closeTo(10, .01));
+          } else {
+            expect(first.width, closeTo((width - 32 - 20) / 3, .01));
+            expect(second.top, first.top);
+            expect(second.left - first.right, closeTo(10, .01));
+            expect(second.height, first.height);
+          }
+          expect(
+            find.byKey(const ValueKey('categories-category-filter')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+          await _export(
+            tester,
+            '${platform.name}-${dark ? 'dark' : 'light'}-flat',
+          );
+          if (platform == TargetPlatform.macOS) {
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
             );
-            expect(
-              find.text('Hydration, crumb and the long arguments about both.'),
-              findsOneWidget,
-            );
-            expect(find.text('Featured topic title'), findsNothing);
-            final footer = find.descendant(
-              of: _card(1),
-              matching: find.text('8 topics'),
-            );
-            expect(footer, findsOneWidget);
-            final second = tester.getRect(_card(2));
-            if (platform == TargetPlatform.iOS) {
-              expect(first.width, 358);
-              expect(second.top - first.bottom, closeTo(10, .01));
-            } else {
-              expect(first.width, closeTo((width - 32 - 20) / 3, .01));
-              expect(second.top, first.top);
-              expect(second.left - first.right, closeTo(10, .01));
-              expect(second.height, first.height);
-            }
-            expect(
-              find.byKey(const ValueKey('categories-category-filter')),
-              findsOneWidget,
-            );
-            expect(tester.takeException(), isNull);
+            await mouse.addPointer(location: Offset.zero);
+            await mouse.moveTo(first.center);
+            await tester.pumpAndSettle();
             await _export(
               tester,
-              '${platform.name}-${dark ? 'dark' : 'light'}-flat',
+              'macOS-${dark ? 'dark' : 'light'}-flat-hover',
             );
-            if (platform == TargetPlatform.macOS) {
-              final mouse = await tester.createGesture(
-                kind: PointerDeviceKind.mouse,
-              );
-              await mouse.addPointer(location: Offset.zero);
-              await mouse.moveTo(first.center);
+            await mouse.removePointer();
+            final priorHighlight = FocusManager.instance.highlightStrategy;
+            FocusManager.instance.highlightStrategy =
+                FocusHighlightStrategy.alwaysTraditional;
+            try {
+              final detector = find
+                  .descendant(
+                    of: _card(1),
+                    matching: find.byType(GestureDetector),
+                  )
+                  .last;
+              Focus.of(tester.element(detector)).requestFocus();
               await tester.pumpAndSettle();
               await _export(
                 tester,
-                'macOS-${dark ? 'dark' : 'light'}-flat-hover',
+                'macOS-${dark ? 'dark' : 'light'}-flat-focus',
               );
-              await mouse.removePointer();
-              final priorHighlight = FocusManager.instance.highlightStrategy;
-              FocusManager.instance.highlightStrategy =
-                  FocusHighlightStrategy.alwaysTraditional;
-              try {
-                final detector = find
-                    .descendant(
-                      of: _card(1),
-                      matching: find.byType(GestureDetector),
-                    )
-                    .last;
-                Focus.of(tester.element(detector)).requestFocus();
-                await tester.pumpAndSettle();
-                await _export(
-                  tester,
-                  'macOS-${dark ? 'dark' : 'light'}-flat-focus',
-                );
-              } finally {
-                FocusManager.instance.highlightStrategy = priorHighlight;
-              }
+            } finally {
+              FocusManager.instance.highlightStrategy = priorHighlight;
             }
-          } finally {
-            debugDisableShadows = shadows;
-            debugDefaultTargetPlatformOverride = prior;
           }
-        });
-      }
+        } finally {
+          debugDisableShadows = shadows;
+          debugDefaultTargetPlatformOverride = prior;
+        }
+      });
     }
   }
 

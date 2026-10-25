@@ -76,144 +76,136 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    {
-      testWidgets(
-        'chat reactions stay flat through interaction ($dark, flat)',
-        (tester) async {
-          final semantics = tester.ensureSemantics();
-          final theme = dark ? AppTheme.dark : AppTheme.light;
-          var toggles = 0;
-          final focus = FocusNode();
-          addTearDown(focus.dispose);
-          Future<void> render({
-            bool selected = false,
-            bool enabled = true,
-            double scale = 1,
-            bool rtl = false,
-            bool reduced = false,
-          }) => mount(
-            tester,
-            Align(
-              child: DToggle(
-                density: DToggleDensity.chatReaction,
-                variant: DToggleVariant.outline,
-                pressed: selected,
-                enabled: enabled,
-                focusNode: focus,
-                semanticLabel: '2 heart reactions',
-                onPressedChanged: (_) => toggles++,
-                icon: const Icon(Icons.favorite),
-                child: const Text('2'),
-              ),
-            ),
-            theme: theme,
-            scale: scale,
-            rtl: rtl,
-            reduced: reduced,
-          );
-          await render();
-          final toggle = find.byType(DToggle);
-          final artwork = find.descendant(
-            of: toggle,
-            matching: find.byType(AnimatedContainer),
-          );
-          final tokens = DTokens.of(tester.element(toggle));
-          BoxDecoration decoration() =>
-              tester.widget<AnimatedContainer>(artwork).decoration!
-                  as BoxDecoration;
-          void checkFlat(bool active) {
-            expect(
-              decoration().color,
-              Color.lerp(
-                tokens.colors.surface,
-                tokens.foreground,
-                active ? .15 : .10,
-              ),
-            );
-            expect(
-              decoration().border!.top.color,
-              Color.lerp(
-                tokens.colors.surface,
-                tokens.foreground,
-                active ? .32 : .22,
-              ),
-            );
-            expect(decoration().border!.top.width, 1);
-            expect(decoration().gradient, isNull);
-            expect(decoration().boxShadow, isNull);
-          }
-
-          checkFlat(false);
-          expect(tester.getSize(toggle).height, 24);
-          expect(tester.getSize(toggle), tester.getSize(artwork));
-          final paragraph = tester.renderObject<RenderParagraph>(
-            find.descendant(
-              of: find.text('2'),
-              matching: find.byType(RichText),
-            ),
-          );
-          expect(paragraph.text.style!.fontSize, 12);
-          expect(paragraph.text.style!.fontWeight, FontWeight.w400);
-          expect(
-            paragraph.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .62),
-          );
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          await mouse.moveTo(tester.getCenter(toggle));
-          await tester.pump();
-          checkFlat(true);
-          await mouse.removePointer();
-          await tester.pump();
-          final press = await tester.startGesture(tester.getCenter(toggle));
-          await tester.pump(const Duration(milliseconds: 110));
-          checkFlat(true);
-          await press.up();
-          await tester.pump();
-          expect(toggles, 1);
-          final rect = tester.getRect(toggle);
-          await tester.tapAt(Offset(rect.right + 1, rect.center.dy));
-          expect(toggles, 1, reason: 'outside visible artwork is not a target');
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          focus.requestFocus();
-          await tester.pump();
-          await tester.sendKeyEvent(LogicalKeyboardKey.space);
-          await tester.pump();
-          expect(toggles, 2);
-          await render(selected: true);
-          checkFlat(true);
-          expect(
-            tester.getSemantics(controlSemantics()),
-            matchesSemantics(
-              isButton: true,
-              hasEnabledState: true,
-              isEnabled: true,
-              hasToggledState: true,
-              isToggled: true,
-              isFocusable: true,
-              isFocused: true,
-              label: '2 heart reactions',
-              hasTapAction: true,
-              hasFocusAction: true,
-            ),
-          );
-          await render(selected: true, enabled: false);
-          await tester.tap(toggle);
-          expect(toggles, 2);
-          checkFlat(true);
-          await render(scale: 2, rtl: true, reduced: true);
-          expect(tester.getSize(toggle).height, 42);
-          expect(
-            tester.getRect(find.byIcon(Icons.favorite)).left,
-            greaterThan(tester.getRect(find.text('2')).right),
-          );
-          expect(tester.takeException(), isNull);
-          semantics.dispose();
-        },
+    testWidgets('chat reactions stay flat through interaction ($dark, flat)', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      var toggles = 0;
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      Future<void> render({
+        bool selected = false,
+        bool enabled = true,
+        double scale = 1,
+        bool rtl = false,
+        bool reduced = false,
+      }) => mount(
+        tester,
+        Align(
+          child: DToggle(
+            density: DToggleDensity.chatReaction,
+            variant: DToggleVariant.outline,
+            pressed: selected,
+            enabled: enabled,
+            focusNode: focus,
+            semanticLabel: '2 heart reactions',
+            onPressedChanged: (_) => toggles++,
+            icon: const Icon(Icons.favorite),
+            child: const Text('2'),
+          ),
+        ),
+        theme: theme,
+        scale: scale,
+        rtl: rtl,
+        reduced: reduced,
       );
-    }
+      await render();
+      final toggle = find.byType(DToggle);
+      final artwork = find.descendant(
+        of: toggle,
+        matching: find.byType(AnimatedContainer),
+      );
+      final tokens = DTokens.of(tester.element(toggle));
+      BoxDecoration decoration() =>
+          tester.widget<AnimatedContainer>(artwork).decoration!
+              as BoxDecoration;
+      void checkFlat(bool active) {
+        expect(
+          decoration().color,
+          Color.lerp(
+            tokens.colors.surface,
+            tokens.foreground,
+            active ? .15 : .10,
+          ),
+        );
+        expect(
+          decoration().border!.top.color,
+          Color.lerp(
+            tokens.colors.surface,
+            tokens.foreground,
+            active ? .32 : .22,
+          ),
+        );
+        expect(decoration().border!.top.width, 1);
+        expect(decoration().gradient, isNull);
+        expect(decoration().boxShadow, isNull);
+      }
+
+      checkFlat(false);
+      expect(tester.getSize(toggle).height, 24);
+      expect(tester.getSize(toggle), tester.getSize(artwork));
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.text('2'), matching: find.byType(RichText)),
+      );
+      expect(paragraph.text.style!.fontSize, 12);
+      expect(paragraph.text.style!.fontWeight, FontWeight.w400);
+      expect(
+        paragraph.text.style!.color,
+        Color.lerp(tokens.colors.surface, tokens.foreground, .62),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(toggle));
+      await tester.pump();
+      checkFlat(true);
+      await mouse.removePointer();
+      await tester.pump();
+      final press = await tester.startGesture(tester.getCenter(toggle));
+      await tester.pump(const Duration(milliseconds: 110));
+      checkFlat(true);
+      await press.up();
+      await tester.pump();
+      expect(toggles, 1);
+      final rect = tester.getRect(toggle);
+      await tester.tapAt(Offset(rect.right + 1, rect.center.dy));
+      expect(toggles, 1, reason: 'outside visible artwork is not a target');
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(toggles, 2);
+      await render(selected: true);
+      checkFlat(true);
+      expect(
+        tester.getSemantics(controlSemantics()),
+        matchesSemantics(
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasToggledState: true,
+          isToggled: true,
+          isFocusable: true,
+          isFocused: true,
+          label: '2 heart reactions',
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+      await render(selected: true, enabled: false);
+      await tester.tap(toggle);
+      expect(toggles, 2);
+      checkFlat(true);
+      await render(scale: 2, rtl: true, reduced: true);
+      expect(tester.getSize(toggle).height, 42);
+      expect(
+        tester.getRect(find.byIcon(Icons.favorite)).left,
+        greaterThan(tester.getRect(find.text('2')).right),
+      );
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
   }
 
   testWidgets('icon toggles fit collapsing widths in both directions', (

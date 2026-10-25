@@ -25,53 +25,45 @@ void main() {
 
   for (final mobile in [true, false]) {
     for (final dark in [false, true]) {
-      {
-        testWidgets('post body loading uses a skeleton before editing '
-            '${mobile ? 'mobile' : 'desktop'} dark=$dark flat', (tester) async {
-          final composer = ComposerController(_target)..beginLoadingBody();
-          final shell = await _shell();
-          addTearDown(composer.dispose);
-          addTearDown(shell.dispose);
-          final semantics = tester.ensureSemantics();
-          try {
-            await _pumpPanel(
-              tester,
-              shell,
-              composer,
-              mobile: mobile,
-              dark: dark,
-            );
+      testWidgets('post body loading uses a skeleton before editing '
+          '${mobile ? 'mobile' : 'desktop'} dark=$dark flat', (tester) async {
+        final composer = ComposerController(_target)..beginLoadingBody();
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        final semantics = tester.ensureSemantics();
+        try {
+          await _pumpPanel(tester, shell, composer, mobile: mobile, dark: dark);
 
-            final loading = find.bySemanticsLabel('Loading that post…');
-            expect(loading, findsOneWidget);
-            expect(find.text('Loading that post…'), findsNothing);
-            expect(find.byType(ComposerEditor), findsNothing);
-            expect(find.byType(DSkeletonRegion), findsOneWidget);
-            expect(find.byType(DSkeleton), findsWidgets);
-            expect(
-              tester.getSize(find.byType(DSkeletonRegion)).height,
-              greaterThan(0),
-            );
-            expect(tester.takeException(), isNull);
+          final loading = find.bySemanticsLabel('Loading that post…');
+          expect(loading, findsOneWidget);
+          expect(find.text('Loading that post…'), findsNothing);
+          expect(find.byType(ComposerEditor), findsNothing);
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+          expect(find.byType(DSkeleton), findsWidgets);
+          expect(
+            tester.getSize(find.byType(DSkeletonRegion)).height,
+            greaterThan(0),
+          );
+          expect(tester.takeException(), isNull);
 
-            composer.loadedBody('The original post body has arrived.');
-            await tester.pumpAndSettle();
+          composer.loadedBody('The original post body has arrived.');
+          await tester.pumpAndSettle();
 
-            expect(loading, findsNothing);
-            expect(find.byType(DSkeletonRegion), findsNothing);
-            expect(find.byType(ComposerEditor), findsOneWidget);
-            expect(
-              find.text('The original post body has arrived.'),
-              findsOneWidget,
-            );
-            expect(composer.isEditing, isTrue);
-            expect(tester.takeException(), isNull);
-            await tester.pumpWidget(const SizedBox.shrink());
-          } finally {
-            semantics.dispose();
-          }
-        });
-      }
+          expect(loading, findsNothing);
+          expect(find.byType(DSkeletonRegion), findsNothing);
+          expect(find.byType(ComposerEditor), findsOneWidget);
+          expect(
+            find.text('The original post body has arrived.'),
+            findsOneWidget,
+          );
+          expect(composer.isEditing, isTrue);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        } finally {
+          semantics.dispose();
+        }
+      });
     }
   }
 

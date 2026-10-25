@@ -311,30 +311,23 @@ void main() {
         ),
         first,
       ];
-      for (final viewportWidth in [800.0]) {
-        await _pumpBar(
-          tester,
-          items: items,
-          selectedId: 'short',
-          width: viewportWidth,
-        );
-        final short = find.byKey(const ValueKey('forum-tab-item-short'));
-        final suffix = find.byKey(const ValueKey('forum-tab-item-suffix'));
-        final long = find.byKey(const ValueKey('forum-tab-item-topic-1'));
-        final label = find.descendant(of: short, matching: find.text('A'));
-        final close = find.byKey(const ValueKey('forum-tab-close-short'));
-        final labelRect = tester.getRect(label);
-        final closeRect = tester.getRect(close);
-        final tabRect = tester.getRect(short);
+      await _pumpBar(tester, items: items, selectedId: 'short', width: 800);
+      final short = find.byKey(const ValueKey('forum-tab-item-short'));
+      final suffix = find.byKey(const ValueKey('forum-tab-item-suffix'));
+      final long = find.byKey(const ValueKey('forum-tab-item-topic-1'));
+      final label = find.descendant(of: short, matching: find.text('A'));
+      final close = find.byKey(const ValueKey('forum-tab-close-short'));
+      final labelRect = tester.getRect(label);
+      final closeRect = tester.getRect(close);
+      final tabRect = tester.getRect(short);
 
-        expect(tabRect.width, lessThan(150));
-        expect(tester.getSize(suffix).width, closeTo(tabRect.width + 17, .01));
-        expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
-        expect(labelRect.left - tabRect.left, 11 + 12 + 7);
-        expect(closeRect.left - labelRect.right, closeTo(9, .01));
-        expect(tabRect.right - closeRect.right, 11);
-        expect(tester.takeException(), isNull);
-      }
+      expect(tabRect.width, lessThan(150));
+      expect(tester.getSize(suffix).width, closeTo(tabRect.width + 17, .01));
+      expect(tester.getSize(long).width, ForumTabsBar.maximumTabWidth);
+      expect(labelRect.left - tabRect.left, 11 + 12 + 7);
+      expect(closeRect.left - labelRect.right, closeTo(9, .01));
+      expect(tabRect.right - closeRect.right, 11);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('selection keeps every tab width and position stable', (
@@ -1611,39 +1604,37 @@ void main() {
 
   group('overflow layout', () {
     for (final direction in TextDirection.values) {
-      {
-        testWidgets('overflow fades retain the transparent parent in '
-            '$direction with flat', (tester) async {
-          const background = Color(0xff535969);
-          final items = [
-            for (var index = 0; index < 12; index++)
-              ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
-          ];
-          await _pumpBar(
-            tester,
-            items: items,
-            selectedId: items[4].id,
-            width: 320,
-            theme: AppTheme.dark,
-            textDirection: direction,
-            backgroundColor: background,
-            paintOutset: 30,
-          );
-          final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
-          final rect = tester.getRect(scroll);
-          expect(
-            tester
-                .widget<DScrollFadeScope>(find.byType(DScrollFadeScope))
-                .horizontalExtent,
-            30,
-          );
-          await _expectTabPixels(tester, [
-            (Offset(rect.left + 1, rect.top + 1), background),
-            (Offset(rect.right - 2, rect.top + 1), background),
-          ]);
-          expect(tester.takeException(), isNull);
-        });
-      }
+      testWidgets('overflow fades retain the transparent parent in '
+          '$direction with flat', (tester) async {
+        const background = Color(0xff535969);
+        final items = [
+          for (var index = 0; index < 12; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items[4].id,
+          width: 320,
+          theme: AppTheme.dark,
+          textDirection: direction,
+          backgroundColor: background,
+          paintOutset: 30,
+        );
+        final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
+        final rect = tester.getRect(scroll);
+        expect(
+          tester
+              .widget<DScrollFadeScope>(find.byType(DScrollFadeScope))
+              .horizontalExtent,
+          30,
+        );
+        await _expectTabPixels(tester, [
+          (Offset(rect.left + 1, rect.top + 1), background),
+          (Offset(rect.right - 2, rect.top + 1), background),
+        ]);
+        expect(tester.takeException(), isNull);
+      });
     }
 
     testWidgets('wheel scrolling reveals tabs without reserving arrow space', (

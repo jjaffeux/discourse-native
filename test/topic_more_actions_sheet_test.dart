@@ -63,37 +63,35 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    {
-      testWidgets('topic More appearance ${mode.name} flat', (tester) async {
-        await _openTopic(tester, mode: mode);
-        await _openMore(tester);
-        expect(
-          Theme.of(tester.element(_menu)).brightness,
-          mode == AppThemeMode.dark ? Brightness.dark : Brightness.light,
-        );
+    testWidgets('topic More appearance ${mode.name} flat', (tester) async {
+      await _openTopic(tester, mode: mode);
+      await _openMore(tester);
+      expect(
+        Theme.of(tester.element(_menu)).brightness,
+        mode == AppThemeMode.dark ? Brightness.dark : Brightness.light,
+      );
 
-        final rect = tester.getRect(_menuSheet);
-        expect(rect.left, 6);
-        expect(rect.right, 384);
-        expect(rect.bottom, 838);
-        await _capture(
-          tester,
-          '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-flat',
-        );
-        expect(rect.height, closeTo(144.04, 1));
-        final labels = ['Share topic', 'Flag topic', 'Mark unread'];
-        for (final label in labels) {
-          expect(find.text(label).hitTestable(), findsOneWidget);
-        }
-        final semantics = tester.ensureSemantics();
-        expect(
-          tester.getSemantics(find.text('Share topic')).label,
-          'Share topic',
-        );
-        semantics.dispose();
-        expect(tester.takeException(), isNull);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-    }
+      final rect = tester.getRect(_menuSheet);
+      expect(rect.left, 6);
+      expect(rect.right, 384);
+      expect(rect.bottom, 838);
+      await _capture(
+        tester,
+        '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-flat',
+      );
+      expect(rect.height, closeTo(144.04, 1));
+      final labels = ['Share topic', 'Flag topic', 'Mark unread'];
+      for (final label in labels) {
+        expect(find.text(label).hitTestable(), findsOneWidget);
+      }
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(find.text('Share topic')).label,
+        'Share topic',
+      );
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   }
 
   testWidgets('topic More opens a compact floating menu over the reader', (

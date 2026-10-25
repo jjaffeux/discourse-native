@@ -447,39 +447,37 @@ void main() {
       }),
     );
 
-    for (final rootMode in [ShellRootMode.forum]) {
-      testWidgets(
-        '${platform.name} closing the last ${rootMode.name} tab keeps a usable workspace',
-        (tester) => _withPlatform(platform, () async {
-          await _pumpShell(tester);
-          final controller = ShellScope.read(
-            tester.element(find.byType(MainContent).first),
-          );
+    testWidgets(
+      '${platform.name} closing the last forum tab keeps a usable workspace',
+      (tester) => _withPlatform(platform, () async {
+        await _pumpShell(tester);
+        final controller = ShellScope.read(
+          tester.element(find.byType(MainContent).first),
+        );
 
-          final originalTabId = _bar(tester).selectedId;
-          final modifier = platform == TargetPlatform.macOS
-              ? LogicalKeyboardKey.metaLeft
-              : LogicalKeyboardKey.controlLeft;
+        final originalTabId = _bar(tester).selectedId;
+        final modifier = platform == TargetPlatform.macOS
+            ? LogicalKeyboardKey.metaLeft
+            : LogicalKeyboardKey.controlLeft;
 
-          expect(
-            await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
-            isTrue,
-          );
-          await tester.pumpAndSettle();
+        expect(
+          await _pressShortcut(tester, modifier, LogicalKeyboardKey.keyW),
+          isTrue,
+        );
+        await tester.pumpAndSettle();
 
-          expect(binding.exitRequests, isEmpty);
-          expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
-          expect(controller.currentContent!.isNewTab, isTrue);
-          expect(
-            controller
-                .selectedTabIn(ForumPanel.secondary)!
-                .currentContent
-                .isNewTab,
-            isTrue,
-          );
-        }),
-      );
-    }
+        expect(binding.exitRequests, isEmpty);
+        expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
+        expect(controller.currentContent!.isNewTab, isTrue);
+        expect(
+          controller
+              .selectedTabIn(ForumPanel.secondary)!
+              .currentContent
+              .isNewTab,
+          isTrue,
+        );
+      }),
+    );
   }
 
   for (final platform in const [TargetPlatform.macOS, TargetPlatform.linux]) {

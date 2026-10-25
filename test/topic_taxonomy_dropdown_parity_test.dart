@@ -68,93 +68,89 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    {
-      testWidgets('category levels and live tags on $platform flat', (
+    testWidgets('category levels and live tags on $platform flat', (
+      tester,
+    ) async {
+      debugDisableShadows = false;
+      addTearDown(() => debugDisableShadows = true);
+      final data = await fixture.fixture(
         tester,
-      ) async {
-        debugDisableShadows = false;
-        addTearDown(() => debugDisableShadows = true);
-        final data = await fixture.fixture(
-          tester,
-          size: platform == TargetPlatform.macOS ? desktop : phone,
-          filterOptions: fixture.filterMenuOptions,
-        );
-        await data.shell.forumSettings.setShared(
-          const SharedAppearance(
-            font: ForumFont.openSans,
-            interfaceFont: ForumFont.openSans,
-          ),
-        );
-        await data.shell.forumSettings.setThemeMode(
-          fixture.site,
-          platform == TargetPlatform.iOS
-              ? AppThemeMode.dark
-              : AppThemeMode.light,
-        );
-        await data.shell.applyTopicListFilterQuery(
-          'status:open category:1 tag:Alpha',
-        );
-        await tester.pumpAndSettle();
-        await _open(tester, 'topic-list-subcategory-filter-1');
-        expect(_query(tester), isEmpty);
-        expect(
-          fixture.textField(tester).focusNode!.hasFocus,
-          platform == TargetPlatform.macOS,
-        );
-        expect(_choice('Design'), findsOneWidget);
-        expect(_choice('Support'), findsNothing);
-        expect(find.text('Status: open'), findsNothing);
-        expect(find.text('Tags: Alpha'), findsNothing);
-        expect(find.widgetWithText(DButton, 'Done'), findsNothing);
-        await fixture.capture(tester, 'taxonomy-category-$platform-flat');
-        await tester.tap(_choice('Design'));
-        await tester.pumpAndSettle();
-        expect(data.shell.topicListContent!.categoryId, 2);
-        expect(data.shell.topicListContent!.topicFilterQuery, 'status:open');
-        expect(data.shell.topicListContent!.tagNames, ['Alpha']);
-        expect(_list, findsNothing);
+        size: platform == TargetPlatform.macOS ? desktop : phone,
+        filterOptions: fixture.filterMenuOptions,
+      );
+      await data.shell.forumSettings.setShared(
+        const SharedAppearance(
+          font: ForumFont.openSans,
+          interfaceFont: ForumFont.openSans,
+        ),
+      );
+      await data.shell.forumSettings.setThemeMode(
+        fixture.site,
+        platform == TargetPlatform.iOS ? AppThemeMode.dark : AppThemeMode.light,
+      );
+      await data.shell.applyTopicListFilterQuery(
+        'status:open category:1 tag:Alpha',
+      );
+      await tester.pumpAndSettle();
+      await _open(tester, 'topic-list-subcategory-filter-1');
+      expect(_query(tester), isEmpty);
+      expect(
+        fixture.textField(tester).focusNode!.hasFocus,
+        platform == TargetPlatform.macOS,
+      );
+      expect(_choice('Design'), findsOneWidget);
+      expect(_choice('Support'), findsNothing);
+      expect(find.text('Status: open'), findsNothing);
+      expect(find.text('Tags: Alpha'), findsNothing);
+      expect(find.widgetWithText(DButton, 'Done'), findsNothing);
+      await fixture.capture(tester, 'taxonomy-category-$platform-flat');
+      await tester.tap(_choice('Design'));
+      await tester.pumpAndSettle();
+      expect(data.shell.topicListContent!.categoryId, 2);
+      expect(data.shell.topicListContent!.topicFilterQuery, 'status:open');
+      expect(data.shell.topicListContent!.tagNames, ['Alpha']);
+      expect(_list, findsNothing);
 
-        await _open(tester, 'topic-list-category-filter');
-        expect(_choice('Support'), findsOneWidget);
-        expect(_choice('Design'), findsNothing);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        if (platform == TargetPlatform.iOS) {
-          await tester.tapAt(const Offset(8, 20));
-        }
-        await tester.pumpAndSettle();
-        await _open(tester, 'topic-list-tag-filter');
-        expect(_query(tester), isEmpty);
-        expect(find.text('Category: Design'), findsNothing);
-        await fixture.capture(tester, 'taxonomy-tags-$platform-flat');
-        // Removing the last tag publishes an empty scope without discarding
-        // the category or status, and the same menu stays available.
-        await tester.tap(
-          find.byKey(const ValueKey('topic-filter-token-remove-0')),
-        );
-        await tester.pumpAndSettle();
-        expect(data.shell.topicListContent!.tagNames, isEmpty);
-        expect(_list, findsOneWidget);
-        await tester.tap(_choice('Alpha'));
-        await tester.pumpAndSettle();
-        expect(data.shell.topicListContent!.tagNames, ['Alpha']);
-        expect(_list, findsOneWidget);
-        await tester.tap(find.text('None'));
-        await tester.pumpAndSettle();
-        expect(
-          data.shell.topicListContent!.topicFilterQuery,
-          contains('-tag:Alpha'),
-        );
-        expect(
-          data.shell.topicListContent!.topicFilterQuery,
-          contains('status:open'),
-        );
-        await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
-        await tester.pumpAndSettle();
-        expect(_list, findsNothing);
-        expect(tester.takeException(), isNull);
-        debugDisableShadows = true;
-      }, variant: TargetPlatformVariant.only(platform));
-    }
+      await _open(tester, 'topic-list-category-filter');
+      expect(_choice('Support'), findsOneWidget);
+      expect(_choice('Design'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      if (platform == TargetPlatform.iOS) {
+        await tester.tapAt(const Offset(8, 20));
+      }
+      await tester.pumpAndSettle();
+      await _open(tester, 'topic-list-tag-filter');
+      expect(_query(tester), isEmpty);
+      expect(find.text('Category: Design'), findsNothing);
+      await fixture.capture(tester, 'taxonomy-tags-$platform-flat');
+      // Removing the last tag publishes an empty scope without discarding
+      // the category or status, and the same menu stays available.
+      await tester.tap(
+        find.byKey(const ValueKey('topic-filter-token-remove-0')),
+      );
+      await tester.pumpAndSettle();
+      expect(data.shell.topicListContent!.tagNames, isEmpty);
+      expect(_list, findsOneWidget);
+      await tester.tap(_choice('Alpha'));
+      await tester.pumpAndSettle();
+      expect(data.shell.topicListContent!.tagNames, ['Alpha']);
+      expect(_list, findsOneWidget);
+      await tester.tap(find.text('None'));
+      await tester.pumpAndSettle();
+      expect(
+        data.shell.topicListContent!.topicFilterQuery,
+        contains('-tag:Alpha'),
+      );
+      expect(
+        data.shell.topicListContent!.topicFilterQuery,
+        contains('status:open'),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
+      await tester.pumpAndSettle();
+      expect(_list, findsNothing);
+      expect(tester.takeException(), isNull);
+      debugDisableShadows = true;
+    }, variant: TargetPlatformVariant.only(platform));
   }
 
   testWidgets('exact category is explicit and does not carry into a child', (

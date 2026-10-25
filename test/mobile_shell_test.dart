@@ -1321,81 +1321,74 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
-    {
-      for (final scale in [1.0, 1.5]) {
-        _mobileTest(
-          'body and plugin page keep their corners and dock at $scale text '
-          '${mode.name} flat',
-          (tester) async {
-            tester.platformDispatcher.textScaleFactorTestValue = scale;
-            addTearDown(
-              tester.platformDispatcher.clearTextScaleFactorTestValue,
-            );
-            await _loadChromeCaptureFonts(tester);
-            final shell = await pumpMobileShellFixture(tester);
-            await shell.forumSettings.setThemeMode(_site, mode);
-            await shell.forumSettings.setThemes(
-              _site,
-              ForumThemePreferences.preset('dracula'),
-            );
-            await shell.forumSettings.setShared(
-              shell.forumSettings.shared.copyWith(),
-            );
-            await tester.pumpAndSettle();
-            final body = find.byKey(const ValueKey('mobile-content-panel'));
-            final bodyElement = tester.element(body);
-            BorderRadiusGeometry? bodyRadius() => tester
-                .widget<DPageSurface>(
-                  find
-                      .descendant(of: body, matching: find.byType(DPageSurface))
-                      .first,
-                )
-                .borderRadius;
+    for (final scale in [1.0, 1.5]) {
+      _mobileTest(
+        'body and plugin page keep their corners and dock at $scale text '
+        '${mode.name} flat',
+        (tester) async {
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          await _loadChromeCaptureFonts(tester);
+          final shell = await pumpMobileShellFixture(tester);
+          await shell.forumSettings.setThemeMode(_site, mode);
+          await shell.forumSettings.setThemes(
+            _site,
+            ForumThemePreferences.preset('dracula'),
+          );
+          await shell.forumSettings.setShared(
+            shell.forumSettings.shared.copyWith(),
+          );
+          await tester.pumpAndSettle();
+          final body = find.byKey(const ValueKey('mobile-content-panel'));
+          final bodyElement = tester.element(body);
+          BorderRadiusGeometry? bodyRadius() => tester
+              .widget<DPageSurface>(
+                find
+                    .descendant(of: body, matching: find.byType(DPageSurface))
+                    .first,
+              )
+              .borderRadius;
 
-            final start = find.byKey(const ValueKey('mobile-mode-start'));
-            final label = find.descendant(
-              of: start,
-              matching: find.text('Start'),
-            );
-            final glyph = find.descendant(
-              of: start,
-              matching: find.byType(DIcon),
-            );
-            final button = find.descendant(
-              of: start,
-              matching: find.byType(DButton),
-            );
-            final before = (
-              dockHeight: tester.getSize(_bar).height,
-              buttonHeight: tester.getSize(button).height,
-              labelSize: tester.getSize(label),
-              glyphSize: tester.getSize(glyph),
-            );
-            _expectPageRadius(bodyRadius());
-            await _captureChrome(
-              tester,
-              'dock-topics-$scale-${mode.name}-flat',
-            );
-            shell.openChatChannel(10);
-            await tester.pumpAndSettle();
-            expect(tester.element(body), same(bodyElement));
-            expect(tester.getSize(_bar).height, before.dockHeight);
-            expect(tester.getSize(button).height, before.buttonHeight);
-            expect(tester.getSize(label), before.labelSize);
-            expect(tester.getSize(glyph), before.glyphSize);
-            _expectPageRadius(bodyRadius());
-            final sheet = find
-                .descendant(
-                  of: find.byType(DSheetContent),
-                  matching: find.byType(DPageSurface),
-                )
-                .first;
-            _expectPageRadius(tester.widget<DPageSurface>(sheet).borderRadius);
-            await _captureChrome(tester, 'dock-chat-$scale-${mode.name}-flat');
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+          final start = find.byKey(const ValueKey('mobile-mode-start'));
+          final label = find.descendant(
+            of: start,
+            matching: find.text('Start'),
+          );
+          final glyph = find.descendant(
+            of: start,
+            matching: find.byType(DIcon),
+          );
+          final button = find.descendant(
+            of: start,
+            matching: find.byType(DButton),
+          );
+          final before = (
+            dockHeight: tester.getSize(_bar).height,
+            buttonHeight: tester.getSize(button).height,
+            labelSize: tester.getSize(label),
+            glyphSize: tester.getSize(glyph),
+          );
+          _expectPageRadius(bodyRadius());
+          await _captureChrome(tester, 'dock-topics-$scale-${mode.name}-flat');
+          shell.openChatChannel(10);
+          await tester.pumpAndSettle();
+          expect(tester.element(body), same(bodyElement));
+          expect(tester.getSize(_bar).height, before.dockHeight);
+          expect(tester.getSize(button).height, before.buttonHeight);
+          expect(tester.getSize(label), before.labelSize);
+          expect(tester.getSize(glyph), before.glyphSize);
+          _expectPageRadius(bodyRadius());
+          final sheet = find
+              .descendant(
+                of: find.byType(DSheetContent),
+                matching: find.byType(DPageSurface),
+              )
+              .first;
+          _expectPageRadius(tester.widget<DPageSurface>(sheet).borderRadius);
+          await _captureChrome(tester, 'dock-chat-$scale-${mode.name}-flat');
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
@@ -1409,33 +1402,28 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
     for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
-      {
-        await shell.forumSettings.setThemeMode(_site, mode);
-        await shell.forumSettings.setThemes(
-          _site,
-          ForumThemePreferences.preset('dracula'),
-        );
-        await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(
-            font: ForumFont.lato,
-            interfaceFont: ForumFont.lato,
-          ),
-        );
-        await tester.pumpAndSettle();
-        await _captureChrome(tester, 'start-${mode.name}-flat');
-        final body = find.byKey(const ValueKey('mobile-content-panel'));
-        expect(tester.getRect(body).bottom, 844);
-        expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
-        final surface = find
-            .descendant(of: body, matching: find.byType(DPageSurface))
-            .first;
-        _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
-        expect(
-          find.byKey(const ValueKey('start-page-content')),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-      }
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await shell.forumSettings.setThemes(
+        _site,
+        ForumThemePreferences.preset('dracula'),
+      );
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          font: ForumFont.lato,
+          interfaceFont: ForumFont.lato,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _captureChrome(tester, 'start-${mode.name}-flat');
+      final body = find.byKey(const ValueKey('mobile-content-panel'));
+      expect(tester.getRect(body).bottom, 844);
+      expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
+      final surface = find
+          .descendant(of: body, matching: find.byType(DPageSurface))
+          .first;
+      _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
+      expect(find.byKey(const ValueKey('start-page-content')), findsOneWidget);
+      expect(tester.takeException(), isNull);
     }
     if (const bool.fromEnvironment('captureMobileChrome')) {
       final menu = find.byKey(const ValueKey('mobile-menu-button'));
@@ -1843,134 +1831,123 @@ void main() {
   );
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    {
-      _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
-        tester,
-      ) async {
-        if (const bool.fromEnvironment('captureMobileSidebar')) {
-          await tester.runAsync(() async {
-            final manifest =
-                jsonDecode(await rootBundle.loadString('FontManifest.json'))
-                    as List;
-            for (final entry in manifest.cast<Map<String, dynamic>>()) {
-              final loader = FontLoader(entry['family'] as String);
-              for (final face
-                  in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
-                loader.addFont(rootBundle.load(face['asset'] as String));
-              }
-              await loader.load();
+    _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
+      tester,
+    ) async {
+      if (const bool.fromEnvironment('captureMobileSidebar')) {
+        await tester.runAsync(() async {
+          final manifest =
+              jsonDecode(await rootBundle.loadString('FontManifest.json'))
+                  as List;
+          for (final entry in manifest.cast<Map<String, dynamic>>()) {
+            final loader = FontLoader(entry['family'] as String);
+            for (final face
+                in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+              loader.addFont(rootBundle.load(face['asset'] as String));
             }
-          });
-        }
-        final shell = await pumpMobileShellFixture(tester, voice: true);
-        await shell.forumSettings.setThemeMode(_site, mode);
-        await shell.forumSettings.setThemes(
-          _site,
-          ForumThemePreferences.preset('dracula'),
-        );
-        await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(
-            font: const bool.fromEnvironment('captureMobileSidebar')
-                ? ForumFont.lato
-                : null,
-            interfaceFont: const bool.fromEnvironment('captureMobileSidebar')
-                ? ForumFont.lato
-                : null,
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
-        await tester.pumpAndSettle();
-        final route = shell.currentContent;
-        final tab = shell.mobileNavigation.tab;
-        final switcher = find.byKey(const ValueKey('sidebar-panel-tabs'));
-        final list = find.descendant(
-          of: switcher,
-          matching: find.byType(DTabList<String>),
-        );
-        expect(tester.widget<DTabList<String>>(list).expandSelected, isTrue);
-        final panel = tester.getRect(
-          find.byKey(const ValueKey('mobile-navigation-panel')),
-        );
-        final frame = find
-            .descendant(
-              of: find.byKey(const ValueKey('mobile-navigation-panel')),
-              matching: find.byType(DPageSurface),
-            )
-            .first;
-        expect(
-          tester.widget<DPageSurface>(frame).borderRadius,
-          BorderRadius.circular(DRadius.panel),
-        );
-        expect(tester.widget<DPageSurface>(frame).border, isFalse);
-        expect(tester.getRect(list).left, panel.left + 12);
-        expect(tester.getRect(list).right, panel.right - 12);
-        expect(tester.getRect(list).top, panel.top + 10);
-        expect(find.text('Watercooler'), findsNothing);
+            await loader.load();
+          }
+        });
+      }
+      final shell = await pumpMobileShellFixture(tester, voice: true);
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await shell.forumSettings.setThemes(
+        _site,
+        ForumThemePreferences.preset('dracula'),
+      );
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          font: const bool.fromEnvironment('captureMobileSidebar')
+              ? ForumFont.lato
+              : null,
+          interfaceFont: const bool.fromEnvironment('captureMobileSidebar')
+              ? ForumFont.lato
+              : null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      final route = shell.currentContent;
+      final tab = shell.mobileNavigation.tab;
+      final switcher = find.byKey(const ValueKey('sidebar-panel-tabs'));
+      final list = find.descendant(
+        of: switcher,
+        matching: find.byType(DTabList<String>),
+      );
+      expect(tester.widget<DTabList<String>>(list).expandSelected, isTrue);
+      final panel = tester.getRect(
+        find.byKey(const ValueKey('mobile-navigation-panel')),
+      );
+      final frame = find
+          .descendant(
+            of: find.byKey(const ValueKey('mobile-navigation-panel')),
+            matching: find.byType(DPageSurface),
+          )
+          .first;
+      expect(
+        tester.widget<DPageSurface>(frame).borderRadius,
+        BorderRadius.circular(DRadius.panel),
+      );
+      expect(tester.widget<DPageSurface>(frame).border, isFalse);
+      expect(tester.getRect(list).left, panel.left + 12);
+      expect(tester.getRect(list).right, panel.right - 12);
+      expect(tester.getRect(list).top, panel.top + 10);
+      expect(find.text('Watercooler'), findsNothing);
 
-        Future<void> capture(String state) async {
-          if (!const bool.fromEnvironment('captureMobileSidebar')) return;
-          await tester.runAsync(() async {
-            final builder = ui.SceneBuilder();
-            tester.binding.renderViews.first.debugLayer!.addToScene(builder);
-            final scene = builder.build();
-            final image = await scene.toImage(390, 844);
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            final platform = Theme.of(tester.element(_header)).platform.name;
-            await File(
-              '/private/tmp/mobile-sidebar-$platform-${mode.name}-flat-$state.png',
-            ).writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
-            scene.dispose();
-          });
-        }
+      Future<void> capture(String state) async {
+        if (!const bool.fromEnvironment('captureMobileSidebar')) return;
+        await tester.runAsync(() async {
+          final builder = ui.SceneBuilder();
+          tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+          final scene = builder.build();
+          final image = await scene.toImage(390, 844);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final platform = Theme.of(tester.element(_header)).platform.name;
+          await File(
+            '/private/tmp/mobile-sidebar-$platform-${mode.name}-flat-$state.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+          scene.dispose();
+        });
+      }
 
-        await capture('forum');
-        await tester.tap(
-          find.byKey(const ValueKey('sidebar-panel-switch-chat')),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('chat-inbox-activity-filter')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('chat-inbox-channel-9')),
-          findsOneWidget,
-        );
-        expect(find.text('Voice rooms'), findsOneWidget);
-        expect(find.text('Watercooler'), findsOneWidget);
-        expect(find.byType(ChatMobileSidebar), findsNothing);
-        for (final label in ['Chats', 'Channels', 'Threads']) {
-          expect(sidebarDestination(label), findsNothing);
-        }
-        expect(shell.currentContent, same(route));
-        expect(shell.mobileNavigation.tab, tab);
-        expect(shell.mobileNavigation.sidebarOpen, isTrue);
-        await capture('chat');
-        await tester.tap(
-          find.byKey(const ValueKey('sidebar-panel-switch-shortcuts')),
-        );
-        await tester.pumpAndSettle();
-        expect(sidebarDestination('Handbook'), findsOneWidget);
-        expect(find.text('Watercooler'), findsNothing);
-        expect(
-          find.byKey(const ValueKey('chat-inbox-channel-9')),
-          findsNothing,
-        );
-        await capture('shortcuts');
-        await tester.tap(
-          find.byKey(const ValueKey('sidebar-panel-switch-main')),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Categories'), findsOneWidget);
-        expect(sidebarDestination('Handbook'), findsNothing);
-        expect(shell.currentContent, same(route));
-        expect(tester.takeException(), isNull);
-      });
-    }
+      await capture('forum');
+      await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-chat')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-inbox-activity-filter')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('chat-inbox-channel-9')),
+        findsOneWidget,
+      );
+      expect(find.text('Voice rooms'), findsOneWidget);
+      expect(find.text('Watercooler'), findsOneWidget);
+      expect(find.byType(ChatMobileSidebar), findsNothing);
+      for (final label in ['Chats', 'Channels', 'Threads']) {
+        expect(sidebarDestination(label), findsNothing);
+      }
+      expect(shell.currentContent, same(route));
+      expect(shell.mobileNavigation.tab, tab);
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      await capture('chat');
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-panel-switch-shortcuts')),
+      );
+      await tester.pumpAndSettle();
+      expect(sidebarDestination('Handbook'), findsOneWidget);
+      expect(find.text('Watercooler'), findsNothing);
+      expect(find.byKey(const ValueKey('chat-inbox-channel-9')), findsNothing);
+      await capture('shortcuts');
+      await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-main')));
+      await tester.pumpAndSettle();
+      expect(find.text('Categories'), findsOneWidget);
+      expect(sidebarDestination('Handbook'), findsNothing);
+      expect(shell.currentContent, same(route));
+      expect(tester.takeException(), isNull);
+    });
   }
 
   _mobileTest('mobile sidebar hides unavailable Chat and opens conversations', (
@@ -2322,7 +2299,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('root action changes preserve their live glass backdrop', (
+  _mobileTest('rapid root switches keep each incoming action and its target', (
     tester,
   ) async {
     // Keep destinations visible while inspecting each transition frame.
