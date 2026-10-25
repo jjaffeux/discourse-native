@@ -9146,6 +9146,36 @@ void main() {
       expect(await subject.chat.deleteMessage(site, 12), isNotNull);
       expect(subject.store.read<ChatMessage>(site, 12), same(held));
     });
+
+    test(
+      'a live delete that lands first keeps the site’s deletion record',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(
+          currentUser: currentUser,
+          messageMutationGate: gate,
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, canDeleteSelf: true));
+        subject.store.put(site, message(12, raw: 'mine', authorId: 7));
+
+        final deleting = subject.chat.deleteMessage(site, 12);
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatMessagesDeleted, hasLength(1));
+        final live = message(
+          12,
+          raw: 'mine',
+          authorId: 7,
+          deletedAt: DateTime.utc(2026, 5, 5, 10),
+          deletedById: 2,
+        );
+        subject.store.put(site, live);
+        gate.complete();
+
+        expect(await deleting, isNull);
+        expect(subject.store.read<ChatMessage>(site, 12), same(live));
+      },
+    );
   });
 
   group('reacting to a message', () {
@@ -9188,24 +9218,44 @@ void main() {
       );
     });
 
-    test(
-      'a reactor read failure is retained for the shared retry UI',
-      () async {
-        final subject = build();
+    test('a reactor read failure is retained for the shared retry UI until a '
+        'retry succeeds', () async {
+      final responses = <String, ChatMessageReactors>{};
+      final subject = build(chatReactors: responses);
+      Future<void> load() => subject.chat.loadMessageReactors(
+        siteUrl: site,
+        channelId: 9,
+        messageId: 1,
+        filter: 'clap',
+      );
 
-        await subject.chat.loadMessageReactors(
-          siteUrl: site,
-          channelId: 9,
-          messageId: 1,
-          filter: 'clap',
-        );
+      await load();
+      expect(
+        subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+        'Could not find out who reacted.',
+      );
 
-        expect(
-          subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
-          'Could not find out who reacted.',
-        );
-      },
-    );
+      responses[ChatMessageReactors.key(
+        9,
+        1,
+        'clap',
+      )] = const ChatMessageReactors(
+        channelId: 9,
+        messageId: 1,
+        filter: 'clap',
+        total: 1,
+        reactors: [ChatReactor(id: 3, username: 'sam', reaction: 'clap')],
+      );
+      await load();
+      expect(
+        subject.chat.messageReactorsError(site, 9, 1, filter: 'clap'),
+        isNull,
+      );
+      expect(
+        subject.chat.messageReactors(site, 9, 1, filter: 'clap'),
+        isNotNull,
+      );
+    });
 
     test(
       'forgetting a credential-gated reactor read sends no API call',
@@ -9401,6 +9451,22 @@ void main() {
       final held = subject.store.read<ChatMessage>(site, 1)!;
 
       expect(await subject.chat.addMessageReaction(site, 1, 'heart'), isNull);
+
+      expect(subject.api.chatReactionsSet, isEmpty);
+      expect(subject.store.read<ChatMessage>(site, 1), same(held));
+    });
+
+    test('an empty emoji is neither projected nor sent', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1)]),
+        },
+      );
+      subject.store.put(site, channel(9));
+      await subject.chat.openChannel(site, 9);
+      final held = subject.store.read<ChatMessage>(site, 1)!;
+
+      expect(await subject.chat.addMessageReaction(site, 1, ''), isNull);
 
       expect(subject.api.chatReactionsSet, isEmpty);
       expect(subject.store.read<ChatMessage>(site, 1), same(held));
@@ -10263,10 +10329,11 @@ void main() {
       FakeSiteTracker tracker, {
       required String action,
       required int userId,
+      String emoji = 'clap',
     }) => tracker.deliverPluginMessage('/chat/9', {
       'type': 'reaction',
       'chat_message_id': 1,
-      'emoji': 'clap',
+      'emoji': emoji,
       'action': action,
       'user': {'id': userId, 'username': 'sam'},
     });
@@ -10436,6 +10503,73 @@ void main() {
         subject.store.read<ChatMessage>(site, 1)!.reactions.single,
         const ChatReaction(emoji: 'clap', count: 2, reactorIds: [11, 8]),
       );
+    });
+
+    test('an action other than add or remove changes no row', () async {
+      final subject = reacted(const [
+        ChatReaction(
+          emoji: 'clap',
+          count: 2,
+          reacted: true,
+          reactorIds: [7, 8],
+        ),
+      ]);
+      final tracker = await watching(subject.chat);
+      final held = subject.chat.message(site, 1);
+
+      react(tracker, action: 'toggle', userId: 8);
+      react(tracker, action: 'toggle', userId: currentUser.id!);
+
+      expect(subject.chat.message(site, 1), same(held));
+    });
+
+    test('at the emoji row limit only a new emoji is refused', () async {
+      final subject = reacted([
+        const ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
+        for (var id = 1; id < ChatMessage.maximumReactionsPerMessage; id++)
+          ChatReaction(emoji: 'emoji-$id', count: 1),
+      ]);
+      final tracker = await watching(subject.chat);
+
+      react(tracker, action: 'add', userId: 11, emoji: 'wave');
+      react(tracker, action: 'add', userId: currentUser.id!, emoji: 'wave');
+      react(tracker, action: 'add', userId: currentUser.id!);
+
+      final reactions = subject.chat.message(site, 1)!.reactions;
+      expect(reactions, hasLength(ChatMessage.maximumReactionsPerMessage));
+      expect(
+        reactions.map((reaction) => reaction.emoji),
+        isNot(contains('wave')),
+      );
+      expect(
+        reactions.first,
+        const ChatReaction(
+          emoji: 'clap',
+          count: 2,
+          reacted: true,
+          reactorIds: [8, 7],
+        ),
+      );
+    });
+
+    test('other readers leaving keep the reader’s own state', () async {
+      final subject = reacted(const [
+        ChatReaction(
+          emoji: 'clap',
+          count: 2,
+          reacted: true,
+          reactorIds: [7, 8],
+        ),
+        ChatReaction(emoji: 'wave', count: 1, reactorIds: [11]),
+      ]);
+      final tracker = await watching(subject.chat);
+
+      react(tracker, action: 'remove', userId: 8);
+      react(tracker, action: 'remove', userId: 11, emoji: 'wave');
+
+      expect(subject.chat.message(site, 1)!.reactions, const [
+        ChatReaction(emoji: 'clap', count: 1, reacted: true, reactorIds: [7]),
+      ]);
     });
   });
 
