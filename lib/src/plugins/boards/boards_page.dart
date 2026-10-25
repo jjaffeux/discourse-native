@@ -30,6 +30,8 @@ class BoardsPage extends StatefulWidget {
 
 class _BoardsPageState extends State<BoardsPage> {
   BoardHandle? _handle;
+  ({BoardsController controller, String site, int? boardId, bool enabled})?
+  _identity;
   int? _column;
   String? _directoryError;
   bool _directoryLoading = false;
@@ -48,33 +50,45 @@ class _BoardsPageState extends State<BoardsPage> {
   void initState() {
     super.initState();
     widget.controller.addListener(_changed);
-    _load();
+    _reconcile();
   }
 
   @override
   void didUpdateWidget(BoardsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.site != widget.site ||
-        oldWidget.route.boardId != widget.route.boardId) {
-      _handle?.release();
-      _handle = null;
-      _column = null;
-      _highlighted = null;
-      _directoryToken = null;
-      _directoryLoading = false;
-      _directoryError = null;
-      _load();
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.removeListener(_changed);
+      widget.controller.addListener(_changed);
     }
+    _reconcile();
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _reconcile();
+    setState(() {});
   }
 
-  void _load() {
-    if (!widget.controller.enabled(widget.site)) return;
-    if (widget.route.boardId case final id?) {
-      _handle = widget.controller.acquire(widget.site, id);
+  void _reconcile() {
+    final identity = (
+      controller: widget.controller,
+      site: widget.site,
+      boardId: widget.route.boardId,
+      enabled: widget.controller.enabled(widget.site),
+    );
+    if (_identity == identity) return;
+    _identity = identity;
+    final previous = _handle;
+    _handle = null;
+    previous?.release();
+    _column = null;
+    _highlighted = null;
+    _directoryToken = null;
+    _directoryLoading = false;
+    _directoryError = null;
+    if (!identity.enabled) return;
+    if (identity.boardId case final id?) {
+      _handle = identity.controller.acquire(identity.site, id);
     } else {
       unawaited(_directory());
     }
