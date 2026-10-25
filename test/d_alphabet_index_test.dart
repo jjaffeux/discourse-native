@@ -33,7 +33,9 @@ void main() {
     );
     final index = find.byType(DAlphabetIndex<String>);
     final bounds = tester.getRect(index);
-    // Padding outside the painted index does not select a letter.
+    // The target is exactly the three 20px letter cells, so a point just
+    // outside the painted column does not select a letter.
+    expect(bounds.size, const Size(20, 60));
     await tester.tapAt(Offset(bounds.left - 4, bounds.top + 10));
     expect(selected, isEmpty);
     final gesture = await tester.startGesture(
