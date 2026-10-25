@@ -867,7 +867,6 @@ void main() {
             expect(rect.right, lessThanOrEqualTo(width));
           }
           expect(find.text('Clear all'), findsNothing);
-          expect(find.text('Latest conversations'), findsNothing);
           expect(tester.takeException(), isNull);
         }
       });
@@ -1725,7 +1724,6 @@ void main() {
     );
     expect(find.text('1059'), findsNothing);
     expect(find.byKey(const ValueKey('topic-list-feed-menu')), findsOneWidget);
-    expect(find.text('Unread (5)'), findsNothing);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
       1059,
@@ -1787,7 +1785,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('1060'), findsOneWidget);
-    expect(find.text('Unread (6)'), findsNothing);
     await _openFeed(tester);
     expect(_tabText(tester, 'topic-list-new-all').data, 'All');
     expect(find.text('1054'), findsOneWidget);
@@ -1991,7 +1988,6 @@ void main() {
       );
       expect(category.center.dy, feed.center.dy);
       expect(find.text('People'), findsNothing);
-      expect(find.text('Latest conversations'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

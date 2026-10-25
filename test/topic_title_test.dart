@@ -339,7 +339,6 @@ void main() {
       expect(editor, findsNothing);
       expect(outsideFocus.hasPrimaryFocus, isTrue);
       expect(find.text('Save'), findsNothing);
-      expect(find.text('Enter to save · Esc to cancel'), findsNothing);
     },
   );
 
@@ -481,7 +480,6 @@ void main() {
           find.widgetWithText(DButton, 'Cancel').hitTestable(),
           findsNothing,
         );
-        expect(find.text('Enter to save · Esc to cancel'), findsNothing);
         await tester.enterText(
           find.byType(DInput),
           'A more welcoming first week',

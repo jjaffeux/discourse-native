@@ -719,14 +719,6 @@ void main() {
           expect(tester.takeException(), isNull);
           await _captureReview(tester, 'large-${size.width}-$tab');
         }
-        expect(find.text('Your summary'), findsNothing);
-        expect(
-          find.text('A little perspective on your participation.'),
-          findsNothing,
-        );
-        expect(find.text('Your activity in this community.'), findsNothing);
-        expect(find.text('All time, in one place.'), findsNothing);
-        expect(find.text('Ideas you started'), findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     }
 

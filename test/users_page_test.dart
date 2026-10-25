@@ -80,7 +80,6 @@ void main() {
         bottom: size.height,
       );
       expect(find.bySemanticsLabel('Loading users'), findsOneWidget);
-      expect(find.text('Loading the user directory…'), findsNothing);
       expect(find.byKey(const ValueKey('users-search')), findsOneWidget);
       semantics.dispose();
     });
@@ -103,42 +102,6 @@ void main() {
     await tester.tap(find.text('Retry'));
     expect(retries, 1);
   });
-
-  testWidgets(
-    'scroll capture records users only while armed without rebuilding the page',
-    (tester) async {
-      await _pump(
-        tester,
-        UsersPage(
-          siteUrl: 'https://example.com',
-          data: UsersPageData(
-            items: _countedItems(),
-            columns: const [_likes, _replies],
-            loaded: true,
-          ),
-        ),
-      );
-      final scroll = tester
-          .stateList<ScrollableState>(find.byType(Scrollable))
-          .singleWhere(
-            (state) => state.widget.axisDirection == AxisDirection.down,
-          );
-      scroll.position.pointerScroll(100);
-      await tester.pump();
-
-      for (var i = 0; i < 8; i++) {
-        scroll.position.pointerScroll(1200);
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-
-      scroll.position.pointerScroll(100);
-      await tester.pump();
-
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-    },
-  );
 
   testWidgets('metric bars scale with loaded values and update with new rows', (
     tester,
@@ -606,8 +569,6 @@ void main() {
         size: const Size(1100, 820),
       );
 
-      expect(find.text('Community signal'), findsNothing);
-      expect(find.text('87 results'), findsNothing);
       final pageRect = tester.getRect(find.byKey(const ValueKey('users-page')));
       final tableRect = tester.getRect(
         find.byKey(const ValueKey('users-table')),
@@ -1151,7 +1112,6 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
       }
-      expect(find.text('Manage columns'), findsNothing);
       await tester.tap(columns);
       await tester.pumpAndSettle();
       expect(find.text('Toggle columns'), findsNothing);

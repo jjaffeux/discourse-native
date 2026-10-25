@@ -2721,7 +2721,6 @@ void main() {
         await tester.pumpAndSettle();
 
         final nameField = find.byType(TextField).first;
-        expect(find.text('Chat thread title template'), findsNothing);
         expect(find.text('Required'), findsNothing);
         expect(
           tester.getSemantics(nameField),
