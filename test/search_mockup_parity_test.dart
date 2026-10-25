@@ -221,6 +221,10 @@ void main() {
         'design',
       );
       expect(
+        search.wordsFor(globalSearchFixtureSite, 'left', 'topic-1038'),
+        'design',
+      );
+      expect(
         search.wordsFor(globalSearchFixtureSite, 'right', 'topic-1038'),
         isEmpty,
       );
