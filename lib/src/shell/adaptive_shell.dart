@@ -1013,9 +1013,11 @@ class _WideShellState extends State<_WideShell> {
                             ),
                           ),
                           Expanded(
-                            child: sidebarExpanded
-                                ? _expandedRail
-                                : _collapsedRail,
+                            child: RepaintBoundary(
+                              child: sidebarExpanded
+                                  ? _expandedRail
+                                  : _collapsedRail,
+                            ),
                           ),
                           SizedBox(height: profileExtent),
                         ],
