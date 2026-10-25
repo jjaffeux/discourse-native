@@ -117,6 +117,50 @@ void main() {
     );
   });
 
+  test('indirect slots skip non-positive ids and non-object values', () {
+    final assignments = Assignments.fromTopicJson(const {
+      'indirectly_assigned_to': {
+        '0': {
+          'assigned_to': {'username': 'zero'},
+        },
+        '-3': {
+          'assigned_to': {'username': 'negative'},
+        },
+        '70': 'not-an-object',
+        '71': 42,
+        '72': {
+          'assigned_to': {'username': 'lee'},
+        },
+      },
+    }, siteUrl)!;
+
+    expect(assignments.postAssignments.keys, [72]);
+    expect(assignments.forPost(72)!.assignee.username, 'lee');
+  });
+
+  test('a group without full_name falls back to display_name', () {
+    final assignments = Assignments.fromTopicJson(const {
+      'assigned_to_group': {'name': 'triage', 'display_name': 'Triage Team'},
+    }, siteUrl)!;
+
+    expect(
+      assignments.direct!.assignee,
+      const AssignmentGroup(name: 'triage', fullName: 'Triage Team'),
+    );
+    expect(assignments.direct!.assignee.displayName, 'Triage Team');
+  });
+
+  test('a post target never equals the topic target with its id', () {
+    expect(
+      const AssignmentTarget.post(7, topicId: 7),
+      isNot(const AssignmentTarget.topic(7)),
+    );
+    expect(
+      const AssignmentTarget.post(7, topicId: 7),
+      const AssignmentTarget.post(7, topicId: 7),
+    );
+  });
+
   test('notes preserve String source independently of normalized status', () {
     for (final note in ['', '  ', '\tcode\r\n', '\n    code\n\n']) {
       final direct = {
