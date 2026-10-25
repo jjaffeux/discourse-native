@@ -114,28 +114,21 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
         },
       ),
       bodyBuilder: (context, header) => ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         builder: (context, lane) => CustomScrollView(
           key: const PageStorageKey('boards-directory'),
           slivers: [
             SliverToBoxAdapter(child: header.spacer),
             SliverPadding(
               padding: lane.padding.add(
-                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+                EdgeInsets.fromLTRB(
+                  16,
+                  0,
+                  16,
+                  16 + DScrollChrome.bottomInsetOf(context),
+                ),
               ),
               sliver: SliverMainAxisGroup(
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Text(
-                        l10n.boardsDescription,
-                        style: TextStyle(
-                          color: DTokens.of(context).mutedForeground,
-                        ),
-                      ),
-                    ),
-                  ),
                   if (widget.loading)
                     const SliverFillRemaining(
                       hasScrollBody: false,
