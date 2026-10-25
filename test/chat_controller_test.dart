@@ -334,6 +334,121 @@ final class _QueuedPinApi extends FakeDiscourseApi {
   }
 }
 
+final class _PendingMessageMoveApi extends FakeDiscourseApi {
+  _PendingMessageMoveApi()
+    : super(
+        chatChannelsBySite: {
+          site: ChatChannels(
+            public: [channel(9, canModerate: true), channel(10)],
+            direct: const [],
+          ),
+        },
+      );
+
+  final started = Completer<void>();
+  final response = Completer<ChatMessageMove>();
+
+  @override
+  Future<ChatMessageMove> moveChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int destinationChannelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) async {
+    await super.moveChatMessages(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      destinationChannelId: destinationChannelId,
+      messageIds: messageIds,
+      clientId: clientId,
+    );
+    started.complete();
+    return response.future;
+  }
+}
+
+final class _DelayedMoveThreadDetailApi extends _PendingMessageMoveApi {
+  _DelayedMoveThreadDetailApi(this.currentDetail);
+
+  final ChatThread currentDetail;
+  final detailStarted = Completer<void>();
+  final firstDetail = Completer<ChatThread>();
+
+  @override
+  Future<ChatThread> chatThread({
+    required String siteUrl,
+    String? apiKey,
+    required int channelId,
+    required int threadId,
+    String? clientId,
+  }) async {
+    chatThreadsRequested.add((channelId: channelId, threadId: threadId));
+    if (!detailStarted.isCompleted) {
+      detailStarted.complete();
+      return firstDetail.future;
+    }
+    return currentDetail;
+  }
+}
+
+final class _PendingMoveReadsApi extends _PendingMessageMoveApi {
+  _PendingMoveReadsApi(this.detail);
+
+  final ChatThread detail;
+  final catalogStarted = Completer<void>();
+  final catalogPage = Completer<ChatThreadPage>();
+  final conversationStarted = Completer<void>();
+  final conversationPage = Completer<ChatMessagePage>();
+  ChatThreadPage currentCatalog = const ChatThreadPage();
+
+  @override
+  Future<ChatThread> chatThread({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    String? apiKey,
+    String? clientId,
+  }) async => detail;
+
+  @override
+  Future<ChatThreadPage> chatThreads({
+    required String siteUrl,
+    required String apiKey,
+    int offset = 0,
+    int limit = ChatThreadPage.pageSize,
+    String? clientId,
+  }) async {
+    chatThreadPagesRequested.add((offset: offset, limit: limit));
+    if (!catalogStarted.isCompleted) {
+      catalogStarted.complete();
+      return catalogPage.future;
+    }
+    return currentCatalog;
+  }
+
+  @override
+  Future<ChatMessagePage> chatThreadMessages({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (!conversationStarted.isCompleted) {
+      conversationStarted.complete();
+      return conversationPage.future;
+    }
+    return page([]);
+  }
+}
+
 final class _GatedCredentials extends FakeApiCredentialReader {
   _GatedCredentials(this.gate);
 
@@ -8244,6 +8359,359 @@ void main() {
   });
 
   group('deleting and restoring a message', () {
+    ChatMessage threadMessage(
+      int id,
+      int threadId, {
+      int channelId = 9,
+      bool root = false,
+    }) => ChatMessage(
+      id: id,
+      channelId: channelId,
+      threadId: threadId,
+      raw: '$id',
+      cooked: '<p>$id</p>',
+      author: const ChatMessageAuthor(id: 2, username: 'sam'),
+      createdAt: DateTime.utc(2026, 5, 5, 10, id),
+      thread: root
+          ? ChatThreadPreview(
+              threadId: threadId,
+              replyCount: 2,
+              lastReplyId: id + 2,
+              lastReplyExcerpt: 'reply',
+              participantCount: 2,
+              participantUsers: threadParticipants,
+            )
+          : null,
+    );
+
+    ChatThread detailFor(ChatMessage root) => ChatThread(
+      id: root.threadId!,
+      channelId: root.channelId,
+      status: 'open',
+      replyCount: 2,
+      preview: root.thread,
+      lastMessageId: root.id + 2,
+      membership: ChatThreadMembership(
+        threadId: root.threadId!,
+        lastReadMessageId: root.id + 2,
+      ),
+      originalMessage: ChatThreadOriginalMessage(
+        id: root.id,
+        channelId: root.channelId,
+        author: root.author,
+        message: root.raw,
+        cooked: root.cooked,
+      ),
+    );
+
+    test(
+      'moving roots retires every known source thread member and preview',
+      () async {
+        final first = threadMessage(1, 3, root: true);
+        final second = threadMessage(10, 4, root: true);
+        final unrelated = threadMessage(20, 8, root: true);
+        final subject = build(
+          currentUser: currentUser,
+          messages: {key(9): page([first, second, unrelated])},
+          channels: {
+            site: ChatChannels(
+              public: [channel(9, canModerate: true), channel(10)],
+              direct: const [],
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        final destination = threadMessage(30, 3, channelId: 10);
+        subject.store
+          ..put(site, first)
+          ..put(site, threadMessage(2, 3))
+          ..put(site, second)
+          ..put(site, threadMessage(11, 4))
+          ..put(site, unrelated)
+          ..put(site, threadMessage(21, 8))
+          ..put(site, destination)
+          ..put(site, detailFor(first))
+          ..put(site, detailFor(second))
+          ..put(site, detailFor(unrelated))
+          ..put(other, first);
+        await subject.chat.openChannel(site, 9);
+        final stream = subject.chat.streamListenable(site, 9);
+        final beforeRevision = stream.value.revision;
+        var streamChanges = 0;
+        void recordStream() => streamChanges++;
+        stream.addListener(recordStream);
+        addTearDown(() => stream.removeListener(recordStream));
+        final replyRef = subject.chat.messageRef(site, 2);
+        final detailRef = subject.chat.threadRef(site, 3);
+        var replyChanges = 0;
+        void recordReply() => replyChanges++;
+        replyRef.addListener(recordReply);
+        addTearDown(() => replyRef.removeListener(recordReply));
+
+        final result = await subject.chat.moveMessages(site, 9, 10, [1, 10]);
+
+        expect(result.error, isNull);
+        expect(subject.api.chatMessageMoves.single.messageIds, [1, 10]);
+        expect(stream.value.revision, greaterThan(beforeRevision));
+        expect(streamChanges, greaterThan(0));
+        for (final id in [1, 2, 10, 11]) {
+          final held = subject.chat.message(site, id)!;
+          expect(held.isDeleted, isTrue, reason: 'Moved source message $id');
+          expect(held.channelId, 9);
+        }
+        expect(replyRef.value?.isDeleted, isTrue);
+        expect(replyChanges, 1);
+        for (final id in [1, 10]) {
+          expect(subject.chat.message(site, id)?.thread?.replyCount ?? 0, 0);
+          expect(subject.chat.message(site, id)?.thread?.lastReplyId, isNull);
+        }
+        expect(detailRef.value?.originalMessage?.deletedAt, isNotNull);
+        for (final id in [3, 4]) {
+          final held = subject.chat.thread(site, id)!;
+          expect(held.channelId, 9);
+          expect(held.originalMessage?.deletedAt, isNotNull);
+          expect(held.replyCount, 0);
+          expect(held.preview?.replyCount ?? 0, 0);
+          expect(held.preview?.lastReplyId, isNull);
+          expect(held.lastMessageId, isNull);
+          expect(held.membership?.lastReadMessageId, isNull);
+        }
+        expect(subject.chat.message(site, 20), same(unrelated));
+        expect(subject.chat.message(site, 21)?.isDeleted, isFalse);
+        expect(subject.chat.thread(site, 8)?.replyCount, 2);
+        expect(subject.chat.message(site, 30), same(destination));
+        expect(subject.chat.message(other, 1), same(first));
+      },
+    );
+
+    test(
+      'a successful move settles an already deleted root and late reply load',
+      () async {
+        final api = _PendingMessageMoveApi();
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        final root = threadMessage(1, 3, root: true);
+        subject.store
+          ..put(site, root)
+          ..put(site, detailFor(root));
+        final writing = subject.chat.moveMessages(site, 9, 10, [1]);
+        await api.started.future;
+        subject.store
+          ..put(site, root.withDeletedAt(DateTime.utc(2026, 5, 5, 12)))
+          ..put(site, threadMessage(2, 3));
+        api.response.complete((
+          destinationChannelId: 10,
+          firstMovedMessageId: 1000,
+        ));
+
+        expect((await writing).error, isNull);
+        expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
+        expect(
+          subject.chat.thread(site, 3)?.originalMessage?.deletedAt,
+          isNotNull,
+        );
+        expect(subject.chat.thread(site, 3)?.replyCount, 0);
+        expect(subject.chat.message(site, 1)?.thread?.lastReplyId, isNull);
+      },
+    );
+
+    test('a delayed pre-move thread detail cannot revive the source preview', () async {
+      final root = threadMessage(1, 3, root: true);
+      final staleDetail = detailFor(root);
+      final api = _DelayedMoveThreadDetailApi(
+        ChatThread(
+          id: 3,
+          channelId: 9,
+          status: 'open',
+          replyCount: 0,
+          originalMessage: staleDetail.originalMessage!.copyWith(
+            deletedAt: DateTime.utc(2026, 5, 5, 12),
+          ),
+        ),
+      );
+      final subject = build(api: api, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      subject.store
+        ..put(site, root)
+        ..put(site, threadMessage(2, 3))
+        ..put(site, staleDetail);
+      final retained = subject.chat.threadRef(site, 3);
+      final refreshing = subject.chat.refreshThreadDetail(
+        site,
+        const ChatThreadTarget(channelId: 9, threadId: 3),
+      );
+      await api.detailStarted.future;
+      final moving = subject.chat.moveMessages(site, 9, 10, [1]);
+      await api.started.future;
+      api.response.complete((destinationChannelId: 10, firstMovedMessageId: 1000));
+      expect((await moving).error, isNull);
+      expect(retained.value?.originalMessage?.deletedAt, isNotNull);
+      api.firstDetail.complete(staleDetail);
+      await refreshing;
+
+      expect(retained.value?.originalMessage?.deletedAt, isNotNull);
+      expect(retained.value?.replyCount, 0);
+      expect(retained.value?.preview?.lastReplyId, isNull);
+      expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
+      expect(subject.chat.message(site, 1)?.thread?.replyCount ?? 0, 0);
+      expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
+    });
+
+    test('a delayed pre-move catalog cannot revive a source thread preview', () async {
+      final root = threadMessage(1, 3, root: true);
+      final staleDetail = detailFor(root);
+      final unrelated = detailFor(threadMessage(10, 4, root: true));
+      final api = _PendingMoveReadsApi(staleDetail)
+        ..currentCatalog = ChatThreadPage(threads: [unrelated]);
+      final subject = build(api: api, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      subject.store
+        ..put(site, root)
+        ..put(site, threadMessage(2, 3))
+        ..put(site, staleDetail)
+        ..put(site, unrelated);
+      final retained = subject.chat.threadRef(site, 3);
+      final loading = subject.chat.loadMyThreads(site);
+      await api.catalogStarted.future;
+      final moving = subject.chat.moveMessages(site, 9, 10, [1]);
+      await api.started.future;
+      api.response.complete((destinationChannelId: 10, firstMovedMessageId: 1000));
+      expect((await moving).error, isNull);
+      api.catalogPage.complete(ChatThreadPage(threads: [staleDetail, unrelated]));
+      await loading;
+
+      expect(retained.value?.originalMessage?.deletedAt, isNotNull);
+      expect(retained.value?.replyCount, 0);
+      expect(retained.value?.preview?.lastReplyId, isNull);
+      expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
+      expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
+      expect(subject.chat.thread(site, 4), same(unrelated));
+      expect(subject.chat.myThreads(site).map((thread) => thread.id), contains(4));
+    });
+
+    test('a delayed pre-move conversation cannot revive known source replies', () async {
+      final root = threadMessage(1, 3, root: true);
+      final reply = threadMessage(2, 3);
+      final unrelated = threadMessage(10, 4);
+      final detail = detailFor(root);
+      final api = _PendingMoveReadsApi(detail);
+      final subject = build(api: api, currentUser: currentUser);
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      subject.store
+        ..put(site, root)
+        ..put(site, reply)
+        ..put(site, unrelated)
+        ..put(site, detail);
+      const target = ChatThreadTarget(channelId: 9, threadId: 3);
+      final retainedReply = subject.chat.messageRef(site, 2);
+      final opening = subject.chat.openThread(site, target);
+      await api.conversationStarted.future;
+      final moving = subject.chat.moveMessages(site, 9, 10, [1]);
+      await api.started.future;
+      api.response.complete((destinationChannelId: 10, firstMovedMessageId: 1000));
+      expect((await moving).error, isNull);
+      api.conversationPage.complete(page([root, reply]));
+      await opening;
+
+      expect(retainedReply.value?.isDeleted, isTrue);
+      expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
+      expect(subject.chat.message(site, 1)?.thread?.replyCount ?? 0, 0);
+      expect(subject.chat.message(site, 2)?.isDeleted, isTrue);
+      expect(subject.chat.thread(site, 3)?.originalMessage?.deletedAt, isNotNull);
+      expect(subject.chat.messagesFor(site, target).where((message) => !message.isDeleted), isEmpty);
+      expect(subject.chat.message(site, 10), same(unrelated));
+    });
+
+    for (final failure in [
+      const WriteException(WriteFailure.forbidden),
+      const WriteException(WriteFailure.unreachable),
+    ]) {
+      test(
+        'a failed thread move leaves known source records intact ${failure.failure}',
+        () async {
+          final api = _PendingMessageMoveApi();
+          final subject = build(api: api, currentUser: currentUser);
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+          final root = threadMessage(1, 3, root: true);
+          final reply = threadMessage(2, 3);
+          final detail = detailFor(root);
+          subject.store
+            ..put(site, root)
+            ..put(site, reply)
+            ..put(site, detail);
+          final writing = subject.chat.moveMessages(site, 9, 10, [1]);
+          await api.started.future;
+          api.response.completeError(failure);
+
+          expect((await writing).error, isNotNull);
+          expect(subject.chat.message(site, 1), same(root));
+          expect(subject.chat.message(site, 2), same(reply));
+          expect(subject.chat.thread(site, 3), same(detail));
+        },
+      );
+    }
+
+    test(
+      'a retired thread move cannot settle into successor source records',
+      () async {
+        final api = _PendingMessageMoveApi();
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        final root = threadMessage(1, 3, root: true);
+        subject.store
+          ..put(site, root)
+          ..put(site, threadMessage(2, 3))
+          ..put(site, detailFor(root));
+        final writing = subject.chat.moveMessages(site, 9, 10, [1]);
+        await api.started.future;
+        subject.chat.forget(site);
+        subject.store.forget(site);
+        final successorReply = threadMessage(2, 3);
+        final successorDetail = detailFor(root);
+        subject.store
+          ..put(site, root)
+          ..put(site, successorReply)
+          ..put(site, successorDetail);
+        api.response.complete((
+          destinationChannelId: 10,
+          firstMovedMessageId: 1000,
+        ));
+
+        expect((await writing).move, isNull);
+        expect(subject.chat.message(site, 1), same(root));
+        expect(subject.chat.message(site, 2), same(successorReply));
+        expect(subject.chat.thread(site, 3), same(successorDetail));
+      },
+    );
+
+    test(
+      'ordinary root deletion keeps its loaded replies and preview',
+      () async {
+        final subject = build(currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        final root = threadMessage(1, 3, root: true);
+        final reply = threadMessage(2, 3);
+        subject.store
+          ..put(site, channel(9, canModerate: true, canDeleteOthers: true))
+          ..put(site, root)
+          ..put(site, reply)
+          ..put(site, detailFor(root));
+
+        expect(await subject.chat.deleteMessage(site, 1), isNull);
+        expect(subject.chat.message(site, 1)?.isDeleted, isTrue);
+        expect(subject.chat.message(site, 2), same(reply));
+        expect(subject.chat.message(site, 1)?.thread, same(root.thread));
+        expect(subject.chat.thread(site, 3)?.replyCount, 2);
+      },
+    );
+
     test('moves a moderator selection to another public channel', () async {
       final source = channel(9, canModerate: true);
       final destination = channel(10, title: 'Support');
