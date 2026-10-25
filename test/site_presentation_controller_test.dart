@@ -451,7 +451,7 @@ void main() {
           final api = _PresentationApi();
           final credentials = _Credentials();
           const stored = SiteConfig(emojiSet: 'apple');
-          const fetched = SiteConfig(emojiEnabled: false, emojiSet: 'google');
+          const fetched = SiteConfig(emojiEnabled: false, emojiSet: 'apple');
           api.config = fetched;
           final persisted = <(String, SiteConfig)>[];
           final controller = _controller(
@@ -476,6 +476,7 @@ void main() {
           expect(credentials.apiKeySites, [site]);
           expect(credentials.clientIdCalls, 1);
           expect(controller.configFor(site), fetched);
+          expect(controller.configFor(site).emojiEnabled, isFalse);
           expect(
             controller.presentationTokenFor(site),
             isNot(same(initialPresentation)),
@@ -485,6 +486,46 @@ void main() {
 
           await controller.ensureConfig(site);
           expect(api.configCalls, 1);
+        },
+      );
+
+      test(
+        'an image optimization gate change publishes once and retains equal refreshes',
+        () async {
+          final api = _PresentationApi();
+          const fetched = SiteConfig(
+            composerImageOptimization: ComposerImageOptimization(
+              enabled: false,
+            ),
+          );
+          api.config = fetched;
+          final persisted = <SiteConfig>[];
+          final controller = _controller(
+            api,
+            persisted: {site: const SiteConfig()},
+            onConfigLoaded: (_, config) async => persisted.add(config),
+          );
+          var notifications = 0;
+          controller.addListener(() => notifications++);
+          final initial = controller.presentationTokenFor(site);
+
+          await controller.refreshConfig(site);
+          final updated = controller.presentationTokenFor(site);
+          expect(updated, isNot(same(initial)));
+          expect(notifications, 1);
+          expect(persisted.single.composerImageOptimization.enabled, isFalse);
+          expect(
+            controller
+                .configFor(site)
+                .composerImageOptimization
+                .resizeWidth(ios: false),
+            isNull,
+          );
+
+          api.config = SiteConfig.fromJson(fetched.toJson());
+          await controller.refreshConfig(site);
+          expect(controller.presentationTokenFor(site), same(updated));
+          expect(notifications, 1);
         },
       );
 

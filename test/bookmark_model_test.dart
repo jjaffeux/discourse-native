@@ -106,21 +106,26 @@ void main() {
         autoDeletePreference: BookmarkAutoDeletePreference.never,
       );
 
-      expect(
-        bookmark,
-        const Bookmark(
-          id: 8,
-          bookmarkableId: 44,
-          bookmarkableType: 'Post',
-          postNumber: 3,
-          title: 'A topic',
-          name: 'Read this',
-          author: 'sam',
-          path: '/t/a-topic/7/3',
-          autoDeletePreference: BookmarkAutoDeletePreference.never,
-        ),
-      );
-      expect(bookmark.copyWith(clearName: true).name, isNull);
+      final decoded = Bookmark.fromJson(const {
+        'id': 8,
+        'bookmarkable_id': 44,
+        'bookmarkable_type': 'Post',
+        'post_number': 3,
+        'title': 'A topic',
+        'name': 'Read this',
+        'user': {'username': 'sam'},
+        'bookmarkable_url': '/t/a-topic/7/3',
+        'auto_delete_preference': 0,
+      });
+      expect(decoded, isNot(same(bookmark)));
+      expect(decoded, bookmark);
+      expect(decoded.hashCode, bookmark.hashCode);
+      final renamed = bookmark.copyWith(name: 'Finish this');
+      expect(renamed.name, 'Finish this');
+      expect(renamed, isNot(bookmark));
+      final cleared = bookmark.copyWith(clearName: true);
+      expect(cleared.name, isNull);
+      expect(cleared, isNot(bookmark));
       final reminded = bookmark.copyWith(reminderAt: DateTime.utc(2030));
       expect(reminded.reminderAt, DateTime.utc(2030));
       expect(reminded.autoDeletePreference, bookmark.autoDeletePreference);
