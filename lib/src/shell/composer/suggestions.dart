@@ -175,13 +175,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     if (!composer.isEditing || trigger?.kind != ComposerTriggerKind.mention) {
       return;
     }
-    final value = composer.text.value;
-    composer.text.value = TextEditingValue(
-      text: value.text.replaceRange(trigger!.start + 1, trigger.end, query),
-      selection: TextSelection.collapsed(
-        offset: trigger.start + 1 + query.length,
-      ),
-    );
+    _popup.updateMentionQuery(query);
   }
 
   void _dismiss() {
@@ -193,8 +187,9 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     final composer = widget.composer;
     final trigger = _popup.trigger;
     if (!composer.isEditing ||
-        trigger?.kind != ComposerTriggerKind.mention ||
-        trigger!.query.isNotEmpty) {
+        trigger == null ||
+        trigger.kind != ComposerTriggerKind.mention ||
+        _popup.query.isNotEmpty) {
       return;
     }
     composer.text.value = TextEditingValue(
@@ -393,7 +388,7 @@ class _Suggestions extends StatelessWidget {
           width: composerSuggestionsWidth,
           child: DCommand<ComposerSuggestion>(
             controller: controller,
-            query: mention ? popup.trigger!.query : '',
+            query: mention ? popup.query : '',
             onQueryChanged: mention ? onQueryChanged : null,
             onEscape: onDismiss,
             value: popup.selected,
@@ -445,7 +440,7 @@ class _Suggestions extends StatelessWidget {
                           child: Text(
                             popup.hasError
                                 ? context.l10n.mentionSearchFailed
-                                : popup.trigger!.query.isEmpty
+                                : popup.query.isEmpty
                                 ? context.l10n.searchUsersOrGroups
                                 : context.l10n.noUsersOrGroupsFound,
                             textAlign: TextAlign.center,

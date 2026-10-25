@@ -90,6 +90,10 @@ class ComposerAutocomplete extends ChangeNotifier {
   ComposerTrigger? _trigger;
   ComposerTrigger? get trigger => _trigger;
 
+  TextEditingValue? _sourceValue;
+  ({TextEditingValue source, String query})? _mentionSearch;
+  String get query => _mentionSearch?.query ?? _trigger?.query ?? '';
+
   List<ComposerSuggestion> _suggestions = const [];
   List<ComposerSuggestion> get suggestions => _suggestions;
   (ComposerTriggerKind, String)? _suggestionsQuery;
@@ -98,7 +102,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     final open = _trigger;
     return !_disposed &&
         open != null &&
-        _suggestionsQuery == (open.kind, open.query) &&
+        _suggestionsQuery == (open.kind, query) &&
         suggestion.kind == open.kind &&
         _suggestions.contains(suggestion);
   }
@@ -127,13 +131,21 @@ class ComposerAutocomplete extends ChangeNotifier {
 
   Timer? _timer;
   int _remoteSearches = 0;
-  ({ComposerTrigger trigger, int epoch})? _queuedRemoteSearch;
+  ({ComposerTriggerKind kind, String query, int epoch})? _queuedRemoteSearch;
   bool _disposed = false;
 
   (int, ComposerTriggerKind)? _dismissed;
 
   void update(TextEditingValue value) {
     if (_disposed) return;
+
+    _sourceValue = value;
+    if (_mentionSearch case final mention?) {
+      if (mention.source != value) {
+        dismiss();
+        return;
+      }
+    }
 
     final next = composerTriggerAt(value);
     if (next == null) {
@@ -147,12 +159,31 @@ class ComposerAutocomplete extends ChangeNotifier {
     }
 
     if (next == _trigger) return;
+    _scheduleSearch(next);
+  }
+
+  void updateMentionQuery(String query) {
+    final open = _trigger;
+    final source = _sourceValue;
+    if (_disposed ||
+        open == null ||
+        open.kind != ComposerTriggerKind.mention ||
+        source == null ||
+        query == this.query) {
+      return;
+    }
+    _mentionSearch = (source: source, query: query);
+    _scheduleSearch(open);
+  }
+
+  void _scheduleSearch(ComposerTrigger next) {
     final previousKind = _trigger?.kind;
     _timer?.cancel();
     _timer = null;
     _queuedRemoteSearch = null;
     _trigger = next;
     final epoch = ++_epoch;
+    final request = (kind: next.kind, query: query, epoch: epoch);
     _selected = 0;
     _loading = true;
     _failed = false;
@@ -170,12 +201,14 @@ class ComposerAutocomplete extends ChangeNotifier {
     late final Timer timer;
     timer = Timer(debounce, () {
       if (identical(_timer, timer)) _timer = null;
-      _enqueueRemoteSearch((trigger: next, epoch: epoch));
+      _enqueueRemoteSearch(request);
     });
     _timer = timer;
   }
 
-  void _enqueueRemoteSearch(({ComposerTrigger trigger, int epoch}) request) {
+  void _enqueueRemoteSearch(
+    ({ComposerTriggerKind kind, String query, int epoch}) request,
+  ) {
     if (_disposed || request.epoch != _epoch) return;
     if (_remoteSearches >= maxConcurrentRemoteSearches) {
       _queuedRemoteSearch = request;
@@ -199,10 +232,10 @@ class ComposerAutocomplete extends ChangeNotifier {
   }
 
   Future<void> _searchRemote(
-    ({ComposerTrigger trigger, int epoch}) request,
+    ({ComposerTriggerKind kind, String query, int epoch}) request,
   ) async {
     if (_disposed || request.epoch != _epoch) return;
-    final asked = request.trigger;
+    final asked = request;
     final find = switch (asked.kind) {
       ComposerTriggerKind.mention => search?.users,
       ComposerTriggerKind.hashtag => search?.hashtags,
@@ -251,7 +284,11 @@ class ComposerAutocomplete extends ChangeNotifier {
         final epoch = ++_epoch;
         _selected = 0;
         notifyListeners();
-        _enqueueRemoteSearch((trigger: open, epoch: epoch));
+        _enqueueRemoteSearch((
+          kind: open.kind,
+          query: open.query,
+          epoch: epoch,
+        ));
         return;
       // Both of these asked the site, and the site's answer does not go stale
       // because a *different* list arrived.
@@ -293,6 +330,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     _timer = null;
     _queuedRemoteSearch = null;
     _epoch++;
+    _mentionSearch = null;
     _suggestionsQuery = null;
     if (_trigger == null && _suggestions.isEmpty) return;
     _trigger = null;
