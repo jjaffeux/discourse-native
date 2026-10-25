@@ -378,15 +378,15 @@ final class _Harness {
         ),
       );
     } else {
-      shell.store.update<TopicDetail>(
-        _siteA,
-        id,
-        (value) => value.withNotificationLevel(
-          tracking
-              ? TopicNotificationLevel.tracking
-              : TopicNotificationLevel.muted,
-        ),
-      );
+      // A topic's level is owned by its tracking reconciler, which learns of
+      // server-side changes through the topic channel.
+      FakeSiteTracker.built
+          .singleWhere((tracker) => tracker.watchedTopic == id)
+          .deliverTopicMessage('/topic/$id', {
+            'notification_level_change': tracking
+                ? TopicNotificationLevel.tracking.value
+                : TopicNotificationLevel.muted.value,
+          });
     }
   }
 }
