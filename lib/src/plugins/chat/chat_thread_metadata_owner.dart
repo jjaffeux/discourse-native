@@ -95,8 +95,24 @@ final class ChatThreadMetadataOwner {
     ChatThreadTarget target,
     DateTime deletedAt,
   ) {
-    _metadata[(siteUrl: siteUrl, target: target)]?.detail?.sourceMovedAt =
-        deletedAt;
+    final run = _metadata[(siteUrl: siteUrl, target: target)]?.detail;
+    if (run == null) return;
+    run.sourceMovedAt = deletedAt;
+    run.originalDeletions.clear();
+  }
+
+  void recordOriginalDeleted(
+    String siteUrl,
+    int channelId,
+    int messageId,
+    DateTime? deletedAt,
+  ) {
+    for (final entry in _metadata.entries) {
+      if (entry.key.siteUrl == siteUrl &&
+          entry.key.target.channelId == channelId) {
+        entry.value.detail?.originalDeletions[messageId] = deletedAt;
+      }
+    }
   }
 
   void revokeChannel(String siteUrl, int channelId) {
@@ -166,6 +182,7 @@ final class ChatThreadMetadataOwner {
     _events.detailLoading(siteUrl, target);
     while (metadata.takeDetailDirty()) {
       run.sourceMovedAt = null;
+      run.originalDeletions.clear();
       try {
         final requestCredentials = await _requests.credentialsFor(siteUrl);
         final apiKey = requestCredentials.apiKey;
@@ -192,7 +209,7 @@ final class ChatThreadMetadataOwner {
         ChatThread? stored;
         lease.commit(() {
           final held = _thread(siteUrl, detail.id);
-          final projected = movedAt == null
+          var projected = movedAt == null
               ? detail
               : detail
                     .withSourceMoved(movedAt)
@@ -200,6 +217,17 @@ final class ChatThreadMetadataOwner {
                       membership: held?.membership,
                       tracking: held?.tracking,
                     );
+          final original = projected.originalMessage;
+          if (original != null &&
+              run.originalDeletions.containsKey(original.id)) {
+            final deletedAt = run.originalDeletions[original.id];
+            projected = projected.copyWith(
+              originalMessage: original.copyWith(
+                deletedAt: deletedAt,
+                clearDeletedAt: deletedAt == null,
+              ),
+            );
+          }
           if (held == null) {
             stored = _store.put(siteUrl, projected);
           } else {
@@ -564,6 +592,7 @@ final class _ChatThreadMetadata {
 final class _ThreadDetailRun {
   final Completer<ChatThread?> result = Completer();
   DateTime? sourceMovedAt;
+  final Map<int, DateTime?> originalDeletions = {};
 
   Future<ChatThread?> get future => result.future;
 }

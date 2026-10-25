@@ -361,6 +361,7 @@ final class _ChatConversationStream {
       ),
     );
 
+    _ChatMessageRead? read;
     try {
       final requestCredentials = await _controller._requests.credentialsFor(
         siteUrl,
@@ -375,6 +376,7 @@ final class _ChatConversationStream {
       }
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
+      read = _controller._messageWritesFor(siteUrl).beginRead(target.channelId);
       final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
@@ -401,7 +403,9 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return _ChatWindowFetchResult.cancelled;
       }
-      final page = _projectSourceMoves(response, generation.sourceMoves);
+      final page = read.projectPage(
+        _projectSourceMoves(response, generation.sourceMoves),
+      );
       lease.commit(() {
         if (!ownsRequest()) return;
         final current = _window ?? held;
@@ -512,6 +516,7 @@ final class _ChatConversationStream {
           ? _ChatWindowFetchResult.missingTarget
           : _ChatWindowFetchResult.failed;
     } finally {
+      read?.release();
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!ownsRequest()) return;
@@ -546,6 +551,7 @@ final class _ChatConversationStream {
         identical(_olderRequest, request);
     publish(held.copyWith(loadingOlder: true));
 
+    _ChatMessageRead? read;
     try {
       final requestCredentials = await _controller._requests.credentialsFor(
         siteUrl,
@@ -556,6 +562,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
+      read = _controller._messageWritesFor(siteUrl).beginRead(target.channelId);
       final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
@@ -579,7 +586,9 @@ final class _ChatConversationStream {
               ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
-      final page = _projectSourceMoves(response, request.sourceMoves);
+      final page = read.projectPage(
+        _projectSourceMoves(response, request.sourceMoves),
+      );
       lease.commit(() {
         if (!ownsRequest()) {
           return;
@@ -620,6 +629,7 @@ final class _ChatConversationStream {
         return;
       }
     } finally {
+      read?.release();
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!ownsRequest()) {
@@ -653,6 +663,7 @@ final class _ChatConversationStream {
         identical(_newerRequest, request);
     publish(held.copyWith(loadingNewer: true));
 
+    _ChatMessageRead? read;
     try {
       final requestCredentials = await _controller._requests.credentialsFor(
         siteUrl,
@@ -663,6 +674,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
+      read = _controller._messageWritesFor(siteUrl).beginRead(target.channelId);
       final response = target.threadId == null
           ? await requestCredentials.run(
               () => _controller.api.chatMessages(
@@ -686,7 +698,9 @@ final class _ChatConversationStream {
               ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
-      final page = _projectSourceMoves(response, request.sourceMoves);
+      final page = read.projectPage(
+        _projectSourceMoves(response, request.sourceMoves),
+      );
       lease.commit(() {
         if (!ownsRequest()) {
           return;
@@ -741,6 +755,7 @@ final class _ChatConversationStream {
         return;
       }
     } finally {
+      read?.release();
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
           if (!ownsRequest()) {

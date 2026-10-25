@@ -71,6 +71,12 @@ final class ChatThreadListRefresh {
       membership: membership,
       clearMembership: membership == null,
       tracking: changes.activity ? held.tracking : null,
+      originalMessage: changes.originalDeletion
+          ? incoming.originalMessage?.copyWith(
+              deletedAt: held.originalMessage?.deletedAt,
+              clearDeletedAt: held.originalMessage?.deletedAt == null,
+            )
+          : null,
     );
   }
 }
@@ -79,11 +85,16 @@ final class _ThreadChanges {
   bool title = false;
   bool level = false;
   bool activity = false;
+  bool originalDeletion = false;
 
-  bool get hasChanges => title || level || activity;
+  bool get hasChanges => title || level || activity || originalDeletion;
 
   void record(ChatThread? before, ChatThread after) {
     if (before == null || before.title != after.title) title = true;
+    if (before?.originalMessage?.deletedAt !=
+        after.originalMessage?.deletedAt) {
+      originalDeletion = true;
+    }
     final previous = before?.membership;
     final next = after.membership;
     if (before == null ||

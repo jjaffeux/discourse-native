@@ -54,44 +54,61 @@ final class _ChatChannelPins {
       if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
       while (ownsRequest()) {
         final revision = _liveRevision;
-        final snapshot = await credentials.run(
-          () => chat.api.chatPinnedMessages(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: credentials.clientId,
-            channelId: channelId,
-          ),
-        );
-        if (!ownsRequest()) return;
-        if (revision != _liveRevision) continue;
-        bool canPublish() => ownsRequest() && revision == _liveRevision;
-        lease.commit(() {
-          for (final pin in snapshot.pins) {
-            if (!canPublish()) return;
-            chat._putLiveMessage(siteUrl, pin.message);
-          }
-          if (!canPublish()) return;
-          final channel = chat.channel(siteUrl, channelId);
-          if (channel != null) {
-            chat._messageWriteOwners[siteUrl]?.acceptPinCount(channelId);
-            chat._putChannel(
-              siteUrl,
-              channel.withPinSnapshot(
-                count: snapshot.pins.length,
-                membership: snapshot.membership,
-              ),
-            );
-          }
-          if (!canPublish()) return;
-          ref.value = ChatPinsState(
-            pins: List.unmodifiable(snapshot.pins),
-            fetched: true,
+        final read = chat._messageWritesFor(siteUrl).beginRead(channelId);
+        try {
+          final snapshot = await credentials.run(
+            () => chat.api.chatPinnedMessages(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              clientId: credentials.clientId,
+              channelId: channelId,
+            ),
           );
-          if (canPublish()) {
-            chat._enforceSiteRetention(siteUrl, keep: targetKey);
-          }
-        });
-        if (revision == _liveRevision) return;
+          if (!ownsRequest()) return;
+          if (revision != _liveRevision) continue;
+          bool canPublish() => ownsRequest() && revision == _liveRevision;
+          final pins = [
+            for (final pin in snapshot.pins)
+              if (read.project(pin.message) case final message?)
+                ChatPin(
+                  id: pin.id,
+                  messageId: pin.messageId,
+                  message: message,
+                  pinnedBy: pin.pinnedBy,
+                  pinnedAt: pin.pinnedAt,
+                  excerpt: pin.excerpt,
+                ),
+          ];
+          lease.commit(() {
+            for (final pin in pins) {
+              if (!canPublish()) return;
+              chat._putLiveMessage(siteUrl, pin.message, fromRead: true);
+            }
+            if (!canPublish()) return;
+            final channel = chat.channel(siteUrl, channelId);
+            if (channel != null) {
+              chat._messageWriteOwners[siteUrl]?.acceptPinCount(channelId);
+              chat._putChannel(
+                siteUrl,
+                channel.withPinSnapshot(
+                  count: snapshot.pins.length,
+                  membership: snapshot.membership,
+                ),
+              );
+            }
+            if (!canPublish()) return;
+            ref.value = ChatPinsState(
+              pins: List.unmodifiable(pins),
+              fetched: true,
+            );
+            if (canPublish()) {
+              chat._enforceSiteRetention(siteUrl, keep: targetKey);
+            }
+          });
+          if (revision == _liveRevision) return;
+        } finally {
+          read.release();
+        }
       }
     } catch (error) {
       if (!ownsRequest()) return;

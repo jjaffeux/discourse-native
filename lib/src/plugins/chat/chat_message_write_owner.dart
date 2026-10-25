@@ -59,6 +59,61 @@ final class _ChatSourceMessageMove {
   }
 }
 
+final class _ChatMessageRead {
+  _ChatMessageRead(this.owner, this.channelId);
+
+  final _AccountMessageWrites owner;
+  final int channelId;
+  final Map<int, ChatMessage> _content = {};
+  final Map<int, ChatMessage?> _deletion = {};
+
+  ChatMessage? project(ChatMessage incoming) {
+    if (incoming.channelId != channelId) return incoming;
+    if (_deletion.containsKey(incoming.id) && _deletion[incoming.id] == null) {
+      return null;
+    }
+    final held = owner.chat._store.read<ChatMessage>(
+      owner.siteUrl,
+      incoming.id,
+    );
+    var projected = incoming;
+    if (_content[incoming.id] case final content?) {
+      final current = held ?? content;
+      final confirmsPending =
+          !current.canonicalReceived &&
+          incoming.canonicalReceived &&
+          incoming.raw == current.raw &&
+          listEquals(
+            [for (final upload in incoming.uploads) upload.id],
+            [for (final upload in current.uploads) upload.id],
+          );
+      if (!confirmsPending) projected = projected.withContentOf(current);
+    }
+    if (_deletion[incoming.id] case final deletion?) {
+      final current = held ?? deletion;
+      projected = projected.withDeletedAt(
+        current.deletedAt,
+        deletedById: current.deletedById,
+        clearDeletedById: current.deletedById == null,
+      );
+    }
+    return projected;
+  }
+
+  ChatMessagePage projectPage(ChatMessagePage page) => (
+    messages: [for (final message in page.messages) ?project(message)],
+    canLoadMorePast: page.canLoadMorePast,
+    canLoadMoreFuture: page.canLoadMoreFuture,
+    targetMessageId: page.targetMessageId,
+  );
+
+  void release() {
+    owner._reads.remove(this);
+    _content.clear();
+    _deletion.clear();
+  }
+}
+
 final class _AccountMessageWrites {
   _AccountMessageWrites(
     this.chat,
@@ -72,6 +127,37 @@ final class _AccountMessageWrites {
   final PluginSiteLease lease;
   final void Function() onChanged;
   final Map<int, _MessageWrite> _active = {};
+  final Set<_ChatMessageRead> _reads = {};
+
+  _ChatMessageRead beginRead(int channelId) {
+    final read = _ChatMessageRead(this, channelId);
+    for (final entry in _active.entries) {
+      if (entry.value.kind != _MessageWriteKind.edit) continue;
+      final message = chat._store.read<ChatMessage>(siteUrl, entry.key);
+      if (message != null && message.channelId == channelId) {
+        read._content[message.id] = message;
+      }
+    }
+    _reads.add(read);
+    return read;
+  }
+
+  void recordContent(ChatMessage message) {
+    if (!isCurrent) return;
+    for (final read in _reads) {
+      if (read.channelId == message.channelId) {
+        read._content[message.id] = message;
+      }
+    }
+  }
+
+  void recordDeletion(int channelId, int messageId, ChatMessage? message) {
+    if (!isCurrent) return;
+    for (final read in _reads) {
+      if (read.channelId == channelId) read._deletion[messageId] = message;
+    }
+  }
+
   bool _retired = false;
 
   bool get isCurrent => chat._requestIsCurrent(lease, () => !_retired);
@@ -104,6 +190,9 @@ final class _AccountMessageWrites {
   void retire() {
     _retired = true;
     _active.clear();
+    for (final read in _reads.toList()) {
+      read.release();
+    }
   }
 
   void retireChannelPins(int channelId) {
@@ -464,6 +553,7 @@ final class _AccountMessageWrites {
       final next = move.project(latest);
       if (identical(latest, next)) continue;
       chat._store.update<ChatMessage>(siteUrl, message.id, (_) => next);
+      recordDeletion(channelId, message.id, next);
       if (!_owns(ticket)) return;
       chat._bumpStreamsHolding(siteUrl, message.id);
     }
@@ -545,7 +635,11 @@ final class _AccountMessageWrites {
       if (!ownsRequest()) return null;
       lease.commit(() {
         final latest = chat._store.read<ChatMessage>(siteUrl, messageId);
-        if (latest == null || latest.isDeleted == deleted) return;
+        if (latest == null) return;
+        if (latest.isDeleted == deleted) {
+          recordDeletion(latest.channelId, messageId, latest);
+          return;
+        }
         final deletedAt = deleted ? chat._clock().toUtc() : null;
         final updated = latest.withDeletedAt(
           deletedAt,
@@ -553,6 +647,7 @@ final class _AccountMessageWrites {
           clearDeletedById: !deleted,
         );
         chat._store.put(siteUrl, updated);
+        recordDeletion(updated.channelId, messageId, updated);
         chat._updateChannelMessagePreview(siteUrl, updated);
         chat._bumpStreamsHolding(siteUrl, messageId);
         chat._setLoadedThreadOriginalDeleted(
@@ -663,6 +758,7 @@ final class _AccountMessageWrites {
       );
       if (ready != null) pending = pending.withProvisionalCooked(ready);
       chat._store.put(siteUrl, pending);
+      recordContent(pending);
       chat._updateChannelMessagePreview(siteUrl, pending);
       if (ready == null) chat._cookMessage(siteUrl, pending, author: held);
 
@@ -683,6 +779,7 @@ final class _AccountMessageWrites {
           }
           final restored = latest.withContentOf(held);
           chat._store.put(siteUrl, restored);
+          recordContent(restored);
           chat._updateChannelMessagePreview(siteUrl, restored);
         });
       }
@@ -712,6 +809,10 @@ final class _AccountMessageWrites {
             uploadIds: uploadIds,
           ),
         );
+        if (ownsRequest()) {
+          final current = chat._store.read<ChatMessage>(siteUrl, messageId);
+          if (current != null) recordContent(current);
+        }
         return null;
       } on WriteException catch (error) {
         if (canonicalEditArrived()) return null;

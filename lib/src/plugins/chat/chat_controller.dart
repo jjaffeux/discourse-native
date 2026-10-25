@@ -1516,46 +1516,56 @@ class ChatController extends FrameSafeNotifier {
     if (!lease.isCurrent || isDisposed || credentials.apiKey == null) {
       return null;
     }
-    final threadId = link.route.threadId;
-    final page = threadId == null
-        ? await credentials.run(
-            () => api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: link.route.channelId,
-              targetMessageId: messageId,
-              apiKey: credentials.apiKey,
-              clientId: credentials.clientId,
-            ),
+    final read = _messageWritesFor(siteUrl).beginRead(link.route.channelId);
+    try {
+      final threadId = link.route.threadId;
+      final page = threadId == null
+          ? await credentials.run(
+              () => api.chatMessages(
+                siteUrl: siteUrl,
+                channelId: link.route.channelId,
+                targetMessageId: messageId,
+                apiKey: credentials.apiKey,
+                clientId: credentials.clientId,
+              ),
+            )
+          : await credentials.run(
+              () => api.chatThreadMessages(
+                siteUrl: siteUrl,
+                channelId: link.route.channelId,
+                threadId: threadId,
+                targetMessageId: messageId,
+                apiKey: credentials.apiKey,
+                clientId: credentials.clientId,
+              ),
+            );
+      if (!lease.isCurrent ||
+          isDisposed ||
+          version != _bookmarkVersion(siteUrl)) {
+        return null;
+      }
+      final resolved = read
+          .projectPage(page)
+          .messages
+          .where(
+            (message) =>
+                message.id == messageId &&
+                message.channelId == link.route.channelId &&
+                (threadId == null || message.threadId == threadId),
           )
-        : await credentials.run(
-            () => api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: link.route.channelId,
-              threadId: threadId,
-              targetMessageId: messageId,
-              apiKey: credentials.apiKey,
-              clientId: credentials.clientId,
-            ),
-          );
-    if (!lease.isCurrent ||
-        isDisposed ||
-        version != _bookmarkVersion(siteUrl)) {
-      return null;
+          .firstOrNull;
+      if (resolved == null || !canBookmarkMessage(siteUrl, resolved)) {
+        return null;
+      }
+      lease.commit(
+        () => _putMessages(siteUrl, [
+          resolved,
+        ], bookmarkVersionAtDispatch: version),
+      );
+      return message(siteUrl, messageId);
+    } finally {
+      read.release();
     }
-    final resolved = page.messages
-        .where(
-          (message) =>
-              message.id == messageId &&
-              message.channelId == link.route.channelId &&
-              (threadId == null || message.threadId == threadId),
-        )
-        .firstOrNull;
-    if (resolved == null || !canBookmarkMessage(siteUrl, resolved)) return null;
-    lease.commit(
-      () =>
-          _putMessages(siteUrl, [resolved], bookmarkVersionAtDispatch: version),
-    );
-    return message(siteUrl, messageId);
   }
 
   // Message rows redraw the per-message checks only when the channel's
@@ -2211,6 +2221,7 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     ChatMessage message, {
     bool preservePersonalizedState = false,
+    bool fromRead = false,
   }) {
     if (message.canonicalReceived) _cancelMessageCooking(siteUrl, message.id);
     final replaced = _store.read<ChatMessage>(siteUrl, message.id);
@@ -2230,6 +2241,11 @@ class ChatController extends FrameSafeNotifier {
       effective = effective.withFirstOfResults(replaced.firstOfResults);
     }
     _store.put(siteUrl, effective);
+    if (!fromRead) {
+      final writes = _messageWriteOwners[siteUrl];
+      writes?.recordContent(effective);
+      writes?.recordDeletion(effective.channelId, effective.id, effective);
+    }
     _forgetHiddenDelete(siteUrl, message.id);
     _updateChannelMessagePreview(siteUrl, effective);
     if (replaced != null &&
@@ -2341,6 +2357,11 @@ class ChatController extends FrameSafeNotifier {
         siteUrl,
         latest.withDeletedAt(deletedAt, deletedById: deletedById),
       );
+      _messageWriteOwners[siteUrl]?.recordDeletion(
+        channelId,
+        id,
+        _store.read<ChatMessage>(siteUrl, id),
+      );
       _bumpStreamsHolding(siteUrl, id);
       _setLoadedThreadOriginalDeleted(
         siteUrl,
@@ -2375,6 +2396,11 @@ class ChatController extends FrameSafeNotifier {
       (_hiddenDeletedMessageChannelIds[siteUrl] ??= {})[deletedId] =
           message.channelId;
     }
+    _messageWriteOwners[siteUrl]?.recordDeletion(
+      message.channelId,
+      deletedId,
+      _store.read<ChatMessage>(siteUrl, deletedId),
+    );
     if (!message.isDeleted) _bumpStreamsHolding(siteUrl, deletedId);
     return message;
   }
@@ -2488,6 +2514,12 @@ class ChatController extends FrameSafeNotifier {
     DateTime? deletedAt,
     bool clear = false,
   }) {
+    _threadMetadata.recordOriginalDeleted(
+      siteUrl,
+      channelId,
+      originalMessageId,
+      clear ? null : deletedAt,
+    );
     final candidateIds =
         _heldThreadCatalog(siteUrl)?.loadedIdsForChannel(channelId) ??
         const <int>{};
@@ -2503,7 +2535,7 @@ class ChatController extends FrameSafeNotifier {
       }
       final nextDeletedAt = clear ? null : deletedAt;
       if (original.deletedAt == nextDeletedAt) continue;
-      _store.put(
+      _putThread(
         siteUrl,
         held.copyWith(
           originalMessage: original.copyWith(
