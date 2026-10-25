@@ -54,12 +54,9 @@ void main() {
     required List<DMessageScrollerItem> items,
     DMessageScrollerController? controller,
     ScrollController? scrollController,
-    bool autoScroll = false,
     bool busy = false,
     bool showButton = true,
     bool reverse = false,
-    bool preserveChildIdentity = true,
-    VoidCallback? onUserScrollIntent,
   }) => DMessageScrollerProvider(
     controller: controller,
 
@@ -400,7 +397,6 @@ void main() {
         _MutableTranscript(
           key: key,
           controller: controller,
-          autoScroll: true,
           initialIds: const ['old-1', 'old-2', 'old-3', 'old-4'],
         ),
       ),
@@ -663,13 +659,11 @@ class _MutableTranscript extends StatefulWidget {
     required this.controller,
     this.scrollController,
     this.initialIds = const [],
-    this.autoScroll = false,
   });
 
   final DMessageScrollerController controller;
   final ScrollController? scrollController;
   final List<String> initialIds;
-  final bool autoScroll;
 
   @override
   State<_MutableTranscript> createState() => _MutableTranscriptState();

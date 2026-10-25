@@ -85,11 +85,8 @@ void main() {
   testWidgets('Shift+F10 opens and Escape restores trigger focus', (
     tester,
   ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
     await _pumpMenu(
       tester,
-      focusNode: focus,
       children: [
         DContextMenuItem(onPressed: () {}, child: const Text('Reload')),
       ],
@@ -135,11 +132,8 @@ void main() {
   testWidgets('Context Menu key opens and focuses the first enabled item', (
     tester,
   ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
     await _pumpMenu(
       tester,
-      focusNode: focus,
       children: [
         const DContextMenuItem(child: Text('Disabled')),
         DContextMenuItem(onPressed: () {}, child: const Text('Enabled')),
@@ -168,11 +162,8 @@ void main() {
   testWidgets('context invocation preserves scoped typeahead navigation', (
     tester,
   ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
     await _pumpMenu(
       tester,
-      focusNode: focus,
       children: [
         DContextMenuItem(onPressed: () {}, child: const Text('Back')),
         DContextMenuItem(onPressed: () {}, child: const Text('Reload')),
@@ -327,12 +318,9 @@ void main() {
   testWidgets('RTL keyboard anchor and submenu direction are logical', (
     tester,
   ) async {
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
     await _pumpMenu(
       tester,
       direction: TextDirection.rtl,
-      focusNode: focus,
       children: [
         DContextMenuSub(
           trigger: const Text('التنقل'),
@@ -437,48 +425,35 @@ void main() {
     expect(Focus.of(tester.element(find.text('Action 19'))).hasFocus, isTrue);
   });
 
-  testWidgets(
-    'side preferences still collision-shift inside a narrow viewport',
-    (tester) async {
-      tester.view.physicalSize = const Size(360, 300);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await _pumpMenu(
-        tester,
-        side: DPopoverSide.right,
-        children: [
-          DContextMenuItem(onPressed: () {}, child: const Text('Edge action')),
-        ],
-      );
+  testWidgets('pointer popup collision-shifts inside a narrow viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpMenu(
+      tester,
+      children: [
+        DContextMenuItem(onPressed: () {}, child: const Text('Edge action')),
+      ],
+    );
 
-      await tester.tapAt(const Offset(295, 225), buttons: kSecondaryButton);
-      await tester.pumpAndSettle();
-      final popup = tester.getRect(find.byType(DContextMenuContent));
-      expect(popup.right, lessThanOrEqualTo(355));
-      expect(popup.bottom, lessThanOrEqualTo(295));
-    },
-  );
+    await tester.tapAt(const Offset(295, 225), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    final popup = tester.getRect(find.byType(DContextMenuContent));
+    expect(popup.right, lessThanOrEqualTo(355));
+    expect(popup.bottom, lessThanOrEqualTo(295));
+  });
 }
 
 Future<void> _pumpMenu(
   WidgetTester tester, {
   required List<Widget> children,
-  FocusNode? focusNode,
-  bool disabled = false,
   TextDirection direction = TextDirection.ltr,
-  DPopoverSide side = DPopoverSide.right,
 }) async {
   await tester.pumpWidget(
-    _host(
-      _menu(
-        children: children,
-        focusNode: focusNode,
-        disabled: disabled,
-        side: side,
-      ),
-      direction: direction,
-    ),
+    _host(_menu(children: children), direction: direction),
   );
   await tester.pumpAndSettle();
 }
@@ -495,10 +470,7 @@ Widget _host(Widget child, {TextDirection direction = TextDirection.ltr}) {
 
 Widget _menu({
   required List<Widget> children,
-  FocusNode? focusNode,
   DContextMenuTriggerController? trigger,
-  bool disabled = false,
-  DPopoverSide side = DPopoverSide.right,
 }) {
   return SizedBox(
     width: 240,

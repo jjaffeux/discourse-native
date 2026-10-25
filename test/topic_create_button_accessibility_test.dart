@@ -99,22 +99,12 @@ void main() {
           final create = find.byKey(TopicCreateButton.buttonKey);
           final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
 
-          _expectRegularDButton(
-            tester,
-            create,
-            iconOnly: false,
-            compact: compact,
-          );
+          _expectRegularDButton(tester, create, iconOnly: false);
           expect(
             find.descendant(of: create, matching: find.text('New topic')),
             findsOneWidget,
           );
-          _expectRegularDButton(
-            tester,
-            drafts,
-            iconOnly: true,
-            compact: compact,
-          );
+          _expectRegularDButton(tester, drafts, iconOnly: true);
           expect(
             tester.widget<DButton>(drafts).tooltip,
             'Open the latest drafts menu',
@@ -416,7 +406,6 @@ void _expectRegularDButton(
   WidgetTester tester,
   Finder target, {
   required bool iconOnly,
-  bool compact = false,
 }) {
   final button = tester.widget<DButton>(target);
   final size = tester.getSize(target);
