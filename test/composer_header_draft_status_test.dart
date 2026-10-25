@@ -221,6 +221,8 @@ void main() {
     ];
     for (final composer in composers) {
       addTearDown(composer.dispose);
+      // A failure a saving composer would report.
+      composer.draftRollbackWriteFailed(localFailed: true);
       await _pump(tester, shell, composer);
       expect(_status, findsNothing);
     }

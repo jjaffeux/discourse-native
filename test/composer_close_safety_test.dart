@@ -6,7 +6,6 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -222,7 +221,6 @@ final class _SessionApi extends FakeDiscourseApi {
         postsById: {},
       );
 
-  final List<({String siteUrl, String apiKey})> postCredentials = [];
   Completer<ComposerUploadResult>? pendingUpload;
   final uploadStarted = Completer<void>();
 
@@ -240,33 +238,5 @@ final class _SessionApi extends FakeDiscourseApi {
   }) {
     uploadStarted.complete();
     return pendingUpload!.future;
-  }
-
-  @override
-  Future<PostCreation> createPost({
-    required String siteUrl,
-    required String apiKey,
-    required int topicId,
-    required String raw,
-    required Duration typingDuration,
-    required Duration composerOpenDuration,
-    int? replyToPostNumber,
-    bool whisper = false,
-    String? draftKey,
-    String? clientId,
-  }) {
-    postCredentials.add((siteUrl: siteUrl, apiKey: apiKey));
-    return super.createPost(
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      topicId: topicId,
-      raw: raw,
-      typingDuration: typingDuration,
-      composerOpenDuration: composerOpenDuration,
-      replyToPostNumber: replyToPostNumber,
-      whisper: whisper,
-      draftKey: draftKey,
-      clientId: clientId,
-    );
   }
 }

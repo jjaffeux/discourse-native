@@ -689,16 +689,17 @@ void main() {
 
       await tester.tap(find.byKey(UserMenuButton.avatarKey));
       await tester.pumpAndSettle();
-      final panelDrafts = find.descendant(
-        of: find.byType(UserMenuPanel),
+      final menu = find.byKey(const ValueKey('user-menu-own-card'));
+      final menuDrafts = find.descendant(
+        of: find.byType(DDropdownMenuContent),
         matching: find.text('Drafts'),
       );
-      await tester.tap(
-        panelDrafts.evaluate().isEmpty ? find.text('Drafts').last : panelDrafts,
-      );
+      expect(menu, findsOneWidget);
+      expect(menuDrafts, findsOneWidget);
+      await tester.tap(menuDrafts);
       await tester.pumpAndSettle();
 
-      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(menu, findsNothing);
       expect(find.byType(DraftListView), findsOneWidget);
       expect(
         find.byWidgetPredicate(
@@ -1174,11 +1175,9 @@ void main() {
     testWidgets('loads past an invalid full page without rendering fake rows', (
       tester,
     ) async {
-      final offsets = <int>[];
       final draftApi = DiscourseApi(
         client: MockClient((request) async {
           final offset = int.parse(request.url.queryParameters['offset']!);
-          offsets.add(offset);
           return http.Response(
             jsonEncode({
               'drafts': offset == 0
@@ -1225,7 +1224,6 @@ void main() {
       await tester.tap(find.text('Load more'));
       await tester.pumpAndSettle();
 
-      expect(offsets, [0, 30]);
       expect(requestedOffsets, [0, 30]);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
       expect(
@@ -1471,6 +1469,8 @@ void main() {
       expect(fixture.api.userDraftsDeleted, [
         (siteUrl: _siteUrl, draftKey: 'new_topic', sequence: 4),
       ]);
+      final shell = ShellScope.read(tester.element(find.byType(DraftListView)));
+      expect(shell.draftCountFor(_siteUrl), 0);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 }
