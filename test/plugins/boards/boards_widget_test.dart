@@ -140,6 +140,42 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('retained directory recovers from coalesced settings changes', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    var cycle = false;
+    Widget host() => Builder(
+      builder: (_) {
+        if (cycle) {
+          cycle = false;
+          setEnabled(fixture, false);
+          setEnabled(fixture, true);
+        }
+        return retainedPage(fixture, route: const BoardsRoute());
+      },
+    );
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads, hasLength(1));
+    expect(find.text('Product roadmap'), findsOneWidget);
+    (fixture.data['board'] as Map)['name'] = 'Refreshed directory board';
+    cycle = true;
+    await tester.pumpWidget(host());
+    await tester.pumpAndSettle();
+    expect(fixture.controller.enabled(boardsSite), isTrue);
+    expect(fixture.transport.reads.map((request) => request.path), [
+      '/boards/api/boards.json',
+      '/boards/api/boards.json',
+    ]);
+    expect(find.text('Refreshed directory board'), findsOneWidget);
+    expect(find.text('Product roadmap'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('reenabling detail fences a read from the disabled account', (
     tester,
   ) async {
