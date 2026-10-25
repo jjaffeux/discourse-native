@@ -75,6 +75,41 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     );
   }
 
+  testWidgets('retained page releases only its shared board reference', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    final external = fixture.controller.acquire(boardsSite, 1);
+    await tester.pump();
+    expect(external.snapshot?.name, 'Product roadmap');
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    expect(find.text('Improve search'), findsOneWidget);
+    expect(fixture.live.subscriberCount('/boards/1'), 1);
+    setEnabled(fixture, false);
+    await tester.pumpAndSettle();
+    expect(external.snapshot, isNull);
+    expect(fixture.live.channels, isEmpty);
+    (fixture.data['board'] as Map)['name'] = 'Refreshed shared board';
+    setEnabled(fixture, true);
+    await tester.pumpAndSettle();
+    expect(external.snapshot?.name, 'Refreshed shared board');
+    expect(find.text('Refreshed shared board'), findsOneWidget);
+    expect(fixture.live.subscriberCount('/boards/1'), 1);
+    for (var notification = 0; notification < 3; notification++) {
+      fixture.controller.changed();
+      await tester.pumpAndSettle();
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(external.snapshot?.name, 'Refreshed shared board');
+    expect(fixture.live.subscriberCount('/boards/1'), 1);
+    external.release();
+    expect(fixture.live.channels, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('retained directory activates on each enable transition', (
     tester,
   ) async {
