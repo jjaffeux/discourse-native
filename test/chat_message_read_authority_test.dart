@@ -346,6 +346,100 @@ void main() {
     );
   }
 
+  test(
+    'a matching canonical HTTP echo settles a pending edit despite a refused response',
+    () async {
+      final editGate = Completer<void>();
+      addTearDown(() {
+        if (!editGate.isCompleted) editGate.complete();
+      });
+      final before = fixtures.message(12, raw: 'Original text');
+      final api = _SnapshotApi(
+        before,
+        editGate: editGate,
+        editFailure: const WriteException(WriteFailure.forbidden),
+      );
+      final subject = fixtures.build(api: api, currentUser: user);
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(fixtures.site);
+      await subject.chat.openChannel(fixtures.site, 9);
+      const replacement = ChatUpload(
+        id: 44,
+        url: '/uploads/new.png',
+        originalFilename: 'new.png',
+        kind: ChatUploadKind.image,
+      );
+
+      final edit = subject.chat.editMessage(
+        fixtures.site,
+        12,
+        'Accepted canonical text',
+        uploads: const [replacement],
+      );
+      await api.editStarted.future;
+      api.snapshot = ChatMessage(
+        id: 12,
+        channelId: 9,
+        raw: 'Accepted canonical text',
+        cooked: '<p>Canonical server cook</p>',
+        author: before.author,
+        createdAt: before.createdAt,
+        uploads: const [replacement],
+      );
+      await subject.chat.openChannel(fixtures.site, 9, force: true);
+      expect(
+        subject.chat.message(fixtures.site, 12)?.canonicalReceived,
+        isTrue,
+      );
+      expect(
+        subject.chat.message(fixtures.site, 12)?.cooked,
+        '<p>Canonical server cook</p>',
+      );
+      editGate.complete();
+      expect(await edit, isNull);
+      final settled = subject.chat.message(fixtures.site, 12)!;
+      expect(settled.raw, 'Accepted canonical text');
+      expect(settled.cooked, '<p>Canonical server cook</p>');
+      expect(settled.uploads, const [replacement]);
+      expect(settled.canonicalReceived, isTrue);
+    },
+  );
+
+  test(
+    'an old read cannot resurrect a message hidden by an actual live delete',
+    () async {
+      final api = _SnapshotApi(
+        fixtures.message(12, raw: 'Original text'),
+        canModerate: false,
+      );
+      final subject = fixtures.build(
+        api: api,
+        currentUser: fixtures.currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = fixtures.attachTracker(subject.chat);
+      await subject.chat.loadChannels(fixtures.site);
+      await subject.chat.openChannel(fixtures.site, 9);
+      final view = subject.chat.beginViewingChannel(fixtures.site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(fixtures.site, 9, view));
+
+      final delayed = api.delayNextRead();
+      addTearDown(delayed.complete);
+      final refresh = subject.chat.openChannel(fixtures.site, 9, force: true);
+      await delayed.started.future;
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'delete',
+        'deleted_id': 12,
+        'deleted_at': '2026-10-25T10:00:00.000Z',
+      });
+      expect(subject.chat.message(fixtures.site, 12), isNull);
+      delayed.complete();
+      await refresh;
+      expect(subject.chat.message(fixtures.site, 12), isNull);
+      expect(subject.chat.messages(fixtures.site, 9), isEmpty);
+    },
+  );
+
   test('a refused edit permits later authoritative content', () async {
     final api = _SnapshotApi(
       fixtures.message(12, raw: 'Original text'),
@@ -384,6 +478,7 @@ final class _SnapshotApi extends FakeDiscourseApi {
     this.snapshot, {
     WriteException? editFailure,
     Completer<void>? editGate,
+    bool canModerate = true,
   }) : super(
          chatEditFailure: editFailure,
          chatEditGate: editGate,
@@ -393,7 +488,7 @@ final class _SnapshotApi extends FakeDiscourseApi {
                fixtures.channel(
                  9,
                  canDeleteSelf: true,
-                 canModerate: true,
+                 canModerate: canModerate,
                  lastMessageId: 12,
                ),
              ],
