@@ -269,9 +269,7 @@ void main() {
     expect(find.text('No items found.'), findsNothing);
   });
 
-  testWidgets('arrow navigation skips disabled options and loops', (
-    tester,
-  ) async {
+  testWidgets('arrow navigation skips disabled options', (tester) async {
     String? selected;
     await tester.pumpWidget(
       _app(_single(changed: (value) => selected = value)),
@@ -627,19 +625,26 @@ void main() {
   ) async {
     for (final closeOnSelect in [true, false]) {
       final controller = DComboboxController<String>();
+      const anchor = DComboboxChips<String>(
+        input: DComboboxChipsInput<String>(),
+      );
+      const content = DComboboxContent(children: [DComboboxList<String>()]);
       await tester.pumpWidget(
         _app(
-          DCombobox<String>.multiple(
-            controller: controller,
-            closeOnSelect: closeOnSelect,
-            options: _options,
-            anchor: const DComboboxChips<String>(
-              input: DComboboxChipsInput<String>(),
-            ),
-            content: const DComboboxContent(
-              children: [DComboboxList<String>()],
-            ),
-          ),
+          closeOnSelect
+              ? DCombobox<String>.multiple(
+                  controller: controller,
+                  options: _options,
+                  anchor: anchor,
+                  content: content,
+                )
+              : DCombobox<String>.multiple(
+                  controller: controller,
+                  closeOnSelect: false,
+                  options: _options,
+                  anchor: anchor,
+                  content: content,
+                ),
         ),
       );
       await tester.tap(find.byType(TextField));
@@ -1193,32 +1198,29 @@ void main() {
   testWidgets('open popup reads live theme tokens', (tester) async {
     late StateSetter update;
     var dark = false;
+    final lightTheme = ThemeData(brightness: Brightness.light);
+    final darkTheme = ThemeData(brightness: Brightness.dark);
+    final expectedLight = DControlStyle.rowHover(DTokens.fromTheme(lightTheme));
+    final expectedDark = DControlStyle.rowHover(DTokens.fromTheme(darkTheme));
+    expect(expectedDark, isNot(expectedLight));
     await tester.pumpWidget(
       StatefulBuilder(
         builder: (context, setState) {
           update = setState;
-          return _app(
-            _single(),
-            theme: ThemeData(
-              brightness: dark ? Brightness.dark : Brightness.light,
-            ),
-          );
+          return _app(_single(), theme: dark ? darkTheme : lightTheme);
         },
       ),
     );
     await tester.tap(find.byType(TextField));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(
-      Theme.of(tester.element(find.text('Next.js'))).brightness,
-      Brightness.light,
-    );
+    final before = _rowBackground(tester, 'next');
+    expect(before, expectedLight);
     update(() => dark = true);
     await tester.pumpAndSettle();
     expect(find.text('Next.js'), findsOneWidget);
-    expect(
-      Theme.of(tester.element(find.text('Next.js'))).brightness,
-      Brightness.dark,
-    );
+    expect(_rowBackground(tester, 'next'), expectedDark);
+    expect(_rowBackground(tester, 'next'), isNot(before));
   });
 }
 
