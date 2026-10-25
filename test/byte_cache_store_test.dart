@@ -33,6 +33,27 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test(
+      'reads fresh bytes until exact expiry then removes the expired file',
+      () async {
+        var clock = now;
+        final store = FileByteCacheStore(directory, clock: () => clock);
+        await store.write(
+          _url('expiring'),
+          Uint8List.fromList([7, 8, 9]),
+          expiresAt: expiresAt,
+        );
+        final file = await directory.list().cast<File>().single;
+
+        clock = expiresAt.subtract(const Duration(milliseconds: 1));
+        expect(await store.read(_url('expiring')), orderedEquals([7, 8, 9]));
+        expect(await file.exists(), isTrue);
+        clock = expiresAt;
+        expect(await store.read(_url('expiring')), isNull);
+        expect(await file.exists(), isFalse);
+      },
+    );
+
     test('reconciles same-name external growth and mtime changes', () async {
       final original = await seed(
         'grown',

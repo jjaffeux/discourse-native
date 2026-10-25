@@ -83,6 +83,17 @@ void main() {
     });
 
     test('conditional writing rechecks after storage initialization', () async {
+      final preferences = _InitializingPreferences({
+        'flutter.$storageKey': 'legacy draft',
+      });
+      final previous = SharedPreferencesStorePlatform.instance;
+      SharedPreferencesStorePlatform.instance = preferences;
+      SharedPreferences.resetStatic();
+      addTearDown(() {
+        if (!preferences.release.isCompleted) preferences.release.complete();
+        SharedPreferencesStorePlatform.instance = previous;
+        SharedPreferences.resetStatic();
+      });
       var current = true;
       final write = store.write(
         siteUrl,
@@ -90,11 +101,17 @@ void main() {
         'old account text',
         ifCurrent: () => current,
       );
+      await preferences.started.future.timeout(const Duration(seconds: 5));
       current = false;
+      preferences.release.complete();
 
       await write;
 
       expect(persistence.values, isEmpty);
+      expect(
+        (await SharedPreferences.getInstance()).getString(storageKey),
+        'legacy draft',
+      );
     });
 
     test(
@@ -564,6 +581,20 @@ final class MemoryDraftPersistence implements DraftPersistence {
     }
     if (failWrites) throw StateError('secure storage unavailable');
     values[key] = value;
+  }
+}
+
+final class _InitializingPreferences extends InMemorySharedPreferencesStore {
+  _InitializingPreferences(super.data) : super.withData();
+
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<Map<String, Object>> getAll() async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    return super.getAll();
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
@@ -7,20 +9,21 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() async {});
-
-  tearDown(() async {});
-
-  test('reports a rejected composer layout write without failing', () async {
+  test('a rejected composer layout write completes without failing', () async {
     final persistence = _RejectingComposerLayoutPersistence();
     const geometry = ComposerLayoutPreference(sideWidth: 760);
 
     await ComposerLayoutStore(persistence: persistence).write(geometry);
 
-    expect(persistence.encodedGeometry, isNotNull);
+    expect(jsonDecode(persistence.encodedGeometry!), {
+      'placement': 'right',
+      'sideWidth': 760,
+      'replyHeight': 280,
+      'topicHeight': 380,
+    });
   });
 
-  test('reports a rejected sidebar section write without failing', () async {
+  test('a rejected sidebar section write completes without failing', () async {
     final persistence = _RejectingSidebarSectionPersistence();
 
     await SidebarSectionStore(persistence: persistence).write(
@@ -36,7 +39,7 @@ void main() {
     ));
   });
 
-  test('reports a rejected topic sidebar write without failing', () async {
+  test('a rejected topic sidebar write completes without failing', () async {
     final persistence = _RejectingTopicSidebarPersistence();
 
     await TopicSidebarStore(

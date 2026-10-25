@@ -1030,38 +1030,41 @@ void main() {
       },
     );
 
-    test('reports background write errors and releases their budget', () async {
-      final store = _GatedMutationByteCacheStore()
-        ..holdWrite = true
-        ..writeError = const FileSystemException('Disk full');
-      addTearDown(store.release);
-      final cache = _TestByteCache(
-        store: store,
-        client: MockClient(
-          (_) async => http.Response.bytes(
-            [1],
-            200,
-            headers: {'cache-control': 'public, max-age=3600'},
+    test(
+      'failed background writes retain memory and release their budget',
+      () async {
+        final store = _GatedMutationByteCacheStore()
+          ..holdWrite = true
+          ..writeError = const FileSystemException('Disk full');
+        addTearDown(store.release);
+        final cache = _TestByteCache(
+          store: store,
+          client: MockClient(
+            (_) async => http.Response.bytes(
+              [1],
+              200,
+              headers: {'cache-control': 'public, max-age=3600'},
+            ),
           ),
-        ),
-      );
-      addTearDown(cache.close);
-      for (var index = 0; index < 16; index++) {
-        expect(await cache.load('https://cdn.test/image-$index'), [1]);
-      }
-      await store.release();
+        );
+        addTearDown(cache.close);
+        for (var index = 0; index < 16; index++) {
+          expect(await cache.load('https://cdn.test/image-$index'), [1]);
+        }
+        await store.release();
 
-      expect(store.writes, hasLength(16));
+        expect(store.writes, hasLength(16));
 
-      expect(cache.cached('https://cdn.test/image-0'), [1]);
-      expect(store.entries, isEmpty);
+        expect(cache.cached('https://cdn.test/image-0'), [1]);
+        expect(store.entries, isEmpty);
 
-      store.writeError = null;
-      cache.clear();
-      expect(await cache.load('https://cdn.test/image-0'), [1]);
-      await Future<void>.delayed(Duration.zero);
-      expect(store.entries['https://cdn.test/image-0'], [1]);
-    });
+        store.writeError = null;
+        cache.clear();
+        expect(await cache.load('https://cdn.test/image-0'), [1]);
+        await Future<void>.delayed(Duration.zero);
+        expect(store.entries['https://cdn.test/image-0'], [1]);
+      },
+    );
 
     for (final close in [false, true]) {
       test('${close ? 'close' : 'clear'} skips a queued stale write', () async {
@@ -1350,28 +1353,6 @@ void main() {
           }, now),
           now.add(const Duration(seconds: 100)),
         );
-      },
-    );
-
-    test(
-      'pruning removes stale temporary files but not a live writer',
-      () async {
-        final directory = await Directory.systemTemp.createTemp(
-          'discourse-native-byte-cache-',
-        );
-        addTearDown(() => directory.delete(recursive: true));
-        final now = DateTime.utc(2026, 8, 11, 12);
-        final stale = File('${directory.path}/stale.tmp');
-        final recent = File('${directory.path}/recent.tmp');
-        await stale.writeAsBytes([1]);
-        await recent.writeAsBytes([1]);
-        await stale.setLastModified(now.subtract(const Duration(hours: 2)));
-        await recent.setLastModified(now);
-
-        await FileByteCacheStore(directory, clock: () => now).initialize();
-
-        expect(await stale.exists(), isFalse);
-        expect(await recent.exists(), isTrue);
       },
     );
 

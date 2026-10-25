@@ -581,6 +581,13 @@ void main() {
 
       expect(await store.readApiKey('https://one.example'), 'one-key');
       expect(await store.readApiKey('https://two.example'), 'two-key');
+      expect(storage.values, {
+        'api_key::https://one.example': 'one-key',
+        'api_key::https://two.example': 'two-key',
+      });
+      final reopened = SecureStore(storage: storage);
+      expect(await reopened.readApiKey('https://one.example'), 'one-key');
+      expect(await reopened.readApiKey('https://two.example'), 'two-key');
     });
 
     test('reuses a persisted key without repeated platform reads', () async {

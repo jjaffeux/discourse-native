@@ -244,27 +244,33 @@ void main() {
       expect(legacy.events, ['read:$key', 'read:$key']);
     });
 
-    test('retries after its file write fails', () async {
-      final parentBlocker = File('${directory.path}/not-a-directory');
-      await parentBlocker.writeAsString('block directory creation');
-      final impossibleFile = File('${parentBlocker.path}/drafts-v1.json');
-      final legacy = _LegacyDraftStorage({key: 'old'});
-      final storage = AppleFileDraftPersistence(
-        file: impossibleFile,
-        legacyStorage: legacy,
-      );
+    test(
+      'retries migration after document access fails before reading Keychain',
+      () async {
+        final parentBlocker = File('${directory.path}/not-a-directory');
+        await parentBlocker.writeAsString('block directory creation');
+        final impossibleFile = File('${parentBlocker.path}/drafts-v1.json');
+        final legacy = _LegacyDraftStorage({key: 'old'});
+        final storage = AppleFileDraftPersistence(
+          file: impossibleFile,
+          legacyStorage: legacy,
+        );
 
-      await expectLater(storage.read(key), throwsA(isA<FileSystemException>()));
-      expect(legacy.values, {key: 'old'});
-      expect(legacy.events, isEmpty);
+        await expectLater(
+          storage.read(key),
+          throwsA(isA<FileSystemException>()),
+        );
+        expect(legacy.values, {key: 'old'});
+        expect(legacy.events, isEmpty);
 
-      await parentBlocker.delete();
-      expect(await storage.read(key), (
-        value: 'old',
-        allowPreferenceFallback: false,
-      ));
-      expect(legacy.events, ['read:$key']);
-    });
+        await parentBlocker.delete();
+        expect(await storage.read(key), (
+          value: 'old',
+          allowPreferenceFallback: false,
+        ));
+        expect(legacy.events, ['read:$key']);
+      },
+    );
   });
 
   group('legacy resurrection blockers', () {
