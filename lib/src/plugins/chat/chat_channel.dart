@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart'
     show immutable, listEquals, mapEquals, setEquals;
@@ -478,6 +480,38 @@ typedef ChatMessageAccess = ({
   bool canFlag,
 });
 
+final class _UnreadThreadOverview extends UnmodifiableMapView<int, DateTime> {
+  factory _UnreadThreadOverview(Map<int, DateTime> overview) =>
+      overview is _UnreadThreadOverview
+      ? overview
+      : _UnreadThreadOverview._(overview);
+
+  _UnreadThreadOverview._(Map<int, DateTime> overview)
+    : super(Map.unmodifiable(overview));
+
+  late final (DateTime?, DateTime?) bounds = _bounds();
+  DateTime? _viewedAt;
+  int? _unreadCount;
+
+  (DateTime?, DateTime?) _bounds() {
+    DateTime? oldest;
+    DateTime? newest;
+    for (final at in values) {
+      if (oldest == null || at.isBefore(oldest)) oldest = at;
+      if (newest == null || at.isAfter(newest)) newest = at;
+    }
+    return (oldest, newest);
+  }
+
+  int countSince(DateTime viewedAt) {
+    if (_viewedAt == viewedAt) return _unreadCount!;
+    final count = values.where((at) => !at.isBefore(viewedAt)).length;
+    _viewedAt = viewedAt;
+    _unreadCount = count;
+    return count;
+  }
+}
+
 @immutable
 class ChatChannel with Storable<ChatChannel> {
   // The server's String.length bound counts Unicode code points.
@@ -573,7 +607,7 @@ class ChatChannel with Storable<ChatChannel> {
           : const [],
       membership: ChatMembership.fromJson(json['current_user_membership']),
       tracking: tracking,
-      unreadThreadOverview: Map.unmodifiable(unreadThreadOverview),
+      unreadThreadOverview: _UnreadThreadOverview(unreadThreadOverview),
       threadingEnabled: json['threading_enabled'] == true,
       lastMessageId: jsonIntOrNull(lastMessage['id']),
       lastMessageAt: jsonDate(lastMessage['created_at']),
@@ -757,18 +791,32 @@ class ChatChannel with Storable<ChatChannel> {
   int get unreadThreadsCountSinceLastViewed {
     final viewedAt = membership.lastViewedAt;
     if (viewedAt == null) return unreadThreadOverview.length;
-    return unreadThreadOverview.values
+    final overview = unreadThreadOverview;
+    if (overview is _UnreadThreadOverview) return overview.countSince(viewedAt);
+    return overview.values
         .where((createdAt) => !createdAt.isBefore(viewedAt))
         .length;
   }
 
   DateTime? get lastUnreadThreadAt {
     // Core uses the oldest outstanding reply as its final tie-breaker.
+    final overview = unreadThreadOverview;
+    if (overview is _UnreadThreadOverview) return overview.bounds.$1;
     DateTime? oldest;
     for (final createdAt in unreadThreadOverview.values) {
       if (oldest == null || createdAt.isBefore(oldest)) oldest = createdAt;
     }
     return oldest;
+  }
+
+  DateTime? get latestUnreadThreadAt {
+    final overview = unreadThreadOverview;
+    if (overview is _UnreadThreadOverview) return overview.bounds.$2;
+    DateTime? latest;
+    for (final createdAt in overview.values) {
+      if (latest == null || createdAt.isAfter(latest)) latest = createdAt;
+    }
+    return latest;
   }
 
   /// Changes the wire stream: threaded channels include original messages only;
@@ -1345,7 +1393,9 @@ class ChatChannel with Storable<ChatChannel> {
         ? membership
         : membership.withLastRead(lastReadMessageId),
     tracking: tracking,
-    unreadThreadOverview: unreadThreadOverview ?? this.unreadThreadOverview,
+    unreadThreadOverview: unreadThreadOverview == null
+        ? this.unreadThreadOverview
+        : _UnreadThreadOverview(unreadThreadOverview),
     threadingEnabled: threadingEnabled,
     lastMessageId: lastMessageId,
     lastMessageAt: lastMessageAt,
@@ -1375,7 +1425,7 @@ class ChatChannel with Storable<ChatChannel> {
     var nextThreadOverview = unreadThreadOverview;
     if (threadId != null && markThreadRead) {
       if (unreadThreadOverview.containsKey(threadId)) {
-        nextThreadOverview = Map.unmodifiable(
+        nextThreadOverview = _UnreadThreadOverview(
           {...unreadThreadOverview}..remove(threadId),
         );
       }
@@ -1386,7 +1436,7 @@ class ChatChannel with Storable<ChatChannel> {
             threadMembershipKnown ||
             unreadThreadOverview.containsKey(threadId))) {
       // DMs grant every participant every thread membership; public channels do not.
-      nextThreadOverview = Map.unmodifiable({
+      nextThreadOverview = _UnreadThreadOverview({
         ...unreadThreadOverview,
         threadId: createdAt,
       });

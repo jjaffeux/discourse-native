@@ -10,11 +10,13 @@ final class _ChatChannelProjection {
 
 /// Effective activity shared by inbox ordering and its displayed timestamp.
 DateTime? chatInboxActivityAt(ChatChannel channel) {
-  var latest = (channel.lastMessageId ?? 0) > 0 ? channel.lastMessageAt : null;
-  for (final replyAt in channel.unreadThreadOverview.values) {
-    if (latest == null || replyAt.isAfter(latest)) latest = replyAt;
-  }
-  return latest;
+  final messageAt = (channel.lastMessageId ?? 0) > 0
+      ? channel.lastMessageAt
+      : null;
+  final threadAt = channel.latestUnreadThreadAt;
+  return messageAt == null || (threadAt != null && threadAt.isAfter(messageAt))
+      ? threadAt
+      : messageAt;
 }
 
 extension on _ChatChannelDirectory {
