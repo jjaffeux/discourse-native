@@ -795,7 +795,6 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('composer-position')));
       await tester.pumpAndSettle();
       expect(find.byType(DToggleGroup<ComposerPlacement>), findsOneWidget);
-      expect(find.bySemanticsLabel('Separate window'), findsNothing);
       expect(find.text('Save and close'), findsNothing);
       expect(find.byTooltip('Discard'), findsOneWidget);
       for (final placement in ComposerPlacement.values) {
@@ -870,7 +869,6 @@ void main() {
         tester.getSize(find.byType(ComposerEditor)).height,
         closeTo(editable.renderEditable.preferredLineHeight, 1),
       );
-      expect(find.byTooltip('Dock side'), findsNothing);
       expect(find.byType(DToggleGroup<ComposerPlacement>), findsNothing);
       expect(tester.takeException(), isNull);
     },

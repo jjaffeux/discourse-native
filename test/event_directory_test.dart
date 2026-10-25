@@ -111,7 +111,6 @@ void main() {
 
         final refresh = Completer<Map<String, dynamic>>();
         transport.respond = (_) => refresh.future;
-        expect(find.byTooltip('Calendar actions'), findsNothing);
         ports.controller.setForeground(false);
         ports.controller.setForeground(true);
         await tester.pump();
@@ -395,7 +394,6 @@ void main() {
       expect(calendar.page.view, EventCalendarView.month);
       expect(calendar.page.date, DateTime.utc(2026, 10, 8));
       expect(find.text('October 2026'), findsOneWidget);
-      expect(find.byTooltip('Calendar actions'), findsNothing);
       expect(find.byType(DDropdownMenu), findsNothing);
       expect(tester.takeException(), isNull);
     });

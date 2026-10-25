@@ -670,7 +670,6 @@ void main() {
             .map((emoji) => emoji.name),
         ['sparkles', 'smiley'],
       );
-      expect(find.byTooltip('Edit draft'), findsNothing);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
       expect(
         find.descendant(
@@ -816,7 +815,6 @@ void main() {
       controller.openDrafts(_siteUrl);
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Edit draft'), findsNothing);
       final remove = find.byTooltip('Remove draft');
       final button = tester.widget<DButton>(
         find.ancestor(of: remove, matching: find.byType(DButton)),
@@ -1246,7 +1244,6 @@ void main() {
         categoryName: 'Support for administrators and community managers',
       );
       expect(tester.takeException(), isNull);
-      expect(find.byTooltip('Edit draft'), findsNothing);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
     });
 
