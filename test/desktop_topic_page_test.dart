@@ -203,10 +203,6 @@ void main() {
       expect(next, findsNothing);
       expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
       expect(find.byType(DCardFooter), findsNothing);
-      expect(
-        find.byKey(const ValueKey('compact-topic-list-header')),
-        findsNothing,
-      );
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 

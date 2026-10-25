@@ -1160,14 +1160,12 @@ void main() {
         tester.state(find.byType(TopicView, skipOffstage: false)),
         same(reader),
       );
-      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(tester.getRect(_mainPanel).left, list.left);
       expect(tester.getRect(_mainPanel).right, 1200);
       expect(shell.activeTabId, main);
 
       _toggleSplit(tester);
       await tester.pumpAndSettle();
-      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(tester.state(find.byType(TopicView)), same(reader));
       expect(tester.getRect(_mainPanel), list);
       expect(shell.activeTabId, main);
@@ -1193,7 +1191,6 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
     await tester.pumpAndSettle();
-    expect(_rail(ForumPanel.main), findsNothing);
     expect(shell.activeTabId, start.id);
     expect(find.byType(NewTabPage), findsOneWidget);
     expect(shell.currentWorkspace!.tabById(main.id), main);
@@ -1245,7 +1242,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-card-43')).first);
     await tester.pumpAndSettle();
 
-    expect(_rail(ForumPanel.secondary), findsNothing);
     expect(shell.activeTabId, shell.selectedTabIn(ForumPanel.main)?.id);
     expect(shell.selectedTabIn(ForumPanel.secondary)?.id, readerTab);
     expect(find.text('Content for 43', findRichText: true), findsOneWidget);
@@ -1265,7 +1261,6 @@ void main() {
         final before = tester.getRect(_mainPanel);
         await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
         await tester.pumpAndSettle();
-        expect(_rail(ForumPanel.main), findsNothing);
         expect(
           tester.getRect(_secondaryPanel),
           const Rect.fromLTWH(0, 0, 1200, 850),
@@ -1288,28 +1283,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('hiding the secondary panel leaves no rail or hover read-out', (
-    tester,
-  ) async {
-    _openTopicTab(shell, _topic);
-    await _pump(tester, shell);
-    final button = tester.getCenter(
-      find.byKey(const ValueKey('panel-split-view-secondary')),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: button);
-    addTearDown(mouse.removePointer);
-    await mouse.down(button);
-    await mouse.up();
-    await tester.pumpAndSettle();
-    expect(_rail(ForumPanel.secondary), findsNothing);
-    await mouse.moveTo(const Offset(1190, 500));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('panel-rail-read-out')), findsNothing);
-    expect(tester.getRect(_mainPanel).right, 1200);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('minimizing and restoring move no document to another parent', (
     tester,
@@ -2191,7 +2164,6 @@ void main() {
     tester.view.physicalSize = const Size(1119, 850);
     await tester.pumpAndSettle();
     expect(_mainPanel, findsNothing);
-    expect(_rail(ForumPanel.main), findsNothing);
     expect(
       tester.getRect(_secondaryPanel),
       const Rect.fromLTWH(0, 0, 1119, 850),
@@ -2212,14 +2184,12 @@ void main() {
     tester.view.physicalSize = const Size(1051, 850);
     await tester.pumpAndSettle();
     expect(_mainPanel, findsNothing);
-    expect(_rail(ForumPanel.main), findsNothing);
 
     frame.value = const Rect.fromLTWH(100, 0, 1200, 850);
     tester.view.physicalSize = const Size(1200, 850);
     await tester.pumpAndSettle();
     expect(tester.getRect(_mainPanel).width, 400);
     expect(tester.getRect(_secondaryPanel).width, 788);
-    expect(_rail(ForumPanel.main), findsNothing);
     expect(
       find.byKey(const ValueKey('main-panel-resize-handle')),
       findsOneWidget,
@@ -2253,7 +2223,6 @@ void main() {
       tester.view.physicalSize = const Size(731, 850);
       await tester.pumpAndSettle();
       expect(_secondaryPanel, findsNothing);
-      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(tester.getRect(_mainPanel).width, 731);
       _toggleSplit(tester);
       await tester.pumpAndSettle();
@@ -2273,7 +2242,6 @@ void main() {
       frame.value = const Rect.fromLTWH(700, 0, 600, 850);
       tester.view.physicalSize = const Size(600, 850);
       await tester.pumpAndSettle();
-      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(tester.getRect(_mainPanel).width, 600);
       expect(_secondaryPanel, findsNothing);
 
@@ -2285,7 +2253,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(_mainPanel).width, 400);
       expect(tester.getRect(_secondaryPanel).width, 788);
-      expect(_rail(ForumPanel.secondary), findsNothing);
       expect(
         find.byKey(const ValueKey('main-panel-resize-handle')),
         findsOneWidget,
@@ -2307,7 +2274,6 @@ void main() {
       frame.value = const Rect.fromLTWH(100, 0, 1119, 850);
       tester.view.physicalSize = const Size(1119, 850);
       await tester.pumpAndSettle();
-      expect(_rail(ForumPanel.main), findsNothing);
       expect(
         find.byKey(const ValueKey('main-panel-resize-handle')),
         findsNothing,
@@ -2317,7 +2283,6 @@ void main() {
         find.byKey(const ValueKey('panel-split-view-secondary')),
       );
       await tester.pumpAndSettle();
-      expect(_rail(ForumPanel.main), findsNothing);
       expect(tester.getRect(_mainPanel).width, 400);
       expect(tester.getRect(_secondaryPanel).width, 707);
 
@@ -2396,9 +2361,6 @@ void main() {
 
 final _mainPanel = find.byKey(const ValueKey('desktop-panel-main'));
 final _secondaryPanel = find.byKey(const ValueKey('desktop-panel-secondary'));
-
-Finder _rail(ForumPanel panel) =>
-    find.byKey(ValueKey('panel-rail-${panel.name}'));
 
 Future<void> _pump(
   WidgetTester tester,

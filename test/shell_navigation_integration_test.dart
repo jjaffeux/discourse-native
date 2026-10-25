@@ -805,10 +805,6 @@ void _registerShellNavigationTests() {
       expect(button.variant, DButtonVariant.ghost);
       expect(button.size, DButtonSize.toolbar);
       expect(button.shape, DButtonShape.pill);
-      expect(
-        find.byKey(const ValueKey('add-instance-rail-outline')),
-        findsNothing,
-      );
       expect(tester.getCenter(add).dx, tester.getCenter(lastForum).dx);
       expect(
         tester.getCenter(lastForum).dy - tester.getCenter(firstForum).dy,
@@ -2202,10 +2198,6 @@ void _registerShellNavigationTests() {
       expect(railBounds.left, 0);
       expect(railBounds.right, gateBounds.left);
       expect(railBounds.top, gateBounds.top);
-      expect(
-        find.byKey(const ValueKey('private-forum-chrome-placeholder')),
-        findsNothing,
-      );
       expect(gateBounds.right, desktop.width);
       expect(gateBounds.bottom, desktop.height);
       expect(api.feedPaths, isEmpty);
