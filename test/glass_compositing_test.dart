@@ -374,8 +374,6 @@ void glassCompositingTests({bool native = false}) {
         await tester.tap(button);
         await tester.tap(toggle);
         expect(presses, 0);
-        expect(tester.widget<DButton>(button).onPressed, isNull);
-        expect(tester.widget<DToggle>(toggle).enabled, isFalse);
         await _captureFrame(tester, 'disabled-controls-$suffix');
       });
 

@@ -1575,21 +1575,6 @@ void main() {
       });
     });
 
-    testWidgets('steps between images with the arrow keys', (tester) async {
-      await pumpCooked(tester, threeImages);
-      await tester.tap(thumbnail());
-      await tester.pumpAndSettle();
-      expect(find.text('1 / 3'), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 3'), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.pumpAndSettle();
-      expect(find.text('1 / 3'), findsOneWidget);
-    });
-
     for (final reduceMotion in [false, true]) {
       testWidgets('stepping ${reduceMotion ? 'jumps under' : 'slides without'} '
           'Reduce Motion', (tester) async {
@@ -1603,6 +1588,7 @@ void main() {
         await tester.pumpAndSettle();
         double page() =>
             tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+        expect(find.text('1 / 3'), findsOneWidget);
 
         for (final (key, target, counter) in [
           (LogicalKeyboardKey.arrowRight, 1.0, '2 / 3'),

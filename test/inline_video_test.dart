@@ -888,6 +888,8 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(sessions.single.pauseCount, 1);
+    expect(sessions.single.playCount, 0);
+    expect(sessions.single.startCount, 1);
   });
 
   testWidgets('error UI retries with a fresh session and keeps open fallback', (
