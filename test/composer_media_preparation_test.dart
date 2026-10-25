@@ -137,18 +137,35 @@ void main() {
       await input.delete();
     });
 
-    for (final length in [2, 4, 11]) {
-      test('rejects mismatched or oversized declared length $length', () async {
+    for (final length in [2, 4]) {
+      test('rejects a mismatched declared length $length', () async {
         expect(await stage(Stream.value([1, 2, 3]), length: length), isFalse);
       });
     }
 
+    test('rejects an oversized source before reading it', () async {
+      final writer = _Writer();
+      expect(
+        await stage(
+          Stream.value(List.filled(11, 1)),
+          length: 11,
+          destination: _Destination(writer),
+        ),
+        isFalse,
+      );
+      expect(writer.writes, isEmpty);
+    });
+
     test('source errors close the destination', () async {
+      final writer = _Writer();
       await expectLater(
-        stage(Stream.error(StateError('source failed'))),
+        stage(
+          Stream.error(StateError('source failed')),
+          destination: _Destination(writer),
+        ),
         throwsStateError,
       );
-      await input.delete();
+      expect(writer.closed, isTrue);
     });
 
     test('stalled source times out and detaches its subscription', () async {
@@ -186,16 +203,18 @@ void main() {
         onCancel: () => onCancel.future,
       );
       final abort = Completer<void>();
+      final writer = _Writer();
       final pending = stage(
         source.stream,
         aborted: abort.future,
         timeout: const Duration(milliseconds: 10),
+        destination: _Destination(writer),
       );
       final assertion = expectLater(pending, throwsA(isA<TimeoutException>()));
       await listened.future;
       abort.complete();
       await assertion;
-      await input.delete();
+      expect(writer.closed, isTrue);
       onCancel.complete();
       await source.close();
     });

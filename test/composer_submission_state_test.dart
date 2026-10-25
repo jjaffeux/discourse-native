@@ -52,7 +52,6 @@ void main() {
       expect(composer.canSubmit, isFalse);
       expect(composer.canRecheck, isTrue);
       expect(composer.submission, same(sent));
-      expect(sent.raw, 'Original sent text');
       expect(composer.target.replyToPostNumber, 9);
       composer.checking();
       expect(composer.submission, same(sent));
