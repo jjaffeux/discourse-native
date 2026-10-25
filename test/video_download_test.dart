@@ -493,6 +493,51 @@ void main() {
     },
   );
 
+  test(
+    'media typing prefers an MP4 signature over a misleading header',
+    () async {
+      final bytes = await File(
+        'darwin/Tests/Fixtures/thumbnail.mp4',
+      ).readAsBytes();
+      await download(
+        MockClient(
+          (_) async => http.Response.bytes(
+            bytes,
+            200,
+            headers: {'content-type': 'video/quicktime'},
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+        title: 'Recording.mov',
+      );
+
+      expect(environment.sharedBytes, bytes);
+      expect(environment.sharedName, 'Recording.mp4');
+      expect(environment.mimeType, 'video/mp4');
+    },
+  );
+
+  test(
+    'media typing keeps a nonvideo signature generic despite a video header',
+    () async {
+      final bytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      await download(
+        MockClient(
+          (_) async => http.Response.bytes(
+            bytes,
+            200,
+            headers: {'content-type': 'video/mp4'},
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+        title: 'Recording.mp4',
+      );
+
+      expect(environment.sharedBytes, bytes);
+      expect(environment.mimeType, 'application/octet-stream');
+    },
+  );
+
   test('media typing does not label an AVIF container as MP4', () async {
     final bytes = [0, 0, 0, 24, ...'ftypavif'.codeUnits, 0, 0, 0, 0];
     await download(
