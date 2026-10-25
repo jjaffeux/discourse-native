@@ -77,6 +77,38 @@ class FoundHashtag {
     for (final color in colors) categoryColorValue(color),
   ];
 
+  static FoundHashtag? resolveRef(
+    String requestedRef, {
+    required Iterable<FoundHashtag> candidates,
+    required List<String> order,
+    required Set<String> requestedRefs,
+  }) {
+    for (final type in order) {
+      if (!requestedRef.contains('::') &&
+          requestedRefs.contains('$requestedRef::$type')) {
+        continue;
+      }
+      for (final candidate in candidates) {
+        if (candidate.type == type && candidate.matchesRef(requestedRef)) {
+          return candidate;
+        }
+      }
+    }
+    return null;
+  }
+
+  bool matchesRef(String requestedRef) {
+    final requested = requestedRef.split('::');
+    final canonical = ref.split('::');
+    if (requested.length > 2 || canonical.length > 2) return false;
+    if (requested.length == 2 && requested.last != type) return false;
+    if (canonical.length == 2 &&
+        (canonical.last != type || requested.length == 1)) {
+      return false;
+    }
+    return requested.first.toLowerCase() == canonical.first.toLowerCase();
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

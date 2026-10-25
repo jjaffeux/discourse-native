@@ -375,15 +375,27 @@ final class DiscourseSearchApi {
     try {
       final body = await decodeJsonHttpResponse(response);
       if (body is! Map<String, dynamic>) return const [];
-      return <FoundHashtag>[
+      final candidates = <FoundHashtag>[
         for (final entry in body.values)
           if (entry is List<dynamic>)
             for (final item in entry)
               if (item is Map<String, dynamic>)
                 if (FoundHashtag.fromJson(item) case final hashtag?
-                    when requested.contains(hashtag.ref))
+                    when order.contains(hashtag.type) &&
+                        requested.any(hashtag.matchesRef))
                   hashtag,
-      ].take(hashtagsPerRequest).toList(growable: false);
+      ];
+      return <FoundHashtag>{
+        for (final ref in requested)
+          if (FoundHashtag.resolveRef(
+                ref,
+                candidates: candidates,
+                order: order,
+                requestedRefs: requested,
+              )
+              case final hashtag?)
+            hashtag,
+      }.toList(growable: false);
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,

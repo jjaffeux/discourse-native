@@ -160,6 +160,7 @@ final class _ComposerIdentityResolution {
         if (!_hashtags.containsKey(ref) && _hashtagsInFlight.add(ref)) ref,
     ];
     if (ask.isEmpty) return;
+    final requested = ask.toSet();
     try {
       for (
         var offset = 0;
@@ -183,10 +184,15 @@ final class _ComposerIdentityResolution {
           );
           if (!isCurrent) return;
           for (final ref in batch) {
-            _hashtags.put(ref, null);
-          }
-          for (final hashtag in found) {
-            _hashtags.put(hashtag.ref, hashtag);
+            _hashtags.put(
+              ref,
+              FoundHashtag.resolveRef(
+                ref,
+                candidates: found,
+                order: _hashtagTypes,
+                requestedRefs: requested,
+              ),
+            );
           }
           _onChanged(true);
         } catch (_) {}
