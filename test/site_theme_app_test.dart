@@ -49,33 +49,6 @@ void main() {
   const siteB = 'https://b.example';
 
   testWidgets(
-    'Apple forum themes use glass with a saved Standard preference',
-    (tester) async {
-      final settings = ForumSettingsStore.memory();
-      await settings.writeAppearance(const SharedAppearance());
-      await _pumpApp(
-        tester,
-        store: FakeInstanceStore(const [
-          DiscourseInstance(url: siteA, title: 'A'),
-          DiscourseInstance(url: siteB, title: 'B'),
-        ]),
-        api: FakeDiscourseApi(),
-        forumSettingsStore: settings,
-      );
-      final shell = _controller(tester);
-      for (final index in [0, 1, 0]) {
-        shell.selectInstance(index);
-        await tester.pumpAndSettle();
-      }
-      expect(tester.takeException(), isNull);
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.macOS,
-      TargetPlatform.iOS,
-    }),
-  );
-
-  testWidgets(
     'rail Settings opens app preferences before any forum is connected',
     (tester) async {
       await _pumpApp(

@@ -184,7 +184,6 @@ void main() {
             tokens.foreground.withValues(alpha: .08),
           );
 
-          {}
           await _capture(
             tester,
             key,

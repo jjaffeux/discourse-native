@@ -798,9 +798,7 @@ void main() {
     });
 
     for (final direction in TextDirection.values) {
-      testWidgets('glass close does not select a tab in $direction', (
-        tester,
-      ) async {
+      testWidgets('close does not select a tab in $direction', (tester) async {
         final selected = <String>[];
         final closed = <String>[];
         await _pumpBar(

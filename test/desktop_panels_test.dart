@@ -343,7 +343,7 @@ void main() {
     );
   }
 
-  testWidgets('swap action keeps a flat fill', (tester) async {
+  testWidgets('focusing the swap action reveals it', (tester) async {
     _openTopicTab(shell, _topic);
     await _pump(tester, shell);
     tester.widget<DButton>(_swapButton).focusNode!.requestFocus();

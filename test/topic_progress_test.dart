@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('phone and desktop progress retain the selected material', (
+  testWidgets('phone and desktop progress keep their trigger heights', (
     tester,
   ) async {
     await (FontLoader('Lato')
@@ -62,7 +62,6 @@ void main() {
             final trigger = find.byKey(const ValueKey('topic-progress-button'));
             expect(tester.getSize(trigger).height, floating ? 26 : 30);
 
-            {}
             final output =
                 Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
             if (output != null) {
