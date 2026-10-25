@@ -38,7 +38,6 @@ void main() {
 
       expect(find.byKey(_dialog), findsOneWidget);
       expect(find.byType(DDropdownMenuContent), findsNothing);
-      expect(find.byKey(const ValueKey('user-menu-sheet')), findsNothing);
       expect(find.text('Discourse'), findsOneWidget);
       expect(find.text('Discourse Meta'), findsOneWidget);
       expect(find.text('Documentation'), findsOneWidget);

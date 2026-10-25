@@ -67,9 +67,7 @@ void main() {
           );
           await tester.tap(find.byKey(UserMenuButton.bellKey));
           await tester.pumpAndSettle();
-          final menu = find.byType(UserMenuPanel).evaluate().isNotEmpty
-              ? find.byType(UserMenuPanel)
-              : find.byKey(const ValueKey('user-menu-sheet'));
+          final menu = find.byType(UserMenuPanel);
           final label = switch (section) {
             _Section.bookmarks => 'Bookmarks',
             _Section.notifications => 'Notifications',

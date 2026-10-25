@@ -71,9 +71,7 @@ void main() {
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
         Future<void> selectChat() async {
-          final menu = find.byType(UserMenuPanel).evaluate().isNotEmpty
-              ? find.byType(UserMenuPanel)
-              : find.byKey(const ValueKey('user-menu-sheet'));
+          final menu = find.byType(UserMenuPanel);
           final tab = find
               .descendant(of: menu, matching: find.text('Chat'))
               .last;

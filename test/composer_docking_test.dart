@@ -449,7 +449,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
     expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
     expect(find.byTooltip('Save and close'), findsNWidgets(2));
   });
@@ -464,7 +463,6 @@ void main() {
       composer.text.text = 'A saved topic draft';
       await tester.runAsync(composer.flushDraft);
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('composer-discard')), findsNothing);
       composer.text.text = 'A saved topic draft with edits';
       await tester.pump();
       if (mobile) {
