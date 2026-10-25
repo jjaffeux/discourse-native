@@ -50,7 +50,8 @@ void main() {
     final traffic = parsed.sections.whereType<DashboardTraffic>().single;
     final entry = traffic.rankings[1].rows.single;
     expect(entry.label, '/t/sailing/42');
-    expect(entry.path, '/t/sailing/42');
+    expect(entry.link!.value, '/t/sailing/42');
+    expect(entry.link!.origin, DashboardLinkOrigin.server);
     expect(traffic.series.last.crawler, isTrue);
     expect(
       parsed.sections.whereType<DashboardReports>().single.items.first.path,
@@ -117,6 +118,20 @@ void main() {
     expect(table.rows, [
       ['Sam'],
     ]);
+    final xColumn = DashboardReportResult.fromJson(const {
+      'data': {
+        'labels': [
+          {'property': 'x', 'title': 'Name'},
+        ],
+        'data': [
+          {'x': 'Sailing'},
+        ],
+      },
+    });
+    expect(xColumn.points, isEmpty);
+    expect(xColumn.rows, [
+      ['Sailing'],
+    ]);
     expect(
       DashboardReportResult.fromJson(const {
         'data': {
@@ -127,6 +142,104 @@ void main() {
       }).unsupported,
       isTrue,
     );
+  });
+  test('report tables resolve core user, topic, post, and link labels', () {
+    final table = DashboardReportResult.fromJson(const {
+      'data': {
+        'labels': [
+          {
+            'type': 'user',
+            'properties': {'username': 'author_username', 'id': 'author_id'},
+            'title': 'Author',
+          },
+          {
+            'type': 'topic',
+            'properties': {'title': 'topic_title', 'id': 'topic_id'},
+            'title': 'Topic',
+          },
+          {
+            'type': 'post',
+            'properties': {
+              'truncated_raw': 'post_raw',
+              'number': 'post_number',
+            },
+            'title': 'Post',
+          },
+          {
+            'type': 'link',
+            'properties': ['file_url', 'file_name'],
+            'title': 'File',
+          },
+          {
+            'type': 'number',
+            'properties': ['ignores_count'],
+            'title': 'Ignored',
+          },
+          {'property': 'qtt_like', 'type': 'number', 'title': 'Likes'},
+        ],
+        'data': [
+          {
+            'author_username': 'sam',
+            'author_id': 7,
+            'topic_title': 'Sailing <b>together</b>',
+            'topic_id': 42,
+            'post_raw': 'A <b>post</b>',
+            'post_number': 3,
+            'file_url': '/uploads/manual.pdf',
+            'file_name': 'Sailing manual.pdf',
+            'ignores_count': 0,
+            'qtt_like': 12,
+          },
+        ],
+      },
+    });
+    expect(table.unsupported, isFalse);
+    expect(table.rows, [
+      ['sam', 'Sailing together', 'A post', 'Sailing manual.pdf', '0', '12'],
+    ]);
+  });
+  test('unknown mapped report labels use the unsupported report fallback', () {
+    for (final properties in <Object>[
+      {'display': 'custom_name'},
+      ['custom_id', 'custom_name'],
+    ]) {
+      final result = DashboardReportResult.fromJson({
+        'data': {
+          'labels': [
+            {
+              'type': 'custom_identity',
+              'properties': properties,
+              'title': 'Identity',
+            },
+          ],
+          'data': const [
+            {'custom_id': 7, 'custom_name': 'Sam'},
+          ],
+        },
+      });
+      expect(result.unsupported, isTrue);
+      expect(result.rows, isEmpty);
+    }
+  });
+  test('dated report gaps survive parsing and do not become zero totals', () {
+    DashboardReportResult report(List<num?> values, {bool average = false}) =>
+        DashboardReportResult.fromJson({
+          'data': {
+            'average': average,
+            'total': 99,
+            'data': [
+              for (var i = 0; i < values.length; i++)
+                {'x': '2026-10-${23 + i}', 'y': values[i]},
+            ],
+          },
+        });
+    final sparse = report([2, null, 4], average: true);
+    expect(sparse.points.map((point) => point.value), [2, null, 4]);
+    expect(sparse.value, 3);
+    expect(report([2, null, 4]).value, isNull);
+    expect(report([null, null]).value, isNull);
+    expect(report([null, null], average: true).value, isNull);
+    expect(report([0, null], average: true).value, 0);
   });
   test('native dashboard routes are durable and only resolve staff links', () {
     final route = ContentRoute.dashboard();

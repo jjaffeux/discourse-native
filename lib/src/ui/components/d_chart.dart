@@ -1153,16 +1153,28 @@ class _BarPainter extends CustomPainter {
         }
         final color = rows[start][series].color!;
         if (kind == DChartPlot.stackedArea) {
+          paint
+            ..style = PaintingStyle.fill
+            ..color = color.withValues(alpha: .72);
+          if (start == end) {
+            final halfWidth = math.min(3.0, slot * .4);
+            canvas.drawRect(
+              Rect.fromLTRB(
+                x(start) - halfWidth,
+                y(top(start)),
+                x(start) + halfWidth,
+                y(base(start)),
+              ),
+              paint,
+            );
+            start = end + 1;
+            continue;
+          }
           for (var index = end; index >= start; index--) {
             path.lineTo(x(index), y(base(index)));
           }
           path.close();
-          canvas.drawPath(
-            path,
-            paint
-              ..style = PaintingStyle.fill
-              ..color = color.withValues(alpha: .72),
-          );
+          canvas.drawPath(path, paint);
         } else if (start == end) {
           canvas.drawCircle(
             Offset(x(start), y(top(start))),

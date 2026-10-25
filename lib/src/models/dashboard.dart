@@ -90,6 +90,17 @@ final class DashboardSeries {
 }
 
 @immutable
+final class DashboardLink {
+  const DashboardLink.server(this.value) : origin = DashboardLinkOrigin.server;
+  const DashboardLink.app(this.value) : origin = DashboardLinkOrigin.app;
+
+  final String value;
+  final DashboardLinkOrigin origin;
+}
+
+enum DashboardLinkOrigin { server, app }
+
+@immutable
 final class DashboardBreakdownRow {
   const DashboardBreakdownRow({
     required this.label,
@@ -102,7 +113,7 @@ final class DashboardBreakdownRow {
     this.promoted,
     this.demoted,
     this.status,
-    this.path,
+    this.link,
   });
   final String label;
   final num? count;
@@ -114,7 +125,7 @@ final class DashboardBreakdownRow {
   final int? promoted;
   final int? demoted;
   final String? status;
-  final String? path;
+  final DashboardLink? link;
 }
 
 @immutable
@@ -235,8 +246,14 @@ final class DashboardReportResult {
     final data = jsonObject(json['data']);
     final values = jsonObjects(data['data']).toList();
     final labels = jsonObjects(data['labels']).toList();
+    final properties = labels.map(_reportProperty).toList();
     final points = values
-        .where((row) => row['x'] is String && dashboardNumber(row['y']) != null)
+        .where(
+          (row) =>
+              row['x'] is String &&
+              row.containsKey('y') &&
+              (row['y'] == null || dashboardNumber(row['y']) != null),
+        )
         .map(DashboardPoint.fromJson)
         .toList();
     return DashboardReportResult(
@@ -244,22 +261,43 @@ final class DashboardReportResult {
           json['error'] == true ||
           data['error'] != null && data['error'] != false,
       unsupported:
-          data.isEmpty || values.isNotEmpty && points.isEmpty && labels.isEmpty,
+          data.isEmpty ||
+          points.isEmpty &&
+              (values.isNotEmpty && labels.isEmpty ||
+                  properties.contains(null)),
       points: points,
       average: data['average'] == true,
       percent: data['percent'] == true,
       total: dashboardNumber(data['total']),
       headings: labels.map((label) => jsonString(label['title'])),
-      rows: points.isNotEmpty
+      rows: points.isNotEmpty || properties.contains(null)
           ? const []
           : values.map(
               (row) => [
-                for (final label in labels)
-                  _reportCell(row[jsonString(label['property'])]),
+                for (final property in properties) _reportCell(row[property]),
               ],
             ),
     );
   }
+  static String? _reportProperty(Map<String, dynamic> label) {
+    final property = jsonText(label['property']);
+    if (property != null) return property;
+    final properties = label['properties'];
+    if (properties is List) {
+      if (label['type'] == 'link' && properties.length == 2) {
+        return jsonText(properties[1]);
+      }
+      return properties.length == 1 ? jsonText(properties.single) : null;
+    }
+    final key = switch (label['type']) {
+      'user' => 'username',
+      'topic' => 'title',
+      'post' => 'truncated_raw',
+      _ => null,
+    };
+    return key == null ? null : jsonText(jsonObject(properties)[key]);
+  }
+
   static String _reportCell(Object? value) => switch (value) {
     null => '—',
     String() => jsonHtmlText(value) ?? '',
@@ -275,12 +313,15 @@ final class DashboardReportResult {
   final num? total;
   final bool average;
   final bool percent;
-  num? get value => points.isEmpty
-      ? total
-      : average
-      ? points.fold<num>(0, (sum, point) => sum + (point.value ?? 0)) /
-            points.length
-      : points.fold<num>(0, (sum, point) => sum + (point.value ?? 0));
+  num? get value {
+    if (points.isEmpty) return total;
+    final observed = points.map((point) => point.value).nonNulls.toList();
+    if (observed.isEmpty || !average && observed.length != points.length) {
+      return null;
+    }
+    final sum = observed.fold<num>(0, (sum, value) => sum + value);
+    return average ? sum / observed.length : sum;
+  }
 }
 
 final class DashboardTraffic extends DashboardSection {
@@ -310,8 +351,10 @@ final class DashboardTraffic extends DashboardSection {
                 label: jsonString(row[property]),
                 count: dashboardNumber(row['count']),
                 share: dashboardNumber(row['percent']),
-                path: key == 'top_entry_urls'
-                    ? jsonText(row['entry_url'])
+                link:
+                    key == 'top_entry_urls' &&
+                        jsonText(row['entry_url']) != null
+                    ? DashboardLink.server(jsonString(row['entry_url']))
                     : null,
               ),
           ], error: jsonObject(json[key])['error'] != null),
@@ -369,9 +412,9 @@ final class DashboardEngagement extends DashboardSection {
                   views: dashboardNumber(row['page_views']),
                   share: dashboardNumber(row['share']),
                   change: dashboardNumber(row['share_change']),
-                  path: jsonIntOrNull(row['category_id']) == null
+                  link: jsonIntOrNull(row['category_id']) == null
                       ? null
-                      : '/c/${jsonInt(row['category_id'])}',
+                      : DashboardLink.app('/c/${jsonInt(row['category_id'])}'),
                 ),
             ]),
         ],
@@ -403,10 +446,12 @@ final class DashboardSearch extends DashboardSection {
                   label: jsonString(row['term']),
                   count: dashboardNumber(row['searches']),
                   status: jsonText(row['status']),
-                  path: Uri(
-                    path: '/search',
-                    queryParameters: {'q': jsonString(row['term'])},
-                  ).toString(),
+                  link: DashboardLink.app(
+                    Uri(
+                      path: '/search',
+                      queryParameters: {'q': jsonString(row['term'])},
+                    ).toString(),
+                  ),
                 ),
             ]),
         ],

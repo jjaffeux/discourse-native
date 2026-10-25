@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/dashboard_host.dart';
@@ -65,14 +66,101 @@ class DashboardTestApi extends FakeDiscourseApi {
 
 void main() {
   const channel = MethodChannel('org.discourse.native/notification_opens');
+  const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+  final launched = <String>[];
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (_) async => null);
+    launched.clear();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(launcher, (call) async {
+          if (call.method == 'launch') {
+            final arguments = call.arguments as Map<dynamic, dynamic>;
+            launched.add(arguments['url'] as String);
+          }
+          return true;
+        });
   });
-  tearDown(
-    () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null),
+  tearDown(() {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, null);
+    messenger.setMockMethodCallHandler(launcher, null);
+  });
+  test('dashboard links distinguish server URLs from generated app paths', () {
+    expect(
+      dashboardLinkUrl(
+        siteUrl,
+        const DashboardLink.server('/discuss/t/sailing/42'),
+      ),
+      '$siteUrl/t/sailing/42',
+    );
+    expect(
+      dashboardLinkUrl(siteUrl, const DashboardLink.app('/admin/dashboard')),
+      '$siteUrl/admin/dashboard',
+    );
+    expect(
+      dashboardLinkUrl(siteUrl, const DashboardLink.app('/search?q=sailing')),
+      '$siteUrl/search?q=sailing',
+    );
+    expect(
+      dashboardLinkUrl(
+        'https://forum.example/c',
+        const DashboardLink.app('/c/7'),
+      ),
+      'https://forum.example/c/c/7',
+    );
+    expect(
+      dashboardLinkUrl(
+        'https://forum.example/search',
+        const DashboardLink.app('/search?q=sailing'),
+      ),
+      'https://forum.example/search/search?q=sailing',
+    );
+    expect(
+      dashboardLinkUrl(
+        siteUrl,
+        const DashboardLink.server('https://other.example/page'),
+      ),
+      'https://other.example/page',
+    );
+  });
+  testWidgets(
+    'server entry links stay native and admin fallbacks open mounted URLs',
+    (tester) async {
+      final api = DashboardTestApi();
+      final auth = FakeAuthenticator()..keys[siteUrl] = 'staff-key';
+      await pumpShell(
+        tester,
+        desktop,
+        api: api,
+        authenticator: auth,
+        instances: const [
+          DiscourseInstance(url: siteUrl, title: 'Forum', user: staff),
+        ],
+      );
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      shell.openCorePageUrl('$siteUrl/admin/dashboard');
+      await tester.pumpAndSettle();
+      var page = tester.widget<DashboardPage>(find.byType(DashboardPage));
+      page.onOpenUrl(const DashboardLink.app('/admin/dashboard'));
+      await tester.pumpAndSettle();
+      expect(launched, ['$siteUrl/admin/dashboard']);
+      expect(find.byType(DashboardPage), findsOneWidget);
+      page.onOpenUrl(const DashboardLink.server('/discuss/t/sailing/42'));
+      await tester.pumpAndSettle();
+      expect(api.topicsOpened, contains(42));
+      expect(launched, ['$siteUrl/admin/dashboard']);
+      shell.openCorePageUrl('$siteUrl/admin/dashboard');
+      await tester.pumpAndSettle();
+      page = tester.widget<DashboardPage>(find.byType(DashboardPage));
+      page.onOpenUrl(const DashboardLink.server('https://other.example/page'));
+      await tester.pumpAndSettle();
+      expect(launched.last, 'https://other.example/page');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
   for (final platform in [TargetPlatform.linux, TargetPlatform.iOS]) {
     testWidgets(

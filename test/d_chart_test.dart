@@ -69,6 +69,46 @@ Future<void> pump(
 );
 
 void main() {
+  testWidgets('isolated stacked samples paint without filling missing dates', (
+    tester,
+  ) async {
+    for (final values in <List<num?>>[
+      [2],
+      [2, null, 2],
+    ]) {
+      final key = GlobalKey();
+      await pump(
+        tester,
+        RepaintBoundary(
+          key: key,
+          child: DCartesianChart<num?>(
+            plot: DChartPlot.stackedArea,
+            data: values,
+            series: [DChartSeries(key: 'desktop', value: (value) => value)],
+            label: (value) => '$value',
+            semanticLabel: 'Isolated traffic',
+            tooltip: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = (await tester.runAsync(
+        () => boundary.toImage(pixelRatio: 1),
+      ))!;
+      final bytes = (await tester.runAsync(() => image.toByteData()))!;
+      int pixel(int x) => bytes.getUint32((100 * image.width + x) * 4);
+      if (values.length == 1) {
+        expect(pixel(180), isNot(pixel(20)));
+      } else {
+        expect(pixel(63), isNot(pixel(180)));
+        expect(pixel(297), isNot(pixel(180)));
+        expect(pixel(180), pixel(20));
+      }
+      image.dispose();
+    }
+  });
   for (final kind in [DChartPlot.line, DChartPlot.stackedArea]) {
     testWidgets(
       '$kind reuses keyboard inspection and preserves missing values',

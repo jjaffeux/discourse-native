@@ -29,7 +29,7 @@ Widget dashboard({
   ValueChanged<DashboardPeriod>? onPeriod,
   ValueChanged<List<DashboardConfiguration>>? onConfigure,
   VoidCallback? onRefresh,
-  ValueChanged<String>? onOpen,
+  ValueChanged<DashboardLink>? onOpen,
   ValueChanged<DashboardProblem>? onDismiss,
 }) => MaterialApp(
   theme: AppTheme.light.copyWith(
@@ -208,7 +208,7 @@ void main() {
     await tester.pumpWidget(
       dashboard(
         state: DashboardState(snapshot: DashboardSnapshot(supported: false)),
-        onOpen: (url) => opened = url,
+        onOpen: (link) => opened = link.value,
       ),
     );
     await tester.pumpAndSettle();

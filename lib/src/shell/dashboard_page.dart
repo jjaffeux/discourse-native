@@ -85,7 +85,7 @@ class DashboardPage extends StatefulWidget {
   final ValueChanged<List<DashboardConfiguration>> onConfigure;
   final VoidCallback onRefreshProblems;
   final ValueChanged<DashboardProblem> onDismissProblem;
-  final ValueChanged<String> onOpenUrl;
+  final ValueChanged<DashboardLink> onOpenUrl;
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
@@ -384,7 +384,8 @@ class _DashboardPageState extends State<DashboardPage> {
               child: DButton(
                 label: Text(context.l10n.dashboardOpenReport),
                 variant: DButtonVariant.link,
-                onPressed: () => widget.onOpenUrl(report.path),
+                onPressed: () =>
+                    widget.onOpenUrl(DashboardLink.app(report.path)),
               ),
             ),
           ],
@@ -526,7 +527,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 row.change == null ? '—' : '${_signed(row.change!)}%',
               ],
           ],
-          firstCellPaths: breakdown.rows.map((row) => row.path).toList(),
+          firstCellPaths: breakdown.rows.map((row) => row.link).toList(),
         ),
       );
     }
@@ -553,7 +554,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: row.path == null
+                        child: row.link == null
                             ? Text(row.label)
                             : Align(
                                 alignment: AlignmentDirectional.centerStart,
@@ -564,7 +565,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  onPressed: () => widget.onOpenUrl(row.path!),
+                                  onPressed: () => widget.onOpenUrl(row.link!),
                                 ),
                               ),
                       ),
@@ -634,7 +635,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 label: Text(context.l10n.dashboardViewGithub),
                 variant: DButtonVariant.link,
                 onPressed: () => widget.onOpenUrl(
-                  'https://github.com/discourse/discourse/commits/${system.commits}',
+                  DashboardLink.server(
+                    'https://github.com/discourse/discourse/commits/${system.commits}',
+                  ),
                 ),
               ),
           ],
@@ -694,7 +697,8 @@ class _DashboardPageState extends State<DashboardPage> {
             DButton(
               label: Text(context.l10n.dashboardWhatsNew),
               variant: DButtonVariant.link,
-              onPressed: () => widget.onOpenUrl('/admin/whats-new'),
+              onPressed: () =>
+                  widget.onOpenUrl(const DashboardLink.app('/admin/whats-new')),
             ),
           ],
         ),
@@ -705,7 +709,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _table(
     List<String> headings,
     List<List<String>> rows, {
-    List<String?>? firstCellPaths,
+    List<DashboardLink?>? firstCellPaths,
   }) => DTable(
     header: DTableHeader(
       rows: [
@@ -782,7 +786,8 @@ class _DashboardPageState extends State<DashboardPage> {
     child: DButton(
       label: Text(context.l10n.dashboardOpenBrowser),
       variant: DButtonVariant.outline,
-      onPressed: () => widget.onOpenUrl('/admin/dashboard'),
+      onPressed: () =>
+          widget.onOpenUrl(const DashboardLink.app('/admin/dashboard')),
     ),
   );
 }
