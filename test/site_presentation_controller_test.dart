@@ -509,13 +509,19 @@ void main() {
           await pumpEventQueue();
 
           expect(controller.configFor(site), same(stored));
-          expect(controller.configFor(site).plugins.get(pluginSettings), isNull);
+          expect(
+            controller.configFor(site).plugins.get(pluginSettings),
+            isNull,
+          );
           expect(api.configCalls, 1);
 
           gate.complete(fetched);
           await Future.wait([warming, ensuring]);
 
-          expect(controller.configFor(site).plugins.get(pluginSettings), isTrue);
+          expect(
+            controller.configFor(site).plugins.get(pluginSettings),
+            isTrue,
+          );
           await Future.wait([
             controller.warmConfig(site),
             controller.ensureConfig(site),
@@ -548,7 +554,31 @@ void main() {
       });
 
       test(
-        'warm persisted values prevent requests until freshness expires',
+        'recent saved settings remain an offline resolution fallback',
+        () async {
+          var now = DateTime.utc(2026, 8, 11, 12);
+          const stored = SiteConfig(emojiSet: 'apple');
+          final api = _PresentationApi()..configError = StateError('offline');
+          final controller = _controller(
+            api,
+            persisted: const {site: stored},
+            clock: () => now,
+          );
+
+          expect(await controller.resolveConfig(site), same(stored));
+          expect(api.configCalls, 1);
+
+          now = now.add(
+            SitePresentationController.defaultPersistedFreshness +
+                const Duration(seconds: 1),
+          );
+          expect(await controller.resolveConfig(site), isNull);
+          expect(api.configCalls, 2);
+        },
+      );
+
+      test(
+        'saved settings revalidate while appearance stays warm until expiry',
         () async {
           var now = DateTime.utc(2026, 8, 11, 12);
           final api = _PresentationApi()
@@ -573,9 +603,9 @@ void main() {
           ]);
 
           expect(api.appearanceCalls, 0);
-          expect(api.configCalls, 0);
-          expect(credentials.apiKeySites, isEmpty);
-          expect(credentials.clientIdCalls, 0);
+          expect(api.configCalls, 1);
+          expect(credentials.apiKeySites, [site]);
+          expect(credentials.clientIdCalls, 1);
 
           now = now.add(
             SitePresentationController.defaultPersistedFreshness +
@@ -609,7 +639,7 @@ void main() {
         expect(controller.configFor(site).emojiSet, 'google');
       });
 
-      test('forget invalidates warm persisted values', () async {
+      test('forget invalidates warm appearance and fetched settings', () async {
         final api = _PresentationApi()
           ..appearance = siteAppearance(accent: const Color(0xFF445566))
           ..config = const SiteConfig(emojiSet: 'google');
@@ -626,7 +656,7 @@ void main() {
           controller.ensureConfig(site),
         ]);
         expect(api.appearanceCalls, 0);
-        expect(api.configCalls, 0);
+        expect(api.configCalls, 1);
 
         controller.forget(site);
         await Future.wait([
@@ -635,7 +665,7 @@ void main() {
         ]);
 
         expect(api.appearanceCalls, 1);
-        expect(api.configCalls, 1);
+        expect(api.configCalls, 2);
       });
 
       test(
@@ -681,27 +711,31 @@ void main() {
         expect(api.configCalls, 4);
       });
 
-      test('warming shares a request in flight and a fresh snapshot', () async {
-        final gate = Completer<SiteConfig>();
-        final api = _PresentationApi()..configGate = gate;
-        final controller = _controller(api);
+      test(
+        'warming joins a request and revalidates a saved snapshot',
+        () async {
+          final gate = Completer<SiteConfig>();
+          final api = _PresentationApi()..configGate = gate;
+          final controller = _controller(api);
 
-        final ensuring = controller.ensureConfig(site);
-        await api.configRequestStarted.future;
-        final warming = controller.warmConfig(site);
-        gate.complete(const SiteConfig(emojiSet: 'google'));
-        await Future.wait([ensuring, warming]);
-        expect(api.configCalls, 1);
+          final ensuring = controller.ensureConfig(site);
+          await api.configRequestStarted.future;
+          final warming = controller.warmConfig(site);
+          gate.complete(const SiteConfig(emojiSet: 'google'));
+          await Future.wait([ensuring, warming]);
+          expect(api.configCalls, 1);
 
-        final persistedApi = _PresentationApi();
-        final persisted = _controller(
-          persistedApi,
-          persisted: const {site: SiteConfig(emojiSet: 'apple')},
-        );
-        await persisted.warmConfig(site);
-        expect(persistedApi.configCalls, 0);
-        expect(persisted.configFor(site).emojiSet, 'apple');
-      });
+          final persistedApi = _PresentationApi()
+            ..config = const SiteConfig(emojiSet: 'google');
+          final persisted = _controller(
+            persistedApi,
+            persisted: const {site: SiteConfig(emojiSet: 'apple')},
+          );
+          await persisted.warmConfig(site);
+          expect(persistedApi.configCalls, 1);
+          expect(persisted.configFor(site).emojiSet, 'google');
+        },
+      );
 
       test('a signed-out site loads without reading a client id', () async {
         // Reading it may raise the platform's notification permission prompt,

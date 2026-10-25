@@ -199,7 +199,6 @@ final class SitePresentationController extends FrameSafeNotifier {
       _configs.request(
         siteUrl,
         refresh: refresh,
-        isWarm: () => _warmPersistedConfig(siteUrl),
         load: (apiKey, clientId) =>
             loadConfig(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId),
         hasChanged: (config) => configFor(siteUrl) != config,
