@@ -30,14 +30,22 @@ If attachment fails after confirmed creation, the plugin retains the topic ID
 for attachment retry during the current app session. That recovery receipt is
 cleared on account retirement and is not persisted across app restart.
 
-Native board administration remains available through the browser configuration
-link. Inline assignment editing remains in the ordinary native topic reader.
-The board renders assignment metadata only when the server supplies it.
+Column title, icon, sorting, ordering, clear, and delete controls are native.
+The column editor preserves existing tag and move rules. Board-level
+configuration remains available through the browser link. Inline assignment
+editing remains in the ordinary native topic reader. The board renders
+assignment metadata only when the server supplies it.
 
 Run the focused checks with explicit paths:
 
 ```sh
-flutter test test/plugins/boards/boards_controller_test.dart test/plugins/boards/boards_widget_test.dart test/plugins/boards/boards_plugin_test.dart test/bundled_plugin_manifest_test.dart
+flutter test test/plugins/boards/boards_controller_test.dart \
+  test/plugins/boards/boards_widget_test.dart \
+  test/plugins/boards/boards_plugin_test.dart \
+  test/plugins/boards/boards_data_test.dart \
+  test/plugins/boards/boards_directory_test.dart \
+  test/plugins/boards/boards_column_actions_test.dart \
+  test/plugins/boards/boards_reader_test.dart
 ```
 
 The native integration entry point is `integration_test/boards_test.dart`.
