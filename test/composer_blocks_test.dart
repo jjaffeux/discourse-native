@@ -574,6 +574,16 @@ void main() {
 
       final (smallPrevious, smallSource) = typing(1000);
       final (largePrevious, largeSource) = typing(8000);
+      for (final (previous, source, count, changed, last) in [
+        (smallPrevious, smallSource, 1000, 'xParagraph 500', 'Paragraph 999'),
+        (largePrevious, largeSource, 8000, 'xParagraph 4000', 'Paragraph 7999'),
+      ]) {
+        final next = edit(previous, source);
+        expect(next.blocks, hasLength(count));
+        expect(next.blocks[count ~/ 2].source, changed);
+        expect(next.blocks.last.source, last);
+        expect(next.blocks.last.id, previous.blocks.last.id);
+      }
       final (:small, :large) = measureScaling(
         () => edit(smallPrevious, smallSource).blocks.length,
         () => edit(largePrevious, largeSource).blocks.length,
@@ -732,6 +742,31 @@ void main() {
 
         final (smallSource, smallAtoms) = document(2000);
         final (largeSource, largeAtoms) = document(16000);
+        for (final (source, atoms, count) in [
+          (smallSource, smallAtoms, 2000),
+          (largeSource, largeAtoms, 16000),
+        ]) {
+          final index = ComposerBlockIndex.parse(source, atoms: atoms);
+          expect(index.blocks, hasLength(count * 2));
+          expect(
+            index.blocks[index.blocks.length - 2].source,
+            'Paragraph ${count - 1}',
+          );
+          expect(index.blocks.last.source, block(count - 1));
+          expect(
+            index.blocks.last.kind,
+            name == 'details'
+                ? ComposerBlockKind.opaque
+                : ComposerBlockKind.component,
+          );
+          expect(index.blocks.last.movable, name != 'details');
+          expect(
+            index.blocks.where(
+              (block) => block.kind == ComposerBlockKind.paragraph,
+            ),
+            hasLength(count),
+          );
+        }
         final (:small, :large) = measureScaling(
           () => ComposerBlockIndex.parse(
             smallSource,

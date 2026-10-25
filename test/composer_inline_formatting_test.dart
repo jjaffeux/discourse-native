@@ -323,6 +323,41 @@ void main() {
 
     final smallSource = draft(150);
     final largeSource = draft(1200);
+    for (final (source, paragraphs, total) in [
+      (smallSource, 150, 750),
+      (largeSource, 1200, 6000),
+    ]) {
+      final formats = composerInlineFormats(source);
+      expect(formats, hasLength(total));
+      for (final (kind, wrapper, open, close) in const [
+        ('**', '**bold**', 2, 2),
+        ('*', '*italic*', 1, 1),
+        ('~~', '~~gone~~', 2, 2),
+        ('code', '`code`', 1, 1),
+        ('ins', '<ins>u</ins>', 5, 6),
+      ]) {
+        expect(
+          formats.where((format) => format.kind == kind),
+          hasLength(paragraphs),
+          reason: kind,
+        );
+        for (final start in [
+          source.indexOf(wrapper),
+          source.lastIndexOf(wrapper),
+        ]) {
+          expect(
+            formats,
+            contains((
+              start: start,
+              contentStart: start + open,
+              contentEnd: start + wrapper.length - close,
+              end: start + wrapper.length,
+              kind: kind,
+            )),
+          );
+        }
+      }
+    }
     final (:small, :large) = measureScaling(
       () => composerInlineFormats(smallSource).length,
       () => composerInlineFormats(largeSource).length,
