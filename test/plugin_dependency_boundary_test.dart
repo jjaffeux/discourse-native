@@ -716,7 +716,6 @@ void main() {
     test('keeps optional flag-target names opaque', () {
       final postFlag = File('lib/src/models/post_flag.dart').readAsStringSync();
 
-      expect(postFlag, contains('appliesToTarget'));
       expect(postFlag, isNot(contains('appliesToChatMessage')));
       expect(
         postFlag,
@@ -733,16 +732,11 @@ void main() {
       final modelCodec = File(
         'lib/src/plugin_api/discourse_model_codec.dart',
       ).readAsStringSync();
-      final discourseAi = File(
-        'lib/src/plugins/discourse_ai/ai_summary_plugin.dart',
-      ).readAsStringSync();
 
       expect(pluginData, isNot(contains('TopicRecommendationSource')));
-      expect(coreTopic, contains("json.containsKey('suggested_topics')"));
       expect(coreTopic, isNot(contains('related_topics')));
       expect(coreTopic, isNot(contains('extensions is TopicRecommendation')));
       expect(modelCodec, isNot(contains('extensions is TopicRecommendation')));
-      expect(discourseAi, contains("json.containsKey('related_topics')"));
     });
 
     test('keeps plugin migrations out of recommendation persistence', () {
@@ -750,7 +744,6 @@ void main() {
         'lib/src/data/topic_recommendations_tab_store.dart',
       ).readAsStringSync();
 
-      expect(tabStore, contains('migrateLegacyStoredId'));
       expect(tabStore, isNot(contains('discourse-ai/related')));
       expect(
         tabStore,

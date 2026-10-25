@@ -249,7 +249,6 @@ void main() {
       expect(first.mentionedUserStatuses, isNotEmpty);
       expect(second, first);
       expect(second.hashCode, first.hashCode);
-      expect(first.hashCode, first.hashCode);
     });
 
     test(
@@ -479,27 +478,52 @@ void main() {
       expect(seed.height, 180);
     });
 
-    test('trusted GIF input rejects unsafe or incomplete metadata', () {
-      expect(
-        () => OutgoingChatMessage.trustedGif(
-          raw: 'image',
-          url: 'javascript:alert(1)',
-          title: 'cat',
-          width: 320,
-          height: 180,
-        ),
-        throwsArgumentError,
-      );
-      expect(
-        () => OutgoingChatMessage.trustedGif(
-          raw: 'image',
-          url: 'https://media.example/cat.gif',
-          title: '',
-          width: 0,
-          height: 180,
-        ),
-        throwsArgumentError,
-      );
-    });
+    for (final (label, url, title, width, height) in [
+      ('unsupported scheme', 'ftp://media.example/cat.gif', 'cat', 320, 180),
+      ('script URL', 'javascript:alert(1)', 'cat', 320, 180),
+      ('relative URL', '/cat.gif', 'cat', 320, 180),
+      ('missing host', 'https:/cat.gif', 'cat', 320, 180),
+      ('malformed URL', 'https://[invalid', 'cat', 320, 180),
+      ('fragment', 'https://media.example/cat.gif#part', 'cat', 320, 180),
+      ('empty title', 'https://media.example/cat.gif', '', 320, 180),
+      ('blank title', 'https://media.example/cat.gif', ' \t ', 320, 180),
+      ('zero width', 'https://media.example/cat.gif', 'cat', 0, 180),
+      ('negative width', 'https://media.example/cat.gif', 'cat', -1, 180),
+      ('zero height', 'https://media.example/cat.gif', 'cat', 320, 0),
+      ('negative height', 'https://media.example/cat.gif', 'cat', 320, -1),
+      ('excessive width', 'https://media.example/cat.gif', 'cat', 10001, 180),
+      ('excessive height', 'https://media.example/cat.gif', 'cat', 320, 10001),
+    ]) {
+      test('trusted GIF input rejects $label', () {
+        expect(
+          () => OutgoingChatMessage.trustedGif(
+            raw: 'image',
+            url: url,
+            title: title,
+            width: width,
+            height: height,
+          ),
+          throwsArgumentError,
+        );
+      });
+    }
+
+    for (final scheme in ['http', 'https']) {
+      for (final (width, height) in [(1, 10000), (10000, 1)]) {
+        test('trusted GIF input accepts $scheme at ${width}x$height', () {
+          final outgoing = OutgoingChatMessage.trustedGif(
+            raw: 'image',
+            url: '$scheme://media.example/cat.gif',
+            title: 'cat',
+            width: width,
+            height: height,
+          );
+          final seed = outgoing.trustedPreviewSeed as TrustedGifPreviewSeed;
+          expect(seed.url, Uri.parse('$scheme://media.example/cat.gif'));
+          expect(seed.width, width);
+          expect(seed.height, height);
+        });
+      }
+    }
   });
 }

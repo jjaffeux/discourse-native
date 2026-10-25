@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
+import 'package:discourse_plugin_api/testing.dart' as plugin_testing;
 import 'package:flutter_test/flutter_test.dart';
 
 const _bundledTransportModules = <String>{
@@ -30,15 +31,7 @@ void main() {
     final transport = RecordingPluginTransport();
     final PluginApiTransport _ = transport;
     final PluginJsonListTransport _ = transport;
-
-    expect(
-      File('packages/discourse_plugin_api/lib/testing.dart').existsSync(),
-      isTrue,
-    );
-    expect(
-      File('lib/discourse_plugin_test.dart').readAsStringSync(),
-      contains("export 'package:discourse_plugin_api/testing.dart'"),
-    );
+    expect(RecordingPluginTransport, plugin_testing.RecordingPluginTransport);
   });
 
   test('Voice tests are owned by the application suite', () {

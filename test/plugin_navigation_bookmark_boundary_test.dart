@@ -30,8 +30,17 @@ void main() {
     expect(start, greaterThanOrEqualTo(0));
     expect(end, greaterThan(start));
     final pluginHost = source.substring(start, end);
-    expect(pluginHost, isNot(contains('implements BookmarkTargetHost')));
-    expect(pluginHost, isNot(contains('required int topicId')));
-    expect(pluginHost, contains('required int targetId'));
+    expect(
+      pluginHost,
+      isNot(contains(RegExp(r'\bBookmarkTargetHost\b'))),
+      reason: 'Plugins must not inherit the topic-aware bookmark authority.',
+    );
+    expect(
+      pluginHost,
+      isNot(contains(RegExp(r'\btopicId\b'))),
+      reason:
+          'Optional and nullable topic parameters still grant topic context.',
+    );
+    expect(pluginHost, contains(RegExp(r'\btargetId\b')));
   });
 }
