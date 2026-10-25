@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -256,6 +257,17 @@ void main() {
     await load;
     expect(subject.chat.message(fixtures.site, 12)?.raw, 'Accepted pin text');
     expect(subject.chat.message(fixtures.site, 12)?.pinned, isTrue);
+    final acceptedPin = subject.chat
+        .pinsListenable(fixtures.site, 9)
+        .value
+        .pins
+        .single;
+    expect(
+      acceptedPin.excerpt.isEmpty
+          ? acceptedPin.message.raw
+          : acceptedPin.excerpt,
+      'Accepted pin text',
+    );
     expect(
       subject.chat
           .pinsListenable(fixtures.site, 9)
@@ -440,6 +452,156 @@ void main() {
     },
   );
 
+  for (final action in ['delete', 'restore', 'bulk delete']) {
+    test(
+      'an old read preserves accepted $action after cache eviction',
+      () async {
+        final mutationGate = Completer<void>();
+        addTearDown(() {
+          if (!mutationGate.isCompleted) mutationGate.complete();
+        });
+        final restoring = action == 'restore';
+        final original = fixtures.message(
+          12,
+          raw: 'Original text',
+          deletedAt: restoring ? DateTime.utc(2026, 10, 24) : null,
+          deletedById: restoring ? user.id : null,
+        );
+        final api = _SnapshotApi(original, mutationGate: mutationGate);
+        final subject = fixtures.build(
+          api: api,
+          currentUser: user,
+          store: Store(
+            policy: const StorePolicy(
+              maxEntries: 64,
+              maxEntriesPerSiteAndType: 1,
+            ),
+          ),
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(fixtures.site);
+        await subject.chat.openChannel(fixtures.site, 9);
+        final delayed = api.delayNextRead();
+        addTearDown(delayed.complete);
+        final refresh = subject.chat.openChannel(fixtures.site, 9, force: true);
+        await delayed.started.future;
+        final mutation = switch (action) {
+          'restore' => subject.chat.restoreMessage(fixtures.site, 12),
+          'bulk delete' => subject.chat.deleteMessages(fixtures.site, 9, [12]),
+          _ => subject.chat.deleteMessage(fixtures.site, 12),
+        };
+        await api.mutationStarted.future;
+        api.snapshot = fixtures.message(13);
+        expect(
+          await subject.chat.resolveBookmarkMessage(
+            fixtures.site,
+            ChatLink(route: ChatRoute.channel(9), messageId: 13),
+          ),
+          isNotNull,
+        );
+        expect(subject.chat.message(fixtures.site, 12), isNull);
+        mutationGate.complete();
+        expect(await mutation, isNull);
+        expect(subject.chat.message(fixtures.site, 12), isNull);
+        delayed.complete();
+        await refresh;
+        expect(subject.chat.message(fixtures.site, 12)?.isDeleted, !restoring);
+        expect(
+          subject.chat.message(fixtures.site, 12)?.deletedById,
+          restoring ? isNull : user.id,
+        );
+      },
+    );
+  }
+
+  test(
+    'an old read cannot revive a refused edit after cache eviction',
+    () async {
+      final editGate = Completer<void>();
+      addTearDown(() {
+        if (!editGate.isCompleted) editGate.complete();
+      });
+      final api = _SnapshotApi(
+        fixtures.message(12, raw: 'Original text'),
+        editGate: editGate,
+        editFailure: const WriteException(WriteFailure.forbidden),
+      );
+      final subject = fixtures.build(
+        api: api,
+        currentUser: user,
+        store: Store(
+          policy: const StorePolicy(
+            maxEntries: 64,
+            maxEntriesPerSiteAndType: 1,
+          ),
+        ),
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(fixtures.site);
+      await subject.chat.openChannel(fixtures.site, 9);
+      final delayed = api.delayNextRead();
+      addTearDown(delayed.complete);
+      final refresh = subject.chat.openChannel(fixtures.site, 9, force: true);
+      await delayed.started.future;
+      final edit = subject.chat.editMessage(fixtures.site, 12, 'Refused text');
+      await api.editStarted.future;
+      api.snapshot = fixtures.message(13);
+      await subject.chat.resolveBookmarkMessage(
+        fixtures.site,
+        ChatLink(route: ChatRoute.channel(9), messageId: 13),
+      );
+      expect(subject.chat.message(fixtures.site, 12), isNull);
+      editGate.complete();
+      expect(await edit, isNotNull);
+      expect(subject.chat.message(fixtures.site, 12), isNull);
+      delayed.complete();
+      await refresh;
+      expect(subject.chat.message(fixtures.site, 12)?.raw, 'Original text');
+    },
+  );
+
+  test(
+    'a read admitted after pending edit eviction retains its submitted content',
+    () async {
+      final editGate = Completer<void>();
+      addTearDown(() {
+        if (!editGate.isCompleted) editGate.complete();
+      });
+      final original = fixtures.message(12, raw: 'Original text');
+      final api = _SnapshotApi(original, editGate: editGate);
+      final subject = fixtures.build(
+        api: api,
+        currentUser: user,
+        store: Store(
+          policy: const StorePolicy(
+            maxEntries: 64,
+            maxEntriesPerSiteAndType: 1,
+          ),
+        ),
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(fixtures.site);
+      await subject.chat.openChannel(fixtures.site, 9);
+      final edit = subject.chat.editMessage(fixtures.site, 12, 'Accepted text');
+      await api.editStarted.future;
+      api.snapshot = fixtures.message(13);
+      await subject.chat.resolveBookmarkMessage(
+        fixtures.site,
+        ChatLink(route: ChatRoute.channel(9), messageId: 13),
+      );
+      expect(subject.chat.message(fixtures.site, 12), isNull);
+      api.snapshot = original;
+      await subject.chat.openChannel(fixtures.site, 9, force: true);
+      expect(subject.chat.message(fixtures.site, 12)?.raw, 'Accepted text');
+      expect(
+        subject.chat.message(fixtures.site, 12)?.canonicalReceived,
+        isFalse,
+      );
+      editGate.complete();
+      expect(await edit, isNull);
+    },
+  );
+
   test('a refused edit permits later authoritative content', () async {
     final api = _SnapshotApi(
       fixtures.message(12, raw: 'Original text'),
@@ -478,10 +640,12 @@ final class _SnapshotApi extends FakeDiscourseApi {
     this.snapshot, {
     WriteException? editFailure,
     Completer<void>? editGate,
+    Completer<void>? mutationGate,
     bool canModerate = true,
   }) : super(
          chatEditFailure: editFailure,
          chatEditGate: editGate,
+         chatMessageMutationGate: mutationGate,
          chatChannelsBySite: {
            fixtures.site: ChatChannels(
              public: [
@@ -500,6 +664,7 @@ final class _SnapshotApi extends FakeDiscourseApi {
   bool canLoadMorePast = false;
   bool canLoadMoreFuture = false;
   final editStarted = Completer<void>();
+  final mutationStarted = Completer<void>();
   _DelayedRead? _nextRead;
   _DelayedRead? _nextThreadRead;
 
@@ -551,6 +716,60 @@ final class _SnapshotApi extends FakeDiscourseApi {
       messageId: messageId,
       message: message,
       uploadIds: uploadIds,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<void> deleteChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) {
+    if (!mutationStarted.isCompleted) mutationStarted.complete();
+    return super.deleteChatMessage(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      messageId: messageId,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<void> restoreChatMessage({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    String? clientId,
+  }) {
+    if (!mutationStarted.isCompleted) mutationStarted.complete();
+    return super.restoreChatMessage(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      messageId: messageId,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<void> deleteChatMessages({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required List<int> messageIds,
+    String? clientId,
+  }) {
+    if (!mutationStarted.isCompleted) mutationStarted.complete();
+    return super.deleteChatMessages(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      channelId: channelId,
+      messageIds: messageIds,
       clientId: clientId,
     );
   }
@@ -640,6 +859,7 @@ final class _SnapshotApi extends FakeDiscourseApi {
           messageId: message.id,
           message: message.withPinned(true),
           pinnedBy: message.author,
+          excerpt: message.raw,
         ),
       ],
       membership: null,
