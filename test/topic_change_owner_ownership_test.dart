@@ -99,9 +99,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 350));
         expect(api.userSearchesRequested.last.term, 'bob');
         expect(tester.widget<DButton>(submit).onPressed, isNull);
-        api.nextUsers.complete(const [FoundUser(username: 'bob', name: 'Bob')]);
+        api.nextUsers.complete(const [
+          FoundUser(username: 'bob', name: 'Bob'),
+          FoundUser(username: 'carol', name: 'Carol'),
+        ]);
         await tester.pumpAndSettle();
         expect(find.text('Bob'), findsOneWidget);
+        // Neither new row was chosen, so the refused tap left nothing selected.
+        expect(tester.widget<DButton>(submit).onPressed, isNull);
+        await tester.tap(
+          find.byKey(const ValueKey('topic-change-owner-user-bob')),
+        );
+        await tester.pump();
         await _submit(tester);
         expect(api.writes.single.username, 'bob');
         expect(api.writes.single.postIds, selected ? [1, 2] : [1]);
@@ -498,6 +507,184 @@ void main() {
     expect(find.text(_forbidden), findsOneWidget);
     expect(controller.selectedTopicPostIds(_siteA, 7), {1, 2});
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets(
+    'a search answered after a newer query cannot replace its results',
+    (tester) async {
+      final api = _SearchGateApi();
+      await _openStandaloneDialog(
+        tester,
+        api,
+        _GatedAuthenticator(),
+        selected: false,
+      );
+      final search = find.byKey(const ValueKey('topic-change-owner-search'));
+      final searchesBefore = api.userSearchesRequested.length;
+      await tester.enterText(search, 'abandoned');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.enterText(search, 'slow');
+      await tester.pump(const Duration(milliseconds: 350));
+      // Only the settled query is sent.
+      expect(
+        api.userSearchesRequested.skip(searchesBefore).map((s) => s.term),
+        ['slow'],
+      );
+      await tester.enterText(search, 'recipient');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('Recipient'), findsOneWidget);
+
+      api.slow.complete(const [FoundUser(username: 'stale', name: 'Stale')]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Stale'), findsNothing);
+      expect(find.text('Recipient'), findsOneWidget);
+      await _submit(tester);
+      expect(api.writes.single.username, 'recipient');
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('owner search never offers the current author as the new owner', (
+    tester,
+  ) async {
+    final api = _SearchGateApi();
+    await _openStandaloneDialog(
+      tester,
+      api,
+      _GatedAuthenticator(),
+      selected: false,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-change-owner-search')),
+      'everyone',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('topic-change-owner-user-author')),
+      findsNothing,
+    );
+    // The remaining single candidate is chosen without another tap.
+    await _submit(tester);
+    expect(api.writes.single.username, 'recipient');
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets(
+    'editing the query withdraws a recipient the new results do not choose',
+    (tester) async {
+      final api = _SearchGateApi();
+      await _openStandaloneDialog(
+        tester,
+        api,
+        _GatedAuthenticator(),
+        selected: false,
+      );
+      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+      expect(tester.widget<DButton>(submit).onPressed, isNotNull);
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-change-owner-search')),
+        'pair',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Carol'), findsOneWidget);
+      expect(tester.widget<DButton>(submit).onPressed, isNull);
+
+      await tester.tap(
+        find.byKey(const ValueKey('topic-change-owner-user-carol')),
+      );
+      await tester.pump();
+      await _submit(tester);
+      expect(api.writes.single.username, 'carol');
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets(
+    'a radio row tapped after clearing the query before rebuild is refused',
+    (tester) async {
+      final api = _ChoiceOwnerApi();
+      await _openStandaloneDialog(
+        tester,
+        api,
+        _GatedAuthenticator(),
+        selected: false,
+      );
+      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+      expect(tester.widget<DButton>(submit).onPressed, isNull);
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-change-owner-search')),
+        '',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('topic-change-owner-user-recipient')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recipient'), findsNothing);
+      expect(tester.widget<DButton>(submit).onPressed, isNull);
+      expect(api.writes, isEmpty);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('a second press before repaint leaves a held save untouched', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = _OwnerApi()..ownerWriteGate = gate;
+    await _openStandaloneDialog(
+      tester,
+      api,
+      _GatedAuthenticator(),
+      selected: false,
+    );
+    final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+    await tester.tap(submit);
+    await tester.tap(submit);
+    await tester.pump();
+
+    expect(api.writes, hasLength(1));
+    expect(
+      find.byKey(const ValueKey('topic-change-owner-error')),
+      findsNothing,
+    );
+    expect(
+      tester.widget<DButton>(find.widgetWithText(DButton, 'Cancel')).onPressed,
+      isNull,
+    );
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(api.writes, hasLength(1));
+    expect(_dialog, findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets(
+    'an uncertain change answered before repaint cannot be resubmitted',
+    (tester) async {
+      final api = _OwnerApi()
+        ..ownerFailure = const WriteException(WriteFailure.unreachable);
+      await _openStandaloneDialog(
+        tester,
+        api,
+        _GatedAuthenticator(),
+        selected: false,
+      );
+      final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+      await tester.tap(submit);
+      expect(api.writes, hasLength(1));
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+
+      expect(api.writes, hasLength(1));
+      expect(tester.widget<DButton>(submit).onPressed, isNull);
+      expect(_dialog, findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 }
 
 void _expectRefresh(_OwnerApi api, List<int> ids) {
@@ -770,6 +957,47 @@ class _OwnerApi extends FakeDiscourseApi {
     refreshes.add((siteUrl: siteUrl, topicId: topicId, ids: List.of(ids)));
     if (ownerRefreshGate case final gate?) return gate.future;
     return [for (final id in ids) postFor(siteUrl, id)];
+  }
+}
+
+class _SearchGateApi extends _OwnerApi {
+  final slow = Completer<List<FoundUser>>();
+
+  @override
+  Future<List<FoundUser>> searchUsers({
+    required String siteUrl,
+    required String term,
+    int? topicId,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) {
+    if (term == 'slow') {
+      userSearchesRequested.add((term: term, topicId: topicId));
+      return slow.future;
+    }
+    if (term == 'pair') {
+      userSearchesRequested.add((term: term, topicId: topicId));
+      return Future.value(const [
+        FoundUser(username: 'bob', name: 'Bob'),
+        FoundUser(username: 'carol', name: 'Carol'),
+      ]);
+    }
+    if (term == 'everyone') {
+      userSearchesRequested.add((term: term, topicId: topicId));
+      return Future.value(const [
+        FoundUser(username: 'author', name: 'Author'),
+        FoundUser(username: 'recipient', name: 'Recipient'),
+      ]);
+    }
+    return super.searchUsers(
+      siteUrl: siteUrl,
+      term: term,
+      topicId: topicId,
+      limit: limit,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
   }
 }
 

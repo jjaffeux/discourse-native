@@ -112,7 +112,22 @@ final class _Strategy implements PluginBookmarkTargetStrategy {
   }
 }
 
+final class _UnconfirmedDeleteApi extends FakeDiscourseApi {
+  @override
+  Future<bool?> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    required BookmarkTargetType targetType,
+    String? clientId,
+  }) async {
+    deletedBookmarks.add(bookmarkId);
+    return null;
+  }
+}
+
 final class _PendingWriteApi extends FakeDiscourseApi {
+  _PendingWriteApi({super.writeFailure});
   final ready = Completer<void>();
   @override
   Future<int> createBookmark({
@@ -190,13 +205,11 @@ final class _Fixture {
       store: store,
       credentials: FakeAuthenticator()..keys[_site] = 'key',
       lifecycle: lifecycle,
-      instanceAt: (_) => instance(
-        'meta.example',
-      ).copyWith(user: const DiscourseUser(username: 'reader')),
+      instanceAt: (_) => instance('meta.example', user: user),
       siteContextFor: (_) =>
           const BookmarkSiteContext(suggestWeekendsInDatePickers: true),
       pluginStrategies: strategies ?? () => const [],
-      topicData: (_, _) => data,
+      topicData: (_, _) => readerLoaded ? data : null,
       checklistWriting: (_, _) => false,
       topicSlug: (_, _) => 'topic',
       changes: changes,
@@ -233,6 +246,8 @@ final class _Fixture {
   final data = _TopicData();
   final void Function()? onMenu;
   final void Function()? onChanged;
+  DiscourseUser? user = const DiscourseUser(username: 'reader');
+  bool readerLoaded = true;
   int menu = 0;
   int list = 0;
   late final BookmarkTransactions bookmarks;
@@ -553,6 +568,284 @@ void main() {
       expect(f.menu, 1);
       expect(f.list, 1);
       expect(f.store.read<Post>(_site, 12)?.bookmark, isNull);
+    },
+  );
+
+  test(
+    'reads dispatched before a bookmark write keep it; later reads own it',
+    () {
+      final f = _Fixture();
+      final account = f.account;
+      final dispatched = account.revision(7);
+      final dispatchedEpoch = account.epoch;
+      account.acceptBookmark(7, _bookmark, isPost: true);
+      const readDetail = TopicDetail(
+        id: 7,
+        title: 'Read',
+        stream: [12, 13],
+        postsCount: 2,
+      );
+      const readRow = Topic(id: 7, title: 'Read', slug: 'topic');
+      final readPost = _post.copyWith(cooked: '<p>read body</p>');
+
+      final stalePost = account.postFromRead(7, dispatched, readPost);
+      expect(stalePost.cooked, '<p>read body</p>');
+      expect(stalePost.bookmark, _bookmark);
+      final staleDetail = account.detailFromRead(dispatched, readDetail);
+      expect(staleDetail.title, 'Read');
+      expect(staleDetail.bookmarks, [_bookmark]);
+      final staleRow = account.prepareRow(readRow, dispatchedEpoch);
+      expect(staleRow.title, 'Read');
+      expect(staleRow.bookmarked, isTrue);
+
+      final fresh = account.revision(7);
+      expect(account.postFromRead(7, fresh, readPost).bookmark, isNull);
+      expect(account.detailFromRead(fresh, readDetail).bookmarks, isEmpty);
+      expect(account.prepareRow(readRow, account.epoch).bookmarked, isFalse);
+      expect(account.prepareRow(readRow, null).bookmarked, isFalse);
+    },
+  );
+
+  test(
+    'an unreachable plugin write retired in flight repairs nothing',
+    () async {
+      final strategy = _Strategy();
+      final api = _PendingWriteApi(
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      );
+      final f = _Fixture(api: api, strategies: () => [strategy]);
+      final pending = f.bookmarks
+          .pluginTarget(_pluginTarget)
+          .createBookmark(siteUrl: _site, targetId: 12);
+      await pumpEventQueue();
+      f.lifecycle.invalidate(_site);
+      api.ready.complete();
+      final result = await pending;
+      expect(result.reconciled, isTrue);
+      expect(strategy.repairs, isEmpty);
+      expect(strategy.puts, isEmpty);
+      expect(f.menu, 0);
+      expect(f.list, 0);
+    },
+  );
+
+  test('a saved create projects onto the post, topic and list row', () async {
+    final f = _Fixture();
+    final result = await f.create();
+    expect(result.saved, isTrue);
+    final saved = result.bookmark!;
+    expect(saved.bookmarkableId, 12);
+    expect(f.store.read<Post>(_site, 12)?.bookmark, saved);
+    expect(f.store.read<TopicDetail>(_site, 7)?.bookmarks, [saved]);
+    expect(f.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+  });
+
+  test(
+    'deleting a post bookmark keeps the row bookmarked when the forum says so',
+    () async {
+      final f = _Fixture();
+      f.account.acceptBookmark(7, _bookmark, isPost: true);
+      final result = await f.account.deleteBookmark(
+        topicId: 7,
+        bookmark: _bookmark,
+      );
+      expect(result.saved, isTrue);
+      expect(f.api.deletedBookmarks, [73]);
+      expect(f.store.read<Post>(_site, 12)?.bookmark, isNull);
+      expect(f.store.read<TopicDetail>(_site, 7)?.bookmarks, isEmpty);
+      expect(f.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+    },
+  );
+
+  test(
+    'a create without a choice uses the reader\'s auto-delete preference',
+    () async {
+      final f = _Fixture()
+        ..user = const DiscourseUser(
+          username: 'reader',
+          bookmarkAutoDeletePreference:
+              BookmarkAutoDeletePreference.onOwnerReply,
+        );
+      final result = await f.create();
+      expect(
+        result.bookmark?.autoDeletePreference,
+        BookmarkAutoDeletePreference.onOwnerReply,
+      );
+      expect(
+        f.api.createdBookmarks.single.autoDeletePreference,
+        BookmarkAutoDeletePreference.onOwnerReply,
+      );
+      await f.account.createBookmark(
+        topicId: 7,
+        targetType: BookmarkTargetType.topic,
+        targetId: 7,
+        autoDeletePreference: BookmarkAutoDeletePreference.never,
+      );
+      expect(
+        f.api.createdBookmarks.last.autoDeletePreference,
+        BookmarkAutoDeletePreference.never,
+      );
+    },
+  );
+
+  test('a signed-out forum refuses a create before sending it', () async {
+    final f = _Fixture()..user = null;
+    final result = await f.create();
+    expect(result.reconciled, isFalse);
+    expect(result.message, 'Reconnect to this forum to bookmark it.');
+    expect(f.api.createdBookmarks, isEmpty);
+    expect(f.data.holds, 0);
+  });
+
+  for (final operation in ['create', 'update', 'delete']) {
+    test(
+      'retirement while publishing a $operation reports it as forum-only',
+      () async {
+        final f = _Fixture();
+        if (operation != 'create') {
+          f.account.acceptBookmark(7, _bookmark, isPost: true);
+        }
+        var retired = false;
+        f.store.ref<Post>(_site, 12).addListener(() {
+          if (retired) return;
+          retired = true;
+          f.lifecycle.invalidate(_site);
+        });
+        final result = await switch (operation) {
+          'create' => f.create(),
+          'update' => f.account.updateBookmark(
+            topicId: 7,
+            bookmark: _bookmark,
+            name: 'renamed',
+            autoDeletePreference: BookmarkAutoDeletePreference.never,
+          ),
+          _ => f.account.deleteBookmark(topicId: 7, bookmark: _bookmark),
+        };
+        expect(retired, isTrue);
+        expect(result.reconciled, isTrue);
+        expect(result.message, switch (operation) {
+          'create' => 'The bookmark was saved on the forum.',
+          'update' => 'The bookmark was updated on the forum.',
+          _ => 'The bookmark was deleted on the forum.',
+        });
+        expect(f.data.reads, isEmpty);
+        expect(f.menu, 0);
+        expect(f.list, 0);
+      },
+    );
+  }
+
+  test('core bookmark writes refuse a topic id that is not positive', () async {
+    final f = _Fixture();
+    for (final topicId in [0, -1]) {
+      final result = await f.account.createBookmark(
+        topicId: topicId,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      );
+      expect(result.reconciled, isFalse);
+      expect(
+        result.message,
+        'This bookmark target requires its owning context.',
+      );
+    }
+    expect(f.api.createdBookmarks, isEmpty);
+    expect(f.data.holds, 0);
+  });
+
+  test('a delete the forum answers without topic state is re-read', () async {
+    final f = _Fixture(api: _UnconfirmedDeleteApi());
+    f.account.acceptBookmark(7, _bookmark, isPost: true);
+    final result = await f.account.deleteBookmark(
+      topicId: 7,
+      bookmark: _bookmark,
+    );
+    expect(result.reconciled, isTrue);
+    expect(f.data.reads, hasLength(1));
+    expect(f.store.read<Post>(_site, 12)?.bookmark, _bookmark);
+    expect(f.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+  });
+
+  test('a post bookmark without a loaded reader is refused unsent', () async {
+    final f = _Fixture()..readerLoaded = false;
+    final result = await f.create();
+    expect(result.reconciled, isFalse);
+    expect(
+      result.message,
+      'Another action on this bookmark is still finishing.',
+    );
+    expect(f.api.createdBookmarks, isEmpty);
+    expect(
+      f.account.bookmarkWriteInFlight(
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+      ),
+      isFalse,
+    );
+  });
+
+  test('an uncertain topic clear is re-read instead of applied', () async {
+    final f = _Fixture(
+      api: FakeDiscourseApi(
+        writeFailure: const WriteException(WriteFailure.unreachable),
+      ),
+    );
+    f.account.acceptBookmark(7, _bookmark, isPost: true);
+    final result = await f.account.deleteAllTopicBookmarks(topicId: 7);
+    expect(result.reconciled, isTrue);
+    expect(f.data.reads, hasLength(1));
+    expect(f.menu, 1);
+    expect(f.list, 1);
+    expect(f.store.read<Post>(_site, 12)?.bookmark, _bookmark);
+    expect(f.data.holds, 0);
+  });
+
+  test('clearing a topic waits for a pending post bookmark write', () async {
+    final api = _PendingWriteApi();
+    final f = _Fixture(api: api);
+    f.account.acceptBookmark(7, _bookmark, isPost: true);
+    final pending = f.account.updateBookmark(
+      topicId: 7,
+      bookmark: _bookmark,
+      name: 'renamed',
+      autoDeletePreference: BookmarkAutoDeletePreference.never,
+    );
+    await pumpEventQueue();
+    final cleared = await f.account.deleteAllTopicBookmarks(topicId: 7);
+    expect(cleared.reconciled, isFalse);
+    expect(cleared.message, 'Another bookmark action is still finishing.');
+    api.ready.complete();
+    expect((await pending).saved, isTrue);
+    expect(f.store.read<Post>(_site, 12)?.bookmark?.name, 'renamed');
+    expect(f.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+  });
+
+  test(
+    'saved reminders are UTC instants and a nameless update clears the note',
+    () async {
+      final f = _Fixture();
+      final local = DateTime(2030, 1, 2, 9, 30);
+      final created = await f.account.createBookmark(
+        topicId: 7,
+        targetType: BookmarkTargetType.post,
+        targetId: 12,
+        name: 'note',
+        reminderAt: local,
+      );
+      expect(created.bookmark!.reminderAt!.isUtc, isTrue);
+      expect(created.bookmark!.reminderAt, local.toUtc());
+      expect(created.bookmark!.name, 'note');
+      final updated = await f.account.updateBookmark(
+        topicId: 7,
+        bookmark: created.bookmark!,
+        reminderAt: local,
+        autoDeletePreference: BookmarkAutoDeletePreference.never,
+      );
+      expect(updated.bookmark!.reminderAt!.isUtc, isTrue);
+      expect(updated.bookmark!.reminderAt, local.toUtc());
+      expect(updated.bookmark!.name, isNull);
+      expect(f.store.read<Post>(_site, 12)?.bookmark?.name, isNull);
     },
   );
 }
