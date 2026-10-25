@@ -119,6 +119,26 @@ void main() {
       expect(ids, [3, 4, 5]);
     });
 
+    test('orders a directional page by wire date before ID', () {
+      final ids = ChatMessageTimeline.merge(
+        held: snapshot([5], [message(5, minute: 5)]),
+        arrived: [message(3, minute: 2), message(4, minute: 1)],
+        mode: ChatTimelineMergeMode.prependPage,
+      );
+
+      expect(ids, [4, 3, 5]);
+    });
+
+    test('lets an arriving record re-date a held message', () {
+      final ids = ChatMessageTimeline.merge(
+        held: snapshot([1, 2], [message(1, minute: 1), message(2, minute: 2)]),
+        arrived: [message(2)],
+        mode: ChatTimelineMergeMode.sortedUnion,
+      );
+
+      expect(ids, [2, 1]);
+    });
+
     test('puts undated records first and still orders them by ID', () {
       final ids = ChatMessageTimeline.merge(
         held: snapshot(const [], const []),
@@ -206,6 +226,15 @@ void main() {
       );
 
       expect(ids, [1, 2, 3]);
+    });
+
+    test('places an undated live arrival with the oldest records', () {
+      final ids = ChatMessageTimeline.admitLive(
+        held: snapshot([1, 3], [message(1), message(3, minute: 2)]),
+        message: message(4, withoutDate: true),
+      );
+
+      expect(ids, [4, 1, 3]);
     });
 
     test('keeps a redelivered newest message unique', () {
