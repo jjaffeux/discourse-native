@@ -582,29 +582,45 @@ void main() {
   testWidgets('targets follow their artwork on touch and desktop', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      const DButtonGroup(
-        children: [
-          DButton.iconOnly(
-            icon: Icon(Icons.add),
-            tooltip: 'Add',
-            size: DButtonSize.small,
-            onPressed: _noop,
-          ),
-          DButton.iconOnly(
-            icon: Icon(Icons.remove),
-            tooltip: 'Remove',
-            size: DButtonSize.small,
-            onPressed: _noop,
-          ),
-        ],
-      ),
-      platform: TargetPlatform.iOS,
-    );
+    for (final (platform, height) in [
+      (TargetPlatform.iOS, 40.0),
+      (TargetPlatform.macOS, 24.0),
+    ]) {
+      await _pump(
+        tester,
+        const DButtonGroup(
+          children: [
+            DButton.iconOnly(
+              icon: Icon(Icons.add),
+              tooltip: 'Add',
+              size: DButtonSize.small,
+              onPressed: _noop,
+            ),
+            DButton.iconOnly(
+              icon: Icon(Icons.remove),
+              tooltip: 'Remove',
+              size: DButtonSize.small,
+              onPressed: _noop,
+            ),
+          ],
+        ),
+        platform: platform,
+      );
+      await tester.pumpAndSettle();
 
-    for (final button in find.byType(FilledButton).evaluate()) {
-      expect(tester.getSize(find.byWidget(button.widget)).height, 40);
+      for (final button in find.byType(FilledButton).evaluate()) {
+        final target = find.byWidget(button.widget);
+        final artwork = find.descendant(
+          of: target,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is DButtonDecoration,
+          ),
+        );
+        expect(tester.getSize(target).height, height, reason: '$platform');
+        expect(tester.getRect(target), tester.getRect(artwork));
+      }
     }
   });
 

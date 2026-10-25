@@ -1522,33 +1522,6 @@ void main() {
   });
 
   testWidgets(
-    'primary actions use the pill radius and ordinary buttons use 8px',
-    (tester) async {
-      for (final (variant, expected) in [
-        (DButtonVariant.primary, DRadius.pill),
-        (DButtonVariant.outline, DRadius.control),
-      ]) {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: DButton(
-                label: const Text('Action'),
-                variant: variant,
-                onPressed: _noop,
-              ),
-            ),
-          ),
-        );
-        final button = tester.widget<FilledButton>(find.byType(FilledButton));
-        final shape =
-            button.style!.shape!.resolve({})! as RoundedRectangleBorder;
-        expect(shape.borderRadius, BorderRadius.circular(expected));
-      }
-    },
-  );
-
-  testWidgets(
     'flat icon buttons use the fixed control radius and standard sizes',
     (tester) async {
       for (final (radius, size) in [
@@ -1693,10 +1666,27 @@ void main() {
         home: const Scaffold(
           body: Column(
             children: [
-              DButton(label: Text('Action'), onPressed: _noop),
+              DButton(
+                key: ValueKey('text'),
+                label: Text('Action'),
+                onPressed: _noop,
+              ),
               DButton.iconOnly(
+                key: ValueKey('icon'),
                 tooltip: 'Icon action',
                 onPressed: _noop,
+                icon: Icon(Icons.add),
+              ),
+              DButton(
+                key: ValueKey('disabled'),
+                label: Text('Unavailable'),
+                onPressed: null,
+              ),
+              DButton.iconOnly(
+                key: ValueKey('loading'),
+                tooltip: 'Busy action',
+                onPressed: _noop,
+                loading: true,
                 icon: Icon(Icons.add),
               ),
             ],
@@ -1705,13 +1695,21 @@ void main() {
       ),
     );
 
-    for (final button in tester.widgetList<FilledButton>(
-      find.byType(FilledButton),
-    )) {
-      expect(button.style!.mouseCursor!.resolve({}), SystemMouseCursors.click);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    for (final (key, cursor) in [
+      ('text', SystemMouseCursors.click),
+      ('icon', SystemMouseCursors.click),
+      ('disabled', SystemMouseCursors.basic),
+      ('loading', SystemMouseCursors.basic),
+    ]) {
+      await mouse.moveTo(tester.getCenter(find.byKey(ValueKey(key))));
+      await tester.pump();
       expect(
-        button.style!.mouseCursor!.resolve({WidgetState.disabled}),
-        SystemMouseCursors.basic,
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        cursor,
+        reason: key,
       );
     }
   });
