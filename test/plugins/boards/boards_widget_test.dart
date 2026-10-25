@@ -17,6 +17,40 @@ void main() => boardsWidgetTests();
 
 void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
   if (!nativeView) {
+    testWidgets('board columns do not repeat the page safe inset', (
+      tester,
+    ) async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(
+                padding: EdgeInsets.only(top: 70, bottom: 34),
+                viewPadding: EdgeInsets.only(top: 70, bottom: 34),
+              ),
+              child: BoardsPage(
+                site: boardsSite,
+                route: const BoardsRoute(boardId: 1),
+                controller: fixture.controller,
+                navigation: fixture.navigation,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final list = find.byKey(const PageStorageKey('boards-$boardsSite-1-10'));
+      final card = find.ancestor(
+        of: find.text('Improve search'),
+        matching: find.byType(DItem),
+      );
+      expect(tester.getTopLeft(card).dy, tester.getTopLeft(list).dy);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
     testWidgets('wide board card links reveal a distant column and card', (
       tester,
     ) async {

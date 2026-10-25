@@ -369,6 +369,7 @@ class _BoardsPageState extends State<BoardsPage> {
                     child: SuperListView.builder(
                       listController: list,
                       controller: scroll,
+                      padding: EdgeInsets.zero,
                       key: PageStorageKey(
                         'boards-${widget.site}-${board.id}-${column.id}',
                       ),
