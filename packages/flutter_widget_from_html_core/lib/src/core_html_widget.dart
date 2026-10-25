@@ -121,6 +121,7 @@ class HtmlWidgetState extends State<HtmlWidget> {
   late final WidgetFactory _wf;
 
   int _buildGeneration = 0;
+  bool _hasBuiltBody = false;
   Widget? _cache;
   Future<Widget>? _future;
   InheritedProperties? _rootProperties;
@@ -239,11 +240,29 @@ class HtmlWidgetState extends State<HtmlWidget> {
       return _sliverOrWidget0;
     }
 
-    Timeline.startSync('Build $widget (async)');
-    final built = _buildBody(this, domNodes);
-    Timeline.finishSync();
-
-    return built;
+    final timeline = TimelineTask()..start('Build $widget (async)');
+    try {
+      // FutureBuilder can retain a prior body backed by this factory.
+      if (_hasBuiltBody) {
+        return _buildBody(this, domNodes);
+      }
+      _wf.reset(this);
+      final rootTree = _rootTree;
+      bool isCurrent() => mounted && generation == _buildGeneration;
+      final complete = await rootTree.addBitsFromNodesAsync(
+        domNodes,
+        isCurrent: isCurrent,
+      );
+      if (!complete || !isCurrent()) {
+        return _sliverOrWidget0;
+      }
+      final built =
+          rootTree.build()?.wrapWith(_wf.buildBodyWidget) ?? _sliverOrWidget0;
+      _hasBuiltBody = true;
+      return built;
+    } finally {
+      timeline.finish();
+    }
   }
 
   Widget _buildSync() {
@@ -327,6 +346,7 @@ Widget _buildBody(HtmlWidgetState state, dom.NodeList domNodes) {
       rootTree.build()?.wrapWith(wf.buildBodyWidget) ?? state._sliverOrWidget0;
 
   _logger.fine('Built body successfuly.');
+  state._hasBuiltBody = true;
 
   return built;
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:csslib/parser.dart' as css;
@@ -83,6 +84,46 @@ class CoreBuildTree extends BuildTree {
     for (final domNode in domNodes) {
       _addBitsFromNode(domNode);
     }
+  }
+
+  Future<bool> addBitsFromNodesAsync(
+    dom.NodeList domNodes, {
+    required bool Function() isCurrent,
+  }) async {
+    if (!isCurrent()) {
+      return false;
+    }
+
+    final frames = [_TraversalFrame(this, domNodes)];
+    final slice = Stopwatch()..start();
+    var steps = 0;
+    while (frames.isNotEmpty) {
+      final frame = frames.last;
+      if (frame.nodes.moveNext()) {
+        final child = frame.tree._beginNode(frame.nodes.current);
+        if (child != null) {
+          frames.add(_TraversalFrame(child, child.element.nodes));
+        }
+      } else {
+        final completed = frames.removeLast();
+        if (frames.isNotEmpty) {
+          frames.last.tree._appendCompletedChild(completed.tree);
+        }
+      }
+
+      steps++;
+      if (frames.isNotEmpty &&
+          steps % 64 == 0 &&
+          (steps >= 1024 || slice.elapsedMicroseconds >= 2000)) {
+        await Future<void>.delayed(Duration.zero);
+        if (!isCurrent()) {
+          return false;
+        }
+        slice.reset();
+        steps = 0;
+      }
+    }
+    return isCurrent();
   }
 
   @override
@@ -212,12 +253,22 @@ class CoreBuildTree extends BuildTree {
       );
 
   void _addBitsFromNode(dom.Node domNode) {
+    final child = _beginNode(domNode);
+    if (child == null) {
+      return;
+    }
+    child.addBitsFromNodes(child.element.nodes);
+    _appendCompletedChild(child);
+  }
+
+  CoreBuildTree? _beginNode(dom.Node domNode) {
     if (domNode.nodeType == dom.Node.TEXT_NODE) {
       final text = domNode as dom.Text;
-      return _addText(text.data);
+      _addText(text.data);
+      return null;
     }
     if (domNode.nodeType != dom.Node.ELEMENT_NODE) {
-      return;
+      return null;
     }
 
     final element = domNode as dom.Element;
@@ -238,13 +289,13 @@ class CoreBuildTree extends BuildTree {
         append(WidgetBit.block(this, customWidget));
         _logger.fine('Custom block widget: ${element.localName} tag');
       }
-      return;
+      return null;
     }
 
-    final subBuilder = sub(element: element)
-      .._parseEverything()
-      ..addBitsFromNodes(element.nodes);
+    return sub(element: element).._parseEverything();
+  }
 
+  void _appendCompletedChild(CoreBuildTree subBuilder) {
     final subBuildOps = subBuilder._buildOps;
     final isBlock = subBuildOps?.where(_renderBlock).isNotEmpty == true;
     subBuilder._isInline = !isBlock;
@@ -368,6 +419,13 @@ class CoreBuildTree extends BuildTree {
 
     wf.parseStyleDisplay(this, getStyle(kCssDisplay)?.term);
   }
+}
+
+class _TraversalFrame {
+  final CoreBuildTree tree;
+  final Iterator<dom.Node> nodes;
+
+  _TraversalFrame(this.tree, dom.NodeList domNodes) : nodes = domNodes.iterator;
 }
 
 Iterable<_CoreBuildOp> _prepareParentOps(

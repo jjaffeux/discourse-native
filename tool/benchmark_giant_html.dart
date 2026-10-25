@@ -80,7 +80,9 @@ Future<void> main() async {
             inheritanceResolvers: _Resolvers(factory, _host.currentContext!),
             wf: factory,
           )..addBitsFromNodes(nodes);
+          final rootFinalization = Stopwatch()..start();
           final placeholder = tree.build()!.wrapWith(factory.buildBodyWidget);
+          rootFinalization.stop();
           conversion.stop();
           final resolution = Stopwatch()..start();
           final resolved = WidgetPlaceholder.unwrap(
@@ -133,6 +135,8 @@ Future<void> main() async {
             'sourceUnits': source.length,
             'parseUs': parse.elapsedMicroseconds,
             'conversionUs': conversion.elapsedMicroseconds,
+            'blockFinalizationUs': factory.blockFinalizationUs,
+            'rootFinalizationUs': rootFinalization.elapsedMicroseconds,
             'resolutionUs': resolution.elapsedMicroseconds,
             'layoutFrameUs': binding.uiMicroseconds - before,
             'frameWaitUs': frame.elapsedMicroseconds,
@@ -148,12 +152,102 @@ Future<void> main() async {
       }
     }
     for (final (label, count, paragraphs) in [
+      ('manyParagraphs', 1600, true),
+      ('wrappedParagraphs', 1600, true),
+      ('giantInline', 12000, false),
+    ]) {
+      for (var repeat = 0; repeat < 3; repeat++) {
+        final contents = _source(count, paragraphs: paragraphs);
+        final source = label == 'wrappedParagraphs'
+            ? '<div>$contents</div>'
+            : contents;
+        final nodes = parser.parseFragment(source).nodes;
+        final factory = _Factory()..reset(_host.currentState!);
+        try {
+          final tree = CoreBuildTree.root(
+            inheritanceResolvers: _Resolvers(factory, _host.currentContext!),
+            wf: factory,
+          );
+          final gaps = <int>[];
+          final watch = Stopwatch()..start();
+          var previous = 0;
+          void tick() {
+            final now = watch.elapsedMicroseconds;
+            gaps.add(now - previous);
+            previous = now;
+          }
+
+          final timer = Timer.periodic(
+            const Duration(milliseconds: 1),
+            (_) => tick(),
+          );
+          final completed = await tree.addBitsFromNodesAsync(
+            nodes,
+            isCurrent: () => true,
+          );
+          final rootFinalization = Stopwatch()..start();
+          final placeholder = tree.build()!.wrapWith(factory.buildBodyWidget);
+          rootFinalization.stop();
+          final conversionUs = watch.elapsedMicroseconds;
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+          timer.cancel();
+          tick();
+          if (!completed) {
+            throw StateError('Conversion cancelled unexpectedly.');
+          }
+          final resolution = Stopwatch()..start();
+          final resolved = WidgetPlaceholder.unwrap(
+            _host.currentContext!,
+            placeholder,
+          );
+          resolution.stop();
+          final beforeLayout = binding.uiMicroseconds;
+          _body.value = resolved;
+          await binding.endOfFrame.timeout(_timeout);
+          final text = factory.spans.map((span) => span.toPlainText()).join();
+          final expected = paragraphs
+              ? List.generate(
+                  count,
+                  (i) => 'Paragraph $i with bold and italic text.',
+                ).join()
+              : List.generate(count, (i) => 'B$i I$i').join(' ');
+          if (text.trimRight() != expected.trimRight()) {
+            throw StateError('Cooperative text differs for $label.');
+          }
+          rows.add({
+            'kind': 'cooperativeConversion',
+            'label': label,
+            'repeat': repeat,
+            'conversionUs': conversionUs,
+            'blockFinalizationUs': factory.blockFinalizationUs,
+            'rootFinalizationUs': rootFinalization.elapsedMicroseconds,
+            'resolutionUs': resolution.elapsedMicroseconds,
+            'maxEventGapUs': gaps.reduce((a, b) => a > b ? a : b),
+            'layoutFrameUs': binding.uiMicroseconds - beforeLayout,
+            'resolutionScope':
+                'WidgetPlaceholder.unwrap; later widget builds remain in layoutFrameUs',
+            'heartbeatTicks': gaps.length,
+            'textUnits': text.length,
+            'height': _boundary.currentContext!.size!.height,
+          });
+          _body.value = const SizedBox.shrink();
+          await binding.endOfFrame.timeout(_timeout);
+        } finally {
+          factory.dispose();
+        }
+      }
+    }
+    for (final (label, count, paragraphs) in [
       ('ordinary', 20, true),
       ('manyParagraphs', 1600, true),
+      ('wrappedParagraphs', 1600, true),
       ('giantInline', 12000, false),
     ]) {
       for (var repeat = 0; repeat < 2; repeat++) {
-        final source = _source(count, paragraphs: paragraphs);
+        final contents = _source(count, paragraphs: paragraphs);
+        final source = label == 'wrappedParagraphs'
+            ? '<div>$contents</div>'
+            : contents;
         final frameCosts = <int>[];
         final completions = <Future<void>>{};
         var pending = 0;
@@ -282,6 +376,27 @@ final class _Resolvers extends InheritanceResolvers {
 
 final class _Factory extends WidgetFactory {
   final spans = <InlineSpan>[];
+  int blockFinalizationUs = 0;
+  @override
+  void parse(BuildTree tree) {
+    super.parse(tree);
+    if (tree.element.localName != 'p') return;
+    final watch = Stopwatch();
+    tree.register(
+      BuildOp(
+        priority: 1000000,
+        onParsed: (tree) {
+          watch.start();
+          return tree;
+        },
+        onRenderedBlock: (_, _) {
+          watch.stop();
+          blockFinalizationUs += watch.elapsedMicroseconds;
+        },
+      ),
+    );
+  }
+
   @override
   Widget? buildText(
     BuildTree tree,
