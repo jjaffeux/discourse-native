@@ -784,6 +784,11 @@ void main() {
         refs: ['SAILING::tag'],
       );
       expect(tag.single.ref, 'sailing::tag');
+      final withMalformedNeighbor = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: ['SAILING::tag', 'SAILING::tag::tag'],
+      );
+      expect(withMalformedNeighbor.map((item) => item.ref), ['sailing::tag']);
       expect(
         await api.lookupHashtags(
           siteUrl: 'https://example.com',
