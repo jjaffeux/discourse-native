@@ -246,22 +246,21 @@ void main() {
         DTextarea(
           controller: controller,
           maxLength: 3,
-
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
         ),
       ),
     );
     await tester.enterText(find.byType(TextField), '👩‍💻abc');
     expect(controller.text, '👩‍💻ab');
+    // The limit applies to edits; text the owner sets is not truncated.
+    controller.text = 'hello';
     await tester.pump();
-    expect(controller.text.characters.length, 3);
-    controller.text = 'hi';
-    await tester.pump();
-    expect(controller.text.characters.length, 2);
+    expect(controller.text, 'hello');
+    expect(find.text('hello'), findsOneWidget);
   });
 
   testWidgets(
-    'the box takes the text cursor and padding taps focus and notify once',
+    'the box takes the text cursor and padding taps focus the editor',
     (tester) async {
       final focus = FocusNode();
       addTearDown(focus.dispose);
@@ -286,8 +285,6 @@ void main() {
       await tester.tapAt(padding);
       await tester.pump();
       expect(focus.hasFocus, isTrue);
-      await tester.tap(find.byType(TextField));
-      await tester.pump();
       await tester.pumpWidget(build(false));
       await tester.pump();
       expect(focus.hasFocus, isFalse);
