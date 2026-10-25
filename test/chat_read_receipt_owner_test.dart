@@ -84,6 +84,51 @@ void main() {
     },
   );
 
+  test('stale root counts re-admit only the newest row at the present', () {
+    final lease = FakePluginRequestHost().capture(_site);
+    const mentioned = ChatChannel(
+      id: 9,
+      title: 'Chat',
+      kind: ChatChannelKind.category,
+      membership: ChatMembership(following: true, lastReadMessageId: 3),
+      tracking: ChatTracking(mentionCount: 1),
+    );
+    ChatReadAdmission? admit(int messageId, {bool atPresent = true}) =>
+        ChatReadReceiptOwner.admit(
+          const ChatChannelTarget(9),
+          messageId,
+          _snapshot(lease, channel: mentioned, atPresent: atPresent),
+        );
+
+    final read = admit(3)! as ChatChannelRead;
+    expect(read.shouldDeliver, isFalse);
+    expect(
+      read.project(mentioned, DateTime.utc(2026))!.tracking,
+      ChatTracking.none,
+    );
+    expect(admit(3, atPresent: false), isNull);
+    expect(admit(2), isNull);
+  });
+
+  test('an unfollowed channel admits no read', () {
+    expect(
+      ChatReadReceiptOwner.admit(
+        const ChatChannelTarget(9),
+        3,
+        _snapshot(
+          FakePluginRequestHost().capture(_site),
+          channel: const ChatChannel(
+            id: 9,
+            title: 'Chat',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: false, lastReadMessageId: 1),
+          ),
+        ),
+      ),
+      isNull,
+    );
+  });
+
   test('retry debt is isolated by site and full target', () async {
     final retries = ChatReadReceiptRetries();
     final channel = _ReadFixture(const ChatChannelTarget(9), retries: retries)
@@ -129,11 +174,113 @@ void main() {
           ),
           isNull,
         );
-        expect(
-          ChatReadReceiptOwner.admit(target, -1, _snapshot(lease)),
-          isNull,
-        );
         expect(ChatReadReceiptOwner.admit(target, 1, _snapshot(lease)), isNull);
+      },
+    );
+
+    test(
+      '${target.storageKey} excludes non-positive IDs from an unset cursor',
+      () {
+        final unread = ChatReadReceiptSnapshot(
+          lease: FakePluginRequestHost().capture(_site),
+          channel: const ChatChannel(
+            id: 9,
+            title: 'Chat',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+          ),
+          thread: const ChatThread(
+            id: 22,
+            channelId: 9,
+            status: 'open',
+            replyCount: 3,
+            membership: ChatThreadMembership(threadId: 22),
+          ),
+          isLocalMessage: false,
+          atPresent: true,
+          newestMessageId: 3,
+        );
+
+        expect(ChatReadReceiptOwner.admit(target, 0, unread), isNull);
+        expect(ChatReadReceiptOwner.admit(target, -1, unread), isNull);
+        expect(ChatReadReceiptOwner.admit(target, 1, unread), isNotNull);
+      },
+    );
+
+    test(
+      '${target.storageKey} admission captured before an account change publishes nothing',
+      () async {
+        final fixture = _ReadFixture(target);
+        final admission = ChatReadReceiptOwner.admit(
+          target,
+          3,
+          _snapshot(fixture.requests.capture(fixture.siteUrl)),
+        )!;
+        fixture.requests.lifecycle.invalidate(fixture.siteUrl);
+
+        await fixture.owner.markRead(admission);
+
+        expect(fixture.publications, 0);
+        expect(fixture.lastRead, 1);
+        expect(fixture.api.attempts, isEmpty);
+      },
+    );
+
+    test(
+      '${target.storageKey} retired owner neither publishes nor delivers',
+      () async {
+        final fixture = _ReadFixture(target);
+        fixture.owner.retire();
+
+        await fixture.observe(3);
+
+        expect(fixture.publications, 0);
+        expect(fixture.lastRead, 1);
+        expect(fixture.api.attempts, isEmpty);
+      },
+    );
+
+    test(
+      '${target.storageKey} newer failure replaces older debt without resending it',
+      () async {
+        final fixture = _ReadFixture(target)
+          ..api.readFailure = const WriteException(WriteFailure.unreachable);
+        await fixture.observe(3);
+        await fixture.observe(4);
+        fixture.api.readFailure = null;
+
+        await fixture.observe(3);
+        expect(fixture.api.attempts, [3, 4]);
+
+        await fixture.observe(4);
+        expect(fixture.api.attempts, [3, 4, 4]);
+      },
+    );
+
+    test(
+      '${target.storageKey} replaced account delivery leaves new debt',
+      () async {
+        final fixture = _ReadFixture(target);
+        final gate = Completer<void>();
+        fixture.api.gates[4] = gate;
+        final replaced = fixture.observe(4);
+        await fixture.api.started.future;
+        fixture.requests.lifecycle.invalidate(fixture.siteUrl);
+        fixture.credentials.keys[fixture.siteUrl] = 'account-b';
+        fixture.replaceOwner();
+        fixture.channel = _channel;
+        fixture.thread = _thread;
+        fixture.api.failures[3] = const WriteException(
+          WriteFailure.unreachable,
+        );
+        await fixture.observe(3);
+        fixture.api.failures.remove(3);
+
+        gate.complete();
+        await replaced;
+        await fixture.observe(3);
+
+        expect(fixture.api.attempts, [4, 3, 3]);
       },
     );
 
@@ -267,9 +414,11 @@ void main() {
         final retry = fixture.observe(3).then((_) => completed = true);
         await Future<void>.delayed(Duration.zero);
         expect(fixture.api.attempts, [3, 3]);
+        final publications = fixture.publications;
 
         await fixture.observe(3);
 
+        expect(fixture.publications, publications);
         expect(completed, isFalse);
         expect(fixture.api.attempts, [3, 3]);
         gate.complete();
@@ -424,6 +573,7 @@ final class _ReadFixture {
   late ChatReadReceiptOwner owner;
   ChatChannel channel = _channel;
   ChatThread thread = _thread;
+  int publications = 0;
 
   int? get lastRead => target.isThread
       ? thread.membership?.lastReadMessageId
@@ -438,6 +588,7 @@ final class _ReadFixture {
     clock: DateTime.now,
     isCurrent: () => true,
     publish: (read, at) {
+      publications++;
       switch (read) {
         case ChatChannelRead():
           channel = read.project(channel, at)!;
