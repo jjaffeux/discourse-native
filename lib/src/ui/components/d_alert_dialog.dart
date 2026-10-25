@@ -428,6 +428,10 @@ class DAlertDialogCancel<T> extends StatelessWidget {
         semanticLabel: null,
         loading: false,
         variant: DButtonVariant.outline,
+        // Dialog only focuses its own scope on open; an alert's safe response
+        // must hold initial focus so Enter or Space can never confirm by
+        // accident, matching the reference's cancel-first focus.
+        autofocus: true,
         onPressed: (() {
           close();
         }),
