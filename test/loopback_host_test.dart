@@ -106,6 +106,8 @@ void main() {
         'localhost.example.com',
         'dev.localhost.example.com',
         'localhost..',
+        'notlocalhost',
+        'evil-localhost.',
       ]) {
         expect(isLoopbackHost(host), isFalse, reason: host);
       }

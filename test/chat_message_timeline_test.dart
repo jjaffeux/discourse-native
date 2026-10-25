@@ -99,6 +99,26 @@ void main() {
       expect(ids, same(held));
     });
 
+    test('re-derives held records and arrivals into one sorted order', () {
+      final ids = ChatMessageTimeline.merge(
+        held: snapshot([1, 3], [message(1, minute: 1), message(3, minute: 3)]),
+        arrived: [message(2, minute: 2), message(4)],
+        mode: ChatTimelineMergeMode.sortedUnion,
+      );
+
+      expect(ids, [4, 1, 2, 3]);
+    });
+
+    test('orders a directional page with equal wire dates by ID', () {
+      final ids = ChatMessageTimeline.merge(
+        held: snapshot([5], [message(5, minute: 5)]),
+        arrived: [message(4, minute: 1), message(3, minute: 1)],
+        mode: ChatTimelineMergeMode.prependPage,
+      );
+
+      expect(ids, [3, 4, 5]);
+    });
+
     test('puts undated records first and still orders them by ID', () {
       final ids = ChatMessageTimeline.merge(
         held: snapshot(const [], const []),
@@ -188,6 +208,15 @@ void main() {
       expect(ids, [1, 2, 3]);
     });
 
+    test('keeps a redelivered newest message unique', () {
+      final ids = ChatMessageTimeline.admitLive(
+        held: snapshot([1, 3], [message(1), message(3, minute: 2)]),
+        message: message(3, minute: 2),
+      );
+
+      expect(ids, [1, 3]);
+    });
+
     test('preserves a missing held record on the fast append path', () {
       final ids = ChatMessageTimeline.admitLive(
         held: snapshot([1, 99], [message(1)]),
@@ -222,6 +251,16 @@ void main() {
 
       expect(seam.ids, [5, 7, 6]);
       expect(seam.admittedPending.map((message) => message.id), [7, 6]);
+    });
+
+    test('does not admit the newest held record as pending', () {
+      final seam = ChatMessageTimeline.closeSeam(
+        held: snapshot([5], [message(5, minute: 5)]),
+        pending: [message(5, minute: 5)],
+      );
+
+      expect(seam.ids, [5]);
+      expect(seam.admittedPending, isEmpty);
     });
 
     test('admits every extant pending record into an empty window', () {
