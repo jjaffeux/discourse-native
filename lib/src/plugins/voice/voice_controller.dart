@@ -376,6 +376,16 @@ final class VoiceController extends ChangeNotifier {
   /// banner would only duplicate it; the answer arrives as a system action.
   bool get incomingCallHandledBySystem => _incoming.handledBySystem;
 
+  /// A call answered from the system's UI that is waiting for the
+  /// peer-to-peer warning to be accepted here: its system call is up, but
+  /// nothing joins until [VoiceShellService.confirmAnsweredCall] does.
+  VoiceIncomingCallAcceptance? get answeredCallAwaitingConfirmation =>
+      _incoming.awaitingConfirmation;
+
+  /// Ends the system call of [answeredCallAwaitingConfirmation] without
+  /// joining.
+  void cancelAnsweredCall() => _incoming.cancelAwaitingAnswer();
+
   /// Starts a direct call to [username] on [siteUrl]. The server answers
   /// with the ephemeral call room, which is held beside the directory so
   /// its roster and signals arrive; the caller then joins it like any room.

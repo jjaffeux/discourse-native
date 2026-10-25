@@ -3395,10 +3395,6 @@
       }
     }
   },
-  "thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble": "This call connects participants directly, so other participants may be able to see your IP address.",
-  "@thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble": {
-    "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."
-  },
   "couldnTLoadVoiceRooms": "Couldn''t load voice rooms.",
   "@couldnTLoadVoiceRooms": {
     "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."
@@ -3881,6 +3877,26 @@
   "isCallingYouVoiceincomingcallValue": "is calling you…",
   "@isCallingYouVoiceincomingcallValue": {
     "description": "English UI message used by plugins/voice/voice_incoming_call.dart. Keep placeholders intact."
+  },
+  "voiceSystemCallerLabel": "@{username} · {site}",
+  "@voiceSystemCallerLabel": {
+    "description": "Caller line on the system call screen (CallKit) and the incoming call banner: the caller's username and the site's host name. Keep placeholders intact.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      },
+      "site": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceAnsweredCallConfirm": "Answered. Confirm to connect.",
+  "@voiceAnsweredCallConfirm": {
+    "description": "Incoming call banner after the user answered from the system call screen: nothing connects until they confirm in the app."
+  },
+  "hangUp": "Hang up",
+  "@hangUp": {
+    "description": "Button that ends a call answered from the system call screen before it connected."
   },
   "answer": "Answer",
   "@answer": {

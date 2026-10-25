@@ -21,6 +21,7 @@ Future<void> joinVoiceRoom(
   required VoiceRoom room,
   required bool meshPrivacyWarningEnabled,
   bool Function()? ifCurrent,
+  VoidCallback? onDeclined,
 }) async {
   if (ifCurrent?.call() == false) return;
   final confirmed = await confirmVoiceMeshPrivacy(
@@ -29,6 +30,7 @@ Future<void> joinVoiceRoom(
     room: room,
     enabled: meshPrivacyWarningEnabled,
     ifCurrent: ifCurrent,
+    onDeclined: onDeclined,
   );
   if (!confirmed || !context.mounted || ifCurrent?.call() == false) return;
   await controller.join(siteUrl: siteUrl, siteName: siteName, room: room);
@@ -39,12 +41,15 @@ Future<void> joinVoiceRoom(
 /// predicts the transport in `expected_transport` and the pin set at join
 /// stays authoritative, so a prediction that flips mesh → LiveKit only makes
 /// the warning over-cautious. Mirrors the web client's `confirmMeshPrivacy`.
+/// [onDeclined] runs only when the user turns the warning down, not when the
+/// continuation retires or another warning is already open.
 Future<bool> confirmVoiceMeshPrivacy(
   BuildContext context, {
   required VoiceController controller,
   required VoiceRoom room,
   required bool enabled,
   bool Function()? ifCurrent,
+  VoidCallback? onDeclined,
 }) async {
   if (ifCurrent?.call() == false) return false;
   if (!enabled || room.expectedTransport != VoiceTransport.mesh) return true;
@@ -60,7 +65,9 @@ Future<bool> confirmVoiceMeshPrivacy(
       builder: (context, dialog) =>
           VoiceMeshPrivacyDialog(onClose: dialog.close),
     );
-    if (result == null || !result.join || ifCurrent?.call() == false) {
+    if (ifCurrent?.call() == false) return false;
+    if (result == null || !result.join) {
+      onDeclined?.call();
       return false;
     }
     if (result.dontShowAgain) await controller.acknowledgeMeshPrivacy();

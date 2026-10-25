@@ -7,13 +7,15 @@ import 'package:flutter/material.dart';
 
 import 'voice_controller.dart';
 import 'voice_icons.dart';
+import 'voice_incoming_calls.dart' show voiceSystemCallerLabel;
 import 'voice_models.dart';
 import 'voice_shell_service.dart';
 
 /// The answer surface for a direct call: drawn over the whole shell (a ring
 /// arrives whether or not any Voice surface is on screen), it names the
 /// caller and offers to answer or decline, and goes away on its own when
-/// the ring runs out.
+/// the ring runs out. A call answered from the system's UI that still needs
+/// the peer-to-peer warning accepted is finished here too.
 class VoiceIncomingCallBanner extends StatefulWidget {
   const VoiceIncomingCallBanner({
     super.key,
@@ -32,11 +34,13 @@ class VoiceIncomingCallBanner extends StatefulWidget {
 class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
   bool _answering = false;
 
-  Future<void> _answer() async {
+  Future<void> _answer(
+    Future<void> Function(BuildContext context) answer,
+  ) async {
     if (_answering) return;
     setState(() => _answering = true);
     try {
-      await widget.shell.answerIncomingCall(context);
+      await answer(context);
     } finally {
       if (mounted) setState(() => _answering = false);
     }
@@ -46,6 +50,31 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.controller,
     builder: (context, _) {
+      final awaiting = widget.controller.answeredCallAwaitingConfirmation;
+      if (awaiting != null) {
+        return _banner(
+          context,
+          siteUrl: awaiting.siteUrl,
+          caller: awaiting.call.caller,
+          status: context.l10n.voiceAnsweredCallConfirm,
+          announcement: null,
+          answer: DButton(
+            onPressed: _answering
+                ? null
+                : () => _answer(widget.shell.confirmAnsweredCall),
+            icon: const DIcon(VoiceIcons.phone),
+            label: Text(context.l10n.join),
+            variant: DButtonVariant.primary,
+            loading: _answering,
+          ),
+          dismiss: DButton(
+            onPressed: widget.controller.cancelAnsweredCall,
+            icon: const DIcon(DIcons.phoneSlash),
+            label: Text(context.l10n.hangUp),
+            variant: DButtonVariant.destructive,
+          ),
+        );
+      }
       final call = widget.controller.incomingCall;
       final siteUrl = widget.controller.incomingCallSiteUrl;
       if (call == null ||
@@ -53,86 +82,116 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
           widget.controller.incomingCallHandledBySystem) {
         return const SizedBox.shrink();
       }
-      final theme = Theme.of(context);
       final caller = call.caller;
-      return SafeArea(
-        minimum: const EdgeInsets.all(16),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: Semantics(
-            liveRegion: true,
-            label: context.l10n.isCallingYouVoiceincomingcall(
-              (caller.name ?? caller.username).toString(),
-            ),
-            child: Material(
-              elevation: 0,
-              borderRadius: BorderRadius.circular(14),
-              clipBehavior: Clip.antiAlias,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DAvatar.frame(
-                        child: SizedBox.square(
-                          dimension: 44,
-                          child: AvatarImage(
-                            url: caller.avatarUrl(siteUrl, size: 88),
-                            size: 44,
-                            fallback: ColoredBox(
-                              color: theme.colorScheme.surfaceContainerHigh,
-                            ),
+      return _banner(
+        context,
+        siteUrl: siteUrl,
+        caller: caller,
+        status: context.l10n.isCallingYouVoiceincomingcallValue,
+        announcement: context.l10n.isCallingYouVoiceincomingcall(
+          (caller.name ?? caller.username).toString(),
+        ),
+        answer: DButton(
+          onPressed: _answering
+              ? null
+              : () => _answer(widget.shell.answerIncomingCall),
+          icon: const DIcon(VoiceIcons.phone),
+          label: Text(context.l10n.answer),
+          variant: DButtonVariant.primary,
+          loading: _answering,
+        ),
+        dismiss: DButton(
+          onPressed: widget.controller.declineIncomingCall,
+          icon: const DIcon(DIcons.phoneSlash),
+          label: Text(context.l10n.decline),
+          variant: DButtonVariant.destructive,
+        ),
+      );
+    },
+  );
+
+  /// The display name is the caller's own choice, so the username and site
+  /// beneath it say who is actually calling.
+  Widget _banner(
+    BuildContext context, {
+    required String siteUrl,
+    required VoiceParticipant caller,
+    required String status,
+    required String? announcement,
+    required Widget answer,
+    required Widget dismiss,
+  }) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      minimum: const EdgeInsets.all(16),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Semantics(
+          liveRegion: true,
+          label: announcement,
+          child: Material(
+            elevation: 0,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DAvatar.frame(
+                      child: SizedBox.square(
+                        dimension: 44,
+                        child: AvatarImage(
+                          url: caller.avatarUrl(siteUrl, size: 88),
+                          size: 44,
+                          fallback: ColoredBox(
+                            color: theme.colorScheme.surfaceContainerHigh,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              caller.name ?? caller.username,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleSmall,
-                            ),
-                            Text(
-                              context.l10n.isCallingYouVoiceincomingcallValue,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall,
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            caller.name ?? caller.username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                          Text(
+                            voiceSystemCallerLabel(siteUrl, caller.username),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall,
+                          ),
+                          Text(
+                            status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      DButton(
-                        onPressed: _answering ? null : _answer,
-                        icon: const DIcon(VoiceIcons.phone),
-                        label: Text(context.l10n.answer),
-                        variant: DButtonVariant.primary,
-                        loading: _answering,
-                      ),
-                      const SizedBox(width: DSpacing.controlGap),
-                      DButton(
-                        onPressed: widget.controller.declineIncomingCall,
-                        icon: const DIcon(DIcons.phoneSlash),
-                        label: Text(context.l10n.decline),
-                        variant: DButtonVariant.destructive,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    answer,
+                    const SizedBox(width: DSpacing.controlGap),
+                    dismiss,
+                  ],
                 ),
               ),
             ),
           ),
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 }
 
 /// Keeps a call room's "Calling…" tiles until their deadlines, waking only

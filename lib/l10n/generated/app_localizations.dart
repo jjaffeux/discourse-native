@@ -4662,12 +4662,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'This call connects participants directly, so other participants may be able to see your IP address.'**
-  String get thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble;
-
-  /// English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Couldn\'\'t load voice rooms.'**
   String get couldnTLoadVoiceRooms;
 
@@ -5324,6 +5318,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'is calling you…'**
   String get isCallingYouVoiceincomingcallValue;
+
+  /// Caller line on the system call screen (CallKit) and the incoming call banner: the caller's username and the site's host name. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'@{username} · {site}'**
+  String voiceSystemCallerLabel(String username, String site);
+
+  /// Incoming call banner after the user answered from the system call screen: nothing connects until they confirm in the app.
+  ///
+  /// In en, this message translates to:
+  /// **'Answered. Confirm to connect.'**
+  String get voiceAnsweredCallConfirm;
+
+  /// Button that ends a call answered from the system call screen before it connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Hang up'**
+  String get hangUp;
 
   /// English UI message used by plugins/voice/voice_incoming_call.dart. Keep placeholders intact.
   ///

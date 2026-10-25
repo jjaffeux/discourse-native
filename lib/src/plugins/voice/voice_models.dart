@@ -207,10 +207,14 @@ class VoiceIncomingCall {
         roomId <= 0 ||
         roomSlug == null ||
         callerUsername == null ||
+        !_discourseUsername.hasMatch(callerUsername) ||
         sentAt == null) {
       return null;
     }
     final ringSeconds = jsonIntOrNull(json['ring_seconds']);
+    final callerName = jsonText(
+      json['caller_name'],
+    )?.replaceAll(_bidiControls, '').trim();
     return VoiceIncomingCall(
       roomId: roomId,
       roomSlug: roomSlug,
@@ -218,16 +222,34 @@ class VoiceIncomingCall {
       caller: VoiceParticipant(
         id: jsonInt(json['caller_id']),
         username: callerUsername,
-        name: jsonText(json['caller_name']),
+        name: callerName == null || callerName.isEmpty ? null : callerName,
         avatarTemplate: jsonText(json['caller_avatar_template']),
         role: VoiceRole.participant,
       ),
       sentAt: sentAt,
-      ringDuration: ringSeconds == null || ringSeconds <= 0
+      ringDuration:
+          ringSeconds == null ||
+              ringSeconds <= 0 ||
+              ringSeconds > voiceRingDuration.inSeconds
           ? voiceRingDuration
           : Duration(seconds: ringSeconds),
     );
   }
+
+  /// The caller is identified to the system call UI by username, which the
+  /// site validates, never by the free-form display name. Anything outside
+  /// Discourse's username grammar (ASCII or Unicode, at most 60 characters)
+  /// cannot be such a username.
+  static final _discourseUsername = RegExp(
+    r'^[\p{L}\p{M}\p{N}_.-]{1,60}$',
+    unicode: true,
+  );
+
+  /// Direction overrides and isolates let a display name reorder the text
+  /// drawn around it.
+  static final _bidiControls = RegExp(
+    '[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]',
+  );
 
   final int roomId;
   final String roomSlug;
@@ -238,7 +260,12 @@ class VoiceIncomingCall {
 
   DateTime get expiresAt => sentAt.add(ringDuration);
 
-  Duration remainingAt(DateTime now) => expiresAt.difference(now);
+  /// At most one window: a `sent_at` ahead of this device's clock still
+  /// rings for no longer than [ringDuration] from the moment it is read.
+  Duration remainingAt(DateTime now) {
+    final remaining = expiresAt.difference(now);
+    return remaining > ringDuration ? ringDuration : remaining;
+  }
 
   /// Identifies one ring across replays: the same invite re-published from
   /// a backlog carries the same stamp.

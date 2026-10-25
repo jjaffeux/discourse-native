@@ -2658,10 +2658,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble =>
-      'This call connects participants directly, so other participants may be able to see your IP address.';
-
-  @override
   String get couldnTLoadVoiceRooms => 'Couldn\'t load voice rooms.';
 
   @override
@@ -3027,6 +3023,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get isCallingYouVoiceincomingcallValue => 'is calling you…';
+
+  @override
+  String voiceSystemCallerLabel(String username, String site) {
+    return '@$username · $site';
+  }
+
+  @override
+  String get voiceAnsweredCallConfirm => 'Answered. Confirm to connect.';
+
+  @override
+  String get hangUp => 'Hang up';
 
   @override
   String get answer => 'Answer';

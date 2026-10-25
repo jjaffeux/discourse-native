@@ -61,7 +61,9 @@ final class _VoiceIncomingSystemNavigation implements VoiceIncomingNavigation {
   final VoiceController controller;
 
   @override
-  FutureOr<String?> prepare(VoiceIncomingCallAcceptance acceptance) {
+  FutureOr<VoiceSystemAnswerPlan?> prepare(
+    VoiceIncomingCallAcceptance acceptance,
+  ) {
     final privacyWarningEnabled =
         controller._meshPrivacyWarningEnabledFor?.call(acceptance.siteUrl) ??
         false;
@@ -70,19 +72,19 @@ final class _VoiceIncomingSystemNavigation implements VoiceIncomingNavigation {
         acceptance.room.expectedTransport == VoiceTransport.mesh) {
       return _prepareWithPrivacy(acceptance);
     }
-    return _finish(acceptance, warnAboutPrivacy: false);
+    return _finish(acceptance, confirmInApp: false);
   }
 
-  Future<String?> _prepareWithPrivacy(
+  Future<VoiceSystemAnswerPlan?> _prepareWithPrivacy(
     VoiceIncomingCallAcceptance acceptance,
   ) async {
     final acknowledged = await controller.meshPrivacyAcknowledged();
-    return _finish(acceptance, warnAboutPrivacy: !acknowledged);
+    return _finish(acceptance, confirmInApp: !acknowledged);
   }
 
-  String? _finish(
+  VoiceSystemAnswerPlan? _finish(
     VoiceIncomingCallAcceptance acceptance, {
-    required bool warnAboutPrivacy,
+    required bool confirmInApp,
   }) {
     if (!acceptance.isCurrent) return null;
     final siteUrl = acceptance.siteUrl;
@@ -90,12 +92,6 @@ final class _VoiceIncomingSystemNavigation implements VoiceIncomingNavigation {
     if (!acceptance.isCurrent) return null;
     controller._onIncomingCallAnswered?.call(siteUrl, acceptance.room);
     if (!acceptance.isCurrent) return null;
-    if (warnAboutPrivacy) {
-      controller._notify(
-        appL10n
-            .thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble,
-      );
-    }
-    return siteName;
+    return (siteName: siteName, confirmInApp: confirmInApp);
   }
 }

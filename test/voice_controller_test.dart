@@ -15,6 +15,8 @@ import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 
 import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
+import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart'
+    show voiceAnswerConfirmationWindow;
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
@@ -8558,14 +8560,18 @@ void main() {
     });
 
     group('through the system call UI', () {
-      test("a ring is offered to the system with the caller's name", () async {
+      test('a ring is offered to the system by username and site', () async {
         await controller.ensureLoaded(firstSite);
 
         firstTracker.deliver('/voice/call-ring/1', ring());
         await pumpEventQueue();
 
         expect(systemCall.reportedIncomingCalls, [
-          (callerName: 'Kim', roomName: '📞 kim + sam', handle: 'kim'),
+          (
+            callerName: '@kim · one.example.com',
+            roomName: '📞 kim + sam',
+            handle: 'kim@one.example.com',
+          ),
         ]);
         expect(controller.incomingCallHandledBySystem, isFalse);
         expect(controller.incomingCall, isNotNull);
@@ -8737,12 +8743,13 @@ void main() {
         expect(systemCall.incomingEnds, isEmpty);
       });
 
-      test('an answer from the system joins the call directly', () async {
+      Future<List<VoiceNotice>> answerFromSystem({
+        required String expectedTransport,
+      }) async {
         systemCall.presentsIncomingCalls = true;
-        meshPrivacyWarning = true;
         transport.responses['GET /voice/rooms/call-1a2b.json'] = {
           ...callRoom(),
-          'expected_transport': 'mesh',
+          'expected_transport': expectedTransport,
         };
         await controller.ensureLoaded(firstSite);
         final notices = <VoiceNotice>[];
@@ -8753,22 +8760,86 @@ void main() {
         systemCall.send(VoiceSystemCallAction.answer);
         await pumpEventQueue();
         await pumpEventQueue();
+        return notices;
+      }
 
-        expect(controller.call?.room.id, 9);
-        expect(controller.call?.siteName, 'One');
-        expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
-        expect(systemCall.incomingAnswers, 0);
-        expect(systemCall.starts, 1);
-        expect(systemCall.incomingEnds, isEmpty);
-        final join = transport.writes.singleWhere(
-          (write) => write.path.endsWith('/join.json'),
-        );
-        expect(join.body['invited_by'], 'kim');
-        expect(notices.map((notice) => notice.message), [
-          'This call connects participants directly, so other participants '
-              'may be able to see your IP address.',
-        ]);
-      });
+      Iterable<PluginTransportRequest> joinWrites() => transport.writes.where(
+        (write) => write.path == '/voice/rooms/9/join.json',
+      );
+
+      test(
+        'an answer from the system waits for the privacy warning in the app',
+        () async {
+          meshPrivacyWarning = true;
+          final notices = await answerFromSystem(expectedTransport: 'mesh');
+
+          expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
+          expect(controller.answeredCallAwaitingConfirmation?.room.id, 9);
+          expect(controller.call, isNull);
+          expect(joinWrites(), isEmpty);
+          expect(systemCall.starts, 0);
+          expect(notices, isEmpty);
+
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.answeredCallAwaitingConfirmation!.room,
+          );
+
+          expect(controller.call?.room.id, 9);
+          expect(controller.answeredCallAwaitingConfirmation, isNull);
+          expect(systemCall.starts, 1);
+          expect(joinWrites().single.body['invited_by'], 'kim');
+          scheduler.advance(voiceAnswerConfirmationWindow);
+          await pumpEventQueue();
+          expect(systemCall.failures, 0);
+          expect(systemCall.ends, 0);
+        },
+      );
+
+      for (final reason in ['acknowledged', 'disabled', 'not mesh']) {
+        test('an answer from the system joins directly when the warning is '
+            '$reason', () async {
+          meshPrivacyWarning = reason != 'disabled';
+          preferences.meshPrivacyAcknowledged = reason == 'acknowledged';
+          final notices = await answerFromSystem(
+            expectedTransport: reason == 'not mesh' ? 'livekit' : 'mesh',
+          );
+
+          expect(controller.call?.room.id, 9);
+          expect(controller.call?.siteName, 'One');
+          expect(controller.answeredCallAwaitingConfirmation, isNull);
+          expect(answeredRooms, [(siteUrl: firstSite, roomId: 9)]);
+          expect(systemCall.incomingAnswers, 0);
+          expect(systemCall.starts, 1);
+          expect(systemCall.incomingEnds, isEmpty);
+          expect(joinWrites().single.body['invited_by'], 'kim');
+          expect(notices, isEmpty);
+        });
+      }
+
+      for (final hangUp in ['the system', 'the app']) {
+        test('hanging up from $hangUp while waiting joins nothing', () async {
+          meshPrivacyWarning = true;
+          await answerFromSystem(expectedTransport: 'mesh');
+          expect(controller.answeredCallAwaitingConfirmation, isNotNull);
+
+          if (hangUp == 'the system') {
+            systemCall.send(VoiceSystemCallAction.end);
+          } else {
+            controller.cancelAnsweredCall();
+          }
+          await pumpEventQueue();
+
+          expect(controller.answeredCallAwaitingConfirmation, isNull);
+          expect(systemCall.ends, hangUp == 'the app' ? 1 : 0);
+          scheduler.advance(voiceAnswerConfirmationWindow);
+          await pumpEventQueue();
+          expect(systemCall.failures, 0);
+          expect(controller.call, isNull);
+          expect(joinWrites(), isEmpty);
+        });
+      }
 
       test(
         'a system answer with nothing ringing fails the system call',
