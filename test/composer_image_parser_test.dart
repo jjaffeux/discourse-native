@@ -233,8 +233,10 @@ void main() {
           'then ![](HTTP://example.test/a("b)) '
           '![remote](hTtPs://example.test/路径 "title\nwith a newline") '
           '![zero|0x20, 0%](upload://zero) '
+          '![minimum|1x1, 1%](upload://minimum) '
           '![large|9999x9999, 100%](upload://large) '
-          '![bad scale|1x2, 101%](upload://scale) after';
+          '![bad scale|1x2, 101%](upload://scale) '
+          '![hostile scale|640x480, 999%](upload://hostile) after';
       final images = parseComposerImages(source);
       expect(
         [
@@ -246,8 +248,10 @@ void main() {
           ('', 'HTTP://example.test/a("b)', null, null, null),
           ('remote', 'hTtPs://example.test/路径', null, null, null),
           ('zero', 'upload://zero', null, null, null),
+          ('minimum', 'upload://minimum', 1, 1, 1),
           ('large', 'upload://large', 9999, 9999, 100),
           ('bad scale', 'upload://scale', 1, 2, null),
+          ('hostile scale', 'upload://hostile', 640, 480, null),
         ],
       );
       expect(images.first.start, source.indexOf('!['));

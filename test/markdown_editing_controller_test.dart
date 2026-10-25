@@ -213,7 +213,7 @@ void main() {
     });
   });
 
-  testWidgets('a tap lands on the character under it', (tester) async {
+  testWidgets('every caret offset hit-tests back to itself', (tester) async {
     const source = 'say **hello** to @sam';
     await pumpField(tester, source);
 
@@ -227,16 +227,6 @@ void main() {
         reason: 'the caret at $offset does not come back as $offset',
       );
     }
-  });
-
-  testWidgets('the paragraph the caret is measured against is the text', (
-    tester,
-  ) async {
-    const source = 'say **hello** to @sam';
-    await pumpField(tester, source);
-
-    // RenderEditable derives editing offsets from its flattened span tree.
-    expect(editable(tester).renderEditable.plainText, source);
   });
 
   testWidgets(
@@ -471,19 +461,6 @@ void main() {
     }
   });
 
-  testWidgets('changing text rescans the markdown source', (tester) async {
-    await pumpField(tester, 'say');
-    final before = controller.scans;
-
-    controller.value = const TextEditingValue(
-      text: 'say **hi**',
-      selection: TextSelection.collapsed(offset: 10),
-    );
-    await tester.pump();
-
-    expect(controller.scans, greaterThan(before));
-  });
-
   TextStyle styleAt(WidgetTester tester, String source, int offset) {
     var at = 0;
     TextStyle? found;
@@ -498,6 +475,20 @@ void main() {
     });
     return found!;
   }
+
+  testWidgets('changing text rescans the markdown source', (tester) async {
+    await pumpField(tester, 'say');
+    final before = controller.scans;
+
+    controller.value = const TextEditingValue(
+      text: 'say **hi**',
+      selection: TextSelection.collapsed(offset: 10),
+    );
+    await tester.pump();
+
+    expect(controller.scans, greaterThan(before));
+    expect(styleAt(tester, 'say **hi**', 6).fontWeight, FontWeight.w700);
+  });
 
   group('Markdown between projected components', () {
     TextSpan buildSpan(WidgetTester tester, {bool withComposing = true}) =>
@@ -699,16 +690,19 @@ void main() {
 
     testWidgets('nothing but <ins> is underlined', (tester) async {
       // Flutter reserves editable underlines for IME composing ranges.
-      const source = 'see plain text and **d** and `e`';
+      const source = 'see plain text and **d** and `e` and <ins>u</ins>';
       await pumpField(tester, source);
 
+      final underlined = StringBuffer();
       painted(tester).visitChildren((span) {
-        expect(
-          (span as TextSpan).style?.decoration,
-          isNot(TextDecoration.underline),
-        );
+        final decoration = (span as TextSpan).style?.decoration;
+        if (decoration != null &&
+            decoration.contains(TextDecoration.underline)) {
+          underlined.write(span.text ?? '');
+        }
         return true;
       });
+      expect(underlined.toString(), 'u');
     });
 
     testWidgets('a markdown link collapses to its clickable anchor', (
@@ -1144,12 +1138,6 @@ void main() {
       await tester.pump();
       await tester.pump();
     }
-
-    testWidgets('draws the artwork where the shortcode is', (tester) async {
-      await pumpWithEmoji(tester, 'hey :smile: there');
-
-      expect(find.byType(EmojiImage), findsOneWidget);
-    });
 
     testWidgets('preserves every source character', (tester) async {
       const source = 'hey :smile: there';

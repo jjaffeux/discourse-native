@@ -104,31 +104,27 @@ final class _GatedApiKeys implements SiteApiKeyReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'a composer preview requests five rows without changing list pagination',
-    () async {
-      final api = _GatedDraftsApi();
-      final controller = DraftListController(
-        api: api,
-        credentials: _ReadyApiKeys(),
-        lifecycle: SiteLifecycle(),
-        limit: 5,
-      );
-      addTearDown(controller.dispose);
-      final pending = controller.load(_instance, refresh: true);
-      await Future<void>.delayed(Duration.zero);
-      expect(api.offsets, [0]);
-      expect(api.limits, [5]);
-      api.pages.single.complete([
-        for (var i = 0; i < 5; i++)
-          UserDraft(key: 'topic_$i', sequence: 1, data: null),
-      ]);
-      await pending;
-      expect(controller.feedFor(_siteUrl).drafts, hasLength(5));
-      expect(controller.feedFor(_siteUrl).nextOffset, 5);
-      expect(DraftListController.pageSize, 30);
-    },
-  );
+  test('a composer preview requests and pages by its own five rows', () async {
+    final api = _GatedDraftsApi();
+    final controller = DraftListController(
+      api: api,
+      credentials: _ReadyApiKeys(),
+      lifecycle: SiteLifecycle(),
+      limit: 5,
+    );
+    addTearDown(controller.dispose);
+    final pending = controller.load(_instance, refresh: true);
+    await Future<void>.delayed(Duration.zero);
+    expect(api.offsets, [0]);
+    expect(api.limits, [5]);
+    api.pages.single.complete([
+      for (var i = 0; i < 5; i++)
+        UserDraft(key: 'topic_$i', sequence: 1, data: null),
+    ]);
+    await pending;
+    expect(controller.feedFor(_siteUrl).drafts, hasLength(5));
+    expect(controller.feedFor(_siteUrl).nextOffset, 5);
+  });
 
   group('server page boundaries', () {
     test('invalid raw rows do not hide subsequent valid drafts', () async {

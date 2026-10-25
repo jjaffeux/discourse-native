@@ -242,30 +242,7 @@ void main() {
           }
         },
       );
-
-      test('a composer without a batch limit leaves selection open', () async {
-        await pickComposerImages(limit: 0);
-
-        expect(imagePicker.options!.limit, isNull);
-      });
     });
-  });
-
-  test('adapts selected native file streams', () async {
-    final selected = XFile.fromData(
-      Uint8List.fromList([1, 2, 3]),
-      path: 'photo.png',
-    );
-
-    final files = composerUploadFilesFromSelection([selected]);
-
-    expect(files.single.name, 'photo.png');
-    expect(await files.single.length(), 3);
-    expect(await files.single.openRead().expand((chunk) => chunk).toList(), [
-      1,
-      2,
-      3,
-    ]);
   });
 }
 

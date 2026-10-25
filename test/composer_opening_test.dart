@@ -140,7 +140,7 @@ void main({bool profile = false}) {
   );
 
   testWidgets(
-    'opening and closing the composer retains reader panels and builds the editor once',
+    'opening and closing the composer retains reader panels and focus',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       const channel = MethodChannel('org.discourse.native/notification_opens');
@@ -204,7 +204,6 @@ void main({bool profile = false}) {
 
       for (var iteration = 0; iteration < 3; iteration++) {
         final elapsed = Stopwatch()..start();
-        final marks = <String, double>{};
 
         final opening = shell.openNewTopicFromSidebar();
         await tester.pump();
@@ -220,7 +219,7 @@ void main({bool profile = false}) {
         }
         if (profile) {
           debugPrint(
-            'COMPOSER_OPENING_PROFILE ${jsonEncode({'label': const String.fromEnvironment('PROFILE_LABEL', defaultValue: 'current'), 'iteration': iteration, 'milestonesMs': marks, 'settledMs': elapsed.elapsedMicroseconds / 1000})}',
+            'COMPOSER_OPENING_PROFILE ${jsonEncode({'label': const String.fromEnvironment('PROFILE_LABEL', defaultValue: 'current'), 'iteration': iteration, 'settledMs': elapsed.elapsedMicroseconds / 1000})}',
           );
         }
 

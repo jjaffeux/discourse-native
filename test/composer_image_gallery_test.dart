@@ -1180,7 +1180,9 @@ void main() {
       }
     });
 
-    testWidgets('a pointer edit cannot reveal gallery source', (tester) async {
+    testWidgets('a pointer edit holds the gallery selected without a caret', (
+      tester,
+    ) async {
       final controller = MarkdownEditingController(text: _source);
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -1191,6 +1193,11 @@ void main() {
           ),
         ),
       );
+      bool highlighted() => tester
+          .widget<ComposerImageGalleryPreview>(
+            find.byType(ComposerImageGalleryPreview),
+          )
+          .highlighted;
 
       final gallery = controller.galleryBlocks.single;
       controller.keepGalleryCollapsedForPointerEdit(gallery);
@@ -1198,11 +1205,15 @@ void main() {
         offset: gallery.contentStart,
       );
       await tester.pump();
-      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+      expect(highlighted(), isTrue);
+      expect(controller.selectedProjectionHidesCursor, isTrue);
+      expect(controller.isGalleryCollapsed(gallery), isTrue);
 
       controller.releaseGalleryPointerEdit(gallery);
       await tester.pump();
-      expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);
+      expect(highlighted(), isFalse);
+      expect(controller.selectedProjectionHidesCursor, isFalse);
+      expect(controller.isGalleryCollapsed(gallery), isTrue);
     });
 
     testWidgets('keeps an empty gallery as an editable options target', (
@@ -1883,9 +1894,14 @@ void main() {
       );
       final gesture = await tester.startGesture(start);
       await tester.pump(kLongPressTimeout);
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      // Three images and the drag feedback: the drag is under way.
+      expect(find.byType(ComposerImageGalleryTile), findsNWidgets(4));
       await gesture.moveBy(const Offset(600, 400));
       await gesture.up();
       await tester.pumpAndSettle();
+      expect(find.byType(ComposerImageGalleryTile), findsNWidgets(3));
       expect(composer.text.text, _source);
       expect(composer.standaloneImages, isEmpty);
       expect(tester.takeException(), isNull);

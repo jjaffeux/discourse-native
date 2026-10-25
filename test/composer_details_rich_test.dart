@@ -852,7 +852,7 @@ void main() {
   );
 
   testWidgets(
-    'narrow large-text details keep rich content and controls within the viewport',
+    'narrow large-text details lay out without overflow at the outer caret height',
     (tester) async {
       final fixture = await _pump(tester, width: 320, scale: 2);
       expect(find.byType(ComposerImagePreview), findsOneWidget);

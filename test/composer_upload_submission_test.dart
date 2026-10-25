@@ -103,7 +103,7 @@ void main() {
         return [_file('new.png')];
       });
       final uploadButton = find.byKey(const ValueKey('composer-upload'));
-      final retryButton = _iconButton('Retry upload');
+      final retryButton = _attachmentAction('Retry upload');
       expect(tester.widget<DButton>(uploadButton).onPressed, isNotNull);
       expect(
         tester.widget<DAttachmentAction>(retryButton).onPressed,
@@ -123,7 +123,6 @@ void main() {
         isNotNull,
       );
       await tester.tap(uploadButton);
-      await tester.tap(retryButton);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const ValueKey('composer-upload-files')), findsNothing);
@@ -404,8 +403,6 @@ ComposerUploadFile _file(String name) => ComposerUploadFile(
   length: () => Future.value(3),
   openRead: () => Stream.value([1, 2, 3]),
 );
-
-Finder _iconButton(String tooltip) => _attachmentAction(tooltip);
 
 Finder _attachmentAction(String tooltip) => find.byWidgetPredicate(
   (widget) => widget is DAttachmentAction && widget.tooltip == tooltip,

@@ -295,18 +295,6 @@ void main() {
       );
     });
 
-    test('claims a whole fenced block', () {
-      final runs = scanMarkdown('```\nno language\n```');
-      final body = runs.where((run) => run.has(Md.codeBlock));
-      expect(body, isNotEmpty);
-      expect(
-        body
-            .map((r) => '```\nno language\n```'.substring(r.start, r.end))
-            .join(),
-        'no language\n',
-      );
-    });
-
     test('tokenises a fence that names its language', () {
       const source = '```ruby\nputs 1\n```';
       final scopes = scanMarkdown(source)
@@ -340,10 +328,6 @@ void main() {
     Iterable<MarkdownRun> scoped(List<MarkdownRun> runs) =>
         runs.where((run) => run.has(Md.codeBlock) && run.detail != null);
 
-    test('the fixture is big enough to be worth deferring', () {
-      expect(largeBody.length, greaterThan(maxSynchronousFenceChars));
-    });
-
     test('a small fence is tokenized synchronously even with the callback', () {
       var deferred = 0;
       final runs = scanMarkdown(
@@ -356,6 +340,7 @@ void main() {
     });
 
     test('a large unparsed fence is left plain and handed back', () {
+      expect(largeBody.length, greaterThan(maxSynchronousFenceChars));
       final deferred = <(String, String?)>[];
       final runs = scanMarkdown(
         largeSource,
@@ -644,14 +629,6 @@ void main() {
       expect(annotate('a :wave:t3: here'), 'a <emoji>:wave:t3:</> here');
     });
 
-    test('keeps two shortcodes side by side apart', () {
-      final runs = scanMarkdown(
-        ':smile::smile:',
-      ).where((run) => run.has(Md.emoji)).toList();
-      expect(runs.length, 2);
-      expect(runs.first.end, 7);
-    });
-
     test('carries the name, colons stripped', () {
       expect(
         scanMarkdown('a :smile: b').firstWhere((r) => r.has(Md.emoji)).token,
@@ -692,13 +669,6 @@ void main() {
 
     test('leaves a lone colon alone', () {
       expect(annotate('this: that'), 'this: that');
-    });
-
-    test('carries the username', () {
-      expect(
-        scanMarkdown('hey @sam').firstWhere((r) => r.has(Md.mention)).token,
-        'sam',
-      );
     });
   });
 

@@ -229,6 +229,8 @@ void main() {
             .center,
       );
       for (var i = 0; i < 2; i++) {
+        root.text.selection = const TextSelection.collapsed(offset: 0);
+        await tester.pump();
         await tester.tapAt(end + const Offset(40, 0));
         await tester.pumpAndSettle(kDoubleTapTimeout);
         expect(root.text.selection.extentOffset, first.length);

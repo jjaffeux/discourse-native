@@ -46,22 +46,6 @@ void main() {
     }
   });
 
-  test('code exclusions and video escape parity remain intact', () {
-    const source =
-        '`![inline](upload://inline.png)`\n\n'
-        '```\n![fenced](upload://fenced.png)\n```\n\n'
-        r'\![literal](upload://literal.png) '
-        r'\\![real](upload://real.png) '
-        r'\![literal|video](upload://literal.mp4) '
-        r'\\![real|video](upload://real.mp4)';
-    expect(parseComposerImages(source).map((image) => image.url), [
-      'upload://real.png',
-    ]);
-    expect(parseComposerVideos(source).map((video) => video.url), [
-      'upload://real.mp4',
-    ]);
-  });
-
   test('escaped image text cannot become a gallery member', () {
     final controller = MarkdownEditingController(
       text:

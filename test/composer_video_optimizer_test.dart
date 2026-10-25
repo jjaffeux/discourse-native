@@ -105,10 +105,22 @@ void main() {
     'Linux passes through without invoking the platform or reading data',
     () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      final source = _file();
+      var reads = 0;
+      final source = ComposerUploadFile(
+        name: 'movie.MOV',
+        length: () async {
+          reads++;
+          return 10;
+        },
+        openRead: () {
+          reads++;
+          return Stream.value(List.filled(10, 1));
+        },
+      );
       expect((await prepare(file: source)).file, same(source));
       expect(encoder.availabilityChecks, 0);
       expect(encoder.starts, 0);
+      expect(reads, 0);
     },
   );
 

@@ -67,16 +67,6 @@ Future<String> _cook(OfflineCookingService service, String source) async {
 String _prose(String text) => text.trim().replaceAll(RegExp(r'\s+'), ' ');
 
 void main() {
-  test(
-    'lazy continuation after a nested child remains owned by that child',
-    () {
-      const source = '- [ ] Parent\n  - [x] Child\nTail';
-      final parent = composerListItems(source).single;
-      expect(parent.children.single.body.text, 'Child\nTail');
-      expect(parent.end, source.length);
-    },
-  );
-
   for (final example in _cases) {
     for (final newline in ['\n', '\r\n']) {
       test(

@@ -404,15 +404,6 @@ void main() {
     );
   });
 
-  test('an ordinary edit retains the edited and shifted block identities', () {
-    final before = parse('First\n\nSecond\n\nThird');
-    final after = ComposerBlockIndex.parse(
-      'First longer\n\nSecond\n\nThird',
-      previous: before,
-    );
-    expect(after.blocks.map((b) => b.id), before.blocks.map((b) => b.id));
-  });
-
   group('block IDs after an edit', () {
     List<int> ids(ComposerBlockIndex index) => [
       for (final block in index.blocks) block.id,

@@ -2323,7 +2323,6 @@ final class _InteractionTrackingShellController extends ShellController {
         trackers: FakeSiteTracker.reset(),
       );
 
-  int closeCalls = 0;
   int submitCalls = 0;
 
   static Future<_InteractionTrackingShellController> create() async {
@@ -2331,9 +2330,6 @@ final class _InteractionTrackingShellController extends ShellController {
     await shell.load();
     return shell;
   }
-
-  @override
-  void closeComposer({ComposerController? composer}) => closeCalls++;
 
   @override
   Future<void> submitComposer({
