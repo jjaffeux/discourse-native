@@ -129,6 +129,226 @@ void main() {
   });
 
   testWidgets(
+    'offscreen PDFs admit on entry and cancel unfinished work on exit',
+    (tester) async {
+      final harness = _Harness();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        harness.app(
+          SingleChildScrollView(
+            controller: scroll,
+            child: const Column(
+              children: [
+                SizedBox(height: 450),
+                SizedBox(
+                  height: 40,
+                  child: PdfThumbnail(
+                    url: '/uploads/notes.pdf',
+                    siteUrl: _site,
+                  ),
+                ),
+                SizedBox(height: 450),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(harness.jobs, isEmpty);
+      final retained = tester.element(find.byType(PdfThumbnail));
+      scroll.jumpTo(300);
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(PdfThumbnail)), same(retained));
+      expect(harness.jobs, hasLength(1));
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(harness.jobs.single.cancelled, isTrue);
+      scroll.jumpTo(300);
+      await tester.pumpAndSettle();
+      expect(harness.jobs, hasLength(2));
+      harness.jobs.first.result.complete(blankPng(width: 171, height: 256));
+      await tester.pump();
+      expect(find.byType(RawImage), findsNothing);
+      harness.jobs.last.result.complete(blankPng(width: 171, height: 256));
+      await _waitForImage(tester);
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      scroll.jumpTo(300);
+      await tester.pumpAndSettle();
+      expect(harness.jobs, hasLength(2));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    },
+  );
+
+  testWidgets('ancestor clips and Offstage defer retained PDF previews', (
+    tester,
+  ) async {
+    final harness = _Harness();
+    final top = ValueNotifier<double>(150);
+    final hidden = ValueNotifier<bool>(true);
+    addTearDown(top.dispose);
+    addTearDown(hidden.dispose);
+    await tester.pumpWidget(
+      harness.app(
+        Column(
+          children: [
+            SizedBox(
+              height: 100,
+              child: ValueListenableBuilder<double>(
+                valueListenable: top,
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: PdfThumbnail(
+                    url: '/uploads/clipped.pdf',
+                    siteUrl: _site,
+                  ),
+                ),
+                builder: (_, offset, child) => ClipRect(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [Positioned(top: offset, child: child!)],
+                  ),
+                ),
+              ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: hidden,
+              child: const SizedBox(
+                width: 40,
+                height: 40,
+                child: PdfThumbnail(url: '/uploads/hidden.pdf', siteUrl: _site),
+              ),
+              builder: (_, offstage, child) =>
+                  Offstage(offstage: offstage, child: child),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(harness.jobs, isEmpty);
+    top.value = 20;
+    await tester.pumpAndSettle();
+    expect(harness.jobs.single.url.path, '/uploads/clipped.pdf');
+    hidden.value = false;
+    await tester.pumpAndSettle();
+    expect(harness.jobs, hasLength(2));
+    top.value = 150;
+    await tester.pumpAndSettle();
+    expect(harness.jobs.first.cancelled, isTrue);
+    expect(harness.jobs.last.cancelled, isFalse);
+  });
+
+  testWidgets('visible duplicate PDFs retain shared work until both leave', (
+    tester,
+  ) async {
+    final harness = _Harness();
+    final firstHidden = ValueNotifier<bool>(false);
+    final secondHidden = ValueNotifier<bool>(false);
+    addTearDown(firstHidden.dispose);
+    addTearDown(secondHidden.dispose);
+    Widget preview(ValueNotifier<bool> hidden) => ValueListenableBuilder<bool>(
+      valueListenable: hidden,
+      child: const SizedBox(
+        width: 40,
+        height: 40,
+        child: PdfThumbnail(url: '/uploads/shared.pdf', siteUrl: _site),
+      ),
+      builder: (_, offstage, child) =>
+          Offstage(offstage: offstage, child: child),
+    );
+    await tester.pumpWidget(
+      harness.app(
+        Column(children: [preview(firstHidden), preview(secondHidden)]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(harness.jobs, hasLength(1));
+    firstHidden.value = true;
+    await tester.pumpAndSettle();
+    expect(harness.jobs.single.cancelled, isFalse);
+    secondHidden.value = true;
+    await tester.pumpAndSettle();
+    expect(harness.jobs.single.cancelled, isTrue);
+  });
+
+  testWidgets('deferred PDF admission cannot acquire under a successor lease', (
+    tester,
+  ) async {
+    final harness = _Harness();
+    final hidden = ValueNotifier<bool>(true);
+    addTearDown(hidden.dispose);
+    await tester.pumpWidget(
+      harness.app(
+        ValueListenableBuilder<bool>(
+          valueListenable: hidden,
+          child: const SizedBox(
+            width: 40,
+            height: 40,
+            child: PdfThumbnail(url: '/uploads/notes.pdf', siteUrl: _site),
+          ),
+          builder: (_, offstage, child) =>
+              Offstage(offstage: offstage, child: child),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(harness.jobs, isEmpty);
+    harness.lifecycle.invalidate(_site);
+    harness.lifecycle.capture(_site);
+    hidden.value = false;
+    await tester.pumpAndSettle();
+    expect(harness.jobs, isEmpty);
+    expect(find.byType(RawImage), findsNothing);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets(
+    'failed PDF previews honor cooldown when leaving and reentering',
+    (tester) async {
+      final harness = _Harness();
+      final hidden = ValueNotifier<bool>(false);
+      addTearDown(hidden.dispose);
+      await tester.pumpWidget(
+        harness.app(
+          ValueListenableBuilder<bool>(
+            valueListenable: hidden,
+            child: const SizedBox(
+              width: 40,
+              height: 40,
+              child: PdfThumbnail(url: '/uploads/failed.pdf', siteUrl: _site),
+            ),
+            builder: (_, offstage, child) =>
+                Offstage(offstage: offstage, child: child),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      harness.jobs.single.result.complete(null);
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 10; i++) {
+        await tester.pump();
+      }
+      expect(harness.jobs, hasLength(1));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      hidden.value = true;
+      await tester.pumpAndSettle();
+      hidden.value = false;
+      await tester.pumpAndSettle();
+      expect(harness.jobs, hasLength(1));
+      hidden.value = true;
+      await tester.pumpAndSettle();
+      harness.now = harness.now.add(const Duration(seconds: 31));
+      hidden.value = false;
+      await tester.pumpAndSettle();
+      expect(harness.jobs, hasLength(2));
+      expect(find.byIcon(Icons.picture_as_pdf_outlined), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'retained composer PDFs share post thumbnails and keep remove actions',
     (tester) async {
       final harness = _Harness();
@@ -273,7 +493,7 @@ Future<void> _waitForImage(WidgetTester tester) async {
 
 final class _Harness {
   _Harness() {
-    final lifecycle = SiteLifecycle();
+    lifecycle = SiteLifecycle();
     shell = ShellController(
       instanceStore: FakeInstanceStore(),
       api: FakeDiscourseApi(),
@@ -283,6 +503,7 @@ final class _Harness {
       lifecycle: lifecycle,
       pdfThumbnails: SitePdfThumbnailRepository(
         credentials: FakeApiCredentialReader(),
+        clock: () => now,
         lifecycle: lifecycle,
         generator: (url) {
           final job = _Job(url);
@@ -296,6 +517,8 @@ final class _Harness {
     );
     addTearDown(shell.dispose);
   }
+  DateTime now = DateTime(2026);
+  late final SiteLifecycle lifecycle;
   late final ShellController shell;
   final jobs = <_Job>[];
   Widget app(Widget child, {bool dark = false, bool enabled = true}) =>
