@@ -105,6 +105,7 @@ void main() {
       await preferences.setValue('Double', 'flutter.width', 1.0);
 
       expect((await everything())['flutter.width'], isA<double>());
+      expect((await everything())['flutter.width'], 1.0);
     });
   });
 
@@ -159,7 +160,7 @@ void main() {
         [...utf8.encode('{"flutter.recent":"caf'), 0xc3],
       ),
     ]) {
-      test('$name is set aside, reported once, and read as empty', () async {
+      test('$name is set aside once and read as empty', () async {
         await file.writeAsBytes(bytes);
 
         expect(await store().getAll(), isEmpty);
@@ -191,7 +192,7 @@ void main() {
   });
 
   group('concurrent writers', () {
-    test('another process changes only the keys it writes', () async {
+    test('another isolate changes only the keys it writes', () async {
       final here = store();
       await here.setValue('String', 'flutter.instances', '["a"]');
       await here.getAll();

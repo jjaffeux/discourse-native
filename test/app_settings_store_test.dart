@@ -204,7 +204,32 @@ void main() {
   });
 
   test('round-trips every text scale by its stable enum name', () async {
-    for (final scale in AppTextScale.values) {
+    const scales = [
+      (AppTextScale.percent80, 'percent80'),
+      (AppTextScale.percent85, 'percent85'),
+      (AppTextScale.percent90, 'percent90'),
+      (AppTextScale.percent95, 'percent95'),
+      (AppTextScale.percent100, 'percent100'),
+      (AppTextScale.percent105, 'percent105'),
+      (AppTextScale.percent110, 'percent110'),
+      (AppTextScale.percent115, 'percent115'),
+      (AppTextScale.percent120, 'percent120'),
+      (AppTextScale.percent125, 'percent125'),
+      (AppTextScale.percent130, 'percent130'),
+      (AppTextScale.percent135, 'percent135'),
+      (AppTextScale.percent140, 'percent140'),
+      (AppTextScale.percent145, 'percent145'),
+      (AppTextScale.percent150, 'percent150'),
+      (AppTextScale.percent175, 'percent175'),
+      (AppTextScale.percent200, 'percent200'),
+    ];
+    expect(scales.map((entry) => entry.$1), AppTextScale.values);
+    for (final (scale, savedName) in scales) {
+      SharedPreferences.setMockInitialValues({
+        AppSettingsStore.textScaleKey: savedName,
+      });
+      expect(await AppSettingsStore().read(), AppSettings(textScale: scale));
+      SharedPreferences.setMockInitialValues({});
       final store = AppSettingsStore();
       await store.write(AppSettings(textScale: scale));
 
@@ -212,35 +237,56 @@ void main() {
         (await SharedPreferences.getInstance()).getString(
           AppSettingsStore.textScaleKey,
         ),
-        scale.name,
+        savedName,
       );
       expect(await AppSettingsStore().read(), AppSettings(textScale: scale));
     }
   });
 
   test('restores every theme mode in a fresh store', () async {
-    for (final mode in AppThemeMode.values) {
+    const themes = [
+      (AppThemeMode.system, 'system'),
+      (AppThemeMode.light, 'light'),
+      (AppThemeMode.dark, 'dark'),
+    ];
+    expect(themes.map((entry) => entry.$1), AppThemeMode.values);
+    for (final (mode, savedName) in themes) {
+      SharedPreferences.setMockInitialValues({
+        AppSettingsStore.themeModeKey: savedName,
+      });
+      expect(await AppSettingsStore().read(), AppSettings(themeMode: mode));
+      SharedPreferences.setMockInitialValues({});
       await AppSettingsStore().update(themeMode: mode);
 
       expect(
         (await SharedPreferences.getInstance()).getString(
           AppSettingsStore.themeModeKey,
         ),
-        mode.name,
+        savedName,
       );
       expect(await AppSettingsStore().read(), AppSettings(themeMode: mode));
     }
   });
 
   test('restores every topic list mode in a fresh store', () async {
-    for (final mode in TopicListDisplayMode.values) {
+    const lists = [
+      (TopicListDisplayMode.card, 'card'),
+      (TopicListDisplayMode.compact, 'compact'),
+    ];
+    expect(lists.map((entry) => entry.$1), TopicListDisplayMode.values);
+    for (final (mode, savedName) in lists) {
+      SharedPreferences.setMockInitialValues({
+        AppSettingsStore.topicListModeKey: savedName,
+      });
+      expect(await AppSettingsStore().read(), AppSettings(topicListMode: mode));
+      SharedPreferences.setMockInitialValues({});
       await AppSettingsStore().update(topicListMode: mode);
 
       expect(
         (await SharedPreferences.getInstance()).getString(
           AppSettingsStore.topicListModeKey,
         ),
-        mode.name,
+        savedName,
       );
       expect(await AppSettingsStore().read(), AppSettings(topicListMode: mode));
     }
