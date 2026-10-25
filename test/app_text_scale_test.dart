@@ -57,7 +57,9 @@ void main() {
       expect(scaler.textScaleFactor, platform.scale(14) / 14 * 1.25);
       expect(
         scaler,
-        const AppTextScaler(platformScaler: platform, appScale: 1.25),
+        // Value equality must compare separate instances.
+        // ignore: prefer_const_constructors
+        AppTextScaler(platformScaler: platform, appScale: 1.25),
       );
       expect(
         scaler,
@@ -96,8 +98,9 @@ void main() {
       expect(scaler.textScaleFactor, scaler.scale(14) / 14);
       expect(
         scaler,
-        const AppTextScaler(
-          platformScaler: _TestTextScaler(),
+        // ignore: prefer_const_constructors
+        AppTextScaler(
+          platformScaler: const _TestTextScaler(),
           appScale: 1.25,
           baselineScale: 17 / 14,
         ),
