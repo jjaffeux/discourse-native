@@ -66,38 +66,45 @@ void main() {
     });
   }
 
-  test(
-    'retired tracker startup cannot open bootstrap after credential IO',
-    () async {
-      const reader = DiscourseUser(id: 7, username: 'reader');
-      final api = FakeDiscourseApi(user: reader);
-      final auth = _GatedAuthenticator()..keys[_siteUrl] = 'old-key';
-      final gate = auth.gateNextClientId();
-      final shell = ShellController(
-        instanceStore: FakeInstanceStore([
-          instance('meta.discourse.org').copyWith(user: reader),
-        ]),
-        api: api,
-        authenticator: auth,
-        drafts: FakeDraftStore(),
-        trackers: FakeSiteTracker.reset(),
-        updateStore: FakeUpdateStore(),
-      );
-      addTearDown(shell.dispose);
-      addTearDown(() {
-        if (!gate.release.isCompleted) gate.release.complete();
-      });
-      final load = shell.load();
-      await gate.started.future;
-      expect(api.messageBusBootstrapRequests, isEmpty);
-      shell.lifecycle.invalidate(_siteUrl);
-      gate.release.complete();
-      await load;
-      await pumpEventQueue();
-      expect(api.messageBusBootstrapRequests, isEmpty);
-      expect(FakeSiteTracker.built, isEmpty);
-    },
-  );
+  // Each race below runs twice: once retired, and once with the account still
+  // current, so a refusal is only credited where the same gated path would
+  // otherwise have sent its request.
+  for (final retired in [true, false]) {
+    test(
+      retired
+          ? 'retired tracker startup cannot open bootstrap after credential IO'
+          : 'current tracker startup opens bootstrap after credential IO',
+      () async {
+        const reader = DiscourseUser(id: 7, username: 'reader');
+        final api = FakeDiscourseApi(user: reader);
+        final auth = _GatedAuthenticator()..keys[_siteUrl] = 'old-key';
+        final gate = auth.gateNextClientId();
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(user: reader),
+          ]),
+          api: api,
+          authenticator: auth,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+        );
+        addTearDown(shell.dispose);
+        addTearDown(() {
+          if (!gate.release.isCompleted) gate.release.complete();
+        });
+        final load = shell.load();
+        await gate.started.future;
+        expect(api.messageBusBootstrapRequests, isEmpty);
+        if (retired) shell.lifecycle.invalidate(_siteUrl);
+        gate.release.complete();
+        await load;
+        await pumpEventQueue();
+        expect(api.messageBusBootstrapRequests, retired ? isEmpty : isNotEmpty);
+        expect(FakeSiteTracker.built, retired ? isEmpty : isNotEmpty);
+      },
+    );
+  }
 
   test(
     'a retired viewport cannot mark posts read for a replacement account',
@@ -155,113 +162,124 @@ void main() {
     },
   );
 
-  test(
-    'invalidating a pending composer tag credential sends no lookup',
-    () async {
-      final fixture = await _fixture();
-      addTearDown(fixture.shell.dispose);
-      final composer = _openReply(fixture.shell);
-      await pumpEventQueue();
-
-      final credential = fixture.authenticator.gateNextApiKey();
-      final search = fixture.shell.searchComposerTags(composer, 'safe');
-      await credential.started.future;
-
-      fixture.shell.lifecycle.invalidate(_siteUrl);
-      credential.release.complete();
-
-      expect(await search, const TopicTagSearch());
-      expect(fixture.api.tagSearches, isEmpty);
-    },
-  );
-
-  test(
-    'invalidating a pending resumed-topic draft credential sends no read',
-    () async {
-      final drafts = _GatedDraftStore();
-      final fixture = await _fixture(drafts: drafts, canCreateTopic: true);
-      addTearDown(fixture.shell.dispose);
-      expect(fixture.shell.canCreateTopicHere, isTrue);
-
-      final localRead = drafts.gateNextRead();
-      await fixture.shell.resumeDraft(
-        _siteUrl,
-        const UserDraft(
-          key: 'new_topic',
-          sequence: 0,
-          data: ComposerDraft(reply: 'A saved topic draft'),
-        ),
-      );
-      await localRead.started.future;
-      // Let the other composer-owned best-effort reads finish before selecting
-      // exactly the credential lookup that follows the local draft read.
-      await pumpEventQueue();
-      final credential = fixture.authenticator.gateNextApiKey();
-      localRead.release.complete();
-      await credential.started.future;
-
-      fixture.shell.lifecycle.invalidate(_siteUrl);
-      credential.release.complete();
-      await pumpEventQueue();
-
-      expect(fixture.api.draftReads, isEmpty);
-    },
-  );
-
-  test(
-    'invalidating a pending mention credential sends no user lookup',
-    () async {
-      final fixture = await _fixture();
-      addTearDown(fixture.shell.dispose);
-      final credential = fixture.authenticator.gateNextApiKey();
-
-      final search = fixture.shell.searchUsers(
-        siteUrl: _siteUrl,
-        topicId: 7,
-        term: 'sam',
-      );
-      await credential.started.future;
-      fixture.shell.lifecycle.invalidate(_siteUrl);
-      credential.release.complete();
-
-      expect(await search, isEmpty);
-      expect(fixture.api.userSearchRequests, isEmpty);
-    },
-  );
-
-  for (final credentialKind in ['API key', 'client ID']) {
+  for (final retired in [true, false]) {
     test(
-      'upload cannot cross an account change during its $credentialKind read',
+      retired
+          ? 'invalidating a pending composer tag credential sends no lookup'
+          : 'a current composer tag credential sends its lookup',
       () async {
         final fixture = await _fixture();
         addTearDown(fixture.shell.dispose);
         final composer = _openReply(fixture.shell);
         await pumpEventQueue();
-        final gate = credentialKind == 'API key'
-            ? fixture.authenticator.gateNextApiKey()
-            : fixture.authenticator.gateNextClientId();
-        final abort = Completer<void>();
-        addTearDown(() {
-          if (!gate.release.isCompleted) gate.release.complete();
-          if (!abort.isCompleted) abort.complete();
-        });
-        final upload = composer.imageUploader!(
-          _uploadFile(),
-          onProgress: (_) {},
-          abortTrigger: abort.future,
-        );
-        final result = expectLater(
-          upload,
-          throwsA(isA<ComposerUploadException>()),
-        );
-        await gate.started.future;
-        fixture.shell.lifecycle.invalidate(_siteUrl);
-        gate.release.complete();
-        await result;
 
-        expect(fixture.api.composerUploads, isEmpty);
+        final credential = fixture.authenticator.gateNextApiKey();
+        final search = fixture.shell.searchComposerTags(composer, 'safe');
+        await credential.started.future;
+
+        if (retired) fixture.shell.lifecycle.invalidate(_siteUrl);
+        credential.release.complete();
+
+        expect(await search, const TopicTagSearch());
+        expect(fixture.api.tagSearches, retired ? isEmpty : ['safe']);
       },
     );
+
+    test(
+      retired
+          ? 'invalidating a pending resumed-topic draft credential sends no read'
+          : 'a pending resumed-topic draft credential that stays current reads',
+      () async {
+        final drafts = _GatedDraftStore();
+        final fixture = await _fixture(drafts: drafts, canCreateTopic: true);
+        addTearDown(fixture.shell.dispose);
+        expect(fixture.shell.canCreateTopicHere, isTrue);
+
+        final localRead = drafts.gateNextRead();
+        await fixture.shell.resumeDraft(
+          _siteUrl,
+          const UserDraft(
+            key: 'new_topic',
+            sequence: 0,
+            data: ComposerDraft(reply: 'A saved topic draft'),
+          ),
+        );
+        await localRead.started.future;
+        // Let the other composer-owned best-effort reads finish before
+        // selecting exactly the credential lookup that follows the local draft
+        // read.
+        await pumpEventQueue();
+        final credential = fixture.authenticator.gateNextApiKey();
+        localRead.release.complete();
+        await credential.started.future;
+
+        if (retired) fixture.shell.lifecycle.invalidate(_siteUrl);
+        credential.release.complete();
+        await pumpEventQueue();
+
+        expect(fixture.api.draftReads, retired ? isEmpty : ['new_topic']);
+      },
+    );
+
+    test(
+      retired
+          ? 'invalidating a pending mention credential sends no user lookup'
+          : 'a pending mention credential that stays current sends its lookup',
+      () async {
+        final fixture = await _fixture();
+        addTearDown(fixture.shell.dispose);
+        final credential = fixture.authenticator.gateNextApiKey();
+
+        final search = fixture.shell.searchUsers(
+          siteUrl: _siteUrl,
+          topicId: 7,
+          term: 'sam',
+        );
+        await credential.started.future;
+        if (retired) fixture.shell.lifecycle.invalidate(_siteUrl);
+        credential.release.complete();
+
+        expect(await search, isEmpty);
+        expect(fixture.api.userSearchRequests, retired ? isEmpty : ['sam']);
+      },
+    );
+
+    for (final credentialKind in ['API key', 'client ID']) {
+      test(
+        retired
+            ? 'upload cannot cross an account change during its '
+                  '$credentialKind read'
+            : 'upload sends once its account outlasts its $credentialKind read',
+        () async {
+          final fixture = await _fixture();
+          addTearDown(fixture.shell.dispose);
+          final composer = _openReply(fixture.shell);
+          await pumpEventQueue();
+          final gate = credentialKind == 'API key'
+              ? fixture.authenticator.gateNextApiKey()
+              : fixture.authenticator.gateNextClientId();
+          final abort = Completer<void>();
+          addTearDown(() {
+            if (!gate.release.isCompleted) gate.release.complete();
+            if (!abort.isCompleted) abort.complete();
+          });
+          final upload = composer.imageUploader!(
+            _uploadFile(),
+            onProgress: (_) {},
+            abortTrigger: abort.future,
+          );
+          final Future<Object?> result = retired
+              ? expectLater(upload, throwsA(isA<ComposerUploadException>()))
+              : upload;
+          await gate.started.future;
+          if (retired) fixture.shell.lifecycle.invalidate(_siteUrl);
+          gate.release.complete();
+          await result;
+
+          expect(fixture.api.composerUploads, hasLength(retired ? 0 : 1));
+        },
+      );
+    }
   }
 
   test('a retained upload callback stops after shell disposal', () async {
@@ -286,31 +304,51 @@ void main() {
   });
 
   for (final kind in ['likers', 'user card']) {
-    test('$kind loading cannot adopt an account from a listener', () async {
-      final fixture = await _fixture();
-      addTearDown(fixture.shell.dispose);
-      final requests = kind == 'likers'
-          ? fixture.shell.likerRequests
-          : fixture.shell.userCardRequests;
-      var invalidated = false;
-      requests.addListener(() {
-        if (invalidated) return;
-        invalidated = true;
-        fixture.shell.lifecycle.invalidate(_siteUrl);
-      });
+    for (final retired in [true, false]) {
+      test(
+        retired
+            ? '$kind loading cannot adopt an account from a listener'
+            : '$kind loading reads for the account its listener leaves current',
+        () async {
+          final fixture = await _fixture();
+          addTearDown(fixture.shell.dispose);
+          final requests = kind == 'likers'
+              ? fixture.shell.likerRequests
+              : fixture.shell.userCardRequests;
+          var notified = false;
+          requests.addListener(() {
+            if (notified) return;
+            notified = true;
+            if (retired) fixture.shell.lifecycle.invalidate(_siteUrl);
+          });
 
-      if (kind == 'likers') {
-        await fixture.shell.loadLikers(12, siteUrl: _siteUrl);
-      } else {
-        await fixture.shell.loadUserCard('sam', siteUrl: _siteUrl);
-      }
+          if (kind == 'likers') {
+            await fixture.shell.loadLikers(12, siteUrl: _siteUrl);
+          } else {
+            await fixture.shell.loadUserCard('sam', siteUrl: _siteUrl);
+          }
 
-      expect(invalidated, isTrue);
-      expect(fixture.api.likersRequested, isEmpty);
-      expect(fixture.api.cardsRequested, isEmpty);
-      expect(fixture.shell.likersError(12, siteUrl: _siteUrl), isNull);
-      expect(fixture.shell.userCardError('sam', siteUrl: _siteUrl), isNull);
-    });
+          expect(notified, isTrue);
+          expect(
+            fixture.api.likersRequested,
+            !retired && kind == 'likers' ? [12] : isEmpty,
+          );
+          expect(
+            fixture.api.cardsRequested,
+            !retired && kind == 'user card' ? ['sam'] : isEmpty,
+          );
+          // A retired read reports nothing; this fake has no answer for a
+          // current one, so only the retired run can expect a clean slate.
+          if (retired) {
+            expect(fixture.shell.likersError(12, siteUrl: _siteUrl), isNull);
+            expect(
+              fixture.shell.userCardError('sam', siteUrl: _siteUrl),
+              isNull,
+            );
+          }
+        },
+      );
+    }
   }
 }
 

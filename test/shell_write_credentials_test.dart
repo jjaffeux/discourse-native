@@ -119,26 +119,23 @@ void main() {
       expect(api.created, isEmpty);
     });
 
-    test(
-      'record an opaque like failure once and roll back optimistic state',
-      () async {
-        api.likeError = StateError('opaque like transport failure');
-        final post = controller.store.read<Post>(_siteUrl, 1)!;
+    test('roll back optimistic state after an opaque like failure', () async {
+      api.likeError = StateError('opaque like transport failure');
+      final post = controller.store.read<Post>(_siteUrl, 1)!;
 
-        expect(
-          await controller.toggleLike(post, siteUrl: _siteUrl),
-          const WriteException(WriteFailure.unreachable).message,
-        );
+      expect(
+        await controller.toggleLike(post, siteUrl: _siteUrl),
+        const WriteException(WriteFailure.unreachable).message,
+      );
 
-        final held = controller.store.read<Post>(_siteUrl, 1)!;
-        expect(held.liked, isFalse);
-        expect(held.likeCount, 0);
-        expect(held.canLike, isTrue);
-        expect(api.liked, [1]);
-      },
-    );
+      final held = controller.store.read<Post>(_siteUrl, 1)!;
+      expect(held.liked, isFalse);
+      expect(held.likeCount, 0);
+      expect(held.canLike, isTrue);
+      expect(api.liked, [1]);
+    });
 
-    test('exclude a like failure from a disconnected session', () async {
+    test('disconnect does not wait for a failing like in flight', () async {
       final gate = Completer<void>();
       api
         ..likeError = StateError('obsolete like failure')
@@ -172,18 +169,15 @@ void main() {
       expect(authenticator.disconnected, isEmpty);
     });
 
-    test(
-      'records remote revocation failure without blocking disconnect',
-      () async {
-        api.revokeError = StateError('remote revoke unavailable');
+    test('disconnects despite a remote revocation failure', () async {
+      api.revokeError = StateError('remote revoke unavailable');
 
-        expect(await controller.disconnectInstance(_siteUrl), isTrue);
+      expect(await controller.disconnectInstance(_siteUrl), isTrue);
 
-        expect(controller.currentInstance?.user, isNull);
-        expect(authenticator.disconnected, [_siteUrl]);
-        expect(api.revoked, [_siteUrl]);
-      },
-    );
+      expect(controller.currentInstance?.user, isNull);
+      expect(authenticator.disconnected, [_siteUrl]);
+      expect(api.revoked, [_siteUrl]);
+    });
 
     test(
       'removes a forum and its credential when notification revocation fails',

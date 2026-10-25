@@ -1239,44 +1239,46 @@ void main() {
       },
     );
 
-    test(
-      'reports and isolates a throwing plugin current-user observer',
-      () async {
-        final calls = <String>[];
-        final recordingObserver = _RecordingCurrentUserObserver(calls);
-        final plugins = PluginInstaller.install(
-          PluginManifest([
-            _CurrentUserObserverModule([
-              _ThrowingCurrentUserObserver(calls),
-              recordingObserver,
-            ]),
+    test('isolates a throwing plugin current-user observer', () async {
+      final calls = <String>[];
+      final recordingObserver = _RecordingCurrentUserObserver(calls);
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _CurrentUserObserverModule([
+            _ThrowingCurrentUserObserver(calls),
+            recordingObserver,
           ]),
-        );
-        const freshUser = DiscourseUser(id: 42, username: 'fresh-account');
-        final shell = ShellController(
-          instanceStore: FakeInstanceStore([
-            instance('meta.discourse.org').copyWith(
-              user: const DiscourseUser(id: 42, username: 'stored-account'),
-            ),
-          ]),
-          api: FakeDiscourseApi(
-            user: freshUser,
-            feeds: const {'/latest.json': []},
+        ]),
+      );
+      const freshUser = DiscourseUser(id: 42, username: 'fresh-account');
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(
+            user: const DiscourseUser(id: 42, username: 'stored-account'),
           ),
-          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
-          drafts: FakeDraftStore(),
-          trackers: FakeSiteTracker.reset(),
-          plugins: plugins,
-        );
-
-        await shell.load();
-        expect(await recordingObserver.called.future, _siteUrl);
+        ]),
+        api: FakeDiscourseApi(
+          user: freshUser,
+          feeds: const {'/latest.json': []},
+        ),
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'account-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: plugins,
+      );
+      addTearDown(() async {
+        shell.dispose();
         await Future<void>.delayed(Duration.zero);
+        await plugins.close();
+      });
 
-        expect(shell.freshCurrentUserFor(_siteUrl)?.username, 'fresh-account');
-        expect(calls, ['throwing:$_siteUrl', 'recording:$_siteUrl']);
-      },
-    );
+      await shell.load();
+      expect(await recordingObserver.called.future, _siteUrl);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(shell.freshCurrentUserFor(_siteUrl)?.username, 'fresh-account');
+      expect(calls, ['throwing:$_siteUrl', 'recording:$_siteUrl']);
+    });
 
     test(
       'restores old metadata without ever pairing it with a replacement key',

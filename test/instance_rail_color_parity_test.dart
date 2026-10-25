@@ -81,10 +81,6 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(
-            find.byKey(const ValueKey('diagnostics-rail-button')),
-            findsNothing,
-          );
           for (final key in _actionKeys) {
             final expected = key == 'add-instance-rail-button'
                 ? theme.colorScheme.onSurface

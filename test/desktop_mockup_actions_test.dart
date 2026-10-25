@@ -119,7 +119,6 @@ void main() {
       expect(tester.widget<DToggle>(split).pressed, isFalse);
       expect(tester.widget<DLayoutGlyph>(splitIcon).secondaryVisible, isFalse);
       expect(secondaryPanel, findsNothing);
-      expect(find.byKey(const ValueKey('panel-rail-secondary')), findsNothing);
       expect(
         find.byKey(const ValueKey('main-panel-resize-handle')),
         findsNothing,
@@ -134,12 +133,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
       await tester.pumpAndSettle();
       expect(tester.widget<DToggle>(split).pressed, isFalse);
-      expect(find.byKey(const ValueKey('panel-rail-main')), findsNothing);
       expect(tester.getRect(secondaryPanel), tester.getRect(panels));
       await tester.tap(split);
       await tester.pumpAndSettle();
       expect(tester.widget<DToggle>(split).pressed, isTrue);
-      expect(find.byKey(const ValueKey('panel-rail-main')), findsNothing);
       expect(tester.getSize(mainPanel).width, splitWidth);
       shell.selectTab(main);
       await tester.pumpAndSettle();

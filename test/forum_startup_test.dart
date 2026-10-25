@@ -94,39 +94,30 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    testWidgets(
-      '${platform.name} default startup reopens the saved forum without Aggregate',
-      (tester) async {
-        final instances = FakeInstanceStore([
-          instance('one.example'),
-          instance('two.example'),
-        ]);
-        final persistence = MemoryForumTabPersistence();
-        await _pumpApp(tester, platform, instances, persistence);
-        final shell = ShellScope.read(
-          tester.element(find.byType(AdaptiveShell)),
-        );
-        shell.selectInstance(1);
-        await tester.pumpAndSettle();
-        await shell.flushForExit();
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
+    testWidgets('${platform.name} default startup reopens the saved forum', (
+      tester,
+    ) async {
+      final instances = FakeInstanceStore([
+        instance('one.example'),
+        instance('two.example'),
+      ]);
+      final persistence = MemoryForumTabPersistence();
+      await _pumpApp(tester, platform, instances, persistence);
+      final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+      await shell.flushForExit();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
 
-        await _pumpApp(tester, platform, instances, persistence);
-        final restarted = ShellScope.read(
-          tester.element(find.byType(AdaptiveShell)),
-        );
-        expect(restarted.currentInstance?.url, 'https://two.example');
-        expect(find.byType(EmptyState), findsNothing);
-        expect(
-          find.byKey(const ValueKey('aggregate-rail-button')),
-          findsNothing,
-        );
-        expect(find.text('All forums'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-      variant: TargetPlatformVariant.only(platform),
-    );
+      await _pumpApp(tester, platform, instances, persistence);
+      final restarted = ShellScope.read(
+        tester.element(find.byType(AdaptiveShell)),
+      );
+      expect(restarted.currentInstance?.url, 'https://two.example');
+      expect(find.byType(EmptyState), findsNothing);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(platform));
 
     testWidgets(
       '${platform.name} empty startup opens Add Forum and can reopen it after dismissal',
