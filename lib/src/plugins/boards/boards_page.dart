@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart' show SiteImage;
+import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'board_card_editor.dart';
+import 'board_column_dialog.dart';
+import 'board_column_panel.dart';
 import 'board_move_dialog.dart';
+import 'board_reader_card.dart';
 import 'boards_controller.dart';
 import 'boards_data.dart';
 import 'boards_directory.dart';
@@ -39,15 +41,11 @@ class _BoardsPageState extends State<BoardsPage> {
     int? directoryRevision,
   })?
   _identity;
-  int? _column;
   String? _directoryError;
   bool _directoryLoading = false;
   Object? _directoryToken;
   final _horizontal = ScrollController();
-  final _vertical = <int, ScrollController>{};
-  final _lists = <int, ListController>{};
-  final _cardKeys = <int, GlobalKey>{};
-  int? _highlighted;
+  (int, int, double, int)? _horizontalTarget;
   int? _dropCard;
   void _setDrop(int? id) {
     if (mounted && _dropCard != id) setState(() => _dropCard = id);
@@ -91,8 +89,7 @@ class _BoardsPageState extends State<BoardsPage> {
     final previous = _handle;
     _handle = null;
     previous?.release();
-    _column = null;
-    _highlighted = null;
+    _horizontalTarget = null;
     _directoryToken = null;
     _directoryLoading = false;
     _directoryError = null;
@@ -130,9 +127,6 @@ class _BoardsPageState extends State<BoardsPage> {
     widget.controller.removeListener(_changed);
     _handle?.release();
     _horizontal.dispose();
-    for (final controller in _vertical.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -164,6 +158,7 @@ class _BoardsPageState extends State<BoardsPage> {
     final board = handle.snapshot;
     if (board == null) {
       return DPageSurface.headed(
+        limitContentSize: false,
         title: Text(l10n.boardsTitle),
         controls: DButton(
           label: Text(l10n.refresh),
@@ -178,74 +173,98 @@ class _BoardsPageState extends State<BoardsPage> {
               ),
       );
     }
-    final compact = MediaQuery.sizeOf(context).width < 700;
-    final column = board.column(_column ?? -1) ?? board.columns.firstOrNull;
-    _column = column?.id;
     final linkedCard = board.card(widget.route.cardId ?? -1);
-    if (_highlighted != widget.route.cardId && linkedCard != null) {
-      _column = linkedCard.columnId;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _highlighted = linkedCard.id;
-        final column = board.column(linkedCard.columnId)!;
-        if (_horizontal.hasClients) {
-          _horizontal.jumpTo(
-            (board.columns.indexOf(column) * 330.0).clamp(
-              0.0,
-              _horizontal.position.maxScrollExtent,
-            ),
-          );
-        }
-        final list = _lists[column.id];
-        final scroll = _vertical[column.id];
-        if (list != null &&
-            list.isAttached &&
-            scroll != null &&
-            scroll.hasClients) {
-          list.jumpToItem(
-            index: column.cards.indexWhere((card) => card.id == linkedCard.id),
-            scrollController: scroll,
-            alignment: .3,
-          );
-        }
-        setState(() {});
-      });
-    }
+    final showCategories =
+        {
+          for (final column in board.columns)
+            for (final card in column.cards) ?card.categoryId,
+        }.length >
+        1;
     return DPageSurface.headed(
+      limitContentSize: false,
       title: Text(board.name),
-      controls: Wrap(
+      controls: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (board.archived) DBadge(child: Text(l10n.boardsArchived)),
-          if (compact && board.columns.isNotEmpty)
-            DSelect<int>.controlled(
-              value: _column,
-              semanticLabel: l10n.boardsColumn,
-              entries: [
-                for (final value in board.columns)
-                  DSelectItem(
-                    value: value.id,
-                    child: Text('${value.title} (${value.cards.length})'),
-                    textValue: value.title,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final wrap =
+                  constraints.maxWidth < 400 &&
+                  MediaQuery.textScalerOf(context).scale(14) > 21;
+              final back = DButton(
+                variant: DButtonVariant.link,
+                icon: const DIcon(DIcons.chevronLeft),
+                label: Text(l10n.boardsAll),
+                onPressed: () => widget.navigation.open(),
+              );
+              return DControlWrap(
+                spacing: 8,
+                runSpacing: 8,
+                wrap: wrap,
+                children: [
+                  if (wrap)
+                    back
+                  else
+                    DControlExpanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: back,
+                      ),
+                    ),
+                  if (board.archived) DBadge(child: Text(l10n.boardsArchived)),
+                  if (handle.reading || handle.writing) const DSpinner(),
+                  DDropdownMenu(
+                    content: DDropdownMenuContent(
+                      children: [
+                        DDropdownMenuItem(
+                          leading: const DIcon(DIcons.arrowRotateRight),
+                          onPressed: handle.reading || handle.writing
+                              ? null
+                              : handle.refresh,
+                          child: Text(l10n.refresh),
+                        ),
+                        if (board.canManage)
+                          DDropdownMenuItem(
+                            leading: const DIcon(DIcons.gear),
+                            onPressed: () =>
+                                widget.navigation.configure(widget.site, board),
+                            child: Text(l10n.openInBrowser),
+                          ),
+                      ],
+                    ),
+                    child: DDropdownMenuTrigger(
+                      builder: (context, state) => DButton.iconOnly(
+                        key: const ValueKey('board-controls'),
+                        variant: DButtonVariant.ghost,
+                        icon: const DIcon(DIcons.ellipsis),
+                        tooltip: l10n.moreActions,
+                        onPressed: state.toggle,
+                        focusNode: state.focusNode,
+                        hasPopup: true,
+                        expanded: state.open,
+                      ),
+                    ),
                   ),
-              ],
-              onChanged: (value) => setState(() => _column = value),
-            ),
-          DButton(
-            label: Text(l10n.refresh),
-            onPressed: handle.reading || handle.writing ? null : handle.refresh,
+                ],
+              );
+            },
           ),
-          if (board.canManage)
-            DButton(
-              label: Text(l10n.openInBrowser),
-              onPressed: () => widget.navigation.configure(widget.site, board),
+          if (board.tagNames.isNotEmpty || board.categoryIds.isNotEmpty)
+            Text(
+              [
+                for (final id in board.categoryIds)
+                  ?widget.controller.siteState.categoryFor
+                      ?.call(widget.site, id)
+                      ?.name,
+                ...board.tagNames,
+              ].join(', '),
+              style: TextStyle(color: DTokens.of(context).mutedForeground),
             ),
-          if (handle.reading || handle.writing) const DSpinner(),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (handle.error case final error?)
             Padding(padding: const EdgeInsets.all(8), child: Text(error)),
@@ -257,24 +276,116 @@ class _BoardsPageState extends State<BoardsPage> {
           Expanded(
             child: board.columns.isEmpty
                 ? Center(child: DEmpty(children: [Text(l10n.boardsNoCards)]))
-                : compact
-                ? _columnView(board, board.column(_column!)!)
                 : LayoutBuilder(
-                    builder: (context, constraints) => DScrollArea(
-                      axes: DScrollAxes.horizontal,
-                      controller: _horizontal,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final value in board.columns)
-                            SizedBox(
-                              width: 330,
-                              height: constraints.maxHeight,
-                              child: _columnView(board, value),
-                            ),
-                        ],
-                      ),
-                    ),
+                    builder: (context, constraints) {
+                      final width = (constraints.maxWidth - 24).clamp(
+                        240.0,
+                        300.0,
+                      );
+                      final stride = width + 12;
+                      if (linkedCard != null) {
+                        final target = (
+                          linkedCard.id,
+                          linkedCard.columnId,
+                          stride,
+                          widget.controller.accountRevision(widget.site),
+                        );
+                        if (_horizontalTarget != target) {
+                          _horizontalTarget = target;
+                          final identity = _identity;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted ||
+                                _identity != identity ||
+                                _horizontalTarget != target ||
+                                !_horizontal.hasClients) {
+                              return;
+                            }
+                            final index = board.columns.indexWhere(
+                              (column) => column.id == linkedCard.columnId,
+                            );
+                            _horizontal.jumpTo(
+                              (index * stride).clamp(
+                                0,
+                                _horizontal.position.maxScrollExtent,
+                              ),
+                            );
+                          });
+                        }
+                      }
+                      return DScrollArea(
+                        key: PageStorageKey((
+                          'board-reader',
+                          _identity,
+                          widget.controller.accountRevision(widget.site),
+                        )),
+                        axes: DScrollAxes.horizontal,
+                        controller: _horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 12,
+                            children: [
+                              for (final column in board.columns)
+                                SizedBox(
+                                  width: width,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: (constraints.maxHeight - 24)
+                                          .clamp(0, double.infinity),
+                                    ),
+                                    child: _columnDropTarget(
+                                      column,
+                                      BoardColumnPanel(
+                                        key: PageStorageKey((
+                                          _identity,
+                                          widget.controller.accountRevision(
+                                            widget.site,
+                                          ),
+                                          column.id,
+                                        )),
+                                        column: column,
+                                        linkedCardId: widget.route.cardId,
+                                        menu: board.canManage
+                                            ? _columnMenu(board, column)
+                                            : null,
+                                        footer:
+                                            handle.canWrite &&
+                                                column.order !=
+                                                    BoardColumnOrder.unsupported
+                                            ? _addMenu(column)
+                                            : null,
+                                        emptyState: DDragRegion<_BoardDrag>(
+                                          accepts: _accepts,
+                                          onMove: (_, _) {},
+                                          onLeave: () {},
+                                          onDrop: (drag, _) => _move(
+                                            drag.cardId,
+                                            column.id,
+                                            const PlaceFirst(),
+                                          ),
+                                          child: DEmpty(
+                                            padding: const EdgeInsets.all(12),
+                                            children: [
+                                              Text(l10n.boardsNoCards),
+                                            ],
+                                          ),
+                                        ),
+                                        cardBuilder: (_, card) => _card(
+                                          board,
+                                          column,
+                                          card,
+                                          showCategories,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
@@ -282,161 +393,225 @@ class _BoardsPageState extends State<BoardsPage> {
     );
   }
 
-  Widget _columnView(BoardSnapshot board, BoardColumn column) {
-    final handle = _handle!;
-    final scroll = _vertical.putIfAbsent(column.id, ScrollController.new);
-    final list = _lists.putIfAbsent(column.id, ListController.new);
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  column.title,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              DBadge(child: Text('${column.cards.length}')),
-            ],
-          ),
-          if (handle.canWrite && column.order != BoardColumnOrder.unsupported)
-            Wrap(
-              spacing: 8,
-              children: [
-                DButton(
-                  label: Text(context.l10n.boardsNewCard),
-                  onPressed: () => _edit(column),
-                ),
-                DButton(
-                  label: Text(context.l10n.boardsAddTopic),
-                  onPressed: () => _addTopic(column),
-                ),
-                if (widget.controller.composer != null)
-                  DButton(
-                    label: Text(
-                      handle.createdTopic(column.id) == null
-                          ? context.l10n.boardsNewTopic
-                          : context.l10n.boardsAttachTopic,
-                    ),
-                    onPressed: handle.composing(column.id)
-                        ? null
-                        : () async {
-                            if (handle.createdTopic(column.id) != null) {
-                              _report(
-                                await handle.attachCreatedTopic(column.id),
-                              );
-                            } else {
-                              await handle.createTopic(
-                                widget.route.id,
-                                column.id,
-                              );
-                            }
-                          },
-                  ),
-              ],
+  Widget _addMenu(BoardColumn column) => DDropdownMenu(
+    sheetOnMobile: true,
+    content: DDropdownMenuContent(
+      children: [
+        DDropdownMenuItem(
+          leading: const DIcon(DIcons.plus),
+          onPressed: () => _edit(column),
+          child: Text(context.l10n.boardsAddCard),
+        ),
+        DDropdownMenuItem(
+          leading: const DIcon(DIcons.link),
+          onPressed: () => _addTopic(column),
+          child: Text(context.l10n.boardsAddTopicAsCard),
+        ),
+        if (widget.controller.composer != null)
+          DDropdownMenuItem(
+            onPressed: _handle!.composing(column.id)
+                ? null
+                : () async {
+                    final handle = _handle!;
+                    if (handle.createdTopic(column.id) != null) {
+                      _report(await handle.attachCreatedTopic(column.id));
+                    } else {
+                      await handle.createTopic(widget.route.id, column.id);
+                    }
+                  },
+            child: Text(
+              _handle!.createdTopic(column.id) == null
+                  ? context.l10n.boardsNewTopic
+                  : context.l10n.boardsAttachTopic,
             ),
-          if (column.order == BoardColumnOrder.unsupported)
-            Text(context.l10n.boardsUnsupported),
-          const SizedBox(height: 8),
-          Expanded(
-            child: column.cards.isEmpty
-                ? DDragRegion<_BoardDrag>(
-                    accepts: _accepts,
-                    onMove: (_, _) {},
-                    onDrop: (drag, _) =>
-                        _move(drag.cardId, column.id, const PlaceFirst()),
-                    onLeave: () {},
-                    child: DCard(
-                      child: DEmpty(
-                        children: [Text(context.l10n.boardsNoCards)],
-                      ),
-                    ),
-                  )
-                : DScrollBar(
-                    controller: scroll,
-                    child: SuperListView.builder(
-                      listController: list,
-                      controller: scroll,
-                      padding: EdgeInsets.zero,
-                      key: PageStorageKey(
-                        'boards-${widget.site}-${board.id}-${column.id}',
-                      ),
-                      itemCount: column.cards.length,
-                      itemBuilder: (context, index) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _card(board, column, column.cards[index]),
-                      ),
-                    ),
-                  ),
+          ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, state) => DButton(
+        key: ValueKey('board-add-${column.id}'),
+        alignment: AlignmentDirectional.centerStart,
+        variant: DButtonVariant.ghost,
+        icon: const DIcon(DIcons.plus),
+        label: Text(context.l10n.boardsAddCard),
+        onPressed: state.toggle,
+        focusNode: state.focusNode,
+        hasPopup: true,
+        expanded: state.open,
+      ),
+    ),
+  );
+
+  Widget _columnMenu(BoardSnapshot board, BoardColumn column) {
+    final index = board.columns.indexOf(column);
+    final handle = _handle!;
+    return DDropdownMenu(
+      sheetOnMobile: true,
+      content: DDropdownMenuContent(
+        children: [
+          DDropdownMenuItem(
+            leading: const DIcon(DIcons.pen),
+            onPressed:
+                handle.canManage && column.order != BoardColumnOrder.unsupported
+                ? () => _editColumn(column)
+                : null,
+            child: Text(context.l10n.boardsEditColumn),
+          ),
+          DDropdownMenuItem(
+            leading: const DIcon(DIcons.arrowLeft),
+            onPressed: handle.canManage && index > 0
+                ? () async => _report(await handle.moveColumn(column.id, -1))
+                : null,
+            child: Text(context.l10n.boardsMoveLeft),
+          ),
+          DDropdownMenuItem(
+            leading: const DIcon(DIcons.chevronRight),
+            onPressed: handle.canManage && index < board.columns.length - 1
+                ? () async => _report(await handle.moveColumn(column.id, 1))
+                : null,
+            child: Text(context.l10n.boardsMoveRight),
+          ),
+          DDropdownMenuItem(
+            leading: const DIcon(DIcons.xmark),
+            onPressed: handle.canManage && column.cards.isNotEmpty
+                ? () => _removeColumn(column, delete: false)
+                : null,
+            child: Text(context.l10n.boardsClearColumn),
+          ),
+          DDropdownMenuItem(
+            variant: DDropdownMenuItemVariant.destructive,
+            leading: const DIcon(DIcons.trashCan),
+            onPressed: handle.canManage
+                ? () => _removeColumn(column, delete: true)
+                : null,
+            child: Text(context.l10n.boardsDeleteColumn),
           ),
         ],
       ),
+      child: DDropdownMenuTrigger(
+        builder: (context, state) => DButton.iconOnly(
+          key: ValueKey('board-column-menu-${column.id}'),
+          variant: DButtonVariant.ghost,
+          icon: const DIcon(DIcons.ellipsis),
+          tooltip: context.l10n.boardsColumnControls,
+          onPressed: state.toggle,
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+        ),
+      ),
     );
   }
+
+  Future<void> _editColumn(BoardColumn column) async {
+    final handle = _handle!;
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
+    final result = await showDDialog<BoardWriteResult>(
+      context: context,
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        BoardColumnEditor(
+          handle: handle,
+          column: column,
+          onSaved: dialog.close,
+        ),
+        sourceCurrent: () =>
+            identical(handle, _handle) &&
+            handle.enabled &&
+            handle.snapshot?.column(column.id) != null,
+      ),
+    );
+    if (result != null &&
+        mounted &&
+        identical(handle, _handle) &&
+        widget.controller.sourceCurrent(widget.site, lease, revision)) {
+      _report(result);
+    }
+  }
+
+  Future<void> _removeColumn(BoardColumn column, {required bool delete}) async {
+    final handle = _handle!;
+    final lease = widget.controller.requests.capture(widget.site);
+    final revision = widget.controller.accountRevision(widget.site);
+    final confirmed = await showDDialog<bool>(
+      context: context,
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        BoardColumnRemovalDialog(
+          handle: handle,
+          columnId: column.id,
+          delete: delete,
+          onConfirm: () => dialog.close(true),
+          onCancel: () => dialog.close(false),
+        ),
+        sourceCurrent: () =>
+            identical(handle, _handle) &&
+            handle.enabled &&
+            handle.snapshot?.column(column.id) != null,
+      ),
+    );
+    if (confirmed == true &&
+        mounted &&
+        identical(handle, _handle) &&
+        widget.controller.sourceCurrent(widget.site, lease, revision)) {
+      _report(
+        await (delete
+            ? handle.deleteColumn(column.id)
+            : handle.clearColumn(column.id)),
+      );
+    }
+  }
+
+  Widget _columnDropTarget(BoardColumn column, Widget child) =>
+      DDragRegion<_BoardDrag>(
+        accepts: (drag) =>
+            _accepts(drag) &&
+            (column.order == BoardColumnOrder.priority ||
+                _handle?.snapshot?.card(drag.cardId)?.columnId != column.id),
+        onMove: (_, _) {},
+        onLeave: () {},
+        onDrop: (drag, _) => _move(drag.cardId, column.id, const PlaceLast()),
+        child: child,
+      );
 
   bool _accepts(_BoardDrag drag) =>
       _handle?.canWrite == true &&
       drag.site == widget.site &&
       drag.boardId == _handle?.id;
-  Widget _card(BoardSnapshot board, BoardColumn column, BoardCard card) {
-    final item = DItem(
-      key: _cardKeys.putIfAbsent(card.id, GlobalKey.new),
-      shape: DItemShape.card,
-      variant: DItemVariant.outline,
+  Widget _card(
+    BoardSnapshot board,
+    BoardColumn column,
+    BoardCard card,
+    bool showCategories,
+  ) {
+    final category = showCategories && card.categoryId != null
+        ? widget.controller.siteState.categoryFor?.call(
+            widget.site,
+            card.categoryId!,
+          )
+        : null;
+    final item = BoardReaderCard(
+      key: ValueKey('board-card-${card.id}'),
+      site: widget.site,
+      board: board,
+      card: card,
+      category: category == null
+          ? null
+          : (name: category.name, color: category.colorValue),
       selected: widget.route.cardId == card.id,
       onPressed: card.kind == BoardCardKind.topic && card.topicId != null
           ? () => widget.navigation.openTopic(widget.site, card)
           : () => _edit(column, card: card),
-      children: [
-        DItemContent(
-          children: [
-            DItemTitle(
-              child: Text(
-                card.title.isEmpty
-                    ? context.l10n.boardsUnsupported
-                    : card.title,
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (board.showThumbnail && card.imageUrl.isNotEmpty)
-                  DItemMedia(
-                    child: SiteImage(
-                      siteUrl: widget.site,
-                      url: card.imageUrl,
-                      width: 260,
-                      height: 120,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                if (board.detailed && card.notes.isNotEmpty)
-                  Text(
-                    card.notes,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                if (board.showTags && card.tags.isNotEmpty)
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: [
-                      for (final tag in card.tags) DBadge(child: Text(tag)),
-                    ],
-                  ),
-                if (board.detailed && card.assignee.isNotEmpty)
-                  Text(card.assignee),
-                if (card.closed) Text(context.l10n.closed),
-              ],
-            ),
-          ],
-        ),
-        if (_handle!.canWrite && card.kind != BoardCardKind.unsupported)
-          _menu(board, column, card),
-      ],
+      menu: _handle!.canWrite && card.kind != BoardCardKind.unsupported
+          ? _menu(board, column, card)
+          : null,
     );
     if (!_handle!.canWrite ||
         card.kind == BoardCardKind.unsupported ||
@@ -492,69 +667,80 @@ class _BoardsPageState extends State<BoardsPage> {
     );
   }
 
-  Widget _menu(
-    BoardSnapshot board,
-    BoardColumn column,
-    BoardCard card,
-  ) => DDropdownMenu(
-    sheetOnMobile: true,
-    content: DDropdownMenuContent(
-      children: [
-        DDropdownMenuItem(
-          onPressed: () => _moveDialog(board, card),
-          child: Text(context.l10n.boardsMoveTo),
-        ),
-        if (card.kind == BoardCardKind.standalone)
-          DDropdownMenuItem(
-            onPressed: () => _edit(column, card: card),
-            child: Text(context.l10n.edit),
-          ),
-        if (card.kind == BoardCardKind.standalone &&
-            widget.controller.composer != null)
-          DDropdownMenuItem(
-            onPressed: _handle!.composing(column.id, cardId: card.id)
-                ? null
-                : () async {
-                    if (_handle!.createdTopic(column.id, cardId: card.id) !=
-                        null) {
-                      _report(
-                        await _handle!.attachCreatedTopic(
-                          column.id,
-                          cardId: card.id,
-                        ),
-                      );
-                    } else {
-                      await _handle!.createTopic(
-                        widget.route.id,
-                        column.id,
-                        cardId: card.id,
-                      );
-                    }
-                  },
-            child: Text(
-              _handle!.createdTopic(column.id, cardId: card.id) == null
-                  ? context.l10n.boardsConvertTopic
-                  : context.l10n.boardsAttachTopic,
+  Widget _menu(BoardSnapshot board, BoardColumn column, BoardCard card) =>
+      DDropdownMenu(
+        sheetOnMobile: true,
+        content: DDropdownMenuContent(
+          children: [
+            DDropdownMenuItem(
+              onPressed: () => _moveDialog(board, card),
+              child: Text(context.l10n.boardsMoveTo),
             ),
-          ),
-        DDropdownMenuItem(
-          onPressed: () async {
-            final handle = _handle!;
-            final lease = widget.controller.requests.capture(widget.site);
-            final revision = widget.controller.accountRevision(widget.site);
-            final confirmed = await _confirm(context.l10n.boardsRemoveCard);
-            if (confirmed &&
-                identical(handle, _handle) &&
-                widget.controller.sourceCurrent(widget.site, lease, revision)) {
-              _report(await handle.removeCard(card.id));
-            }
-          },
-          child: Text(context.l10n.delete),
+            if (card.kind == BoardCardKind.standalone)
+              DDropdownMenuItem(
+                onPressed: () => _edit(column, card: card),
+                child: Text(context.l10n.edit),
+              ),
+            if (card.kind == BoardCardKind.standalone &&
+                widget.controller.composer != null)
+              DDropdownMenuItem(
+                onPressed: _handle!.composing(column.id, cardId: card.id)
+                    ? null
+                    : () async {
+                        if (_handle!.createdTopic(column.id, cardId: card.id) !=
+                            null) {
+                          _report(
+                            await _handle!.attachCreatedTopic(
+                              column.id,
+                              cardId: card.id,
+                            ),
+                          );
+                        } else {
+                          await _handle!.createTopic(
+                            widget.route.id,
+                            column.id,
+                            cardId: card.id,
+                          );
+                        }
+                      },
+                child: Text(
+                  _handle!.createdTopic(column.id, cardId: card.id) == null
+                      ? context.l10n.boardsConvertTopic
+                      : context.l10n.boardsAttachTopic,
+                ),
+              ),
+            DDropdownMenuItem(
+              onPressed: () async {
+                final handle = _handle!;
+                final lease = widget.controller.requests.capture(widget.site);
+                final revision = widget.controller.accountRevision(widget.site);
+                final confirmed = await _confirm(context.l10n.boardsRemoveCard);
+                if (confirmed &&
+                    identical(handle, _handle) &&
+                    widget.controller.sourceCurrent(
+                      widget.site,
+                      lease,
+                      revision,
+                    )) {
+                  _report(await handle.removeCard(card.id));
+                }
+              },
+              child: Text(context.l10n.delete),
+            ),
+          ],
         ),
-      ],
-    ),
-    child: DDropdownMenuTrigger.button(label: Text(context.l10n.moreActions)),
-  );
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            variant: DButtonVariant.ghost,
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: context.l10n.moreActions,
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+          ),
+        ),
+      );
   Future<bool> _confirm(String message) async =>
       await showDDialog<bool>(
         context: context,

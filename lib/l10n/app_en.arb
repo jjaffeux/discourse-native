@@ -18989,5 +18989,95 @@
         "type": "int"
       }
     }
+  },
+  "boardsAddCard": "Add card",
+  "@boardsAddCard": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsAddTopicAsCard": "Add topic as card",
+  "@boardsAddTopicAsCard": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsEditColumn": "Edit column",
+  "@boardsEditColumn": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsMoveLeft": "Move left",
+  "@boardsMoveLeft": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsMoveRight": "Move right",
+  "@boardsMoveRight": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsClearColumn": "Clear column",
+  "@boardsClearColumn": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsDeleteColumn": "Delete column",
+  "@boardsDeleteColumn": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsColumnControls": "Column controls",
+  "@boardsColumnControls": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsColumnIcon": "Icon name",
+  "@boardsColumnIcon": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsColumnSort": "Card order",
+  "@boardsColumnSort": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsSortPriority": "Priority",
+  "@boardsSortPriority": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsSortRecency": "Recent activity",
+  "@boardsSortRecency": {
+    "description": "Native Boards reader interface."
+  },
+  "boardsShowOlder": "Show {count, plural, =1{1 older card} other{{count} older cards}}",
+  "@boardsShowOlder": {
+    "description": "Native Boards reader interface.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "boardsClearColumnConfirm": "Remove {count} cards from \"{title}\"? This also removes the column tag from affected topics.",
+  "@boardsClearColumnConfirm": {
+    "description": "Native Boards reader interface.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "boardsDeleteColumnConfirm": "Delete \"{title}\" and its {count} cards? The topics themselves will remain.",
+  "@boardsDeleteColumnConfirm": {
+    "description": "Native Boards reader interface.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "boardsTypeColumnName": "Type \"{title}\" to confirm",
+  "@boardsTypeColumnName": {
+    "description": "Native Boards reader interface.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
   }
 }

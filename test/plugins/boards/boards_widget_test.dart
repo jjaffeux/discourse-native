@@ -350,7 +350,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
         ),
       );
       await tester.pumpAndSettle();
-      final list = find.byKey(const PageStorageKey('boards-$boardsSite-1-10'));
+      final list = find.byKey(const PageStorageKey('board-column-list-10'));
       final card = find.ancestor(
         of: find.text('Improve search'),
         matching: find.byType(DItem),
@@ -672,7 +672,9 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Improve search'));
       expect(fixture.host.openedTopic, 500);
-      await tester.tap(find.widgetWithText(DButton, 'New card').first);
+      await tester.tap(find.byKey(const ValueKey('board-add-10')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add card').last);
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(DInput).first,

@@ -22706,6 +22706,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 column} other{{count} columns}}'**
   String boardsColumnCount(int count);
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Add card'**
+  String get boardsAddCard;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Add topic as card'**
+  String get boardsAddTopicAsCard;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit column'**
+  String get boardsEditColumn;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Move left'**
+  String get boardsMoveLeft;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Move right'**
+  String get boardsMoveRight;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear column'**
+  String get boardsClearColumn;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete column'**
+  String get boardsDeleteColumn;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Column controls'**
+  String get boardsColumnControls;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon name'**
+  String get boardsColumnIcon;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Card order'**
+  String get boardsColumnSort;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority'**
+  String get boardsSortPriority;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get boardsSortRecency;
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Show {count, plural, =1{1 older card} other{{count} older cards}}'**
+  String boardsShowOlder(int count);
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {count} cards from \"{title}\"? This also removes the column tag from affected topics.'**
+  String boardsClearColumnConfirm(String title, int count);
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{title}\" and its {count} cards? The topics themselves will remain.'**
+  String boardsDeleteColumnConfirm(String title, int count);
+
+  /// Native Boards reader interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Type \"{title}\" to confirm'**
+  String boardsTypeColumnName(String title);
 }
 
 class _AppLocalizationsDelegate
