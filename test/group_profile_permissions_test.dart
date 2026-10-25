@@ -16,6 +16,129 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  for (final (staff, admin, capability) in [
+    (false, false, false),
+    (true, true, false),
+    (false, false, true),
+    (true, false, true),
+    (true, true, true),
+  ]) {
+    testWidgets('automatic membership domains staff=$staff admin=$admin '
+        'capability=$capability saves only permitted changes', (tester) async {
+      final server = _GroupServer(
+        staff: staff,
+        admin: admin,
+        automatic: false,
+        subsection: GroupRoute.membership,
+      );
+      const field = 'automatic_membership_email_domains';
+      server.group['can_admin_group'] = capability;
+      server.group['is_group_owner'] = true;
+      server.group[field] = 'old.example';
+      addTearDown(server.transport.close);
+      await server.pump(tester);
+      final input = tester.widget<DInput>(_field(field));
+      expect(input.enabled, capability);
+      if (capability) {
+        await tester.ensureVisible(_field(field));
+        await tester.enterText(_field(field), 'new.example');
+        await tester.pumpAndSettle();
+      } else {
+        input.controller!.text = 'new.example';
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('save-group-membership')),
+              )
+              .onPressed,
+          isNull,
+        );
+        await tester.tap(find.widgetWithText(DSwitchTile, 'Members can leave'));
+        await tester.pumpAndSettle();
+      }
+      await server.save(tester);
+      expect(
+        server.writes.single,
+        capability
+            ? containsPair(field, 'new.example')
+            : isNot(contains(field)),
+      );
+      expect(server.group[field], capability ? 'new.example' : 'old.example');
+      await server.pump(tester);
+      expect(
+        tester.widget<DInput>(_field(field)).controller!.text,
+        capability ? 'new.example' : 'old.example',
+      );
+      if (capability) {
+        await tester.ensureVisible(_field(field));
+        await tester.enterText(_field(field), '');
+        await tester.pumpAndSettle();
+        await server.save(tester);
+        expect(server.writes.last, containsPair(field, ''));
+        await server.pump(tester);
+        expect(tester.widget<DInput>(_field(field)).controller!.text, '');
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('automatic membership capability rebinds a retained form', (
+    tester,
+  ) async {
+    final server = _GroupServer(
+      staff: false,
+      admin: false,
+      automatic: false,
+      subsection: GroupRoute.membership,
+    );
+    const field = 'automatic_membership_email_domains';
+    server.group[field] = 'old.example';
+    addTearDown(server.transport.close);
+    await server.pump(tester, replacePage: false);
+    final previous = tester.widget<DInput>(_field(field));
+    expect(previous.enabled, isTrue);
+    await tester.ensureVisible(_field(field));
+    await tester.enterText(_field(field), 'unsaved.example');
+    await tester.pumpAndSettle();
+    server.group['can_admin_group'] = false;
+    await server.pump(tester, replacePage: false);
+    final disabled = tester.widget<DInput>(_field(field));
+    expect(disabled.enabled, isFalse);
+    expect(disabled.controller, isNot(same(previous.controller)));
+    expect(disabled.controller!.text, 'old.example');
+    disabled.controller!.text = 'withheld.example';
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DButton>(find.byKey(const ValueKey('save-group-membership')))
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.widgetWithText(DSwitchTile, 'Members can leave'));
+    await tester.pumpAndSettle();
+    await server.save(tester);
+    expect(server.writes.single, isNot(contains(field)));
+    expect(server.group[field], 'old.example');
+    server.group['can_admin_group'] = true;
+    await server.pump(tester, replacePage: false);
+    final enabled = tester.widget<DInput>(_field(field));
+    expect(enabled.enabled, isTrue);
+    expect(enabled.controller, isNot(same(disabled.controller)));
+    expect(enabled.controller!.text, 'old.example');
+    await tester.ensureVisible(_field(field));
+    await tester.enterText(_field(field), 'restored.example');
+    await tester.pumpAndSettle();
+    await server.save(tester);
+    expect(server.writes.last, containsPair(field, 'restored.example'));
+    await server.pump(tester, replacePage: false);
+    expect(
+      tester.widget<DInput>(_field(field)).controller!.text,
+      'restored.example',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (subsection, field) in [
     (GroupRoute.membership, 'associated_group_ids'),
     (GroupRoute.categories, 'watching_category_ids'),
@@ -745,6 +868,8 @@ class _GroupServer {
               'public_admission',
               'membership_request_template',
             ],
+            if (!automatic && group['can_admin_group'] == true)
+              'automatic_membership_email_domains',
             if (this.admin && provider) 'associated_group_ids',
             if (staff) ...['visibility_level', 'members_visibility_level'],
             if (!automatic) 'full_name',

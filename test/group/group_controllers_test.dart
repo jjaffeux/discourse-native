@@ -419,6 +419,64 @@ void main() {
   });
 
   group('GroupManageController', () {
+    for (final (staff, admin, capability, automatic) in [
+      (false, false, false, false),
+      (true, true, false, false),
+      (false, false, true, false),
+      (true, false, true, false),
+      (true, true, true, false),
+      (true, true, true, true),
+    ]) {
+      test('automatic membership domains staff=$staff admin=$admin '
+          'capability=$capability automatic=$automatic', () async {
+        final writes = <Map<String, Object?>>[];
+        final controller = GroupManageController(
+          group: Group(
+            id: 9,
+            name: 'support',
+            automatic: automatic,
+            canAdminGroup: capability,
+            isGroupOwner: true,
+            automaticMembershipEmailDomains: 'old.example',
+          ),
+          currentUserStaff: staff,
+          currentUserAdmin: admin,
+          subsection: GroupRoute.membership,
+          onSubmit: (update) async {
+            writes.add(update.values);
+            return const GroupWriteAccepted<void>(null);
+          },
+        );
+        addTearDown(controller.dispose);
+        const field = 'automatic_membership_email_domains';
+        final allowed = capability && !automatic;
+        expect(controller.canEditField(field), allowed);
+        controller.textController(field).text = 'new.example';
+        expect(controller.snapshot.dirty, allowed);
+        expect(controller.snapshot.canSubmit, allowed);
+        expect(
+          controller.buildUpdate().values,
+          allowed ? containsPair(field, 'new.example') : isNot(contains(field)),
+        );
+        controller.setPublicExit(true);
+        expect(controller.snapshot.canSubmit, isTrue);
+        expect(await controller.submit(), isTrue);
+        expect(
+          writes.single,
+          allowed ? containsPair(field, 'new.example') : isNot(contains(field)),
+        );
+        expect(controller.snapshot.dirty, isFalse);
+        controller.textController(field).clear();
+        expect(controller.snapshot.canSubmit, allowed);
+        expect(await controller.submit(), isTrue);
+        expect(
+          writes.last,
+          allowed ? containsPair(field, '') : isNot(contains(field)),
+        );
+        expect(controller.snapshot.dirty, isFalse);
+      });
+    }
+
     for (final invalid in ['0', '-1', '12,,35', '12,', '9223372036854775808']) {
       test('invalid category IDs $invalid stay local', () async {
         var writes = 0;
