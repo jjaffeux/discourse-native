@@ -86,7 +86,6 @@ void main() {
       cooked: 'https://example.com/a%2Fb%20c?next=%3F%26%3D&name=two%20words',
     ),
     (entered: '/t/holiday album/7', cooked: '/t/holiday%20album/7'),
-    (entered: '../holiday album', cooked: '../holiday%20album'),
     (entered: '#holiday album', cooked: '#holiday%20album'),
     (
       entered: 'mailto:hello@example.com?subject=Holiday album',
@@ -112,6 +111,18 @@ void main() {
       );
     });
   }
+
+  testWidgets('link dialog serializes spaces in dot-relative destinations', (
+    tester,
+  ) async {
+    final composer = await openDialog(tester, 'Holiday album');
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-link-url')),
+      '../holiday album',
+    );
+    await insert(tester);
+    expect(composer.raw, '[Holiday album](../holiday%20album)');
+  });
 
   testWidgets('link dialog preserves a spaced URL as its fallback label', (
     tester,

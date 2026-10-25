@@ -707,9 +707,9 @@ TextEditingValue? composerPastedLinkValue(
 }
 
 final _linkAnchorDelimiters = RegExp(r'[\[\]\\]');
-final _linkUrlDelimiters = RegExp(r'[()<>\\]');
+final _linkUrlDelimiters = RegExp(r'[ ()<>\\]');
 final _linkSourceAnchorDelimiters = RegExp(r'\\[!-/:-@\[-`{-~]|[\[\]\\]');
-final _linkSourceUrlDelimiters = RegExp(r'\\[!-/:-@\[-`{-~]|[()<>\\]');
+final _linkSourceUrlDelimiters = RegExp(r'\\[!-/:-@\[-`{-~]|[ ()<>\\]');
 
 String _serializedComposerLinkPart(
   String value, {
