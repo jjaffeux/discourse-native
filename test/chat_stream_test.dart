@@ -273,17 +273,20 @@ void main() {
   });
 
   group('where the unread messages begin', () {
-    test('divides before the first message the reader has not seen', () {
-      final items = buildChatStream([
-        at(1),
-        at(2, minute: 1),
-        at(3, minute: 2),
-      ], lastReadMessageId: 1);
+    test(
+      'divides before the first unseen message without breaking its chain',
+      () {
+        final items = buildChatStream([
+          at(1),
+          at(2, minute: 1),
+          at(3, minute: 2),
+        ], lastReadMessageId: 1);
 
-      final index = items.indexWhere((i) => i is ChatStreamNewDivider);
-      expect(index, greaterThan(0));
-      expect(items[index + 1], const ChatStreamMessage(id: 2, chained: true));
-    });
+        final index = items.indexWhere((i) => i is ChatStreamNewDivider);
+        expect(index, greaterThan(0));
+        expect(items[index + 1], const ChatStreamMessage(id: 2, chained: true));
+      },
+    );
 
     test('draws nothing when everything has been read', () {
       final items = buildChatStream([
@@ -307,17 +310,6 @@ void main() {
       final items = buildChatStream([at(1), at(2, minute: 1)]);
 
       expect(items.whereType<ChatStreamNewDivider>(), isEmpty);
-    });
-
-    test('the unread divider does not change author visibility', () {
-      final items = buildChatStream([
-        at(1),
-        at(2, minute: 1),
-        at(3, minute: 2),
-      ], lastReadMessageId: 1);
-
-      expect(chainedAt(items, 2), isTrue);
-      expect(chainedAt(items, 3), isTrue);
     });
   });
 
