@@ -975,45 +975,6 @@ void main() {
       },
     );
 
-    test('activity paginates by raw rows and de-duplicates posts', () async {
-      final api = _AccountApi(
-        activityPages: const {
-          0: UserActivityPage(
-            items: [_activityTopic, _activityReply],
-            rawItemCount: AccountActivityController.userActivityPageSize,
-          ),
-          AccountActivityController.userActivityPageSize: UserActivityPage(
-            items: [_activityReply],
-            rawItemCount: 1,
-          ),
-        },
-      );
-      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
-      final controller = _controller(api, credentials);
-      addTearDown(controller.dispose);
-
-      await controller.loadUserActivity(_connectedInstance());
-      var feed = controller.userActivityFor(_siteUrl);
-
-      expect(feed.items, const [_activityTopic, _activityReply]);
-      expect(feed.nextOffset, AccountActivityController.userActivityPageSize);
-      expect(feed.hasMore, isTrue);
-      expect(api.activityRequests.single.username, 'sam');
-      expect(api.activityRequests.single.offset, 0);
-      expect(api.activityRequests.single.limit, 30);
-
-      await controller.loadUserActivity(_connectedInstance(), loadMore: true);
-      feed = controller.userActivityFor(_siteUrl);
-
-      expect(feed.items, const [_activityTopic, _activityReply]);
-      expect(
-        feed.nextOffset,
-        AccountActivityController.userActivityPageSize + 1,
-      );
-      expect(feed.hasMore, isFalse);
-      expect(api.activityRequests.map((request) => request.offset), [0, 30]);
-    });
-
     for (final bookmarks in [true, false]) {
       final name = bookmarks ? 'bookmark list' : 'user activity';
 

@@ -255,6 +255,15 @@ void main() {
       'A longer status that fits the current account',
     );
     await tester.pumpAndSettle();
+    // At this text size the footer stacks its actions at full width rather
+    // than squeezing them side by side.
+    final clear = find.widgetWithText(DButton, 'Clear status').hitTestable();
+    final save = find.widgetWithText(DButton, 'Save').hitTestable();
+    expect(clear, findsOneWidget);
+    expect(save, findsOneWidget);
+    expect(tester.getRect(save).top, greaterThan(tester.getRect(clear).bottom));
+    expect(tester.getRect(save).width, tester.getRect(clear).width);
+    expect(tester.getRect(save).width, greaterThan(320 / 2));
     await _export(tester, 'status-mobile-rtl-2x');
   });
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
