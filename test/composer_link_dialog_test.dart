@@ -72,6 +72,90 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  for (final destination in const [
+    (
+      entered: 'https://example.com/holiday album',
+      cooked: 'https://example.com/holiday%20album',
+    ),
+    (
+      entered: 'https://example.com/search?q=holiday album#my photos',
+      cooked: 'https://example.com/search?q=holiday%20album#my%20photos',
+    ),
+    (
+      entered: 'https://example.com/a%2Fb%20c?next=%3F%26%3D&name=two words',
+      cooked: 'https://example.com/a%2Fb%20c?next=%3F%26%3D&name=two%20words',
+    ),
+    (entered: '/t/holiday album/7', cooked: '/t/holiday%20album/7'),
+    (entered: '../holiday album', cooked: '../holiday%20album'),
+    (entered: '#holiday album', cooked: '#holiday%20album'),
+    (
+      entered: 'mailto:hello@example.com?subject=Holiday album',
+      cooked: 'mailto:hello@example.com?subject=Holiday%20album',
+    ),
+  ]) {
+    testWidgets('link dialog encodes spaces in ${destination.entered}', (
+      tester,
+    ) async {
+      const anchor = 'Holiday [album]';
+      final composer = await openDialog(tester, anchor);
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-link-url')),
+        destination.entered,
+      );
+      await insert(tester);
+      await tester.runAsync(
+        () => expectCookedLink(
+          composer.raw,
+          anchor: anchor,
+          url: destination.cooked,
+        ),
+      );
+    });
+  }
+
+  testWidgets('link dialog preserves a spaced URL as its fallback label', (
+    tester,
+  ) async {
+    const url = 'https://example.com/holiday album';
+    final composer = await openDialog(tester, '');
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-link-url')),
+      url,
+    );
+    await insert(tester);
+    await tester.runAsync(
+      () => expectCookedLink(
+        composer.raw,
+        anchor: url,
+        url: 'https://example.com/holiday%20album',
+      ),
+    );
+  });
+
+  testWidgets('editing a spaced destination preserves existing escapes', (
+    tester,
+  ) async {
+    const source = r'[A\]B](https://example.com/a\)b)';
+    final block = parseComposerLinks(source, enableLinkify: false).single;
+    final composer = await openDialog(tester, source, link: block);
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-link-url')),
+      r'https://example.com/a\)b/holiday album?next=%2Fkeep%3Fthis',
+    );
+    await insert(tester);
+    await tester.runAsync(
+      () => expectCookedLink(
+        composer.raw,
+        anchor: 'A]B',
+        url: 'https://example.com/a)b/holiday%20album?next=%2Fkeep%3Fthis',
+      ),
+    );
+    expect(
+      composer.raw,
+      r'[A\]B](https://example.com/a\)b/holiday%20album?next=%2Fkeep%3Fthis)',
+    );
+  });
+
   for (final anchor in [r'the [guide]', 'A]B', r'path\name']) {
     testWidgets('link dialog preserves literal label $anchor and destination', (
       tester,
