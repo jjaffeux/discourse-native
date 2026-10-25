@@ -54,6 +54,47 @@ void main() {
     expect(fixture.shell.currentTopic?.tags, [_tag]);
   });
 
+  test('category change stores the tags the site answers with', () async {
+    final fixture = await _fixture();
+    final saving = _save(fixture.shell, _Field.category);
+    await pumpEventQueue();
+    expect(fixture.api.requests.single['tags'], isEmpty);
+    fixture.api.pending.single.complete(const TopicUpdate(tags: [_tag]));
+    expect(await saving, isNull);
+    expect(fixture.shell.currentTopic?.categoryId, 2);
+    expect(fixture.shell.currentTopic?.tags, [_tag]);
+    expect(fixture.shell.store.read<Topic>(_site, 1)?.tags, [_tag]);
+  });
+
+  test(
+    'accepted category change recolors and republishes the topic route',
+    () async {
+      final fixture = await _fixture();
+      final saving = _save(fixture.shell, _Field.category);
+      await pumpEventQueue();
+      var notifications = 0;
+      fixture.shell.addListener(() => notifications++);
+      fixture.api.pending.single.complete(const TopicUpdate());
+      expect(await saving, isNull);
+      expect(notifications, greaterThan(0));
+      expect(fixture.shell.currentContent?.color, const Color(0xFF888888));
+    },
+  );
+
+  for (final field in _Field.values) {
+    test('$field reports an unexpected write error as unreachable', () async {
+      final fixture = await _fixture();
+      final saving = _save(fixture.shell, field);
+      await pumpEventQueue();
+      fixture.api.pending.single.completeError(StateError('Lost response'));
+      expect(
+        await saving,
+        const WriteException(WriteFailure.unreachable).message,
+      );
+      _expectOriginal(fixture.shell);
+    });
+  }
+
   test(
     'category validation keeps eligible peers in each search context',
     () async {
@@ -208,6 +249,16 @@ void main() {
       );
     },
   );
+
+  test('category validation matches a renamed tag by its id', () async {
+    await _expectCategoryTags(
+      selected: [_tag],
+      expected: [const TopicTag(id: 7, name: 'interface')],
+      response: (_) => _tagResults([
+        {'id': 7, 'name': 'interface'},
+      ]),
+    );
+  });
 
   testWidgets('category picker retains an allowed existing tag after saving', (
     tester,
@@ -576,6 +627,9 @@ final class _HeldAuthenticator extends FakeAuthenticator {
 final class _MetadataApi extends FakeDiscourseApi {
   _MetadataApi()
     : super(
+        categoryList: const [
+          TopicCategory(id: 2, name: 'Support', color: '888888'),
+        ],
         categorySearches: const {
           '': [TopicCategory(id: 2, name: 'Support', color: '888888')],
         },

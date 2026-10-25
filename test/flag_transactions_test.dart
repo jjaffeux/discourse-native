@@ -325,6 +325,53 @@ void main() {
       },
     );
 
+    test('$target refuses a disconnected forum without dispatch', () async {
+      final f = _Fixture();
+      f.context = const FlagSiteContext(
+        connected: false,
+        catalog: SitePostActionCatalog(
+          postFlags: [_reason],
+          topicFlags: [_reason],
+        ),
+        minimumMessageLength: 10,
+      );
+      expect(
+        await (target == 'post' ? f.post() : f.topic()),
+        const WriteException(WriteFailure.forbidden).message,
+      );
+      expect(f.api.postCalls, isEmpty);
+      expect(f.api.topicCalls, isEmpty);
+    });
+
+    for (final length in [10, 500]) {
+      test('$target accepts a message of exactly $length characters', () async {
+        final f = _Fixture();
+        f.context = const FlagSiteContext(
+          connected: true,
+          catalog: SitePostActionCatalog(
+            postFlags: [_messageReason],
+            topicFlags: [_messageReason],
+          ),
+          minimumMessageLength: 10,
+        );
+        final message = 'x' * length;
+        final writing = target == 'post'
+            ? f.flags.createPost(_site, _post, _reason, message: message)
+            : f.flags.createTopic(_site, _topic, _reason, message: message);
+        await _until(
+          () => f.api.postCalls.isNotEmpty || f.api.topicCalls.isNotEmpty,
+        );
+        if (target == 'post') {
+          expect(f.api.postCalls.single.message, message);
+          f.api.postCalls.single.result.complete(_post);
+        } else {
+          expect(f.api.topicCalls.single.message, message);
+          f.api.topicCalls.single.result.complete();
+        }
+        expect(await writing, isNull);
+      });
+    }
+
     test(
       '$target credential failures clear admission without dispatch',
       () async {
@@ -399,6 +446,44 @@ void main() {
       expect(f.api.postCalls.length + f.api.topicCalls.length, 1);
     });
   }
+
+  test('topic flags follow the current catalog and topic permission', () async {
+    final f = _Fixture();
+    const postOnly = PostFlagType(
+      id: 3,
+      nameKey: 'off_topic',
+      name: 'Off topic',
+      description: '',
+      appliesTo: ['Post'],
+    );
+    const disabled = PostFlagType(
+      id: 3,
+      nameKey: 'off_topic',
+      name: 'Off topic',
+      description: '',
+      appliesTo: ['Topic'],
+      enabled: false,
+    );
+    for (final type in [postOnly, disabled]) {
+      f.context = FlagSiteContext(
+        connected: true,
+        catalog: SitePostActionCatalog(topicFlags: [type]),
+        minimumMessageLength: 10,
+      );
+      expect(await f.topic(), 'This topic can no longer be flagged.');
+    }
+    f.context = const FlagSiteContext(
+      connected: true,
+      catalog: SitePostActionCatalog(topicFlags: [_reason]),
+      minimumMessageLength: 10,
+    );
+    f.store.put(
+      _site,
+      _topic.copyWith(topicActions: const [PostActionSummary(id: 3)]),
+    );
+    expect(await f.topic(), 'This topic can no longer be flagged.');
+    expect(f.api.topicCalls, isEmpty);
+  });
 
   test(
     'publication listener retirement preserves reentrant successor admission',

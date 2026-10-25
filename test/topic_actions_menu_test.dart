@@ -611,6 +611,26 @@ void main() {
     expect(api.writes.last, _write('pinned', false));
   });
 
+  testWidgets('a retained menu observes a pin change becoming busy', (
+    tester,
+  ) async {
+    final api = _MenuApi();
+    final shell = await _fixture(tester, api);
+    await _open(tester);
+    final gate = Completer<void>();
+    api.pinGate = gate;
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final pending = shell.updateTopicPinPreference(_site, 7, false);
+    await tester.pump();
+    expect(tester.widget<DButton>(_trigger).onPressed, isNull);
+    gate.complete();
+    expect(await pending, isNull);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(_trigger).onPressed, isNotNull);
+  });
+
   testWidgets('an open menu remains usable once another action finishes', (
     tester,
   ) async {
