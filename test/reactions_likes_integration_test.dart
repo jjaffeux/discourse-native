@@ -1829,12 +1829,32 @@ void _registerReactionAndLikeTests() {
       // constrained — so a guess earns a 422 saying only "Sorry, an error has
       // occurred". The picker is the honest answer instead.
       final api = await openTopic(tester, posts: [post()]);
-      await openReactionPicker(tester);
+      await openPostMenu(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.tap(menuAction('React').first);
+      // The pending choices pulse as skeleton cells until the site answers,
+      // so the picker never settles; one second covers its opening motion.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
       expect(api.reacted, isEmpty);
+      expect(find.byType(ReactionGrid), findsOneWidget);
+      final pending = find.descendant(
+        of: find.byType(ReactionGrid),
+        matching: find.byType(DSkeletonRegion),
+      );
+      expect(pending, findsOneWidget);
       expect(
-        find.textContaining('which reactions this site allows'),
-        findsOneWidget,
+        tester.widget<DSkeletonRegion>(pending).semanticsLabel,
+        'Still finding out which reactions this site allows.',
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ReactionGrid),
+          matching: find.byType(DToggle),
+        ),
+        findsNothing,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
