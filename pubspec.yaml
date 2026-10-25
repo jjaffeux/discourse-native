@@ -60,11 +60,11 @@ dependencies:
   # The YouTube player stays behind our own surface and only exists after the
   # user presses play. This is pinned because every supported platform crosses
   # a native ABI; upgrades need playback and scrolling smoke tests on each one.
-  webview_all: 1.4.5
+  webview_all: 1.4.6
   # Direct imports configure inline/autoplay policy before the native WebView
   # is created. Keep these in lockstep with the umbrella package.
-  webview_all_linux: 1.4.5
-  webview_all_wkwebview: 1.4.5
+  webview_all_linux: 1.4.6
+  webview_all_wkwebview: 1.4.6
   # Uploaded videos use Flutter's standard controller API on its supported
   # native platforms. Linux keeps the existing WebKitGTK media surface because
   # Flutter does not publish a Linux backend; this also keeps the Swift Package
@@ -150,7 +150,7 @@ dev_dependencies:
     sdk: flutter
 
   # Exercise native WebView ownership through the real platform boundary.
-  webview_platform_interface: 1.4.5
+  webview_platform_interface: 1.4.6
 
   # Exercise native playback notifications and platform-view rebuilds.
   video_player_platform_interface: 6.9.0

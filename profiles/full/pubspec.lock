@@ -1341,66 +1341,66 @@ packages:
     dependency: transitive
     description:
       name: webview_all
-      sha256: d8ebcd2aa848686bc425cdf2da428099053d7170dc7a87c4ae1d5eaed3c5d0c8
+      sha256: "8d1fb0b725b0620e55f0a6ded742b922c41febf0c37cdfacb74308463d4c4594"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_android:
     dependency: transitive
     description:
       name: webview_all_android
-      sha256: "1d04746ed770e232fdc944a15ed012a779041bbbe06c9a46fe31986dd812de8c"
+      sha256: a9b1e36e572beddc0cf6d73ad05ba7c0b86322cc1c85509e6ce4b162a6a1ac73
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_linux:
     dependency: transitive
     description:
       name: webview_all_linux
-      sha256: "093fc7ecfd20dc5ecf95b7b9542565539db817fdf2f56b488164f58a0a824110"
+      sha256: c009f3ac350be13923bc918bc8d3ea859265cd94be394f7f0ae35e8e17fcba04
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_ohos:
     dependency: transitive
     description:
       name: webview_all_ohos
-      sha256: b93eea7ca0fbe1dc344c3a22d01823d940d4b5f724bcacb734aa76219a9b21a6
+      sha256: "773a591b2c68fe4c3d6eba45902bf41d13d6699f611caac603b8ec24652423ba"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_web:
     dependency: transitive
     description:
       name: webview_all_web
-      sha256: "6b20cd15ef0cfd3a773e2afb7073c5f7cda5eaef56a3677c13f834f9ec6a20d9"
+      sha256: "50956cfabebe5e5cc9e90d30784a0c4cdf47709d66f40d8a25432e5693d3b5ca"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_windows:
     dependency: transitive
     description:
       name: webview_all_windows
-      sha256: "14753b14d2f3bd24fd0cc07e93bc8e25e8ac510363e174adddad5677ae32d8bc"
+      sha256: "63fce396ab64333ca8c9638784a07a74098e370a01e02329b6de9cc4768c828f"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_all_wkwebview:
     dependency: transitive
     description:
       name: webview_all_wkwebview
-      sha256: f5171566a3c1149d9237bd9cc7ae8734eb437dcb23da39281a671c81f23df86a
+      sha256: "74a837e53d750a425a25e84ff796fa12ef27647122eebeeff6720bfdb0562c12"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   webview_platform_interface:
     dependency: transitive
     description:
       name: webview_platform_interface
-      sha256: "90f31a3649a60291f52c00228338f6635eb03122002fdbab8d5ac2aeba0d38a1"
+      sha256: "56f7c12d241023795a3d9308334229bef5690db9968a25fb5dd941b0165c2eab"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.5"
+    version: "1.4.6"
   win32:
     dependency: transitive
     description:
