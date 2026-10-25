@@ -2,6 +2,19 @@ import 'dart:convert';
 
 const maxEmbedHeight = 2000.0;
 
+/// Frames inside the embed may leave the host page only on a real user
+/// activation, which WebKit checks itself. Plain `allow-top-navigation` would
+/// let a timer in any nested frame do it.
+const _embedSandbox = <String>{
+  'allow-scripts',
+  'allow-same-origin',
+  'allow-forms',
+  'allow-popups',
+  'allow-presentation',
+  'allow-storage-access-by-user-activation',
+  'allow-top-navigation-by-user-activation',
+};
+
 /// A minimal host for an iframe; only its own trusted messages reach Flutter.
 String embedDocument({
   required Uri uri,
@@ -20,7 +33,7 @@ String embedDocument({
 html,body { margin:0; width:100%; height:100%; overflow:hidden; }
 iframe { display:block; width:100%; height:100%; border:0; }
 </style></head><body>
-<iframe id="embed" title="${escape.convert(title)}" scrolling="no" allowfullscreen></iframe>
+<iframe id="embed" title="${escape.convert(title)}" scrolling="no" sandbox="${_embedSandbox.join(' ')}" allowfullscreen></iframe>
 <script>
 const frame = document.getElementById('embed');
 const origins = ${scriptValue(origins.toList())};

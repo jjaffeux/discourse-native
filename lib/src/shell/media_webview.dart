@@ -11,7 +11,9 @@ const Set<Factory<OneSequenceGestureRecognizer>> mediaPlayerGestureRecognizers =
       Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
     };
 
-/// Platform policy shared by YouTube and uploaded-video WebViews.
+/// Platform policy shared by YouTube and uploaded-video WebViews. Popups need
+/// a user activation; macOS would otherwise let a timer open them, and each
+/// one becomes a navigation request of the player's view.
 PlatformWebViewControllerCreationParams mediaWebViewCreationParams() {
   const base = PlatformWebViewControllerCreationParams();
   final platform = WebViewPlatform.instance;
@@ -20,6 +22,7 @@ PlatformWebViewControllerCreationParams mediaWebViewCreationParams() {
       base,
       mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
       allowsInlineMediaPlayback: true,
+      javaScriptCanOpenWindowsAutomatically: false,
     );
   }
   if (platform is LinuxWebViewPlatform) {
@@ -27,6 +30,7 @@ PlatformWebViewControllerCreationParams mediaWebViewCreationParams() {
       base,
       mediaPlaybackRequiresUserGesture: false,
       mediaPlaybackAllowsInline: true,
+      javascriptCanOpenWindowsAutomatically: false,
     );
   }
   return base;

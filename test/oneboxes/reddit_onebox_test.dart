@@ -277,7 +277,7 @@ void main() {
           expect(find.byType(DEmbed), findsOneWidget);
           expect(tester.getSize(find.byType(WebViewWidget)), Size(640, height));
           controller.channels['NativeEmbed']!.onMessageReceived(
-            const JavaScriptMessage(message: 'loaded'),
+            const JavaScriptMessage(message: 'loaded', isMainFrame: true),
           );
           await tester.pumpAndSettle();
           expect(find.text('Open on Reddit'), findsNothing);
@@ -289,6 +289,13 @@ void main() {
           final link = parse(markup)!.linkUri.toString();
           expect(
             await controller.delegate!.navigate(link, isMainFrame: false),
+            NavigationDecision.prevent,
+          );
+          await tester.pumpAndSettle();
+          expect(launched, isEmpty);
+          // Reddit's links open a new window, which arrives as a page request.
+          expect(
+            await controller.delegate!.navigate(link),
             NavigationDecision.prevent,
           );
           await tester.pumpAndSettle();
@@ -332,7 +339,7 @@ void main() {
           theme.brightness == Brightness.dark ? 'dark' : isNull,
         );
         platform.controllers.last.channels['NativeEmbed']!.onMessageReceived(
-          const JavaScriptMessage(message: 'loaded'),
+          const JavaScriptMessage(message: 'loaded', isMainFrame: true),
         );
         await tester.pumpAndSettle();
         expect(find.text('Reddit comment · r/cats'), findsNothing);

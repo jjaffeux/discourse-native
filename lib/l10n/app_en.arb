@@ -638,6 +638,23 @@
   "@couldNotLoadThisEmbed": {
     "description": "English UI message used by ui/components/d_embed.dart. Keep placeholders intact."
   },
+  "embedLinkPromptTitle": "Open this link?",
+  "@embedLinkPromptTitle": {
+    "description": "Title of the confirmation shown when embedded content asks to open a link outside its provider. Used by ui/components/d_embed.dart."
+  },
+  "embedLinkPromptDescription": "This embed wants to open {url}",
+  "@embedLinkPromptDescription": {
+    "description": "Body of the embed link confirmation; url is the complete destination so the reader can judge it. Used by ui/components/d_embed.dart.",
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "embedLinkPromptOpen": "Open link",
+  "@embedLinkPromptOpen": {
+    "description": "Confirms opening the link an embed asked for. Used by ui/components/d_embed.dart."
+  },
   "retry": "Retry",
   "@retry": {
     "description": "English UI message used by ui/components/d_embed.dart. Keep placeholders intact."

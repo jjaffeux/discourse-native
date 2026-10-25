@@ -363,7 +363,8 @@ void main() {
   });
 
   testWidgets(
-    'document readiness reapplies hidden state and ignores retired views',
+    'document readiness reapplies hidden state and ignores frames and '
+    'retired views',
     (tester) async {
       final visible = ValueNotifier(true);
       addTearDown(visible.dispose);
@@ -383,14 +384,23 @@ void main() {
       visible.value = false;
       await tester.pumpAndSettle();
       controller.scripts.clear();
-      ready.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      ready.onMessageReceived(
+        const JavaScriptMessage(message: 'ready', isMainFrame: false),
+      );
+      await tester.pump();
+      expect(controller.scripts, isEmpty);
+      ready.onMessageReceived(
+        const JavaScriptMessage(message: 'ready', isMainFrame: true),
+      );
       await tester.pump();
       expect(controller.scripts.single, contains('false'));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       expect(controller.channels, isEmpty);
       controller.scripts.clear();
-      ready.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      ready.onMessageReceived(
+        const JavaScriptMessage(message: 'ready', isMainFrame: true),
+      );
       await tester.pump();
       expect(controller.scripts, isEmpty);
     },
