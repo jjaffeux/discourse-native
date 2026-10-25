@@ -134,10 +134,12 @@ void main() {
           username: 'sam',
           cooked: '',
           canEdit: true,
+          postType: Post.whisperPostType,
         ),
         _quote,
       )!;
       expect(quote.reply!.target.replyToPostNumber, isNull);
+      expect(quote.reply!.target.replyingToWhisper, isFalse);
       final composer = h.reply(replyToPostNumber: 3);
       final reuse = h.owner.prepareQuote(h.origin(), _post, _quote)!;
       expect(reuse.composer, same(composer));
@@ -149,6 +151,12 @@ void main() {
   test('first-post plans keep stored title, taxonomy and tag minimum', () {
     final h = _Harness();
     addTearDown(h.dispose);
+    const bugs = TopicCategory(
+      id: 5,
+      name: 'Bugs',
+      color: '888888',
+      minimumRequiredTags: 2,
+    );
     final plan = h.owner.prepareEdit(
       h.origin(),
       const Post(
@@ -158,12 +166,7 @@ void main() {
         cooked: '',
         canEdit: true,
       ),
-      category: const TopicCategory(
-        id: 5,
-        name: 'Bugs',
-        color: '888888',
-        minimumRequiredTags: 2,
-      ),
+      category: bugs,
     )!;
     expect(plan.target, isA<TopicEditComposerTarget>());
     expect(plan.target.topicTitle, 'Stored title');
@@ -171,10 +174,120 @@ void main() {
     expect(plan.target.initialTags.single.name, 'bug');
     expect(plan.target.privateMessageTopic, isTrue);
     expect(plan.minimumRequiredTags, 2);
-    final postOnly = h.owner.prepareEdit(h.origin(), _post)!;
+    final postOnly = h.owner.prepareEdit(h.origin(), _post, category: bugs)!;
     expect(postOnly.target, isA<PostEditComposerTarget>());
     expect(postOnly.minimumRequiredTags, 0);
   });
+
+  test('edit plans follow topic and post edit permissions', () {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    final plan = h.owner.prepareEdit(
+      h.origin(canEditTopic: false),
+      const Post(
+        id: 9,
+        postNumber: 1,
+        username: 'sam',
+        cooked: '',
+        canEdit: true,
+      ),
+    )!;
+    expect(plan.target, isA<PostEditComposerTarget>());
+    expect(
+      h.owner.prepareEdit(
+        h.origin(),
+        const Post(id: 9, postNumber: 2, username: 'sam', cooked: ''),
+      ),
+      isNull,
+    );
+  });
+
+  test('reply and quote openings require reply permission', () {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    h.reply();
+    final origin = h.origin(canReply: false);
+    expect(h.owner.prepareReply(origin), isNull);
+    expect(h.owner.prepareQuote(origin, _post, _quote), isNull);
+  });
+
+  for (final stale in ['reader', 'account']) {
+    test('a stale $stale origin opens neither a reply nor a quote', () {
+      final h = _Harness();
+      addTearDown(h.dispose);
+      h.reply();
+      final origin = h.origin();
+      switch (stale) {
+        case 'reader':
+          h.readerCurrent = false;
+        case 'account':
+          h.lifecycle.invalidate(_site);
+      }
+      expect(h.owner.prepareReply(origin), isNull);
+      expect(h.owner.prepareQuote(origin, _post, _quote), isNull);
+    });
+  }
+
+  test('reply finds its topic editor behind another selected topic', () {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    final other = h.build(
+      const ReplyComposerTarget(
+        siteUrl: _site,
+        topicId: 8,
+        slug: '',
+        topicTitle: 'Other',
+        privateMessageTopic: false,
+      ),
+    );
+    final retained = h.reply();
+    h.selectedComposer = other;
+    final plan = h.owner.prepareReply(h.origin());
+    expect(plan, isA<ReuseReplyOpeningPlan>());
+    expect((plan as ReuseReplyOpeningPlan).composer, same(retained));
+  });
+
+  test('another site editor for the same topic id is never reused', () {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    h.build(
+      const ReplyComposerTarget(
+        siteUrl: 'https://other.example',
+        topicId: 7,
+        slug: '',
+        topicTitle: 'Other site',
+        privateMessageTopic: false,
+      ),
+    );
+    expect(h.owner.prepareReply(h.origin()), isA<CreateReplyOpeningPlan>());
+    expect(h.owner.prepareQuote(h.origin(), _post, _quote)!.composer, isNull);
+  });
+
+  for (final retired in ['account', 'editor']) {
+    test(
+      'a reply started after $retired retirement restores nothing',
+      () async {
+        final h = _Harness();
+        addTearDown(h.dispose);
+        h.local.saved['$_site::topic_7'] = const ComposerDraft(
+          reply: 'Restored draft',
+        ).encode();
+        final reply =
+            h.owner.prepareReply(h.origin()) as CreateReplyOpeningPlan;
+        final composer = h.build(reply.target, drafting: true);
+        switch (retired) {
+          case 'account':
+            h.lifecycle.invalidate(_site);
+          case 'editor':
+            h.members.remove(composer);
+        }
+        h.owner.startReply(reply, composer);
+        await pumpEventQueue();
+        expect(h.drafts.restoreTaskFor(composer), isNull);
+        expect(composer.raw, isEmpty);
+      },
+    );
+  }
 
   for (final selection in <String?, int?>{
     null: null,
@@ -283,6 +396,21 @@ void main() {
     },
   );
 
+  test('editor retirement during a credential read requests no raw', () async {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    final gate = Completer<void>();
+    h.credentials.readGate = gate;
+    final plan = h.owner.prepareEdit(h.origin(), _post)!;
+    final composer = h.build(plan.target);
+    final loading = h.owner.loadEditBody(plan, composer);
+    await pumpEventQueue();
+    h.members.remove(composer);
+    gate.complete();
+    await loading;
+    expect(h.api.postFetches, isEmpty);
+  });
+
   test(
     'publication retirement cannot adopt successor credentials or cached raw',
     () async {
@@ -365,21 +493,24 @@ final class _Harness
   @override
   ComposerController? selectedComposer;
 
-  ExistingTopicOpeningOrigin origin() => ExistingTopicOpeningOrigin(
+  ExistingTopicOpeningOrigin origin({
+    bool canReply = true,
+    bool canEditTopic = true,
+  }) => ExistingTopicOpeningOrigin(
     siteUrl: _site,
     lease: lifecycle.capture(_site),
     tabId: 'source-tab',
     reader: this,
     route: route,
-    canReply: true,
-    topic: const TopicDetail(
+    canReply: canReply,
+    topic: TopicDetail(
       id: 7,
       title: 'Stored title',
-      stream: [9],
-      canEdit: true,
+      stream: const [9],
+      canEdit: canEditTopic,
       categoryId: 5,
       privateMessage: true,
-      tags: [TopicTag(name: 'bug')],
+      tags: const [TopicTag(name: 'bug')],
     ),
   );
 
