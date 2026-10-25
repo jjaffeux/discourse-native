@@ -143,6 +143,84 @@ void main() {
     },
   );
 
+  for (final credentialAvailable in [true, false]) {
+    test(
+      'same-account refresh during credential admission restores the board with credentials $credentialAvailable',
+      () async {
+        final gate = _WriteGate();
+        final fixture = BoardsFixture(requestHost: gate);
+        addTearDown(fixture.dispose);
+        final handle = fixture.controller.acquire(boardsSite, 1);
+        addTearDown(handle.release);
+        await handle.refresh();
+        gate.block = true;
+        final pending = handle.deleteColumn(10);
+        await gate.entered.future;
+        fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+        gate.pending.complete(
+          credentialAvailable
+              ? await gate.inner.writeCredentialFor(boardsSite)
+              : (credentials: null, failure: null),
+        );
+        final result = await pending;
+        expect(handle.snapshot, isNotNull);
+        expect(handle.snapshot!.name, 'Product roadmap');
+        expect(handle.reading, isFalse);
+        expect(fixture.transport.writes, isEmpty);
+        expect(
+          result.state,
+          credentialAvailable
+              ? BoardWriteState.cancelled
+              : BoardWriteState.refused,
+        );
+      },
+    );
+  }
+
+  test(
+    'same-account refresh during dispatched clear reconciles board and topic tags',
+    () async {
+      final json = boardFixtureJson(sort: 'recency');
+      final column = boardObject((json['columns'] as List).first);
+      column['cards'] = <Object?>[
+        ...(column['cards'] as List),
+        {
+          'id': 104,
+          'column_id': 10,
+          'card_type': 'topic',
+          'topic_id': 501,
+          'recency_at': '2020-01-01T00:00:00Z',
+          'topic': {'id': 501, 'title': 'Old affected topic'},
+        },
+      ];
+      json['columns'] = <Object?>[column, ...(json['columns'] as List).skip(1)];
+      final fixture = BoardsFixture(json: json);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      const route = 'DELETE /boards/api/boards/1/columns/10/cards';
+      final clear = fixture.transport.responders[route]!;
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      fixture.transport.responders[route] = (request) async {
+        entered.complete();
+        await release.future;
+        return clear(request);
+      };
+      final pending = handle.clearColumn(10);
+      await entered.future;
+      fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+      release.complete();
+      final result = await pending;
+      expect(handle.snapshot, isNotNull);
+      expect(handle.snapshot!.column(10)!.cards, isEmpty);
+      expect(result.state, BoardWriteState.saved);
+      expect(fixture.refreshedTopics, [500, 501]);
+      expect(fixture.transport.writes, hasLength(1));
+    },
+  );
+
   test(
     'retirement during column credential admission prevents transport',
     () async {
@@ -166,6 +244,7 @@ void main() {
 class _WriteGate implements PluginRequestHost {
   final inner = PluginTestRequestHost(apiKeys: {boardsSite: 'key'});
   final pending = Completer<PluginWriteCredential>();
+  final entered = Completer<void>();
   bool block = false;
   @override
   PluginSiteLease capture(String siteUrl) => inner.capture(siteUrl);
@@ -173,6 +252,9 @@ class _WriteGate implements PluginRequestHost {
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) =>
       inner.credentialsFor(siteUrl);
   @override
-  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) =>
-      block ? pending.future : inner.writeCredentialFor(siteUrl);
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) {
+    if (!block) return inner.writeCredentialFor(siteUrl);
+    entered.complete();
+    return pending.future;
+  }
 }

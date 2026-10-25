@@ -476,6 +476,88 @@ void boardsReaderTests({
     },
   );
 
+  testWidgets('reordering keeps revealed older cards and column scroll', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final json = boardFixtureJson(sort: 'recency');
+    ((json['columns'] as List).first as Map)['cards'] = <Object?>[
+      for (var i = 0; i < 40; i++)
+        {
+          'id': 700 + i,
+          'column_id': 10,
+          'card_type': 'floater',
+          'title': 'Older task $i',
+          'recency_at': '2020-01-01T00:00:00Z',
+        },
+    ];
+    final fixture = BoardsFixture(json: json);
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show 40 older cards'));
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('board-column-10'));
+    final list = find.descendant(of: panel, matching: find.byType(Scrollable));
+    await tester.drag(list, const Offset(0, -450));
+    await tester.pumpAndSettle();
+    final before = tester.state<ScrollableState>(list).position.pixels;
+    expect(before, greaterThan(0));
+    await menu(tester, 10);
+    await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Move right'));
+    await tester.pumpAndSettle();
+    expect(fixture.columns.map((column) => column['id']), [11, 10, 12]);
+    expect(find.text('Show 40 older cards'), findsNothing);
+    expect(
+      tester.state<ScrollableState>(list).position.pixels,
+      closeTo(before, 1),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'long card titles reserve the menu control and retain card navigation',
+    (tester) async {
+      resize(tester, const Size(1100, 800));
+      const title =
+          'Launch XP - Automating Launch: Enterprise Category Creation';
+      final json = boardFixtureJson();
+      final firstColumn = (json['columns'] as List).first as Map;
+      final topic =
+          ((firstColumn['cards'] as List).first as Map)['topic'] as Map;
+      topic['title'] = title;
+      final fixture = BoardsFixture(json: json);
+      addTearDown(fixture.dispose);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      final card = find.ancestor(
+        of: find.text(title),
+        matching: find.byType(DItem),
+      );
+      final trigger = find.descendant(
+        of: card,
+        matching: find.byType(DDropdownMenuTrigger),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer();
+      await mouse.moveTo(tester.getCenter(card));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.text(title)).right,
+        lessThanOrEqualTo(tester.getRect(trigger).left),
+      );
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(fixture.host.openedTopic, isNull);
+      expect(
+        find.widgetWithText(DDropdownMenuItem, 'Move to…'),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('read-only and non-manager boards omit management actions', (
     tester,
   ) async {
