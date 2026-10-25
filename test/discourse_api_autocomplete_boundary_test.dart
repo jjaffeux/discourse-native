@@ -749,7 +749,7 @@ void main() {
         siteUrl: 'https://example.com',
         refs: ['SAILING', 'SAILING::tag'],
       );
-      expect(found.map((item) => item.id), [8, 3]);
+      expect(found.map((item) => item.id), [3, 8]);
       expect(found.map((item) => item.ref), ['sailing', 'sailing']);
     },
   );
@@ -791,6 +791,47 @@ void main() {
         ),
         isEmpty,
       );
+    },
+  );
+
+  test(
+    'canonical fallback duplicates cannot displace requested typed refs',
+    () async {
+      final refs = [
+        for (var i = 0; i < 10; i++) 'BARE$i',
+        for (var i = 0; i < 10; i++) 'TYPED$i::tag',
+      ];
+      Map<String, Object> item(String type, String ref, int id) => {
+        'type': type,
+        'ref': ref,
+        'id': id,
+      };
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          expect(request.url.queryParametersAll['slugs[]'], refs);
+          return http.Response(
+            jsonEncode({
+              'category': [
+                for (var i = 0; i < 10; i++) item('category', 'bare$i', i + 1),
+              ],
+              'tag': [
+                for (var i = 0; i < 10; i++) item('tag', 'bare$i', i + 11),
+                for (var i = 0; i < 10; i++) item('tag', 'typed$i', i + 21),
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      final found = await api.lookupHashtags(
+        siteUrl: 'https://example.com',
+        refs: refs,
+      );
+      expect(found.map((item) => item.id), [
+        for (var i = 1; i <= 10; i++) i,
+        for (var i = 21; i <= 30; i++) i,
+      ]);
+      expect(found, hasLength(DiscourseApi.hashtagsPerRequest));
     },
   );
 

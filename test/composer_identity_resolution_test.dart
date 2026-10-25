@@ -289,6 +289,7 @@ void main() {
       await tester.runAsync(() => pumpEventQueue());
       expect(requests, hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
+      shell.closeComposer(composer: composer);
     },
   );
 
