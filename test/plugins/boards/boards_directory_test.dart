@@ -99,7 +99,7 @@ void boardsDirectoryWidgetTests({
 
   for (final limited in [false, true]) {
     testWidgets(
-      'directory heading and filters share the width preference $limited',
+      'directory cards align with the heading and filters at width preference $limited',
       (tester) async {
         resize(tester, const Size(1280, 800));
         SharedPreferences.setMockInitialValues({});
@@ -108,31 +108,37 @@ void boardsDirectoryWidgetTests({
         await settings.setLimitContentSize(limited);
         final fixture = BoardsFixture();
         addTearDown(fixture.dispose);
-        respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+        respond(fixture, [
+          for (var id = 1; id <= 12; id++) directoryBoard(id, 'Board $id'),
+        ]);
         await prepareNativeUiEvidence(tester);
         await tester.pumpWidget(page(fixture, settings: settings));
         await tester.pumpAndSettle();
         final title = tester.getRect(find.text('Boards'));
         final search = tester.getRect(find.byType(DInput));
         final controls = tester.getRect(find.byType(DControlWrap));
-        final content = tester.getRect(
-          find.text('Create and manage boards with columns.'),
-        );
+        final cards = find.byType(DPlaceCard);
+        final first = tester.getRect(cards.first);
+        final row = [
+          for (var i = 0; i < cards.evaluate().length; i++)
+            tester.getRect(cards.at(i)),
+        ].where((rect) => (rect.top - first.top).abs() < 0.01);
         expect(title.left, closeTo(search.left, 0.01));
-        expect(controls.center.dx, closeTo(content.center.dx, 0.01));
+        expect(first.left, closeTo(controls.left, 0.01));
+        expect(row.last.right, closeTo(controls.right, 0.01));
+        expect(
+          find.text('Create and manage boards with columns.'),
+          findsNothing,
+        );
         final viewportWidth = tester.getSize(find.byType(Scaffold)).width;
         final headerWidth = limited
             ? viewportWidth.clamp(0.0, DPageReadingLane.maxWidth)
             : viewportWidth;
-        final contentWidth = limited
-            ? (viewportWidth - 32).clamp(0.0, DPageReadingLane.maxWidth)
-            : viewportWidth - 32;
         expect(
           title.left,
           closeTo((viewportWidth - headerWidth) / 2 + 16, 0.01),
         );
         expect(controls.width, closeTo(headerWidth - 32, 0.01));
-        expect(content.width, closeTo(contentWidth, 0.01));
         await captureNativeUi(tester, 'boards-directory-header-$limited');
         await onCapture?.call(tester, 'boards-directory-header-$limited');
         expect(tester.takeException(), isNull);
