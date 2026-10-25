@@ -795,6 +795,53 @@ void main() {
       expect(find.byType(YoutubeVideo), findsNothing);
     });
 
+    for (final loopValue in <String?>[null, '0', '1']) {
+      for (final withPlaylist in [false, true]) {
+        testWidgets('preserves core iframe loop=${loopValue ?? 'absent'} '
+            'with playlist=$withPlaylist', (tester) async {
+          final query = [
+            'start=12',
+            if (withPlaylist) 'list=PL_test',
+            if (loopValue != null) 'loop=$loopValue',
+          ].join('&amp;');
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: CookedHtml(
+                  siteUrl: 'https://meta.discourse.org',
+                  html:
+                      '<iframe class="youtube-onebox" '
+                      'src="https://www.youtube.com/embed/dQw4w9WgXcQ?$query">'
+                      '</iframe>',
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+
+          final data = tester
+              .widget<YoutubeVideo>(find.byType(YoutubeVideo))
+              .data;
+          final loops = loopValue == '1';
+          expect(data.loop, loops);
+          expect(data.videoId, 'dQw4w9WgXcQ');
+          expect(data.listId, withPlaylist ? 'PL_test' : null);
+          expect(data.startSeconds, 12);
+          final embed = youtubeEmbedUri(data);
+          expect(embed.queryParameters['loop'], loops ? '1' : null);
+          expect(
+            embed.queryParameters['playlist'],
+            loops ? 'dQw4w9WgXcQ' : null,
+          );
+          expect(
+            embed.queryParameters['list'],
+            withPlaylist ? 'PL_test' : null,
+          );
+          expect(data.watchUri.queryParameters['loop'], loops ? '1' : null);
+        });
+      }
+    }
+
     testWidgets('claims the legacy core iframe fallback', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
