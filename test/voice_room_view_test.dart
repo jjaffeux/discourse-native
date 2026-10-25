@@ -41,6 +41,8 @@ import 'package:discourse_native/src/plugins/voice/voice_chat_inbox.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 
 import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
+import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart'
+    show voiceAnswerConfirmationWindow;
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
@@ -4280,6 +4282,111 @@ void _directCallTests() {
       await tester.pump();
     });
 
+    for (final decision in ['join', 'cancel', 'hang up', 'expiry']) {
+      testWidgets('a system answer is finished in the app: $decision', (
+        tester,
+      ) async {
+        final tracker = RecordingPluginLiveChannels();
+        final room = callRoom();
+        final transport = RecordingPluginTransport(
+          responses: {
+            'GET /voice/rooms.json': const {'rooms': <Object?>[]},
+            'GET /voice/rooms/call-1a2b.json': {
+              ..._joinPayload(room)['room'] as Map<String, dynamic>,
+              'expected_transport': 'mesh',
+            },
+            'POST /voice/rooms/9/join.json': _joinPayload(room),
+            'POST /voice/rooms/9/state.json': const {},
+            'DELETE /voice/rooms/9/leave.json': const {},
+          },
+        );
+        final systemCall = _SystemCall(presentsIncomingCalls: true);
+        final harness = _Harness(
+          discourseApi: transport,
+          tracker: tracker,
+          systemCall: systemCall,
+          meshPrivacyWarningEnabledFor: (_) => true,
+        );
+        addTearDown(harness.dispose);
+        final host = _RouteHost(
+          const PluginRouteSite(
+            url: _siteUrl,
+            title: 'Voice',
+            isConnected: true,
+          ),
+        );
+        final shell = VoiceShellService(
+          controller: harness.controller,
+          host: host,
+          recordingEnabled: (_) => false,
+        );
+        await harness.controller.ensureLoaded(_siteUrl);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: VoiceIncomingCallBanner(
+                controller: harness.controller,
+                shell: shell,
+              ),
+            ),
+          ),
+        );
+        tracker.deliver('/voice/call-ring/1', {
+          'room_id': 9,
+          'room_slug': 'call-1a2b',
+          'room_name': '📞 kim + sam',
+          'caller_username': 'kim',
+          'caller_name': 'Apple Support',
+          'sent_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          'ring_seconds': 60,
+        });
+        await tester.pump();
+        await tester.pump();
+        expect(find.text('Apple Support'), findsNothing);
+
+        systemCall.send(VoiceSystemCallAction.answer);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Apple Support'), findsOneWidget);
+        expect(find.text('@kim · voice.example.com'), findsOneWidget);
+        expect(find.text('Answered. Confirm to connect.'), findsOneWidget);
+        expect(harness.controller.call, isNull);
+        expect(transport.writes, isEmpty);
+
+        if (decision == 'hang up') {
+          await tester.tap(find.text('Hang up'));
+        } else {
+          // The Join button's spinner never settles while the warning is
+          // open, so time moves only as far as the dialog needs.
+          await tester.tap(find.text('Join'));
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.text('Before you join this room'), findsOneWidget);
+          if (decision == 'expiry') {
+            await tester.pump(voiceAnswerConfirmationWindow);
+          }
+          await tester.tap(
+            find.text(decision == 'join' ? 'Join room' : 'Cancel'),
+          );
+        }
+        await tester.pumpAndSettle();
+
+        expect(find.text('Answered. Confirm to connect.'), findsNothing);
+        expect(harness.controller.call?.room.id, decision == 'join' ? 9 : null);
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/join.json')),
+          hasLength(decision == 'join' ? 1 : 0),
+        );
+        expect(
+          systemCall.hangUps,
+          decision == 'join' || decision == 'expiry' ? 0 : 1,
+        );
+        expect(systemCall.failures, decision == 'expiry' ? 1 : 0);
+        harness.dispose();
+      });
+    }
+
     for (final boundary in ['privacy read', 'privacy dialog', 'navigation']) {
       testWidgets('answer stops after account removal during $boundary', (
         tester,
@@ -5864,6 +5971,7 @@ final class _Harness {
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
     DateTime Function()? clock,
+    bool Function(String siteUrl)? meshPrivacyWarningEnabledFor,
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -5913,6 +6021,7 @@ final class _Harness {
       preferences: persistentPreferences ?? this.preferences,
       heartbeatInterval: const Duration(days: 1),
       clock: clock,
+      meshPrivacyWarningEnabledFor: meshPrivacyWarningEnabledFor,
     );
   }
 
@@ -6920,6 +7029,8 @@ final class _SystemCall implements VoiceSystemCall {
   _SystemCall({this.presentsIncomingCalls = false});
 
   final bool presentsIncomingCalls;
+  int hangUps = 0;
+  int failures = 0;
   final StreamController<VoiceSystemCallAction> _actions =
       StreamController.broadcast();
 
@@ -6944,9 +7055,9 @@ final class _SystemCall implements VoiceSystemCall {
   @override
   Future<void> dispose() => _actions.close();
   @override
-  Future<void> end() async {}
+  Future<void> end() async => hangUps++;
   @override
-  Future<void> failed() async {}
+  Future<void> failed() async => failures++;
   @override
   Future<void> setMuted(bool muted) async {}
   @override

@@ -1,18 +1,44 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 import 'voice_callkit.dart';
 import 'voice_models.dart';
+
+/// How long a call answered from the system's UI waits for the user to
+/// confirm the peer-to-peer warning in the app: long enough to unlock the
+/// device and open the app, short enough that a forgotten answer does not
+/// hold a silent system call open.
+const voiceAnswerConfirmationWindow = Duration(seconds: 60);
+
+/// How the system's call UI names a caller: by username and site, which the
+/// caller cannot choose freely, never by display name.
+String voiceSystemCallerLabel(String siteUrl, String username) =>
+    appL10n.voiceSystemCallerLabel(username, _siteHost(siteUrl));
+
+String _systemCallerHandle(String siteUrl, String username) =>
+    '$username@${_siteHost(siteUrl)}';
+
+String _siteHost(String siteUrl) {
+  final host = Uri.tryParse(siteUrl)?.host;
+  return host == null || host.isEmpty ? siteUrl : host;
+}
 
 /// A resolved incoming call, still owned by the account and answer that
 /// requested it. UI continuations must recheck [isCurrent] after awaiting or
 /// invoking navigation callbacks before joining.
 final class VoiceIncomingCallAcceptance {
-  VoiceIncomingCallAcceptance._(this.siteUrl, this.room, this._isCurrent);
+  VoiceIncomingCallAcceptance._(
+    this.siteUrl,
+    this.room,
+    this.call,
+    this._isCurrent,
+  );
 
   final String siteUrl;
   final VoiceRoom room;
+  final VoiceIncomingCall call;
   final bool Function() _isCurrent;
 
   bool get isCurrent => _isCurrent();
@@ -38,13 +64,26 @@ final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
     required this.siteUrl,
     required this.call,
     required this.presented,
+    required this.joinTail,
     required this.isCurrent,
   });
 
   final String siteUrl;
   final VoiceIncomingCall call;
   final bool presented;
+  final Object? joinTail;
   final bool Function() isCurrent;
+
+  /// A system answer waiting for the peer-to-peer warning to be confirmed in
+  /// the app. The system call is up but nothing has joined.
+  VoiceIncomingCallAcceptance? parked;
+  Timer? confirmationDeadline;
+
+  void unpark() {
+    confirmationDeadline?.cancel();
+    confirmationDeadline = null;
+    parked = null;
+  }
 }
 
 /// Account-scoped resolution and attribution remain with the room directory.
@@ -69,10 +108,17 @@ abstract interface class VoiceIncomingJoins {
   });
 }
 
+/// What a system answer does once its room is open: join under [siteName],
+/// or, with [confirmInApp], wait for the peer-to-peer warning to be accepted
+/// in the app first.
+typedef VoiceSystemAnswerPlan = ({String siteName, bool confirmInApp});
+
 abstract interface class VoiceIncomingNavigation {
   /// Opens the accepted room and reports privacy policy under its original lease.
   /// Returns null when a callback or asynchronous read retires the acceptance.
-  FutureOr<String?> prepare(VoiceIncomingCallAcceptance acceptance);
+  FutureOr<VoiceSystemAnswerPlan?> prepare(
+    VoiceIncomingCallAcceptance acceptance,
+  );
 }
 
 /// Optional cancellation boundary for a Voice message-bus adapter whose
@@ -113,6 +159,14 @@ final class VoiceIncomingCalls {
   String? get siteUrl => _ringingCall?.siteUrl;
   bool get handledBySystem => _ringingCall?.presented ?? false;
 
+  /// The system answer waiting for the peer-to-peer warning, while it is
+  /// still owned by its account and no join has replaced it.
+  VoiceIncomingCallAcceptance? get awaitingConfirmation =>
+      switch (_incomingAdmission) {
+        _VoiceIncomingAnswer(:final parked?) when parked.isCurrent => parked,
+        _ => null,
+      };
+
   bool attach(String siteUrl, int? userId, PluginLiveChannelHandle tracker) {
     if (_closed || userId == null || _ringSubscriptions.containsKey(siteUrl)) {
       return false;
@@ -150,6 +204,7 @@ final class VoiceIncomingCalls {
       siteUrl: incoming.siteUrl,
       call: incoming.call,
       presented: incoming.presented,
+      joinTail: joinTail,
       isCurrent: () =>
           identical(_incomingAdmission, answer) &&
           identical(joins.admissionIdentity, joinTail) &&
@@ -182,6 +237,7 @@ final class VoiceIncomingCalls {
     return VoiceIncomingCallAcceptance._(
       answer.siteUrl,
       room,
+      answer.call,
       answer.isCurrent,
     );
   }
@@ -209,10 +265,41 @@ final class VoiceIncomingCalls {
   }
 
   void retireAnswer() {
-    if (_incomingAdmission is _VoiceIncomingAnswer) _incomingAdmission = null;
+    if (_incomingAdmission case final _VoiceIncomingAnswer answer) {
+      final wasParked = answer.parked != null;
+      answer.unpark();
+      _incomingAdmission = null;
+      if (wasParked && !_closed) onChanged();
+    }
+  }
+
+  /// The user turned down the peer-to-peer warning (or hung up) for a parked
+  /// system answer: the answered system call ends with nothing joined.
+  void cancelAwaitingAnswer() {
+    if (_incomingAdmission case final _VoiceIncomingAnswer answer
+        when answer.parked != null) {
+      _abandonParked(answer, systemCall.end);
+      if (!_closed) onChanged();
+    }
+  }
+
+  /// Drops a parked answer. Unless a join has since taken over the system
+  /// call, that call has nothing behind it and [endSystemCall] ends it.
+  void _abandonParked(
+    _VoiceIncomingAnswer answer,
+    Future<void> Function() endSystemCall,
+  ) {
+    answer.unpark();
+    if (identical(_incomingAdmission, answer)) _incomingAdmission = null;
+    if (!_closed && identical(joins.admissionIdentity, answer.joinTail)) {
+      _observe(endSystemCall);
+    }
   }
 
   void roomJoined(String siteUrl, int roomId) {
+    if (_incomingAdmission case final _VoiceIncomingAnswer answer) {
+      answer.unpark();
+    }
     final incoming = _ringingCall;
     if (incoming?.siteUrl == siteUrl && incoming?.call.roomId == roomId) {
       _clearIncomingCall(
@@ -228,12 +315,12 @@ final class VoiceIncomingCalls {
   /// over), the app's own banner stays.
   Future<void> _presentIncomingCall(_VoiceIncomingRing incoming) async {
     final call = incoming.call;
-    final caller = call.caller;
+    final username = call.caller.username;
     final presented = await _runHandledValue(
       () => systemCall.reportIncomingCall(
-        callerName: caller.name ?? caller.username,
+        callerName: voiceSystemCallerLabel(incoming.siteUrl, username),
         roomName: call.roomName,
-        handle: caller.username,
+        handle: _systemCallerHandle(incoming.siteUrl, username),
       ),
 
       fallback: false,
@@ -258,9 +345,11 @@ final class VoiceIncomingCalls {
   }
 
   /// The user answered from the system's call UI. There is no app surface
-  /// to ask anything on (the app may be behind the lock screen), so the
-  /// join proceeds directly; a peer-to-peer privacy warning the site would
-  /// have shown before a join is said afterwards instead.
+  /// to ask anything on (the app may be behind the lock screen), so when the
+  /// site's peer-to-peer warning applies the answer parks instead of joining:
+  /// the room opens, and the app asks before anything connects. An answer
+  /// left unconfirmed ends the system call after
+  /// [voiceAnswerConfirmationWindow].
   Future<void> answerFromSystem() async {
     // CallKit can echo a local answer or deliver its action more than once.
     // Once taken, that answer alone owns resolution and failure handling.
@@ -284,11 +373,32 @@ final class VoiceIncomingCalls {
       return;
     }
     final preparation = navigation.prepare(accepted);
-    final siteName = preparation is Future<String?>
+    final plan = preparation is Future<VoiceSystemAnswerPlan?>
         ? await preparation
         : preparation;
-    if (siteName == null || !isCurrent()) return;
-    await joins.join(accepted, siteName: siteName);
+    if (plan == null || !isCurrent()) return;
+    if (plan.confirmInApp && answer != null) {
+      _park(answer, accepted);
+      return;
+    }
+    await joins.join(accepted, siteName: plan.siteName);
+  }
+
+  void _park(
+    _VoiceIncomingAnswer answer,
+    VoiceIncomingCallAcceptance accepted,
+  ) {
+    answer.parked = accepted;
+    answer.confirmationDeadline = timerFactory(
+      voiceAnswerConfirmationWindow,
+      () {
+        if (identical(_incomingAdmission, answer) && answer.parked != null) {
+          _abandonParked(answer, systemCall.failed);
+          if (!_closed) onChanged();
+        }
+      },
+    );
+    onChanged();
   }
 
   void _onRingEvent(String siteUrl, Object? data) {
@@ -304,6 +414,10 @@ final class VoiceIncomingCalls {
     }
     if (!_handledRings.add(call.key)) return;
     if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
+    if (_incomingAdmission case final _VoiceIncomingAnswer answer
+        when answer.parked != null) {
+      _abandonParked(answer, systemCall.failed);
+    }
     retireAnswer();
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     final incoming = _VoiceIncomingRing(siteUrl, call);
@@ -325,6 +439,7 @@ final class VoiceIncomingCalls {
     _closed = true;
     final subscriptions = _ringSubscriptions.values.toList();
     _ringSubscriptions.clear();
+    retireAnswer();
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     unawaited(
       Future.wait([

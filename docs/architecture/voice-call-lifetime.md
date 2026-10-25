@@ -50,6 +50,18 @@ reads and navigation callbacks. It performs no asynchronous privacy read when
 the warning does not apply. Local answering still returns the accepted room for
 the existing app flow to navigate and confirm privacy.
 
+A system answer never joins a peer-to-peer room before the warning is
+accepted. When the warning applies, the answer parks: the room opens, the
+answered system call stays up with nothing joined, and the incoming-call banner
+asks the user to confirm in the app. The confirmed join reuses the answered
+system call. Declining the warning ends that call, and an answer left
+unconfirmed for `voiceAnswerConfirmationWindow` fails it. A join that has
+started since then owns the system call, so a late deadline leaves it alone.
+
+The system call UI names a caller by username and site host, never by the
+caller's chosen display name. A ring rings for at most `voiceRingDuration`
+from receipt, whatever its `ring_seconds` or `sent_at` claim.
+
 Each `_VoiceCallSession` exists before preference or credential acquisition.
 It owns its call snapshot, server participant identity, media, signal batcher,
 heartbeat and state requests, idle tracker, camera queue and revisions, and

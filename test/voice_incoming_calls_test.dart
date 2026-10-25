@@ -93,13 +93,13 @@ void main() {
   test('navigation retirement prevents admitted join', () async {
     final harness = _Harness();
     addTearDown(harness.close);
-    harness.navigationGate = Completer<String?>();
+    harness.navigationGate = Completer<VoiceSystemAnswerPlan?>();
     harness.ring();
     final answering = harness.owner.answerFromSystem();
     await pumpEventQueue();
     expect(harness.navigations, 1);
     harness.account = Object();
-    harness.navigationGate!.complete('Voice');
+    harness.navigationGate!.complete((siteName: 'Voice', confirmInApp: false));
     await answering;
     expect(harness.joined, isEmpty);
     expect(harness.system.failures, 0);
@@ -136,6 +136,125 @@ void main() {
       expect(harness.attributions, 1);
     },
   );
+
+  test('the system names the caller by username and site', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring();
+    await pumpEventQueue();
+    expect(harness.system.reported, [
+      (callerName: '@Kim · voice.example.com', handle: 'Kim@voice.example.com'),
+    ]);
+  });
+
+  test('a ring never outlives one window, whatever it claims', () async {
+    final harness = _Harness();
+    addTearDown(harness.close);
+    harness.ring(sentAt: 1786204800 + 3600, ringSeconds: 86400);
+    await pumpEventQueue();
+    harness.scheduler.advance(const Duration(seconds: 59));
+    expect(harness.owner.call, isNotNull);
+    harness.scheduler.advance(const Duration(seconds: 1));
+    expect(harness.owner.call, isNull);
+    expect(harness.system.ends, [VoiceIncomingCallEndReason.unanswered]);
+  });
+
+  group('a system answer that needs the privacy warning', () {
+    late _Harness harness;
+    late int changes;
+
+    setUp(() async {
+      harness = _Harness()..confirmInApp = true;
+      changes = 0;
+      harness.onChanged = () => changes++;
+      harness.ring();
+      await pumpEventQueue();
+      await harness.owner.answerFromSystem();
+    });
+
+    tearDown(() => harness.close());
+
+    test('opens the room and waits for the app without joining', () async {
+      expect(harness.navigations, 1);
+      expect(harness.joined, isEmpty);
+      final awaiting = harness.owner.awaitingConfirmation;
+      expect(
+        (room: awaiting?.room.id, caller: awaiting?.call.caller.username),
+        (room: 9, caller: 'Kim'),
+      );
+      expect(changes, greaterThan(1));
+
+      await harness.owner.answerFromSystem();
+      expect(harness.resolutions, 1);
+      expect(harness.owner.awaitingConfirmation, same(awaiting));
+    });
+
+    test('ends the system call when nobody confirms in time', () async {
+      harness.scheduler.advance(const Duration(seconds: 59));
+      expect(harness.owner.awaitingConfirmation, isNotNull);
+      expect(harness.system.failures, 0);
+      final before = changes;
+
+      harness.scheduler.advance(const Duration(seconds: 1));
+      await pumpEventQueue();
+      expect(harness.owner.awaitingConfirmation, isNull);
+      expect(harness.system.failures, 1);
+      expect(harness.joined, isEmpty);
+      expect(changes, before + 1);
+    });
+
+    test('hanging up ends the system call once', () async {
+      harness.owner.cancelAwaitingAnswer();
+      harness.owner.cancelAwaitingAnswer();
+      await pumpEventQueue();
+      expect(harness.owner.awaitingConfirmation, isNull);
+      expect(harness.system.hangUps, 1);
+
+      harness.scheduler.advance(voiceAnswerConfirmationWindow);
+      await pumpEventQueue();
+      expect(harness.system.failures, 0);
+      expect(harness.scheduler.activeTimerCount, 0);
+    });
+
+    for (final (retirement, endsSystemCall) in [
+      ('a join', false),
+      ('a joined room', false),
+      ('a leave', false),
+      ('a replacement ring', true),
+      ('account retirement', true),
+      ('close', false),
+    ]) {
+      test('stops waiting after $retirement', () async {
+        switch (retirement) {
+          case 'a join':
+            harness.admissionIdentity = Object();
+          case 'a joined room':
+            harness.owner.roomJoined(_site, 9);
+          case 'a leave':
+            harness.owner.retireAnswer();
+          case 'a replacement ring':
+            harness.ring(sentAt: 1786204805);
+          case 'account retirement':
+            harness.account = Object();
+          case 'close':
+            await harness.close();
+        }
+        expect(harness.owner.awaitingConfirmation, isNull);
+        if (retirement == 'a replacement ring') {
+          expect(
+            harness.owner.call?.sentAt,
+            DateTime.utc(2026, 8, 8, 16, 0, 5),
+          );
+        }
+
+        harness.scheduler.advance(voiceAnswerConfirmationWindow);
+        await pumpEventQueue();
+        expect(harness.system.failures, endsSystemCall ? 1 : 0);
+        expect(harness.system.hangUps, 0);
+        expect(harness.joined, isEmpty);
+      });
+    }
+  });
 }
 
 final class _Harness
@@ -167,17 +286,20 @@ final class _Harness
   int navigations = 0;
   final joined = <VoiceIncomingCallAcceptance>[];
   Completer<VoiceRoom?>? resolveGate;
-  Completer<String?>? navigationGate;
+  Completer<VoiceSystemAnswerPlan?>? navigationGate;
+  bool confirmInApp = false;
   void Function()? onChanged;
 
-  void ring({int sentAt = 1786204800}) => tracker.deliver({
-    'room_id': 9,
-    'room_slug': 'call-1a2b',
-    'room_name': 'Kim and Sam',
-    'caller_username': 'Kim',
-    'sent_at': sentAt,
-    'ring_seconds': 60,
-  });
+  void ring({int sentAt = 1786204800, int ringSeconds = 60}) =>
+      tracker.deliver({
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'room_name': 'Kim and Sam',
+        'caller_username': 'Kim',
+        'caller_name': 'Apple Support',
+        'sent_at': sentAt,
+        'ring_seconds': ringSeconds,
+      });
 
   Future<void> close() {
     if (!tracker.subscription.drained.isCompleted) {
@@ -215,9 +337,12 @@ final class _Harness
   }) async => joined.add(acceptance);
 
   @override
-  FutureOr<String?> prepare(VoiceIncomingCallAcceptance acceptance) {
+  FutureOr<VoiceSystemAnswerPlan?> prepare(
+    VoiceIncomingCallAcceptance acceptance,
+  ) {
     navigations++;
-    return navigationGate?.future ?? 'Voice';
+    return navigationGate?.future ??
+        (siteName: 'Voice', confirmInApp: confirmInApp);
   }
 }
 
@@ -255,8 +380,10 @@ final class _Subscription
 
 final class _SystemCall implements VoiceSystemCall {
   Completer<bool>? presentation;
+  final reported = <({String callerName, String handle})>[];
   final ends = <VoiceIncomingCallEndReason>[];
   int failures = 0;
+  int hangUps = 0;
   @override
   Stream<VoiceSystemCallAction> get actions => const Stream.empty();
   @override
@@ -264,7 +391,11 @@ final class _SystemCall implements VoiceSystemCall {
     required String callerName,
     required String roomName,
     required String handle,
-  }) async => presentation?.future ?? true;
+  }) async {
+    reported.add((callerName: callerName, handle: handle));
+    return presentation?.future ?? true;
+  }
+
   @override
   Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async =>
       ends.add(reason);
@@ -284,7 +415,7 @@ final class _SystemCall implements VoiceSystemCall {
   @override
   Future<void> setMuted(bool muted) async {}
   @override
-  Future<void> end() async {}
+  Future<void> end() async => hangUps++;
   @override
   Future<void> dispose() async {}
 }

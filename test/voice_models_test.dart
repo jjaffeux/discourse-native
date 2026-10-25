@@ -636,6 +636,66 @@ void main() {
         expect(VoiceIncomingCall.fromJson(json), isNull, reason: missing);
       }
     });
+
+    test('caps the window at the local ring duration', () {
+      for (final ringSeconds in [61, 86400, 1 << 62]) {
+        final call = VoiceIncomingCall.fromJson({
+          'room_id': 9,
+          'room_slug': 'call-1a2b',
+          'caller_username': 'kim',
+          'sent_at': 1786204800,
+          'ring_seconds': ringSeconds,
+        })!;
+        expect(call.ringDuration, voiceRingDuration, reason: '$ringSeconds');
+      }
+    });
+
+    test('a ring sent ahead of this clock rings for one window at most', () {
+      final call = VoiceIncomingCall.fromJson(const {
+        'room_id': 9,
+        'room_slug': 'call-1a2b',
+        'caller_username': 'kim',
+        'sent_at': 1786204800,
+        'ring_seconds': 45,
+      })!;
+      expect(
+        call.remainingAt(DateTime.utc(2026, 8, 8, 15)),
+        const Duration(seconds: 45),
+      );
+      expect(
+        call.remainingAt(DateTime.utc(2026, 8, 8, 16, 0, 30)),
+        const Duration(seconds: 15),
+      );
+    });
+
+    test('names the caller only by a Discourse username', () {
+      VoiceIncomingCall? parse(String username, [String? name]) =>
+          VoiceIncomingCall.fromJson({
+            'room_id': 9,
+            'room_slug': 'call-1a2b',
+            'caller_username': username,
+            'caller_name': name,
+            'sent_at': 1786204800,
+          });
+
+      for (final username in ['kim.s-1_', 'jörg', 'ゆき', 'a' * 60]) {
+        expect(parse(username)?.caller.username, username);
+      }
+      for (final username in [
+        'Apple Support',
+        'kim\u202Etroppus',
+        'kim\u200B',
+        'kim@example.com',
+        'a' * 61,
+      ]) {
+        expect(parse(username), isNull, reason: username);
+      }
+      expect(
+        parse('kim', 'Kim \u202Etroppus\u202C')?.caller.name,
+        'Kim troppus',
+      );
+      expect(parse('kim', '\u2066\u2069')?.caller.name, isNull);
+    });
   });
 
   group('invites', () {

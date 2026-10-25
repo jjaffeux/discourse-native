@@ -117,11 +117,27 @@ final class VoiceShellService
     );
   }
 
+  /// Finishes a call answered from the system's UI: asks the peer-to-peer
+  /// question the system UI could not, then joins. Turning the warning down
+  /// ends the system call.
+  Future<void> confirmAnsweredCall(BuildContext context) async {
+    final accepted = controller.answeredCallAwaitingConfirmation;
+    if (accepted == null) return;
+    await _openAndJoin(
+      context,
+      siteUrl: accepted.siteUrl,
+      room: accepted.room,
+      ifCurrent: () => accepted.isCurrent,
+      onDeclined: controller.cancelAnsweredCall,
+    );
+  }
+
   Future<void> _openAndJoin(
     BuildContext context, {
     required String siteUrl,
     required VoiceRoom room,
     bool Function()? ifCurrent,
+    VoidCallback? onDeclined,
   }) async {
     final siteName =
         _host.sites.where((site) => site.url == siteUrl).firstOrNull?.title ??
@@ -147,6 +163,7 @@ final class VoiceShellService
       room: room,
       meshPrivacyWarningEnabled: privacyWarningEnabled,
       ifCurrent: ifCurrent,
+      onDeclined: onDeclined,
     );
   }
 
