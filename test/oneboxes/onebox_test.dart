@@ -147,6 +147,101 @@ void main() {
       expect(data.bodyHtml, contains('250k followers?'));
     });
 
+    test('without a source attribute links the title, then the site', () {
+      const header =
+          '<header class="source"><a href="https://site.example">site</a>'
+          '</header>';
+      expect(
+        parse(
+          '<aside class="onebox">$header<article class="onebox-body">'
+          '<h3><a href="https://site.example/page">Page</a></h3>'
+          '</article></aside>',
+        ).url,
+        'https://site.example/page',
+      );
+      expect(
+        parse(
+          '<aside class="onebox">$header<article class="onebox-body">'
+          '<h3>Page</h3></article></aside>',
+        ).url,
+        'https://site.example',
+      );
+    });
+
+    test('trims the title and site name and drops blank ones', () {
+      final named = parse(
+        '<aside class="onebox"><header class="source">'
+        '<a href="https://e.com">  e.com  </a></header>'
+        '<article class="onebox-body"><h3>\n  Page  \n</h3></article></aside>',
+      );
+      expect((named.siteName, named.title), ('e.com', 'Page'));
+
+      final blank = parse(
+        '<aside class="onebox"><header class="source">'
+        '<a href="https://e.com"> </a></header>'
+        '<article class="onebox-body"><h3> </h3></article></aside>',
+      );
+      expect((blank.siteName, blank.title), (null, null));
+    });
+
+    test('takes an avatar that carries no thumbnail class', () {
+      final data = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<img class="onebox-avatar" src="https://e.com/a.png" width="120" '
+        'height="120"><h4><a href="https://e.com">Name</a></h4>'
+        '<p>Bio</p></article></aside>',
+      );
+
+      expect(data.thumbnail?.src, 'https://e.com/a.png');
+      expect(data.thumbnail?.isAvatar, isTrue);
+      expect(data.bodyHtml, isNot(contains('a.png')));
+    });
+
+    test('removes only claimed nodes and the wrappers they alone fill', () {
+      final alone = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<div><h3>Title</h3></div></article></aside>',
+      );
+      expect(alone.title, 'Title');
+      expect(alone.bodyHtml, isEmpty);
+
+      final shared = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<div><h3>Title</h3> trailing words</div></article></aside>',
+      );
+      expect(shared.bodyHtml, contains('trailing words'));
+      expect(shared.bodyHtml, isNot(contains('<h3')));
+    });
+
+    test('leaves an image it could not take as a thumbnail in the body', () {
+      final data = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<img class="thumbnail" src=""><p>Text</p></article></aside>',
+      );
+
+      expect(data.thumbnail, isNull);
+      expect(data.bodyHtml, contains('<img'));
+    });
+
+    test('names the site only from its header link', () {
+      final data = parse(
+        '<aside class="onebox"><article class="onebox-body">'
+        '<h3><a href="https://e.com/page">Page</a></h3></article></aside>',
+      );
+
+      expect(data.siteName, isNull);
+      expect(data.url, 'https://e.com/page');
+    });
+
+    test('reads an aside with no body wrapper as its own body', () {
+      final data = parse(
+        '<aside class="onebox"><h3>Title</h3><p>Loose body</p></aside>',
+      );
+
+      expect(data.title, 'Title');
+      expect(data.bodyHtml, contains('Loose body'));
+    });
+
     test('survives an engine with no header, title or image', () {
       final data = parse(
         '<aside class="onebox unknownengine" data-onebox-src="https://e.com">'
@@ -175,6 +270,16 @@ void main() {
         isNull,
       );
       expect(oneboxWidgetBuilder(element('<p>hello</p>')), isNull);
+      // Discourse leaves a link it could not expand as `a.onebox`.
+      expect(
+        oneboxWidgetBuilder(
+          element(
+            '<a class="onebox" href="https://www.discourse.org">'
+            'https://www.discourse.org</a>',
+          ),
+        ),
+        isNull,
+      );
     });
 
     test('hands core engines the asides they claim', () {
