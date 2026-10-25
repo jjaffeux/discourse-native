@@ -41,7 +41,7 @@ class DContentDrag<T extends Object> extends StatelessWidget {
     feedback: ExcludeSemantics(
       child: Material(
         color: Colors.transparent,
-        elevation: 6,
+        elevation: 0,
         borderRadius: BorderRadius.circular(6),
         child: Opacity(opacity: 0.9, child: feedback),
       ),

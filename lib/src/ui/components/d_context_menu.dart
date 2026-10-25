@@ -71,7 +71,7 @@ class DContextMenu extends StatelessWidget {
     onOpenChangeComplete: null,
     restoreFocus: restoreFocus,
     content: content,
-    child: _ContextMenuEnabled(enabled: !false, child: child),
+    child: _ContextMenuEnabled(enabled: true, child: child),
   );
 }
 

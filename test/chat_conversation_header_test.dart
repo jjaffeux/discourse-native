@@ -19,9 +19,9 @@ void main() {
   });
 
   for (final width in [390.0, 1100.0]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final thread in [false, true]) {
-        testWidgets('conversation header $width $material thread=$thread', (
+        testWidgets('conversation header $width flat thread=$thread', (
           tester,
         ) async {
           await tester.binding.setSurfaceSize(Size(width, 700));
@@ -48,16 +48,11 @@ void main() {
               key: _capture,
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
-                theme: DMaterialTheme.apply(
-                  theme.copyWith(
-                    platform: width < 500
-                        ? TargetPlatform.iOS
-                        : TargetPlatform.macOS,
-                    textTheme: theme.textTheme.apply(
-                      fontFamily: 'HeaderReview',
-                    ),
-                  ),
-                  material,
+                theme: theme.copyWith(
+                  platform: width < 500
+                      ? TargetPlatform.iOS
+                      : TargetPlatform.macOS,
+                  textTheme: theme.textTheme.apply(fontFamily: 'HeaderReview'),
                 ),
                 home: Scaffold(
                   body: DPageSurface.scrollable(
@@ -101,8 +96,7 @@ void main() {
             find.byKey(const ValueKey('content-header-separator')),
             findsOneWidget,
           );
-          final name =
-              '${width.toInt()}-${material.name}-${thread ? 'thread' : 'channel'}';
+          final name = '${width.toInt()}-flat-${thread ? 'thread' : 'channel'}';
           await _export(tester, '$name-full');
 
           scroll.jumpTo(200);

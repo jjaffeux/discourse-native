@@ -17,10 +17,7 @@ void main() {
       var value = 'all';
       await tester.pumpWidget(
         MaterialApp(
-          theme: DMaterialTheme.apply(
-            AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-            DAppearanceMaterial.liquidGlass,
-          ),
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: Center(
               child: StatefulBuilder(

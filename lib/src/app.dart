@@ -110,7 +110,6 @@ class _DiscourseAppState extends State<DiscourseApp>
           String?,
           String?,
           ForumBackground,
-          DAppearanceMaterial,
         ),
         ThemeData
       >(32);
@@ -123,9 +122,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     ForumBackground effects,
   ) {
     final palette = appearance?.paletteForBrightness(brightness);
-    final material = _controller.forumSettings.shared.materialFor(
-      defaultTargetPlatform,
-    );
     final key = (
       palette,
       brightness,
@@ -133,7 +129,6 @@ class _DiscourseAppState extends State<DiscourseApp>
       fontFamily,
       readingFontFamily,
       effects,
-      material,
     );
     final cached = _themes.read(key);
     if (cached != null) return cached;
@@ -149,9 +144,8 @@ class _DiscourseAppState extends State<DiscourseApp>
             readingFontFamily: readingFontFamily,
             background: effects,
           );
-    final materialTheme = DMaterialTheme.apply(theme, material);
-    _themes.put(key, materialTheme);
-    return materialTheme;
+    _themes.put(key, theme);
+    return theme;
   }
 
   AppRuntimeDependencies get _dependencies => AppRuntimeDependencies(
@@ -342,16 +336,14 @@ class _DiscourseAppState extends State<DiscourseApp>
     home: const AdaptiveShell(),
     builder: (context, child) => AppMotionRegion(
       controller: _controller.appSettings,
-      child: DMaterialAccessibility(
-        child: DFocusHighlight(
-          child: DToaster(
-            key: ObjectKey(_controller),
-            child: AppTextScaleRegion(
-              controller: _controller.appSettings,
-              child: _MouseNavigationRegion(
-                navigatorKey: _navigatorKey,
-                child: child ?? const SizedBox.shrink(),
-              ),
+      child: DFocusHighlight(
+        child: DToaster(
+          key: ObjectKey(_controller),
+          child: AppTextScaleRegion(
+            controller: _controller.appSettings,
+            child: _MouseNavigationRegion(
+              navigatorKey: _navigatorKey,
+              child: child ?? const SizedBox.shrink(),
             ),
           ),
         ),

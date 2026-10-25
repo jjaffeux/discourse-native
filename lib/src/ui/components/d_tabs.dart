@@ -9,8 +9,6 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_kbd.dart';
@@ -419,56 +417,46 @@ class DTabList<T> extends StatelessWidget {
             container: true,
             explicitChildNodes: true,
             child: ClipRect(
-              clipper: const _SidebarTabShadowClipper(),
               child: SingleChildScrollView(
                 clipBehavior: Clip.none,
                 scrollDirection: Axis.horizontal,
-                child: DMaterialBatch(
-                  child: DMaterialSurface(
-                    depth: DSurfaceDepth.recessed,
-                    preserveColor: true,
-                    insetEdges: true,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
                     color: well,
-                    radius: BorderRadius.circular(DRadius.pill),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: DMaterialSurface.fill(context, well),
-                        borderRadius: BorderRadius.circular(DRadius.pill),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(3),
-                        child: _DTabListScope<T>(
-                          variant: variant,
-                          size: size,
-                          activateOnFocus: activateOnFocus,
-                          expandSelected: true,
-                          child: _ExpandingTabStrip(
-                            availableWidth: constraints.hasBoundedWidth
-                                ? math.max(0, constraints.maxWidth - 6)
-                                : 0,
-                            textDirection: Directionality.of(context),
-                            children: [
-                              for (final tab in tabs)
-                                TweenAnimationBuilder<double>(
-                                  key: ValueKey(('expanding-tab', tab.value)),
-                                  tween: Tween(
-                                    end: root.value == tab.value ? 1 : 0,
+                    borderRadius: BorderRadius.circular(DRadius.pill),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: _DTabListScope<T>(
+                      variant: variant,
+                      size: size,
+                      activateOnFocus: activateOnFocus,
+                      expandSelected: true,
+                      child: _ExpandingTabStrip(
+                        availableWidth: constraints.hasBoundedWidth
+                            ? math.max(0, constraints.maxWidth - 6)
+                            : 0,
+                        textDirection: Directionality.of(context),
+                        children: [
+                          for (final tab in tabs)
+                            TweenAnimationBuilder<double>(
+                              key: ValueKey(('expanding-tab', tab.value)),
+                              tween: Tween(
+                                end: root.value == tab.value ? 1 : 0,
+                              ),
+                              duration: DMotion.duration(
+                                context,
+                                const Duration(milliseconds: 300),
+                              ),
+                              curve: Curves.ease,
+                              child: tab,
+                              builder: (_, weight, child) =>
+                                  _ExpandingTabWeight(
+                                    weight: weight,
+                                    child: child!,
                                   ),
-                                  duration: DMotion.duration(
-                                    context,
-                                    const Duration(milliseconds: 300),
-                                  ),
-                                  curve: Curves.ease,
-                                  child: tab,
-                                  builder: (_, weight, child) =>
-                                      _ExpandingTabWeight(
-                                        weight: weight,
-                                        child: child!,
-                                      ),
-                                ),
-                            ],
-                          ),
-                        ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -564,18 +552,6 @@ class DTabList<T> extends StatelessWidget {
 
 // The reference distributes spare width by animated flex-grow, after measuring
 // each glyph/label/badge. Layout and hit testing use the same painted bounds.
-/// Keep horizontally scrolled choices inside the track while allowing the
-/// selected capsule's 4px/14px shadow to paint above and below its artwork.
-class _SidebarTabShadowClipper extends CustomClipper<Rect> {
-  const _SidebarTabShadowClipper();
-
-  @override
-  Rect getClip(Size size) =>
-      Rect.fromLTRB(0, -30, size.width, size.height + 30);
-
-  @override
-  bool shouldReclip(_SidebarTabShadowClipper oldClipper) => false;
-}
 
 class _ExpandingTabData extends ContainerBoxParentData<RenderBox> {
   double weight = 0;
@@ -960,7 +936,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
           : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5)),
       decoration: BoxDecoration(
         color: expanding
-            ? DMaterialSurface.fill(context, expandingFill)
+            ? expandingFill
             : (selected && !line && !plain)
             ? selectedBackground
             : outlinePill && _hovered
@@ -980,15 +956,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                     ? tokens.colors.outlineVariant
                     : Colors.transparent,
               ),
-        boxShadow: selected && !line && !flat && !expanding
-            ? const [
-                BoxShadow(
-                  color: Color(0x1A000000),
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
-                ),
-              ]
-            : null,
+        boxShadow: const [],
       ),
       child: AnimatedDefaultTextStyle(
         duration: expanding
@@ -1061,23 +1029,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               ),
               curve: Curves.ease,
               child: surface,
-              builder: (_, color, child) => DMaterialTheme.glassOf(context)
-                  ? _DocumentTabMaterial(
-                      selected: selected,
-                      hovered: _hovered,
-                      radius: BorderRadius.circular(radius),
-                      color: Color.lerp(
-                        tokens.background,
-                        tokens.foreground,
-                        .1,
-                      )!,
-                      child: Opacity(opacity: enabled ? 1 : .5, child: child!),
-                    )
-                  : DMaterialSurface(
-                      color: color!,
-                      radius: BorderRadius.circular(radius),
-                      child: child!,
-                    ),
+              builder: (_, color, child) => child!,
             )
           : surface,
     );
@@ -1090,7 +1042,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         child: artwork,
       );
     }
-    if (!enabled && !(expanding && DMaterialTheme.glassOf(context))) {
+    if (!enabled) {
       artwork = Opacity(opacity: .5, child: artwork);
     }
     if (widget.selectedLabelOnly && !selected && widget.semanticLabel != null) {
@@ -1355,7 +1307,7 @@ class _DTabPanelState<T> extends State<DTabPanel<T>> {
 /// A controlled, closable document tab for application workspace strips.
 ///
 /// Unlike content tabs, document tabs may be reordered or renamed by their host.
-/// The host owns routing and drag handling; this control owns the raised,
+/// The host owns routing and drag handling; this control owns the flat,
 /// outlined selected surface, selection and separately focusable close action. Supply an
 /// [editor] while renaming to keep its field outside the selection gesture.
 class DDocumentTab extends StatefulWidget {
@@ -1480,10 +1432,7 @@ class _DDocumentTabState extends State<DDocumentTab> {
     Color mix(double amount) =>
         Color.lerp(tokens.background, tokens.foreground, amount)!;
     final foreground = widget.selected ? mix(.9) : mix(.5);
-    final glass = DMaterialTheme.glassOf(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    // The mockup's inactive hover in Liquid Glass: a faint tint and its rim.
-    final hoverFrost = glass && !widget.selected && _hovered;
+
     final radius = BorderRadius.circular(
       widget.selected && widget.size != DControlSize.documentTab
           ? DRadius.panel
@@ -1507,129 +1456,112 @@ class _DDocumentTabState extends State<DDocumentTab> {
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: DMaterialSurface(
-        depth: DSurfaceDepth.frostedTab,
-        radius: radius,
-        // The mockup's --glass-tint: the raised fill at 42% (50% in light).
-        color: glass && widget.selected
-            ? mix(.10).withValues(alpha: dark ? .42 : .5)
-            : Colors.transparent,
-        child: Container(
-          key: widget.surfaceKey,
-          height: DControlStyle.scaledHeight(
-            widget.size,
-            MediaQuery.textScalerOf(context),
-            context: context,
+      child: Container(
+        key: widget.surfaceKey,
+        height: DControlStyle.scaledHeight(
+          widget.size,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ),
+        // The outline supplies the other pixel of the compact outer inset.
+        padding: const EdgeInsetsDirectional.only(start: 1, end: 10),
+        decoration: ShapeDecoration(
+          color: widget.selected ? mix(.10) : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: (BorderSide(
+              color: widget.selected ? mix(.22) : Colors.transparent,
+              strokeAlign: BorderSide.strokeAlignInside,
+            )),
           ),
-          // The outline supplies the other pixel of the compact outer inset.
-          padding: const EdgeInsetsDirectional.only(start: 1, end: 10),
-          decoration: ShapeDecoration(
-            color: widget.selected && !glass
-                ? mix(.10)
-                : hoverFrost
-                ? mix(.10).withValues(alpha: .22)
-                : Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: radius,
-              side: (BorderSide(
-                color: widget.selected && !glass
-                    ? mix(.22)
-                    : hoverFrost
-                    ? Colors.white.withValues(alpha: dark ? .14 : .75)
-                    : Colors.transparent,
-                strokeAlign: BorderSide.strokeAlignInside,
-              )),
-            ),
-          ),
-          child: IconTheme.merge(
-            data: IconThemeData(color: foreground),
-            child: DefaultTextStyle.merge(
-              style: labelStyle.copyWith(color: foreground),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child:
-                        widget.editor ??
-                        ExcludeSemantics(
-                          excluding: widget.excludeSelectionSemantics,
-                          child: MergeSemantics(
-                            child: Semantics(
-                              selected: widget.selected,
-                              child: GestureDetector(
-                                onDoubleTap: widget.onDoubleTap,
-                                excludeFromSemantics: true,
-                                child: Listener(
-                                  onPointerDown: (event) {
-                                    if (event.buttons != kPrimaryButton) return;
-                                    widget.onTapDown?.call(
-                                      TapDownDetails(
-                                        globalPosition: event.position,
-                                        localPosition: event.localPosition,
-                                        kind: event.kind,
-                                      ),
-                                    );
-                                  },
-                                  onPointerCancel: (_) =>
-                                      widget.onTapCancel?.call(),
-                                  child: DButton(
-                                    onPressed: widget.onSelect,
-                                    size:
-                                        widget.size == DControlSize.documentTab
-                                        ? DControlSize.documentTab
-                                        : DButtonSize.small,
-                                    focusNode: _selectionFocus,
-                                    variant: DButtonVariant.ghost,
-                                    alignment: AlignmentDirectional.centerStart,
-                                    backgroundColor: Colors.transparent,
-                                    interactiveBackgroundColor:
-                                        Colors.transparent,
-                                    foregroundColor: foreground,
-                                    label: DefaultTextStyle.merge(
-                                      style: labelStyle,
-                                      child: widget.child,
+        ),
+        child: IconTheme.merge(
+          data: IconThemeData(color: foreground),
+          child: DefaultTextStyle.merge(
+            style: labelStyle.copyWith(color: foreground),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child:
+                      widget.editor ??
+                      ExcludeSemantics(
+                        excluding: widget.excludeSelectionSemantics,
+                        child: MergeSemantics(
+                          child: Semantics(
+                            selected: widget.selected,
+                            child: GestureDetector(
+                              onDoubleTap: widget.onDoubleTap,
+                              excludeFromSemantics: true,
+                              child: Listener(
+                                onPointerDown: (event) {
+                                  if (event.buttons != kPrimaryButton) return;
+                                  widget.onTapDown?.call(
+                                    TapDownDetails(
+                                      globalPosition: event.position,
+                                      localPosition: event.localPosition,
+                                      kind: event.kind,
                                     ),
+                                  );
+                                },
+                                onPointerCancel: (_) =>
+                                    widget.onTapCancel?.call(),
+                                child: DButton(
+                                  onPressed: widget.onSelect,
+                                  size: widget.size == DControlSize.documentTab
+                                      ? DControlSize.documentTab
+                                      : DButtonSize.small,
+                                  focusNode: _selectionFocus,
+                                  variant: DButtonVariant.ghost,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  backgroundColor: Colors.transparent,
+                                  interactiveBackgroundColor:
+                                      Colors.transparent,
+                                  foregroundColor: foreground,
+                                  label: DefaultTextStyle.merge(
+                                    style: labelStyle,
+                                    child: widget.child,
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                  ),
-                  ListenableBuilder(
-                    listenable: _closeFocus,
-                    builder: (context, _) => AnimatedOpacity(
-                      opacity:
-                          widget.selected ||
-                              _hovered ||
-                              _closeFocus.hasFocus ||
-                              DControlStyle.isTouch(context)
-                          ? 1
-                          : 0,
-                      alwaysIncludeSemantics: true,
-                      duration: DMotion.duration(context, DMotion.change),
-                      child: Center(
-                        widthFactor: 1,
-                        child: DButton.iconOnly(
-                          key: widget.closeKey,
-                          tooltip: widget.closeLabel,
-                          shortcut: widget.closeShortcut,
-                          focusNode: _closeFocus,
-                          size: widget.size == DControlSize.documentTab
-                              ? DControlSize.tabClose
-                              : DButtonSize.small,
-                          variant: DButtonVariant.inline,
-                          backgroundColor: Colors.transparent,
-                          interactiveBackgroundColor: Colors.transparent,
-                          foregroundColor: mix(.5),
-                          icon: const DIcon(DIcons.xmark),
-                          onPressed: widget.onClose,
-                        ),
+                      ),
+                ),
+                ListenableBuilder(
+                  listenable: _closeFocus,
+                  builder: (context, _) => AnimatedOpacity(
+                    opacity:
+                        widget.selected ||
+                            _hovered ||
+                            _closeFocus.hasFocus ||
+                            DControlStyle.isTouch(context)
+                        ? 1
+                        : 0,
+                    alwaysIncludeSemantics: true,
+                    duration: DMotion.duration(context, DMotion.change),
+                    child: Center(
+                      widthFactor: 1,
+                      child: DButton.iconOnly(
+                        key: widget.closeKey,
+                        tooltip: widget.closeLabel,
+                        shortcut: widget.closeShortcut,
+                        focusNode: _closeFocus,
+                        size: widget.size == DControlSize.documentTab
+                            ? DControlSize.tabClose
+                            : DButtonSize.small,
+                        variant: DButtonVariant.inline,
+                        backgroundColor: Colors.transparent,
+                        interactiveBackgroundColor: Colors.transparent,
+                        foregroundColor: mix(.5),
+                        icon: const DIcon(DIcons.xmark),
+                        onPressed: widget.onClose,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1648,29 +1580,4 @@ class _DocumentTabSelectionBinding {
     if (event is KeyDownEvent) owner?.widget.onTapCancel?.call();
     return originalHandler?.call(node, event) ?? KeyEventResult.ignored;
   }
-}
-
-class _DocumentTabMaterial extends StatelessWidget {
-  const _DocumentTabMaterial({
-    required this.selected,
-    required this.hovered,
-    required this.radius,
-    required this.color,
-    required this.child,
-  });
-
-  final bool selected;
-  final bool hovered;
-  final BorderRadius radius;
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => DMaterialSurface(
-    radius: radius,
-    color: DMaterialTheme.glassOf(context) && (selected || hovered)
-        ? color
-        : Colors.transparent,
-    child: child,
-  );
 }

@@ -165,10 +165,8 @@ void main() {
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets('chat page sheet geometry ${mode.name} ${material.name}', (
-        tester,
-      ) async {
+    {
+      testWidgets('chat page sheet geometry ${mode.name} flat', (tester) async {
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         final shell = await _fixture(tester);
@@ -179,14 +177,13 @@ void main() {
         );
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
-            material: material,
             font: ForumFont.lato,
             interfaceFont: ForumFont.lato,
           ),
         );
         await tester.pumpAndSettle();
         final platform = Theme.of(tester.element(_header)).platform.name;
-        await _capture(tester, '$platform-${mode.name}-${material.name}-inbox');
+        await _capture(tester, '$platform-${mode.name}-flat-inbox');
         shell.openChatChannel(10);
         await tester.pumpAndSettle();
         final bounds = tester.getRect(_sheet);
@@ -214,7 +211,7 @@ void main() {
         final dock = tester.getRect(_dock);
         final header = tester.getRect(_header);
         final name =
-            '${Theme.of(tester.element(_sheet)).platform.name}-${mode.name}-${material.name}';
+            '${Theme.of(tester.element(_sheet)).platform.name}-${mode.name}-flat';
         await _capture(tester, '$name-open');
         final drag = await tester.startGesture(tester.getCenter(_handle));
         await drag.moveBy(const Offset(0, 20));

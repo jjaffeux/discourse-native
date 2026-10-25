@@ -273,11 +273,11 @@ void main() {
   }
 
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final touch in [false, true]) {
         testWidgets(
           'opening post follows topic bookmark in ${dark ? 'dark' : 'light'} '
-          '${material.name} on ${touch ? 'mobile' : 'desktop'}',
+          'flat on ${touch ? 'mobile' : 'desktop'}',
           (tester) async {
             tester.view.devicePixelRatio = 1;
             addTearDown(tester.view.resetDevicePixelRatio);
@@ -337,18 +337,16 @@ void main() {
               ShellScope(
                 controller: controller,
                 child: MaterialApp(
-                  theme: DMaterialTheme.apply(
-                    AppTheme.forBrightness(
-                      dark ? Brightness.dark : Brightness.light,
-                      fontFamily: 'Lato',
-                      readingFontFamily: 'Lato',
-                    ).copyWith(
-                      platform: touch
-                          ? TargetPlatform.iOS
-                          : TargetPlatform.macOS,
-                    ),
-                    material,
-                  ),
+                  theme:
+                      AppTheme.forBrightness(
+                        dark ? Brightness.dark : Brightness.light,
+                        fontFamily: 'Lato',
+                        readingFontFamily: 'Lato',
+                      ).copyWith(
+                        platform: touch
+                            ? TargetPlatform.iOS
+                            : TargetPlatform.macOS,
+                      ),
                   home: const Scaffold(body: TopicView()),
                 ),
               ),
@@ -360,7 +358,7 @@ void main() {
             expect(reply, findsNothing);
             await _capture(
               tester,
-              'ordinary-${dark ? 'dark' : 'light'}-${material.name}-$touch',
+              'ordinary-${dark ? 'dark' : 'light'}-flat-$touch',
             );
 
             Future<void> refresh({required bool savedTopic}) async {
@@ -406,7 +404,7 @@ void main() {
             expect(tester.takeException(), isNull);
             await _capture(
               tester,
-              'bookmarked-${dark ? 'dark' : 'light'}-${material.name}-$touch',
+              'bookmarked-${dark ? 'dark' : 'light'}-flat-$touch',
             );
 
             await tester.tap(

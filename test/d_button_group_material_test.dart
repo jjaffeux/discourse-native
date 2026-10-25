@@ -14,7 +14,7 @@ void main() {
     final shadowsDisabled = debugDisableShadows;
     debugDisableShadows = false;
     try {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final brightness in Brightness.values) {
           for (final direction in TextDirection.values) {
             for (final axis in Axis.values) {
@@ -23,12 +23,9 @@ void main() {
               await tester.pumpWidget(
                 MaterialApp(
                   themeAnimationStyle: AnimationStyle.noAnimation,
-                  theme: DMaterialTheme.apply(
-                    AppTheme.forBrightness(
-                      brightness,
-                    ).copyWith(platform: TargetPlatform.iOS),
-                    material,
-                  ),
+                  theme: AppTheme.forBrightness(
+                    brightness,
+                  ).copyWith(platform: TargetPlatform.iOS),
                   home: Directionality(
                     textDirection: direction,
                     child: Center(
@@ -68,7 +65,7 @@ void main() {
               final group = tester
                   .getRect(find.byType(DButtonGroup))
                   .shift(-origin);
-              final description = '$material $brightness $direction $axis';
+              final description = 'flat $brightness $direction $axis';
               await tester.runAsync(() async {
                 final image = await tester
                     .renderObject<RenderRepaintBoundary>(find.byKey(capture))
@@ -146,12 +143,12 @@ void main() {
     }
   });
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
       for (final direction in TextDirection.values) {
         for (final axis in Axis.values) {
           testWidgets(
-            'joined shadow is continuous: $material $brightness $direction $axis',
+            'joined shadow is continuous: flat $brightness $direction $axis',
             (tester) async {
               final shadowsDisabled = debugDisableShadows;
               debugDisableShadows = false;
@@ -163,12 +160,9 @@ void main() {
                 await tester.pumpWidget(
                   MaterialApp(
                     themeAnimationStyle: AnimationStyle.noAnimation,
-                    theme: DMaterialTheme.apply(
-                      AppTheme.forBrightness(
-                        brightness,
-                      ).copyWith(platform: TargetPlatform.macOS),
-                      material,
-                    ),
+                    theme: AppTheme.forBrightness(
+                      brightness,
+                    ).copyWith(platform: TargetPlatform.macOS),
                     home: Directionality(
                       textDirection: direction,
                       child: Center(
@@ -242,11 +236,8 @@ void main() {
                     : blueAt(group.right + 1, group.center.dy);
                 expect(
                   shadow,
-                  material == DAppearanceMaterial.liquidGlass
-                      ? equals(0xc1)
-                      : lessThan(0xc1),
-                  reason:
-                      'Only standard material adds the Native outer shadow.',
+                  0xc1,
+                  reason: 'Flat controls leave the surrounding canvas clear.',
                 );
                 for (var position = start; position <= end; position += .5) {
                   final actual = horizontal

@@ -15,11 +15,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
-import 'support/stock_glass.dart';
 
 const _site = 'https://meta.example';
 const _post = Post(
@@ -79,14 +77,9 @@ void main() {
           );
           await shell.loadTopic(7, 'a-topic');
           final key = GlobalKey();
-          final theme = DMaterialTheme.apply(
-            AppTheme.forBrightness(
-              dark ? Brightness.dark : Brightness.light,
-              fontFamily: 'Lato',
-            ),
-            glass
-                ? DAppearanceMaterial.liquidGlass
-                : DAppearanceMaterial.standard,
+          final theme = AppTheme.forBrightness(
+            dark ? Brightness.dark : Brightness.light,
+            fontFamily: 'Lato',
           );
           Future<void> mount({
             double scale = 1,
@@ -153,10 +146,7 @@ void main() {
               buttonSurface(tester, of: button).borderRadius,
               BorderRadius.circular(8),
             );
-            expect(
-              find.descendant(of: button, matching: find.byType(LiquidGlass)),
-              findsNothing,
-            );
+
             final icon = find.descendant(
               of: button,
               matching: find.byType(DIcon),
@@ -171,7 +161,7 @@ void main() {
           await _capture(
             tester,
             key,
-            'post-actions-${dark ? 'dark' : 'light'}-${glass ? 'glass' : 'standard'}-rest',
+            'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-rest',
           );
           final mouse = await tester.createGesture(
             kind: ui.PointerDeviceKind.mouse,
@@ -191,23 +181,14 @@ void main() {
           );
           expect(
             buttonSurface(tester, of: reply).color,
-            glass
-                ? Colors.transparent
-                : tokens.foreground.withValues(alpha: .08),
+            tokens.foreground.withValues(alpha: .08),
           );
-          final lens = find.descendant(
-            of: reply,
-            matching: find.byType(LiquidGlass),
-          );
-          if (glass) {
-            expectStockGlass(tester, lens);
-          } else {
-            expect(lens, findsNothing);
-          }
+
+          {}
           await _capture(
             tester,
             key,
-            'post-actions-${dark ? 'dark' : 'light'}-${glass ? 'glass' : 'standard'}-hover',
+            'post-actions-${dark ? 'dark' : 'light'}-${'standard'}-hover',
           );
           final primitive = find.descendant(
             of: reply,

@@ -15,7 +15,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -35,8 +35,8 @@ void main() {
   });
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final dark in [false, true]) {
-      for (final material in DAppearanceMaterial.values) {
-        testWidgets('reference geometry on $platform, dark $dark, $material', (
+      {
+        testWidgets('reference geometry on $platform, dark $dark, flat', (
           tester,
         ) async {
           final shadowsDisabled = debugDisableShadows;
@@ -46,7 +46,6 @@ void main() {
               tester,
               platform: platform,
               dark: dark,
-              material: material,
               paletteId: dark ? 'dracula' : 'solarized',
             );
             final originalRoute = shell.currentContent;
@@ -79,32 +78,8 @@ void main() {
             expect(tester.getSize(all).height, 26);
             final inactive = _filter('replies');
             final tokens = DTokens.of(tester.element(inactive));
-            if (platform == TargetPlatform.macOS) {
-              final menuSurface = tester.widget<DMaterialSurface>(
-                find.byWidgetPredicate(
-                  (widget) =>
-                      widget is DMaterialSurface &&
-                      widget.depth == DSurfaceDepth.menu,
-                ),
-              );
-              expect(
-                menuSurface.color,
-                Color.lerp(tokens.colors.surface, tokens.foreground, .03),
-              );
-            }
-            final well = tester.widget<DMaterialSurface>(
-              find.descendant(
-                of: inactive,
-                matching: find.byType(DMaterialSurface),
-              ),
-            );
-            expect(well.depth, DSurfaceDepth.recessed);
-            expect(
-              well.color,
-              Colors.black.withValues(alpha: dark ? .16 : .045),
-            );
-            expect(well.preserveColor, isTrue);
-            expect(well.insetEdges, isTrue);
+            if (platform == TargetPlatform.macOS) {}
+
             final border =
                 tester
                         .widget<AnimatedContainer>(
@@ -210,7 +185,7 @@ void main() {
             );
             await _captureImage(
               tester,
-              '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}',
+              '${platform.name}-${dark ? 'dark' : 'light'}-flat',
             );
             if (platform != TargetPlatform.macOS) {
               await tester.tap(_filter('replies'));
@@ -220,7 +195,7 @@ void main() {
               expect(shortTab.height, greaterThan(844 * .5));
               await _captureImage(
                 tester,
-                '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}-short-tab',
+                '${platform.name}-${dark ? 'dark' : 'light'}-flat-short-tab',
               );
               await tester.tap(_filter('all'));
               await tester.pumpAndSettle();
@@ -232,7 +207,7 @@ void main() {
               );
               await _captureImage(
                 tester,
-                '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}-expanded',
+                '${platform.name}-${dark ? 'dark' : 'light'}-flat-expanded',
               );
             }
             final filtersRect = tester.getRect(filters);
@@ -364,7 +339,6 @@ Future<(ShellController, _MenuApi)> _mount(
   WidgetTester tester, {
   TargetPlatform platform = TargetPlatform.iOS,
   bool dark = false,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
   double height = 844,
   String? paletteId,
 }) async {
@@ -409,9 +383,8 @@ Future<(ShellController, _MenuApi)> _mount(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           builder: (context, child) => DToaster(child: child!),
-          theme: DMaterialTheme.apply(
-            base.copyWith(textTheme: base.textTheme.apply(fontFamily: 'Lato')),
-            material,
+          theme: base.copyWith(
+            textTheme: base.textTheme.apply(fontFamily: 'Lato'),
           ),
           home: const Scaffold(
             body: Align(

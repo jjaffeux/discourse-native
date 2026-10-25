@@ -13,7 +13,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -68,12 +68,7 @@ void main() {
           bool glass = false,
         }) => tester.pumpWidget(
           MaterialApp(
-            theme: DMaterialTheme.apply(
-              theme,
-              glass
-                  ? DAppearanceMaterial.liquidGlass
-                  : DAppearanceMaterial.standard,
-            ),
+            theme: theme,
             home: MediaQuery(
               data: MediaQueryData(textScaler: TextScaler.linear(scale)),
               child: Scaffold(
@@ -128,17 +123,7 @@ void main() {
         expect(decoration().color, tokens.foreground.withValues(alpha: .05));
         expect(decoration().borderRadius, BorderRadius.circular(999));
         expect(decoration().border!.top.color, Colors.transparent);
-        expect(
-          find.descendant(of: toggle, matching: find.byType(DMaterialSurface)),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(DButton),
-            matching: find.byType(DMaterialSurface),
-          ),
-          findsNothing,
-        );
+
         expect(tester.getSize(toggle).height, 30);
         expect(
           tester.getSize(find.byTooltip('Add reaction')),
@@ -179,13 +164,7 @@ void main() {
         expect(taps, 1);
         await mount(glass: true);
         expect(decoration().color, tokens.foreground.withValues(alpha: .05));
-        expect(
-          find.descendant(
-            of: find.byType(DButton),
-            matching: find.byType(DMaterialSurface),
-          ),
-          findsNothing,
-        );
+
         await mount(scale: 2);
         expect(tester.getSize(toggle).height, greaterThan(30));
         expect(tester.takeException(), isNull);

@@ -5,13 +5,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
 import 'd_skeleton.dart';
 
-/// A destination card shared by directories. The solid raised surface is the
-/// same in Standard and Liquid Glass; it never refracts the text underneath.
+/// A destination card with a flat fill, shared by directories.
 /// Slots contain passive content, except [trailing] and [action]. This
 /// component owns the card's target, keyboard activation, focus ring, hover
 /// lift and reduced motion.
@@ -57,7 +55,6 @@ class DPlaceCard extends StatefulWidget {
 }
 
 class _DPlaceCardState extends State<DPlaceCard> {
-  bool _hovered = false;
   bool _focused = false;
 
   @override
@@ -65,21 +62,14 @@ class _DPlaceCardState extends State<DPlaceCard> {
     final tokens = DTokens.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final enabled = widget.onPressed != null;
-    final lifted = enabled && _hovered && !widget.selected;
-    final reduced = DMaterialTheme.reducedOf(context);
+
     const radius = BorderRadius.all(Radius.circular(12));
     final fill = widget.selected
         ? tokens.primary.withValues(alpha: .12)
         : (dark
                   ? Color.lerp(tokens.background, tokens.foreground, .1)!
                   : tokens.background)
-              .withValues(
-                alpha: reduced
-                    ? 1
-                    : dark
-                    ? .72
-                    : .82,
-              );
+              .withValues(alpha: dark ? .72 : .82);
     final ring = _focused
         ? tokens.focusRing
         : widget.selected
@@ -103,37 +93,14 @@ class _DPlaceCardState extends State<DPlaceCard> {
       decoration: BoxDecoration(
         borderRadius: radius,
         color: fill,
-        boxShadow: widget.selected || !enabled
-            ? const []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: dark ? (lifted ? .16 : .14) : (lifted ? .07 : .06),
-                  ),
-                  offset: Offset(0, lifted ? 2 : 1),
-                  blurRadius: lifted ? 4 : 2,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: dark ? (lifted ? .18 : .12) : (lifted ? .10 : .06),
-                  ),
-                  offset: Offset(0, lifted ? 10 : 4),
-                  blurRadius: lifted ? 24 : 14,
-                ),
-              ],
+        boxShadow: const [],
       ),
       foregroundDecoration: BoxDecoration(
         borderRadius: radius,
         border: Border.all(color: ring, width: _focused ? 2 : 1),
       ),
       child: CustomPaint(
-        foregroundPainter: _PlaceHighlight(
-          widget.selected
-              ? Colors.transparent
-              : Colors.white.withValues(
-                  alpha: dark ? (lifted ? .09 : .06) : .9,
-                ),
-        ),
+        foregroundPainter: null,
         child: DefaultTextStyle.merge(
           style: TextStyle(color: text, letterSpacing: 0),
           child: _PlaceContents(
@@ -248,8 +215,6 @@ class _DPlaceCardState extends State<DPlaceCard> {
         child: content,
       ),
     );
-    // Transform paint and input together. Shadows do not own input, and the
-    // inter-card gutters never forward a tap to a neighbouring destination.
     return Semantics(
       container: true,
       button: true,
@@ -276,23 +241,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
             },
           ),
         },
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(
-              end: lifted && !MediaQuery.disableAnimationsOf(context) ? -1 : 0,
-            ),
-            duration: DMotion.duration(
-              context,
-              const Duration(milliseconds: 250),
-            ),
-            curve: const Cubic(.34, 1.56, .64, 1),
-            builder: (context, y, child) =>
-                Transform.translate(offset: Offset(0, y), child: child),
-            child: content,
-          ),
-        ),
+        child: content,
       ),
     );
   }
@@ -452,26 +401,6 @@ class _PlaceHitShapeLayout extends RenderProxyBox {
         12,
       ).toRRect(Offset.zero & size).contains(position) &&
       super.hitTest(result, position: position);
-}
-
-class _PlaceHighlight extends CustomPainter {
-  const _PlaceHighlight(this.color);
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final shape = BorderRadius.circular(12).toRRect(Offset.zero & size);
-    canvas.drawPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRRect(shape),
-        Path()..addRRect(shape.shift(const Offset(0, 1))),
-      ),
-      Paint()..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_PlaceHighlight old) => color != old.color;
 }
 
 class _PlaceParentData extends ContainerBoxParentData<RenderBox> {}

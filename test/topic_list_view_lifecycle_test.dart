@@ -3,11 +3,9 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
     show
-        DAppearanceMaterial,
         DButton,
         DIcon,
         DItem,
-        DMaterialTheme,
         DPullToRefresh,
         DSeparator,
         DSpinner,
@@ -37,7 +35,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/button_surface.dart';
@@ -664,20 +661,18 @@ void main() {
     },
   );
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
       testWidgets(
-        'incoming button stays flat with tertiary colors in $material $brightness',
+        'incoming button stays flat with tertiary colors in flat $brightness',
         (tester) async {
           final api = _ControlledPagingApi();
           final controller = await _controlledShell(api, sites.first);
           addTearDown(controller.dispose);
           api.requests.single.response.complete(_page(1));
-          final theme = DMaterialTheme.apply(
-            (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
-                .copyWith(platform: TargetPlatform.iOS),
-            material,
-          );
+          final theme =
+              (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+                  .copyWith(platform: TargetPlatform.iOS);
           await tester.pumpWidget(
             _LiveTestList(controller: controller, theme: theme),
           );
@@ -692,10 +687,7 @@ void main() {
           final surface = buttonSurface(tester, of: button);
           expect(surface.color, theme.colorScheme.primary);
           expect(surface.borderColor.a, 0);
-          expect(
-            find.descendant(of: button, matching: find.byType(LiquidGlass)),
-            findsNothing,
-          );
+
           expect(
             find.descendant(of: button, matching: find.byType(BackdropFilter)),
             findsNothing,

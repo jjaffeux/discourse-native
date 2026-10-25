@@ -25,11 +25,9 @@ void main() {
 
   for (final mobile in [true, false]) {
     for (final dark in [false, true]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         testWidgets('post body loading uses a skeleton before editing '
-            '${mobile ? 'mobile' : 'desktop'} dark=$dark ${material.name}', (
-          tester,
-        ) async {
+            '${mobile ? 'mobile' : 'desktop'} dark=$dark flat', (tester) async {
           final composer = ComposerController(_target)..beginLoadingBody();
           final shell = await _shell();
           addTearDown(composer.dispose);
@@ -42,7 +40,6 @@ void main() {
               composer,
               mobile: mobile,
               dark: dark,
-              material: material,
             );
 
             final loading = find.bySemanticsLabel('Loading that post…');
@@ -119,16 +116,16 @@ Future<void> _pumpPanel(
   ComposerController composer, {
   bool mobile = false,
   bool dark = false,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
 }) async {
   await tester.binding.setSurfaceSize(Size(mobile ? 340 : 1000, 650));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      theme: DMaterialTheme.apply(
-        dark ? AppTheme.dark : AppTheme.light,
-        material,
-      ).copyWith(platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS),
+      theme: dark
+          ? AppTheme.dark
+          : AppTheme.light.copyWith(
+              platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+            ),
       home: ShellScope(
         controller: shell,
         child: Scaffold(

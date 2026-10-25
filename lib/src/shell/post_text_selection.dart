@@ -184,23 +184,21 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     ),
     builder: (context, actions, _) => OverlayPortal(
       controller: _portal,
-      overlayChildBuilder: (context) => NativeGlassOccluder(
-        child: Builder(
-          builder: (context) {
-            final anchors = _anchors;
-            if (anchors == null || _selection.markdown.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return _PostTextSelectionToolbar(
-              anchors: anchors,
-              canQuote: actions.canQuote,
-              canEdit: actions.canEdit,
-              onQuote: _insertQuote,
-              onEdit: () => unawaited(_editSelection()),
-              onCopyQuote: _copyQuote,
-            );
-          },
-        ),
+      overlayChildBuilder: (context) => Builder(
+        builder: (context) {
+          final anchors = _anchors;
+          if (anchors == null || _selection.markdown.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _PostTextSelectionToolbar(
+            anchors: anchors,
+            canQuote: actions.canQuote,
+            canEdit: actions.canEdit,
+            onQuote: _insertQuote,
+            onEdit: () => unawaited(_editSelection()),
+            onCopyQuote: _copyQuote,
+          );
+        },
       ),
       child: CallbackShortcuts(
         bindings: {
@@ -270,7 +268,7 @@ class _PostTextSelectionToolbar extends StatelessWidget {
       anchorBelow: anchors.secondaryAnchor ?? anchors.primaryAnchor,
       toolbarBuilder: (context, child) => Material(
         color: theme.shell.floating,
-        elevation: 4,
+        elevation: 0,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),

@@ -14,7 +14,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/native_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1001,66 +1000,6 @@ void main() {
     expect(composer.raw, 'A draft that survives keyboard changes.');
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));
-  });
-
-  testWidgets('the mobile sheet hands native glass back to Flutter', (
-    tester,
-  ) async {
-    final messenger = tester.binding.defaultBinaryMessenger;
-    final scenes = <Map<Object?, Object?>>[];
-    NativeGlass.available.value = true;
-    addTearDown(() => NativeGlass.available.value = false);
-    messenger.setMockMethodCallHandler(NativeGlass.channel, (call) async {
-      if (call.method == 'scene') {
-        scenes.add(call.arguments as Map<Object?, Object?>);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(NativeGlass.channel, null),
-    );
-    final harness = await _Harness.create(
-      tester,
-      mobile: true,
-      size: const Size(390, 800),
-      reader: Theme(
-        data: DMaterialTheme.apply(
-          AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          DAppearanceMaterial.liquidGlass,
-        ),
-        child: NativeGlassScope(
-          child: Builder(
-            builder: (context) => Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 120,
-                height: 44,
-                child: switch (NativeGlass.of(context)) {
-                  final group? => NativeGlassShape(group: group),
-                  null => null,
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsOneWidget);
-    expect(scenes.last['visible'], isFalse);
-
-    final composer = harness.shell.visibleComposer!;
-    composer.title.text = 'A topic with enough title text';
-    composer.text.text = 'A draft that minimizes.';
-    await tester.runAsync(composer.flushDraft);
-    await tester.pumpAndSettle();
-    await tester.dragFrom(
-      tester.getCenter(find.byKey(const ValueKey('composer-header'))),
-      const Offset(0, 300),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsNothing);
-    expect(scenes.last['visible'], isTrue);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the mobile sheet stops painting the shell it covers', (

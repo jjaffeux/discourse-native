@@ -241,13 +241,11 @@ class StartChattingFixture extends StatefulWidget {
     required this.shell,
     this.textScale = 1,
     this.rtl = false,
-    this.material,
     this.platform,
   });
   final ShellController shell;
   final double textScale;
   final bool rtl;
-  final DAppearanceMaterial? material;
   final TargetPlatform? platform;
   @override
   State<StartChattingFixture> createState() => _StartChattingFixtureState();
@@ -275,8 +273,7 @@ class _StartChattingFixtureState extends State<StartChattingFixture> {
     final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
       platform: widget.platform,
     );
-    final material = widget.material;
-    return material == null ? theme : DMaterialTheme.apply(theme, material);
+    return theme;
   }
 
   @override

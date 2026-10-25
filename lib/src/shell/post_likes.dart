@@ -192,7 +192,7 @@ class _LikersPanel extends StatelessWidget {
 
     return Material(
       color: theme.shell.floating,
-      elevation: 8,
+      elevation: 0,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       // A `Container`, not a `DecoratedBox`: a bordered decoration's

@@ -109,12 +109,10 @@ class TopicInboxHeader extends StatelessWidget {
     ];
     final bodyBuilder = this.bodyBuilder;
     if (bodyBuilder == null) {
-      return DFlatMaterial(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: rows,
-        ),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
       );
     }
     final shell = ShellScope.read(context);
@@ -141,13 +139,9 @@ class TopicInboxHeader extends StatelessWidget {
           ? (openingPostNumber ?? 1) > 1
           : null,
       // The mockups draw every topic header control flat in either material.
-      header: DFlatMaterial(
-        child: _morphHeader(context, compact: false, rows: rows),
-      ),
+      header: _morphHeader(context, compact: false, rows: rows),
       compactHeader: shell.mobileNavigationEnabled
-          ? DFlatMaterial(
-              child: _morphHeader(context, compact: true, rows: rows),
-            )
+          ? _morphHeader(context, compact: true, rows: rows)
           : null,
       headerControls: headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),

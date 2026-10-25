@@ -21789,24 +21789,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, =0{Nothing written yet} =1{1 word} other{{count} words}}'**
   String composerWordCount(int count);
 
-  /// Appearance material and texture setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Style'**
-  String get appearanceStyle;
-
-  /// Appearance material and texture setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Standard'**
-  String get standardMaterial;
-
-  /// Appearance material and texture setting.
-  ///
-  /// In en, this message translates to:
-  /// **'Liquid glass'**
-  String get liquidGlassMaterial;
-
   /// Label for how selected search tags are combined.
   ///
   /// In en, this message translates to:

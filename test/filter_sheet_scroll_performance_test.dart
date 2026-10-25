@@ -59,9 +59,9 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       testWidgets(
-        'Filters scroll reuses stationary artwork on $platform ($material)',
+        'Filters scroll reuses stationary artwork on $platform (flat)',
         (tester) async {
           tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
           tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -71,7 +71,7 @@ void main() {
             filterOptions: fixture.filterMenuOptions,
           );
           await shell.forumSettings.setShared(
-            shell.forumSettings.shared.copyWith(material: material),
+            shell.forumSettings.shared.copyWith(),
           );
           await tester.pumpAndSettle();
           await fixture.openFilters(tester);
@@ -135,7 +135,7 @@ void main() {
             await gesture.cancel();
             await tester.pumpAndSettle();
             debugPrint(
-              'FILTER_SCROLL_PAINTS platform=$platform material=$material '
+              'FILTER_SCROLL_PAINTS platform=$platform material=flat '
               'total=$totalPaints input=$inputPaints handle=$handlePaints '
               'page=$pagePaints rows=$rowPaints',
             );

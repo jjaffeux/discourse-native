@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 
@@ -354,15 +352,11 @@ class _DToggleState extends State<DToggle> {
         ? 18.0
         : (DControlStyle.lineHeight(widget.size, context: context));
     final activeSurface = _current || interacting;
-    final glass = DMaterialTheme.glassOf(context);
-    final stockGlass =
-        glass && !postReaction && !chatReaction && (!menuFilter || _current);
+
     final borderColor = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
-        : stockGlass
-        ? Colors.transparent
         : postReaction
         ? Colors.transparent
         : menuFilter
@@ -541,7 +535,7 @@ class _DToggleState extends State<DToggle> {
               ? tokens.foreground.withValues(alpha: .13)
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
-    final disabledGlassLens = !_enabled && stockGlass && surfaceColor.a > 0;
+
     final artwork = AnimatedContainer(
       duration: splitView && !reducedMotion
           ? const Duration(milliseconds: 150)
@@ -567,35 +561,8 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             ))),
       decoration: BoxDecoration(
-        color: stockGlass
-            ? Colors.transparent
-            : splitView
-            ? null
-            : menuFilter && _current
-            ? Colors.transparent
-            : postReaction || chatReaction
-            ? surfaceColor
-            : DMaterialSurface.fill(context, surfaceColor),
-        gradient: splitView && !glass
-            ? RadialGradient(
-                center: Alignment.topCenter,
-                radius: 1.2,
-                transform: const _SplitViewSheenTransform(),
-                // Composite the CSS highlight over its tint in the shader.
-                // Setting BoxDecoration.color as well would multiply the
-                // shader's opacity instead of painting a second layer.
-                colors: [
-                  Color.alphaBlend(
-                    Colors.white.withValues(
-                      alpha: interacting ? (dark ? .12 : .55) : 0,
-                    ),
-                    surfaceColor,
-                  ),
-                  surfaceColor,
-                ],
-                stops: const [0, .62],
-              )
-            : null,
+        color: surfaceColor,
+        gradient: null,
         borderRadius: radius,
         border: border,
       ),
@@ -615,15 +582,7 @@ class _DToggleState extends State<DToggle> {
         child: content,
       ),
     );
-    final surface = splitView && glass
-        ? DMaterialSurface(
-            radius: radius,
-            color: surfaceColor,
-            child: disabledGlassLens
-                ? Opacity(opacity: .6, child: artwork)
-                : artwork,
-          )
-        : splitView
+    final surface = splitView
         ? TweenAnimationBuilder<double>(
             tween: Tween(end: interacting ? 1.0 : 0.0),
             duration: reducedMotion
@@ -631,34 +590,12 @@ class _DToggleState extends State<DToggle> {
                 : const Duration(milliseconds: 150),
             curve: Curves.ease,
             child: artwork,
-            builder: (context, opacity, child) => CustomPaint(
-              foregroundPainter: _SplitViewCatch(
-                radius,
-                Colors.white.withValues(
-                  alpha: (dark ? .12 : .55) * 1.4 * opacity,
-                ),
-              ),
-              child: child,
-            ),
+            builder: (context, opacity, child) =>
+                CustomPaint(foregroundPainter: null, child: child),
           )
         : postReaction || chatReaction
         ? artwork
-        : DMaterialSurface(
-            radius: radius,
-            color: disabledGlassLens
-                ? surfaceColor.withValues(alpha: surfaceColor.a * .6)
-                : surfaceColor,
-            depth: menuFilter && !_current
-                ? DSurfaceDepth.recessed
-                : menuFilter
-                ? DSurfaceDepth.primaryCapsule
-                : DSurfaceDepth.raised,
-            preserveColor: menuFilter && !_current,
-            insetEdges: menuFilter && !_current,
-            child: disabledGlassLens
-                ? Opacity(opacity: .6, child: artwork)
-                : artwork,
-          );
+        : artwork;
 
     final control = MergeSemantics(
       child: Semantics(
@@ -724,10 +661,7 @@ class _DToggleState extends State<DToggle> {
                       _toggle();
                     }
                   : null,
-              child: Opacity(
-                opacity: _enabled || disabledGlassLens ? 1 : .6,
-                child: surface,
-              ),
+              child: Opacity(opacity: _enabled ? 1 : .6, child: surface),
             ),
           ),
         ),
@@ -748,45 +682,6 @@ class _DToggleState extends State<DToggle> {
           : control,
     );
   }
-}
-
-class _SplitViewSheenTransform extends GradientTransform {
-  const _SplitViewSheenTransform();
-
-  @override
-  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) =>
-      Matrix4.identity()
-        ..translateByDouble(0, bounds.top, 0, 1)
-        ..scaleByDouble(1, 11 / 12, 1, 1)
-        ..translateByDouble(0, -bounds.top, 0, 1);
-}
-
-class _SplitViewCatch extends CustomPainter {
-  const _SplitViewCatch(this.radius, this.color);
-
-  final BorderRadius radius;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (color.a == 0) return;
-    final shape = radius.toRRect(Offset.zero & size);
-    canvas.save();
-    canvas.clipRRect(shape);
-    canvas.drawRRect(
-      shape.shift(const Offset(0, 1)),
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_SplitViewCatch oldDelegate) =>
-      radius != oldDelegate.radius || color != oldDelegate.color;
 }
 
 /// Lays the icon out at its natural width first and gives the label only what

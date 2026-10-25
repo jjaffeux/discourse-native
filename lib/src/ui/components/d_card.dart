@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_item.dart';
 
@@ -17,15 +15,11 @@ enum DCardVariant {
   /// Latest-reply artwork that follows its containing Item's interaction.
   itemPreview,
 
-  /// Title-bar writing actions: accent glass raised above the window ground.
-  /// This artwork applies in both material modes. Reduced transparency keeps
-  /// the raised accent surface with an opaque fill.
+  /// Title-bar writing actions with a flat accent fill.
   /// Compose with chrome-density primary buttons and no outer border.
   primaryCapsule,
 
-  /// Tools floating over scrolling content, as the mobile dock does. Liquid
-  /// glass paints the stock material, whose rim replaces the outline. The
-  /// Standard material and reduced transparency keep the [capsule] well.
+  /// Tools floating over scrolling content, with the [capsule] fill.
   floatingCapsule,
 }
 
@@ -173,7 +167,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     final tokens = DTokens.of(context);
     final primaryCapsule = variant == DCardVariant.primaryCapsule;
     final floatingCapsule = variant == DCardVariant.floatingCapsule;
-    final floatingGlass = floatingCapsule && DMaterialTheme.glassOf(context);
+
     final capsule =
         variant == DCardVariant.capsule || floatingCapsule || primaryCapsule;
     final compactCapsule = capsule && size == DCardSize.small;
@@ -188,18 +182,13 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                     : .045,
               )
             : capsule
-            ? DMaterialSurface.active(context)
-                  ? Color.lerp(tokens.background, Colors.black, .14)!
-                  : Color.alphaBlend(
-                      tokens.foreground.withValues(alpha: .04),
-                      tokens.background,
-                    )
+            ? Color.lerp(tokens.background, Colors.black, .14)!
             : variant == DCardVariant.well
             ? Color.alphaBlend(
                 Colors.black.withValues(alpha: .08),
                 tokens.background,
               )
-            : child is Expanded && DMaterialSurface.active(context)
+            : child is Expanded
             ? tokens.panelBackground
             : tokens.background);
     final inset =
@@ -213,96 +202,70 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     final radius =
         borderRadius?.resolve(Directionality.of(context)) ??
         BorderRadius.circular(capsule ? DRadius.pill : DRadius.panel);
-    final depth = primaryCapsule
-        ? DSurfaceDepth.primaryCapsule
-        : floatingGlass
-        ? DSurfaceDepth.raised
-        : capsule || variant == DCardVariant.well
-        ? DSurfaceDepth.recessed
-        : child is Expanded
-        ? DSurfaceDepth.panel
-        : DSurfaceDepth.card;
     return _CardScope(
       spacing: inset,
       size: size,
       surfaceColor: surfaceColor,
       child: Semantics(
         container: true,
-        child: DMaterialSurface(
-          depth: depth,
-          radius: radius,
-          color: surfaceColor,
-          preserveColor: compactCapsule,
-          insetEdges: compactCapsule,
-          child: DMaterialBatch(
-            // Pages paint opaque content between overlapping lenses. Sharing
-            // an earlier read lets scrolling content tint fixed controls
-            // through that content. Keep compact cards on their shared read.
-            enabled: child is! Expanded,
-            child: CustomPaint(
-              foregroundPainter: border && dashedBorder
-                  ? _DashedCardOutline(radius, borderColor ?? tokens.border)
+        child: CustomPaint(
+          foregroundPainter: border && dashedBorder
+              ? _DashedCardOutline(radius, borderColor ?? tokens.border)
+              : null,
+          child: DecoratedBox(
+            // Panels clip to their bounds and edge-to-edge children can be opaque.
+            // Paint the outline inside those bounds, above the child surface.
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: border && !dashedBorder
+                  ? Border.all(color: borderColor ?? tokens.border)
                   : null,
-              child: DecoratedBox(
-                // Panels clip to their bounds and edge-to-edge children can be opaque.
-                // Paint the outline inside those bounds, above the child surface.
-                position: DecorationPosition.foreground,
-                decoration: BoxDecoration(
-                  borderRadius: radius,
-                  border: border && !dashedBorder && !floatingGlass
-                      ? Border.all(color: borderColor ?? tokens.border)
-                      : null,
+            ),
+            child: Material(
+              animationDuration: Duration.zero,
+              color: surfaceColor,
+              borderRadius: radius,
+              clipBehavior: Clip.antiAlias,
+              textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: DiscourseTypography.sm,
+                height: 20 / 14,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                color: tokens.foreground,
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: compactCapsule
+                      ? DSpacing.xs + (border ? 1 : 0)
+                      : capsule
+                      ? DSpacing.sm
+                      : 0,
+                  right: compactCapsule
+                      ? DSpacing.xs + (border ? 1 : 0)
+                      : capsule
+                      ? DSpacing.sm
+                      : 0,
+                  top: leading == null ? inset : 0,
+                  bottom:
+                      footer == null &&
+                          !children.any((part) => part is DCardFooter) &&
+                          trailing == null
+                      ? inset
+                      : 0,
                 ),
-                child: Material(
-                  animationDuration: Duration.zero,
-                  color: primaryCapsule
-                      ? Colors.transparent
-                      : DMaterialSurface.fill(context, surfaceColor),
-                  borderRadius: radius,
-                  clipBehavior: depth == DSurfaceDepth.panel
-                      ? DMaterialSurface.panelClipOf(context)
-                      : Clip.antiAlias,
-                  textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    fontSize: DiscourseTypography.sm,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0,
-                    color: tokens.foreground,
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: compactCapsule
-                          ? DSpacing.xs + (border ? 1 : 0)
-                          : capsule
-                          ? DSpacing.sm
-                          : 0,
-                      right: compactCapsule
-                          ? DSpacing.xs + (border ? 1 : 0)
-                          : capsule
-                          ? DSpacing.sm
-                          : 0,
-                      top: leading == null ? inset : 0,
-                      bottom:
-                          footer == null &&
-                              !children.any((part) => part is DCardFooter) &&
-                              trailing == null
-                          ? inset
-                          : 0,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < parts.length; i++) ...[
-                          if (i > 0 &&
-                              !(parts[i - 1] is DCardContent &&
-                                  (parts[i - 1] as DCardContent).joinNext))
-                            SizedBox(height: inset),
-                          parts[i],
-                        ],
-                      ],
-                    ),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < parts.length; i++) ...[
+                      if (i > 0 &&
+                          !(parts[i - 1] is DCardContent &&
+                              (parts[i - 1] as DCardContent).joinNext))
+                        SizedBox(height: inset),
+                      parts[i],
+                    ],
+                  ],
                 ),
               ),
             ),

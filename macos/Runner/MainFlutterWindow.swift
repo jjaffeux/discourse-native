@@ -14,20 +14,11 @@ class MainFlutterWindow: NSWindow {
   private var pasteboardChannel: FlutterMethodChannel?
   private var webViewScrollRouting = WebViewScrollRouting()
   private var launchScreen: LaunchScreenView?
-  private var accessibilityObserver: NSObjectProtocol?
-  private var materialAccessibilityChannel: FlutterMethodChannel?
-  private var glassRenderer: GlassRenderer?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     flutterController = flutterViewController
     self.contentViewController = flutterViewController
-    accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
-      forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
-      object: nil, queue: .main
-    ) { [weak self] _ in
-      self?.materialAccessibilityChannel?.invokeMethod("reduceTransparencyChanged", arguments: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
-    }
     self.isOpaque = true
 
     // The shell wants room for rail + sidebar + content + details panel, so the
@@ -67,10 +58,6 @@ class MainFlutterWindow: NSWindow {
       to: flutterViewController.engine.binaryMessenger
     )
     attachWindowChannel(to: flutterViewController.engine.binaryMessenger)
-    glassRenderer = GlassRenderer(
-      messenger: flutterViewController.engine.binaryMessenger,
-      host: flutterViewController.view
-    )
     attachPasteboardChannel(to: flutterViewController.engine.binaryMessenger)
     observeWindowFrame(NSWindow.willStartLiveResizeNotification) { window in
       window.liveResize = true
@@ -98,7 +85,6 @@ class MainFlutterWindow: NSWindow {
   }
 
   deinit {
-    if let accessibilityObserver { NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver) }
     for observer in windowFrameObservers {
       NotificationCenter.default.removeObserver(observer)
     }
@@ -234,13 +220,6 @@ class MainFlutterWindow: NSWindow {
       }
     }
     windowChannel = channel
-    let accessibility = FlutterMethodChannel(name: "org.discourse.native/material_accessibility", binaryMessenger: messenger)
-    accessibility.setMethodCallHandler { call, result in
-      if call.method == "reduceTransparency" {
-        result(NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
-      } else { result(FlutterMethodNotImplemented) }
-    }
-    materialAccessibilityChannel = accessibility
   }
 
   /// The pasteboard plugin reads every URL as a file path, so a copied web
@@ -420,13 +399,4 @@ func routeDropTargetThroughFlutterContent(_ container: NSView) {
 
 func toggleWindowZoom(_ window: NSWindow) {
   window.zoom(nil)
-}
-
-// The backdrop is rendering only; Flutter owns every visible control target.
-@available(macOS 26.0, *)
-final class PassiveGlassBackdrop: NSGlassEffectView {
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
-}
-final class PassiveVibrancyBackdrop: NSVisualEffectView {
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer' show Timeline;
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -138,9 +137,6 @@ void main() {
         'debug': kDebugMode,
         'instrumented': profileWidgets,
         'platform': defaultTargetPlatform.name,
-        'material': DMaterialTheme.of(
-          tester.element(find.byType(ComposerPanel)),
-        )?.material.name,
         'width': tester.view.physicalSize.width / pixelRatio,
         'height': tester.view.physicalSize.height / pixelRatio,
         'pixelRatio': pixelRatio,

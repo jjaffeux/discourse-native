@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Sidebar mode switch parity
 
 Reference: `discourse-native-mockups` snapshot `7c86328`, `App.tsx` SideNav

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_texture.dart';
@@ -10,7 +9,6 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 void main() {
   for (final effect in [
@@ -84,52 +82,6 @@ void main() {
       }
     });
   }
-
-  testWidgets('Lava stays animated over Native glass controls', (tester) async {
-    final palette = forumThemePresets.first
-        .forBrightness(Brightness.dark)
-        .copyWith(
-          background: const ForumBackground.appearance(
-            effect: ForumBackgroundEffect.lava,
-            noiseIntensity: 1,
-          ),
-        );
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: DMaterialTheme.apply(
-          AppTheme.fromPalette(palette.resolve(Brightness.dark)),
-          DAppearanceMaterial.liquidGlass,
-        ),
-        home: MediaQuery(
-          data: const MediaQueryData(disableAnimations: false),
-          child: Center(
-            child: RepaintBoundary(
-              key: const ValueKey('texture-capture'),
-              child: SizedBox.square(
-                dimension: 256,
-                child: ForumWindowBackground(
-                  child: Center(
-                    child: DButton(
-                      onPressed: () {},
-                      label: const Text('Glass control'),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await _waitForTexture(tester, ForumBackgroundEffect.lava);
-    expect(find.byType(LiquidGlass), findsWidgets);
-    final initial = await _capture(tester);
-    await tester.pump(const Duration(seconds: 4));
-    expect(await _capture(tester), isNot(orderedEquals(initial)));
-    expect(find.text('Glass control'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
 
   testWidgets('Paper and Lava lamp are visible at maximum intensity', (
     tester,

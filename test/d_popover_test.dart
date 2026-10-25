@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -9,100 +9,88 @@ import 'package:flutter_test/flutter_test.dart';
 
 void popoverBackdropTests() {
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets(
-        'popup keeps its backdrop during transitions ($dark, $material)',
-        (tester) async {
-          final controller = DPopoverController();
-          addTearDown(controller.dispose);
-          final completions = <bool>[];
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: DMaterialTheme.apply(
-                dark ? AppTheme.dark : AppTheme.light,
-                material,
-              ),
-              home: Scaffold(
-                body: Center(
-                  child: DPopover(
-                    controller: controller,
-                    // Native frames can take longer than a production popup
-                    // entrance. Keep the sampled frame inside the transition.
-                    transitionDuration: const Duration(seconds: 1),
-                    reverseTransitionDuration: const Duration(seconds: 1),
-                    onOpenChangeComplete: completions.add,
-                    content: const DPopoverContent(
-                      width: 180,
-                      child: SizedBox(
-                        height: 100,
-                        child: Text('Popup content'),
-                      ),
-                    ),
-                    child: DPopoverTrigger(
-                      builder: (context, trigger) => DButton(
-                        label: const Text('Open'),
-                        onPressed: trigger.toggle,
-                      ),
+    {
+      testWidgets('popup keeps its backdrop during transitions ($dark, flat)', (
+        tester,
+      ) async {
+        final controller = DPopoverController();
+        addTearDown(controller.dispose);
+        final completions = <bool>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? AppTheme.dark : AppTheme.light,
+            home: Scaffold(
+              body: Center(
+                child: DPopover(
+                  controller: controller,
+                  // Native frames can take longer than a production popup
+                  // entrance. Keep the sampled frame inside the transition.
+                  transitionDuration: const Duration(seconds: 1),
+                  reverseTransitionDuration: const Duration(seconds: 1),
+                  onOpenChangeComplete: completions.add,
+                  content: const DPopoverContent(
+                    width: 180,
+                    child: SizedBox(height: 100, child: Text('Popup content')),
+                  ),
+                  child: DPopoverTrigger(
+                    builder: (context, trigger) => DButton(
+                      label: const Text('Open'),
+                      onPressed: trigger.toggle,
                     ),
                   ),
                 ),
               ),
             ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        void checkBackdrop() {
+          // Widget tests use the frost fallback, not the iOS shader. Inspect
+          // the painted layers: a fractional opacity layer isolates the live
+          // lens from the page it must sample during opening and closing.
+          final fractionalLayers = tester.layers
+              .whereType<OpacityLayer>()
+              .where((layer) => layer.alpha! > 0 && layer.alpha! < 255);
+          expect(fractionalLayers, isNotEmpty);
+          // The shader gets its position and scale from the render tree;
+          // that transform must describe the popup's animated pixels.
+          expect(
+            tester.getRect(find.byType(DPopoverContent)).width,
+            inExclusiveRange(180 * .95, 180),
           );
-          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
 
-          void checkBackdrop() {
-            // Widget tests use the frost fallback, not the iOS shader. Inspect
-            // the painted layers: a fractional opacity layer isolates the live
-            // lens from the page it must sample during opening and closing.
-            final fractionalLayers = tester.layers
-                .whereType<OpacityLayer>()
-                .where((layer) => layer.alpha! > 0 && layer.alpha! < 255);
-            expect(
-              fractionalLayers,
-              material == DAppearanceMaterial.liquidGlass
-                  ? isEmpty
-                  : isNotEmpty,
-            );
-            // The shader gets its position and scale from the render tree;
-            // that transform must describe the popup's animated pixels.
-            expect(
-              tester.getRect(find.byType(DPopoverContent)).width,
-              inExclusiveRange(180 * .95, 180),
-            );
-            expect(tester.takeException(), isNull);
-          }
+        controller.open();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        checkBackdrop();
+        await tester.pump(const Duration(milliseconds: 32));
+        checkBackdrop();
+        await tester.pumpAndSettle();
+        expect(completions, [true]);
 
-          controller.open();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 32));
-          checkBackdrop();
-          await tester.pump(const Duration(milliseconds: 32));
-          checkBackdrop();
-          await tester.pumpAndSettle();
-          expect(completions, [true]);
+        controller.close();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        checkBackdrop();
+        // Reopening while the exit is in flight retains the same live lens.
+        controller.open();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        checkBackdrop();
+        await tester.pumpAndSettle();
+        expect(find.text('Popup content'), findsOneWidget);
 
-          controller.close();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 32));
-          checkBackdrop();
-          // Reopening while the exit is in flight retains the same live lens.
-          controller.open();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 16));
-          checkBackdrop();
-          await tester.pumpAndSettle();
-          expect(find.text('Popup content'), findsOneWidget);
-
-          controller.close();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 32));
-          checkBackdrop();
-          await tester.pumpAndSettle();
-          expect(find.text('Popup content'), findsNothing);
-          expect(completions, [true, true, false]);
-        },
-      );
+        controller.close();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        checkBackdrop();
+        await tester.pumpAndSettle();
+        expect(find.text('Popup content'), findsNothing);
+        expect(completions, [true, true, false]);
+      });
     }
   }
 }
@@ -160,8 +148,8 @@ void main() {
     }, variant: TargetPlatformVariant.only(platform));
   }
 
-  for (final material in DAppearanceMaterial.values) {
-    testWidgets('popup animation avoids content build and layout ($material)', (
+  {
+    testWidgets('popup animation avoids content build and layout (flat)', (
       tester,
     ) async {
       final controller = DPopoverController();
@@ -170,7 +158,7 @@ void main() {
       var layouts = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: DMaterialTheme.apply(AppTheme.dark, material),
+          theme: AppTheme.dark,
           home: Scaffold(
             body: Center(
               child: DPopover(
@@ -284,14 +272,11 @@ void main() {
     tester,
   ) async {
     for (final dark in [false, true]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final variant in DPopoverVariant.values) {
           await tester.pumpWidget(
             MaterialApp(
-              theme: DMaterialTheme.apply(
-                dark ? AppTheme.dark : AppTheme.light,
-                material,
-              ),
+              theme: dark ? AppTheme.dark : AppTheme.light,
               home: const Scaffold(body: Center(child: SizedBox.shrink())),
               builder: (context, _) => Center(
                 child: DPopoverContent(
@@ -307,16 +292,25 @@ void main() {
           await tester.pumpAndSettle();
           final panel = find.byType(DPopoverContent);
           final tokens = DTokens.of(tester.element(panel));
-          final surface = tester.widget<DMaterialSurface>(
-            find.descendant(of: panel, matching: find.byType(DMaterialSurface)),
-          );
+          final surface =
+              tester
+                      .widget<DecoratedBox>(
+                        find
+                            .descendant(
+                              of: panel,
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )
+                      .decoration
+                  as BoxDecoration;
           expect(
             surface.color,
             variant == DPopoverVariant.timeline
                 ? Color.lerp(tokens.background, tokens.foreground, .03)
                 : tokens.surface,
           );
-          expect(surface.radius, BorderRadius.circular(12));
+          expect(surface.borderRadius, BorderRadius.circular(12));
           expect(tester.getSize(panel).width, 228);
           expect(tester.takeException(), isNull);
         }
@@ -1124,7 +1118,7 @@ void main() {
     expect(semantics.label, contains('Test popover'));
     expect(find.byType(TextField), findsOneWidget);
     final surface = _surfaceDecoration(tester);
-    expect(surface.boxShadow, isEmpty);
+    expect(surface.boxShadow, isNull);
     final light = surface.color;
 
     dark.value = true;

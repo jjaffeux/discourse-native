@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _slotKey = ValueKey('action-slot');
@@ -54,109 +53,6 @@ FadeTransition _fade(WidgetTester tester, String name) =>
     );
 
 void main() {
-  for (final brightness in Brightness.values) {
-    testWidgets('glass replacements keep a live backdrop ($brightness)', (
-      tester,
-    ) async {
-      final theme = DMaterialTheme.apply(
-        brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-        DAppearanceMaterial.liquidGlass,
-      );
-      final semantics = tester.ensureSemantics();
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      try {
-        var oldPresses = 0;
-        var newPresses = 0;
-        final old = find.byKey(const ValueKey('Chat'));
-        final incoming = find.byKey(const ValueKey('Inbox'));
-        await _pump(
-          tester,
-          _action('Chat', onPressed: () => oldPresses++, focusNode: focus),
-          theme: theme,
-        );
-        final neighbor = tester.getRect(find.text('Neighbor'));
-        final resting = tester.getRect(old);
-        focus.requestFocus();
-        await tester.pump();
-        await _pump(
-          tester,
-          _action('Inbox', onPressed: () => newPresses++),
-          theme: theme,
-        );
-        await tester.pump(const Duration(milliseconds: 60));
-        expect(focus.hasFocus, isFalse);
-        expect(
-          tester
-              .binding
-              .renderViews
-              .single
-              .owner!
-              .semanticsOwner!
-              .rootSemanticsNode!
-              .toStringDeep(),
-          isNot(contains('Chat')),
-        );
-        expect(tester.getRect(old).width, inExclusiveRange(0, resting.width));
-        expect(tester.getRect(incoming).width, 0);
-        await tester.tapAt(resting.center);
-        expect(oldPresses, 0);
-        expect(newPresses, 0);
-        await tester.pump(const Duration(milliseconds: 60));
-        expect(old, findsNothing);
-        final entering = tester.getRect(incoming);
-        expect(entering.width, inExclusiveRange(0, resting.width));
-        expect(entering.center, resting.center);
-        // The fallback used by widget tests cannot exercise the iOS shader;
-        // assert the actual rendering contract that its backdrop read needs.
-        RenderObject? ancestor = tester.renderObject(incoming);
-        while (ancestor != null) {
-          if (ancestor is RenderOpacity) {
-            expect(ancestor.opacity, anyOf(0.0, 1.0));
-          } else if (ancestor is RenderAnimatedOpacity) {
-            expect(ancestor.opacity.value, anyOf(0.0, 1.0));
-          }
-          ancestor = ancestor.parent;
-        }
-        await tester.tapAt(Offset(resting.right - 1, resting.center.dy));
-        expect(newPresses, 0);
-        await tester.tapAt(entering.center);
-        expect(newPresses, 1);
-        await tester.pumpAndSettle();
-        expect(tester.getRect(incoming), resting);
-        expect(tester.getRect(find.text('Neighbor')), neighbor);
-        // Interrupt another replacement with removal and a new action.
-        await _pump(tester, _action('Reply'), theme: theme);
-        await tester.pump(const Duration(milliseconds: 30));
-        await _pump(tester, null, theme: theme);
-        await tester.pump(const Duration(milliseconds: 30));
-        await _pump(tester, _action('Send'), theme: theme);
-        await tester.pumpAndSettle();
-        expect(find.byType(DButton), findsOneWidget);
-        expect(find.byKey(const ValueKey('Send')), findsOneWidget);
-        // Reduced motion may be enabled during an exit.
-        await _pump(tester, _action('Reply'), theme: theme);
-        await tester.pump(const Duration(milliseconds: 30));
-        await _pump(
-          tester,
-          _action('Reply'),
-          theme: theme,
-          reducedMotion: true,
-        );
-        expect(find.byKey(const ValueKey('Send')), findsNothing);
-        expect(
-          find.descendant(
-            of: find.byType(DActionTransition),
-            matching: find.byType(ScaleTransition),
-          ),
-          findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-      } finally {
-        semantics.dispose();
-      }
-    });
-  }
   testWidgets('initial action is visible without an entrance', (tester) async {
     await _pump(tester, _action('Reply'));
     expect(_fade(tester, 'Reply').opacity.value, 1);

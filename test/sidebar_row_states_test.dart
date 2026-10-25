@@ -30,23 +30,17 @@ void main() {
   });
   for (final kind in ['menu', 'navigation', 'conversation']) {
     for (final dark in [false, true]) {
-      for (final material in DAppearanceMaterial.values) {
-        for (final reduced in [
-          false,
-          if (material == DAppearanceMaterial.liquidGlass) true,
-        ]) {
+      {
+        for (final reduced in [false]) {
           testWidgets(
-            'sidebar $kind hover and selection: $dark $material reduced=$reduced',
+            'sidebar $kind hover and selection: $dark flat reduced=$reduced',
             (tester) async {
               final semantics = tester.ensureSemantics();
               var selected = true;
               late StateSetter rebuild;
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: DMaterialTheme.apply(
-                    dark ? AppTheme.dark : AppTheme.light,
-                    material,
-                  ),
+                  theme: dark ? AppTheme.dark : AppTheme.light,
                   home: MediaQuery(
                     data: MediaQueryData(highContrast: reduced),
                     child: Align(
@@ -135,7 +129,7 @@ void main() {
               );
               await _capture(
                 tester,
-                'sidebar-$kind-$dark-${material.name}-$reduced-selected',
+                'sidebar-$kind-$dark-flat-$reduced-selected',
               );
 
               final mouse = await tester.createGesture(
@@ -144,10 +138,7 @@ void main() {
               await mouse.addPointer(location: const Offset(700, 500));
               await mouse.moveTo(tester.getCenter(find.byKey(_other)));
               await tester.pumpAndSettle();
-              await _capture(
-                tester,
-                'sidebar-$kind-$dark-${material.name}-$reduced-hover',
-              );
+              await _capture(tester, 'sidebar-$kind-$dark-flat-$reduced-hover');
               final hoverPixel = await _sample(tester, _other);
               final activeUnderHover = await _sample(tester, _selected);
               expect(

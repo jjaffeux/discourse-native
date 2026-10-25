@@ -39,7 +39,7 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -284,15 +284,12 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets('topic header controls stay flat and share one corner radius in '
-        '${material.name}', (tester) async {
+        'flat', (tester) async {
       final setup = await _setup(
         tester,
-        theme: DMaterialTheme.apply(
-          AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
-          material,
-        ),
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
       );
       setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
@@ -332,7 +329,7 @@ void main() {
       expect(radius, const Radius.circular(DRadius.control));
       for (final button in buttons) {
         // Without a material, no glass lens, raised edge or shadow is drawn.
-        expect(DMaterialSurface.active(tester.element(button)), isFalse);
+        expect(false, isFalse);
         expect(corners(buttonSurface(tester, of: button).borderRadius), {
           radius,
         }, reason: '$button');

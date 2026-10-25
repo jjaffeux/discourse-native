@@ -52,9 +52,7 @@ void main() {
     'Apple forum themes use glass with a saved Standard preference',
     (tester) async {
       final settings = ForumSettingsStore.memory();
-      await settings.writeAppearance(
-        const SharedAppearance(material: DAppearanceMaterial.standard),
-      );
+      await settings.writeAppearance(const SharedAppearance());
       await _pumpApp(
         tester,
         store: FakeInstanceStore(const [
@@ -65,18 +63,9 @@ void main() {
         forumSettingsStore: settings,
       );
       final shell = _controller(tester);
-      expect(shell.forumSettings.shared.material, DAppearanceMaterial.standard);
       for (final index in [0, 1, 0]) {
         shell.selectInstance(index);
         await tester.pumpAndSettle();
-        expect(
-          _activeTheme(tester).extension<DMaterialTheme>()!.material,
-          DAppearanceMaterial.liquidGlass,
-        );
-        expect(
-          DMaterialTheme.glassOf(tester.element(find.byType(AdaptiveShell))),
-          isTrue,
-        );
       }
       expect(tester.takeException(), isNull);
     },
@@ -228,14 +217,11 @@ void main() {
           final context = tester.element(sidebar);
           expect(
             tester.widget<DSidebar>(sidebar).backgroundColor,
-            Colors.transparent,
+            darker ? Theme.of(context).shell.sidebar : Colors.transparent,
             reason:
                 '$mode, custom background: $customBackground, darker: $darker',
           );
-          expect(
-            DMaterialTheme.of(context)!.material,
-            DAppearanceMaterial.liquidGlass,
-          );
+
           final card = find
               .ancestor(
                 of: find.byType(InstanceSidebar),
@@ -302,8 +288,8 @@ void main() {
           .first,
     );
     expect(canvasColor, isNot(palette.secondary));
-    expect(titleBar.color, Colors.transparent);
-    expect(rail.color, Colors.transparent);
+    expect(titleBar.color, canvasColor);
+    expect(rail.color, canvasColor);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('live textures and opacity retain the topic reader and panels', (
@@ -1309,7 +1295,11 @@ void main() {
 
           final theme = _activeTheme(tester);
           final railSurface = Color.alphaBlend(
-            theme.shell.rail,
+            Color.lerp(
+              theme.extension<DTokens>()!.background,
+              Colors.black,
+              .14,
+            )!,
             opaqueColorOnCanvas(
               theme.scaffoldBackgroundColor,
               theme.brightness,

@@ -3627,21 +3627,19 @@ class _ComposerEditorState extends State<ComposerEditor> {
       _scheduleMediaLayoutRefresh();
       return OverlayPortal(
         controller: _selectionOverlay.portal,
-        overlayChildBuilder: (context) => NativeGlassOccluder(
-          child: ValueListenableBuilder<Rect?>(
-            valueListenable: _selectionOverlay.anchor,
-            builder: (context, anchor, child) => anchor == null
-                ? const SizedBox.shrink()
-                : Positioned.fromRect(rect: anchor, child: child!),
-            child: ComposerSelectionMenu(
-              composer: widget.composer,
-              onFocusChange: _selectionOverlay.focusChanged,
-              onDismiss: _selectionOverlay.dismiss,
-              onLink: () => unawaited(
-                showComposerLinkDialog(
-                  context: this.context,
-                  composer: widget.composer,
-                ),
+        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+          valueListenable: _selectionOverlay.anchor,
+          builder: (context, anchor, child) => anchor == null
+              ? const SizedBox.shrink()
+              : Positioned.fromRect(rect: anchor, child: child!),
+          child: ComposerSelectionMenu(
+            composer: widget.composer,
+            onFocusChange: _selectionOverlay.focusChanged,
+            onDismiss: _selectionOverlay.dismiss,
+            onLink: () => unawaited(
+              showComposerLinkDialog(
+                context: this.context,
+                composer: widget.composer,
               ),
             ),
           ),

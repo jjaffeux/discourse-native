@@ -30,11 +30,10 @@ Future<void> _mount(
   double scale = 1,
   bool reduced = false,
   bool highContrast = false,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: DMaterialTheme.apply(AppTheme.light, material),
+      theme: AppTheme.light,
       home: MediaQuery(
         data: MediaQueryData(
           textScaler: TextScaler.linear(scale),
@@ -134,7 +133,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('hover lifts only the visible card and expands the shadow', (
+  testWidgets('hover keeps the card flat and preserves its target', (
     tester,
   ) async {
     var presses = 0;
@@ -146,16 +145,16 @@ void main() {
     BoxDecoration surface() =>
         tester.widget<AnimatedContainer>(decoration).decoration!
             as BoxDecoration;
-    expect(surface().boxShadow!.last.blurRadius, 14);
+    expect(surface().boxShadow, isEmpty);
     final original = tester.getRect(find.byType(GestureDetector).last);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(original.center);
     await tester.pumpAndSettle();
-    expect(surface().boxShadow!.last.blurRadius, 24);
+    expect(surface().boxShadow, isEmpty);
     expect(
       tester.getTopLeft(find.byType(GestureDetector).last).dy,
-      closeTo(original.top - 1, .01),
+      closeTo(original.top, .01),
     );
     await tester.tapAt(Offset(original.right + 3, original.center.dy));
     expect(presses, 0);
@@ -208,14 +207,13 @@ void main() {
   });
 
   testWidgets(
-    'reduced motion preserves geometry and reduced transparency is opaque',
+    'reduced motion preserves geometry and high contrast preserves the fill',
     (tester) async {
       await _mount(
         tester,
         _card(onPressed: () {}),
         reduced: true,
         highContrast: true,
-        material: DAppearanceMaterial.liquidGlass,
       );
       final target = find.byType(GestureDetector).last;
       final rect = tester.getRect(target);
@@ -233,7 +231,7 @@ void main() {
                   )
                   .decoration!
               as BoxDecoration;
-      expect(surface.color!.a, 1);
+      expect(surface.color!.a, .82);
       await mouse.removePointer();
     },
   );

@@ -537,7 +537,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final (scope, tagCount) in [
         ('category', 30),
         ('tag', 30),
@@ -545,7 +545,7 @@ void main() {
         ('all', 30),
       ]) {
         testWidgets(
-          '$scope sheet opens without margins with $tagCount tags on $platform ($material)',
+          '$scope sheet opens without margins with $tagCount tags on $platform (flat)',
           (tester) async {
             final tagSearchGate = scope == 'tag' ? Completer<void>() : null;
             tester.view.viewPadding = const FakeViewPadding(
@@ -572,9 +572,7 @@ void main() {
               filterOptions: filterMenuOptions,
               tagSearchGate: tagSearchGate,
             );
-            await shell.forumSettings.setShared(
-              SharedAppearance(material: material),
-            );
+            await shell.forumSettings.setShared(const SharedAppearance());
             await tester.pumpAndSettle();
             final trigger = find.descendant(
               of: primaryMainContent,
@@ -595,10 +593,7 @@ void main() {
                 expect(tester.getRect(sheet).width, phone.width);
               }
             }
-            await capture(
-              tester,
-              '$scope-$tagCount-$platform-$material-loading',
-            );
+            await capture(tester, '$scope-$tagCount-$platform-flat-loading');
             if (tagSearchGate != null) {
               // Reopening has cached vocabulary but still awaits its tag rows.
               await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -611,10 +606,7 @@ void main() {
             }
             tagSearchGate?.complete();
             await tester.pumpAndSettle();
-            await capture(
-              tester,
-              '$scope-$tagCount-$platform-$material-opening',
-            );
+            await capture(tester, '$scope-$tagCount-$platform-flat-opening');
             if (scope == 'tag' && tagCount == 0) {
               expect(tester.getRect(sheet).left, 6);
               expect(tester.getRect(sheet).bottom, phone.height - 40);
@@ -633,7 +625,7 @@ void main() {
       }
 
       if (platform == TargetPlatform.iOS) {
-        testWidgets('Filters move with native keyboard timing ($material)', (
+        testWidgets('Filters move with native keyboard timing (flat)', (
           tester,
         ) async {
           const channel = MethodChannel('org.discourse.native/keyboard');
@@ -652,9 +644,7 @@ void main() {
             size: phone,
             filterOptions: filterMenuOptions,
           );
-          await shell.forumSettings.setShared(
-            SharedAppearance(material: material),
-          );
+          await shell.forumSettings.setShared(const SharedAppearance());
           await tester.pumpAndSettle();
           await openFilters(tester);
           final sheet = find.byType(DSheetContent);
@@ -709,7 +699,7 @@ void main() {
       }
 
       testWidgets(
-        'async Filters keep their default height on $platform ($material)',
+        'async Filters keep their default height on $platform (flat)',
         (tester) async {
           final gate = Completer<void>();
           final (shell: shell, api: _) = await fixture(
@@ -718,9 +708,7 @@ void main() {
             filterOptions: filterMenuOptions,
             filterOptionsGate: gate,
           );
-          await shell.forumSettings.setShared(
-            SharedAppearance(material: material),
-          );
+          await shell.forumSettings.setShared(const SharedAppearance());
           await tester.pumpAndSettle();
           await tester.tap(
             find.descendant(
@@ -753,7 +741,7 @@ void main() {
       );
 
       testWidgets(
-        'focusing Filters animates its bounds after the keyboard on $platform ($material)',
+        'focusing Filters animates its bounds after the keyboard on $platform (flat)',
         (tester) async {
           const channel = MethodChannel('org.discourse.native/keyboard');
           tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -771,9 +759,7 @@ void main() {
             size: phone,
             filterOptions: filterMenuOptions,
           );
-          await shell.forumSettings.setShared(
-            SharedAppearance(material: material),
-          );
+          await shell.forumSettings.setShared(const SharedAppearance());
           await tester.pumpAndSettle();
           await openFilters(tester);
           final sheet = find.byType(DSheetContent);
@@ -850,7 +836,7 @@ void main() {
       );
 
       testWidgets(
-        'Filters reserve the expansion gesture and accept backdrop swipes on $platform ($material)',
+        'Filters reserve the expansion gesture and accept backdrop swipes on $platform (flat)',
         (tester) async {
           tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
           tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -859,9 +845,7 @@ void main() {
             size: const Size(390, 700),
             filterOptions: filterMenuOptions,
           );
-          await shell.forumSettings.setShared(
-            SharedAppearance(material: material),
-          );
+          await shell.forumSettings.setShared(const SharedAppearance());
           await tester.pumpAndSettle();
           await openFilters(tester);
           final sheet = find.byType(DSheetContent);
@@ -913,7 +897,7 @@ void main() {
       );
 
       testWidgets(
-        'filter sheet expands, floats, and preserves its query on $platform ($material)',
+        'filter sheet expands, floats, and preserves its query on $platform (flat)',
         (tester) async {
           debugDisableShadows = false;
           addTearDown(() => debugDisableShadows = true);
@@ -925,10 +909,9 @@ void main() {
             filterOptions: filterMenuOptions,
           );
           await shell.forumSettings.setShared(
-            SharedAppearance(
+            const SharedAppearance(
               font: ForumFont.openSans,
               interfaceFont: ForumFont.openSans,
-              material: material,
             ),
           );
           await shell.forumSettings.setThemeMode(site, AppThemeMode.dark);
@@ -938,7 +921,7 @@ void main() {
           expect(tester.getRect(sheet).width, phone.width);
           expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
           expect(textField(tester).focusNode!.hasFocus, isFalse);
-          await capture(tester, 'filter-$platform-$material-collapsed');
+          await capture(tester, 'filter-$platform-flat-collapsed');
           final results = find.descendant(
             of: find.byType(DCommandList<String>),
             matching: find.byType(Scrollable),
@@ -963,26 +946,26 @@ void main() {
           await tester.pump();
           expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
           expectExpansion();
-          await capture(tester, 'filter-$platform-$material-pulling');
+          await capture(tester, 'filter-$platform-flat-pulling');
           await drag.moveBy(const Offset(0, -100));
           await tester.pump();
           await drag.up();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 64));
           expectExpansion();
-          await capture(tester, 'filter-$platform-$material-settling');
+          await capture(tester, 'filter-$platform-flat-settling');
           await tester.pumpAndSettle();
           final expandedTop = tester.getRect(sheet).top;
           expect(expandedTop, 55);
           expect(tester.getRect(sheet).left, 6);
           expect(tester.getRect(sheet).bottom, 804);
-          await capture(tester, 'filter-$platform-$material-expanded');
+          await capture(tester, 'filter-$platform-flat-expanded');
           position.jumpTo(position.maxScrollExtent);
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).left, 6);
           expect(tester.getRect(sheet).top, closeTo(expandedTop, 1));
           expect(position.extentAfter, closeTo(0, 1));
-          await capture(tester, 'filter-$platform-$material-inset');
+          await capture(tester, 'filter-$platform-flat-inset');
           final reverse = await tester.startGesture(
             tester.getCenter(results.first),
           );
@@ -1012,7 +995,7 @@ void main() {
             lessThanOrEqualTo(phone.height - 300),
           );
           expect(textField(tester).controller!.text, 'posted');
-          await capture(tester, 'filter-$platform-$material-keyboard');
+          await capture(tester, 'filter-$platform-flat-keyboard');
           expect(tester.takeException(), isNull);
           debugDisableShadows = true;
         },

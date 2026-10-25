@@ -54,7 +54,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
     as images;
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -128,14 +127,10 @@ void main() {
       addTearDown(fixture.shell.dispose);
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final platform = defaultTargetPlatform;
-      for (final material in DAppearanceMaterial.values) {
+      {
         await tester.binding.setSurfaceSize(const Size(393, 852));
         await tester.pumpWidget(
-          _TestView(
-            shell: fixture.shell,
-            theme: DMaterialTheme.apply(theme, material),
-            platform: platform,
-          ),
+          _TestView(shell: fixture.shell, theme: theme, platform: platform),
         );
         await tester.pumpAndSettle();
         final group = find.byKey(const ValueKey('chat-composer'));
@@ -171,16 +166,6 @@ void main() {
           final expected = theme.extension<DTokens>()!.buttonTheme.primary;
           expect(button.backgroundColor, expected.background);
           expect(button.foregroundColor, expected.foreground);
-          if (material == DAppearanceMaterial.liquidGlass) {
-            final lens = find.descendant(
-              of: send,
-              matching: find.byType(LiquidGlass),
-            );
-            final tint = expected.background.withValues(
-              alpha: .76 * (enabled ? 1 : .6),
-            );
-            expect(tester.widget<LiquidGlass>(lens).appearance!.tint, tint);
-          }
         }
 
         expectSendTint(enabled: false);
@@ -191,18 +176,12 @@ void main() {
         expect(tester.getRect(add).left - groupBounds.left, 7);
         expect(groupBounds.right - tester.getRect(send).right, 7);
         expect(groupBounds.bottom - tester.getRect(send).bottom, 7);
-        await captureNativeUi(
-          tester,
-          '${platform.name}-${material.name}-dracula-empty',
-        );
+        await captureNativeUi(tester, '${platform.name}-flat-dracula-empty');
         await tester.enterText(_composerField(), 'Hello everyone');
         await tester.pumpAndSettle();
         expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
         expectSendTint(enabled: true);
-        await captureNativeUi(
-          tester,
-          '${platform.name}-${material.name}-dracula-filled',
-        );
+        await captureNativeUi(tester, '${platform.name}-flat-dracula-filled');
         await tester.tap(send);
         await tester.pumpAndSettle();
         expect(fixture.api.chatMessagesSent.last.message, 'Hello everyone');

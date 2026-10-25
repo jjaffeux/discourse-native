@@ -51,9 +51,9 @@ void main() {
 
   group('editor layout and controls', () {
     for (final dark in [false, true]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         testWidgets(
-          'desktop toolbar paints button shadows outside their targets: $dark $material',
+          'desktop toolbar paints button shadows outside their targets: $dark flat',
           (tester) async {
             final shadowsDisabled = debugDisableShadows;
             debugDisableShadows = false;
@@ -73,10 +73,7 @@ void main() {
                   shell,
                   composer,
                   size: Size(width, 650),
-                  theme: DMaterialTheme.apply(
-                    dark ? AppTheme.dark : AppTheme.light,
-                    material,
-                  ),
+                  theme: dark ? AppTheme.dark : AppTheme.light,
                 );
                 final toolbar = find.byKey(
                   const ValueKey('composer-toolbar-scroll'),
@@ -102,16 +99,15 @@ void main() {
                   await tester.pumpAndSettle();
                   final after = await _toolbarPixels(
                     tester,
-                    name:
-                        '${dark ? 'dark' : 'light'}-${material.name}-$width-$key',
+                    name: '${dark ? 'dark' : 'light'}-flat-$width-$key',
                   );
                   // Glass surfaces draw no outer shadow; their lens lightens
                   // the target to its edges instead.
-                  final glass = material == DAppearanceMaterial.liquidGlass;
-                  final edge = glass ? -2.0 : 2.0;
+
+                  const edge = 2.0;
                   for (final point in [
-                    bounds.topCenter - Offset(0, edge),
-                    bounds.bottomCenter + Offset(0, edge + (glass ? 0 : 1)),
+                    bounds.topCenter - const Offset(0, edge),
+                    bounds.bottomCenter + const Offset(0, edge + (1)),
                     Offset(
                       key == 'composer-mention'
                           ? bounds.left - edge
@@ -128,11 +124,10 @@ void main() {
                             after.getUint8(offset + c),
                     ].reduce((a, b) => a + b);
                     expect(
-                      glass ? -darkened : darkened,
-                      greaterThan(2),
-                      reason: glass
-                          ? 'The hovered glass must fill $point'
-                          : 'The hovered button shadow must reach $point',
+                      darkened,
+                      0,
+                      reason:
+                          'Flat hover fills stay inside the button at $point',
                     );
                   }
                   final source = composer.raw;

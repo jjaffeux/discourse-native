@@ -215,10 +215,7 @@ void main() {
     for (final brightness in Brightness.values) {
       await tester.pumpWidget(
         MaterialApp(
-          theme: DMaterialTheme.apply(
-            brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-            DAppearanceMaterial.liquidGlass,
-          ),
+          theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
           home: const RepaintBoundary(
             key: ValueKey('pools'),
             child: ForumWindowBackground(child: SizedBox.expand()),

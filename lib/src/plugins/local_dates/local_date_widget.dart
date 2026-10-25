@@ -368,7 +368,6 @@ class _LocalDateInlineState extends State<LocalDateInline> {
         sideOffset: 8,
         collisionPadding: 12,
         cornerRadius: 12,
-        shadow: DPopoverShadow.large,
         motion: DPopoverMotion.fade,
         child: body(context),
       ),

@@ -6,7 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 
 /// Interactive edge swipes over a single live history page.
@@ -15,11 +14,11 @@ import '../foundation/tokens.dart';
 /// or journey changes. Adjacent identities select visual previews; callbacks
 /// change the actual history only after a committed swipe finishes. Short drags
 /// spring back without invoking a callback. Null callbacks disable that edge.
-/// The incoming page grows from 94% to full size with the swipe. A shallow
-/// parallax and soft edge shadow separate the pages during a drag. Background
+/// The incoming page grows from 94% to full size with the swipe. Shallow
+/// parallax separates the pages during a drag. Background
 /// pages stay inside the viewport, shrinking as a forward page covers them.
 /// The background page lightens as it is revealed and darkens as it is covered.
-/// Tab switches slide directionally; glass fades only the captured outgoing page.
+/// Tab switches slide directionally and crossfade the pages.
 ///
 /// History previews are in-memory snapshots. Up to eight recently visited
 /// pages are retained, at most one million pixels each.
@@ -447,17 +446,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 Colors.transparent,
                 BlendMode.srcATop,
               );
-              final elevation = BoxDecoration(
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: tokens.colors.shadow.withValues(alpha: .12),
-                          blurRadius: 12,
-                          offset: Offset(_rtl ? 3 : -3, 0),
-                        ),
-                      ]
-                    : null,
-              );
+              const elevation = BoxDecoration(boxShadow: []);
               final preview = ExcludeSemantics(
                 child: IgnorePointer(
                   child: _preview == null
@@ -543,8 +532,6 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       scale: switching || _back
                           ? 1
                           : 1 - (1 - _previewScale) * p,
-                      // Keep depth effects outside the capture boundary so
-                      // revisiting a page never reuses a transformed snapshot.
                       child: DecoratedBox(
                         decoration: _back ? elevation : const BoxDecoration(),
                         child: ColorFiltered(
@@ -552,10 +539,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                           child: IgnorePointer(
                             ignoring: _dragging || _settling || switching,
                             child: Opacity(
-                              opacity:
-                                  switching && !DMaterialTheme.glassOf(context)
-                                  ? p
-                                  : 1,
+                              opacity: switching ? p : 1,
                               child: child,
                             ),
                           ),

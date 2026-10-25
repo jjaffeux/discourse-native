@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
@@ -676,27 +675,22 @@ class DTooltipState extends State<DTooltip>
                 .12,
               )!,
               radius: DTokens.of(context).radius * 0.8,
-              // Only the bubble covers glass: the arrow reaches 5px past it
-              // and the entrance slides it a further 8px.
-              child: NativeGlassOccluder(
-                outset: 13,
-                child: IgnorePointer(
-                  ignoring: false,
-                  child: MouseRegion(
-                    onEnter: (_) {
-                      _popupHovered = true;
-                      _pointerEngaged = true;
-                      _hideTimer?.cancel();
-                    },
-                    onExit: (event) {
-                      _popupHovered = false;
-                      _pointer = event.position;
-                      _scheduleHide();
-                    },
-                    child: SingleChildScrollView(
-                      key: _surfaceKey,
-                      child: widget.tooltipBuilder(overlayContext, _curve),
-                    ),
+              child: IgnorePointer(
+                ignoring: false,
+                child: MouseRegion(
+                  onEnter: (_) {
+                    _popupHovered = true;
+                    _pointerEngaged = true;
+                    _hideTimer?.cancel();
+                  },
+                  onExit: (event) {
+                    _popupHovered = false;
+                    _pointer = event.position;
+                    _scheduleHide();
+                  },
+                  child: SingleChildScrollView(
+                    key: _surfaceKey,
+                    child: widget.tooltipBuilder(overlayContext, _curve),
                   ),
                 ),
               ),

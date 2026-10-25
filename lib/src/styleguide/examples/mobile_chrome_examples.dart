@@ -14,9 +14,8 @@ final mobileDockExamples = ComponentExamples(
       'Compose with DScrollChrome(floatingFooter: true) and add bottomInsetOf '
       'to the primary viewport. The open dock extent stays reserved at the end '
       'of the content while the viewport remains fixed. A collapsed dock only '
-      'accepts its visible reveal target. Liquid glass couples the capsule, '
-      'inset and content fades through the package spring; mid-flight reversals '
-      'retain velocity. Its material uses the package tab bar and button defaults. '
+      'accepts its visible reveal target. The flat capsule animates its size, '
+      'padding and content opacity when it folds or expands. '
       'Reduced motion switches immediately.',
   examples: [
     for (final collapsed in [false, true])

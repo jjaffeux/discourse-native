@@ -24,10 +24,9 @@ void main() {
     TargetPlatform.android,
     TargetPlatform.macOS,
   ]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final dark in [false, true]) {
-        final scenario =
-            '${platform.name}-${material.name}-${dark ? 'dark' : 'light'}';
+        final scenario = '${platform.name}-flat-${dark ? 'dark' : 'light'}';
         testWidgets('feed menu adapts and scrolls ($scenario)', (tester) async {
           final mobile = platform != TargetPlatform.macOS;
           final size = mobile ? const Size(390, 844) : const Size(1100, 720);
@@ -39,14 +38,11 @@ void main() {
           var mode = TopicListMode.latest;
           late StateSetter rebuild;
           final base = dark ? AppTheme.dark : AppTheme.light;
-          final theme = DMaterialTheme.apply(
-            base.copyWith(
-              platform: platform,
-              textTheme: Platform.environment['TOPIC_FEED_CAPTURE_DIR'] == null
-                  ? base.textTheme
-                  : base.textTheme.apply(fontFamily: 'TopicFeedReview'),
-            ),
-            material,
+          final theme = base.copyWith(
+            platform: platform,
+            textTheme: Platform.environment['TOPIC_FEED_CAPTURE_DIR'] == null
+                ? base.textTheme
+                : base.textTheme.apply(fontFamily: 'TopicFeedReview'),
           );
           final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
           final menu = find.byType(DDropdownMenuContent);

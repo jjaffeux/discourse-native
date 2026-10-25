@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
@@ -813,8 +812,7 @@ class _DHoverCardState extends State<DHoverCard>
     );
     return OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
-      overlayChildBuilder: (context, info) =>
-          NativeGlassOccluder(child: _overlay(context, info)),
+      overlayChildBuilder: (context, info) => _overlay(context, info),
       child: trigger,
     );
   }
@@ -962,20 +960,7 @@ class DHoverCardContent extends StatelessWidget {
               decoration: BoxDecoration(
                 color: tokens.surface,
                 borderRadius: BorderRadius.circular(tokens.radius),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    offset: const Offset(0, 4),
-                    blurRadius: 6,
-                    spreadRadius: -1,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    offset: const Offset(0, 2),
-                    blurRadius: 4,
-                    spreadRadius: -2,
-                  ),
-                ],
+                boxShadow: const [],
               ),
               child: SingleChildScrollView(
                 primary: false,

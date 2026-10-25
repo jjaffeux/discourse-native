@@ -1290,35 +1290,33 @@ class _ChatComposerState extends State<ChatComposer> {
         : null;
     const icon = DIcon(DIcons.paperPlane, size: 12);
     final colors = DTokens.of(context).buttonTheme.primary;
-    return NativeGlassScope(
-      child: iconOnly
-          ? DButton.iconOnly(
-              key: const ValueKey('chat-composer-send'),
-              size: DButtonSize.toolbar,
-              foregroundColor: colors.foreground,
-              backgroundColor: colors.background,
-              interactiveBackgroundColor: colors.hover,
-              icon: icon,
-              tooltip: tooltip,
-              semanticLabel: label,
-              onPressed: onPressed,
-              loading: _sending,
-            )
-          : DButton(
-              key: const ValueKey('chat-composer-send'),
-              label: Text(label),
-              size: DButtonSize.toolbar,
-              foregroundColor: colors.foreground,
-              backgroundColor: colors.background,
-              interactiveBackgroundColor: colors.hover,
-              loadingLabel: Text(label),
-              onPressed: onPressed,
-              loading: _sending,
-              icon: icon,
-              tooltip: tooltip,
-              variant: DButtonVariant.primary,
-            ),
-    );
+    return iconOnly
+        ? DButton.iconOnly(
+            key: const ValueKey('chat-composer-send'),
+            size: DButtonSize.toolbar,
+            foregroundColor: colors.foreground,
+            backgroundColor: colors.background,
+            interactiveBackgroundColor: colors.hover,
+            icon: icon,
+            tooltip: tooltip,
+            semanticLabel: label,
+            onPressed: onPressed,
+            loading: _sending,
+          )
+        : DButton(
+            key: const ValueKey('chat-composer-send'),
+            label: Text(label),
+            size: DButtonSize.toolbar,
+            foregroundColor: colors.foreground,
+            backgroundColor: colors.background,
+            interactiveBackgroundColor: colors.hover,
+            loadingLabel: Text(label),
+            onPressed: onPressed,
+            loading: _sending,
+            icon: icon,
+            tooltip: tooltip,
+            variant: DButtonVariant.primary,
+          );
   }
 }
 

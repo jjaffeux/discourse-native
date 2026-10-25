@@ -528,14 +528,14 @@ void main() {
     for (final theme in [AppTheme.light, AppTheme.dark]) {
       final popup = theme.popupMenuTheme;
       expect(popup.color, theme.shell.floating);
-      expect(popup.elevation, 8);
+      expect(popup.elevation, 0);
       expect(popup.surfaceTintColor, Colors.transparent);
       expect(popup.position, PopupMenuPosition.under);
       expect(popup.menuPadding, const EdgeInsets.all(6));
 
       final menu = theme.menuTheme.style!;
       expect(menu.backgroundColor!.resolve({}), theme.shell.floating);
-      expect(menu.elevation!.resolve({}), 8);
+      expect(menu.elevation!.resolve({}), 0);
       expect(menu.padding!.resolve({}), const EdgeInsets.all(6));
       final menuButton = theme.menuButtonTheme.style!;
       final hoverColor = Color.alphaBlend(

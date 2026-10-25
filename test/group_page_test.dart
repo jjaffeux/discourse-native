@@ -963,10 +963,7 @@ void main() {
       name: 'mobile-dark-glass-200',
       size: const Size(390, 844),
       scale: 2.0,
-      theme: DMaterialTheme.apply(
-        AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
-        DAppearanceMaterial.liquidGlass,
-      ),
+      theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
     ),
   ]) {
     testWidgets(

@@ -74,27 +74,12 @@ void main() {
       }
     }
 
-    // Apple platforms resolve both saved choices to Liquid Glass. Measure
-    // each actual material once, keeping device captures short.
-    final materials = {
-      for (final saved in DAppearanceMaterial.values)
-        shell.forumSettings.shared
-            .copyWith(material: saved)
-            .materialFor(defaultTargetPlatform),
-    };
-    for (final material in materials) {
+    {
       await shell.forumSettings.setShared(
-        shell.forumSettings.shared.copyWith(material: material),
+        shell.forumSettings.shared.copyWith(),
       );
       await tester.pumpAndSettle();
       expect(find.byType(DSheetViewport), findsOneWidget);
-      final actualMaterial = DMaterialTheme.of(
-        tester.element(find.byType(DMobileDock)),
-      )!.material;
-      expect(
-        actualMaterial,
-        shell.forumSettings.shared.materialFor(defaultTargetPlatform),
-      );
       expect(scroll.position.maxScrollExtent, greaterThan(4000));
       scroll.jumpTo(600);
       await sweep();
@@ -146,7 +131,6 @@ void main() {
           tester.view.physicalSize.width,
           tester.view.physicalSize.height,
         ],
-        'material': actualMaterial.name,
         'frames': frames.length,
         'build': summary((f) => f.buildDuration),
         'raster': summary((f) => f.rasterDuration),
@@ -156,11 +140,11 @@ void main() {
         wrapWidth: 2048,
       );
       binding.reportData ??= {};
-      binding.reportData![material.name] = report;
+      binding.reportData!['flat'] = report;
       expect(scroll.position.pixels, closeTo(600, 1));
       expect(tester.takeException(), isNull);
       if (const bool.fromEnvironment('CAPTURE_TOPIC_SHEET')) {
-        await binding.takeScreenshot('topic-sheet-${material.name}');
+        await binding.takeScreenshot('topic-sheet-flat');
       }
     }
     await tester.pumpWidget(const SizedBox.shrink());

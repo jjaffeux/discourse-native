@@ -258,7 +258,7 @@ void main() {
                   if (scale == 1 && direction == TextDirection.ltr) {
                     await _capture(
                       tester,
-                      '${platform.name}-${dark ? 'dark' : 'light'}-${glass ? 'glass' : 'standard'}',
+                      '${platform.name}-${dark ? 'dark' : 'light'}-${'standard'}',
                     );
                   }
                   await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -493,15 +493,10 @@ Future<ShellController> _pump(
         controller: controller,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: DMaterialTheme.apply(
-            AppTheme.fromPalette(
-              palette,
-              fontFamily: 'Lato',
-            ).copyWith(platform: platform),
-            glass
-                ? DAppearanceMaterial.liquidGlass
-                : DAppearanceMaterial.standard,
-          ),
+          theme: AppTheme.fromPalette(
+            palette,
+            fontFamily: 'Lato',
+          ).copyWith(platform: platform),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(scale),

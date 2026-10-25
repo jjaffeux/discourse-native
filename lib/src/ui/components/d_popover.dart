@@ -12,9 +12,6 @@ import 'package:flutter/services.dart';
 
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
-import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
 
@@ -27,7 +24,6 @@ enum DPopoverCollision { flip, shift, none }
 enum DPopoverInteraction { mouse, touch, pen, keyboard, imperative }
 
 /// Tailwind shadow recipes used by shadcn floating surfaces.
-enum DPopoverShadow { none, large }
 
 /// Standard uses the host menu tokens; timeline uses the reference panel
 /// and border mixes. Both retain Native placement, focus and material effects.
@@ -770,7 +766,6 @@ class _DPopoverState extends State<DPopover>
             content: widget.content,
             direction: Directionality.of(context),
             animation: _curve,
-            glass: DMaterialTheme.glassOf(context),
             child: Actions(
               actions: {
                 DismissIntent: CallbackAction<DismissIntent>(
@@ -971,10 +966,8 @@ class _DPopoverState extends State<DPopover>
       open: _open,
       child: OverlayPortal.overlayChildLayoutBuilder(
         controller: _portal,
-        overlayChildBuilder: (context, info) => Theme(
-          data: DMaterialTheme.overlayThemeOf(context),
-          child: NativeGlassOccluder(child: _overlay(context, info)),
-        ),
+        overlayChildBuilder: (context, info) =>
+            Theme(data: Theme.of(context), child: _overlay(context, info)),
         child: widget.child,
       ),
     );
@@ -1167,7 +1160,6 @@ class DPopoverContent extends StatelessWidget {
     this.constraints = const BoxConstraints(),
     this.padding = const EdgeInsets.all(10),
     this.scrollable = true,
-    this.shadow = DPopoverShadow.none,
     this.variant = DPopoverVariant.standard,
     this.motion = DPopoverMotion.standard,
     this.centered = false,
@@ -1196,7 +1188,6 @@ class DPopoverContent extends StatelessWidget {
   final double? width;
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
-  final DPopoverShadow shadow;
   final DPopoverVariant variant;
   final DPopoverMotion motion;
 
@@ -1242,56 +1233,25 @@ class DPopoverContent extends StatelessWidget {
         ? Color.lerp(tokens.background, tokens.foreground, .03)!
         : tokens.surface;
     final edge = variant == DPopoverVariant.timeline
-        ? DMaterialTheme.glassOf(context)
-              ? Colors.white.withValues(
-                  alpha: Theme.of(context).brightness == Brightness.dark
-                      ? .14
-                      : .75,
-                )
-              : Color.lerp(tokens.background, tokens.foreground, .22)!
+        ? Color.lerp(tokens.background, tokens.foreground, .22)!
         : DControlStyle.outlineBorder(
             tokens,
             dark: Theme.of(context).brightness == Brightness.dark,
           );
-    final shadowColor = Colors.black.withValues(alpha: .125);
-    final shadows = [
-      BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),
-      BoxShadow(color: shadowColor, offset: const Offset(0, 2), blurRadius: 5),
-      BoxShadow(color: shadowColor, offset: const Offset(0, 1), blurRadius: 1),
-      if (shadow == DPopoverShadow.large)
-        BoxShadow(
-          color: shadowColor,
-          offset: const Offset(0, 10),
-          blurRadius: 15,
-          spreadRadius: -3,
-        ),
-    ];
     final content = scrollable
         ? SingleChildScrollView(primary: false, padding: padding, child: child)
         : Padding(padding: padding, child: child);
-    Widget decorate(Widget content) => DMaterialSurface(
-      depth: DSurfaceDepth.menu,
-      radius: BorderRadius.circular(radius),
-      color: fill,
-      child: CustomPaint(
-        foregroundPainter: DMaterialTheme.glassOf(context)
-            ? null
-            : _PopoverRingPainter(color: edge, radius: radius),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: DMaterialSurface.fill(context, fill),
-            borderRadius: BorderRadius.circular(radius),
-            boxShadow:
-                DMaterialSurface.active(context) ||
-                    shadow == DPopoverShadow.none
-                ? const []
-                : shadows,
-          ),
-          child: Material(
-            type: MaterialType.transparency,
-            textStyle: style,
-            child: content,
-          ),
+    Widget decorate(Widget content) => CustomPaint(
+      foregroundPainter: _PopoverRingPainter(color: edge, radius: radius),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          textStyle: style,
+          child: content,
         ),
       ),
     );
@@ -1495,7 +1455,6 @@ class _PopoverPositioner extends SingleChildRenderObjectWidget {
     required this.content,
     required this.direction,
     required this.animation,
-    required this.glass,
     required super.child,
   });
 
@@ -1504,7 +1463,6 @@ class _PopoverPositioner extends SingleChildRenderObjectWidget {
   final DPopoverContent content;
   final TextDirection direction;
   final Animation<double> animation;
-  final bool glass;
 
   @override
   RenderObject createRenderObject(BuildContext context) => _RenderPopover(this);
@@ -1812,13 +1770,7 @@ class _RenderPopover extends RenderShiftedBox {
       });
     }
 
-    // A live glass lens must read the page beneath the popup. Fractional
-    // opacity isolates it in an offscreen layer, producing blank or split
-    // backdrop tiles during entrance and exit. Keep its slide and scale.
-    if (_configuration.glass) {
-      layer = null;
-      paintSurface(context, offset);
-    } else {
+    {
       layer = context.pushOpacity(
         offset,
         (255 * value).round(),
@@ -1831,8 +1783,6 @@ class _RenderPopover extends RenderShiftedBox {
   @override
   void applyPaintTransform(RenderBox child, Matrix4 transform) {
     assert(child == this.child);
-    // Glass shaders query the render tree at compositing time. Report the
-    // same animated transform that paints their clips and content.
     transform.multiply(_contentTransform);
   }
 

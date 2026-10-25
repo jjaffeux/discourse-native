@@ -68,8 +68,6 @@ abstract final class DControlStyle {
   static const focusOffset = 2.0;
 
   /// Text carets blink on and off every half period instead of fading.
-  /// Flutter's iOS fade requests every vsync while a field has focus, and each
-  /// of those frames re-renders every live glass backdrop on screen.
   static const caretOpacityAnimates = false;
   static const caretBlinkHalfPeriod = Duration(milliseconds: 500);
 
@@ -199,9 +197,6 @@ abstract final class DControlStyle {
 
   static double radius(DTokens tokens, DControlSize size) =>
       tokens.controlRadius;
-  static Color shadow(DTokens tokens) => Colors.black.withValues(
-    alpha: tokens.colors.brightness == Brightness.dark ? .30 : .06,
-  );
   static Color rowHover(DTokens tokens) => Color.lerp(
     tokens.surface,
     tokens.foreground,
@@ -246,7 +241,6 @@ class DControlDecoration extends Decoration {
     this.ringColor = const Color(0x00000000),
     this.ringWidth = 0,
     this.ringOffset = 0,
-    this.shadowColor = const Color(0x00000000),
     this.joinedAxis,
     this.strokeWidth = borderWidth,
     this.dashed = false,
@@ -261,7 +255,6 @@ class DControlDecoration extends Decoration {
   final Color ringColor;
   final double ringWidth;
   final double ringOffset;
-  final Color shadowColor;
   final Axis? joinedAxis;
 
   /// Buttons use 1px; existing editable controls retain their 0.5px frame.
@@ -281,7 +274,6 @@ class DControlDecoration extends Decoration {
           ringColor: Color.lerp(a.ringColor, ringColor, t)!,
           ringWidth: lerpDouble(a.ringWidth, ringWidth, t)!,
           ringOffset: lerpDouble(a.ringOffset, ringOffset, t)!,
-          shadowColor: Color.lerp(a.shadowColor, shadowColor, t)!,
           joinedAxis: t < .5 ? a.joinedAxis : joinedAxis,
           strokeWidth: lerpDouble(a.strokeWidth, strokeWidth, t)!,
           dashed: t < .5 ? a.dashed : dashed,
@@ -303,7 +295,6 @@ class DControlDecoration extends Decoration {
       other.ringColor == ringColor &&
       other.ringWidth == ringWidth &&
       other.ringOffset == ringOffset &&
-      other.shadowColor == shadowColor &&
       other.joinedAxis == joinedAxis;
 
   @override
@@ -316,7 +307,6 @@ class DControlDecoration extends Decoration {
     ringColor,
     ringWidth,
     ringOffset,
-    shadowColor,
     joinedAxis,
   );
 }
@@ -330,16 +320,6 @@ class _DControlPainter extends BoxPainter {
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final rect = offset & configuration.size!;
     final outer = decoration.borderRadius.toRRect(rect);
-    if (decoration.shadowColor.a > 0 && decoration.joinedAxis == null) {
-      const offset = Offset(0, .5);
-      final shadow = BoxShadow(
-        color: decoration.shadowColor,
-        blurRadius: 1,
-        spreadRadius: 1,
-        offset: offset,
-      );
-      canvas.drawRRect(outer.shift(offset).inflate(1), shadow.toPaint());
-    }
     final direction = configuration.textDirection ?? TextDirection.ltr;
     final axis = decoration.joinedAxis;
     final width = decoration.strokeWidth;

@@ -9,7 +9,6 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -1758,11 +1757,8 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
             (_content?.showFocusHighlight == true && _focused));
     final referencePalette =
         _content?.widget.variant == DPopoverVariant.timeline;
-    final glass = DMaterialTheme.glassOf(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final referenceHover =
-        (glass ? (dark ? Colors.white : Colors.black) : tokens.foreground)
-            .withValues(alpha: glass ? (dark ? .08 : .05) : .08);
+
+    final referenceHover = (tokens.foreground).withValues(alpha: .08);
     final background = interactive
         ? referencePalette
               ? referenceHover

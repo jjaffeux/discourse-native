@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Topic progress panel parity
 
 Reference: `discourse-native-mockups` at `070b91a`, `TimelineMenu`,

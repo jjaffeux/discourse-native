@@ -8,7 +8,6 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_card.dart';
@@ -46,7 +45,7 @@ enum DItemSelectionStyle {
 
   strongNeutral,
 
-  /// Flat sidebar hover and a raised selection in liquid glass appearance.
+  /// Flat sidebar hover and selection fills.
   sidebar,
   leadingAccent,
 }
@@ -559,10 +558,7 @@ class _DItemState extends State<DItem> {
         selected: widget.selected,
         hovered:
             widget.highlightOnInteraction && _active && (_hover || _pressed),
-        child: Opacity(
-          opacity: !widget.enabled && DMaterialTheme.glassOf(context) ? .5 : 1,
-          child: result,
-        ),
+        child: Opacity(opacity: 1, child: result),
       );
     }
     if (widget.cornerAction case final action?) {
@@ -665,14 +661,7 @@ class _DItemState extends State<DItem> {
         onTap: _active ? linkActivation.onPressed : null,
         // Toggling enabled keeps the tree shape: a remount would recreate child
         // state and dispose the tap recognizer of a pointer still down.
-        child: Opacity(
-          opacity:
-              widget.enabled ||
-                  (sidebarSelection && DMaterialTheme.glassOf(context))
-              ? 1
-              : .5,
-          child: result,
-        ),
+        child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
       ),
     );
     if (widget.dragData == null) return linkActivation.wrap(item);

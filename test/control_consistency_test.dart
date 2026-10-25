@@ -106,7 +106,6 @@ void main() {
           );
         }
         expect(select.strokeWidth, 1);
-        expect(select.shadowColor.a, 0);
         expect(
           tester
               .getSize(find.byKey(const Key('d-select-trigger-visual')))

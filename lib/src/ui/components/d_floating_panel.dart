@@ -153,7 +153,7 @@ class _DFloatingPanelState extends State<DFloatingPanel> {
                         ): _controller.tuck,
                     },
                     child: Material(
-                      elevation: 10,
+                      elevation: 0,
                       color: Colors.transparent,
                       borderRadius: BorderRadius.circular(DRadius.panel),
                       child: Stack(

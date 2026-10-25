@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
@@ -109,7 +108,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   void launchApplication() {
-    NativeGlass.probeBeforeFirstFrame();
     runApp(DiscourseApp(plugins: _plugins));
     MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   }

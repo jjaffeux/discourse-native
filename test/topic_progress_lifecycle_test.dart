@@ -159,7 +159,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final dark in [false, true]) {
           for (final scale in [1.0, 2.0]) {
             for (final direction in TextDirection.values) {
@@ -171,7 +171,6 @@ void main() {
                 dark: dark,
                 scale: scale,
                 direction: direction,
-                material: material,
               );
               expect(find.text('sam'), findsOneWidget);
               expect(find.text('17 May 2026'), findsNWidgets(2));
@@ -193,7 +192,7 @@ void main() {
               }
               await _capture(
                 tester,
-                '${platform.name}-${material.name}-${dark ? 'dark' : 'light'}-$scale-${direction.name}',
+                '${platform.name}-flat-${dark ? 'dark' : 'light'}-$scale-${direction.name}',
               );
               await tester.tap(find.text('First post'));
               await tester.pumpAndSettle();
@@ -724,21 +723,17 @@ Future<NavigatorState> _openProgress(
   bool dark = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
   bool consumeSafeArea = false,
 }) async {
   final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey: navigatorKey,
-      theme: DMaterialTheme.apply(
-        (dark ? AppTheme.dark : AppTheme.light).copyWith(
-          platform: platform,
-          textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-            fontFamily: 'Lato',
-          ),
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+        textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+          fontFamily: 'Lato',
         ),
-        material,
       ),
       builder: (context, child) => RepaintBoundary(
         key: const ValueKey('timeline-capture'),

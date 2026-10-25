@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
@@ -163,7 +162,6 @@ void topicCompactActionsSheetTests({
         (tester) async {
           if (native) {
             expect(ui.ImageFilter.isShaderFilterSupported, isTrue);
-            await tester.runAsync(LiquidGlass.precache);
           }
           tester.platformDispatcher.textScaleFactorTestValue = scale;
           addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -393,7 +391,6 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
     shell.forumSettings.shared.copyWith(
       font: ForumFont.lato,
       interfaceFont: ForumFont.lato,
-      material: DAppearanceMaterial.standard,
     ),
   );
   await tester.pumpAndSettle();

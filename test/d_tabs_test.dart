@@ -154,7 +154,7 @@ void main() {
         expect(painted.color, tokens.foreground.withValues(alpha: .08));
         expect(painted.borderRadius, BorderRadius.circular(DRadius.panel));
         expect(painted.border!.top.color, Colors.transparent);
-        expect(painted.boxShadow, isNull);
+        expect(painted.boxShadow, isEmpty);
       }
 
       expectSelected(latest);
@@ -279,10 +279,7 @@ void main() {
               )
               .first,
         );
-        final shadow = (surface.decoration! as BoxDecoration).boxShadow!.single;
-        expect(shadow.color.r, 0);
-        expect(shadow.color.g, 0);
-        expect(shadow.color.b, 0);
+        expect((surface.decoration! as BoxDecoration).boxShadow, isEmpty);
         await tester.tap(find.text('Topics'));
         await tester.pumpAndSettle();
         expect(

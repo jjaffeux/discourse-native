@@ -789,7 +789,6 @@ class _ForumSearchState extends State<ForumSearch> {
             constraints: BoxConstraints(maxHeight: height),
             padding: EdgeInsets.zero,
             scrollable: false,
-            shadow: DPopoverShadow.large,
             cornerRadius: DRadius.panel,
             collisionPadding: mobile ? 4 : 0,
             sideCollision: DPopoverCollision.shift,

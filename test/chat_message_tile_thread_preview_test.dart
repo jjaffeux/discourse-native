@@ -34,7 +34,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/gestures.dart'
     show PointerDeviceKind, kMiddleMouseButton, kSecondaryMouseButton;
 import 'package:flutter/material.dart';
@@ -166,10 +166,10 @@ void main() {
     }
   });
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final inThread in [false, true]) {
         testWidgets(
-          'chat reaction artwork parity ($dark, $material, thread=$inThread)',
+          'chat reaction artwork parity ($dark, flat, thread=$inThread)',
           (tester) async {
             final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
             installTestMediaPipeline(
@@ -209,7 +209,6 @@ void main() {
                 onOpenThread: (_) {},
                 contextThreadId: inThread ? 3 : null,
                 brightness: dark ? Brightness.dark : Brightness.light,
-                material: material,
                 captureKey: captureKey,
               ),
             );
@@ -238,13 +237,6 @@ void main() {
                   i == 0 ? .10 : .15,
                 ),
               );
-              expect(
-                find.descendant(
-                  of: toggle,
-                  matching: find.byType(DMaterialSurface),
-                ),
-                findsNothing,
-              );
             }
             if (output != null) {
               await tester.runAsync(() async {
@@ -263,7 +255,7 @@ void main() {
                 );
                 final dir = Directory(output)..createSync(recursive: true);
                 await File(
-                  '${dir.path}/${dark ? 'dark' : 'light'}-${material.name}-${inThread ? 'thread' : 'channel'}.png',
+                  '${dir.path}/${dark ? 'dark' : 'light'}-flat-${inThread ? 'thread' : 'channel'}.png',
                 ).writeAsBytes(bytes!.buffer.asUint8List());
                 image.dispose();
               });
@@ -2910,7 +2902,6 @@ class _TestTile extends StatelessWidget {
     this.withToaster = false,
     this.brightness = Brightness.light,
     this.textScaler,
-    this.material,
     this.captureKey,
   });
 
@@ -2928,7 +2919,6 @@ class _TestTile extends StatelessWidget {
   final bool withToaster;
   final Brightness brightness;
   final TextScaler? textScaler;
-  final DAppearanceMaterial? material;
   final GlobalKey? captureKey;
 
   ThemeData get _theme {
@@ -2939,7 +2929,7 @@ class _TestTile extends StatelessWidget {
           ? base.textTheme
           : base.textTheme.apply(fontFamily: 'Lato'),
     );
-    return material == null ? theme : DMaterialTheme.apply(theme, material!);
+    return theme;
   }
 
   @override

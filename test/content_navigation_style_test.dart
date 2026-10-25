@@ -21,10 +21,10 @@ const _capture = ValueKey('navigation-capture');
 const _canvas = Color(0xff1645ad);
 
 void main() {
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
       for (final scale in [1.0, 2.0]) {
-        testWidgets('navigation paint: $material $brightness ${scale}x', (
+        testWidgets('navigation paint: flat $brightness ${scale}x', (
           tester,
         ) async {
           final shadowsDisabled = debugDisableShadows;
@@ -47,12 +47,9 @@ void main() {
                 localizationsDelegates: AppLocalizations.localizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 themeAnimationStyle: AnimationStyle.noAnimation,
-                theme: DMaterialTheme.apply(
-                  AppTheme.forBrightness(
-                    brightness,
-                  ).copyWith(platform: TargetPlatform.macOS),
-                  material,
-                ),
+                theme: AppTheme.forBrightness(
+                  brightness,
+                ).copyWith(platform: TargetPlatform.macOS),
                 home: ShellScope(
                   controller: shell,
                   child: MediaQuery(
@@ -89,7 +86,7 @@ void main() {
               expect(group.size, const Size(123, 36));
               expect(button.size, const Size(32, 28));
             }
-            final captureName = '${material.name}-${brightness.name}-$scale';
+            final captureName = 'flat-${brightness.name}-$scale';
             final rest = await _pixels(tester, '$captureName-rest');
             final well = Color.alphaBlend(
               Colors.black.withValues(
@@ -142,7 +139,6 @@ void main() {
                     );
                   }
                 }
-                // No outer shadow in either Standard or Liquid glass.
                 if (!group.inflate(1).contains(point)) {
                   expect(rest.bytes.sublist(index, index + 4), [
                     0x16,

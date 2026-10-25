@@ -834,9 +834,7 @@ class _NavigationMenuIndicator extends StatelessWidget {
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(DTokens.of(context).radius * .6),
               ),
-              boxShadow: const [
-                BoxShadow(color: Color(0x1A000000), blurRadius: 6),
-              ],
+              boxShadow: const [],
             ),
           ),
         ),

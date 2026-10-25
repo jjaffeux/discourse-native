@@ -19,23 +19,17 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'topic sheet scroll profile ${material.name}',
+      'topic sheet scroll profile flat',
       (tester) async {
         final shell = await pumpTopicSheetScrollFixture(tester);
         await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(material: material),
+          shell.forumSettings.shared.copyWith(),
         );
         await tester.pumpAndSettle();
         expect(find.byType(DSheetViewport), findsOneWidget);
-        final actualMaterial = DMaterialTheme.of(
-          tester.element(find.byType(DMobileDock)),
-        )!.material;
-        expect(
-          actualMaterial,
-          shell.forumSettings.shared.materialFor(defaultTargetPlatform),
-        );
+
         final scrollable = find.descendant(
           of: topicPostListFinder(),
           matching: find.byType(Scrollable),
@@ -142,7 +136,7 @@ void main() {
         List<MapEntry<String, int>> ranked(Map<String, int> values) =>
             values.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
         debugPrint(
-          'TOPIC_SHEET_PAINT_PROFILE ${jsonEncode({'platform': defaultTargetPlatform.name, 'savedMaterial': material.name, 'material': actualMaterial.name, 'totalPaints': paints.values.fold(0, (a, b) => a + b), 'handlePaints': handlePaints, 'owners': owners, 'buildOwners': buildOwners, 'paints': Map.fromEntries(ranked(paints).take(16)), 'builds': Map.fromEntries(ranked(builds).take(12))})}',
+          'TOPIC_SHEET_PAINT_PROFILE ${jsonEncode({'platform': defaultTargetPlatform.name, 'totalPaints': paints.values.fold(0, (a, b) => a + b), 'handlePaints': handlePaints, 'owners': owners, 'buildOwners': buildOwners, 'paints': Map.fromEntries(ranked(paints).take(16)), 'builds': Map.fromEntries(ranked(builds).take(12))})}',
           wrapWidth: 2048,
         );
         expect(position.pixels, closeTo(1200, 1));

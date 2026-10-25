@@ -11,7 +11,6 @@ import '../foundation/empty_input_controller.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
-import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_label.dart';
@@ -655,64 +654,54 @@ class _InputSurface extends StatelessWidget {
         ignoring: !enabled,
         // transition-colors eases the border and fill; the ring is a box
         // shadow outside that property list, so it paints at once.
-        child: DMaterialSurface(
-          depth: DSurfaceDepth.recessed,
-          radius: borderRadius ?? BorderRadius.circular(t.buttonTheme.radius),
-          color: filled
-              ? t.buttonTheme.outline.hover
-              : t.buttonTheme.outline.background,
-          child: CustomPaint(
-            foregroundPainter: ring == null
-                ? null
-                : _InputRing(
-                    color: ring,
-                    radius:
-                        borderRadius ??
-                        BorderRadius.circular(t.buttonTheme.radius),
-                  ),
-            child: AnimatedContainer(
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 150),
-              ),
-              curve: Curves.fastOutSlowIn,
-              constraints: BoxConstraints(
-                minHeight: DControlStyle.scaledHeight(
-                  size,
-                  MediaQuery.textScalerOf(context),
-                  context: context,
+        child: CustomPaint(
+          foregroundPainter: ring == null
+              ? null
+              : _InputRing(
+                  color: ring,
+                  radius:
+                      borderRadius ??
+                      BorderRadius.circular(t.buttonTheme.radius),
                 ),
+          child: AnimatedContainer(
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 150),
+            ),
+            curve: Curves.fastOutSlowIn,
+            constraints: BoxConstraints(
+              minHeight: DControlStyle.scaledHeight(
+                size,
+                MediaQuery.textScalerOf(context),
+                context: context,
               ),
-              padding: EdgeInsets.symmetric(
-                // The inset includes the 1px border painted inside the surface;
-                // edge-to-edge presets have no inset left to give it.
-                horizontal: DControlStyle.isApplicationSize(size)
-                    ? math.max(0, DControlStyle.horizontalInset(size) - 1)
-                    : 10,
+            ),
+            padding: EdgeInsets.symmetric(
+              // The inset includes the 1px border painted inside the surface;
+              // edge-to-edge presets have no inset left to give it.
+              horizontal: DControlStyle.isApplicationSize(size)
+                  ? math.max(0, DControlStyle.horizontalInset(size) - 1)
+                  : 10,
+            ),
+            decoration: _InputSurfaceDecoration(
+              backgroundColor: filled
+                  ? t.buttonTheme.outline.hover
+                  : t.buttonTheme.outline.background,
+              borderRadius:
+                  borderRadius ?? BorderRadius.circular(t.buttonTheme.radius),
+              borderColor: border,
+              joinedAxis: joinedAxis,
+              omitLeadingBorder: omitLeadingBorder,
+            ),
+            child: IconTheme.merge(
+              data: IconThemeData(
+                size: DControlStyle.iconDimension(size, context: context),
+                color: t.mutedForeground,
               ),
-              decoration: _InputSurfaceDecoration(
-                backgroundColor: DMaterialSurface.fill(
-                  context,
-                  filled
-                      ? t.buttonTheme.outline.hover
-                      : t.buttonTheme.outline.background,
-                ),
-                borderRadius:
-                    borderRadius ?? BorderRadius.circular(t.buttonTheme.radius),
-                borderColor: border,
-                joinedAxis: joinedAxis,
-                omitLeadingBorder: omitLeadingBorder,
-              ),
-              child: IconTheme.merge(
-                data: IconThemeData(
-                  size: DControlStyle.iconDimension(size, context: context),
-                  color: t.mutedForeground,
-                ),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  heightFactor: 1,
-                  child: child,
-                ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                heightFactor: 1,
+                child: child,
               ),
             ),
           ),

@@ -5,7 +5,7 @@ import 'dart:ui' show Tristate;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -24,19 +24,16 @@ void main() {
     try {
       for (final floating in [false, true]) {
         for (final dark in [false, true]) {
-          for (final material in DAppearanceMaterial.values) {
+          {
             const capture = ValueKey('progress-button-capture');
             await tester.pumpWidget(
               MaterialApp(
-                theme: DMaterialTheme.apply(
-                  (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                    platform: floating
-                        ? TargetPlatform.macOS
-                        : TargetPlatform.iOS,
-                    textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
-                        .apply(fontFamily: 'Lato'),
-                  ),
-                  material,
+                theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                  platform: floating
+                      ? TargetPlatform.macOS
+                      : TargetPlatform.iOS,
+                  textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
+                      .apply(fontFamily: 'Lato'),
                 ),
                 home: Scaffold(
                   body: Center(
@@ -64,18 +61,8 @@ void main() {
             await tester.pumpAndSettle();
             final trigger = find.byKey(const ValueKey('topic-progress-button'));
             expect(tester.getSize(trigger).height, floating ? 26 : 30);
-            final glass = find.descendant(
-              of: trigger,
-              matching: find.byType(DMaterialSurface),
-            );
-            if (material == DAppearanceMaterial.liquidGlass) {
-              expect(glass, findsOneWidget);
-              final surface = tester.widget<DMaterialSurface>(glass);
-              expect(surface.preserveColor, isTrue);
-              expect(surface.color.a, closeTo(dark ? .42 : .5, .001));
-            } else {
-              expect(glass, findsNothing);
-            }
+
+            {}
             final output =
                 Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
             if (output != null) {
@@ -89,7 +76,7 @@ void main() {
                   );
                   await Directory(output).create(recursive: true);
                   await File(
-                    '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-${material.name}.png',
+                    '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-flat.png',
                   ).writeAsBytes(bytes!.buffer.asUint8List());
                 } finally {
                   image.dispose();

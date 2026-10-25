@@ -633,7 +633,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                       child: IgnorePointer(
                         ignoring: folding,
                         child: FadeTransition(
-                          opacity: folding && !DMaterialTheme.glassOf(context)
+                          opacity: folding
                               ? ReverseAnimation(_folded)
                               : kAlwaysCompleteAnimation,
                           child: SlideTransition(
@@ -776,23 +776,21 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                                 () => _seamHovered = false,
                                               ),
                                               child: TextFieldTapRegion(
-                                                child: DStandardMaterial(
-                                                  child: DButton.iconOnly(
-                                                    key: const ValueKey(
-                                                      'swap-panels',
-                                                    ),
-                                                    focusNode: _swapFocus,
-                                                    density: DButtonDensity
-                                                        .chatMessageAction,
-                                                    variant:
-                                                        DButtonVariant.outline,
-                                                    icon: const Icon(
-                                                      Icons.swap_horiz,
-                                                    ),
-                                                    tooltip:
-                                                        context.l10n.swapPanels,
-                                                    onPressed: _swapPanels,
+                                                child: DButton.iconOnly(
+                                                  key: const ValueKey(
+                                                    'swap-panels',
                                                   ),
+                                                  focusNode: _swapFocus,
+                                                  density: DButtonDensity
+                                                      .chatMessageAction,
+                                                  variant:
+                                                      DButtonVariant.outline,
+                                                  icon: const Icon(
+                                                    Icons.swap_horiz,
+                                                  ),
+                                                  tooltip:
+                                                      context.l10n.swapPanels,
+                                                  onPressed: _swapPanels,
                                                 ),
                                               ),
                                             ),

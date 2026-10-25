@@ -63,42 +63,36 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets(
-        'topic More appearance ${mode.name} ${material.name}',
-        (tester) async {
-          await _openTopic(tester, mode: mode, material: material);
-          await _openMore(tester);
-          expect(
-            Theme.of(tester.element(_menu)).brightness,
-            mode == AppThemeMode.dark ? Brightness.dark : Brightness.light,
-          );
-          expect(DMaterialTheme.of(tester.element(_menu))?.material, material);
-          final rect = tester.getRect(_menuSheet);
-          expect(rect.left, 6);
-          expect(rect.right, 384);
-          expect(rect.bottom, 838);
-          await _capture(
-            tester,
-            '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-${material.name}',
-          );
-          expect(rect.height, closeTo(144.04, 1));
-          final labels = ['Share topic', 'Flag topic', 'Mark unread'];
-          for (final label in labels) {
-            expect(find.text(label).hitTestable(), findsOneWidget);
-          }
-          final semantics = tester.ensureSemantics();
-          expect(
-            tester.getSemantics(find.text('Share topic')).label,
-            'Share topic',
-          );
-          semantics.dispose();
-          expect(tester.takeException(), isNull);
-        },
-        variant: material == DAppearanceMaterial.standard
-            ? TargetPlatformVariant.only(TargetPlatform.android)
-            : _mobile,
-      );
+    {
+      testWidgets('topic More appearance ${mode.name} flat', (tester) async {
+        await _openTopic(tester, mode: mode);
+        await _openMore(tester);
+        expect(
+          Theme.of(tester.element(_menu)).brightness,
+          mode == AppThemeMode.dark ? Brightness.dark : Brightness.light,
+        );
+
+        final rect = tester.getRect(_menuSheet);
+        expect(rect.left, 6);
+        expect(rect.right, 384);
+        expect(rect.bottom, 838);
+        await _capture(
+          tester,
+          '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-flat',
+        );
+        expect(rect.height, closeTo(144.04, 1));
+        final labels = ['Share topic', 'Flag topic', 'Mark unread'];
+        for (final label in labels) {
+          expect(find.text(label).hitTestable(), findsOneWidget);
+        }
+        final semantics = tester.ensureSemantics();
+        expect(
+          tester.getSemantics(find.text('Share topic')).label,
+          'Share topic',
+        );
+        semantics.dispose();
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.android));
     }
   }
 
@@ -263,7 +257,6 @@ Future<(ShellController, FakeDiscourseApi)> _openTopic(
   WidgetTester tester, {
   Size size = phone,
   AppThemeMode? mode,
-  DAppearanceMaterial? material,
 }) async {
   const user = DiscourseUser(id: 9, username: 'reader');
   final api = FakeDiscourseApi(
@@ -309,7 +302,7 @@ Future<(ShellController, FakeDiscourseApi)> _openTopic(
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
   );
-  if (mode != null && material != null) {
+  if (mode != null) {
     final shell = ShellScope.read(tester.element(primaryMainContent));
     await shell.forumSettings.setThemeMode(_site, mode);
     await shell.forumSettings.setThemes(
@@ -318,7 +311,6 @@ Future<(ShellController, FakeDiscourseApi)> _openTopic(
     );
     await shell.forumSettings.setShared(
       shell.forumSettings.shared.copyWith(
-        material: material,
         font: ForumFont.lato,
         interfaceFont: ForumFont.lato,
       ),

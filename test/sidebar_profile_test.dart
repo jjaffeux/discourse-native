@@ -532,9 +532,6 @@ Future<ShellController> _pumpProduction(
     shell.forumSettings.shared.copyWith(
       font: ForumFont.lato,
       interfaceFont: ForumFont.lato,
-      material: dark
-          ? DAppearanceMaterial.liquidGlass
-          : DAppearanceMaterial.standard,
     ),
   );
   await shell.forumSettings.setThemes(

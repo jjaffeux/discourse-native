@@ -5,22 +5,17 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets('tab tint follows the backdrop ($dark, $material)', (
+    {
+      testWidgets('tab tint follows the backdrop ($dark, flat)', (
         tester,
       ) async {
-        final theme = DMaterialTheme.apply(
-          dark ? AppTheme.dark : AppTheme.light,
-          material,
-        );
+        final theme = dark ? AppTheme.dark : AppTheme.light;
         for (final backdrop in [
           const Color(0xff333333),
           const Color(0xffaaaaaa),
@@ -28,28 +23,15 @@ void main() {
           await _pump(tester, theme: theme, backdrop: backdrop);
           final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
           final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
-          // Liquid Glass paints the mockup's frost: its tint over whatever the
-          // strip sits on, with no lens of its own.
-          await _expectPixel(
-            tester,
-            const Offset(120, 25),
-            material == DAppearanceMaterial.standard
-                ? raised
-                : Color.alphaBlend(
-                    raised.withValues(alpha: dark ? .42 : .5),
-                    backdrop,
-                  ),
-          );
-          expect(find.byType(LiquidGlass), findsNothing);
+          await _expectPixel(tester, const Offset(120, 25), raised);
+
           final surface = tester.widget<Container>(
             find.byKey(const ValueKey('surface')),
           );
           final decoration = surface.decoration! as ShapeDecoration;
           expect(
             (decoration.shape as OutlinedBorder).side.color,
-            material == DAppearanceMaterial.standard
-                ? Color.lerp(tokens.background, tokens.foreground, .22)
-                : Colors.transparent,
+            Color.lerp(tokens.background, tokens.foreground, .22),
           );
           final tab = tester.getRect(find.byType(DDocumentTab));
           final close = tester.getRect(find.byKey(const ValueKey('close')));
@@ -60,15 +42,12 @@ void main() {
       });
 
       testWidgets(
-        'inactive hover and close keep reference paint ($dark, $material)',
+        'inactive hover and close keep reference paint ($dark, flat)',
         (tester) async {
           const backdrop = Color(0xff555555);
           await _pump(
             tester,
-            theme: DMaterialTheme.apply(
-              dark ? AppTheme.dark : AppTheme.light,
-              material,
-            ),
+            theme: dark ? AppTheme.dark : AppTheme.light,
             backdrop: backdrop,
             selected: false,
           );
@@ -83,21 +62,8 @@ void main() {
           addTearDown(pointer.removePointer);
           await pointer.moveTo(tester.getCenter(tab));
           await tester.pumpAndSettle();
-          final glass = material == DAppearanceMaterial.liquidGlass;
-          await _expectPixel(
-            tester,
-            const Offset(120, 25),
-            glass
-                ? Color.alphaBlend(
-                    Color.lerp(
-                      tokens.background,
-                      tokens.foreground,
-                      .1,
-                    )!.withValues(alpha: .22),
-                    backdrop,
-                  )
-                : backdrop,
-          );
+
+          await _expectPixel(tester, const Offset(120, 25), backdrop);
           final surface = tester.widget<Container>(
             find.byKey(const ValueKey('surface')),
           );
@@ -105,11 +71,9 @@ void main() {
             ((surface.decoration! as ShapeDecoration).shape as OutlinedBorder)
                 .side
                 .color,
-            glass
-                ? Colors.white.withValues(alpha: dark ? .14 : .75)
-                : Colors.transparent,
+            Colors.transparent,
           );
-          expect(find.byType(LiquidGlass), findsNothing);
+
           expect(tester.getRect(tab), rect);
           final close = find.byKey(const ValueKey('close'));
           await pointer.moveTo(tester.getCenter(close));
@@ -127,55 +91,16 @@ void main() {
     }
   }
 
-  testWidgets('material changes retain keyboard focus and selection controls', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      theme: DMaterialTheme.apply(AppTheme.dark, DAppearanceMaterial.standard),
-    );
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pumpAndSettle();
-    final selection = find
-        .descendant(
-          of: find.byType(DDocumentTab),
-          matching: find.byType(DButton),
-        )
-        .first;
-    final element = tester.element(selection);
-    final node = tester.widget<DButton>(selection).focusNode!;
-    expect(node.hasFocus, isTrue);
-    final before = tester.getRect(find.byType(DDocumentTab));
-    await _pump(
-      tester,
-      theme: DMaterialTheme.apply(
-        AppTheme.dark,
-        DAppearanceMaterial.liquidGlass,
-      ),
-    );
-    expect(tester.element(selection), same(element));
-    expect(node.hasFocus, isTrue);
-    expect(tester.getRect(find.byType(DDocumentTab)), before);
-  });
-
   testWidgets('high contrast uses the opaque standard selection', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      theme: DMaterialTheme.apply(
-        AppTheme.dark,
-        DAppearanceMaterial.liquidGlass,
-      ),
-      highContrast: true,
-    );
+    await _pump(tester, theme: AppTheme.dark, highContrast: true);
     final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
     await _expectPixel(
       tester,
       const Offset(120, 25),
       Color.lerp(tokens.background, tokens.foreground, .1)!,
     );
-    expect(find.byType(LiquidGlass), findsNothing);
   });
 
   testWidgets(

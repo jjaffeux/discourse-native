@@ -44,10 +44,9 @@ void main() {
         final palette = forumThemePresets.first.resolve(
           dark ? Brightness.dark : Brightness.light,
         );
-        final theme = DMaterialTheme.apply(
-          AppTheme.fromPalette(palette).copyWith(platform: platform),
-          DAppearanceMaterial.standard,
-        );
+        final theme = AppTheme.fromPalette(
+          palette,
+        ).copyWith(platform: platform);
         const captureKey = ValueKey('account-controls-paint');
         final semantics = tester.ensureSemantics();
         try {

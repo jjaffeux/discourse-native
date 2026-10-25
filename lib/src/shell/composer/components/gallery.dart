@@ -536,7 +536,7 @@ class ComposerGalleryMenu extends StatelessWidget {
       child: TextFieldTapRegion(
         child: Material(
           key: const ValueKey('composer-gallery-toolbar'),
-          elevation: 5,
+          elevation: 0,
           color: theme.colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(8),
           clipBehavior: Clip.antiAlias,

@@ -591,19 +591,14 @@ void main() {
     }
   }
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final dark in [false, true]) {
-      testWidgets('mobile sheet handle uses $material dark=$dark', (
-        tester,
-      ) async {
+      testWidgets('mobile sheet handle uses flat dark=$dark', (tester) async {
         await _Harness.create(
           tester,
           mobile: true,
           size: const Size(390, 844),
-          theme: DMaterialTheme.apply(
-            dark ? AppTheme.dark : AppTheme.light,
-            material,
-          ),
+          theme: dark ? AppTheme.dark : AppTheme.light,
         );
         final handle = find.byKey(const ValueKey('sheet-drag-handle'));
         expect(handle.hitTestable(), findsOneWidget);
@@ -617,22 +612,22 @@ void main() {
         }
         await _render(
           tester,
-          'phone-sheet-handle-${material.name}-${dark ? 'dark' : 'light'}',
+          'phone-sheet-handle-flat-${dark ? 'dark' : 'light'}',
         );
         expect(tester.takeException(), isNull);
       });
     }
   }
 
-  for (final material in DAppearanceMaterial.values) {
-    testWidgets('phone close and submit use the mockup 34px action $material', (
+  {
+    testWidgets('phone close and submit use the mockup 34px action flat', (
       tester,
     ) async {
       await _Harness.create(
         tester,
         mobile: true,
         size: const Size(390, 844),
-        theme: DMaterialTheme.apply(AppTheme.light, material),
+        theme: AppTheme.light,
       );
       for (final action in ['composer-close', 'composer-submit']) {
         final button = find.byKey(ValueKey(action));
@@ -647,33 +642,30 @@ void main() {
           reason: action,
         );
       }
-      await _render(tester, 'phone-header-actions-${material.name}');
+      await _render(tester, 'phone-header-actions-flat');
       expect(tester.takeException(), isNull);
     });
   }
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'minimized new topic keeps contrast on a blue forum palette $material',
+      'minimized new topic keeps contrast on a blue forum palette flat',
       (tester) async {
         final h = await _Harness.create(
           tester,
-          theme: DMaterialTheme.apply(
-            AppTheme.fromPalette(
-              const ForumTheme(
-                id: 'blue-fixture',
-                name: 'Blue',
-                brightness: Brightness.dark,
-                primary: Color(0xFFE0E8FF),
-                secondary: Color(0xFF2443A5),
-                tertiary: Color(0xFF88ADFF),
-                quaternary: Color(0xFF88ADFF),
-                danger: Color(0xFFFF7777),
-                success: Color(0xFF70DB82),
-                love: Color(0xFFFC94CB),
-              ).resolve(Brightness.dark),
-            ),
-            material,
+          theme: AppTheme.fromPalette(
+            const ForumTheme(
+              id: 'blue-fixture',
+              name: 'Blue',
+              brightness: Brightness.dark,
+              primary: Color(0xFFE0E8FF),
+              secondary: Color(0xFF2443A5),
+              tertiary: Color(0xFF88ADFF),
+              quaternary: Color(0xFF88ADFF),
+              danger: Color(0xFFFF7777),
+              success: Color(0xFF70DB82),
+              love: Color(0xFFFC94CB),
+            ).resolve(Brightness.dark),
           ),
         );
         final composer = h.shell.visibleComposer!;
@@ -693,7 +685,7 @@ void main() {
         );
         expect(DefaultTextStyle.of(context).style.fontWeight, FontWeight.w600);
         expect(find.text('1 word'), findsOneWidget);
-        await _render(tester, 'desktop-blue-${material.name}-minimized');
+        await _render(tester, 'desktop-blue-flat-minimized');
         await tester.tap(card);
         await tester.pumpAndSettle();
         expect(h.shell.visibleComposer, same(composer));

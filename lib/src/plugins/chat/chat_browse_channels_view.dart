@@ -449,30 +449,26 @@ class _ChannelCard extends StatelessWidget {
                 ),
               ),
             ),
-      action: DStandardMaterial(
-        child: DButton(
-          key: ValueKey(
-            following
-                ? 'chat-unfollow-${channel.id}'
-                : 'chat-join-${channel.id}',
-          ),
-          label: Text(following ? context.l10n.joined : context.l10n.join),
-          semanticLabel: context.l10n.messageChatbrowsechannelsview(
-            following.toString(),
-            following ? context.l10n.leave : '',
-            channel.title,
-            following ? '' : context.l10n.join,
-          ),
-          shape: DButtonShape.pill,
-          size: DButtonSize.small,
-          variant: following ? DButtonVariant.outline : DButtonVariant.primary,
-          onPressed: !following && !canJoin
-              ? null
-              : () => _changeFollowing(context, !following),
-          loading: busy,
-          loadingLabel: Text(
-            following ? context.l10n.leaving : context.l10n.joining,
-          ),
+      action: DButton(
+        key: ValueKey(
+          following ? 'chat-unfollow-${channel.id}' : 'chat-join-${channel.id}',
+        ),
+        label: Text(following ? context.l10n.joined : context.l10n.join),
+        semanticLabel: context.l10n.messageChatbrowsechannelsview(
+          following.toString(),
+          following ? context.l10n.leave : '',
+          channel.title,
+          following ? '' : context.l10n.join,
+        ),
+        shape: DButtonShape.pill,
+        size: DButtonSize.small,
+        variant: following ? DButtonVariant.outline : DButtonVariant.primary,
+        onPressed: !following && !canJoin
+            ? null
+            : () => _changeFollowing(context, !following),
+        loading: busy,
+        loadingLabel: Text(
+          following ? context.l10n.leaving : context.l10n.joining,
         ),
       ),
     );

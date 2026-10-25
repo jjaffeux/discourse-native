@@ -29,9 +29,9 @@ Finder _textSize(String value) => find.descendant(
 );
 
 void main() {
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+  for (final platform in TargetPlatform.values) {
     testWidgets(
-      '${platform.name} settings use glass without a material selector',
+      '${platform.name} settings retain effects without a style selector',
       (tester) async {
         final controller = _controller();
         addTearDown(controller.dispose);
@@ -41,21 +41,10 @@ void main() {
           size: const Size(1100, 1400),
           theme: AppTheme.light.copyWith(platform: platform),
         );
-        expect(
-          controller.forumSettings.shared.material,
-          DAppearanceMaterial.standard,
-        );
         expect(find.byKey(const ValueKey('appearance-material')), findsNothing);
         expect(
           find.byKey(const ValueKey('appearance-effects')),
           findsOneWidget,
-        );
-        final context = tester.element(
-          find.byKey(const ValueKey('app-settings-form')),
-        );
-        expect(
-          DMaterialTheme.of(context)!.material,
-          DAppearanceMaterial.liquidGlass,
         );
         expect(tester.takeException(), isNull);
       },
@@ -191,30 +180,6 @@ void main() {
     await tester.pump();
     expect(controller.appSettings.rawMarkdownComposers, isFalse);
     expect(persistence.rawMarkdownComposers, isFalse);
-  });
-
-  testWidgets('material choice persists without replacing opacity or texture', (
-    tester,
-  ) async {
-    final controller = _controller();
-    addTearDown(controller.dispose);
-    await _pumpPage(tester, controller, size: const Size(1100, 1400));
-    final settings = controller.forumSettings;
-    final effects = settings.shared.effects;
-    final style = find.text('Liquid glass');
-    await tester.ensureVisible(style);
-    await tester.tap(style);
-    await tester.pumpAndSettle();
-    expect(settings.shared.material, DAppearanceMaterial.liquidGlass);
-    expect(
-      (await settings.store.loadAppearance()).material,
-      DAppearanceMaterial.liquidGlass,
-    );
-    expect(settings.shared.effects, effects);
-    await tester.tap(find.text('Standard'));
-    await tester.pumpAndSettle();
-    expect(settings.shared.material, DAppearanceMaterial.standard);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

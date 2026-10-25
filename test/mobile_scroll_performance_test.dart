@@ -33,14 +33,10 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  for (final (platform, material) in [
-    (TargetPlatform.iOS, DAppearanceMaterial.liquidGlass),
-    (TargetPlatform.android, DAppearanceMaterial.standard),
-    (TargetPlatform.android, DAppearanceMaterial.liquidGlass),
-  ]) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final reader in [false, true]) {
       testWidgets(
-        '${reader ? 'reader' : 'topics'} isolates scroll and dock paints ($material)',
+        '${reader ? 'reader' : 'topics'} isolates scroll and dock paints (flat)',
         (tester) async {
           final shell = await fixture.pumpMobileShellFixture(
             tester,
@@ -68,7 +64,7 @@ void main() {
             ),
           );
           await shell.forumSettings.setShared(
-            shell.forumSettings.shared.copyWith(material: material),
+            shell.forumSettings.shared.copyWith(),
           );
           await tester.pumpAndSettle();
           if (reader) {
@@ -99,7 +95,7 @@ void main() {
             find.byKey(const ValueKey('mobile-header')),
           );
           final dock = find.byType(DMobileDock);
-          expect(DMaterialTheme.of(tester.element(dock))?.material, material);
+
           final surface = find.byKey(const ValueKey('mobile-dock-surface'));
           final expandedWidth = tester.getSize(surface).width;
           var headerPaints = 0;
@@ -154,7 +150,7 @@ void main() {
             expect(tester.widget<DMobileDock>(dock).collapsed, isFalse);
             debugPrint(
               'MOBILE_SCROLL_PAINTS reader=$reader platform=$platform '
-              'material=$material total=$totalPaints header=$headerPaints',
+              'material=flat total=$totalPaints header=$headerPaints',
             );
             expect(totalPaints, greaterThan(0));
             expect(headerPaints, 0);

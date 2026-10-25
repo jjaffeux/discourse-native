@@ -103,12 +103,10 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final background = effects?.background;
     final gradient = background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
-    final panelMaterial = DMaterialTheme.of(context) != null;
-    final transparency = DMaterialTheme.reducedOf(context)
-        ? 0.0
-        : background?.transparency ?? 0;
+
+    final transparency = background?.transparency ?? 0;
     return _ForumCanvas(
-      continuous: background != null || panelMaterial,
+      continuous: background != null,
       transparency: transparency,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
@@ -120,17 +118,6 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
         child: Stack(
           fit: StackFit.passthrough,
           children: [
-            if (panelMaterial && !DMaterialTheme.reducedOf(context))
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: _PalettePools(
-                      tokens.primary,
-                      theme.colorScheme.secondary,
-                    ),
-                  ),
-                ),
-              ),
             if (background?.effect == ForumBackgroundEffect.hatch)
               Positioned.fill(
                 child: ForumTexture(
@@ -253,57 +240,11 @@ class ForumSidebarTheme extends StatelessWidget {
     final sidebar = theme.extension<ForumThemeEffects>()?.sidebarTheme;
     if (sidebar == null) return child;
     return Theme(
-      data: DMaterialTheme.apply(
-        sidebar.copyWith(platform: theme.platform),
-        DMaterialTheme.of(context)?.material ?? DAppearanceMaterial.standard,
-      ),
+      data: sidebar.copyWith(platform: theme.platform),
       // Dark navigation needs its own opaque surface over a custom canvas.
-      child: _ForumCanvas(
-        continuous: DMaterialTheme.glassOf(context),
-        child: child,
-      ),
+      child: _ForumCanvas(continuous: false, child: child),
     );
   }
-}
-
-class _PalettePools extends CustomPainter {
-  const _PalettePools(this.accent, this.secondary);
-  final Color accent;
-  final Color secondary;
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final (x, y, radius, color, alpha) in [
-      (.1, .06, .6, accent, .30),
-      (.92, .94, .6, secondary, .24),
-      (.8, .14, .4, accent, .16),
-    ]) {
-      final center = Offset(size.width * x, size.height * y);
-      final rect = Rect.fromCircle(
-        center: center,
-        radius: size.longestSide * radius,
-      );
-      // Past its last stop a pool is transparent. Filling only the circle
-      // inside that stop draws the same pixels; covering the window instead
-      // blended each pool across the whole multisampled frame.
-      canvas.drawCircle(
-        center,
-        rect.width / 2 * .7,
-        Paint()
-          ..shader = RadialGradient(
-            center: Alignment.center,
-            colors: [
-              color.withValues(alpha: alpha),
-              color.withValues(alpha: 0),
-            ],
-            stops: const [0, .7],
-          ).createShader(rect),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PalettePools old) =>
-      old.accent != accent || old.secondary != secondary;
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
@@ -332,8 +273,6 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
   final _content = GlobalKey();
   @override
   Widget build(BuildContext context) => DPageSurface(
-    // The reference's [data-glass] [data-panel] rule overrides the inline
-    // background:none on phone roots. They still own a fill and inset rim.
     framed: true,
     border: false,
     borderRadius: widget._sidebar

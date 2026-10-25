@@ -42,9 +42,9 @@ void main() {
   });
   tearDown(() => messenger.setMockMethodCallHandler(notifications, null));
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'groups cache artwork during scrolling (${material.name})',
+      'groups cache artwork during scrolling (flat)',
       (tester) async {
         final api = _GroupsApi();
         await pumpShell(
@@ -55,7 +55,7 @@ void main() {
         );
         final shell = ShellScope.read(tester.element(primaryMainContent));
         await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(material: material),
+          shell.forumSettings.shared.copyWith(),
         );
         shell.selectDestination(
           const SidebarDestination(
@@ -151,7 +151,7 @@ void main() {
           debugOnRebuildDirtyWidget = oldBuild;
         }
         debugPrint(
-          'GROUPS_SCROLL_PROFILE ${jsonEncode({'platform': defaultTargetPlatform.name, 'material': DMaterialTheme.of(tester.element(filter))!.material.name, 'controlPaints': controlPaints, 'rowPaints': rowPaints, 'retainedBuilds': builds, 'totalPaints': totalPaints, 'previewRequests': api.previews.length})}',
+          'GROUPS_SCROLL_PROFILE ${jsonEncode({'platform': defaultTargetPlatform.name, 'controlPaints': controlPaints, 'rowPaints': rowPaints, 'retainedBuilds': builds, 'totalPaints': totalPaints, 'previewRequests': api.previews.length})}',
         );
         expect(totalPaints, greaterThan(0));
         expect(

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -23,86 +22,85 @@ void main() {
     messenger.setMockMethodCallHandler(channel, (_) async => null);
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
   });
-  for (final material in DAppearanceMaterial.values) {
-    desktopTest(
-      'rapid tab buttons reuse warmed document pages (${material.name})',
-      (tester) async {
-        final shell = await pumpTabSwitchFixture(tester);
-        await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(material: material),
-        );
+  {
+    desktopTest('rapid tab buttons reuse warmed document pages (flat)', (
+      tester,
+    ) async {
+      final shell = await pumpTabSwitchFixture(tester);
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(),
+      );
+      await tester.pumpAndSettle();
+      for (final id in tabSwitchIds) {
+        await tapDocumentTab(tester, id);
         await tester.pumpAndSettle();
+      }
+      final states = <String, State>{};
+      final positions = <String, ScrollPosition>{};
+      for (final id in tabSwitchIds) {
+        await tapDocumentTab(tester, id);
+        await tester.pumpAndSettle();
+        states[id] = tester.state(_page(id));
+        final scrollable = find
+            .descendant(
+              of: _page(id),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable && widget.axis == Axis.vertical,
+              ),
+            )
+            .first;
+        final position = tester.state<ScrollableState>(scrollable).position;
+        expect(position.maxScrollExtent, greaterThan(1000));
+        position.jumpTo(400);
+        await tester.pumpAndSettle();
+        positions[id] = position;
+      }
+      var builds = 0;
+      var pageBuilds = 0;
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        builds++;
+        if (element.widget is TopicView || element.widget is TopicListView) {
+          pageBuilds++;
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      for (var round = 0; round < 3; round++) {
         for (final id in tabSwitchIds) {
           await tapDocumentTab(tester, id);
-          await tester.pumpAndSettle();
-        }
-        final states = <String, State>{};
-        final positions = <String, ScrollPosition>{};
-        for (final id in tabSwitchIds) {
-          await tapDocumentTab(tester, id);
-          await tester.pumpAndSettle();
-          states[id] = tester.state(_page(id));
-          final scrollable = find
-              .descendant(
-                of: _page(id),
-                matching: find.byWidgetPredicate(
-                  (widget) =>
-                      widget is Scrollable && widget.axis == Axis.vertical,
-                ),
-              )
-              .first;
-          final position = tester.state<ScrollableState>(scrollable).position;
-          expect(position.maxScrollExtent, greaterThan(1000));
-          position.jumpTo(400);
-          await tester.pumpAndSettle();
-          positions[id] = position;
-        }
-        var builds = 0;
-        var pageBuilds = 0;
-        final previous = debugOnRebuildDirtyWidget;
-        debugOnRebuildDirtyWidget = (element, builtOnce) {
-          previous?.call(element, builtOnce);
-          builds++;
-          if (element.widget is TopicView || element.widget is TopicListView) {
-            pageBuilds++;
-          }
-        };
-        addTearDown(() => debugOnRebuildDirtyWidget = previous);
-        for (var round = 0; round < 3; round++) {
-          for (final id in tabSwitchIds) {
-            await tapDocumentTab(tester, id);
-            await tester.pump();
-            expect(shell.activeTabId, id);
-            expect(tester.state(_page(id)), same(states[id]));
-            expect(positions[id]!.pixels, closeTo(400, 1));
-            if (id.startsWith('reader-')) {
-              expect(
-                shell.visibleTopicContext?.topicId,
-                id == 'reader-a' ? 1 : 2,
-              );
-            }
+          await tester.pump();
+          expect(shell.activeTabId, id);
+          expect(tester.state(_page(id)), same(states[id]));
+          expect(positions[id]!.pixels, closeTo(400, 1));
+          if (id.startsWith('reader-')) {
+            expect(
+              shell.visibleTopicContext?.topicId,
+              id == 'reader-a' ? 1 : 2,
+            );
           }
         }
-        debugOnRebuildDirtyWidget = previous;
-        debugPrint(
-          'TAB_SWITCH_WORK ${jsonEncode({'builds': builds, 'pageBuilds': pageBuilds, 'material': material.name})}',
-        );
-        expect(
-          pageBuilds,
-          0,
-          reason: 'Tab visibility must not rebuild whole pages.',
-        );
-        expect(tester.takeException(), isNull);
-        expect(states.values.every((state) => state.mounted), isTrue);
-        expect(find.byType(MainContent), findsNWidgets(2));
-        expect(find.byType(MainContent, skipOffstage: false), findsNWidgets(4));
-        for (final id in ['list-a', 'reader-a']) {
-          final page = states[id]!;
-          expect(TickerMode.valuesOf(page.context).enabled, isFalse);
-          expect(Focus.of(page.context).descendantsAreFocusable, isFalse);
-        }
-      },
-    );
+      }
+      debugOnRebuildDirtyWidget = previous;
+      debugPrint(
+        'TAB_SWITCH_WORK ${jsonEncode({'builds': builds, 'pageBuilds': pageBuilds})}',
+      );
+      expect(
+        pageBuilds,
+        0,
+        reason: 'Tab visibility must not rebuild whole pages.',
+      );
+      expect(tester.takeException(), isNull);
+      expect(states.values.every((state) => state.mounted), isTrue);
+      expect(find.byType(MainContent), findsNWidgets(2));
+      expect(find.byType(MainContent, skipOffstage: false), findsNWidgets(4));
+      for (final id in ['list-a', 'reader-a']) {
+        final page = states[id]!;
+        expect(TickerMode.valuesOf(page.context).enabled, isFalse);
+        expect(Focus.of(page.context).descendantsAreFocusable, isFalse);
+      }
+    });
   }
 
   desktopTest('retained long readers give mounting turns to the selected tab', (

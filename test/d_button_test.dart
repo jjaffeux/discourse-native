@@ -4,213 +4,21 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
-import 'support/stock_glass.dart';
 
 void main() {
-  testWidgets(
-    'ordinary glass buttons use regular glass without a cosmetic border',
-    (tester) async {
-      for (final dark in [false, true]) {
-        for (final enabled in [true, false]) {
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: DMaterialTheme.apply(
-                dark ? AppTheme.dark : AppTheme.light,
-                DAppearanceMaterial.liquidGlass,
-              ),
-              home: Center(
-                child: DButton(
-                  variant: DButtonVariant.outline,
-                  label: const Text('Reply'),
-                  onPressed: enabled ? () {} : null,
-                ),
-              ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          final lens = find.byType(LiquidGlass);
-          expectStockGlass(tester, lens);
-          expect(buttonSurface(tester).borderColor.a, 0);
-          expect(buttonSurface(tester).color.a, 0);
-          final node = tester.element(lens);
-          final fractional = <Opacity>[];
-          node.visitAncestorElements((ancestor) {
-            final widget = ancestor.widget;
-            if (widget is Opacity && widget.opacity < 1) fractional.add(widget);
-            return true;
-          });
-          expect(fractional, isEmpty);
-          expect(tester.takeException(), isNull);
-        }
-      }
-    },
-  );
-
-  testWidgets(
-    'explicit glass button colors survive hover and disabled states',
-    (tester) async {
-      const background = Color(0xff51496d);
-      const hover = Color(0xff6f5c96);
-      const foreground = Color(0xffd8c3f6);
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      for (final dark in [false, true]) {
-        for (final state in [
-          (enabled: true, loading: false),
-          (enabled: false, loading: false),
-          (enabled: true, loading: true),
-        ]) {
-          focus.unfocus();
-          await mouse.moveTo(Offset.zero);
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: DMaterialTheme.apply(
-                dark ? AppTheme.dark : AppTheme.light,
-                DAppearanceMaterial.liquidGlass,
-              ),
-              home: Center(
-                child: DButton.iconOnly(
-                  size: DButtonSize.toolbar,
-                  icon: const DIcon(DIcons.paperPlane, size: 12),
-                  tooltip: 'Send',
-                  focusNode: focus,
-                  backgroundColor: background,
-                  interactiveBackgroundColor: hover,
-                  foregroundColor: foreground,
-                  loading: state.loading,
-                  onPressed: state.enabled ? () {} : null,
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
-          final enabled = state.enabled && !state.loading;
-          void expectTint(Color source) {
-            final tint = source.withValues(alpha: .76 * (enabled ? 1 : .6));
-            expectStockGlass(tester, find.byType(LiquidGlass), tint: tint);
-          }
-
-          expectTint(background);
-          final button = find.byType(DButton);
-          expect(tester.getSize(button), const Size(34, 34));
-          if (!state.loading) {
-            expect(
-              IconTheme.of(tester.element(find.byType(DIcon))).color,
-              foreground,
-            );
-          }
-          await mouse.moveTo(tester.getCenter(button));
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
-          expectTint(enabled ? hover : background);
-          await mouse.moveTo(Offset.zero);
-          focus.requestFocus();
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
-          expectTint(enabled ? hover : background);
-          expect(tester.takeException(), isNull);
-        }
-      }
-    },
-  );
-
-  testWidgets(
-    'interactive glass tint leaves resting and expanded fills intact',
-    (tester) async {
-      const background = Color(0xff51496d);
-      const hover = Color(0xff6f5c96);
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await mouse.addPointer(location: Offset.zero);
-      addTearDown(mouse.removePointer);
-      final focus = FocusNode();
-      addTearDown(focus.dispose);
-      for (final expanded in [false, true]) {
-        focus.unfocus();
-        await mouse.moveTo(Offset.zero);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: DMaterialTheme.apply(
-              AppTheme.dark,
-              DAppearanceMaterial.liquidGlass,
-            ),
-            home: Center(
-              child: DButton.iconOnly(
-                icon: const DIcon(DIcons.paperPlane),
-                tooltip: 'Send',
-                focusNode: focus,
-                backgroundColor: expanded ? background : null,
-                interactiveBackgroundColor: hover,
-                expanded: expanded,
-                onPressed: () {},
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        void expectTint(Color? source) {
-          expectStockGlass(
-            tester,
-            find.byType(LiquidGlass),
-            tint: source?.withValues(alpha: .76),
-          );
-        }
-
-        expectTint(expanded ? background : null);
-        focus.requestFocus();
-        await tester.pumpAndSettle();
-        expectTint(expanded ? background : hover);
-        await mouse.moveTo(tester.getCenter(find.byType(DButton)));
-        await tester.pumpAndSettle();
-        expectTint(hover);
-        focus.unfocus();
-        await mouse.moveTo(Offset.zero);
-        await tester.pumpAndSettle();
-        expectTint(expanded ? background : null);
-      }
-    },
-  );
-
-  testWidgets('transparent glass button override has no lens', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: DMaterialTheme.apply(
-          AppTheme.dark,
-          DAppearanceMaterial.liquidGlass,
-        ),
-        home: Center(
-          child: DButton.iconOnly(
-            icon: const DIcon(DIcons.paperPlane),
-            tooltip: 'Send',
-            backgroundColor: Colors.transparent,
-            onPressed: () {},
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(LiquidGlass), findsNothing);
-    expect(buttonSurface(tester).color.a, 0);
-  });
-
   testWidgets('timeline icon buttons preserve their glyph bounds', (
     tester,
   ) async {
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final scale in [1.0, 2.0]) {
           for (final density in [
             DButtonDensity.floatingCall,
@@ -219,10 +27,7 @@ void main() {
           ]) {
             await tester.pumpWidget(
               MaterialApp(
-                theme: DMaterialTheme.apply(
-                  AppTheme.light.copyWith(platform: platform),
-                  material,
-                ),
+                theme: AppTheme.light.copyWith(platform: platform),
                 home: MediaQuery(
                   data: MediaQueryData(textScaler: TextScaler.linear(scale)),
                   child: Scaffold(
@@ -276,7 +81,7 @@ void main() {
     addTearDown(focus.dispose);
     var presses = 0;
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final dark in [false, true]) {
           for (final scale in [1.0, 2.0]) {
             for (final density in [
@@ -288,11 +93,8 @@ void main() {
               final footer = density == DButtonDensity.topicProgress;
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: DMaterialTheme.apply(
-                    (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                      platform: platform,
-                    ),
-                    material,
+                  theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                    platform: platform,
                   ),
                   home: MediaQuery(
                     data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -327,39 +129,24 @@ void main() {
                 ),
               );
               final surface = buttonSurface(tester);
-              final glass = material == DAppearanceMaterial.liquidGlass;
+
               expect(
                 surface.color.a,
-                floating && !glass
+                floating
                     ? closeTo(.4, .001)
                     : footer || floating
                     ? 0
                     : 1,
               );
-              expect(
-                surface.borderColor.a,
-                floating && !glass ? greaterThan(0) : 0,
-              );
-              final raised = find.descendant(
-                of: button,
-                matching: find.byType(DMaterialSurface),
-              );
-              expect(
-                raised,
-                (floating || footer) && glass ? findsOneWidget : findsNothing,
-              );
-              if ((floating || footer) && glass) {
-                final materialSurface = tester.widget<DMaterialSurface>(raised);
-                expect(materialSurface.preserveColor, isTrue);
-                expect(materialSurface.color.a, closeTo(dark ? .42 : .5, .001));
-              }
+              expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
+
               expect(surface.borderRadius.topLeft.x, 999);
               expect(
                 find.descendant(
                   of: button,
                   matching: find.byType(BackdropFilter),
                 ),
-                floating && !glass ? findsOneWidget : findsNothing,
+                findsNothing,
               );
               final artwork = find.descendant(
                 of: button,
@@ -390,9 +177,9 @@ void main() {
     }
   });
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
-      testWidgets('launcher hover stays flat in $material $brightness', (
+      testWidgets('launcher hover stays flat in flat $brightness', (
         tester,
       ) async {
         const canvas = Color(0xff323642);
@@ -404,10 +191,7 @@ void main() {
         try {
           await tester.pumpWidget(
             MaterialApp(
-              theme: DMaterialTheme.apply(
-                AppTheme.forBrightness(brightness),
-                material,
-              ),
+              theme: AppTheme.forBrightness(brightness),
               home: Center(
                 child: RepaintBoundary(
                   key: capture,
@@ -476,7 +260,7 @@ void main() {
               final output = Platform.environment['START_PAGE_CAPTURE_DIR'];
               if (output != null) {
                 final file = File(
-                  '$output/launcher-hover-${material.name}-${brightness.name}.png',
+                  '$output/launcher-hover-flat-${brightness.name}.png',
                 );
                 await file.parent.create(recursive: true);
                 await file.writeAsBytes(
@@ -508,9 +292,9 @@ void main() {
       });
     }
   }
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
-      testWidgets('desktop header states stay flat in $material $brightness', (
+      testWidgets('desktop header states stay flat in flat $brightness', (
         tester,
       ) async {
         const canvas = Color(0xff323642);
@@ -528,12 +312,9 @@ void main() {
                   : DButtonVariant.ghost;
               await tester.pumpWidget(
                 MaterialApp(
-                  theme: DMaterialTheme.apply(
-                    AppTheme.forBrightness(
-                      brightness,
-                    ).copyWith(platform: TargetPlatform.macOS),
-                    material,
-                  ),
+                  theme: AppTheme.forBrightness(
+                    brightness,
+                  ).copyWith(platform: TargetPlatform.macOS),
                   home: Center(
                     child: RepaintBoundary(
                       key: capture,
@@ -1157,114 +938,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('glass dock buttons retain focus, loading and exact targets', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    var presses = 0;
-    for (final density in [
-      DButtonDensity.mobileDock,
-      DButtonDensity.mobileDockAction,
-      DButtonDensity.mobileDockCollapsed,
-    ]) {
-      for (final scale in [1.0, 2.0]) {
-        Future<void> pump({bool loading = false}) => tester.pumpWidget(
-          MaterialApp(
-            theme: DMaterialTheme.apply(
-              AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-              DAppearanceMaterial.liquidGlass,
-            ),
-            home: MediaQuery(
-              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-              child: Scaffold(
-                body: Center(
-                  child: DButton.iconOnly(
-                    density: density,
-                    shape: DButtonShape.pill,
-                    icon: const Icon(Icons.add),
-                    tooltip: 'New topic',
-                    backgroundColor: density == DButtonDensity.mobileDock
-                        ? Colors.white12
-                        : null,
-                    focusNode: focus,
-                    loading: loading,
-                    onPressed: () => presses++,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        focus.unfocus();
-        await pump();
-        await tester.pumpAndSettle();
-        final button = find.byType(DButton);
-        final bounds = tester.getRect(button);
-        final lens = find.byType(LiquidGlass);
-        expect(tester.getRect(lens), bounds);
-        expectStockGlass(tester, lens);
-        expect(
-          tester.widget<LiquidGlass>(lens).shape,
-          LiquidRoundedRectangle(borderRadius: bounds.height / 2),
-        );
-        expect(tester.getCenter(find.byIcon(Icons.add)), bounds.center);
-        expect(find.byType(DMaterialSurface), findsNothing);
-        expect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is AnimatedContainer &&
-                widget.decoration is DButtonDecoration,
-          ),
-          findsNothing,
-        );
-        final before = presses;
-        await tester.tapAt(bounds.centerLeft - const Offset(1, 0));
-        expect(presses, before);
-        await tester.tap(button);
-        await tester.pump();
-        expect(presses, before + 1);
-        focus.requestFocus();
-        await tester.pumpAndSettle();
-        final artwork = find.byType(DControlArtwork);
-        final paint = tester.widget<CustomPaint>(
-          find
-              .descendant(of: artwork, matching: find.byType(CustomPaint))
-              .first,
-        );
-        expect(paint.foregroundPainter, isNotNull);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pump();
-        expect(presses, before + 2);
-        await pump(loading: true);
-        await tester.pump();
-        expect(tester.getRect(button), bounds);
-        expect(find.byType(DSpinner), findsOneWidget);
-        expect(
-          find.ancestor(
-            of: lens,
-            matching: find.byWidgetPredicate(
-              (widget) => widget is Opacity && widget.opacity < 1,
-            ),
-          ),
-          findsNothing,
-        );
-        final data = tester.getSemantics(button).getSemanticsData();
-        expect(data.label, 'New topic');
-        expect(
-          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-          isNull,
-        );
-        await tester.tap(button);
-        await tester.pump();
-        expect(presses, before + 2);
-        expect(tester.takeException(), isNull);
-      }
-    }
-    semantics.dispose();
-  });
 
   testWidgets('an icon-only dock action stays circular within a wider slot', (
     tester,

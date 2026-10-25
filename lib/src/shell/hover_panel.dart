@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -187,38 +186,36 @@ class HoverPanelState extends State<HoverPanel> {
           onExit: (_) => _scheduleClose(),
           child: OverlayPortal(
             controller: _portal,
-            overlayChildBuilder: (context) => NativeGlassOccluder(
-              child: ValueListenableBuilder<Rect?>(
-                valueListenable: _anchor,
-                builder: (context, anchor, child) => CustomSingleChildLayout(
-                  delegate: AnchoredLayout(
-                    anchor: anchor,
-                    maxWidth: widget.maxWidth,
-                    preferAbove: widget.preferAbove,
-                  ),
-                  child: child!,
+            overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+              valueListenable: _anchor,
+              builder: (context, anchor, child) => CustomSingleChildLayout(
+                delegate: AnchoredLayout(
+                  anchor: anchor,
+                  maxWidth: widget.maxWidth,
+                  preferAbove: widget.preferAbove,
                 ),
-                child: TapRegion(
-                  groupId: _portal,
-                  child: Focus(
-                    canRequestFocus: false,
-                    onFocusChange: (focused) {
-                      if (focused) {
-                        _closing?.cancel();
-                        _closing = null;
-                      } else {
-                        _scheduleClose();
-                      }
+                child: child!,
+              ),
+              child: TapRegion(
+                groupId: _portal,
+                child: Focus(
+                  canRequestFocus: false,
+                  onFocusChange: (focused) {
+                    if (focused) {
+                      _closing?.cancel();
+                      _closing = null;
+                    } else {
+                      _scheduleClose();
+                    }
+                  },
+                  onKeyEvent: _handleKey,
+                  child: MouseRegion(
+                    onEnter: (_) {
+                      _closing?.cancel();
+                      _closing = null;
                     },
-                    onKeyEvent: _handleKey,
-                    child: MouseRegion(
-                      onEnter: (_) {
-                        _closing?.cancel();
-                        _closing = null;
-                      },
-                      onExit: (_) => _scheduleClose(),
-                      child: Builder(builder: widget.panelBuilder),
-                    ),
+                    onExit: (_) => _scheduleClose(),
+                    child: Builder(builder: widget.panelBuilder),
                   ),
                 ),
               ),

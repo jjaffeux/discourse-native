@@ -28,14 +28,10 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  for (final (platform, material) in [
-    (TargetPlatform.iOS, DAppearanceMaterial.liquidGlass),
-    (TargetPlatform.android, DAppearanceMaterial.standard),
-    (TargetPlatform.android, DAppearanceMaterial.liquidGlass),
-  ]) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final chat in [false, true]) {
       testWidgets(
-        'profiles ${chat ? 'chat' : 'topics'} chrome transitions ($material)',
+        'profiles ${chat ? 'chat' : 'topics'} chrome transitions (flat)',
         (tester) async {
           final shell = await fixture.pumpMobileShellFixture(
             tester,
@@ -73,7 +69,7 @@ void main() {
             ],
           );
           await shell.forumSettings.setShared(
-            shell.forumSettings.shared.copyWith(material: material),
+            shell.forumSettings.shared.copyWith(),
           );
           if (chat) {
             await shell.openChat();
@@ -101,7 +97,7 @@ void main() {
           await tester.pumpAndSettle();
           final chrome = DScrollChrome.maybeOf(tester.element(body))!;
           final dock = find.byType(DMobileDock);
-          expect(DMaterialTheme.of(tester.element(dock))?.material, material);
+
           final surface = find.byKey(const ValueKey('mobile-dock-surface'));
           final scopes = <String, Finder>{
             'body': body,
@@ -151,7 +147,6 @@ void main() {
             }
             final report = <String, Object?>{
               'surface': chat ? 'chat' : 'topics',
-              'material': material.name,
               'platform': platform.name,
               'mode': 'work-counts',
               'devicePixelRatio': tester.view.devicePixelRatio,

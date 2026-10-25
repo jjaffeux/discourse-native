@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Chat reaction artwork parity
 
 Reference: `discourse-native-mockups` at `7c86328`, `ChatBubble` in

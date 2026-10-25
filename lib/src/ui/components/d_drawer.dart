@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter, PointerDeviceKind;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
@@ -1565,14 +1564,11 @@ class DDrawerOverlay extends StatelessWidget {
   final VoidCallback onDismiss;
 
   @override
-  Widget build(BuildContext context) => BackdropFilter(
-    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-    child: ModalBarrier(
-      color: Colors.black.withValues(alpha: .1),
-      dismissible: dismissible,
-      semanticsLabel: semanticsLabel,
-      onDismiss: onDismiss,
-    ),
+  Widget build(BuildContext context) => ModalBarrier(
+    color: Colors.black.withValues(alpha: .1),
+    dismissible: dismissible,
+    semanticsLabel: semanticsLabel,
+    onDismiss: onDismiss,
   );
 }
 

@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,12 +15,9 @@ void main() {
     const key = ValueKey('chrome-well');
     const canvas = Color(0xff4e4264);
     for (final brightness in Brightness.values) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final scale in [1.0, 2.0]) {
-          final theme = DMaterialTheme.apply(
-            AppTheme.forBrightness(brightness),
-            material,
-          );
+          final theme = AppTheme.forBrightness(brightness);
           Future<void> mount(Widget child) async {
             await tester.pumpWidget(
               MaterialApp(
@@ -103,7 +100,7 @@ void main() {
           ]) {
             await mount(control);
             final size = tester.getSize(find.byKey(key));
-            expect(tester.getSize(find.byType(DMaterialSurface).first), size);
+
             final (actual, actualBytes) = await pixels();
             await mount(
               SizedBox(
@@ -136,7 +133,7 @@ void main() {
                     expect(
                       actualBytes.getUint8(offset + channel),
                       closeTo(referenceBytes.getUint8(offset + channel), 3),
-                      reason: '$name $brightness $material ${scale}x ($x,$y)',
+                      reason: '$name $brightness flat ${scale}x ($x,$y)',
                     );
                   }
                 }

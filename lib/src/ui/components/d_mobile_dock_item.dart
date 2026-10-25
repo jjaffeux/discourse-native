@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -43,7 +42,7 @@ class DMobileDockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final glass = DMaterialTheme.glassOf(context);
+
     final scaleDelta = math.max(
       0.0,
       MediaQuery.textScalerOf(context).scale(11) - 11,
@@ -52,12 +51,10 @@ class DMobileDockItem extends StatelessWidget {
     final measure = TextPainter(
       text: TextSpan(
         text: label,
-        style: glass
-            ? const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)
-            : Theme.of(context).textTheme.labelLarge!.copyWith(
-                fontSize: DiscourseTypography.micro,
-                fontWeight: FontWeight.w600,
-              ),
+        style: Theme.of(context).textTheme.labelLarge!.copyWith(
+          fontSize: DiscourseTypography.micro,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       textScaler: MediaQuery.textScalerOf(context),
       textDirection: Directionality.of(context),
@@ -88,28 +85,22 @@ class DMobileDockItem extends StatelessWidget {
           expanded: expanded,
           hasPopup: hasPopup,
           onPressed: onPressed,
-          foregroundColor: glass
-              ? selected
-                    ? tokens.foreground
-                    : tokens.mutedForeground
-              : selected
+          foregroundColor: selected
               ? tokens.foreground
               : tokens.mutedForeground,
           backgroundColor: selected
-              ? glass
-                    ? tokens.foreground.withValues(alpha: .12)
-                    : Color.lerp(tokens.background, tokens.foreground, .20)
+              ? Color.lerp(tokens.background, tokens.foreground, .20)
               : Colors.transparent,
           label: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
                 key: const ValueKey('mobile-dock-glyph'),
-                height: (glass ? 24 : 26) + scaleDelta,
+                height: (26) + scaleDelta,
                 child: Center(child: ExcludeSemantics(child: icon)),
               ),
               if (!bare) ...[
-                SizedBox(height: glass ? 2 : 2),
+                const SizedBox(height: 2),
                 SizedBox(
                   height: labelHeight,
                   child: Row(
@@ -124,11 +115,7 @@ class DMobileDockItem extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: glass
-                                  ? selected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500
-                                  : selected
+                              fontWeight: selected
                                   ? FontWeight.w600
                                   : FontWeight.w500,
                             ),

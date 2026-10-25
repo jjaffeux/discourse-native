@@ -293,15 +293,12 @@ class _ReviewState extends State<_Review> with WidgetsBindingObserver {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     themeAnimationStyle: AnimationStyle.noAnimation,
-    theme: DMaterialTheme.apply(
-      AppTheme.forBrightness(
-        Brightness.dark,
-        background: ForumBackground.appearance(
-          effect: _effect,
-          noiseIntensity: .7,
-        ),
+    theme: AppTheme.forBrightness(
+      Brightness.dark,
+      background: ForumBackground.appearance(
+        effect: _effect,
+        noiseIntensity: .7,
       ),
-      DAppearanceMaterial.standard,
     ),
     home: MediaQuery(
       data: MediaQueryData(disableAnimations: _reduced),

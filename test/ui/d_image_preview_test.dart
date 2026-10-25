@@ -60,60 +60,61 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('hover shadows stay outside transparent image pixels', (
-    tester,
-  ) async {
-    final previous = debugDisableShadows;
-    debugDisableShadows = false;
-    addTearDown(() => debugDisableShadows = previous);
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Center(
-          child: RepaintBoundary(
-            key: key,
-            child: Padding(
-              padding: const EdgeInsets.all(30),
-              child: SizedBox(
-                width: 200,
-                height: 100,
-                child: DImagePreview(
-                  semanticLabel: 'Open transparent image',
-                  onPressed: () {},
-                  child: const SizedBox.expand(),
+  testWidgets(
+    'hover preserves transparent pixels inside and outside the image',
+    (tester) async {
+      final previous = debugDisableShadows;
+      debugDisableShadows = false;
+      addTearDown(() => debugDisableShadows = previous);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: Padding(
+                padding: const EdgeInsets.all(30),
+                child: SizedBox(
+                  width: 200,
+                  height: 100,
+                  child: DImagePreview(
+                    semanticLabel: 'Open transparent image',
+                    onPressed: () {},
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: tester.getCenter(_preview));
-    await tester.pumpAndSettle();
-    final boundary =
-        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-    final image = (await tester.runAsync(
-      () => boundary.toImage(pixelRatio: 1),
-    ))!;
-    final pixels = (await tester.runAsync(() => image.toByteData()))!;
-    debugDisableShadows = previous;
-    int alpha(int x, int y) => pixels.getUint8((y * image.width + x) * 4 + 3);
-    expect(
-      alpha(100, 50),
-      0,
-      reason: 'The image interior must stay transparent.',
-    );
-    expect(
-      alpha(28, 80),
-      greaterThan(0),
-      reason: 'The exterior must still cast a shadow.',
-    );
-    image.dispose();
-    await mouse.removePointer();
-  });
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: tester.getCenter(_preview));
+      await tester.pumpAndSettle();
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = (await tester.runAsync(
+        () => boundary.toImage(pixelRatio: 1),
+      ))!;
+      final pixels = (await tester.runAsync(() => image.toByteData()))!;
+      debugDisableShadows = previous;
+      int alpha(int x, int y) => pixels.getUint8((y * image.width + x) * 4 + 3);
+      expect(
+        alpha(100, 50),
+        0,
+        reason: 'The image interior must stay transparent.',
+      );
+      expect(
+        alpha(28, 80),
+        0,
+        reason: 'Flat image previews leave the exterior transparent.',
+      );
+      image.dispose();
+      await mouse.removePointer();
+    },
+  );
 
-  testWidgets('hover fades metadata and shadow without resizing the image', (
+  testWidgets('hover fades metadata without resizing the image', (
     tester,
   ) async {
     await _pump(tester);
@@ -136,17 +137,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(fade.opacity.value, .9);
     expect(tester.getRect(_preview), bounds);
-    final decoration =
-        tester
-                .widget<AnimatedContainer>(
-                  find.descendant(
-                    of: _preview,
-                    matching: find.byType(AnimatedContainer),
-                  ),
-                )
-                .decoration!
-            as BoxDecoration;
-    expect(decoration.boxShadow!.every((s) => s.color.a > 0), isTrue);
     await mouse.moveTo(Offset.zero);
     await tester.pump();
     expect(
@@ -155,6 +145,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(fade.opacity.value, 0);
+    expect(tester.getRect(_preview), bounds);
     await mouse.removePointer();
   });
 

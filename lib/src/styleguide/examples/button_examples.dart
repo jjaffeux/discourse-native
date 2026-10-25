@@ -42,7 +42,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Quiet page pickers',
       description:
-          '30px pills with 12.5px medium text and flat translucent fills in both materials. A category path shares one well; each segment keeps its own hover, focus and hit bounds.',
+          '30px pills with 12.5px medium text and flat translucent fills. A category path shares one well; each segment keeps its own hover, focus and hit bounds.',
       code:
           "DButton(variant: DButtonVariant.quiet, size: DButtonSize.filter, label: Text('Tags'), onPressed: openTags)",
       builder: (_) => Wrap(
@@ -96,7 +96,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Bare post actions',
       description:
-          '30px Reply and More actions with 13px icons, no resting fill, and an inset Liquid Glass hover sheen.',
+          '30px Reply and More actions with 13px icons, no resting fill, and a flat hover fill.',
       code:
           "DButton.iconOnly(density: DButtonDensity.postAction, icon: DIcon(DIcons.reply), tooltip: 'Reply', onPressed: reply)",
       builder: (_) => Row(
@@ -162,7 +162,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'A blurred floating pill, footer progress, and compact endpoints. Progress triggers retain their raised surface in Liquid Glass; pinned dates use a denser frosted lens. Hit bounds follow each surface on desktop and touch.',
+          'A translucent floating pill, footer progress, and compact endpoints. Pinned dates use flat fills. Hit bounds follow each control on desktop and touch.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(
@@ -359,8 +359,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Recessed tab list',
       description:
-          'A circular inset action with a dark well, inner shadow and bottom rim. '
-          'Standard and Liquid glass retain the same depth without an outer shadow.',
+          'A circular action with a flat dark fill and an exact visible hit area.',
       code:
           "DButton.iconOnly(variant: DButtonVariant.recessed, size: DControlSize.documentTab, shape: DButtonShape.pill, icon: DIcon(DIcons.chevronDown), tooltip: 'All tabs', onPressed: openTabs)",
       builder: (_) => DButton.iconOnly(

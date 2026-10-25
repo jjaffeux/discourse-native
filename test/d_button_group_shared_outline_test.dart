@@ -16,10 +16,7 @@ void main() {
     var presses = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: DMaterialTheme.apply(
-          AppTheme.dark,
-          DAppearanceMaterial.liquidGlass,
-        ),
+        theme: AppTheme.dark,
         home: Center(
           child: DButtonGroup.quiet(
             selected: true,

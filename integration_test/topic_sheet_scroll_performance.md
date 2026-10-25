@@ -1,3 +1,5 @@
+> Historical measurements for the retired rendering. The current app uses the [flat appearance](../docs/material-mockup-parity.md).
+
 # Topic sheet scrolling
 
 Measured on October 15, 2026, against `main` at `e2cf504fb`.

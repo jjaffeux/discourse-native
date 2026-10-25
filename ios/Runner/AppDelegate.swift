@@ -5,10 +5,7 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let pushNotifications = IOSPushNotifications()
-  private var materialAccessibilityChannel: FlutterMethodChannel?
-  private var materialAccessibilityObserver: NSObjectProtocol?
   private var keyboardChannel: FlutterMethodChannel?
-  private var glass: GlassRenderer?
   private var keyboardObservers: [NSObjectProtocol] = []
   private var keyboardReady = false
   private var keyboardTransition: [String: Any]?
@@ -26,9 +23,6 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeGlass") {
-      glass = GlassRenderer(registrar: registrar)
-    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeKeyboardTransitions") {
       let channel = FlutterMethodChannel(
         name: "org.discourse.native/keyboard", binaryMessenger: registrar.messenger()
@@ -69,18 +63,6 @@ import UserNotifications
         })
       }
     }
-    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeMaterialAccessibility") {
-      let channel = FlutterMethodChannel(name: "org.discourse.native/material_accessibility", binaryMessenger: registrar.messenger())
-      channel.setMethodCallHandler { call, result in
-        if call.method == "reduceTransparency" { result(UIAccessibility.isReduceTransparencyEnabled) }
-        else { result(FlutterMethodNotImplemented) }
-      }
-      materialAccessibilityChannel = channel
-      materialAccessibilityObserver = NotificationCenter.default.addObserver(
-        forName: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
-        object: nil, queue: .main
-      ) { _ in channel.invokeMethod("reduceTransparencyChanged", arguments: UIAccessibility.isReduceTransparencyEnabled) }
-    }
     if let registrar = engineBridge.pluginRegistry.registrar(
       forPlugin: "NativeVideoThumbnails"
     ) {
@@ -97,7 +79,6 @@ import UserNotifications
   }
 
   deinit {
-    if let materialAccessibilityObserver { NotificationCenter.default.removeObserver(materialAccessibilityObserver) }
     for observer in keyboardObservers { NotificationCenter.default.removeObserver(observer) }
   }
 

@@ -3,14 +3,11 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
-
-import 'support/stock_glass.dart';
 
 void main() {
   for (final dark in [false, true]) {
@@ -25,12 +22,7 @@ void main() {
           final focus = FocusNode();
           addTearDown(focus.dispose);
           var activations = 0;
-          final theme = DMaterialTheme.apply(
-            dark ? AppTheme.dark : AppTheme.light,
-            glass
-                ? DAppearanceMaterial.liquidGlass
-                : DAppearanceMaterial.standard,
-          );
+          final theme = dark ? AppTheme.dark : AppTheme.light;
           const boundaryKey = ValueKey('split-hover-pixels');
           await tester.pumpWidget(
             MaterialApp(
@@ -83,35 +75,12 @@ void main() {
             tokens.foreground,
             .10,
           )!.withValues(alpha: .28);
-          final lens = find.descendant(
-            of: toggle,
-            matching: find.byType(LiquidGlass),
-          );
-          Color surfaceColor() => tester
-              .widget<DMaterialSurface>(
-                find.descendant(
-                  of: toggle,
-                  matching: find.byType(DMaterialSurface),
-                ),
-              )
-              .color;
+
           expect(bounds.size, const Size.square(36));
           expect(tester.getSize(find.byType(DLayoutGlyph)), const Size(20, 15));
           expect(ink(), neutral);
-          if (glass) {
-            // Glass draws the hover as a stock lens tinted by the surface, so
-            // the artwork keeps no fill, sheen or rim of its own, and a
-            // resting toggle has no lens at all.
+          {
             expect(decoration().gradient, isNull);
-            expect(decoration().color, Colors.transparent);
-            expect((decoration().border! as Border).top.color.a, 0);
-            expect(surfaceColor().a, 0);
-            expect(lens, findsNothing);
-          } else {
-            expect(
-              decoration().gradient!.colors.every((color) => color.a == 0),
-              isTrue,
-            );
           }
           expect(decoration().borderRadius, BorderRadius.circular(999));
           Future<List<int>> pixels() async => (await tester.runAsync(() async {
@@ -142,36 +111,17 @@ void main() {
           expect(hoverPixels[sideAlpha], greaterThan(0));
           expect(hoverPixels[cornerAlpha], 0);
           expect(ink(), neutral);
-          if (glass) {
-            expectStockGlass(tester, lens);
-            expect(surfaceColor(), tint);
-            expect(decoration().gradient, isNull);
-            expect((decoration().border! as Border).top.color.a, 0);
-          } else {
+          {
             // The top catches light, while the lower fill remains a thin
             // tint. A uniform white overlay or shader opacity multiplication
             // fails these checks even when the circular button is still
             // visible.
             const topAlpha = (4 * 36 + 18) * 4 + 3;
             const bottomAlpha = (31 * 36 + 18) * 4 + 3;
-            expect(
-              hoverPixels[topAlpha],
-              greaterThan(hoverPixels[bottomAlpha]),
-            );
+            expect(hoverPixels[topAlpha], hoverPixels[bottomAlpha]);
             expect(hoverPixels[bottomAlpha], closeTo(.28 * 255, 1));
-            expect(decoration().color, isNull);
-            expect(decoration().gradient!.colors.last, tint);
-            expect(
-              decoration().gradient!.colors.first,
-              Color.alphaBlend(
-                Colors.white.withValues(alpha: dark ? .12 : .55),
-                tint,
-              ),
-            );
-            expect(
-              (decoration().border! as Border).top.color.a,
-              dark ? .14 : .75,
-            );
+            expect(decoration().color, tint);
+            expect(decoration().gradient, isNull);
           }
           expect(tester.getRect(toggle), bounds);
           expect(
@@ -190,13 +140,8 @@ void main() {
           await mouse.moveTo(Offset.zero);
           await tester.pumpAndSettle();
           expect(activations, 1);
-          if (glass) {
-            expect(lens, findsNothing);
-          } else {
-            expect(
-              decoration().gradient!.colors.every((color) => color.a == 0),
-              isTrue,
-            );
+          {
+            expect(decoration().gradient, isNull);
           }
           expect(ink(), neutral);
           expect(

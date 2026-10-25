@@ -12,7 +12,7 @@ import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -30,12 +30,12 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final brightness in Brightness.values) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final scale in [1.0, 2.0]) {
-        testWidgets('writing capsule in $brightness / $material / ${scale}x', (
+        testWidgets('writing capsule in $brightness / flat / ${scale}x', (
           tester,
         ) async {
-          final shell = await _pump(tester, brightness, material, scale);
+          final shell = await _pump(tester, brightness, scale);
           final create = find.byKey(TopicCreateButton.buttonKey);
           final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
           final capsule = find.ancestor(
@@ -87,7 +87,7 @@ void main() {
           expect(find.text('All drafts'), findsNothing);
           await _captureChrome(
             tester,
-            '${brightness.name}-${material.name}-${scale}x-new-topic',
+            '${brightness.name}-flat-${scale}x-new-topic',
           );
 
           final mouse = await tester.createGesture(
@@ -103,7 +103,7 @@ void main() {
           expect(buttonSurface(tester, of: drafts).color, Colors.transparent);
           await _captureChrome(
             tester,
-            '${brightness.name}-${material.name}-${scale}x-hover',
+            '${brightness.name}-flat-${scale}x-hover',
           );
           await mouse.removePointer();
           await tester.pumpAndSettle();
@@ -119,20 +119,10 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('All drafts'), findsOneWidget);
           expect(tester.widget<DButton>(drafts).expanded, isTrue);
-          expect(
-            find.descendant(
-              of: drafts,
-              matching: find.byWidgetPredicate(
-                (w) =>
-                    w is DMaterialSurface &&
-                    w.depth == DSurfaceDepth.chromeSelection,
-              ),
-            ),
-            findsOneWidget,
-          );
+
           await _captureChrome(
             tester,
-            '${brightness.name}-${material.name}-${scale}x-drafts-open',
+            '${brightness.name}-flat-${scale}x-drafts-open',
           );
           tester.binding.handleAppLifecycleStateChanged(
             AppLifecycleState.resumed,
@@ -157,9 +147,9 @@ void main() {
         }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
       }
       testWidgets(
-        'reply capsule opens the current topic in $brightness / $material',
+        'reply capsule opens the current topic in $brightness / flat',
         (tester) async {
-          final shell = await _pump(tester, brightness, material, 1);
+          final shell = await _pump(tester, brightness, 1);
           shell.openTopic(_topic);
           await tester.pumpAndSettle();
           final reply = find.byKey(const ValueKey('title-bar-reply'));
@@ -175,10 +165,7 @@ void main() {
             IconTheme.of(tester.element(icon)).color,
             DTokens.of(tester.element(reply)).buttonTheme.primary.foreground,
           );
-          await _captureChrome(
-            tester,
-            '${brightness.name}-${material.name}-reply',
-          );
+          await _captureChrome(tester, '${brightness.name}-flat-reply');
           await tester.tap(reply);
           await tester.pumpAndSettle();
           expect(
@@ -196,13 +183,7 @@ void main() {
   testWidgets(
     'dropdown artwork follows the divider in RTL without widening its hit area',
     (tester) async {
-      await _pump(
-        tester,
-        Brightness.dark,
-        DAppearanceMaterial.liquidGlass,
-        1,
-        rtl: true,
-      );
+      await _pump(tester, Brightness.dark, 1, rtl: true);
       final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
       final icon = find.descendant(of: drafts, matching: find.byType(DIcon));
       expect(tester.getSize(drafts), const Size(32, 28));
@@ -221,13 +202,7 @@ void main() {
   testWidgets('reduced transparency keeps an opaque raised accent capsule', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      Brightness.dark,
-      DAppearanceMaterial.standard,
-      1,
-      highContrast: true,
-    );
+    await _pump(tester, Brightness.dark, 1, highContrast: true);
     final capsule = find.byWidgetPredicate(
       (w) => w is DCard && w.variant == DCardVariant.primaryCapsule,
     );
@@ -261,9 +236,9 @@ void main() {
     await _captureChrome(tester, 'reduced-transparency');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'writing capsule paints the reference tint, sheen and rim in $material',
+      'writing capsule paints the reference tint, sheen and rim in flat',
       (tester) async {
         const ground = Color(0xff282a36);
         const accent = Color(0xffbd93f9);
@@ -274,14 +249,11 @@ void main() {
         );
         await tester.pumpWidget(
           MaterialApp(
-            theme: DMaterialTheme.apply(
-              base.copyWith(
-                extensions: [
-                  ...base.extensions.values.where((e) => e is! DTokens),
-                  tokens,
-                ],
-              ),
-              material,
+            theme: base.copyWith(
+              extensions: [
+                ...base.extensions.values.where((e) => e is! DTokens),
+                tokens,
+              ],
             ),
             home: const Center(
               child: RepaintBoundary(
@@ -312,7 +284,7 @@ void main() {
             (channel) => bytes.getUint8((y * image.width + x) * 4 + channel),
           );
           final reference = Color.alphaBlend(
-            Color.lerp(ground, accent, .25)!.withValues(alpha: .76),
+            Color.lerp(ground, accent, .25)!,
             ground,
           );
           final center = rgb(40, 24);
@@ -320,9 +292,9 @@ void main() {
           for (var channel = 0; channel < 3; channel++) {
             expect(center[channel], closeTo(expected[channel] * 255, 2));
             // Stock glass owns its specular rim; only the artwork paints one.
-            if (material == DAppearanceMaterial.liquidGlass) continue;
-            expect(rgb(28, 5)[channel], greaterThan(center[channel]));
-            expect(rgb(40, 0)[channel], greaterThan(center[channel]));
+
+            expect(rgb(28, 5)[channel], closeTo(center[channel], 2));
+            expect(rgb(40, 0)[channel], closeTo(center[channel], 2));
           }
           image.dispose();
         });
@@ -335,7 +307,6 @@ void main() {
 Future<ShellController> _pump(
   WidgetTester tester,
   Brightness brightness,
-  DAppearanceMaterial material,
   double scale, {
   bool rtl = false,
   bool highContrast = false,
@@ -395,14 +366,11 @@ Future<ShellController> _pump(
   final ground = brightness == Brightness.dark
       ? const Color(0xff282a36)
       : const Color(0xfff8f8f2);
-  final theme = DMaterialTheme.apply(
-    base.copyWith(
-      extensions: [
-        ...base.extensions.values.where((e) => e is! DTokens),
-        base.extension<DTokens>()!.copyWith(colors: colors, background: ground),
-      ],
-    ),
-    material,
+  final theme = base.copyWith(
+    extensions: [
+      ...base.extensions.values.where((e) => e is! DTokens),
+      base.extension<DTokens>()!.copyWith(colors: colors, background: ground),
+    ],
   );
   await tester.pumpWidget(
     ShellScope(

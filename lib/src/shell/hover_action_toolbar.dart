@@ -12,7 +12,7 @@ class HoverActionToolbar extends StatelessWidget {
 
     return Material(
       color: theme.colorScheme.surface,
-      elevation: 2,
+      elevation: 0,
       shadowColor: Colors.black.withValues(alpha: 0.35),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(

@@ -2,64 +2,11 @@ import 'dart:ui' show ImageByteFormat;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
-
-import 'support/stock_glass.dart';
 
 void main() {
-  for (final dark in [false, true]) {
-    testWidgets(
-      'sidebar glass uses regular glass for selection and hover ($dark)',
-      (tester) async {
-        for (final backdrop in [
-          const Color(0xff555555),
-          const Color(0xffaaaaaa),
-        ]) {
-          await _mount(tester, dark: dark, backdrop: backdrop);
-          final tokens = DTokens.of(
-            tester.element(find.byKey(const ValueKey('forum'))),
-          );
-
-          final well = Color.alphaBlend(
-            Colors.black.withValues(alpha: dark ? .16 : .045),
-            backdrop,
-          );
-          final selected = find.descendant(
-            of: find.byKey(const ValueKey('forum')),
-            matching: find.byType(LiquidGlass),
-          );
-          expectStockGlass(tester, selected);
-          await _pixel(tester, const Offset(340, 25), well);
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: const Offset(700, 500));
-          await mouse.moveTo(
-            tester.getCenter(find.byKey(const ValueKey('chat'))),
-          );
-          await tester.pumpAndSettle();
-          expect(
-            IconTheme.of(tester.element(find.byIcon(Icons.chat))).color,
-            tokens.mutedForeground,
-          );
-          final hovered = find.descendant(
-            of: find.byKey(const ValueKey('chat')),
-            matching: find.byType(LiquidGlass),
-          );
-          expectStockGlass(tester, hovered);
-          await mouse.removePointer();
-          await tester.pumpAndSettle();
-          await _pixel(tester, const Offset(340, 25), well);
-          expect(tester.takeException(), isNull);
-        }
-      },
-    );
-  }
-
   testWidgets('high contrast retains an opaque selected sidebar capsule', (
     tester,
   ) async {
@@ -89,10 +36,7 @@ Future<void> _mount(
   await tester.pumpWidget(
     MaterialApp(
       themeAnimationStyle: AnimationStyle.noAnimation,
-      theme: DMaterialTheme.apply(
-        dark ? AppTheme.dark : AppTheme.light,
-        DAppearanceMaterial.liquidGlass,
-      ),
+      theme: dark ? AppTheme.dark : AppTheme.light,
       home: MediaQuery(
         data: MediaQueryData(highContrast: highContrast),
         child: Align(

@@ -117,15 +117,11 @@ void main() {
         ShellScope(
           controller: setup.controller,
           child: MaterialApp(
-            theme: DMaterialTheme.apply(
-              theme.copyWith(
-                platform: TargetPlatform.macOS,
-                textTheme:
-                    Platform.environment['TOPIC_LIST_CAPTURE_DIR'] == null
-                    ? theme.textTheme
-                    : theme.textTheme.apply(fontFamily: 'TopicListReview'),
-              ),
-              DAppearanceMaterial.liquidGlass,
+            theme: theme.copyWith(
+              platform: TargetPlatform.macOS,
+              textTheme: Platform.environment['TOPIC_LIST_CAPTURE_DIR'] == null
+                  ? theme.textTheme
+                  : theme.textTheme.apply(fontFamily: 'TopicListReview'),
             ),
             home: const Scaffold(
               body: RepaintBoundary(

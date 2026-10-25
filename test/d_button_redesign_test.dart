@@ -6,14 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final brightness in Brightness.values) {
       testWidgets(
-        'quiet pickers stay flat with exact colors in $material $brightness',
+        'quiet pickers stay flat with exact colors in flat $brightness',
         (tester) async {
-          final theme = DMaterialTheme.apply(
-            ThemeData(platform: TargetPlatform.macOS, brightness: brightness),
-            material,
+          final theme = ThemeData(
+            platform: TargetPlatform.macOS,
+            brightness: brightness,
           );
           await tester.pumpWidget(
             MaterialApp(
@@ -220,7 +220,6 @@ void main() {
       expect(buttonSurface(tester, of: clear).color.a, 0);
       expect(buttonSurface(tester, of: clear).borderColor.a, 0);
       for (final button in [primary, outline, clear]) {
-        expect(buttonSurface(tester, of: button).shadowColor.a, 0);
         expect(
           buttonSurface(tester, of: button).borderRadius,
           BorderRadius.circular(

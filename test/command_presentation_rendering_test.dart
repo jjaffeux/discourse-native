@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/start_chatting_fixture.dart';
@@ -22,15 +21,12 @@ void commandPresentationRenderingTests({bool native = false}) {
           ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
-    if (ui.ImageFilter.isShaderFilterSupported) {
-      await LiquidGlass.precache();
-    }
+    if (ui.ImageFilter.isShaderFilterSupported) {}
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final dark in [false, true]) {
-        final name =
-            '${platform.name}-${material.name}-${dark ? 'dark' : 'light'}';
+        final name = '${platform.name}-flat-${dark ? 'dark' : 'light'}';
         testWidgets('command presentations share one surface: $name', (
           tester,
         ) async {
@@ -47,11 +43,8 @@ void commandPresentationRenderingTests({bool native = false}) {
           await tester.pumpWidget(
             MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: DMaterialTheme.apply(
-                (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                  platform: platform,
-                ),
-                material,
+              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                platform: platform,
               ),
               builder: (context, child) =>
                   RepaintBoundary(key: _capture, child: child!),
@@ -110,11 +103,7 @@ void commandPresentationRenderingTests({bool native = false}) {
             await tester.pumpWidget(
               RepaintBoundary(
                 key: _capture,
-                child: StartChattingFixture(
-                  shell: shell,
-                  platform: platform,
-                  material: material,
-                ),
+                child: StartChattingFixture(shell: shell, platform: platform),
               ),
             );
             if (dark) {
@@ -125,9 +114,7 @@ void commandPresentationRenderingTests({bool native = false}) {
             await tester.pumpAndSettle();
             _expectPresentation(tester, platform);
             _expectTransparentCommand(tester);
-            if (native && material == DAppearanceMaterial.liquidGlass) {
-              expect(find.byType(LiquidGlass), findsWidgets);
-            }
+
             await _captureFrame(tester, 'chat-$name');
             await tester.enterText(
               find.byKey(const ValueKey('chat-new-direct-message-search')),

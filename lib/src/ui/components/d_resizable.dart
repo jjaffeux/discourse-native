@@ -131,7 +131,7 @@ class _DResizablePanelGroupState extends State<DResizablePanelGroup> {
                 : result[p.id]! > _min(p))),
           )
           .toList();
-      final relative = eligible.where((p) => !false).toList();
+      final relative = eligible.where((p) => true).toList();
       if (relative.isNotEmpty) eligible = relative;
       if (eligible.isEmpty) break;
       for (final p in eligible) {

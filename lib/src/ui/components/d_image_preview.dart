@@ -6,7 +6,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 
-/// An image trigger with Discourse's fading metadata bar and hover shadow.
+/// An image trigger with Discourse's fading metadata bar.
 ///
 /// The caller supplies the image, its layout, and the action that opens it.
 /// Metadata never changes that layout or intercepts image/GIF controls.
@@ -65,32 +65,6 @@ class _DImagePreviewState extends State<DImagePreview> {
           clipBehavior: Clip.none,
           fit: StackFit.passthrough,
           children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: ClipPath(
-                  clipper: _OutsideImageClipper(radius),
-                  child: AnimatedContainer(
-                    duration: reducedMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 600),
-                    curve: const Cubic(0.165, 0.84, 0.44, 1),
-                    decoration: BoxDecoration(
-                      borderRadius: radius,
-                      boxShadow: [
-                        for (final blur in [5.0, 10.0])
-                          BoxShadow(
-                            color: tokens.colors.shadow.withValues(
-                              alpha: active ? .2 : 0,
-                            ),
-                            offset: const Offset(0, 2),
-                            blurRadius: blur,
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
             DecoratedBox(
               position: DecorationPosition.foreground,
               // Keep this layer mounted so focus and GIF state survive changes.
@@ -214,21 +188,4 @@ class _DImagePreviewState extends State<DImagePreview> {
       ),
     );
   }
-}
-
-// CSS box shadows leave the interior clear. Flutter's BoxShadow also paints
-// beneath the image, so cut out that region to preserve transparent pixels.
-class _OutsideImageClipper extends CustomClipper<Path> {
-  const _OutsideImageClipper(this.radius);
-  final BorderRadius radius;
-
-  @override
-  Path getClip(Size size) => Path()
-    ..fillType = PathFillType.evenOdd
-    ..addRect((Offset.zero & size).inflate(30))
-    ..addRRect(radius.toRRect(Offset.zero & size).scaleRadii());
-
-  @override
-  bool shouldReclip(_OutsideImageClipper oldClipper) =>
-      radius != oldClipper.radius;
 }

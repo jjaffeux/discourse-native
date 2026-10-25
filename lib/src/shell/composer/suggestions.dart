@@ -293,59 +293,59 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
       onKeyEvent: _onKey,
       child: OverlayPortal(
         controller: _portal,
-        overlayChildBuilder: (context) => NativeGlassOccluder(
-          child: ValueListenableBuilder<Rect?>(
-            valueListenable: _anchor,
-            builder: (context, anchor, child) => Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final mention =
-                      _popup.trigger?.kind == ComposerTriggerKind.mention;
-                  final availableHeight = (constraints.maxHeight - 24).clamp(
-                    0.0,
-                    double.infinity,
-                  );
-                  final above = ((anchor?.top ?? 0) - 20).clamp(
-                    0.0,
-                    availableHeight,
-                  );
-                  final below =
-                      (constraints.maxHeight - (anchor?.bottom ?? 0) - 20)
-                          .clamp(0.0, availableHeight);
-                  final preferAbove = !mention || above >= below;
-                  return CustomSingleChildLayout(
-                    delegate: AnchoredLayout(
-                      anchor: anchor,
-                      maxWidth: composerSuggestionsWidth,
-                      preferAbove: preferAbove,
-                      keepPreferredPlacement: mention && preferAbove,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: mention
-                            ? (preferAbove ? above : below)
-                            : double.infinity,
-                      ),
-                      child: child!,
-                    ),
-                  );
-                },
-              ),
+        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
+          valueListenable: _anchor,
+          builder: (context, anchor, child) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: TapRegion(
-              onTapOutside: (_) => _popup.dismiss(),
-              child: _Suggestions(
-                composer: widget.composer,
-                controller: _command,
-                searchFocus: _searchFocus,
-                onQueryChanged: _filterMentions,
-                onEmptyBackspace: _removeEmptyMention,
-                onDismiss: _dismiss,
-                onTap: _activate,
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mention =
+                    _popup.trigger?.kind == ComposerTriggerKind.mention;
+                final availableHeight = (constraints.maxHeight - 24).clamp(
+                  0.0,
+                  double.infinity,
+                );
+                final above = ((anchor?.top ?? 0) - 20).clamp(
+                  0.0,
+                  availableHeight,
+                );
+                final below =
+                    (constraints.maxHeight - (anchor?.bottom ?? 0) - 20).clamp(
+                      0.0,
+                      availableHeight,
+                    );
+                final preferAbove = !mention || above >= below;
+                return CustomSingleChildLayout(
+                  delegate: AnchoredLayout(
+                    anchor: anchor,
+                    maxWidth: composerSuggestionsWidth,
+                    preferAbove: preferAbove,
+                    keepPreferredPlacement: mention && preferAbove,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: mention
+                          ? (preferAbove ? above : below)
+                          : double.infinity,
+                    ),
+                    child: child!,
+                  ),
+                );
+              },
+            ),
+          ),
+          child: TapRegion(
+            onTapOutside: (_) => _popup.dismiss(),
+            child: _Suggestions(
+              composer: widget.composer,
+              controller: _command,
+              searchFocus: _searchFocus,
+              onQueryChanged: _filterMentions,
+              onEmptyBackspace: _removeEmptyMention,
+              onDismiss: _dismiss,
+              onTap: _activate,
             ),
           ),
         ),

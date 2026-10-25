@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](../material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Desktop pane resizing
 
 Investigated on October 23, 2026, against `e9496b05e` and `main` at

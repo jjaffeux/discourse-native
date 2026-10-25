@@ -314,18 +314,13 @@ void composerDraftTabsVirtualizationTests() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      '200 draft retained composer presentation keeps semantics through minimize in $material',
+      '200 draft retained composer presentation keeps semantics through minimize in flat',
       (tester) async {
         final semantics = tester.ensureSemantics();
         try {
-          final shell = await _pumpTabs(
-            tester,
-            count: 200,
-            hosted: true,
-            material: material,
-          );
+          final shell = await _pumpTabs(tester, count: 200, hosted: true);
           final first = shell.visibleComposer!;
           final editor = tester.state(
             find.byType(ComposerEditor).hitTestable(),
@@ -429,7 +424,6 @@ Future<ShellController> _pumpTabs(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   bool hosted = false,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
   Completer<void>? draftGate,
 }) async {
   const siteUrl = 'https://meta.discourse.org';
@@ -479,11 +473,8 @@ Future<ShellController> _pumpTabs(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: DMaterialTheme.apply(
-          AppTheme.light.copyWith(
-            platform: hosted ? TargetPlatform.linux : TargetPlatform.iOS,
-          ),
-          material,
+        theme: AppTheme.light.copyWith(
+          platform: hosted ? TargetPlatform.linux : TargetPlatform.iOS,
         ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(

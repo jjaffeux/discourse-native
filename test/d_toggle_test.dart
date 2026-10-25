@@ -6,7 +6,7 @@ import 'package:discourse_native/src/styleguide/examples/toggle_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_style.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 
@@ -76,15 +76,12 @@ void main() {
   });
 
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       testWidgets(
-        'chat reactions stay flat through interaction ($dark, $material)',
+        'chat reactions stay flat through interaction ($dark, flat)',
         (tester) async {
           final semantics = tester.ensureSemantics();
-          final theme = DMaterialTheme.apply(
-            dark ? AppTheme.dark : AppTheme.light,
-            material,
-          );
+          final theme = dark ? AppTheme.dark : AppTheme.light;
           var toggles = 0;
           final focus = FocusNode();
           addTearDown(focus.dispose);
@@ -144,13 +141,6 @@ void main() {
             expect(decoration().border!.top.width, 1);
             expect(decoration().gradient, isNull);
             expect(decoration().boxShadow, isNull);
-            expect(
-              find.descendant(
-                of: toggle,
-                matching: find.byType(DMaterialSurface),
-              ),
-              findsNothing,
-            );
           }
 
           checkFlat(false);

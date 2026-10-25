@@ -29,17 +29,15 @@ BoxDecoration _previewPaint(WidgetTester tester) =>
 
 void main() {
   for (final brightness in Brightness.values) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       testWidgets(
-        'nested preview retains hover focus and press in $brightness $material',
+        'nested preview retains hover focus and press in $brightness flat',
         (tester) async {
           final focus = FocusNode();
           addTearDown(focus.dispose);
-          final theme = DMaterialTheme.apply(
-            (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
-                .copyWith(platform: TargetPlatform.macOS),
-            material,
-          );
+          final theme =
+              (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+                  .copyWith(platform: TargetPlatform.macOS);
           var activations = 0;
           await tester.pumpWidget(
             _host(

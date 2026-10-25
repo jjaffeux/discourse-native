@@ -41,10 +41,10 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     for (final reduced in [false, true]) {
       testWidgets('topic progress follows the tab bar in both directions '
-          '($material, reduced motion: $reduced)', (tester) async {
+          '(flat, reduced motion: $reduced)', (tester) async {
         tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
             FakeAccessibilityFeatures(disableAnimations: reduced);
         addTearDown(
@@ -84,7 +84,6 @@ void main() {
         );
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
-            material: material,
             font: ForumFont.lato,
             interfaceFont: ForumFont.lato,
           ),
@@ -105,8 +104,7 @@ void main() {
         final initial = tester.getRect(_progress);
         final inset = DScrollChrome.bottomInsetOf(tester.element(_progress));
         expect(inset, greaterThan(0));
-        final captureName =
-            '${material.name}-${reduced ? 'reduced' : 'animated'}';
+        final captureName = 'flat-${reduced ? 'reduced' : 'animated'}';
         await _capture(tester, '$captureName-expanded');
 
         Future<List<double>> move(double delta, String name) async {

@@ -27,10 +27,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/glass_presets.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
-import 'package:discourse_native/src/ui/foundation/native_glass.dart'
-    show NativeGlassShape;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -76,16 +73,15 @@ void main() {
     )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
   });
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'chat directory filters omit headings and close buttons with ${material.name}',
+      'chat directory filters omit headings and close buttons with flat',
       (tester) async {
         final mobile = defaultTargetPlatform != TargetPlatform.macOS;
         final fixture = await _pump(
           tester,
           size: mobile ? const Size(430, 932) : const Size(900, 650),
           platform: defaultTargetPlatform,
-          material: material,
           safeArea: mobile
               ? const EdgeInsets.only(top: 47, bottom: 34)
               : EdgeInsets.zero,
@@ -204,16 +200,15 @@ void main() {
     }),
   );
 
-  for (final material in DAppearanceMaterial.values) {
+  {
     testWidgets(
-      'chat status uses an inset mobile sheet with ${material.name}',
+      'chat status uses an inset mobile sheet with flat',
       (tester) async {
         final mobile = defaultTargetPlatform != TargetPlatform.macOS;
         await _pump(
           tester,
           size: mobile ? const Size(430, 932) : const Size(900, 650),
           platform: defaultTargetPlatform,
-          material: material,
           safeArea: mobile
               ? const EdgeInsets.only(top: 47, bottom: 34)
               : EdgeInsets.zero,
@@ -516,28 +511,19 @@ void main() {
     },
   );
 
-  testWidgets('channel join buttons stay flat under Liquid Glass', (
-    tester,
-  ) async {
-    await _pump(tester, material: DAppearanceMaterial.liquidGlass);
+  testWidgets('channel join buttons keep flat fills', (tester) async {
+    await _pump(tester);
     await _tab(tester, ChatBrowsePage.channels);
     final joined = find.byKey(const ValueKey('chat-unfollow-1'));
-    expect(DMaterialTheme.glassOf(tester.element(_browseCard(1))), isTrue);
     expect(_glassIn(joined), findsNothing);
-    expect(
-      find.descendant(of: joined, matching: find.byType(DMaterialSurface)),
-      findsOneWidget,
-    );
+
     await tester.tap(find.byKey(const ValueKey('chat-channel-menu-button-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
     await tester.pumpAndSettle();
     final join = find.byKey(const ValueKey('chat-join-1'));
     expect(_glassIn(join), findsNothing);
-    expect(
-      find.descendant(of: join, matching: find.byType(DMaterialSurface)),
-      findsOneWidget,
-    );
+
     expect(tester.takeException(), isNull);
   });
 
@@ -726,16 +712,13 @@ void main() {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
     const canvas = Color(0xff153d99);
-    for (final material in DAppearanceMaterial.values) {
+    {
       await fixture.show(
         Theme(
-          data: DMaterialTheme.apply(
-            AppTheme.forBrightness(
-              Brightness.dark,
-              background: const ForumBackground.appearance(transparency: .2),
-            ).copyWith(platform: TargetPlatform.macOS),
-            material,
-          ),
+          data: AppTheme.forBrightness(
+            Brightness.dark,
+            background: const ForumBackground.appearance(transparency: .2),
+          ).copyWith(platform: TargetPlatform.macOS),
           child: Center(
             child: SizedBox(
               width: 500,
@@ -786,7 +769,7 @@ void main() {
         image.dispose();
         return pixel;
       });
-      expect(pixels, [0x15, 0x3d, 0x99, 0xff], reason: material.name);
+      expect(pixels, [0x15, 0x3d, 0x99, 0xff], reason: 'flat');
       scroll.jumpTo(60);
       await tester.pumpAndSettle();
       expect(tester.getRect(find.byType(ChatInboxFilterBar)), bar);
@@ -856,13 +839,9 @@ Rect _rowContentBounds(WidgetTester tester, Finder row) {
       .reduce((a, b) => a.expandToInclude(b));
 }
 
-Finder _browseCard(int id) => find.byKey(ValueKey('chat-browse-channel-$id'));
-
 Finder _glassIn(Finder control) => find.descendant(
   of: control,
-  matching: find.byWidgetPredicate(
-    (widget) => widget is DGlassSurface || widget is NativeGlassShape,
-  ),
+  matching: find.byWidgetPredicate((widget) => widget is BackdropFilter),
 );
 
 Future<void> _tab(WidgetTester tester, ChatBrowsePage page) async {
@@ -972,16 +951,14 @@ Future<void> _capture(WidgetTester tester, String name) async {
   final platform = Theme.of(
     tester.element(find.byType(Scaffold).first),
   ).platform;
-  final material = DMaterialTheme.of(
-    tester.element(find.byType(Scaffold).first),
-  )!.material;
+
   await tester.runAsync(() async {
     final image = await (context.findRenderObject()! as RenderRepaintBoundary)
         .toImage();
     final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
     await Directory(directory).create(recursive: true);
     await File(
-      '$directory/$name-${platform.name}-${material.name}.png',
+      '$directory/$name-${platform.name}-flat.png',
     ).writeAsBytes(bytes.buffer.asUint8List());
     image.dispose();
   });
@@ -1000,7 +977,6 @@ Future<_Fixture> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 650),
   TargetPlatform platform = TargetPlatform.macOS,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
   EdgeInsets safeArea = EdgeInsets.zero,
 }) async {
   await tester.binding.setSurfaceSize(size);
@@ -1077,13 +1053,10 @@ Future<_Fixture> _pump(
             key: const ValueKey('chat-browse-render'),
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: DMaterialTheme.apply(
-                AppTheme.forBrightness(
-                  Brightness.dark,
-                  fontFamily: 'Open Sans',
-                ).copyWith(platform: platform),
-                material,
-              ),
+              theme: AppTheme.forBrightness(
+                Brightness.dark,
+                fontFamily: 'Open Sans',
+              ).copyWith(platform: platform),
               home: Scaffold(
                 body: Builder(
                   builder: (context) {

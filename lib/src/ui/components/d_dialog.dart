@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +6,6 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -120,19 +117,13 @@ class DDialogPresentation {
   final VoidCallback onBarrierDismiss;
   final bool modal;
 
-  Widget buildBackdrop({
-    Color color = const Color(0x1A000000),
-    double blurSigma = 4,
-  }) => !modal
+  Widget buildBackdrop({Color color = const Color(0x1A000000)}) => !modal
       ? const SizedBox.shrink()
-      : BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-          child: ModalBarrier(
-            color: color,
-            dismissible: dismissOnBarrier,
-            onDismiss: onBarrierDismiss,
-            semanticsLabel: barrierLabel,
-          ),
+      : ModalBarrier(
+          color: color,
+          dismissible: dismissOnBarrier,
+          onDismiss: onBarrierDismiss,
+          semanticsLabel: barrierLabel,
         );
 }
 
@@ -642,9 +633,7 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
         );
         backdrop = FadeTransition(opacity: curved, child: backdrop);
         popup = FadeTransition(
-          opacity: DMaterialTheme.glassOf(context)
-              ? kAlwaysCompleteAnimation
-              : curved,
+          opacity: curved,
           child: ScaleTransition(
             scale: Tween<double>(begin: .95, end: 1).animate(curved),
             child: popup,
@@ -749,7 +738,7 @@ class DDialogContent extends StatelessWidget {
               .toDouble();
     final body = Material(
       animationDuration: Duration.zero,
-      color: DMaterialSurface.fill(context, tokens.surface),
+      color: tokens.surface,
       borderRadius: radius,
       clipBehavior: Clip.antiAlias,
       textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -818,21 +807,14 @@ class DDialogContent extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: radius,
-              boxShadow: DMaterialTheme.glassOf(context)
-                  ? const []
-                  : [
-                      BoxShadow(
-                        color: tokens.foreground.withValues(alpha: .1),
-                        spreadRadius: 1,
-                      ),
-                    ],
+              boxShadow: [
+                BoxShadow(
+                  color: tokens.foreground.withValues(alpha: .1),
+                  spreadRadius: 1,
+                ),
+              ],
             ),
-            child: DMaterialSurface(
-              depth: DSurfaceDepth.dialog,
-              radius: radius,
-              color: tokens.surface,
-              child: body,
-            ),
+            child: body,
           ),
         ),
       ),

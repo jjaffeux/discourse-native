@@ -23,7 +23,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fake_image_http_client.dart';
@@ -43,22 +42,19 @@ final _target = find.byType(UserCardTarget);
 /// Also run on the native renderer, where the glass lens samples the backdrop.
 void userCardBackdropTests({bool slowAnimations = false}) {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final dark in [false, true]) {
         testWidgets(
-          'cached ${platform.name} card preserves its material while opening and closing ($material, dark: $dark)',
+          'cached ${platform.name} card preserves its material while opening and closing (flat, dark: $dark)',
           (tester) async {
             final previousTimeDilation = timeDilation;
             if (slowAnimations) timeDilation = 5;
             try {
-              if (ui.ImageFilter.isShaderFilterSupported) {
-                await tester.runAsync(LiquidGlass.precache);
-              }
+              if (ui.ImageFilter.isShaderFilterSupported) {}
               final api = await _pumpTarget(
                 tester,
                 platform: platform,
                 size: const Size(390, 844),
-                material: material,
                 dark: dark,
               );
               ShellScope.read(
@@ -74,13 +70,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
                   of: _surface,
                   matching: find.byType(FadeTransition),
                 );
-                if (material == DAppearanceMaterial.liquidGlass) {
-                  expect(fades, findsNothing);
-                  if (ui.ImageFilter.isShaderFilterSupported) {
-                    // The card must mount its glass material on the first frame.
-                    expect(find.byType(LiquidGlass), findsWidgets);
-                  }
-                } else {
+                {
                   expect(fades, findsOneWidget);
                   expect(
                     tester.widget<FadeTransition>(fades).opacity.value,
@@ -92,11 +82,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
 
               await tester.tap(_target);
               await tester.pump();
-              if (material == DAppearanceMaterial.liquidGlass &&
-                  ui.ImageFilter.isShaderFilterSupported) {
-                expect(_surface, findsOneWidget);
-                expect(find.byType(LiquidGlass), findsWidgets);
-              }
+
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 16));
               checkMaterial();
@@ -106,7 +92,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
               expect(tester.getRect(_surface).top, lessThan(entering.top));
               await _captureCard(
                 tester,
-                'transition-${platform.name}-${material.name}-$dark-enter',
+                'transition-${platform.name}-flat-$dark-enter',
               );
               await tester.pumpAndSettle();
               final resting = tester.getRect(_surface);
@@ -119,7 +105,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
               expect(tester.getRect(_surface).top, greaterThan(resting.top));
               await _captureCard(
                 tester,
-                'transition-${platform.name}-${material.name}-$dark-exit',
+                'transition-${platform.name}-flat-$dark-exit',
               );
               await tester.pumpAndSettle();
               expect(_surface, findsNothing);
@@ -189,14 +175,13 @@ void main() {
         username: 'reader',
         canSendPrivateMessages: true,
       );
-      for (final material in DAppearanceMaterial.values) {
+      {
         for (final dark in [false, true]) {
           for (final scale in [1.0, 2.0]) {
             final api = await _pumpTarget(
               tester,
               platform: TargetPlatform.iOS,
               size: const Size(390, 844),
-              material: material,
               dark: dark,
               scale: scale,
               currentUser: reader,
@@ -311,7 +296,7 @@ void main() {
             }
             await _captureCard(
               tester,
-              '${material.name}-${dark ? 'dark' : 'light'}-$scale',
+              'flat-${dark ? 'dark' : 'light'}-$scale',
             );
             expect(tester.takeException(), isNull);
             await tester.drag(
@@ -772,7 +757,6 @@ Future<_CardApi> _pumpTarget(
   bool dark = false,
   bool nested = false,
   TargetPlatform platform = TargetPlatform.macOS,
-  DAppearanceMaterial material = DAppearanceMaterial.standard,
   DiscourseUser? currentUser,
   double safeBottom = 0,
   InstalledPlugins? cardPlugins,
@@ -798,14 +782,11 @@ Future<_CardApi> _pumpTarget(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: DMaterialTheme.apply(
-          (dark ? AppTheme.dark : AppTheme.light).copyWith(
-            platform: platform,
-            textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-              fontFamily: 'Lato',
-            ),
+        theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: platform,
+          textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+            fontFamily: 'Lato',
           ),
-          material,
         ),
         builder: (context, child) => RepaintBoundary(
           key: const ValueKey('user-card-capture'),

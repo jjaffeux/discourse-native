@@ -723,7 +723,6 @@ class _StatusBubblePainter extends CustomPainter {
       canvas.translate(size.width, 0);
       canvas.scale(-1, 1);
     }
-    canvas.drawShadow(path, Colors.black.withValues(alpha: .18), 4, false);
     canvas.drawPath(
       path,
       Paint()

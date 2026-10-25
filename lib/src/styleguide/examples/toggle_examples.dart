@@ -17,7 +17,7 @@ final toggleExamples = ComponentExamples(
       'Space, Enter, pointer and native semantics toggle the value; disabled controls do not enter traversal or activate. '
       'Visual surfaces are 24/28/32px with hit areas matching their surfaces, 12/14/16px icons, exact icon-side padding, '
       'and an inline window control with a 32px surface and 18px icon. Inline hover and press change only color; selection uses the accent color. '
-      'Split-view controls use a neutral 20×15 layout glyph in a 36px circle, with translucent tinted hover fill, a fading top highlight, and an inset light rim in both appearance modes. Animated previews respect reduced motion. '
+      'Split-view controls use a neutral 20×15 layout glyph in a 36px circle, with a flat translucent hover fill. Animated previews respect reduced motion. '
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
@@ -72,7 +72,7 @@ final toggleExamples = ComponentExamples(
     StyleguideExample(
       title: 'Chat reaction',
       description:
-          'A flat 24px outlined pill with 12px emoji and regular-weight count, matching chat channels and threads in both materials.',
+          'A flat 24px outlined pill with 12px emoji and regular-weight count, matching chat channels and threads.',
       code:
           "DToggle(density: DToggleDensity.chatReaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
       builder: (_) => const DToggle(
@@ -106,7 +106,7 @@ final toggleExamples = ComponentExamples(
     StyleguideExample(
       title: 'Panel layout preview',
       description:
-          'A neutral 20×15 window frame in a 36px circular control. Hover layers a thin palette tint, a fading top highlight and an inset light rim in both appearance modes; the panel preview animates on hover and keyboard focus.',
+          'A neutral 20×15 window frame in a 36px circular control. Hover adds a flat palette tint. The panel preview animates on hover and keyboard focus.',
       code:
           "DToggle.iconOnly(density: DToggleDensity.splitView, icon: DLayoutGlyph(mainVisible: true, secondaryVisible: true, changingPanel: 0), interactiveIcon: DLayoutGlyph(mainVisible: false, secondaryVisible: true, changingPanel: 0), semanticLabel: 'Hide split view')",
       builder: (_) => const DToggle.iconOnly(

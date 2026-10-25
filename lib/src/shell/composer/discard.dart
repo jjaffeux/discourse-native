@@ -132,10 +132,7 @@ Future<void> requestComposerDiscard({
       presentationBuilder: (context, presentation) => Stack(
         children: [
           Positioned.fill(
-            child: presentation.buildBackdrop(
-              color: Colors.transparent,
-              blurSigma: 0,
-            ),
+            child: presentation.buildBackdrop(color: Colors.transparent),
           ),
           SafeArea(
             child: Padding(

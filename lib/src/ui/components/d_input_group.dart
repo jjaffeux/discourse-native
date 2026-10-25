@@ -967,7 +967,6 @@ class _InputGroupRingPainter extends BoxPainter {
   }
 }
 
-/// The title-bar well has no cast shadow or backdrop blur in either material.
 class _SearchInputSurfaceDecoration extends Decoration {
   const _SearchInputSurfaceDecoration({required this.dark});
   final bool dark;
@@ -989,37 +988,5 @@ class _SearchInputSurfacePainter extends BoxPainter {
       shape,
       Paint()..color = Colors.black.withValues(alpha: dark ? .16 : .045),
     );
-    canvas.save();
-    canvas.clipRRect(shape);
-    // An inset shadow is the blurred outside of the shape shifted down 1px.
-    final outside = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(rect.inflate(8))
-      ..addRRect(shape.shift(const Offset(0, 1)));
-    canvas.drawPath(
-      outside,
-      Paint()
-        ..color = Colors.black.withValues(alpha: dark ? .32 : .12)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
-    );
-    canvas.drawRRect(
-      shape.deflate(.5),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = (dark ? Colors.white : Colors.black).withValues(
-          alpha: dark ? .07 : .06,
-        ),
-    );
-    final bottom = Path.combine(
-      PathOperation.difference,
-      Path()..addRRect(shape),
-      Path()..addRRect(shape.shift(const Offset(0, -1))),
-    );
-    canvas.drawPath(
-      bottom,
-      Paint()..color = Colors.white.withValues(alpha: dark ? .08 : .8),
-    );
-    canvas.restore();
   }
 }

@@ -62,7 +62,7 @@ void forumTabShadowTests() {
           paintOutset: 30,
           textScaler: TextScaler.linear(scale),
           backgroundColor: background,
-          theme: DMaterialTheme.apply(theme, DAppearanceMaterial.liquidGlass),
+          theme: theme,
         );
         final tab = tester.getRect(
           find.byKey(ValueKey('forum-tab-item-${items.first.id}')),
@@ -108,9 +108,9 @@ void forumTabShadowTests() {
                 .toDouble();
             expect(
               red(Offset(x, tab.bottom + 2)),
-              lessThan(red(Offset(x, tab.bottom + 9)) - 1),
+              closeTo(red(Offset(x, tab.bottom + 9)), 1),
             );
-            expect(red(Offset(x, strip.bottom + 1)), lessThan(backgroundRed));
+            expect(red(Offset(x, strip.bottom + 1)), closeTo(backgroundRed, 1));
             expect(
               red(Offset(x, strip.bottom - .5)),
               closeTo(red(Offset(x, strip.bottom + .5)), 1),
@@ -807,10 +807,7 @@ void main() {
           tester,
           items: const [first, second],
           selectedId: first.id,
-          theme: DMaterialTheme.apply(
-            AppTheme.dark,
-            DAppearanceMaterial.liquidGlass,
-          ),
+          theme: AppTheme.dark,
           textDirection: direction,
           onSelect: selected.add,
           onClose: closed.add,
@@ -1618,9 +1615,9 @@ void main() {
 
   group('overflow layout', () {
     for (final direction in TextDirection.values) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         testWidgets('overflow fades retain the transparent parent in '
-            '$direction with $material', (tester) async {
+            '$direction with flat', (tester) async {
           const background = Color(0xff535969);
           final items = [
             for (var index = 0; index < 12; index++)
@@ -1631,7 +1628,7 @@ void main() {
             items: items,
             selectedId: items[4].id,
             width: 320,
-            theme: DMaterialTheme.apply(AppTheme.dark, material),
+            theme: AppTheme.dark,
             textDirection: direction,
             backgroundColor: background,
             paintOutset: 30,

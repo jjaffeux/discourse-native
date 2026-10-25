@@ -984,8 +984,8 @@ void main() {
         );
     final rootShadow = surfaceDecoration(find.byType(DPopoverContent).first);
     final submenuShadow = surfaceDecoration(find.byType(DPopoverContent).last);
-    expect(rootShadow.boxShadow, isEmpty);
-    expect(submenuShadow.boxShadow, isEmpty);
+    expect(rootShadow.boxShadow, isNull);
+    expect(submenuShadow.boxShadow, isNull);
   });
 
   testWidgets(

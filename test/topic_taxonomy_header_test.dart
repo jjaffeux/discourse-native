@@ -71,8 +71,7 @@ void main({
         final mobile =
             platform == TargetPlatform.iOS ||
             platform == TargetPlatform.android;
-        final glass =
-            platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
         final nativeSize = tester.view.physicalSize;
         final nativePixelRatio = tester.view.devicePixelRatio;
         final data = await fixture.fixture(
@@ -93,17 +92,14 @@ void main({
           tester.view.devicePixelRatio = nativePixelRatio;
         }
         await data.shell.forumSettings.setShared(
-          SharedAppearance(
+          const SharedAppearance(
             font: ForumFont.openSans,
             interfaceFont: ForumFont.openSans,
-            material: glass
-                ? DAppearanceMaterial.liquidGlass
-                : DAppearanceMaterial.standard,
           ),
         );
         await data.shell.forumSettings.setThemeMode(
           fixture.site,
-          glass ? AppThemeMode.dark : AppThemeMode.light,
+          AppThemeMode.light,
         );
         await data.shell.applyTopicListFilterQuery('category:1');
         await tester.pumpAndSettle();

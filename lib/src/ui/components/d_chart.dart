@@ -210,20 +210,7 @@ class DChartTooltipContent extends StatelessWidget {
             border: Border.all(
               color: tokens.border.withValues(alpha: tokens.border.a * .5),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .1),
-                offset: const Offset(0, 20),
-                blurRadius: 25,
-                spreadRadius: -5,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .1),
-                offset: const Offset(0, 8),
-                blurRadius: 10,
-                spreadRadius: -6,
-              ),
-            ],
+            boxShadow: const [],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

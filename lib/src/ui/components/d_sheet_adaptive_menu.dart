@@ -1008,11 +1008,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     );
     Widget backdrop(double progress) {
       const color = Color(0x1A000000);
-      // Keep the blur in the application's painted stack. Fading the whole
-      // filter creates an offscreen layer and can flash the live backdrop.
       Widget result = widget.presentation.buildBackdrop(
         color: color.withValues(alpha: color.a * progress),
-        blurSigma: 2 * progress,
       );
       if (widget.presentation.modal &&
           (widget.onDismiss != null || widget.onDismissRequested != null)) {

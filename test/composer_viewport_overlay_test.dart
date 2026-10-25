@@ -12,11 +12,9 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
-import 'support/stock_glass.dart';
 
 const _captureKey = ValueKey('mobile-sheet-capture');
 
@@ -139,12 +137,9 @@ void main() {
             controller: controller,
             child: MaterialApp(
               // iOS always selects the glass material.
-              theme: DMaterialTheme.apply(
-                AppTheme.forBrightness(
-                  brightness,
-                ).copyWith(platform: TargetPlatform.iOS),
-                DAppearanceMaterial.liquidGlass,
-              ),
+              theme: AppTheme.forBrightness(
+                brightness,
+              ).copyWith(platform: TargetPlatform.iOS),
               home: const RepaintBoundary(
                 key: _captureKey,
                 child: AdaptiveShell(),
@@ -160,13 +155,7 @@ void main() {
           tester.widget<DCard>(toolbarBar).variant,
           DCardVariant.floatingCapsule,
         );
-        expect(DMaterialTheme.glassOf(tester.element(toolbarBar)), isTrue);
-        expectStockGlass(
-          tester,
-          find
-              .descendant(of: toolbarBar, matching: find.byType(LiquidGlass))
-              .first,
-        );
+
         final panelContext = tester.element(find.byType(ComposerPanel));
         final background = Theme.of(panelContext).shell.content;
         expect(

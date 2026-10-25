@@ -11,7 +11,6 @@ import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,21 +18,23 @@ const siteA = 'https://example.com/a';
 const siteB = 'https://example.com/b';
 
 void main() {
-  test('Apple appearance overrides legacy and saved Standard preferences', () {
-    for (final saved in [
-      SharedAppearance.defaults,
-      SharedAppearance.fromJson(const {'version': 1}),
-      SharedAppearance.fromJson(const {'version': 2}),
-      SharedAppearance.fromJson(const {'version': 3, 'material': 'standard'}),
-      const SharedAppearance(material: DAppearanceMaterial.liquidGlass),
-    ]) {
-      for (final platform in TargetPlatform.values) {
-        expect(
-          saved.materialFor(platform),
-          platform == TargetPlatform.macOS || platform == TargetPlatform.iOS
-              ? DAppearanceMaterial.liquidGlass
-              : saved.material,
-        );
+  test('legacy appearance styles do not replace fonts or effects', () {
+    for (final version in [1, 2, 3]) {
+      for (final legacy in [null, 'standard', 'liquidGlass', 'unknown']) {
+        const effects = ForumBackground.appearance(transparency: .25);
+        final saved = SharedAppearance.fromJson({
+          'version': version,
+          'font': 'lato',
+          'readingFont': 'lato',
+          'interfaceFont': 'openSans',
+          'material': legacy,
+          'effects': effects.toJson(),
+        });
+        expect(saved.readingFont, ForumFont.lato);
+        expect(saved.interfaceFont, ForumFont.openSans);
+        expect(saved.effects, effects);
+        expect(saved.toJson().containsKey('material'), isFalse);
+        expect(SharedAppearance.fromJson(saved.toJson()), saved);
       }
     }
   });
@@ -60,7 +61,6 @@ void main() {
           final appearance = SharedAppearance(
             font: reading,
             interfaceFont: interface,
-            material: DAppearanceMaterial.liquidGlass,
             effects: const ForumBackground.appearance(transparency: .25),
           );
           expect(

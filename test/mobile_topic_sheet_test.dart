@@ -103,10 +103,8 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets('topic sheet geometry ${mode.name} ${material.name}', (
-        tester,
-      ) async {
+    {
+      testWidgets('topic sheet geometry ${mode.name} flat', (tester) async {
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         final shell = await _openTopic(tester);
@@ -117,7 +115,6 @@ void main() {
         );
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
-            material: material,
             font: ForumFont.lato,
             interfaceFont: ForumFont.lato,
             effects: shell.forumSettings.shared.effects.copyWith(
@@ -156,7 +153,7 @@ void main() {
         final header = tester.getRect(_header);
         final dock = tester.getRect(_dock);
         final platform = Theme.of(tester.element(_header)).platform.name;
-        await _capture(tester, '$platform-${mode.name}-${material.name}-open');
+        await _capture(tester, '$platform-${mode.name}-flat-open');
         final drag = await tester.startGesture(tester.getCenter(_handle));
         await drag.moveBy(const Offset(0, 20));
         await drag.moveBy(const Offset(0, 70));
@@ -170,7 +167,7 @@ void main() {
         );
         expect(tester.getRect(_header), header);
         expect(tester.getRect(_dock), dock);
-        await _capture(tester, '$platform-${mode.name}-${material.name}-pull');
+        await _capture(tester, '$platform-${mode.name}-flat-pull');
         await drag.cancel();
         await tester.pumpAndSettle();
         expect(tester.getRect(_sheet), bounds);

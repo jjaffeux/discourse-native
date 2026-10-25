@@ -741,20 +741,16 @@ abstract final class AppTheme {
       // Compact toolbars opt into compact density at their own call sites.
       visualDensity: VisualDensity.standard,
     );
-    // Flutter cannot express core's 0 8px 60px CSS shadow directly through a
-    // dialog theme. Elevation 24 gives these native surfaces comparable depth.
-    final modalShadow = Colors.black.withValues(
-      alpha: brightness == Brightness.dark ? 1 : 0.6,
-    );
+    const modalShadow = Colors.transparent;
     final menuShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(DRadius.control),
       side: BorderSide(color: shell.divider),
     );
     final menuStyle = MenuStyle(
       backgroundColor: WidgetStatePropertyAll(shell.floating),
-      shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.4)),
+      shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-      elevation: const WidgetStatePropertyAll(8),
+      elevation: const WidgetStatePropertyAll(0),
       padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
       side: WidgetStatePropertyAll(BorderSide(color: shell.divider)),
       shape: WidgetStatePropertyAll(
@@ -859,7 +855,7 @@ abstract final class AppTheme {
         color: shell.floating,
         shape: menuShape,
         menuPadding: const EdgeInsets.all(6),
-        elevation: 8,
+        elevation: 0,
         shadowColor: Colors.black.withValues(alpha: 0.4),
         surfaceTintColor: Colors.transparent,
         textStyle: textTheme.bodyMedium,
@@ -953,7 +949,7 @@ abstract final class AppTheme {
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: resolvedColorScheme.onSurface,
         ),
-        elevation: 24,
+        elevation: 0,
         shadowColor: modalShadow,
         surfaceTintColor: Colors.transparent,
         shape: modalShape,
@@ -968,7 +964,7 @@ abstract final class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         modalBackgroundColor: shell.content,
         modalBarrierColor: discourseModalBarrier,
-        modalElevation: 24,
+        modalElevation: 0,
         shadowColor: modalShadow,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(

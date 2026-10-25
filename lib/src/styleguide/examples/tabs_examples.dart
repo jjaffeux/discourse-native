@@ -117,7 +117,7 @@ final tabsExamples = ComponentExamples(
     StyleguideExample(
       title: 'Document tabs',
       description:
-          'Workspace tabs use 35px pill surfaces with 13px labels and an 18px close action. Standard selection has a raised fill and subtle outline. Liquid glass selection paints a frosted tint, white rim, upper highlight and soft shadow without a lens; inactive hover has a faint tint and rim. Inactive Standard tabs stay transparent. Close actions keep their space and appear on selection, hover, keyboard focus or touch.',
+          'Workspace tabs use 35px pill surfaces with 13px labels and an 18px close action. Selection has a flat fill and subtle outline. Inactive tabs stay transparent. Close actions keep their space and appear on selection, hover, keyboard focus or touch.',
       states: const ['Selected', 'Hover', 'Close', 'Keyboard'],
       code:
           "DDocumentTab(size: DControlSize.documentTab, selected: true,  onSelect: select, onClose: close, closeLabel: 'Close Side chat', child: Text('Side chat'))",

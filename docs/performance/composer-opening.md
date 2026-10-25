@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](../material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Mobile composer opening
 
 The mobile composer sheet owns its keyboard. While that sheet covers the shell,

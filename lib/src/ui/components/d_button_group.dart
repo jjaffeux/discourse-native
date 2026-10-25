@@ -5,8 +5,6 @@ import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
-import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_separator.dart';
@@ -174,18 +172,14 @@ class _DButtonGroupState extends State<DButtonGroup> {
       final theme = DTokens.of(context).buttonTheme;
       content = DecoratedBox(
         decoration: BoxDecoration(
-          color: DMaterialTheme.glassOf(context)
-              ? Colors.transparent
-              : theme.outline.background,
+          color: theme.outline.background,
           borderRadius: BorderRadius.circular(DRadius.control),
         ),
         child: DecoratedBox(
           position: DecorationPosition.foreground,
           decoration: DControlDecoration(
             color: Colors.transparent,
-            borderColor: DMaterialTheme.glassOf(context)
-                ? Colors.transparent
-                : theme.outline.border,
+            borderColor: theme.outline.border,
             borderRadius: BorderRadius.circular(DRadius.control),
             strokeWidth: 1,
           ),
@@ -321,34 +315,25 @@ class DButtonGroupText extends StatelessWidget {
       label: null,
       excludeSemantics: false,
       child: _GroupTextExtent(
-        child: DMaterialSurface(
-          color: tokens.buttonTheme.outline.background,
-          radius: resolvedRadius,
-          child: DecoratedBox(
-            decoration: DControlDecoration(
-              strokeWidth: 1,
-              color: DMaterialSurface.fill(
-                context,
-                tokens.buttonTheme.outline.background,
-              ),
-              borderColor:
-                  DMaterialTheme.glassOf(context) ||
-                      joined?.sharedOutline == true
-                  ? Colors.transparent
-                  : tokens.buttonTheme.outline.border,
-              borderRadius: resolvedRadius,
-              joinedAxis: joined?.omitsLeadingBorder ?? false
-                  ? joined!.axis
-                  : null,
-            ),
-            child: Padding(
-              padding: padding,
-              child: Align(
-                alignment: AlignmentDirectional.center,
-                widthFactor: 1,
-                heightFactor: 1,
-                child: text,
-              ),
+        child: DecoratedBox(
+          decoration: DControlDecoration(
+            strokeWidth: 1,
+            color: tokens.buttonTheme.outline.background,
+            borderColor: joined?.sharedOutline == true
+                ? Colors.transparent
+                : tokens.buttonTheme.outline.border,
+            borderRadius: resolvedRadius,
+            joinedAxis: joined?.omitsLeadingBorder ?? false
+                ? joined!.axis
+                : null,
+          ),
+          child: Padding(
+            padding: padding,
+            child: Align(
+              alignment: AlignmentDirectional.center,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: text,
             ),
           ),
         ),

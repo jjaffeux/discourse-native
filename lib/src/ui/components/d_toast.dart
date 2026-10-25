@@ -645,13 +645,7 @@ class _DToastCardState extends State<_DToastCard> {
         color: tokens.surface,
         borderRadius: radius,
         border: Border.all(color: _focused ? tokens.focusRing : tokens.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .14),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: const [],
       ),
       foregroundDecoration: _focused
           ? BoxDecoration(

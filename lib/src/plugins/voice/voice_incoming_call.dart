@@ -65,7 +65,7 @@ class _VoiceIncomingCallBannerState extends State<VoiceIncomingCallBanner> {
               (caller.name ?? caller.username).toString(),
             ),
             child: Material(
-              elevation: 12,
+              elevation: 0,
               borderRadius: BorderRadius.circular(14),
               clipBehavior: Clip.antiAlias,
               child: ConstrainedBox(

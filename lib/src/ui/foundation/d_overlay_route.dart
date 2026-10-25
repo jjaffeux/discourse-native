@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'material_theme.dart';
-
 /// Live inherited values shared by route-owned components.
 @immutable
 class DOverlayEnvironment {
@@ -17,7 +15,7 @@ class DOverlayEnvironment {
     final keyboard = context
         .dependOnInheritedWidgetOfExactType<DOverlayKeyboardMetrics>();
     return DOverlayEnvironment(
-      theme: DMaterialTheme.overlayThemeOf(context),
+      theme: Theme.of(context),
       mediaQuery: keyboard == null
           ? media
           : media.copyWith(

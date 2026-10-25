@@ -18370,12 +18370,6 @@
       }
     }
   },
-  "appearanceStyle": "Style",
-  "@appearanceStyle": {"description": "Appearance material and texture setting."},
-  "standardMaterial": "Standard",
-  "@standardMaterial": {"description": "Appearance material and texture setting."},
-  "liquidGlassMaterial": "Liquid glass",
-  "@liquidGlassMaterial": {"description": "Appearance material and texture setting."},
   "searchFilterMatch": "Match",
   "@searchFilterMatch": {"description": "Label for how selected search tags are combined."},
   "hatchTexture": "Hatch",

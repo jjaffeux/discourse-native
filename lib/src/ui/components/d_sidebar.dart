@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/control_style.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_input.dart';
@@ -247,11 +246,7 @@ class _DSidebarState extends State<DSidebar> {
   Widget _panel(BuildContext context, bool icon, {bool mobile = false}) {
     final t = DTokens.of(context);
 
-    final background =
-        widget.backgroundColor ??
-        ((DMaterialTheme.glassOf(context) && !mobile)
-            ? Colors.transparent
-            : t.muted);
+    final background = widget.backgroundColor ?? (t.muted);
     return Material(
       type: MaterialType.transparency,
       child: _PanelScope(
@@ -1761,13 +1756,7 @@ class DSidebarInset extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.background,
         borderRadius: BorderRadius.circular(DRadius.panel),
-        boxShadow: [
-          BoxShadow(
-            color: t.foreground.withValues(alpha: .05),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        boxShadow: const [],
       ),
       child: child,
     );

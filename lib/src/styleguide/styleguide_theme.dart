@@ -1,7 +1,5 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 import '../theme/app_theme.dart';
 
@@ -24,14 +22,7 @@ enum StyleguideTheme {
       StyleguideTheme.forest => _siteTheme(false),
       StyleguideTheme.plum => _siteTheme(true),
     };
-    return DMaterialTheme.apply(
-      theme.copyWith(platform: current.platform),
-      SharedAppearance(
-        material:
-            current.extension<DMaterialTheme>()?.material ??
-            DAppearanceMaterial.standard,
-      ).materialFor(current.platform),
-    );
+    return theme.copyWith(platform: current.platform);
   }
 }
 

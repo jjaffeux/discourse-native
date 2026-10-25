@@ -68,8 +68,8 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets('category levels and live tags on $platform $material', (
+    {
+      testWidgets('category levels and live tags on $platform flat', (
         tester,
       ) async {
         debugDisableShadows = false;
@@ -80,10 +80,9 @@ void main() {
           filterOptions: fixture.filterMenuOptions,
         );
         await data.shell.forumSettings.setShared(
-          SharedAppearance(
+          const SharedAppearance(
             font: ForumFont.openSans,
             interfaceFont: ForumFont.openSans,
-            material: material,
           ),
         );
         await data.shell.forumSettings.setThemeMode(
@@ -107,7 +106,7 @@ void main() {
         expect(find.text('Status: Open'), findsNothing);
         expect(find.text('Tags: Alpha'), findsNothing);
         expect(find.widgetWithText(DButton, 'Done'), findsNothing);
-        await fixture.capture(tester, 'taxonomy-category-$platform-$material');
+        await fixture.capture(tester, 'taxonomy-category-$platform-flat');
         await tester.tap(_choice('Design'));
         await tester.pumpAndSettle();
         expect(data.shell.topicListContent!.categoryId, 2);
@@ -126,7 +125,7 @@ void main() {
         await _open(tester, 'topic-list-tag-filter');
         expect(_query(tester), isEmpty);
         expect(find.text('Category: Design'), findsNothing);
-        await fixture.capture(tester, 'taxonomy-tags-$platform-$material');
+        await fixture.capture(tester, 'taxonomy-tags-$platform-flat');
         // Removing the last tag publishes an empty scope without discarding
         // the category or status, and the same menu stays available.
         await tester.tap(

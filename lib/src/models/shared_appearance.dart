@@ -15,7 +15,6 @@ final class SharedAppearance {
     this.font = ForumFont.system,
     this.interfaceFont = ForumFont.system,
     this.iconSet = DIconSet.defaultSet,
-    this.material = DAppearanceMaterial.standard,
     this.effects = const ForumBackground.appearance(),
   });
 
@@ -37,11 +36,6 @@ final class SharedAppearance {
       font: ForumFont.fromName(json['readingFont'] ?? json['font']),
       interfaceFont: ForumFont.fromName(json['interfaceFont']),
       iconSet: DIconSet.fromName(json['iconSet']),
-      material:
-          DAppearanceMaterial.values
-              .where((m) => m.name == json['material'])
-              .firstOrNull ??
-          DAppearanceMaterial.standard,
       effects: effects,
     );
   }
@@ -72,16 +66,6 @@ final class SharedAppearance {
   /// System reading follows the interface, as in the font chooser.
   String? get readingFamily => font.family ?? interfaceFont.family;
   final DIconSet iconSet;
-  final DAppearanceMaterial material;
-
-  /// Apple platforms always use Liquid glass, including existing installations
-  /// whose saved cross-platform appearance still requests Standard.
-  DAppearanceMaterial materialFor(TargetPlatform platform) =>
-      switch (platform) {
-        TargetPlatform.macOS ||
-        TargetPlatform.iOS => DAppearanceMaterial.liquidGlass,
-        _ => material,
-      };
 
   /// Opacity and texture, drawn over whichever colours a forum uses. Its
   /// strength is never drawn: a theme carries its own [ForumTheme.tint].
@@ -91,19 +75,16 @@ final class SharedAppearance {
     ForumFont? font,
     ForumFont? interfaceFont,
     DIconSet? iconSet,
-    DAppearanceMaterial? material,
     ForumBackground? effects,
   }) => SharedAppearance(
     font: font ?? this.font,
     interfaceFont: interfaceFont ?? this.interfaceFont,
     iconSet: iconSet ?? this.iconSet,
-    material: material ?? this.material,
     effects: effects ?? this.effects,
   );
 
   Map<String, dynamic> toJson() => {
     'version': 3,
-    'material': material.name,
     'readingFont': font.name,
     'interfaceFont': interfaceFont.name,
     'iconSet': iconSet.name,
@@ -116,10 +97,8 @@ final class SharedAppearance {
       other.font == font &&
       other.interfaceFont == interfaceFont &&
       other.iconSet == iconSet &&
-      other.material == material &&
       other.effects == effects;
 
   @override
-  int get hashCode =>
-      Object.hash(font, interfaceFont, iconSet, material, effects);
+  int get hashCode => Object.hash(font, interfaceFont, iconSet, effects);
 }

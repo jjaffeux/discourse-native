@@ -50,10 +50,8 @@ import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
@@ -1323,11 +1321,11 @@ void main() {
   }
 
   for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final scale in [1.0, 1.5]) {
         _mobileTest(
           'body and plugin page keep their corners and dock at $scale text '
-          '${mode.name} ${material.name}',
+          '${mode.name} flat',
           (tester) async {
             tester.platformDispatcher.textScaleFactorTestValue = scale;
             addTearDown(
@@ -1341,7 +1339,7 @@ void main() {
               ForumThemePreferences.preset('dracula'),
             );
             await shell.forumSettings.setShared(
-              shell.forumSettings.shared.copyWith(material: material),
+              shell.forumSettings.shared.copyWith(),
             );
             await tester.pumpAndSettle();
             final body = find.byKey(const ValueKey('mobile-content-panel'));
@@ -1376,7 +1374,7 @@ void main() {
             _expectPageRadius(bodyRadius());
             await _captureChrome(
               tester,
-              'dock-topics-$scale-${mode.name}-${material.name}',
+              'dock-topics-$scale-${mode.name}-flat',
             );
             shell.openChatChannel(10);
             await tester.pumpAndSettle();
@@ -1393,10 +1391,7 @@ void main() {
                 )
                 .first;
             _expectPageRadius(tester.widget<DPageSurface>(sheet).borderRadius);
-            await _captureChrome(
-              tester,
-              'dock-chat-$scale-${mode.name}-${material.name}',
-            );
+            await _captureChrome(tester, 'dock-chat-$scale-${mode.name}-flat');
             expect(tester.takeException(), isNull);
           },
         );
@@ -1414,7 +1409,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
     for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
-      for (final material in DAppearanceMaterial.values) {
+      {
         await shell.forumSettings.setThemeMode(_site, mode);
         await shell.forumSettings.setThemes(
           _site,
@@ -1422,13 +1417,12 @@ void main() {
         );
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
-            material: material,
             font: ForumFont.lato,
             interfaceFont: ForumFont.lato,
           ),
         );
         await tester.pumpAndSettle();
-        await _captureChrome(tester, 'start-${mode.name}-${material.name}');
+        await _captureChrome(tester, 'start-${mode.name}-flat');
         final body = find.byKey(const ValueKey('mobile-content-panel'));
         expect(tester.getRect(body).bottom, 844);
         expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
@@ -1747,9 +1741,7 @@ void main() {
         );
         expect(tester.widget<DMobileDockItem>(button).label, isNotEmpty);
         final icon = find.descendant(of: button, matching: find.byType(DIcon));
-        final iconHeight = DMaterialTheme.glassOf(tester.element(button))
-            ? 26.36
-            : 22.36;
+        const iconHeight = 22.36;
         expect(tester.getSize(icon).height, closeTo(iconHeight, .01));
         final glyph = find.descendant(
           of: icon,
@@ -1855,8 +1847,8 @@ void main() {
   );
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    for (final material in DAppearanceMaterial.values) {
-      _mobileTest('mobile sidebar mockup parity ${mode.name} ${material.name}', (
+    {
+      _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
         tester,
       ) async {
         if (const bool.fromEnvironment('captureMobileSidebar')) {
@@ -1882,7 +1874,6 @@ void main() {
         );
         await shell.forumSettings.setShared(
           shell.forumSettings.shared.copyWith(
-            material: material,
             font: const bool.fromEnvironment('captureMobileSidebar')
                 ? ForumFont.lato
                 : null,
@@ -1933,7 +1924,7 @@ void main() {
             );
             final platform = Theme.of(tester.element(_header)).platform.name;
             await File(
-              '/private/tmp/mobile-sidebar-$platform-${mode.name}-${material.name}-$state.png',
+              '/private/tmp/mobile-sidebar-$platform-${mode.name}-flat-$state.png',
             ).writeAsBytes(bytes!.buffer.asUint8List());
             image.dispose();
             scene.dispose();
@@ -2340,7 +2331,7 @@ void main() {
   ) async {
     // Keep destinations visible while inspecting each transition frame.
     await pumpMobileShellFixture(tester, size: const Size(700, 844));
-    final glass = DMaterialTheme.glassOf(tester.element(_bar));
+
     await _tapDockTab(tester, 'panel/chat');
     for (final (tab, key) in [
       ('messages', 'new-message-button'),
@@ -2353,20 +2344,9 @@ void main() {
       await tester.pump();
       final actions = find.byKey(ValueKey(key));
       expect(actions, findsAtLeastNWidgets(1));
-      final action = actions.last;
+
       for (var frame = 0; frame < 10; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
-        if (glass) {
-          RenderObject? ancestor = tester.renderObject(action);
-          while (ancestor != null) {
-            if (ancestor is RenderOpacity) {
-              expect(ancestor.opacity, anyOf(0.0, 1.0), reason: tab);
-            } else if (ancestor is RenderAnimatedOpacity) {
-              expect(ancestor.opacity.value, anyOf(0.0, 1.0), reason: tab);
-            }
-            ancestor = ancestor.parent;
-          }
-        }
       }
       // Switch roots again before the incoming action has fully settled.
     }
@@ -2900,8 +2880,8 @@ void main() {
             tester.getRect(action).width,
             greaterThanOrEqualTo(tester.getRect(action).height - .001),
           );
-          final glass = DMaterialTheme.glassOf(tester.element(action));
-          final iconDifference = glass ? 4 : 0;
+
+          const iconDifference = 0;
           expect(
             tester.getSize(icon).height,
             tester.getSize(dockIcon).height - iconDifference,
@@ -2939,10 +2919,9 @@ void main() {
           final surface = find.descendant(
             of: action,
             matching: find.byWidgetPredicate(
-              (widget) => glass
-                  ? widget is LiquidGlass
-                  : widget is AnimatedContainer &&
-                        widget.decoration is DButtonDecoration,
+              (widget) =>
+                  widget is AnimatedContainer &&
+                  widget.decoration is DButtonDecoration,
             ),
           );
           expect(tester.getRect(surface), tester.getRect(action));
@@ -2952,14 +2931,12 @@ void main() {
     },
   );
 
-  for (final material in DAppearanceMaterial.values) {
-    _mobileTest('More opens a bottom sheet in ${material.name}', (
-      tester,
-    ) async {
+  {
+    _mobileTest('More opens a bottom sheet in flat', (tester) async {
       tester.view.viewPadding = const FakeViewPadding(bottom: 34);
       final shell = await pumpMobileShellFixture(tester);
       await shell.forumSettings.setShared(
-        shell.forumSettings.shared.copyWith(material: material),
+        shell.forumSettings.shared.copyWith(),
       );
       await tester.pumpAndSettle();
       final more = find.byKey(const ValueKey('mobile-mode-more'));

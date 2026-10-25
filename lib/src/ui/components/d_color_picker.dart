@@ -6,7 +6,6 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/focus_highlight.dart';
-import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_popover.dart';
@@ -310,22 +309,15 @@ class _DColorPickerState extends State<DColorPicker> {
           onPressed: widget.onChanged == null ? null : state.toggle,
           icon: SizedBox.square(
             dimension: widget.size == DColorPickerSize.compact ? 18 : 16,
-            child: DMaterialSurface(
-              depth: DSurfaceDepth.swatch,
-              radius: BorderRadius.circular(
-                widget.size == DColorPickerSize.compact ? 4 : 0,
-              ),
-              color: widget.value,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: widget.value,
-                  borderRadius: widget.size == DColorPickerSize.compact
-                      ? BorderRadius.circular(4)
-                      : null,
-                  border: widget.size == DColorPickerSize.compact
-                      ? null
-                      : Border.all(color: DTokens.of(context).border),
-                ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: widget.value,
+                borderRadius: widget.size == DColorPickerSize.compact
+                    ? BorderRadius.circular(4)
+                    : null,
+                border: widget.size == DColorPickerSize.compact
+                    ? null
+                    : Border.all(color: DTokens.of(context).border),
               ),
             ),
           ),

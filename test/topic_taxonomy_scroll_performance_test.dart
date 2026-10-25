@@ -96,9 +96,9 @@ void main() {
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    for (final material in DAppearanceMaterial.values) {
+    {
       for (final component in ['category', 'tag']) {
-        testWidgets('$component scroll caches artwork on $platform $material', (
+        testWidgets('$component scroll caches artwork on $platform flat', (
           tester,
         ) async {
           final data = await fixture.fixture(
@@ -125,7 +125,7 @@ void main() {
             filterOptions: fixture.filterMenuOptions,
           );
           await data.shell.forumSettings.setShared(
-            data.shell.forumSettings.shared.copyWith(material: material),
+            data.shell.forumSettings.shared.copyWith(),
           );
           await tester.pumpAndSettle();
           await tester.tap(
@@ -202,7 +202,7 @@ void main() {
             await tester.pumpAndSettle();
             debugPrint(
               'TAXONOMY_SCROLL_PAINTS component=$component platform=$platform '
-              'material=$material total=$totalPaints input=$inputPaints page=$pagePaints rows=$rowPaints',
+              'material=flat total=$totalPaints input=$inputPaints page=$pagePaints rows=$rowPaints',
             );
             expect(totalPaints, greaterThan(0));
             expect(inputPaints, 0);

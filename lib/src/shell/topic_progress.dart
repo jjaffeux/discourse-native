@@ -34,34 +34,30 @@ class TopicProgressButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final boundedTotal = total < 1 ? 1 : total;
     final boundedPosition = position.clamp(1, boundedTotal);
-    return NativeGlassScope(
-      child: DButton(
-        key: const ValueKey('topic-progress-button'),
-        onPressed: onPressed,
-        focusNode: focusNode,
-        expanded: expanded ?? false,
-        hasPopup: true,
-        tooltip: context.l10n.topicProgress,
-        semanticLabel: context.l10n.topicProgressPostOf(
-          (boundedPosition).toString(),
-          (boundedTotal).toString(),
-        ),
-        variant: DButtonVariant.ghost,
-        density: floating
-            ? DButtonDensity.floatingCall
-            : DButtonDensity.topicProgress,
-        shape: DButtonShape.pill,
-        label: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            '$boundedPosition / $boundedTotal',
-            textDirection: TextDirection.ltr,
-            maxLines: 1,
-            softWrap: false,
-            style: const TextStyle(
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
+    return DButton(
+      key: const ValueKey('topic-progress-button'),
+      onPressed: onPressed,
+      focusNode: focusNode,
+      expanded: expanded ?? false,
+      hasPopup: true,
+      tooltip: context.l10n.topicProgress,
+      semanticLabel: context.l10n.topicProgressPostOf(
+        (boundedPosition).toString(),
+        (boundedTotal).toString(),
+      ),
+      variant: DButtonVariant.ghost,
+      density: floating
+          ? DButtonDensity.floatingCall
+          : DButtonDensity.topicProgress,
+      shape: DButtonShape.pill,
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          '$boundedPosition / $boundedTotal',
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
         ),
       ),
     );

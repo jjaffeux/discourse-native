@@ -124,8 +124,8 @@ void main() {
     });
   }
   for (final dark in [false, true]) {
-    for (final material in DAppearanceMaterial.values) {
-      testWidgets('composer wells render in $dark $material', (tester) async {
+    {
+      testWidgets('composer wells render in $dark flat', (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 700));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final composer = ComposerController(
@@ -150,12 +150,9 @@ void main() {
         const capture = ValueKey('composer-wells-capture');
         await tester.pumpWidget(
           MaterialApp(
-            theme: DMaterialTheme.apply(
-              AppTheme.forBrightness(
-                dark ? Brightness.dark : Brightness.light,
-                fontFamily: 'Lato',
-              ),
-              material,
+            theme: AppTheme.forBrightness(
+              dark ? Brightness.dark : Brightness.light,
+              fontFamily: 'Lato',
             ),
             home: RepaintBoundary(
               key: capture,
@@ -184,7 +181,7 @@ void main() {
         await _capture(
           tester,
           capture,
-          'wells-${dark ? 'dark' : 'light'}-${material.name}',
+          'wells-${dark ? 'dark' : 'light'}-flat',
         );
       });
     }

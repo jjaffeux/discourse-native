@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Profile menu mockup parity
 
 Reference: `discourse-native-mockups/src/App.tsx`, `AvatarMenu` and

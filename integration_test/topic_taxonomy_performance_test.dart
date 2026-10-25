@@ -15,7 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/sidebar_filter_parity_test.dart' as vocabulary;
@@ -66,7 +65,7 @@ void main() {
       messenger.setMockMethodCallHandler(notifications, null);
     });
     debugPrint('TAXONOMY_SETUP loading shaders');
-    await LiquidGlass.precache();
+
     debugPrint('TAXONOMY_SETUP loading fonts');
     final fonts =
         jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
@@ -136,7 +135,6 @@ void main() {
     var details = <String, Object>{};
     Future<void> measure(
       String component,
-      DAppearanceMaterial material,
       String phase,
       Future<void> Function() action,
     ) async {
@@ -181,17 +179,13 @@ void main() {
         'platform': defaultTargetPlatform.name,
         'debug': kDebugMode,
         'shaderFilters': ui.ImageFilter.isShaderFilterSupported,
-        'renderer': 'liquid_glass_renderer',
+        'renderer': 'flat',
         'logicalWidth':
             tester.view.physicalSize.width / tester.view.devicePixelRatio,
         'logicalHeight':
             tester.view.physicalSize.height / tester.view.devicePixelRatio,
         'pixelRatio': tester.view.devicePixelRatio,
         'component': component,
-        'material': shell.forumSettings.shared
-            .materialFor(defaultTargetPlatform)
-            .name,
-        'requestedMaterial': material.name,
         'phase': phase,
         'categories': categories.length,
         'tags': tags.length,
@@ -207,7 +201,7 @@ void main() {
       };
       debugPrint('TAXONOMY_PROFILE ${jsonEncode(report)}', wrapWidth: 4096);
       binding.reportData ??= {};
-      binding.reportData!['${component}_${material.name}_$phase'] = report;
+      binding.reportData!['${component}_flat_$phase'] = report;
       expect(tester.takeException(), isNull);
     }
 
@@ -239,11 +233,11 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    for (final material in DAppearanceMaterial.values) {
-      await shell.forumSettings.setShared(SharedAppearance(material: material));
+    {
+      await shell.forumSettings.setShared(const SharedAppearance());
       await tester.pumpAndSettle();
       for (final component in touchOnly ? ['tag'] : ['category', 'tag']) {
-        await measure(component, material, 'open', () => open(component));
+        await measure(component, 'open', () => open(component));
         final initialResults = _resultCount(tester);
         expect(
           initialResults,
@@ -259,7 +253,7 @@ void main() {
         final position = tester.state<ScrollableState>(results).position;
         expect(position.maxScrollExtent, greaterThan(3000));
         if (touchOnly) {
-          await measure(component, material, 'touch-expand', () async {
+          await measure(component, 'touch-expand', () async {
             await tester.timedDrag(
               results,
               const Offset(0, -300),
@@ -314,7 +308,7 @@ void main() {
               ),
             ]),
           );
-          await measure(component, material, 'touch-drag', () async {
+          await measure(component, 'touch-drag', () async {
             var minimum = position.pixels;
             var maximum = minimum;
             void moved() {
@@ -339,7 +333,7 @@ void main() {
             };
             await tester.pumpAndSettle();
           });
-          await measure(component, material, 'touch-fling', () async {
+          await measure(component, 'touch-fling', () async {
             for (var repeat = 0; repeat < 3; repeat++) {
               final before = position.pixels;
               await tester.fling(results, const Offset(0, -250), 2000);
@@ -375,7 +369,7 @@ void main() {
         }
 
         await sweep();
-        await measure(component, material, 'scroll', () async {
+        await measure(component, 'scroll', () async {
           final elapsed = Stopwatch()..start();
           for (var repeat = 0; repeat < 3; repeat++) {
             await sweep();
@@ -393,7 +387,7 @@ void main() {
             kind: PointerDeviceKind.mouse,
           );
           await mouse.addPointer(location: Offset.zero);
-          await measure(component, material, 'hover', () async {
+          await measure(component, 'hover', () async {
             final rect = tester.getRect(results);
             final controller = tester
                 .widget<DCommand<String>>(find.byType(DCommand<String>))
@@ -422,7 +416,7 @@ void main() {
           });
           await mouse.removePointer();
         }
-        await measure(component, material, 'search', () async {
+        await measure(component, 'search', () async {
           for (final query in [
             component == 'tag' ? 'tag-0' : 'Category 0',
             '',
@@ -441,7 +435,7 @@ void main() {
         });
         if (component == 'tag') {
           final selected = <String>{};
-          await measure(component, material, 'select', () async {
+          await measure(component, 'select', () async {
             for (final name in ['tag-000', 'tag-001', 'tag-000', 'tag-002']) {
               await tester.tap(_choice(name));
               await tester.pumpAndSettle();
@@ -450,7 +444,7 @@ void main() {
               expect(_list, findsOneWidget);
             }
           });
-          await measure(component, material, 'match-mode', () async {
+          await measure(component, 'match-mode', () async {
             for (final label in ['All', 'None', 'Not all', 'Any']) {
               await tester.tap(find.widgetWithText(DToggle, label));
               await tester.pumpAndSettle();
@@ -459,7 +453,7 @@ void main() {
             }
           });
         }
-        await measure(component, material, 'close', () => close(component));
+        await measure(component, 'close', () => close(component));
       }
     }
     await tester.pumpWidget(const SizedBox.shrink());

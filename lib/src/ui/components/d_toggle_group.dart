@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_toggle.dart';
 import 'd_tooltip.dart';
@@ -610,8 +609,6 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     if (widget.scrollable && !widget.expanded && !widget.wrap) {
       group = SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        // The mockup pads the scroll viewport itself. Padding outside it
-        // clips the capsule's shadow at its 26px bounds, flattening corners.
         padding: widget.density == DToggleDensity.menuFilter
             ? const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 10)
             : null,
@@ -637,10 +634,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     if (widget.inset) {
       final tokens = DTokens.of(context);
       final decoration = BoxDecoration(
-        color: DMaterialSurface.fill(
-          context,
-          Color.lerp(tokens.background, Colors.black, .14)!,
-        ),
+        color: Color.lerp(tokens.background, Colors.black, .14)!,
         border: Border.all(
           color: widget.density == DToggleDensity.tile
               ? tokens.border
@@ -648,17 +642,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         ),
         borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
       );
-      group = DMaterialSurface(
-        depth: DSurfaceDepth.recessed,
-        radius: BorderRadius.circular(compactInset ? 9 : 10),
-        color: Color.lerp(tokens.background, Colors.black, .14)!,
-        child: DecoratedBox(
-          key: compactInset
-              ? const ValueKey('toggle-group-compact-frame')
-              : null,
-          decoration: decoration,
-          child: Padding(padding: const EdgeInsets.all(3), child: group),
-        ),
+      group = DecoratedBox(
+        key: compactInset ? const ValueKey('toggle-group-compact-frame') : null,
+        decoration: decoration,
+        child: Padding(padding: const EdgeInsets.all(3), child: group),
       );
       group = Align(
         alignment: AlignmentDirectional.centerStart,
@@ -667,7 +654,6 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         child: group,
       );
     }
-    group = DMaterialBatch(child: group);
     return Semantics(
       container: true,
       explicitChildNodes: true,

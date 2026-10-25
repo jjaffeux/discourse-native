@@ -1,3 +1,5 @@
+> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+
 # Workspace panel material parity
 
 Reference: native-mockups `7c86328` and the supplied October 13 screenshots.

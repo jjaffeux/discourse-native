@@ -469,8 +469,7 @@ class _YoutubeVideoState extends State<YoutubeVideo> {
     return OverlayPortal(
       controller: _playerOverlay,
       overlayLocation: OverlayChildLocation.rootOverlay,
-      overlayChildBuilder: (context) =>
-          NativeGlassOccluder(child: _buildOverlayPlayer(context)),
+      overlayChildBuilder: (context) => _buildOverlayPlayer(context),
       child: video,
     );
   }
