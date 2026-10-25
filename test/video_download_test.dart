@@ -472,6 +472,44 @@ void main() {
     );
   }
 
+  for (final (title, expectedName) in [
+    ('Recording.mov', 'Recording.mp4'),
+    ('Recording.m4v', 'Recording.m4v'),
+  ]) {
+    test('media typing accepts declared M4V with $title', () async {
+      final bytes = [
+        0,
+        0,
+        0,
+        24,
+        ...'ftypM4V '.codeUnits,
+        0,
+        0,
+        0,
+        0,
+        ...'M4V mp42'.codeUnits,
+      ];
+      await download(
+        MockClient(
+          (_) async => http.Response.bytes(
+            bytes,
+            200,
+            headers: {'content-type': 'Video/X-M4V; codecs=avc1'},
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+        source: Uri.parse('https://cdn.example/download?signature=private'),
+        title: title,
+      );
+
+      expect(environment.sharedBytes, bytes);
+      expect(environment.sharedName, expectedName);
+      expect(environment.sharedPathName, expectedName);
+      expect(environment.mimeType, 'video/mp4');
+      expect(directory.listSync(), isEmpty);
+    });
+  }
+
   test(
     'media typing retains a declared WebM type for an EBML container',
     () async {

@@ -318,6 +318,7 @@ enum _VideoMediaType {
   final List<String> extensions;
 
   static _VideoMediaType? fromMimeType(String? mimeType) {
+    if (mimeType == 'video/x-m4v') return mp4;
     for (final type in values) {
       if (type.mimeType == mimeType) return type;
     }
