@@ -818,7 +818,7 @@ Future<_Fixture> _pump(
   );
   await tester.pumpAndSettle();
   final controller = ShellScope.read(
-    tester.element(find.byKey(UserMenuButton.avatarKey)),
+    tester.element(find.byType(UserMenuButton).first),
   );
   await controller.forumSettings.setShared(
     const SharedAppearance(
@@ -834,6 +834,10 @@ Future<void> _openSummaryFromMenu(
   WidgetTester tester, {
   bool settle = true,
 }) async {
+  if (find.byKey(UserMenuButton.avatarKey).evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.byKey(UserMenuButton.avatarKey));
   await tester.pumpAndSettle();
   final summaryRow = find.byKey(const ValueKey('user-menu-row-summary'));

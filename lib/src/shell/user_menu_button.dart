@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'account_menu_scope.dart';
 import 'desktop_header_menu.dart';
 import 'external_link.dart';
 import 'header_notification_button.dart';
@@ -25,8 +27,11 @@ typedef _AccountAvatarSnapshot = ({
   String? displayName,
   int? userId,
   UserStatus? userStatus,
+  bool? hidePresence,
   bool connecting,
 });
+
+enum UserMenuPresentation { combined, notifications, profileCard, profileRail }
 
 class UserMenuButton extends StatefulWidget {
   const UserMenuButton({
@@ -34,6 +39,8 @@ class UserMenuButton extends StatefulWidget {
     this.ringColor,
     this.compact = false,
     this.leadingActions,
+    this.presentation = UserMenuPresentation.combined,
+    this.onBeforeProfileOpen,
   });
 
   final Color? ringColor;
@@ -42,6 +49,21 @@ class UserMenuButton extends StatefulWidget {
 
   /// Header shortcuts share the notification group's inner spacing.
   final List<Widget>? leadingActions;
+  final UserMenuPresentation presentation;
+  final VoidCallback? onBeforeProfileOpen;
+
+  static double footerExtent(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    return math.max(
+          DControlStyle.scaledHeight(
+            DButtonSize.large,
+            scaler,
+            context: context,
+          ),
+          ((scaler.scale(13.5) + scaler.scale(12)) * 1.3).ceilToDouble() + 2,
+        ) +
+        20;
+  }
 
   static const Key bellKey = ValueKey('user-menu-bell');
 
@@ -157,6 +179,9 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         displayName: user?.displayName,
         userId: user?.id,
         userStatus: user?.status,
+        hidePresence: instance == null
+            ? null
+            : controller.hidePresenceFor(instance.url),
         connecting: controller.connecting,
       );
     },
@@ -165,7 +190,13 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       if (!account.showAccountControls) return const SizedBox.shrink();
       final siteUrl = account.siteUrl;
       if (siteUrl == null) return const SizedBox.shrink();
+      final profileOnly = switch (widget.presentation) {
+        UserMenuPresentation.profileCard ||
+        UserMenuPresentation.profileRail => true,
+        _ => false,
+      };
       if (account.username == null) {
+        if (profileOnly) return const SizedBox.shrink();
         return _SignedOutAccountActions(
           connecting: account.connecting,
           onSignUp: () => unawaited(_signUp(siteUrl)),
@@ -177,11 +208,148 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       bool isCurrentMenu() => mounted && generation == _menuGeneration;
 
       return ListenableBuilder(
-        listenable: controller.accountActivity.totalsListenable,
+        listenable: Listenable.merge([
+          controller.accountActivity.totalsListenable,
+          controller.doNotDisturb,
+        ]),
         builder: (context, _) {
           final connecting = account.connecting;
           final totals = controller.accountActivity.totalsFor(siteUrl);
           final unreadCount = totals?.coreBadge ?? 0;
+          if (profileOnly) {
+            final tokens = DTokens.of(context);
+            final paused = controller.doNotDisturb
+                .stateFor(siteUrl)
+                .isActiveAt(DateTime.now());
+            final presence = paused
+                ? context.l10n.notificationsPaused
+                : account.hidePresence == false
+                ? context.l10n.online
+                : account.hidePresence == true
+                ? context.l10n.offline
+                : context.l10n.presenceUnavailable;
+            final rail =
+                widget.presentation == UserMenuPresentation.profileRail;
+            final avatar = DAvatar(
+              dimension: DAvatarSize.standard.dimension,
+              border: !rail,
+              ring: rail && (paused || account.hidePresence == false),
+              ringStyle: DAvatarRingStyle.outside,
+              ringColor: paused ? tokens.mutedForeground : tokens.success,
+              decorative: true,
+              child: UserMenuAvatar(
+                avatarUrl: account.avatarUrl,
+                initial: account.username?.characters.first.toUpperCase(),
+                connecting: connecting,
+              ),
+            );
+            final profile = _AccountMenuPopover(
+              key: ValueKey((UserMenuView.profile, _menuGeneration)),
+              view: UserMenuView.profile,
+              presentation: widget.presentation,
+              isCurrent: isCurrentMenu,
+              controller: _profile,
+              onOpen: () {
+                _notifications.close();
+                widget.onBeforeProfileOpen?.call();
+              },
+              connecting: connecting,
+              tooltip: context.l10n.profile,
+              semanticLabel:
+                  '${context.l10n.profileUsermenubutton(account.displayName ?? account.username!)}, $presence',
+              icon: avatar,
+              compact: widget.compact,
+              profileLabel: rail
+                  ? null
+                  : Row(
+                      spacing: 10,
+                      children: [
+                        avatar,
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                account.displayName ?? account.username!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                  color: tokens.foreground,
+                                ),
+                              ),
+                              LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    UserStatusMessage(
+                                      siteUrl: siteUrl,
+                                      userId: account.userId,
+                                      status: account.userStatus,
+                                      showDescription: true,
+                                      descriptionMaxWidth:
+                                          (constraints.maxWidth - 17).clamp(
+                                            0,
+                                            double.infinity,
+                                          ),
+                                      size: 12,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.3,
+                                        color: tokens.mutedForeground,
+                                      ),
+                                      fallback: Text(
+                                        '@${account.username}',
+                                        textDirection: TextDirection.ltr,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          height: 1.3,
+                                          color: tokens.mutedForeground,
+                                        ),
+                                      ),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            );
+            return DCard(
+              key: const ValueKey('user-profile-card'),
+              border: false,
+              spacing: 0,
+              backgroundColor: rail
+                  ? Colors.transparent
+                  : tokens.primary.withValues(alpha: .10),
+              child: Padding(
+                padding: EdgeInsets.all(rail ? 0 : 4),
+                child: Row(
+                  children: [
+                    Expanded(child: Align(child: profile)),
+                    if (!rail)
+                      UserPresenceMenu(
+                        key: ValueKey((
+                          siteUrl,
+                          account.userId,
+                          account.session,
+                        )),
+                        siteUrl: siteUrl,
+                        iconOnly: !context.isTouch,
+                        side: DPopoverSide.top,
+                        onBeforeOpen: () {
+                          _profile.close();
+                          widget.onBeforeProfileOpen?.call();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }
           return Wrap(
             alignment: WrapAlignment.end,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -220,46 +388,49 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   ],
                 ),
               ),
-              _AccountMenuPopover(
-                key: context.isTouch
-                    ? null
-                    : ValueKey((UserMenuView.profile, _menuGeneration)),
-                view: UserMenuView.profile,
-                isCurrent: isCurrentMenu,
-                controller: _profile,
-                onOpen: _notifications.close,
-                connecting: connecting,
-                tooltip: context.l10n.profile,
-                semanticLabel: context.l10n.profileUsermenubutton(
-                  (account.displayName ?? account.username).toString(),
-                ),
-                icon: Stack(
-                  fit: StackFit.expand,
-                  clipBehavior: Clip.none,
-                  children: [
-                    UserMenuAvatar(
-                      avatarUrl: account.avatarUrl,
-                      initial: account.username?.characters.first.toUpperCase(),
-                      connecting: connecting,
-                    ),
-                    if (account.userStatus != null && !connecting)
-                      PositionedDirectional(
-                        end: -5,
-                        bottom: -4,
-                        child: UserStatusMessage(
-                          siteUrl: siteUrl,
-                          userId: account.userId,
-                          status: account.userStatus,
-                          size: 13,
-                          badgeBackgroundColor:
-                              widget.ringColor ?? theme.scaffoldBackgroundColor,
-                          badgePadding: 2,
-                        ),
+              if (widget.presentation == UserMenuPresentation.combined)
+                _AccountMenuPopover(
+                  key: context.isTouch
+                      ? null
+                      : ValueKey((UserMenuView.profile, _menuGeneration)),
+                  view: UserMenuView.profile,
+                  isCurrent: isCurrentMenu,
+                  controller: _profile,
+                  onOpen: _notifications.close,
+                  connecting: connecting,
+                  tooltip: context.l10n.profile,
+                  semanticLabel: context.l10n.profileUsermenubutton(
+                    (account.displayName ?? account.username).toString(),
+                  ),
+                  icon: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      UserMenuAvatar(
+                        avatarUrl: account.avatarUrl,
+                        initial: account.username?.characters.first
+                            .toUpperCase(),
+                        connecting: connecting,
                       ),
-                  ],
+                      if (account.userStatus != null && !connecting)
+                        PositionedDirectional(
+                          end: -5,
+                          bottom: -4,
+                          child: UserStatusMessage(
+                            siteUrl: siteUrl,
+                            userId: account.userId,
+                            status: account.userStatus,
+                            size: 13,
+                            badgeBackgroundColor:
+                                widget.ringColor ??
+                                theme.scaffoldBackgroundColor,
+                            badgePadding: 2,
+                          ),
+                        ),
+                    ],
+                  ),
+                  compact: widget.compact,
                 ),
-                compact: widget.compact,
-              ),
             ],
           );
         },
@@ -283,6 +454,8 @@ class _AccountMenuPopover extends StatelessWidget {
     this.notificationCount = 0,
     this.notificationColor,
     this.notificationSurface,
+    this.presentation = UserMenuPresentation.combined,
+    this.profileLabel,
   });
 
   final UserMenuView view;
@@ -297,10 +470,13 @@ class _AccountMenuPopover extends StatelessWidget {
   final int notificationCount;
   final Color? notificationColor;
   final Color? notificationSurface;
+  final UserMenuPresentation presentation;
+  final Widget? profileLabel;
 
   @override
   Widget build(BuildContext context) {
     void activate(BuildContext context, DPopoverTriggerState trigger) {
+      if (!trigger.open) AccountMenuScope.activate(context, controller);
       onOpen();
       trigger.toggle();
     }
@@ -308,6 +484,36 @@ class _AccountMenuPopover extends StatelessWidget {
     Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
       final isProfile = view == UserMenuView.profile;
       final tokens = DTokens.of(context);
+      if (presentation == UserMenuPresentation.profileCard) {
+        return DButton(
+          key: UserMenuButton.avatarKey,
+          label: profileLabel!,
+          tooltip: connecting ? context.l10n.connecting : tooltip,
+          semanticLabel: semanticLabel,
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.large,
+          alignment: AlignmentDirectional.centerStart,
+          hasPopup: true,
+          expanded: trigger.open,
+          focusNode: trigger.focusNode,
+          onPressed: connecting ? null : () => activate(context, trigger),
+        );
+      }
+      if (presentation == UserMenuPresentation.profileRail) {
+        return DButton.iconOnly(
+          key: UserMenuButton.avatarKey,
+          icon: icon,
+          tooltip: connecting ? context.l10n.connecting : tooltip,
+          semanticLabel: semanticLabel,
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.large,
+          shape: DButtonShape.pill,
+          hasPopup: true,
+          expanded: trigger.open,
+          focusNode: trigger.focusNode,
+          onPressed: connecting ? null : () => activate(context, trigger),
+        );
+      }
       if (notificationCount > 0 && !connecting) {
         return headerNotificationButton(
           context,
@@ -365,7 +571,12 @@ class _AccountMenuPopover extends StatelessWidget {
         mobileSheetVariant: DSheetVariant.adaptiveMenu,
         content: DDropdownMenuContent(
           semanticLabel: context.l10n.profile,
-          align: DPopoverAlign.end,
+          side: presentation == UserMenuPresentation.combined
+              ? DPopoverSide.bottom
+              : DPopoverSide.top,
+          align: presentation == UserMenuPresentation.combined
+              ? DPopoverAlign.end
+              : DPopoverAlign.start,
           sideOffset: 8,
           collisionBoundary: Rect.fromLTRB(
             media.padding.left,

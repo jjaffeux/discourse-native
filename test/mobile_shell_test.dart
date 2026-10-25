@@ -1777,7 +1777,6 @@ void main() {
       );
       for (final key in [
         UserMenuButton.bellKey,
-        UserMenuButton.avatarKey,
         const ValueKey('forum-identity-logo'),
         const ValueKey('mobile-search-button'),
       ]) {
@@ -1796,11 +1795,10 @@ void main() {
         find.byKey(const ValueKey('mobile-search-button')),
       );
       final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-      final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
       expect(menu.center.dx, 53 / 2);
       expect(identity.left, 53 + 10);
       expect(bell.left - search.right, closeTo(10, .001));
-      expect(avatar.left - bell.right, DSpacing.controlGap);
+      expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
       final menuIcon = tester.getRect(
         find.descendant(
           of: find.byKey(const ValueKey('mobile-menu-button')),
@@ -1811,10 +1809,6 @@ void main() {
       expect(
         tester.getSize(find.byKey(const ValueKey('forum-identity-logo'))),
         const Size.square(28),
-      );
-      expect(
-        tester.widget<DButton>(find.byKey(UserMenuButton.avatarKey)).size,
-        DButtonSize.regular,
       );
       expect(tester.takeException(), isNull);
     },
@@ -2411,7 +2405,10 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
     await tester.pumpAndSettle();
     final listElement = tester.element(find.byType(TopicListView));
-    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
+    expect(
+      tester.getRect(find.byType(TopicListView)).bottom,
+      closeTo(phone.height, .01),
+    );
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2431,7 +2428,10 @@ void main() {
     );
     expect(tester.getRect(restore).left, closeTo(dock.left, .01));
     expect(tester.getRect(restore).right, closeTo(dock.right, .01));
-    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
+    expect(
+      tester.getRect(find.byType(TopicListView)).bottom,
+      closeTo(phone.height, .01),
+    );
     expect(tester.element(find.byType(TopicListView)), same(listElement));
     expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     final list = find
@@ -2440,7 +2440,7 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect(tester.getRect(list).bottom, phone.height);
+    expect(tester.getRect(list).bottom, closeTo(phone.height, .01));
     await tester.drag(list, const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(
@@ -3380,14 +3380,14 @@ void main() {
   );
 
   _mobileTest(
-    'header retains account actions and a static logo; search is a dedicated page',
+    'header retains notifications and drawer profile; search is a dedicated page',
     (tester) async {
       await pumpMobileShellFixture(tester);
       expect(_bar, findsOneWidget);
       expect(_header, findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
       expect(find.byKey(UserMenuButton.bellKey), findsOneWidget);
-      expect(find.byKey(UserMenuButton.avatarKey), findsOneWidget);
+      expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
       expect(find.byKey(ForumSearch.inputKey), findsNothing);
       expect(find.text('Filter'), findsNothing);
       expect(find.byKey(const ValueKey('sidebar-panel-tabs')), findsNothing);
@@ -3406,6 +3406,8 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(UserMenuButton.avatarKey));
       await tester.pumpAndSettle();
       final profileSheet = find.ancestor(
@@ -3482,7 +3484,6 @@ void main() {
       find.byKey(const ValueKey('mobile-menu-button')),
       find.byKey(const ValueKey('mobile-search-button')),
       find.byKey(UserMenuButton.bellKey),
-      find.byKey(UserMenuButton.avatarKey),
     ];
     for (final width in [320.0, 390.0, 430.0, 600.0, 1024.0]) {
       tester.view.physicalSize = Size(width, 844);

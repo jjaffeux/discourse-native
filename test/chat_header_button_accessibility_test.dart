@@ -48,17 +48,13 @@ void main() {
               find.byType(DInputGroup),
               if (chatVisible) find.byKey(ChatHeaderButton.buttonKey),
               find.byKey(UserMenuButton.bellKey),
-              find.byKey(UserMenuButton.avatarKey),
             ];
             for (var index = 1; index < controls.length; index++) {
               final previous = tester.getRect(controls[index - 1]);
               final current = tester.getRect(controls[index]);
               expect(
                 current.left - previous.right,
-                closeTo(
-                  index == 1 || index == controls.length - 1 ? 11 : 6,
-                  .01,
-                ),
+                closeTo(index == 1 ? 11 : 6, .01),
                 reason: 'Gap before control $index',
               );
             }
@@ -142,10 +138,15 @@ void main() {
           find.byKey(const ValueKey('mobile-search-button')),
         );
         final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-        final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
         expect(search.overlaps(bell), isFalse);
-        expect(bell.overlaps(avatar), isFalse);
-        for (final rect in [search, bell, avatar]) {
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('mobile-header')),
+            matching: find.byKey(UserMenuButton.avatarKey),
+          ),
+          findsNothing,
+        );
+        for (final rect in [search, bell]) {
           expect(rect.left, greaterThanOrEqualTo(0));
           expect(rect.right, lessThanOrEqualTo(width));
         }
@@ -375,7 +376,6 @@ void _expectMobileHeaderGaps(WidgetTester tester) {
   final controls = [
     find.byKey(const ValueKey('mobile-search-button')),
     find.byKey(UserMenuButton.bellKey),
-    find.byKey(UserMenuButton.avatarKey),
   ];
   for (var index = 1; index < controls.length; index++) {
     final previous = tester.getRect(controls[index - 1]);

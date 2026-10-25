@@ -146,16 +146,21 @@ void main() {
         final drafts = tester.getRect(
           find.byKey(TopicCreateButton.draftsButtonKey),
         );
-        expect(profile.size, Size.square(36 * scale));
-        expect(profile.right, header.right - 14);
-        expect(profile.left - bell.right, 11);
+        expect(profile.left, lessThan(53));
+        expect(profile.bottom, greaterThan(header.bottom));
+        expect(bell.right, header.right - 15);
         expect(bell.left - chat.right, 6);
         expect(chat.left - drafts.right, 15);
         expect(create.left - search.right, 14);
         expect(create.height + 8, search.height);
         expect(drafts.height + 8, search.height);
-        expect(profile.top, greaterThanOrEqualTo(header.top + 8));
-        expect(profile.bottom, lessThanOrEqualTo(header.bottom - 4));
+        expect(
+          find.descendant(
+            of: find.byType(ShellTitleBar),
+            matching: find.byKey(UserMenuButton.avatarKey),
+          ),
+          findsNothing,
+        );
         if (scale == 1) {
           expect(header.height, 49);
           expect(search.height, 36);

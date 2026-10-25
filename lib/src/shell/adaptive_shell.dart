@@ -16,6 +16,7 @@ import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'account_menu_scope.dart';
 import 'bookmark_ui.dart';
 import 'composer/panel.dart';
 import 'composer/presentation.dart';
@@ -41,6 +42,7 @@ import 'shell_search_controller.dart';
 import 'skeleton_fill.dart';
 import 'title_bar.dart';
 import 'topic_presentation.dart';
+import 'user_menu_button.dart';
 import 'user_menu_message.dart';
 
 enum ShellLayout {
@@ -444,9 +446,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         },
       },
       child: TopicPresentationPreferences(
-        child: ComposerPresentationHost(
-          panelsLayout: _panelsLayout,
-          child: _buildShell(context),
+        child: AccountMenuScope(
+          child: ComposerPresentationHost(
+            panelsLayout: _panelsLayout,
+            child: _buildShell(context),
+          ),
         ),
       ),
     );
@@ -986,100 +990,171 @@ class _WideShellState extends State<_WideShell> {
               SizedBox(height: chromeHeight(), child: child),
           child: child,
         );
-        return Row(
-          children: [
-            SizedBox(
-              width: AdaptiveShell.railWidth,
-              child: Column(
-                children: [
-                  SizedBox(height: MediaQuery.paddingOf(context).top),
-                  chromeSized(),
-                  Expanded(
-                    child: sidebarExpanded ? _expandedRail : _collapsedRail,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child:
-                  ShellSelector<
-                    ({InstanceLoadStatus loadStatus, bool hasInstances})
-                  >(
-                    select: (controller) => (
-                      loadStatus: controller.loadStatus,
-                      hasInstances: controller.hasInstances,
+        return ShellSelector<bool>(
+          select: (shell) =>
+              shell.rootMode == ShellRootMode.forum &&
+              shell.currentInstance?.isConnected == true,
+          builder: (context, showProfile, _) {
+            final profileExtent = showProfile
+                ? UserMenuButton.footerExtent(context) +
+                      MediaQuery.paddingOf(context).bottom
+                : 0.0;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: AdaptiveShell.railWidth,
+                      child: Column(
+                        children: [
+                          SizedBox(height: MediaQuery.paddingOf(context).top),
+                          chromeSized(),
+                          Expanded(
+                            child: sidebarExpanded
+                                ? _expandedRail
+                                : _collapsedRail,
+                          ),
+                          SizedBox(height: profileExtent),
+                        ],
+                      ),
                     ),
-                    builder: (context, state, _) => switch (state.loadStatus) {
-                      InstanceLoadStatus.loading => const _ShellLoadProgress(),
-                      InstanceLoadStatus.failed => const _ShellLoadFailure(),
-                      InstanceLoadStatus.ready when state.hasInstances =>
-                        DesktopNavigation(
-                          compact: !sidebarExpanded,
-                          showTrigger: sidebarChoice == null,
-                          header: chromeSized(
-                            child: OverflowBox(
-                              alignment: AlignmentDirectional.centerEnd,
-                              minWidth: sidebarExpanded
-                                  ? null
-                                  : constraints.maxWidth,
-                              maxWidth: sidebarExpanded
-                                  ? null
-                                  : constraints.maxWidth,
-                              child: ShellTitleBar(
-                                panelsLayout: widget.panelsLayout,
-                                leadingInset: sidebarExpanded ? 12 : null,
-                              ),
+                    Expanded(
+                      child:
+                          ShellSelector<
+                            ({InstanceLoadStatus loadStatus, bool hasInstances})
+                          >(
+                            select: (controller) => (
+                              loadStatus: controller.loadStatus,
+                              hasInstances: controller.hasInstances,
                             ),
-                          ),
-                          sidebar: ResizablePane(
-                            controller: widget.sidebarWidth,
-                            edge: ResizablePaneEdge.trailing,
-                            resizeKey: 'sidebar',
-                            semanticsLabel: context.l10n.resizeSidebar,
-                            maximumWidth: windowMaximum,
-                            dividerWidth: 1,
-                            gap: context.isTouch ? 0 : workspacePanelGap,
-                            child: DCard(
-                              border: false,
-                              spacing: 0,
-                              backgroundColor: Colors.transparent,
-                              child: Expanded(
-                                child: InstanceSidebar(
-                                  communityHeaderLeadingInset:
-                                      sidebarHeaderInset,
-                                ),
-                              ),
-                            ),
-                          ),
-                          child: ShellWorkspace(
-                            atWindowEdge: widget.atWindowEdge,
-                            child: _PageComposerDock(
-                              child:
-                                  !context.isTouch &&
-                                      ShellScope.read(context).forumTabsEnabled
-                                  ? _desktopPanels
-                                  : MainContent(
-                                      key:
-                                          ComposerPresentationHost.contentKeyOf(
-                                            context,
-                                          ),
-                                      layout: context.isTouch
-                                          ? widget.layout
-                                          : ShellLayout.expanded,
+                            builder: (context, state, _) => switch (state
+                                .loadStatus) {
+                              InstanceLoadStatus.loading =>
+                                const _ShellLoadProgress(),
+                              InstanceLoadStatus.failed =>
+                                const _ShellLoadFailure(),
+                              InstanceLoadStatus.ready
+                                  when state.hasInstances =>
+                                DesktopNavigation(
+                                  compact: !sidebarExpanded,
+                                  showTrigger: sidebarChoice == null,
+                                  header: chromeSized(
+                                    child: OverflowBox(
+                                      alignment: AlignmentDirectional.centerEnd,
+                                      minWidth: sidebarExpanded
+                                          ? null
+                                          : constraints.maxWidth,
+                                      maxWidth: sidebarExpanded
+                                          ? null
+                                          : constraints.maxWidth,
+                                      child: ShellTitleBar(
+                                        panelsLayout: widget.panelsLayout,
+                                        leadingInset: sidebarExpanded
+                                            ? 12
+                                            : null,
+                                      ),
                                     ),
+                                  ),
+                                  sidebar: Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: profileExtent,
+                                    ),
+                                    child: ResizablePane(
+                                      controller: widget.sidebarWidth,
+                                      edge: ResizablePaneEdge.trailing,
+                                      resizeKey: 'sidebar',
+                                      semanticsLabel:
+                                          context.l10n.resizeSidebar,
+                                      maximumWidth: windowMaximum,
+                                      dividerWidth: 1,
+                                      gap: context.isTouch
+                                          ? 0
+                                          : workspacePanelGap,
+                                      child: DCard(
+                                        border: false,
+                                        spacing: 0,
+                                        backgroundColor: Colors.transparent,
+                                        child: Expanded(
+                                          child: InstanceSidebar(
+                                            communityHeaderLeadingInset:
+                                                sidebarHeaderInset,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: ShellWorkspace(
+                                    atWindowEdge: widget.atWindowEdge,
+                                    child: _PageComposerDock(
+                                      child:
+                                          !context.isTouch &&
+                                              ShellScope.read(
+                                                context,
+                                              ).forumTabsEnabled
+                                          ? _desktopPanels
+                                          : MainContent(
+                                              key:
+                                                  ComposerPresentationHost.contentKeyOf(
+                                                    context,
+                                                  ),
+                                              layout: context.isTouch
+                                                  ? widget.layout
+                                                  : ShellLayout.expanded,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              InstanceLoadStatus.ready => const Column(
+                                children: [
+                                  ShellTitleBar(),
+                                  Expanded(child: EmptyState()),
+                                ],
+                              ),
+                            },
+                          ),
+                    ),
+                  ],
+                ),
+                if (showProfile)
+                  PositionedDirectional(
+                    start: 0,
+                    bottom: 0,
+                    child: ListenableBuilder(
+                      listenable: widget.sidebarWidth,
+                      builder: (context, _) => SizedBox(
+                        width:
+                            AdaptiveShell.railWidth +
+                            (sidebarExpanded
+                                ? widget.sidebarWidth.effectiveWidth(
+                                        maximum: windowMaximum,
+                                      ) -
+                                      (context.isTouch ? 0 : workspacePanelGap)
+                                : 0),
+                        height: profileExtent,
+                        child: SafeArea(
+                          top: false,
+                          left: false,
+                          right: false,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: sidebarExpanded ? 8 : 0,
+                              vertical: 6,
+                            ),
+                            child: UserMenuButton(
+                              key: const ValueKey('desktop-profile-owner'),
+                              presentation: sidebarExpanded
+                                  ? UserMenuPresentation.profileCard
+                                  : UserMenuPresentation.profileRail,
                             ),
                           ),
                         ),
-                      InstanceLoadStatus.ready => const Column(
-                        children: [
-                          ShellTitleBar(),
-                          Expanded(child: EmptyState()),
-                        ],
                       ),
-                    },
+                    ),
                   ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

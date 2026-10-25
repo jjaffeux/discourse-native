@@ -176,6 +176,7 @@ class InstanceSidebar extends StatelessWidget {
     this.panelOwner,
     this.onNavigate,
     this.communityHeaderLeadingInset = 0,
+    this.footer,
   });
 
   final SidebarSectionStore? sectionStore;
@@ -186,6 +187,7 @@ class InstanceSidebar extends StatelessWidget {
   final VoidCallback? onNavigate;
   // Window buttons only overlap the community header, above the navigation.
   final double communityHeaderLeadingInset;
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -275,6 +277,7 @@ class InstanceSidebar extends StatelessWidget {
                   mobile: mobile,
                   panelOwner: panelOwner,
                   onNavigate: onNavigate,
+                  footer: footer,
                   communityHeaderLeadingInset: communityHeaderLeadingInset,
                   sectionStore:
                       sectionStore ?? ShellScope.read(context).sidebarSections,
@@ -298,6 +301,7 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.panelOwner,
     required this.onNavigate,
     required this.communityHeaderLeadingInset,
+    required this.footer,
   });
 
   final _SidebarSnapshot sidebar;
@@ -308,6 +312,7 @@ class _SidebarPanelBody extends StatefulWidget {
   final String? panelOwner;
   final VoidCallback? onNavigate;
   final double communityHeaderLeadingInset;
+  final Widget? footer;
 
   @override
   State<_SidebarPanelBody> createState() => _SidebarPanelBodyState();
@@ -472,14 +477,17 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 : '')
             .toString(),
       ),
-      footer: switch (activePanel) {
-        final panel? when !widget.mobile && panel.panel.footerBuilder != null =>
-          PluginUiScope.own(
-            panel.owner,
-            Builder(builder: panel.panel.footerBuilder!),
-          ),
-        _ => null,
-      },
+      footer:
+          widget.footer ??
+          switch (activePanel) {
+            final panel?
+                when !widget.mobile && panel.panel.footerBuilder != null =>
+              PluginUiScope.own(
+                panel.owner,
+                Builder(builder: panel.panel.footerBuilder!),
+              ),
+            _ => null,
+          },
       header: mobileRoot
           ? null
           : Column(

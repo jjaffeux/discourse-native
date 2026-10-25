@@ -117,8 +117,7 @@ void main() {
       api: _Api(DiscourseApi(client: client)),
       authenticator: _Authenticator('unchanged')..keys[_site] = 'old-key',
     );
-    await tester.tap(find.byKey(UserMenuButton.avatarKey));
-    await tester.pumpAndSettle();
+    await _openProfile(tester);
     for (final key in ['user-menu-hide-presence', 'pause-notifications-row']) {
       final control = find.byKey(ValueKey(key));
       expect(tester.widget(control), isA<DDropdownMenuCheckboxItem>());
@@ -157,8 +156,7 @@ void main() {
             api: _Api(DiscourseApi(client: client)),
             authenticator: auth,
           );
-          await tester.tap(find.byKey(UserMenuButton.avatarKey));
-          await tester.pumpAndSettle();
+          await _openProfile(tester);
           final control = find.byKey(
             ValueKey(
               presence ? 'user-menu-hide-presence' : 'pause-notifications-row',
@@ -210,8 +208,7 @@ void main() {
             );
             expect(control, findsNothing);
             expect(source.mounted, isFalse);
-            await tester.tap(find.byKey(UserMenuButton.avatarKey));
-            await tester.pumpAndSettle();
+            await _openProfile(tester);
             expect(tester.element(control), isNot(same(source)));
             await tester.tap(control);
             await tester.pumpAndSettle();
@@ -242,4 +239,14 @@ void main() {
       );
     }
   }
+}
+
+Future<void> _openProfile(WidgetTester tester) async {
+  final profile = find.byKey(UserMenuButton.avatarKey);
+  if (profile.evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(profile);
+  await tester.pumpAndSettle();
 }

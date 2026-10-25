@@ -117,6 +117,7 @@ class ShellTitleBar extends StatelessWidget {
               Padding(
                 padding: const EdgeInsetsDirectional.only(end: trailingInset),
                 child: UserMenuButton(
+                  presentation: UserMenuPresentation.notifications,
                   ringColor: surface,
                   leadingActions: PluginScope.of(context).registry
                       .shellHeaderActions(

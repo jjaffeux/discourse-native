@@ -1284,7 +1284,10 @@ class _ContentHeader extends StatelessWidget {
                   compact: layout.isCompact,
                   ringColor: theme.shell.content,
                 ),
-                UserMenuButton(ringColor: theme.shell.content),
+                UserMenuButton(
+                  ringColor: theme.shell.content,
+                  presentation: UserMenuPresentation.notifications,
+                ),
               ],
             ],
           );

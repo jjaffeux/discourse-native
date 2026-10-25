@@ -26,6 +26,7 @@ class UserStatusMessage extends StatelessWidget {
     this.leadingGap = 0,
     this.badgeBackgroundColor,
     this.badgePadding = 0,
+    this.fallback,
   });
 
   final String siteUrl;
@@ -39,6 +40,7 @@ class UserStatusMessage extends StatelessWidget {
   final double leadingGap;
   final Color? badgeBackgroundColor;
   final double badgePadding;
+  final Widget? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +66,7 @@ class UserStatusMessage extends StatelessWidget {
     leadingGap: leadingGap,
     badgeBackgroundColor: badgeBackgroundColor,
     badgePadding: badgePadding,
+    fallback: fallback,
   );
 }
 
@@ -142,6 +145,7 @@ class _ExpiringUserStatus extends StatefulWidget {
     required this.leadingGap,
     required this.badgeBackgroundColor,
     required this.badgePadding,
+    required this.fallback,
   });
 
   final String siteUrl;
@@ -154,6 +158,7 @@ class _ExpiringUserStatus extends StatefulWidget {
   final double leadingGap;
   final Color? badgeBackgroundColor;
   final double badgePadding;
+  final Widget? fallback;
 
   @override
   State<_ExpiringUserStatus> createState() => _ExpiringUserStatusState();
@@ -197,7 +202,9 @@ class _ExpiringUserStatusState extends State<_ExpiringUserStatus> {
   @override
   Widget build(BuildContext context) {
     final status = widget.status;
-    if (_expired || status == null) return const SizedBox.shrink();
+    if (_expired || status == null) {
+      return widget.fallback ?? const SizedBox.shrink();
+    }
 
     final tooltip = _tooltip(context, status);
     final emoji = SiteEmojiImage(

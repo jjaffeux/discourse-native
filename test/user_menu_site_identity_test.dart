@@ -835,6 +835,11 @@ Future<_MenuFixture> _pumpMenu(WidgetTester tester) async {
 }
 
 Future<void> _openNestedSection(WidgetTester tester, String label) async {
+  if (label == 'Profile' &&
+      find.byKey(UserMenuButton.avatarKey).evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(
     find.byKey(
       label == 'Profile' ? UserMenuButton.avatarKey : UserMenuButton.bellKey,

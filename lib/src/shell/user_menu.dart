@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'about_dialog.dart';
+import 'account_menu_scope.dart';
 import 'avatar_image.dart';
 import 'bookmark_list.dart';
 import 'desktop_header_menu.dart';
@@ -780,9 +781,18 @@ class UserProfileMenuItems extends StatelessWidget {
 
 /// Account status actions shared with feature headers through the plugin SDK.
 class UserPresenceMenu extends StatefulWidget {
-  const UserPresenceMenu({super.key, required this.siteUrl});
+  const UserPresenceMenu({
+    super.key,
+    required this.siteUrl,
+    this.iconOnly = false,
+    this.side = DPopoverSide.bottom,
+    this.onBeforeOpen,
+  });
 
   final String siteUrl;
+  final bool iconOnly;
+  final DPopoverSide side;
+  final VoidCallback? onBeforeOpen;
 
   @override
   State<UserPresenceMenu> createState() => _UserPresenceMenuState();
@@ -820,6 +830,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
           mobileSheetVariant: DSheetVariant.adaptiveMenu,
           content: DDropdownMenuContent(
             width: 208,
+            side: widget.side,
             align: DPopoverAlign.end,
             semanticLabel: context.l10n.statusAndNotifications,
             children: [
@@ -831,27 +842,55 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
             ],
           ),
           child: DDropdownMenuTrigger(
-            builder: (context, state) => DButton(
-              key: const ValueKey('user-presence-menu'),
-              variant: DButtonVariant.secondary,
-              shape: DButtonShape.pill,
-              size: DControlSize.filter,
-              tooltip: context.l10n.statusAndNotifications,
-              semanticLabel: context.l10n.statusAndNotificationsUsermenu(
-                (label).toString(),
-              ),
-              focusNode: state.focusNode,
-              hasPopup: true,
-              expanded: state.open,
-              onPressed: state.toggle,
-              icon: DIcon(
+            builder: (context, state) {
+              void toggle() {
+                if (!state.open) {
+                  AccountMenuScope.activate(context, _menu);
+                  widget.onBeforeOpen?.call();
+                }
+                state.toggle();
+              }
+
+              final icon = DIcon(
                 paused ? DIcons.discourseBellSlash : DIcons.circle,
                 color: !paused && hidden == false
                     ? DTokens.of(context).success
                     : DTokens.of(context).mutedForeground,
-              ),
-              label: const DIcon(DNativeIcons.filterChevron, size: 10),
-            ),
+              );
+              if (widget.iconOnly) {
+                return DButton.iconOnly(
+                  key: const ValueKey('user-presence-menu'),
+                  icon: icon,
+                  variant: DButtonVariant.ghost,
+                  shape: DButtonShape.pill,
+                  size: DControlSize.filter,
+                  tooltip: label,
+                  semanticLabel: context.l10n.statusAndNotificationsUsermenu(
+                    label,
+                  ),
+                  focusNode: state.focusNode,
+                  hasPopup: true,
+                  expanded: state.open,
+                  onPressed: toggle,
+                );
+              }
+              return DButton(
+                key: const ValueKey('user-presence-menu'),
+                variant: DButtonVariant.secondary,
+                shape: DButtonShape.pill,
+                size: DControlSize.filter,
+                tooltip: context.l10n.statusAndNotifications,
+                semanticLabel: context.l10n.statusAndNotificationsUsermenu(
+                  (label).toString(),
+                ),
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                onPressed: toggle,
+                icon: icon,
+                label: const DIcon(DNativeIcons.filterChevron, size: 10),
+              );
+            },
           ),
         );
       },

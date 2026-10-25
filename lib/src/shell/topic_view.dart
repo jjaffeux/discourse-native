@@ -2906,7 +2906,10 @@ class _TopicSidebarActions extends StatelessWidget {
                 compact: MediaQuery.sizeOf(context).width < 768,
                 ringColor: theme.shell.panel,
               ),
-              UserMenuButton(ringColor: theme.shell.panel),
+              UserMenuButton(
+                ringColor: theme.shell.panel,
+                presentation: UserMenuPresentation.notifications,
+              ),
             ],
           ];
     if (onCollapsed == null && secondaryActions.isEmpty) {
