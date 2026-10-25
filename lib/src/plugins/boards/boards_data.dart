@@ -25,6 +25,13 @@ List<String> boardTexts(Object? value) =>
 final class BoardsSettings {
   const BoardsSettings({this.enabled = false});
   final bool enabled;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BoardsSettings && other.enabled == enabled;
+
+  @override
+  int get hashCode => enabled.hashCode;
 }
 
 final class BoardsSettingsCodec

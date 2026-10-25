@@ -3,6 +3,20 @@ import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final enabled in [false, true]) {
+    test('Boards settings retain value identity with enabled=$enabled', () {
+      const codec = BoardsSettingsCodec();
+      final original = BoardsSettings(enabled: enabled);
+      final decoded = codec.decode({'enabled': enabled});
+
+      expect(decoded.enabled, enabled);
+      expect(codec.encode(decoded), {'enabled': enabled});
+      expect(decoded, original);
+      expect(decoded.hashCode, original.hashCode);
+      expect(decoded, isNot(codec.decode({'enabled': !enabled})));
+    });
+  }
+
   test('directory metadata decodes creator, privacy and column icon', () {
     final board = BoardSnapshot.decode({
       'id': 1,
