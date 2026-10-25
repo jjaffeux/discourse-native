@@ -57,6 +57,23 @@ void main() {
     },
   );
 
+  test('a single site or a disposed rail refuses a move', () async {
+    final store = FakeInstanceStore([sites.first]);
+    final single = _controller(store);
+    addTearDown(single.dispose);
+    await single.load();
+    expect(await single.moveInstance(sites.first, 1), isFalse);
+    expect(store.saveCount, 0);
+
+    final fullStore = FakeInstanceStore(sites);
+    final disposed = _controller(fullStore);
+    await disposed.load();
+    disposed.dispose();
+    expect(await disposed.moveInstance(sites.first, 2), isFalse);
+    expect(_urls(disposed.instances), _urls(sites));
+    expect(fullStore.saveCount, 0);
+  });
+
   test('a new controller restores the saved order', () async {
     final store = FakeInstanceStore(sites);
     final first = _controller(store);
@@ -172,6 +189,39 @@ void main() {
     expect(_urls(store.saved), _urls(controller.instances));
     expect(store.saveCount, 3);
   });
+
+  test(
+    'a write failing behind a pending one rolls back to the durable order',
+    () async {
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final store = _ControlledInstanceStore(
+        sites,
+        steps: [
+          _SaveStep(gate: gate, started: started, fails: true),
+          const _SaveStep(fails: true),
+          const _SaveStep(),
+        ],
+      );
+      final controller = _controller(store);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      final firstMove = controller.moveInstance(sites.first, 2);
+      await started.future;
+      final secondMove = controller.moveInstance(sites[2], 0);
+      gate.complete();
+
+      expect(await firstMove, isFalse);
+      expect(await secondMove, isFalse);
+      expect(
+        _urls(controller.instances),
+        _urls(sites),
+        reason: 'the first move never became durable',
+      );
+      expect(_urls(store.saved), _urls(sites));
+    },
+  );
 
   test('a move during rollback repair is not treated as durable', () async {
     final repairGate = Completer<void>();
@@ -298,6 +348,36 @@ void main() {
     },
   );
 
+  for (final removal in [false, true]) {
+    test(
+      'a failed ${removal ? 'removal' : 'addition'} rolls back and repairs storage',
+      () async {
+        final added = instance('new.example');
+        final store = _ControlledInstanceStore(sites)
+          ..failOnce = removal
+              ? (saved) => !saved.any((item) => item.url == sites[1].url)
+              : (saved) => saved.any((item) => item.url == added.url);
+        final controller = _controller(store);
+        addTearDown(controller.dispose);
+        await controller.load();
+
+        expect(
+          removal
+              ? await controller.removeInstance(sites[1])
+              : await controller.addInstance(added),
+          isFalse,
+        );
+        expect(_urls(controller.instances), _urls(sites));
+        expect(_urls(store.saved), _urls(sites));
+        expect(
+          store.saveCount,
+          store.failedAt! + 1,
+          reason: 'the rollback is written back after the failed write',
+        );
+      },
+    );
+  }
+
   test('a superseded add reports its current-snapshot repair result', () async {
     final gate = Completer<void>();
     final started = Completer<void>();
@@ -397,6 +477,10 @@ final class _ControlledInstanceStore implements InstanceStore {
   final Queue<_SaveStep> _steps;
   int saveCount = 0;
 
+  /// Fails the first write whose snapshot matches, recording its count.
+  bool Function(List<DiscourseInstance> snapshot)? failOnce;
+  int? failedAt;
+
   @override
   Future<List<DiscourseInstance>> load() async => List.of(saved);
 
@@ -404,6 +488,11 @@ final class _ControlledInstanceStore implements InstanceStore {
   Future<void> save(List<DiscourseInstance> instances) async {
     saveCount++;
     final snapshot = List.of(instances);
+    if (failOnce case final fails? when fails(snapshot)) {
+      failOnce = null;
+      failedAt = saveCount;
+      throw StateError('preferences unavailable');
+    }
     final step = _steps.isEmpty ? const _SaveStep() : _steps.removeFirst();
     step.started?.complete();
     if (step.gate case final gate?) await gate.future;

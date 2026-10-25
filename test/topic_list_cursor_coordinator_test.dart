@@ -20,8 +20,18 @@ final class _TopicRequest {
 }
 
 final class _CursorApi extends FakeDiscourseApi {
-  _CursorApi(List<Topic> topics)
-    : super(feeds: {'/latest.json': topics, '/hot.json': const []});
+  _CursorApi(
+    List<Topic> topics, {
+    List<Topic> hot = const [],
+    List<Topic>? next,
+  }) : super(
+         feeds: {
+           '/latest.json': topics,
+           '/hot.json': hot,
+           '/latest.json?page=1': ?next,
+         },
+         nextPages: {if (next != null) '/latest.json': '/latest.json?page=1'},
+       );
 
   final List<_TopicRequest> requests = [];
   Completer<_TopicRequest>? nextRequest;
@@ -46,9 +56,15 @@ final class _CursorFixture {
 
   static Future<_CursorFixture> create({
     List<int> ids = const [1, 2, 3],
+    List<int> hot = const [],
+    List<int>? next,
   }) async {
     final topics = [for (final id in ids) _topic(id)];
-    final api = _CursorApi(topics);
+    final api = _CursorApi(
+      topics,
+      hot: [for (final id in hot) _topic(id)],
+      next: next == null ? null : [for (final id in next) _topic(id)],
+    );
     final shell = ShellController(
       instanceStore: FakeInstanceStore([instance('cursor.example')]),
       api: api,
@@ -172,7 +188,72 @@ void main() {
     expect(fixture.selected, [1, 3, 2]);
   });
 
-  for (final change in ['opened', 'retired', 'route', 'account']) {
+  test('an empty list declines the key', () async {
+    final fixture = await _CursorFixture.create(ids: const []);
+    addTearDown(fixture.dispose);
+
+    expect(fixture.coordinator.move(1, firstVisibleRow: 0), isFalse);
+    expect(fixture.saves, isEmpty);
+  });
+
+  test(
+    'a key past the last row selects the first topic of the next page',
+    () async {
+      final fixture = await _CursorFixture.create(next: const [4]);
+      addTearDown(fixture.dispose);
+      fixture.coordinator.remember(3, keyboard: true);
+      final frameQueued = fixture.nextFrameQueued = Completer<void>();
+
+      fixture.coordinator.move(1, firstVisibleRow: 0);
+      await frameQueued.future.timeout(const Duration(seconds: 5));
+      expect(fixture.selected, [4]);
+      expect(fixture.saves.last, (topicId: 4, index: 3, keyboard: true));
+    },
+  );
+
+  test('a retired coordinator ignores later keys', () async {
+    final fixture = await _CursorFixture.create();
+    addTearDown(fixture.dispose);
+    fixture.coordinator.retire();
+
+    fixture.coordinator.move(1, firstVisibleRow: 0);
+    fixture.frame();
+    expect(fixture.saves, isEmpty);
+    expect(fixture.selected, isEmpty);
+    expect(fixture.revealed, isEmpty);
+  });
+
+  test(
+    'a key after the tab changed feeds cannot select from the new feed',
+    () async {
+      final fixture = await _CursorFixture.create(hot: const [4, 5]);
+      addTearDown(fixture.dispose);
+      final cursor = fixture.coordinator;
+      fixture.shell.pushContent(ContentRoute.topicList(TopicListMode.popular));
+      await fixture.shell.loadFeed('hot');
+      expect(fixture.tab.currentFeed?.topicIds, [4, 5]);
+
+      cursor.move(1, firstVisibleRow: 0);
+      fixture.frame();
+      expect(fixture.saves, isEmpty);
+      expect(fixture.selected, isEmpty);
+    },
+  );
+
+  test('keyboard ownership follows only the same topic', () async {
+    final fixture = await _CursorFixture.create();
+    addTearDown(fixture.dispose);
+    final cursor = fixture.coordinator;
+
+    cursor.remember(1, keyboard: true);
+    cursor.remember(2);
+    expect(fixture.saves.last, (topicId: 2, index: 1, keyboard: false));
+    cursor.remember(2, keyboard: true);
+    cursor.remember(2);
+    expect(fixture.saves.last, (topicId: 2, index: 1, keyboard: true));
+  });
+
+  for (final change in ['opened', 'retired', 'route', 'account', 'keyboard']) {
     test('queued reveal is discarded after $change', () async {
       final fixture = await _CursorFixture.create();
       addTearDown(fixture.dispose);
@@ -191,6 +272,8 @@ void main() {
           );
         case 'account':
           fixture.shell.lifecycle.invalidate(fixture.tab.siteUrl!);
+        case 'keyboard':
+          fixture.keyboardAvailable = false;
       }
 
       fixture.frame();
@@ -251,7 +334,14 @@ void main() {
     expect(fixture.saves.map((saved) => saved.index), [2, 3, 2]);
   });
 
-  for (final action in ['cancel', 'move', 'opened', 'retired', 'account']) {
+  for (final action in [
+    'cancel',
+    'move',
+    'opened',
+    'remember',
+    'retired',
+    'account',
+  ]) {
     test('pending restore stays canceled after $action', () async {
       final fixture = await _CursorFixture.create();
       addTearDown(fixture.dispose);
@@ -267,7 +357,11 @@ void main() {
         case 'cancel':
           fixture.coordinator.cancelSelectionRestore();
         case 'move':
-          fixture.coordinator.move(1, firstVisibleRow: 0);
+          // Moving up from the first row keeps the cursor on the same topic.
+          fixture.coordinator.move(-1, firstVisibleRow: 0);
+          expect(fixture.saves.last.topicId, 1);
+        case 'remember':
+          fixture.coordinator.remember(2);
         case 'opened':
           fixture.coordinator.opened(2, keyboard: false);
         case 'retired':

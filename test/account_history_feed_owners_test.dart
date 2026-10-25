@@ -70,6 +70,17 @@ void main() {
         );
         expect(bookmarkOwner.feedFor(_siteUrl).loaded, bookmarks);
         expect(activityOwner.feedFor(_siteUrl).loaded, !bookmarks);
+
+        Future<void> load({bool loadMore = false}) => bookmarks
+            ? bookmarkOwner.load(site, loadMore: loadMore)
+            : activityOwner.load(site, loadMore: loadMore);
+        unawaited(load());
+        unawaited(load(loadMore: true));
+        expect(
+          events,
+          hasLength(4),
+          reason: 'A loaded list without further pages has nothing to fetch.',
+        );
       },
     );
 
@@ -152,6 +163,10 @@ void main() {
       expect(changes, 1);
       expect(bookmarkOwner.feedFor(_siteUrl).loaded, isFalse);
       expect(activityOwner.feedFor(_siteUrl).loaded, isFalse);
+      unawaited(
+        bookmarks ? bookmarkOwner.load(site) : activityOwner.load(site),
+      );
+      expect(changes, 1, reason: 'A disposed owner starts no load.');
     });
   }
 }
