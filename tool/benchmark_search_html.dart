@@ -110,7 +110,7 @@ Future<void> main() async {
               'Incomplete body or highlighting $label $repeat $highlightedUnits.',
             );
           }
-          if (repeat >= 0)
+          if (repeat >= 0) {
             rows.add({
               'label': label,
               'repeat': repeat,
@@ -124,6 +124,7 @@ Future<void> main() async {
               'textUnits': textUnits,
               'highlightedUnits': highlightedUnits,
             });
+          }
           _body.value = const SizedBox.shrink();
           await binding.endOfFrame;
         }

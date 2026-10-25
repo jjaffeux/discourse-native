@@ -6,7 +6,6 @@ import 'package:discourse_native/src/shell/progressive_html_mode.dart';
 import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -356,8 +355,9 @@ void main() {
           if (find
               .text('needle thread & tail', findRichText: true)
               .evaluate()
-              .isNotEmpty)
+              .isNotEmpty) {
             return;
+          }
         }
         fail('Searched body did not finish');
       }
@@ -439,8 +439,9 @@ void main() {
         if (find
             .text('needle thread & tail', findRichText: true)
             .evaluate()
-            .isNotEmpty)
+            .isNotEmpty) {
           break;
+        }
       }
       expect(
         find.text('needle thread & tail', findRichText: true),

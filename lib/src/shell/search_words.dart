@@ -117,10 +117,9 @@ typedef SearchHtmlRequest = ({String html, String query});
 
 final class SearchHtmlPreparation {
   SearchHtmlPreparation({
-    required VoidCallback onChanged,
+    required VoidCallback this._onChanged,
     Future<String> Function(SearchHtmlRequest)? prepare,
-  }) : _onChanged = onChanged,
-       _prepare = prepare ?? _prepareSearchHtml;
+  }) : _prepare = prepare ?? _prepareSearchHtml;
 
   VoidCallback? _onChanged;
   final Future<String> Function(SearchHtmlRequest) _prepare;
