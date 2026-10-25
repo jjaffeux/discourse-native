@@ -825,11 +825,9 @@ void main() {
       );
     });
 
-    testWidgets('redraws a moved quote from its own text', (tester) async {
-      // The other half: keys are pruned to the quotes that are there, so text
-      // typed *above* one gives it a new start and a new key. What must not
-      // happen is a preview reusing an element and going on showing the text of
-      // whatever used to be at that offset.
+    testWidgets('redraws changed and moved quotes from their own text', (
+      tester,
+    ) async {
       final composer = ComposerController(_target);
       final shell = await _shell();
       addTearDown(composer.dispose);
@@ -838,6 +836,14 @@ void main() {
 
       await _pumpPanel(tester, shell, composer);
       expect(find.text(_longQuoteBody), findsOneWidget);
+
+      final changedBody = _longQuoteBody.replaceFirst('blindfold', 'red scarf');
+      final changedQuote = _longQuote.replaceFirst(_longQuoteBody, changedBody);
+      composer.text.text = '$changedQuote\n\n';
+      await tester.pumpAndSettle();
+      expect(composer.text.quoteBlocks.single.start, 0);
+      expect(find.text(changedBody), findsOneWidget);
+      expect(find.text(_longQuoteBody), findsNothing);
 
       const before = 'Before.\n\n';
       const moved = '$before$_longQuote\n\n';

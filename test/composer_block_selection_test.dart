@@ -1144,6 +1144,9 @@ void main() {
       composer.text.selection = const TextSelection.collapsed(offset: 8);
       await tester.pump();
       final selected = composer.text.selection;
+      expect(selected.isCollapsed, isFalse);
+      expect(selected.start, 8);
+      expect(selected.textInside(source).trimRight(), entry.value);
       final remaining = source.replaceRange(selected.start, selected.end, '');
       tester.testTextInput.updateEditingValue(
         TextEditingValue(
@@ -1153,6 +1156,7 @@ void main() {
       );
       await tester.pump();
       expect(composer.raw, remaining.trim());
+      expect(composer.raw, isNot(contains(entry.value)));
       expect(composer.text.keyboardSelectedProjection, isNull);
     });
   }
