@@ -2621,6 +2621,39 @@ void main() {
     });
 
     test(
+      'invitation stops when its account retires during credential loading',
+      () async {
+        final credentials = _HeldGroupCredentials();
+        final transport = _ControlledGroupTransport();
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          transport,
+          credentials: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+
+        final pending = controller.createInvite(
+          _connectedInstance,
+          target,
+          email: 'member@example.com',
+          customMessage: '😀' * 1000,
+        );
+        await pumpEventQueue();
+        expect(controller.detailState(_site, target.name).mutating, isTrue);
+        expect(transport.writes, isEmpty);
+
+        lifecycle.invalidate(_site);
+        controller.forget(_site);
+        credentials.key.complete('secret');
+
+        expect((await pending).canApplyLocally, isFalse);
+        expect(transport.writes, isEmpty);
+        expect(controller.detailState(_site, target.name).loaded, isFalse);
+      },
+    );
+
+    test(
       'member command snapshots lazy inputs before credential loading',
       () async {
         final usernames = ['lee'];

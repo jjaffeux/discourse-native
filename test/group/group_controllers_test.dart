@@ -334,6 +334,107 @@ void main() {
   });
 
   group('GroupInviteController', () {
+    for (final (description, message) in [
+      ('ASCII', 'a' * 1000),
+      ('astral', '😀' * 1000),
+      ('combining', 'e\u0301' * 500),
+    ]) {
+      test('invitation accepts $description at the scalar limit', () async {
+        String? submitted;
+        final controller = GroupInviteController(
+          siteUrl: 'https://meta.discourse.org',
+          createInvite: ({email, customMessage}) async {
+            submitted = customMessage;
+            return const GroupInvite(id: 8);
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.email.text = 'member@example.com';
+        controller.message.text = message;
+
+        expect(await controller.create(), GroupInviteSubmission.sent);
+        expect(submitted, message);
+        expect(controller.error, isNull);
+        expect(controller.saving, isFalse);
+      });
+    }
+
+    for (final (description, message) in [
+      ('ASCII', 'a' * 1001),
+      ('astral', '😀' * 1001),
+      ('combining', '${'e\u0301' * 500}e'),
+    ]) {
+      test('invitation explains overlimit $description and retries', () async {
+        var calls = 0;
+        final controller = GroupInviteController(
+          siteUrl: 'https://meta.discourse.org',
+          createInvite: ({email, customMessage}) async {
+            calls++;
+            return const GroupInvite(id: 8);
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.email.text = 'member@example.com';
+        controller.message.text = message;
+
+        expect(await controller.create(), GroupInviteSubmission.failed);
+        expect(controller.error, 'Use 1000 characters or fewer.');
+        expect(controller.message.text, message);
+        expect(controller.saving, isFalse);
+        expect(calls, 0);
+
+        controller.message.text = 'Welcome!';
+        expect(await controller.create(), GroupInviteSubmission.sent);
+        expect(controller.error, isNull);
+        expect(calls, 1);
+      });
+    }
+
+    test('blank messages are omitted for email-less links', () async {
+      String? submitted = 'unset';
+      final controller = GroupInviteController(
+        siteUrl: 'https://meta.discourse.org',
+        createInvite: ({email, customMessage}) async {
+          expect(email, isNull);
+          submitted = customMessage;
+          return const GroupInvite(id: 8, link: '/invites/native');
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.message.text = ' \n\t ';
+
+      expect(await controller.create(), GroupInviteSubmission.linkCreated);
+      expect(submitted, isNull);
+      expect(controller.link, 'https://meta.discourse.org/invites/native');
+    });
+
+    test(
+      'an in-flight long invitation cannot publish after disposal',
+      () async {
+        final pending = Completer<GroupInvite?>();
+        final controller = GroupInviteController(
+          siteUrl: 'https://meta.discourse.org',
+          createInvite: ({email, customMessage}) {
+            expect(customMessage, '😀' * 1000);
+            return pending.future;
+          },
+        );
+        controller.message.text = '😀' * 1000;
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+        final result = controller.create();
+        expect(controller.saving, isTrue);
+        controller.dispose();
+        final retiredNotifications = notifications;
+
+        pending.complete(const GroupInvite(id: 8, link: '/invites/native'));
+
+        expect(await result, GroupInviteSubmission.failed);
+        expect(controller.link, isNull);
+        expect(notifications, retiredNotifications);
+      },
+    );
+
     test('a failed invitation clears progress and allows a retry', () async {
       var attempts = 0;
       final controller = GroupInviteController(

@@ -471,6 +471,121 @@ void main() {
         });
       },
     );
+
+    for (final (description, message) in [
+      ('1000 ASCII characters', 'a' * 1000),
+      ('1000 astral characters', '😀' * 1000),
+      ('1000 combining characters', 'e\u0301' * 500),
+      (
+        'multiline formatting',
+        'Welcome!\n\n  Keep this indentation.\nThank you.',
+      ),
+    ]) {
+      test('invitation preserves $description', () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {'id': 42, 'email': 'lee@example.com'};
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        await api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          email: 'lee@example.com',
+          customMessage: ' $message ',
+        );
+
+        expect(transport.writes.single.body['custom_message'], message);
+      });
+    }
+
+    for (final (description, message) in [
+      ('ASCII', 'a' * 1001),
+      ('astral', '😀' * 1001),
+      ('combining', '${'e\u0301' * 500}e'),
+      ('large input', 'a' * 100000),
+    ]) {
+      test(
+        'invitation rejects overlimit $description messages locally',
+        () async {
+          final transport = _RecordingTransport();
+          final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+          await expectLater(
+            api.createInvite(
+              siteUrl: siteUrl,
+              apiKey: 'secret',
+              groupId: 7,
+              email: 'lee@example.com',
+              customMessage: message,
+            ),
+            throwsA(
+              isA<ArgumentError>().having(
+                (error) => error.message,
+                'message',
+                'Must be at most 1000 characters.',
+              ),
+            ),
+          );
+          expect(transport.writes, isEmpty);
+        },
+      );
+    }
+
+    test(
+      'invitation omits blank messages and supports long link messages',
+      () async {
+        final transport = _RecordingTransport()
+          ..writeResponse = {'id': 42, 'link': '/invites/abc'};
+        final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+        await api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          customMessage: ' \n\t ',
+        );
+        expect(transport.writes.single.body, {
+          'group_ids': '7',
+          'max_redemptions_allowed': 1,
+        });
+
+        final message = '😀' * 1000;
+        final invite = await api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          customMessage: message,
+        );
+        expect(invite.link, '/invites/abc');
+        expect(transport.writes.last.body, {
+          'group_ids': '7',
+          'max_redemptions_allowed': 1,
+          'custom_message': message,
+        });
+      },
+    );
+
+    test('long invite messages do not relax email or query limits', () async {
+      final transport = _RecordingTransport();
+      final api = GroupsApi(transport, const DiscourseModelCodec.core());
+
+      await expectLater(
+        api.createInvite(
+          siteUrl: siteUrl,
+          apiKey: 'secret',
+          groupId: 7,
+          email: 'a' * 256,
+          customMessage: 'a' * 1000,
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.directory(siteUrl: siteUrl, filter: 'a' * 256),
+        throwsArgumentError,
+      );
+      expect(transport.writes, isEmpty);
+      expect(transport.gets, isEmpty);
+    });
   });
 
   group('administrative mutations', () {
