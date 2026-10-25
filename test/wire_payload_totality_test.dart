@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discover_site.dart';
 import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -44,6 +45,7 @@ import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_group_data.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -52,6 +54,7 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_search_response.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_conversations_data.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_conversations_service.dart';
@@ -1492,6 +1495,231 @@ void main() {
       );
 
       probe(
+        'DashboardMetric',
+        () => DashboardMetric.fromJson(
+          '$loose',
+          withFields({'value': gate(1), 'percent_change': loose}),
+        ),
+        (metric) =>
+            metric.value != null ||
+            metric.change != null ||
+            metric.pointChange != null,
+      );
+      probe(
+        'DashboardPoint',
+        () => DashboardPoint.fromJson(withFields({'x': loose, 'y': gate(1)})),
+        (point) => point.value != null || point.label.isNotEmpty,
+      );
+      probe(
+        'DashboardSeries',
+        () => DashboardSeries.fromJson(
+          withFields({
+            'req': loose,
+            'label': loose,
+            'data': gate([
+              json,
+              loose,
+              withFields({'y': 1}),
+            ]),
+          }),
+        ),
+        (series) => series.points.isNotEmpty,
+      );
+      probe(
+        'DashboardSection',
+        () => DashboardSection.fromJson(
+          withFields({
+            'id': gate(
+              const [
+                'highlights',
+                'reports',
+                'traffic',
+                'engagement',
+                'search',
+                'system',
+              ][run ~/ 2 % 6],
+            ),
+            'error': loose,
+            'data': gate(
+              withFields({
+                'kpis': loose,
+                'items': [json, loose],
+              }),
+            ),
+          }),
+        ),
+        (section) => section is! DashboardUnavailableSection,
+      );
+      probe(
+        'DashboardReport',
+        () => DashboardReport.fromJson(
+          withFields({'identifier': gate('i'), 'source': loose, 'rows': loose}),
+        ),
+        (report) =>
+            report.identifier.isNotEmpty ||
+            report.title.isNotEmpty ||
+            report.rows != 1,
+      );
+      probe(
+        'DashboardReportResult',
+        () => DashboardReportResult.fromJson(
+          withFields({
+            'data': gate(
+              withFields({
+                // Charted rows on some runs and tabled rows on the others:
+                // one charted row empties the table.
+                'data': [
+                  json,
+                  loose,
+                  withFields({'name': loose}),
+                  if (run % 4 == 2) {'x': 'a', 'y': loose},
+                ],
+                'labels': run % 4 == 0
+                    ? [
+                        {'property': 'name'},
+                        {
+                          'type': 'link',
+                          'properties': [loose, 'title'],
+                        },
+                      ]
+                    : [json, loose],
+                'total': loose,
+              }),
+            ),
+          }),
+        ),
+        (result) => result.points.isNotEmpty || result.rows.isNotEmpty,
+      );
+      probe(
+        'DashboardTraffic',
+        () => DashboardTraffic.fromJson(
+          withFields({
+            'kpis': gate(withFields({'page_views': loose})),
+            'pageview_series': gate([json, loose]),
+            'top_referrers': gate(
+              withFields({
+                'rows': [json, loose],
+              }),
+            ),
+            'top_entry_urls': gate({
+              'rows': [
+                withFields({'entry_url': loose}),
+              ],
+            }),
+            'top_countries': loose,
+          }),
+        ),
+        (traffic) =>
+            traffic.metrics.isNotEmpty ||
+            traffic.series.isNotEmpty ||
+            traffic.rankings.isNotEmpty,
+      );
+      probe(
+        'DashboardEngagement',
+        () => DashboardEngagement.fromJson(
+          withFields({
+            'kpis': gate([json, loose]),
+            'trust_level_pipeline': gate({
+              'rows': [json, loose],
+            }),
+            'posters': loose,
+            'activity_by_category': gate({
+              'rows': [
+                withFields({'category_id': loose}),
+              ],
+            }),
+          }),
+        ),
+        (engagement) =>
+            engagement.metrics.isNotEmpty || engagement.breakdowns.isNotEmpty,
+      );
+      probe(
+        'DashboardSearch',
+        () => DashboardSearch.fromJson(
+          withFields({
+            'logging_enabled': loose,
+            'kpis': loose,
+            'trending': gate([json, loose]),
+            'content_gaps': gate([
+              withFields({'term': loose}),
+            ]),
+          }),
+        ),
+        (search) =>
+            search.loggingEnabled ||
+            search.metrics.isNotEmpty ||
+            search.breakdowns.any((breakdown) => breakdown.rows.isNotEmpty),
+      );
+      probe(
+        'DashboardStorage',
+        () => DashboardStorage.fromJson(
+          '$loose',
+          withFields({'used_bytes': gate(1), 'count': loose}),
+        ),
+        (storage) =>
+            storage.used != null ||
+            storage.free != null ||
+            storage.count != null ||
+            storage.remote,
+      );
+      probe(
+        'DashboardSystem',
+        () => DashboardSystem.fromJson(
+          withFields({
+            'version': gate(
+              withFields({'installed_version': loose, 'updated_at': loose}),
+            ),
+            'storage': gate({
+              'uploads': withFields({'used_bytes': loose}),
+              'backups': loose,
+            }),
+            'discourse_updated_at': loose,
+          }),
+        ),
+        (system) =>
+            system.version != null ||
+            system.storage.isNotEmpty ||
+            system.discourseUpdatedAt != null,
+      );
+      probe(
+        'DashboardProblem',
+        () => DashboardProblem.fromJson(
+          withFields({'id': loose, 'message': loose}),
+        ),
+        (problem) =>
+            problem.id != 0 ||
+            problem.message.isNotEmpty ||
+            problem.priority.isNotEmpty,
+      );
+      probe(
+        'DashboardConfiguration',
+        () => DashboardConfiguration.fromJson(
+          withFields({'id': loose, 'visible': gate(true)}),
+        ),
+        (configuration) => configuration.visible || configuration.id.isNotEmpty,
+      );
+      probe(
+        'DashboardSnapshot',
+        () => DashboardSnapshot.fromJson(
+          withFields({
+            'sections': gate([
+              json,
+              loose,
+              withFields({'id': 'system', 'data': json}),
+            ]),
+            'problems': gate([json, loose]),
+            'configuration': gate({
+              'sections': [json, loose],
+            }),
+          }),
+        ),
+        (snapshot) =>
+            snapshot.sections.isNotEmpty ||
+            snapshot.problems.isNotEmpty ||
+            snapshot.configuration != null,
+      );
+
+      probe(
         'ChatUser',
         () => ChatUser.fromJson(withFields({'id': loose}), site),
         (user) => user.id != 0 || user.username.isNotEmpty || user.name != null,
@@ -1707,6 +1935,26 @@ void main() {
         (page) => page.hits.isNotEmpty,
       );
       probe(
+        'ChatSearchResponse',
+        () => ChatSearchResponse.fromJson(
+          withFields({
+            'messages': gate([
+              json,
+              loose,
+              withFields({
+                'id': 1,
+                'chat_channel_id': 1,
+                'channel': withFields({'id': 1}),
+              }),
+            ]),
+            'meta': gate(
+              withFields({'limit': loose, 'offset': loose, 'has_more': loose}),
+            ),
+          }),
+        ),
+        (response) => response.records.isNotEmpty,
+      );
+      probe(
         'ChatThreadMembership',
         () => ChatThreadMembership.fromJson(
           gate(withFields({'last_read_message_id': loose})),
@@ -1794,6 +2042,91 @@ void main() {
           site,
         ),
         (assignments) => assignments?.direct != null,
+      );
+      probe(
+        'BoardCreator',
+        () => BoardCreator.decode(
+          run % 3 == 0
+              ? loose
+              : withFields({'username': gate('u'), 'avatar_template': loose}),
+        ),
+        (creator) => creator != null,
+      );
+      probe(
+        'BoardCard',
+        () => BoardCard.decode(
+          withFields({
+            'id': gate(1),
+            'column_id': gate(1),
+            'card_type': gate(run % 4 == 0 ? 'topic' : 'floater'),
+            'topic_id': gate(1),
+            'topic': gate(
+              withFields({
+                'id': 1,
+                'tags': loose,
+                'last_poster': loose,
+                'all_assigned_users': [json, loose],
+              }),
+            ),
+            'tags': gate([json, loose]),
+            'assigned_to': loose,
+            'created_by': json,
+          }),
+        ),
+        (card) => card != null,
+      );
+      probe(
+        'BoardColumn',
+        () => BoardColumn.decode(
+          withFields({
+            'id': gate(1),
+            'default_sort': loose,
+            'cards': gate([
+              json,
+              loose,
+              withFields({'id': 1, 'column_id': 1, 'card_type': 'floater'}),
+            ]),
+          }),
+        ),
+        (column) => column?.cards.isNotEmpty == true,
+      );
+      probe(
+        'BoardSnapshot',
+        () => BoardSnapshot.decode(
+          withFields({
+            'id': gate(1),
+            'columns': gate([
+              json,
+              loose,
+              withFields({'id': 1}),
+            ]),
+            'created_by': loose,
+            'category_ids': loose,
+          }),
+          columns: run % 3 == 0 ? loose : null,
+        ),
+        (board) => board?.columns.isNotEmpty == true,
+      );
+      probe(
+        'BoardMemberships',
+        () => BoardMemberships.decode(
+          gate([
+            json,
+            loose,
+            withFields({
+              'board_id': 1,
+              'cards': [json, loose],
+            }),
+          ]),
+        ),
+        (memberships) => memberships.values.isNotEmpty,
+      );
+      probe(
+        'BoardMembership',
+        () => BoardMembership.decode(
+          withFields({'board_id': gate(1), 'cards': loose}),
+        ),
+        (membership) => membership != null,
       );
       probe(
         'GifCategory',
@@ -2342,6 +2675,7 @@ void main() {
       // `InstanceStore` catches per entry so one damaged site cannot erase
       // the rail, and a workspace with an unreadable anchor keeps its tabs.
       'ContentRoute',
+      'ContentRouteCodec',
       'GroupRoute',
       'BadgeRoute',
       'DiscourseInstance',
@@ -2366,6 +2700,10 @@ void main() {
       // Local theme imports, preferences and the draft file validate their own
       // versioned format.
       '_DraftFileState',
+      // Local draft recovery reads back only what LocalComposerDraft.encode
+      // wrote; the server's draft text goes through ComposerDraft.decode.
+      'ComposerDraft.decodeLocal',
+      'LocalComposerDraft',
       'ForumBackground',
       'ForumTheme',
       'ForumThemePreferences',
@@ -2378,6 +2716,11 @@ void main() {
       'DQuestionnaireSavedState',
       // The diagram renderer's own reply, posted by the page this app loads.
       '_MermaidImage',
+    };
+    // Private site parsers a test cannot call, each named with the probed
+    // parser it hands the payload to once it has dispatched on the envelope.
+    const probedThrough = {
+      '_ChatLiveMessageEvent.decode': 'ChatMessage.fromJson',
     };
 
     // A parser is a factory or static member of a class that is named
@@ -2438,6 +2781,7 @@ void main() {
     final unaccounted = {
       for (final entry in declaring.entries)
         if (!called.contains(entry.key) &&
+            !probedThrough.containsKey(entry.key) &&
             !notSitePayloads.contains(entry.key) &&
             !notSitePayloads.contains(entry.key.split('.').first))
           entry.key: entry.value,
@@ -2446,6 +2790,16 @@ void main() {
       unaccounted,
       isEmpty,
       reason: 'add these to the probes above, or to notSitePayloads with why',
+    );
+    expect(
+      {
+        for (final entry in probedThrough.entries)
+          if (!declaring.containsKey(entry.key) ||
+              !called.contains(entry.value))
+            entry.key: entry.value,
+      },
+      isEmpty,
+      reason: 'these no longer declare a parser, or their probe is gone',
     );
 
     expect(
