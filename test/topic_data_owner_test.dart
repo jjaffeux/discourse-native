@@ -170,7 +170,7 @@ final class _Credentials extends FakeAuthenticator {
 }
 
 final class _Fixture {
-  _Fixture() {
+  _Fixture({Duration loadTimeout = const Duration(seconds: 5)}) {
     owner = TopicDataOwner(
       content: api,
       feeds: api,
@@ -189,7 +189,7 @@ final class _Fixture {
       ),
       prepareCategories: (_, _) async {},
 
-      loadTimeout: const Duration(seconds: 5),
+      loadTimeout: loadTimeout,
       bookmarkReads: (siteUrl, lease) => bookmarks.forLease(siteUrl, lease)!,
       notificationReads: (siteUrl, lease, topicId) =>
           tracking.beginNotificationRead(topicId),
@@ -377,6 +377,44 @@ void main() {
     f.api.topicReads.last.result.complete(_payload([]));
     expect(await refreshing, isTrue);
   });
+
+  test(
+    'timed-out mutation repair still refreshes after the old read',
+    () async {
+      final f = _Fixture(loadTimeout: Duration.zero)..seed();
+      f.store.put(
+        _site,
+        const Topic(id: 7, title: 'Old', slug: 'old', categoryId: 1),
+      );
+      final data = f.data;
+      final oldRead = data.refresh(7);
+      await f.api.waitTopics(1);
+
+      expect(await data.refreshAfterMutation(7), isFalse);
+      f.api.topicReads.first.result.complete((
+        detail: _payload([]).detail.copyWith(categoryId: 1),
+        posts: const <Post>[],
+      ));
+      await oldRead;
+      await _drain();
+
+      expect(f.api.topicReads, hasLength(2));
+      f.api.topicReads.last.result.complete((
+        detail: _payload([]).detail.copyWith(
+          categoryId: 2,
+          tags: const [TopicTag(name: 'after-mutation')],
+        ),
+        posts: const <Post>[],
+      ));
+      await _drain();
+
+      expect(f.store.read<TopicDetail>(_site, 7)?.categoryId, 2);
+      expect(f.store.read<Topic>(_site, 7)?.categoryId, 2);
+      expect(f.store.read<Topic>(_site, 7)?.tags, const [
+        TopicTag(name: 'after-mutation'),
+      ]);
+    },
+  );
 
   test('external refresh reports failed reads and retired accounts', () async {
     final f = _Fixture()..seed();

@@ -1035,13 +1035,12 @@ final class TopicDataSession implements BookmarkTopicData {
   Future<bool> refreshAfterMutation(int topicId) async {
     if (!isCurrent) return false;
     final state = _topic(topicId);
+    final accepted = state.acceptedReads;
+    unawaited(refresh(topicId));
     try {
       while (isCurrent && state.reading != null) {
         await state.readSettled!.future.timeout(_owner.loadTimeout);
       }
-      if (!isCurrent) return false;
-      final accepted = state.acceptedReads;
-      await refresh(topicId).timeout(_owner.loadTimeout);
       return isCurrent && state.acceptedReads > accepted && !state.stale;
     } on TimeoutException {
       if (isCurrent) state.stale = true;
