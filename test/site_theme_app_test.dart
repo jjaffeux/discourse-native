@@ -135,7 +135,7 @@ void main() {
     expect(tabs.top, greaterThanOrEqualTo(identity.bottom));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('desktop sidebar fill follows the darker sidebar preference', (
+  testWidgets('desktop sidebar paints no surface or palette of its own', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1200, 800);
@@ -187,12 +187,19 @@ void main() {
             of: find.byType(InstanceSidebar),
             matching: find.byType(DSidebar),
           );
-          final context = tester.element(sidebar);
+          final reason =
+              '$mode, custom background: $customBackground, darker: $darker';
           expect(
             tester.widget<DSidebar>(sidebar).backgroundColor,
-            darker ? Theme.of(context).shell.sidebar : Colors.transparent,
-            reason:
-                '$mode, custom background: $customBackground, darker: $darker',
+            Colors.transparent,
+            reason: reason,
+          );
+          // Without its own surface, a darker sidebar palette would draw its
+          // light foreground straight onto a light window.
+          expect(
+            Theme.of(tester.element(sidebar)).colorScheme,
+            Theme.of(tester.element(find.byType(InstanceSidebar))).colorScheme,
+            reason: reason,
           );
 
           final card = find
