@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -63,6 +64,55 @@ void main() {
       expect(retired, isTrue);
       expect(api.topicsOpened, hasLength(readsAtRetirement!));
       expect(controller.store.read<TopicDetail>(site.url, 7), isNull);
+    },
+  );
+  test(
+    'reply completion leaves a replacement account topic draft in place',
+    () async {
+      final site = instance(
+        'reply.example',
+      ).copyWith(user: const DiscourseUser(id: 1, username: 'author'));
+      final api = _ActionApi();
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: FakeAuthenticator.signedIn([site], site: api),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      const topic = TopicDetail(
+        id: 7,
+        title: 'Reply',
+        stream: [1],
+        postsCount: 1,
+        canCreatePost: true,
+      );
+      controller.store.put(site.url, topic);
+      controller.pushContent(
+        ContentRoute.topic(topicId: 7, slug: 'reply', title: 'Reply'),
+      );
+      controller.openReply();
+      controller.visibleComposer!.text.text = 'An accepted reply';
+      var replaced = false;
+      controller.store.ref<Post>(site.url, 9001).addListener(() {
+        if (replaced) return;
+        replaced = true;
+        controller.lifecycle.invalidate(site.url);
+        controller.store.put(
+          site.url,
+          topic.withDraft(const ComposerDraft(reply: 'Successor draft'), 4),
+        );
+      });
+
+      await controller.submitComposer();
+      await pumpEventQueue();
+
+      expect(replaced, isTrue);
+      final detail = controller.store.read<TopicDetail>(site.url, 7)!;
+      expect(detail.draft?.reply, 'Successor draft');
+      expect(detail.draftSequence, 4);
     },
   );
   for (final recovery in [false, true]) {

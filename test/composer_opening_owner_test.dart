@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/draft_coordinator.dart';
 import 'package:discourse_native/src/shell/composer/opening_owner.dart';
@@ -21,6 +23,8 @@ const _category = TopicCategory(
   minimumRequiredTags: 2,
   topicTemplate: 'Describe the bug',
 );
+const _listed = UserDraft(key: 'new_topic_listed', sequence: 1, data: null);
+final _tagRoute = ContentRoute.list(ListLink.parse('/tag/release')!);
 
 void main() {
   test('setup refines a retained editor without selecting it again', () async {
@@ -122,7 +126,7 @@ void main() {
   for (final edited in [false, true]) {
     test('late tag seed respects user edits $edited', () async {
       final harness = _Harness(
-        route: ContentRoute.list(ListLink.parse('/tag/release')!),
+        route: _tagRoute,
         api: FakeDiscourseApi(
           topicTagSearches: const {
             'release': TopicTagSearch(tags: [TopicTag(id: 7, name: 'release')]),
@@ -150,6 +154,7 @@ void main() {
       addTearDown(harness.dispose);
       final plan = await harness.plan();
       expect(plan.placeholderCategory?.topicTemplate, isNull);
+      expect(harness.categoryFor(_site, 5), same(plan.placeholderCategory));
       final composer = harness.build(plan);
       final setup = harness.owner.start(plan, composer);
       harness.metadataReady.complete();
@@ -201,6 +206,251 @@ void main() {
       expect(harness.members, [first]);
     },
   );
+
+  test(
+    'selection change while admission awaits restoration refuses opening',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final first = harness.build(await harness.plan());
+      harness.local.readGate = Completer<void>();
+      harness.drafts.startRestore(first);
+      final opening = harness.planOrNull();
+      final other = harness.build(await harness.planUnchecked());
+      harness.local.readGate!.complete();
+
+      expect(await opening, isNull);
+      expect(harness.selectedComposer, same(other));
+    },
+  );
+
+  test('an opening captured under a retired account is refused', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final plan = await harness.plan();
+    harness.lifecycle.invalidate(_site);
+
+    expect(harness.owner.isCurrent(plan), isFalse);
+    expect(await harness.planOrNull(origin: plan.origin), isNull);
+  });
+
+  test('a draft-backed editor is replaced without confirmation', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final first = harness.build(await harness.plan());
+    harness.drafts.startNewDraft(first);
+    first.text.text = 'Kept by its draft';
+
+    expect(await harness.planOrNull(), isNotNull);
+    expect(harness.confirmations, isEmpty);
+  });
+
+  test(
+    'an editor busy loading at the request refuses replacement after it settles',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final first = harness.build(await harness.plan());
+      harness.local.readGate = Completer<void>();
+      harness.drafts.startRestore(first);
+      first.beginLoadingBody();
+      final opening = harness.planOrNull();
+      first.loadedBody('');
+      harness.local.readGate!.complete();
+
+      expect(await opening, isNull);
+      expect(harness.selectedComposer, same(first));
+    },
+  );
+
+  for (final edit in ['no', 'metadata', 'body']) {
+    test(
+      'an undrafted editor with $edit changes '
+      '${edit == 'no' ? 'is replaced silently' : 'needs confirmation'}',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        final first = harness.buildUndrafted(await harness.plan());
+        switch (edit) {
+          case 'metadata':
+            first.setTags([const TopicTag(id: 8, name: 'authored')]);
+          case 'body':
+            first.text.text = 'Unsaved body';
+        }
+
+        final plan = await harness.planOrNull();
+
+        expect(plan, edit == 'no' ? isNotNull : isNull);
+        expect(harness.confirmations, edit == 'no' ? isEmpty : [first]);
+      },
+    );
+  }
+
+  for (final outcome in ['discards', 'keeps', 'selects past']) {
+    test('confirmation that $outcome the editor '
+        '${outcome == 'discards' ? 'admits' : 'refuses'} opening', () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final first = harness.buildUndrafted(await harness.plan());
+      first.text.text = 'Unsaved body';
+      harness.onConfirm = (composer) async {
+        if (outcome == 'keeps') return;
+        harness.members.remove(composer);
+        composer.dispose();
+        harness.selectedComposer = null;
+        if (outcome == 'selects past') {
+          harness.buildUndrafted(await harness.planUnchecked());
+        }
+      };
+
+      expect(
+        await harness.planOrNull(),
+        outcome == 'discards' ? isNotNull : isNull,
+      );
+    });
+  }
+
+  for (final (canCreateHere, hasSourceRoute, feed, category) in [
+    (true, false, 'categories', 5),
+    (false, true, 'latest', 5),
+    (false, false, 'latest', null),
+  ]) {
+    test('revealed opening with creation here $canCreateHere and source route '
+        '$hasSourceRoute returns to $feed in category $category', () async {
+      final harness = _Harness()..canCreateTopicHere = canCreateHere;
+      addTearDown(harness.dispose);
+      final plan = (await harness.planOrNull(
+        origin: harness.origin(
+          feedId: 'categories',
+          revealContent: true,
+          hasSourceRoute: hasSourceRoute,
+        ),
+      ))!;
+
+      expect(plan.target.originFeedId, feed);
+      expect(plan.target.initialCategoryId, category);
+    });
+  }
+
+  test('a listed draft opens under its own key', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final plan = (await harness.planOrNull(listedDraft: _listed))!;
+
+    expect(plan.target.draftKey, _listed.key);
+    expect(harness.nextKey, 0);
+  });
+
+  test('a failed draft restoration withholds the category template', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    harness.local.readFailure = StateError('Draft storage unavailable');
+    final plan = (await harness.planOrNull(listedDraft: _listed))!;
+    final composer = harness.build(plan);
+    final setup = harness.owner.start(plan, composer);
+    harness.metadataReady.complete();
+    await setup;
+    await pumpEventQueue();
+
+    expect(
+      composer.taxonomyValidationMessage,
+      'Choose at least 2 tags for this category.',
+    );
+    expect(composer.text.text, isEmpty);
+  });
+
+  for (final read in ['category', 'tag']) {
+    test(
+      'a $read read landing after account retirement publishes nothing',
+      () async {
+        final api = _GatedApi();
+        final harness = _Harness(
+          api: api,
+          emptyTaxonomy: read == 'category',
+          route: read == 'tag' ? _tagRoute : null,
+        );
+        addTearDown(harness.dispose);
+        var published = 0;
+        harness.onPublish = () => published++;
+        final plan = await harness.plan();
+        final composer = harness.build(plan);
+        final setup = harness.owner.start(plan, composer);
+        harness.metadataReady.complete();
+        await pumpEventQueue();
+        expect(api.waiting, 1);
+
+        harness.lifecycle.invalidate(_site);
+        api.readGate.complete();
+        await setup;
+        await pumpEventQueue();
+
+        expect(published, 0);
+        expect(composer.tags, isEmpty);
+        expect(composer.text.text, isEmpty);
+        if (read == 'category') {
+          expect(harness.categoryFor(_site, 5), same(plan.placeholderCategory));
+        }
+      },
+    );
+  }
+
+  test('a disabled exact tag is not seeded', () async {
+    final harness = _Harness(
+      route: _tagRoute,
+      api: FakeDiscourseApi(
+        topicTagSearches: const {
+          'release': TopicTagSearch(
+            tags: [TopicTag(id: 7, name: 'release', disabled: true)],
+          ),
+        },
+      ),
+    );
+    addTearDown(harness.dispose);
+    final plan = await harness.plan();
+    final composer = harness.build(plan);
+    final setup = harness.owner.start(plan, composer);
+    harness.metadataReady.complete();
+    await setup;
+
+    expect(composer.tags, isEmpty);
+  });
+
+  test(
+    'category change replaces the untouched template and drops refused tags',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.categories[6] = const TopicCategory(
+        id: 6,
+        name: 'Ideas',
+        color: '888888',
+        slug: 'ideas',
+        permission: 1,
+        topicTemplate: 'Pitch the idea',
+      );
+      final plan = await harness.plan();
+      final composer = harness.build(plan);
+      final setup = harness.owner.start(plan, composer);
+      harness.metadataReady.complete();
+      await setup;
+      await pumpEventQueue();
+      expect(composer.text.text, _category.topicTemplate);
+      composer.setTags(const [
+        TopicTag(id: 1, name: 'kept'),
+        TopicTag(id: 2, name: 'refused'),
+      ]);
+      harness.tagResults = (term) => TopicTagSearch(
+        tags: [TopicTag(id: term == 'kept' ? 1 : 2, name: term)],
+        forbidden: term == 'refused',
+      );
+
+      await harness.owner.changeCategory(composer, 6);
+
+      expect(composer.categoryId, 6);
+      expect(composer.text.text, 'Pitch the idea');
+      expect(composer.tags.map((tag) => tag.name), ['kept']);
+    },
+  );
 }
 
 final class _Harness
@@ -209,7 +459,7 @@ final class _Harness
     : api = api ?? FakeDiscourseApi() {
     if (!emptyTaxonomy) categories[5] = _category;
     drafts = ComposerDraftCoordinator(
-      localStore: FakeDraftStore(),
+      localStore: local,
       persistence: this.api,
       draftsApi: this.api,
       lifecycle: lifecycle,
@@ -238,6 +488,10 @@ final class _Harness
   final FakeDiscourseApi api;
   final ContentRoute? route;
   final categories = <int, TopicCategory>{};
+  final local = _GatedDrafts();
+  final confirmations = <ComposerController>[];
+  Future<void>? Function(ComposerController composer)? onConfirm;
+  TopicTagSearch Function(String term)? tagResults;
   void Function()? onPublish;
   final credentials = FakeAuthenticator()..keys[_site] = 'api-key';
   final lifecycle = SiteLifecycle();
@@ -256,25 +510,33 @@ final class _Harness
   @override
   bool canCreateTopicHere = true;
 
-  NewTopicOpeningOrigin origin() {
+  NewTopicOpeningOrigin origin({
+    String feedId = 'latest',
+    bool revealContent = false,
+    bool hasSourceRoute = false,
+  }) {
     final route = this.route ?? ContentRoute.list(ListLink.parse('/c/bugs/5')!);
     return NewTopicOpeningOrigin(
       siteUrl: _site,
       lease: lifecycle.capture(_site),
       tabId: 'tab',
-      feedId: 'latest',
+      feedId: feedId,
       content: route,
       route: route,
       defaultFeedId: 'latest',
-      revealContent: false,
-      hasSourceRoute: false,
+      revealContent: revealContent,
+      hasSourceRoute: hasSourceRoute,
     );
   }
 
-  Future<NewTopicOpeningPlan?> planOrNull() => owner.prepareNewTopic(
-    origin(),
+  Future<NewTopicOpeningPlan?> planOrNull({
+    NewTopicOpeningOrigin? origin,
+    UserDraft? listedDraft,
+  }) => owner.prepareNewTopic(
+    origin ?? this.origin(),
     allocateDraftKey: () => 'new_topic_${++nextKey}',
     topicTitle: () => 'New topic',
+    listedDraft: listedDraft,
   );
 
   Future<NewTopicOpeningPlan> plan() async => (await planOrNull())!;
@@ -306,6 +568,14 @@ final class _Harness
     return composer;
   }
 
+  ComposerController buildUndrafted(NewTopicOpeningPlan plan) {
+    final composer = ComposerController(plan.target);
+    members.add(composer);
+    allEditors.add(composer);
+    selectedComposer = composer;
+    return composer;
+  }
+
   @override
   bool owns(ComposerController composer) => members.contains(composer);
 
@@ -313,7 +583,10 @@ final class _Harness
   bool isCurrentOrigin(NewTopicOpeningOrigin origin) => originCurrent;
 
   @override
-  Future<void>? confirmReplacement(ComposerController composer) => null;
+  Future<void>? confirmReplacement(ComposerController composer) {
+    confirmations.add(composer);
+    return onConfirm?.call(composer);
+  }
 
   @override
   void publishOpening() {
@@ -350,7 +623,7 @@ final class _Harness
   Future<TopicTagSearch> searchTags(
     ComposerController composer,
     String term,
-  ) async => const TopicTagSearch();
+  ) async => tagResults?.call(term) ?? const TopicTagSearch();
 
   void dispose() {
     disposed = true;
@@ -358,8 +631,65 @@ final class _Harness
     if (!metadataReady.isCompleted) metadataReady.complete();
     for (final composer in allEditors) {
       drafts.retire(composer);
-      composer.dispose();
+      if (!composer.isDisposed) composer.dispose();
     }
     members.clear();
+  }
+}
+
+final class _GatedDrafts extends FakeDraftStore {
+  Completer<void>? readGate;
+  Object? readFailure;
+
+  @override
+  Future<String?> read(String siteUrl, String draftKey) async {
+    await readGate?.future;
+    if (readFailure case final failure?) throw failure;
+    return super.read(siteUrl, draftKey);
+  }
+}
+
+final class _GatedApi extends FakeDiscourseApi {
+  _GatedApi()
+    : super(
+        categoryFindResults: const [_category],
+        topicTagSearches: const {
+          'release': TopicTagSearch(tags: [TopicTag(id: 7, name: 'release')]),
+        },
+      );
+
+  final readGate = Completer<void>();
+  int waiting = 0;
+
+  @override
+  Future<List<TopicCategory>> findCategories({
+    required String siteUrl,
+    required Iterable<int> ids,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    waiting++;
+    await readGate.future;
+    return super.findCategories(siteUrl: siteUrl, ids: ids, apiKey: apiKey);
+  }
+
+  @override
+  Future<TopicTagSearch> searchTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    int? categoryId,
+    Iterable<int> selectedTagIds = const [],
+    int limit = SiteConfig.defaultMaxTagSearchResults,
+    String? clientId,
+  }) async {
+    waiting++;
+    await readGate.future;
+    return super.searchTopicTags(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      term: term,
+      categoryId: categoryId,
+    );
   }
 }
