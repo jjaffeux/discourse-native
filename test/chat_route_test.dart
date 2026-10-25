@@ -45,13 +45,20 @@ void main() {
       }
     });
 
-    test('factories refuse non-positive IDs', () {
-      expect(() => ChatRoute.channel(0), throwsArgumentError);
-      expect(
-        () => ChatRoute.thread(channelId: 9, threadId: -1),
-        throwsArgumentError,
-      );
-    });
+    for (final id in [0, -1]) {
+      test('factories refuse non-positive IDs $id', () {
+        expect(() => ChatRoute.channel(id), throwsArgumentError);
+        expect(
+          () => ChatRoute.thread(channelId: id, threadId: 9),
+          throwsArgumentError,
+        );
+        expect(
+          () => ChatRoute.thread(channelId: 9, threadId: id),
+          throwsArgumentError,
+        );
+        expect(() => ChatRoute.info(channelId: id), throwsArgumentError);
+      });
+    }
   });
 
   group('ChatPlugin routes', () {

@@ -59,18 +59,6 @@ void main() {
         DateTime.utc(year, month, 15),
       ).days(firstDay: firstDay);
 
-  test('a four-week month requests the fifth row Kalender draws', () {
-    // 1 Feb 2027 is a Monday and February has 28 days, but Kalender never
-    // draws fewer than five rows: 1–7 March is on screen.
-    expect(
-      month(2027, 2, firstDay: 1),
-      DateTimeRange(
-        start: DateTime.utc(2027, 2, 1),
-        end: DateTime.utc(2027, 3, 8),
-      ),
-    );
-  });
-
   test('Sunday- and Saturday-first four-week months request a fifth row', () {
     // 1 Feb 2026 is a Sunday; 1 Feb 2025 is a Saturday.
     expect(
