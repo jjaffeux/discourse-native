@@ -737,7 +737,7 @@ void _registerTopicReadingTests() {
       expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('the sidebar hides New Topic when the account cannot post', (
+    testWidgets('New Topic stays unavailable when the account cannot post', (
       tester,
     ) async {
       const user = DiscourseUser(
@@ -758,6 +758,9 @@ void _registerTopicReadingTests() {
       );
 
       expect(sidebarDestination('New Topic'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('compact New Topic reveals the composer pane', (tester) async {
