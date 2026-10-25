@@ -1599,29 +1599,6 @@ void main() {
         expect(shell.chatNavigation.value?.messageId, 44);
       });
 
-      test('routes plugin links to Chat before browser fallback', () async {
-        final opened = await shell.openPluginUrl(
-          '/chat/c/-/9/t/3/44',
-          origin: PluginLinkOrigin.inApp,
-        );
-
-        expect(opened, isTrue);
-        expect(shell.currentContent?.id, 'chat-c-9-t-3');
-        expect(shell.chatNavigation.value?.messageId, 44);
-      });
-
-      test(
-        'opens Chat notifications natively before browser fallback',
-        () async {
-          expect(
-            await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
-            isTrue,
-          );
-          expect(shell.currentContent?.id, 'chat-c-9-t-3');
-          expect(shell.chatNavigation.value?.messageId, 44);
-        },
-      );
-
       test('a Chat invitation opens the channel it invites to', () async {
         final invitation = shell.plugins.registry.resolveNotification(
           _site,

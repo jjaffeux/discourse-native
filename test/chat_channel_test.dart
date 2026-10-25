@@ -687,8 +687,7 @@ void main() {
     test('is the other person in a one-to-one conversation', () {
       final channel = channelFrom(directChannel());
 
-      expect(channel.avatarUrl, isNotNull);
-      expect(channel.users.single.username, 'hawk');
+      expect(channel.avatarUrl, '$site/user_avatar/h/90.png');
     });
 
     test('is nobody once there is more than one of them', () {

@@ -399,7 +399,7 @@ void main() {
     });
 
     testWidgets(
-      'a broken contribution renderer logs and falls back the whole source',
+      'a broken contribution renderer falls back to the whole source',
       (tester) async {
         // Close under the fake clock even when the body fails: a close first
         // reached from a tearDown never completes, because it waits on futures
@@ -575,8 +575,13 @@ void main() {
         case ProjectedPreview(:final document):
           expect(document.source, raw, reason: '${raw.codeUnits}');
           _expectFullyAccounted(document);
-        case SourceFallback(raw: final fallbackRaw):
+        case SourceFallback(raw: final fallbackRaw, :final reason):
           expect(fallbackRaw, raw, reason: '${raw.codeUnits}');
+          expect(
+            reason,
+            isNot(ChatPreviewFallbackReason.internalFailure),
+            reason: '${raw.codeUnits}',
+          );
       }
     }
   });

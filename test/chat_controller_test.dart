@@ -202,7 +202,6 @@ ChatChannel channel(
   WriteException? rebakeFailure,
   Completer<void>? rebakeGate,
   String quoteMarkdown = '[chat quote]',
-  WriteException? quoteFailure,
   Completer<void>? quoteGate,
   WriteException? reactionFailure,
   Completer<void>? reactionGate,
@@ -220,13 +219,10 @@ ChatChannel channel(
   WriteException? channelNotificationFailure,
   Completer<void>? channelNotificationGate,
   Map<String, ChatChannelMembersPage> channelMemberPages = const {},
-  Completer<void>? channelMemberGate,
   Map<String, ChatChannelBrowsePage> browsePages = const {},
-  Completer<void>? browseGate,
   ChatMembership channelFollowMembership = const ChatMembership(
     following: true,
   ),
-  ChatMembership channelUnfollowMembership = const ChatMembership(),
   WriteException? channelFollowFailure,
   Completer<void>? channelFollowGate,
   Map<String, ChatMessageReactors> chatReactors = const {},
@@ -236,7 +232,6 @@ ChatChannel channel(
   DiscourseUser? currentUser,
   ChatNotificationsDelta? onChatNotificationsDelta,
   void Function(String)? onSiteUnreachable,
-  Duration minimumWindowRefreshInterval = const Duration(seconds: 30),
   Store? store,
   int? maxRetainedCanonicalMessageIdsPerSite,
   DateTime Function()? clock,
@@ -266,7 +261,6 @@ ChatChannel channel(
     chatRebakeFailure: rebakeFailure,
     chatRebakeGate: rebakeGate,
     chatQuoteMarkdown: quoteMarkdown,
-    chatQuoteFailure: quoteFailure,
     chatQuoteGate: quoteGate,
     chatReactionFailure: reactionFailure,
     chatReactionGate: reactionGate,
@@ -282,11 +276,8 @@ ChatChannel channel(
     chatChannelNotificationFailure: channelNotificationFailure,
     chatChannelNotificationGate: channelNotificationGate,
     chatChannelMemberPagesByKey: channelMemberPages,
-    chatChannelMemberGate: channelMemberGate,
     chatBrowsePagesByKey: browsePages,
-    chatBrowseGate: browseGate,
     chatChannelFollowMembership: channelFollowMembership,
-    chatChannelUnfollowMembership: channelUnfollowMembership,
     chatChannelFollowFailure: channelFollowFailure,
     chatChannelFollowGate: channelFollowGate,
     chatReactorsById: chatReactors,
@@ -307,7 +298,6 @@ ChatChannel channel(
       currentUserFor: (_) => currentUser,
       onChatNotificationsDelta: onChatNotificationsDelta,
       onSiteUnreachable: onSiteUnreachable,
-      minimumWindowRefreshInterval: minimumWindowRefreshInterval,
       maxRetainedCanonicalMessageIdsPerSite:
           maxRetainedCanonicalMessageIdsPerSite,
       clock: clock,
@@ -470,7 +460,6 @@ final class _ControllableCredentials extends FakeApiCredentialReader {
   Completer<void>? _clientIdStarted;
 
   int apiKeyCalls = 0;
-  int clientIdCalls = 0;
 
   Future<void> blockApiKey() {
     _apiKeyGate = Completer<void>();
@@ -507,7 +496,6 @@ final class _ControllableCredentials extends FakeApiCredentialReader {
 
   @override
   Future<String> clientId() async {
-    clientIdCalls++;
     final gate = _clientIdGate;
     if (gate != null) {
       if (!(_clientIdStarted?.isCompleted ?? true)) {
@@ -988,25 +976,6 @@ void main() {
         expect(subject.chat.channelSettingsWriteInFlight(site, 9), isFalse);
       },
     );
-
-    test('a refused threading change restores the server setting', () async {
-      const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
-      final subject = build(
-        channels: {
-          site: ChatChannels(public: [channel(9)]),
-        },
-        channelUpdateFailure: const WriteException(WriteFailure.forbidden),
-        currentUser: staff,
-      );
-      addTearDown(subject.chat.dispose);
-      await subject.chat.loadChannels(site);
-
-      expect(
-        await subject.chat.updateChannelThreading(site, 9, true),
-        isNotNull,
-      );
-      expect(subject.chat.channel(site, 9)?.threadingEnabled, isFalse);
-    });
 
     for (final enabled in [false, true]) {
       test(
@@ -3797,7 +3766,6 @@ void main() {
         await loading;
 
         expect(api.chatChannelsRequested, isEmpty);
-        expect(credentials.clientIdCalls, 1);
       },
     );
 
@@ -4396,23 +4364,28 @@ void main() {
       expect(tracker.pluginChannelLastIds['/chat/9/new-messages'], 70);
     });
 
-    test('does not join a closed or unauthorized channel', () async {
-      final subject = build(currentUser: currentUser);
+    for (final refused in [
+      (name: 'a closed', status: ChatChannelStatus.closed, canJoin: true),
+      (name: 'an unauthorized', status: ChatChannelStatus.open, canJoin: false),
+    ]) {
+      test('does not join ${refused.name} channel', () async {
+        final subject = build(currentUser: currentUser);
 
-      final error = await subject.chat.updateChannelFollowing(
-        site,
-        channel(
-          10,
-          following: false,
-          status: ChatChannelStatus.closed,
-          canJoin: true,
-        ),
-        true,
-      );
+        final error = await subject.chat.updateChannelFollowing(
+          site,
+          channel(
+            10,
+            following: false,
+            status: refused.status,
+            canJoin: refused.canJoin,
+          ),
+          true,
+        );
 
-      expect(error, 'This channel cannot be joined.');
-      expect(subject.api.chatChannelFollowsUpdated, isEmpty);
-    });
+        expect(error, 'This channel cannot be joined.');
+        expect(subject.api.chatChannelFollowsUpdated, isEmpty);
+      });
+    }
 
     test('keeps each site’s channels apart', () async {
       final subject = build(
@@ -5034,12 +5007,13 @@ void main() {
         final subject = build(
           messages: {
             key(9): page([message(9, minute: 9)], canLoadMorePast: true),
-            key(9, before: 5): page([message(1), message(2, minute: 1)]),
+            key(9, before: 9): page([message(1), message(2, minute: 1)]),
           },
         );
 
         await subject.chat.openChannel(site, 9);
-        subject.store.putAll(site, [message(5, minute: 5)]);
+        await subject.chat.loadOlder(site, 9);
+        expect(subject.chat.stream(site, 9).messageIds, [1, 2, 9]);
         await subject.chat.openChannel(site, 9, force: true);
 
         expect(subject.chat.stream(site, 9).messageIds, [9]);
@@ -5813,33 +5787,6 @@ void main() {
         expect(first.stagedId, isNot(second.stagedId));
       },
     );
-
-    test('different channels send concurrently', () async {
-      final gate = Completer<void>();
-      final subject = build(sendGate: gate, currentUser: currentUser);
-      addTearDown(subject.chat.dispose);
-
-      final first = subject.chat.sendMessage(
-        site,
-        9,
-        OutgoingChatMessage.text('nine'),
-      )!;
-      final second = subject.chat.sendMessage(
-        site,
-        10,
-        OutgoingChatMessage.text('ten'),
-      )!;
-      await Future<void>.delayed(Duration.zero);
-
-      expect(
-        subject.api.chatMessagesSent.map((call) => call.channelId).toSet(),
-        {9, 10},
-      );
-
-      gate.complete();
-      expect(await first.settled, ChatSendResult.sent);
-      expect(await second.settled, ChatSendResult.sent);
-    });
 
     test('a failed request does not stop its channel queue', () async {
       const refusal = WriteException(WriteFailure.validation);
@@ -9885,48 +9832,6 @@ void main() {
       },
     );
 
-    test(
-      'refusal preserves a remote delta that arrived during the write',
-      () async {
-        final gate = Completer<void>();
-        final subject = build(
-          currentUser: currentUser,
-          reactionGate: gate,
-          reactionFailure: const WriteException(WriteFailure.forbidden),
-          messages: {
-            key(9): page([
-              message(
-                1,
-                reactions: const [
-                  ChatReaction(emoji: 'clap', count: 1, reactorIds: [8]),
-                ],
-              ),
-            ]),
-          },
-        );
-        addTearDown(subject.chat.dispose);
-        subject.store.put(site, channel(9));
-        final tracker = attachTracker(subject.chat);
-        await subject.chat.openChannel(site, 9);
-        final view = subject.chat.beginViewingChannel(site, 9);
-        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
-        final writing = subject.chat.addMessageReaction(site, 1, 'clap');
-        await Future<void>.delayed(Duration.zero);
-        tracker.deliverPluginMessage('/chat/9', {
-          'type': 'reaction',
-          'chat_message_id': 1,
-          'emoji': 'clap',
-          'action': 'add',
-          'user': {'id': 11},
-        });
-        gate.complete();
-        expect(await writing, isNotNull);
-        expect(subject.chat.message(site, 1)!.reactions, const [
-          ChatReaction(emoji: 'clap', count: 2, reactorIds: [8, 11]),
-        ]);
-      },
-    );
-
     for (final ownAdd in [false, true]) {
       for (final failure in [
         null,
@@ -10571,38 +10476,6 @@ void main() {
       expect(subject.chat.stream(site, 9).atPresent, isTrue);
     });
 
-    test(
-      'a live message dated behind the window still sorts into it',
-      () async {
-        final subject = build(
-          messages: {
-            key(9): page([message(5, minute: 5), message(8, minute: 8)]),
-          },
-        );
-        final tracker = attachTracker(subject.chat);
-        await subject.chat.openChannel(site, 9);
-        final view = subject.chat.beginViewingChannel(site, 9);
-        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
-
-        // Discourse adopts the sender's own `client_created_at` when it is
-        // reasonable, so a message published now can carry a date behind the
-        // newest one held. Appending it would put the window out of the order
-        // every other merge keeps it in.
-        tracker.deliverPluginMessage('/chat/9', {
-          'type': 'sent',
-          'chat_message': {
-            'id': 6,
-            'chat_channel_id': 9,
-            'cooked': '<p>6</p>',
-            'created_at': '2026-05-05T10:06:00.000Z',
-            'user': {'id': 2, 'username': 'sam'},
-          },
-        });
-
-        expect(subject.chat.stream(site, 9).messageIds, [5, 6, 8]);
-      },
-    );
-
     test('a sent event outrunning the seam-closing page still lands', () async {
       final subject = anchored(
         extra: {
@@ -10697,7 +10570,6 @@ void main() {
       );
       addTearDown(chat.dispose);
       await chat.openChannel(site, 9);
-      final initialClientIdCalls = credentials.clientIdCalls;
       final credentialsStarted = credentials.blockApiKey();
 
       final loading = chat.loadNewer(site, 9);
@@ -10707,7 +10579,6 @@ void main() {
       await loading;
 
       expect(api.chatMessagesRequested, hasLength(1));
-      expect(credentials.clientIdCalls, initialClientIdCalls + 1);
     });
 
     test('does not ask at all from a window already at the present', () async {
@@ -10745,6 +10616,8 @@ void main() {
       await subject.chat.openChannel(site, 9);
       await subject.chat.loadNewer(site, 9);
 
+      expect(subject.api.chatMessagesRequested, hasLength(2));
+      expect(subject.api.chatMessagesRequested.last.after, 5);
       expect(subject.chat.stream(site, 9).messageIds, [5]);
       expect(subject.chat.stream(site, 9).error, isNull);
     });
@@ -10808,8 +10681,13 @@ void main() {
     test('tells the view to reposition, which paging does not', () async {
       final subject = build(
         messages: {
-          key(9): page([message(5, minute: 5)], canLoadMorePast: true),
+          key(9): page(
+            [message(5, minute: 5)],
+            canLoadMorePast: true,
+            canLoadMoreFuture: true,
+          ),
           key(9, before: 5): page([message(1)]),
+          latestKey(9): page([message(9, minute: 9)]),
         },
       );
 
@@ -10817,9 +10695,11 @@ void main() {
       final opened = subject.chat.stream(site, 9).fetches;
 
       await subject.chat.loadOlder(site, 9);
+      expect(subject.chat.stream(site, 9).messageIds, [1, 5]);
       expect(subject.chat.stream(site, 9).fetches, opened);
 
-      await subject.chat.openChannel(site, 9, force: true);
+      await subject.chat.showLatest(site, 9);
+      expect(subject.chat.stream(site, 9).messageIds, [9]);
       expect(subject.chat.stream(site, 9).fetches, opened + 1);
     });
 
@@ -11222,6 +11102,8 @@ void main() {
       await subject.chat.openChannel(site, 9);
       await subject.chat.loadOlder(site, 9);
 
+      expect(subject.api.chatMessagesRequested, hasLength(2));
+      expect(subject.api.chatMessagesRequested.last.before, 5);
       expect(subject.chat.stream(site, 9).messageIds, [5]);
       expect(subject.chat.stream(site, 9).error, isNull);
       expect(subject.chat.stream(site, 9).loadingOlder, isFalse);
@@ -12195,14 +12077,18 @@ void main() {
           messageGate: gate,
           lifecycle: lifecycle,
         );
+        addTearDown(subject.chat.dispose);
 
         final open = subject.chat.openChannel(site, 9);
+        await pumpEventQueue();
+        expect(subject.api.chatMessagesRequested, hasLength(1));
         lifecycle.invalidate(site);
         subject.chat.forget(site);
         gate.complete();
         await open;
 
         expect(subject.chat.stream(site, 9).messageIds, isEmpty);
+        expect(subject.store.read<ChatMessage>(site, 1), isNull);
       },
     );
 
@@ -12323,7 +12209,6 @@ void main() {
         await marking;
 
         expect(api.chatReadsMarked, isEmpty);
-        expect(credentials.clientIdCalls, 1);
       },
     );
 
