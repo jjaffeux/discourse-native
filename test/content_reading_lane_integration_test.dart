@@ -314,7 +314,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final viewport = find.byType(SuperListView);
+        final viewport = find.byWidgetPredicate(
+          // Message Scroller builds a private SuperListView subclass.
+          (widget) => widget is SuperListView,
+        );
         final tile = find.byKey(const ValueKey('chat-message-40'));
         final scroll = tester.widget<SuperListView>(viewport).controller!;
         expect(tester.getSize(viewport).width, 1000);

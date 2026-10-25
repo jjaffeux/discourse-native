@@ -965,8 +965,10 @@ class _DPopoverState extends State<DPopover>
       open: _open,
       child: OverlayPortal.overlayChildLayoutBuilder(
         controller: _portal,
-        overlayChildBuilder: (context, info) =>
-            NativeGlassOccluder(child: _overlay(context, info)),
+        overlayChildBuilder: (context, info) => Theme(
+          data: DMaterialTheme.overlayThemeOf(context),
+          child: NativeGlassOccluder(child: _overlay(context, info)),
+        ),
         child: widget.child,
       ),
     );

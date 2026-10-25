@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
@@ -11,7 +12,6 @@ import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
-import 'ui/foundation/native_glass.dart';
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
