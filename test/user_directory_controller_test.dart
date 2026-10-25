@@ -90,6 +90,7 @@ void main() {
           enableCustomColumn();
           await controller.load(site, query: otherQuery, refresh: true);
           if (fails) {
+            transport.columnsError = StateError('old metadata fallback');
             oldMetadata.completeError(StateError('old metadata'));
           } else {
             oldMetadata.complete(const {
@@ -99,6 +100,7 @@ void main() {
             });
           }
           await oldLoad;
+          transport.columnsError = null;
           for (final query in [defaultQuery, otherQuery]) {
             final state = controller.stateFor(site.url, query);
             expect(state.columns.map((c) => c.id), [14]);
@@ -123,8 +125,9 @@ void main() {
           final started = Completer<void>();
           final oldRows = Completer<void>();
           transport.beforeDirectoryReply = (uri) async {
-            if (started.isCompleted || uri.queryParameters['page'] != '1')
+            if (started.isCompleted || uri.queryParameters['page'] != '1') {
               return;
+            }
             started.complete();
             await oldRows.future;
             if (fails) throw StateError('old rows');

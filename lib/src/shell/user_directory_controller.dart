@@ -79,12 +79,25 @@ final class UserDirectoryState {
   final bool pageError;
 }
 
+final class _DirectoryProjection {
+  const _DirectoryProjection(
+    this.state,
+    this.generation, {
+    required this.rowsGeneration,
+  });
+
+  final UserDirectoryState state;
+  final Object generation;
+  final Object rowsGeneration;
+}
+
 final class _DirectoryAccount {
   _DirectoryAccount(this.lease);
 
   static const cachedQueries = 16;
   final SiteLease lease;
-  final Map<UserDirectoryQuery, UserDirectoryState> states = {};
+  final Map<UserDirectoryQuery, _DirectoryProjection> states = {};
+  Object metadataGeneration = Object();
   UserDirectoryMetadata? metadata;
   Future<UserDirectoryMetadata>? metadataLoad;
   final Map<UserDirectoryQuery, Object> requests = {};
@@ -93,7 +106,12 @@ final class _DirectoryAccount {
 
   UserDirectoryState stateFor(UserDirectoryQuery query) {
     final held = states[query];
-    if (held != null) return held;
+    if (held != null &&
+        (identical(held.generation, metadataGeneration) ||
+            metadata == null ||
+            requests.containsKey(query))) {
+      return held.state;
+    }
     final shared = metadata;
     return shared == null
         ? const UserDirectoryState.empty()
@@ -120,11 +138,16 @@ final class _DirectoryAccount {
     }
   }
 
-  void clearQueries() {
-    states.clear();
+  void refreshMetadata() {
+    metadataGeneration = Object();
     metadata = null;
     metadataLoad?.ignore();
     metadataLoad = null;
+  }
+
+  void clearQueries() {
+    states.clear();
+    refreshMetadata();
     requests.clear();
   }
 
@@ -182,107 +205,150 @@ final class UserDirectoryController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final account = _ensureAccount(instance.url);
-    final held = account.stateFor(query);
+    final projection = account.states[query];
+    final held = projection?.state ?? account.stateFor(query);
+    final currentProjection = identical(
+      projection?.generation,
+      account.metadataGeneration,
+    );
     account.touch(query);
     if (account.requests.containsKey(query) ||
-        (!refresh && !more && held.loaded) ||
-        (more && (!held.loaded || !held.hasMore))) {
+        (!refresh && !more && held.loaded && currentProjection) ||
+        (more && (!held.loaded || (!held.hasMore && currentProjection)))) {
       return;
     }
 
+    final rowsGeneration =
+        projection?.rowsGeneration ?? account.metadataGeneration;
+    if (refresh) account.refreshMetadata();
     final token = Object();
     final lease = account.lease;
     account.requests[query] = token;
-    account.states[query] = UserDirectoryState(
-      items: held.items,
-      columns: held.columns,
-      availableColumns: held.availableColumns,
-      groupNames: held.groupNames,
-      canManageColumns: held.canManageColumns,
-      totalRows: held.totalRows,
-      nextPage: held.nextPage,
-      lastUpdatedAt: held.lastUpdatedAt,
-      hasMore: held.hasMore,
-      loading: !more,
-      loadingMore: more,
-      loaded: held.loaded,
+    account.states[query] = _DirectoryProjection(
+      UserDirectoryState(
+        items: held.items,
+        columns: held.columns,
+        availableColumns: held.availableColumns,
+        groupNames: held.groupNames,
+        canManageColumns: held.canManageColumns,
+        totalRows: held.totalRows,
+        nextPage: held.nextPage,
+        lastUpdatedAt: held.lastUpdatedAt,
+        hasMore: held.hasMore,
+        loading: !more,
+        loadingMore: more,
+        loaded: held.loaded,
+      ),
+      account.metadataGeneration,
+      rowsGeneration: rowsGeneration,
     );
     account.trim();
     notifySafely();
 
     try {
-      final auth = await _credentialsFor(instance, account, query, token);
-      if (auth == null || !_isCurrent(instance.url, account, query, token)) {
-        return;
-      }
-      final metadata = await _ensureMetadata(instance, auth, account);
-      if (!_isCurrent(instance.url, account, query, token)) return;
-      final page = await auth.run(
-        () => api.directory(
-          siteUrl: instance.url,
-          apiKey: auth.apiKey,
-          clientId: auth.apiKey == null ? null : auth.clientId,
-          period: query.period,
-          columns: metadata.columns,
-          page: more ? held.nextPage : 0,
-          order: query.order,
-          ascending: query.ascending,
-          name: query.search,
-          group: query.group,
-        ),
-      );
-      if (!_isCurrent(instance.url, account, query, token)) return;
-      lease.commit(() {
-        if (!_isCurrent(instance.url, account, query, token)) return;
-        final requestedPage = more ? held.nextPage : 0;
-        final current = account.states[query] ?? held;
-        final rows = more ? [...current.items] : <UserDirectoryItem>[];
-        final seen = {for (final row in rows) row.id};
-        for (final row in page.items) {
-          if (seen.add(row.id)) rows.add(row);
+      AccountRequestCredentials? credentialsSnapshot;
+      while (_isCurrent(instance.url, account, query, token)) {
+        final generation = account.metadataGeneration;
+        final append = more && identical(rowsGeneration, generation);
+        try {
+          final auth = credentialsSnapshot ??= await _credentialsFor(
+            instance,
+            account,
+            query,
+            token,
+          );
+          if (auth == null ||
+              !_isCurrent(instance.url, account, query, token)) {
+            return;
+          }
+          if (!identical(account.metadataGeneration, generation)) continue;
+          final metadata = await _ensureMetadata(
+            instance,
+            auth,
+            account,
+            generation,
+          );
+          if (!_isCurrent(instance.url, account, query, token)) return;
+          if (!identical(account.metadataGeneration, generation)) continue;
+          final requestedPage = append ? held.nextPage : 0;
+          final page = await auth.run(
+            () => api.directory(
+              siteUrl: instance.url,
+              apiKey: auth.apiKey,
+              clientId: auth.apiKey == null ? null : auth.clientId,
+              period: query.period,
+              columns: metadata.columns,
+              page: requestedPage,
+              order: query.order,
+              ascending: query.ascending,
+              name: query.search,
+              group: query.group,
+            ),
+          );
+          if (!_isCurrent(instance.url, account, query, token)) return;
+          if (!identical(account.metadataGeneration, generation)) continue;
+          lease.commit(() {
+            if (!_isCurrent(instance.url, account, query, token)) return;
+            if (!identical(account.metadataGeneration, generation)) return;
+            final rows = append ? [...held.items] : <UserDirectoryItem>[];
+            final seen = {for (final row in rows) row.id};
+            for (final row in page.items) {
+              if (seen.add(row.id)) rows.add(row);
+            }
+            account.states[query] = _DirectoryProjection(
+              UserDirectoryState(
+                items: rows,
+                columns: metadata.columns,
+                availableColumns: metadata.availableColumns,
+                groupNames: metadata.groupNames,
+                canManageColumns: metadata.canManageColumns,
+                totalRows: page.totalRows,
+                nextPage: requestedPage + 1,
+                lastUpdatedAt: page.lastUpdatedAt,
+                hasMore:
+                    page.nextPagePath != null &&
+                    page.items.isNotEmpty &&
+                    rows.length < page.totalRows &&
+                    requestedPage < UserDirectoryApi.maximumPage,
+                loaded: true,
+              ),
+              generation,
+              rowsGeneration: generation,
+            );
+            notifySafely();
+          });
+          return;
+        } catch (error) {
+          if (!_isCurrent(instance.url, account, query, token)) return;
+          if (!identical(account.metadataGeneration, generation)) continue;
+          lease.commit(() {
+            if (!_isCurrent(instance.url, account, query, token)) return;
+            if (!identical(account.metadataGeneration, generation)) return;
+            account.states[query] = _DirectoryProjection(
+              UserDirectoryState(
+                items: held.items,
+                columns: held.columns,
+                availableColumns: held.availableColumns,
+                groupNames: held.groupNames,
+                canManageColumns: held.canManageColumns,
+                totalRows: held.totalRows,
+                nextPage: held.nextPage,
+                lastUpdatedAt: held.lastUpdatedAt,
+                hasMore: held.hasMore,
+                loaded: true,
+                error: append
+                    ? appL10n.couldnTLoadMoreUsers
+                    : appL10n.couldnTLoadTheUserDirectory,
+                pageError: append,
+              ),
+              generation,
+              rowsGeneration: rowsGeneration,
+            );
+            notifySafely();
+          });
+          return;
         }
-        account.states[query] = UserDirectoryState(
-          items: rows,
-          columns: metadata.columns,
-          availableColumns: metadata.availableColumns,
-          groupNames: metadata.groupNames,
-          canManageColumns: metadata.canManageColumns,
-          totalRows: page.totalRows,
-          nextPage: requestedPage + 1,
-          lastUpdatedAt: page.lastUpdatedAt,
-          hasMore:
-              page.nextPagePath != null &&
-              page.items.isNotEmpty &&
-              rows.length < page.totalRows &&
-              requestedPage < UserDirectoryApi.maximumPage,
-          loaded: true,
-        );
-        notifySafely();
-      });
-    } catch (error) {
-      if (!_isCurrent(instance.url, account, query, token)) return;
-
-      lease.commit(() {
-        if (!_isCurrent(instance.url, account, query, token)) return;
-        final current = account.states[query] ?? held;
-        account.states[query] = UserDirectoryState(
-          items: current.items,
-          columns: current.columns,
-          availableColumns: current.availableColumns,
-          groupNames: current.groupNames,
-          canManageColumns: current.canManageColumns,
-          totalRows: current.totalRows,
-          nextPage: current.nextPage,
-          lastUpdatedAt: current.lastUpdatedAt,
-          hasMore: current.hasMore,
-          loaded: true,
-          error: more
-              ? appL10n.couldnTLoadMoreUsers
-              : appL10n.couldnTLoadTheUserDirectory,
-          pageError: more,
-        );
-        notifySafely();
-      });
+      }
     } finally {
       if (identical(account.requests[query], token)) {
         account.requests.remove(query);
@@ -346,6 +412,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
     DiscourseInstance instance,
     AccountRequestCredentials auth,
     _DirectoryAccount account,
+    Object generation,
   ) async {
     final cached = account.metadata;
     if (cached != null) return cached;
@@ -359,12 +426,15 @@ final class UserDirectoryController extends FrameSafeNotifier {
         canManageColumns: instance.user?.staff == true,
       ),
     );
-    account.metadataLoad = future;
+    if (identical(account.metadataGeneration, generation)) {
+      account.metadataLoad = future;
+    }
     try {
       final loaded = await future;
       if (!isDisposed &&
           account.lease.isCurrent &&
           identical(_accounts[instance.url], account) &&
+          identical(account.metadataGeneration, generation) &&
           identical(account.metadataLoad, future)) {
         account.metadata = loaded;
       }
