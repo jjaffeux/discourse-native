@@ -126,6 +126,33 @@ void main() {
     expect(composer.isDisposed, isTrue);
   });
 
+  test('a reply landing after its editor closed settles its draft', () async {
+    disposeShell();
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    await createShell(
+      postGate: gate,
+      draftFailure: const WriteException(WriteFailure.unreachable),
+    );
+    final composer = await openReply(7);
+    composer.text.text = 'Posted after closing';
+    await composer.flushDraft();
+    expect(await drafts.read(_firstSite, 'topic_7'), isNotNull);
+    final submission = shell.submitComposer(composer: composer);
+    await pumpEventQueue();
+    shell.closeComposer(composer: composer);
+    expect(composer.isDisposed, isTrue);
+
+    gate.complete();
+    await submission;
+    await pumpEventQueue();
+
+    expect(api.created, hasLength(1));
+    expect(await drafts.read(_firstSite, 'topic_7'), isNull);
+  });
+
   test('active uploads prevent unsafe close and remain available', () async {
     final composer = await openReply(7);
     final editor = composer.text;
