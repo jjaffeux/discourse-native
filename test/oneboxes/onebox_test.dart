@@ -328,7 +328,7 @@ void main() {
         );
         expect(target, findsOneWidget);
         final node = tester.getSemantics(target);
-        expect(_occurrences(node.label, 'Example'), 1);
+        expect(_occurrences(node.getSemanticsData().label, 'Example'), 1);
         expect(
           node,
           isSemantics(
