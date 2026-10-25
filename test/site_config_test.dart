@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
@@ -1090,6 +1091,21 @@ void main() {
   });
 
   group('storage', () {
+    for (final enabled in [false, true]) {
+      test(
+        'preserves Boards settings value identity with enabled=$enabled',
+        () {
+          final config = pluginSettings({'boards_enabled': enabled});
+          final restored = restorePluginSettings(config);
+
+          expect(restored.plugins.get(boardsSettingsKey)!.enabled, enabled);
+          expect(restored, config);
+          expect(restored.hashCode, config.hashCode);
+          expect(config, isNot(pluginSettings({'boards_enabled': !enabled})));
+        },
+      );
+    }
+
     final full = pluginSettings(
       settings(
         emojiEnabled: false,
