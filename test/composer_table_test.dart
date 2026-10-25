@@ -780,6 +780,7 @@ void main() {
       await tester.enterText(_cell(1, 0), 'Coffee');
       await tester.pump(const Duration(seconds: 1));
       final edited = composer.raw;
+      expect(edited, _source.replaceFirst('Tea', 'Coffee'));
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -796,6 +797,10 @@ void main() {
       expect(composer.raw, edited);
       await _menu(tester, 'Row 2 actions', 'Move row up');
       await tester.pump(const Duration(seconds: 1));
+      expect(
+        composer.raw,
+        'Before\n\n| Name | Cost |\n| :--- | ---: |\n| Cake | 30 |\n| Coffee | 12 |\n\nAfter',
+      );
       composer.requestFocus();
       await tester.pump();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
