@@ -89,13 +89,14 @@ Future<FakeDiscourseApi> _pump(
     authenticator: auth,
     revealMobileNavigation: size == phone,
   );
+  final shortcuts = find.byKey(
+    const ValueKey('sidebar-panel-switch-shortcuts'),
+  );
   if (size == phone) {
-    await tester.tap(find.text('Shortcuts'));
+    // An unselected trigger hides its label, so aim at the trigger itself.
+    await tester.tap(shortcuts);
     await tester.pumpAndSettle();
   } else {
-    final shortcuts = find.byKey(
-      const ValueKey('sidebar-panel-switch-shortcuts'),
-    );
     await tester.ensureVisible(shortcuts);
     await tester.pumpAndSettle();
     await tester.tapAt(
