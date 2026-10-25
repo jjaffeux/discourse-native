@@ -22496,6 +22496,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{value} h'**
   String dashboardDurationHours(String value);
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Boards'**
+  String get boardsTitle;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Boards is not enabled on this site.'**
+  String get boardsDisabled;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'No boards are available.'**
+  String get boardsNoBoards;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'No cards in this column.'**
+  String get boardsNoCards;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'New card'**
+  String get boardsNewCard;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Add existing topic'**
+  String get boardsAddTopic;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic ID or topic URL'**
+  String get boardsTopicId;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get boardsNotes;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags separated by commas'**
+  String get boardsTags;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to…'**
+  String get boardsMoveTo;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'First'**
+  String get boardsFirst;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Last'**
+  String get boardsLast;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Archived'**
+  String get boardsArchived;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'This card or column is not supported yet.'**
+  String get boardsUnsupported;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Review move'**
+  String get boardsMoveReview;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Moving a topic may change its tags, category, assignment, or open status.'**
+  String get boardsMoveEffects;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Required category'**
+  String get boardsRequiredCategory;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Required tag'**
+  String get boardsRequiredTag;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Column'**
+  String get boardsColumn;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Position'**
+  String get boardsPlacement;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Refresh to see the latest board.'**
+  String get boardsSavedRefresh;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'The result is unknown. Refresh and check the board before trying again.'**
+  String get boardsUnknownWrite;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'This action is no longer available. Refresh the board.'**
+  String get boardsRefused;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this card? The underlying topic will remain.'**
+  String get boardsRemoveCard;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'This card is unavailable.'**
+  String get boardsUnavailableCard;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'New topic'**
+  String get boardsNewTopic;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert to topic'**
+  String get boardsConvertTopic;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach created topic'**
+  String get boardsAttachTopic;
+
+  /// Native Boards plugin interface.
+  ///
+  /// In en, this message translates to:
+  /// **'The topic was created. Attach it to this card to finish conversion.'**
+  String get boardsPromotionPending;
 }
 
 class _AppLocalizationsDelegate

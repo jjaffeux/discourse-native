@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _pluginIdsByDirectory = <String, String>{
   'assign': 'discourse-assign',
+  'boards': 'boards',
   'chat': 'chat',
   'cooking': 'cooking',
   'discourse_ai': 'discourse-ai',
@@ -69,6 +70,7 @@ const _retiredBroadHostPorts = <String>{
 
 const _featureModuleEntrypoints = <String>{
   'assign/assign_module.dart',
+  'boards/boards_module.dart',
   'chat/chat_module.dart',
   'cooking/cooking_module.dart',
   'discourse_ai/discourse_ai_module.dart',

@@ -36,6 +36,7 @@ void main() {
       'gifs',
       'discourse-ai',
       'discourse-assign',
+      'boards',
       'chat',
       'voice',
     ]);

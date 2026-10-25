@@ -14301,4 +14301,96 @@ class AppLocalizationsEn extends AppLocalizations {
   String dashboardDurationHours(String value) {
     return '$value h';
   }
+
+  @override
+  String get boardsTitle => 'Boards';
+
+  @override
+  String get boardsDisabled => 'Boards is not enabled on this site.';
+
+  @override
+  String get boardsNoBoards => 'No boards are available.';
+
+  @override
+  String get boardsNoCards => 'No cards in this column.';
+
+  @override
+  String get boardsNewCard => 'New card';
+
+  @override
+  String get boardsAddTopic => 'Add existing topic';
+
+  @override
+  String get boardsTopicId => 'Topic ID or topic URL';
+
+  @override
+  String get boardsNotes => 'Notes';
+
+  @override
+  String get boardsTags => 'Tags separated by commas';
+
+  @override
+  String get boardsMoveTo => 'Move to…';
+
+  @override
+  String get boardsFirst => 'First';
+
+  @override
+  String get boardsLast => 'Last';
+
+  @override
+  String get boardsArchived => 'Archived';
+
+  @override
+  String get boardsUnsupported => 'This card or column is not supported yet.';
+
+  @override
+  String get boardsMoveReview => 'Review move';
+
+  @override
+  String get boardsMoveEffects =>
+      'Moving a topic may change its tags, category, assignment, or open status.';
+
+  @override
+  String get boardsRequiredCategory => 'Required category';
+
+  @override
+  String get boardsRequiredTag => 'Required tag';
+
+  @override
+  String get boardsColumn => 'Column';
+
+  @override
+  String get boardsPlacement => 'Position';
+
+  @override
+  String get boardsSavedRefresh => 'Saved. Refresh to see the latest board.';
+
+  @override
+  String get boardsUnknownWrite =>
+      'The result is unknown. Refresh and check the board before trying again.';
+
+  @override
+  String get boardsRefused =>
+      'This action is no longer available. Refresh the board.';
+
+  @override
+  String get boardsRemoveCard =>
+      'Remove this card? The underlying topic will remain.';
+
+  @override
+  String get boardsUnavailableCard => 'This card is unavailable.';
+
+  @override
+  String get boardsNewTopic => 'New topic';
+
+  @override
+  String get boardsConvertTopic => 'Convert to topic';
+
+  @override
+  String get boardsAttachTopic => 'Attach created topic';
+
+  @override
+  String get boardsPromotionPending =>
+      'The topic was created. Attach it to this card to finish conversion.';
 }

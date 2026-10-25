@@ -1,5 +1,6 @@
 import '../plugin_api/plugin_manifest.dart';
 import 'assign/assign_module.dart';
+import 'boards/boards_module.dart';
 import 'chat/chat_module.dart';
 import 'cooking/cooking_module.dart';
 import 'discourse_ai/discourse_ai_module.dart';
@@ -33,6 +34,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   gifsModule,
   discourseAiModule,
   assignModule,
+  boardsModule,
   chatModule,
   voiceModule,
 ]);

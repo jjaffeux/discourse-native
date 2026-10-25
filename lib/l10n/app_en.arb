@@ -18844,5 +18844,121 @@
   "dashboardMegabytes": "{value} MB",
   "@dashboardMegabytes": {"description": "Storage size in megabytes.", "placeholders": {"value": {"type": "String"}}},
   "dashboardDurationHours": "{value} h",
-  "@dashboardDurationHours": {"description": "Dashboard time to first response in hours.", "placeholders": {"value": {"type": "String"}}}
+  "@dashboardDurationHours": {"description": "Dashboard time to first response in hours.", "placeholders": {"value": {"type": "String"}}},
+  "boardsTitle": "Boards",
+  "@boardsTitle": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsDisabled": "Boards is not enabled on this site.",
+  "@boardsDisabled": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsNoBoards": "No boards are available.",
+  "@boardsNoBoards": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsNoCards": "No cards in this column.",
+  "@boardsNoCards": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsNewCard": "New card",
+  "@boardsNewCard": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsAddTopic": "Add existing topic",
+  "@boardsAddTopic": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsTopicId": "Topic ID or topic URL",
+  "@boardsTopicId": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsNotes": "Notes",
+  "@boardsNotes": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsTags": "Tags separated by commas",
+  "@boardsTags": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsMoveTo": "Move to…",
+  "@boardsMoveTo": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsFirst": "First",
+  "@boardsFirst": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsLast": "Last",
+  "@boardsLast": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsArchived": "Archived",
+  "@boardsArchived": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsUnsupported": "This card or column is not supported yet.",
+  "@boardsUnsupported": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsMoveReview": "Review move",
+  "@boardsMoveReview": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsMoveEffects": "Moving a topic may change its tags, category, assignment, or open status.",
+  "@boardsMoveEffects": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsRequiredCategory": "Required category",
+  "@boardsRequiredCategory": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsRequiredTag": "Required tag",
+  "@boardsRequiredTag": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsColumn": "Column",
+  "@boardsColumn": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsPlacement": "Position",
+  "@boardsPlacement": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsSavedRefresh": "Saved. Refresh to see the latest board.",
+  "@boardsSavedRefresh": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsUnknownWrite": "The result is unknown. Refresh and check the board before trying again.",
+  "@boardsUnknownWrite": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsRefused": "This action is no longer available. Refresh the board.",
+  "@boardsRefused": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsRemoveCard": "Remove this card? The underlying topic will remain.",
+  "@boardsRemoveCard": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsUnavailableCard": "This card is unavailable.",
+  "@boardsUnavailableCard": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsNewTopic": "New topic",
+  "@boardsNewTopic": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsConvertTopic": "Convert to topic",
+  "@boardsConvertTopic": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsAttachTopic": "Attach created topic",
+  "@boardsAttachTopic": {
+    "description": "Native Boards plugin interface."
+  },
+  "boardsPromotionPending": "The topic was created. Attach it to this card to finish conversion.",
+  "@boardsPromotionPending": {
+    "description": "Native Boards plugin interface."
+  }
 }

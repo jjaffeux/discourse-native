@@ -3,6 +3,7 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
+import 'package:discourse_native/src/plugins/boards/boards_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
@@ -50,6 +51,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   const GifsModule(apiFactory: _gifsApi),
   discourseAiModule,
   assignModule,
+  boardsModule,
   const ChatModule(apiFactory: _chatApi),
 ]);
 
