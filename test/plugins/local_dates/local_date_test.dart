@@ -631,6 +631,42 @@ void main() {
       123,
     );
 
+    for (final (locale, padded, compact) in const [
+      (Locale('en'), '01/05/2026', '1/5/2026'),
+      (Locale('en', 'GB'), '05/01/2026', '5/1/2026'),
+      (Locale('fr'), '05/01/2026', '5/1/2026'),
+      (Locale('de'), '05.01.2026', '5.1.2026'),
+      (Locale('zh', 'CN'), '2026/01/05', '2026/1/5'),
+    ]) {
+      test('numeric aliases preserve padding and locale order for $locale', () {
+        final date = DateTime.utc(2026, 1, 5);
+
+        expect(LocalDateFormatter.formatMoment(date, 'L', locale), padded);
+        expect(LocalDateFormatter.formatMoment(date, 'l', locale), compact);
+      });
+    }
+
+    test('numeric aliases compose with time and preserve escaped literals', () {
+      final date = DateTime.utc(2026, 1, 5, 13, 7);
+
+      expect(
+        LocalDateFormatter.formatMoment(
+          date,
+          r'[L/l] \L \l L [|] l HH:mm',
+          const Locale('en'),
+        ),
+        'L/l L l 01/05/2026 | 1/5/2026 13:07',
+      );
+      expect(
+        LocalDateFormatter.formatMoment(
+          date,
+          'L [|] l LT',
+          const Locale('fr'),
+        ),
+        '05/01/2026 | 5/1/2026 13:07',
+      );
+    });
+
     test('supports standard, ordinal, offset, zone, and bracket tokens', () {
       expect(
         LocalDateFormatter.formatMoment(

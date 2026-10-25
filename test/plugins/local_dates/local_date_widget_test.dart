@@ -58,6 +58,37 @@ void main() {
     },
   );
 
+  for (final (format, expected) in const [
+    ('L', '01/05/2026'),
+    ('l', '1/5/2026'),
+  ]) {
+    testWidgets('renders the numeric $format alias with authored padding', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        '<p><span class="discourse-local-date" data-date="2026-01-05" '
+        'data-timezone="UTC" data-format="$format" data-calendar="off">'
+        'server value</span></p>',
+      );
+
+      final date = find.byType(LocalDateInline);
+      expect(date, findsOneWidget);
+      final rendered = tester
+          .widgetList<Text>(find.descendant(of: date, matching: find.byType(Text)))
+          .map(
+            (text) =>
+                text.data ??
+                text.textSpan?.toPlainText(includePlaceholders: false) ??
+                '',
+          )
+          .join('\n')
+          .trim();
+      expect(rendered, expected);
+      expect(find.text('server value'), findsNothing);
+    });
+  }
+
   testWidgets('a date-only line stays compact and has no hover fill', (
     tester,
   ) async {
