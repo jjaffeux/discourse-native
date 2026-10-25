@@ -797,10 +797,11 @@ void main() {
     );
   }
 
-  testWidgets(
-    'disabled launcher exposes a single destination and ignores activation',
-    (tester) async {
-      final semantics = tester.ensureSemantics();
+  testWidgets('disabled launcher exposes one unavailable destination', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
@@ -820,13 +821,19 @@ void main() {
         ),
       );
       expect(find.bySemanticsLabel('Topics'), findsOneWidget);
+      final data = tester
+          .getSemantics(find.bySemanticsLabel('Topics'))
+          .getSemanticsData();
+      expect(data.flagsCollection.isEnabled, ui.Tristate.isFalse);
+      expect(data.hasAction(ui.SemanticsAction.tap), isFalse);
       await tester.tap(find.byType(DButton));
       await tester.pumpAndSettle();
       expect(buttonSurface(tester).color.a, 0);
       expect(tester.takeException(), isNull);
+    } finally {
       semantics.dispose();
-    },
-  );
+    }
+  });
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,
