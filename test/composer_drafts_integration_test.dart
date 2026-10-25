@@ -3301,6 +3301,65 @@ void _registerComposerAndDraftTests() {
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets(
+      'a reply landing after a reconnect cannot settle the new account draft',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final api = FakeDiscourseApi(
+          user: const DiscourseUser(id: 2, username: 'other-writer'),
+          feeds: {'/latest.json': listed},
+          topics: {7: detail(draftSequence: 4)},
+          createPostGate: gate,
+          creation: const PostCreation(
+            outcome: PostOutcome.created,
+            post: Post(
+              id: 9001,
+              postNumber: 2,
+              username: 'joffreyj',
+              cooked: '<p>Account A reply</p>',
+            ),
+            draftSequence: 9,
+          ),
+        );
+        api.accounts['meta-key'] = me;
+
+        await openComposer(tester, api, authenticator: signedIn());
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        await tester.enterText(_composerField, 'Account A reply');
+        await tester.pump();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(ComposerPanel),
+            matching: find.byKey(const ValueKey('composer-submit')),
+          ),
+        );
+        await tester.pump();
+        expect(api.created, hasLength(1));
+
+        await shell.disconnectCurrentInstance();
+        await shell.connectCurrentInstance();
+        await tester.pumpAndSettle();
+        gate.complete();
+        await tester.pumpAndSettle();
+
+        await tester.tap(topicListTitle('A real topic'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('title-bar-reply')));
+        await tester.pumpAndSettle();
+        api.draftsSaved.clear();
+        await tester.enterText(_composerField, 'Account B draft');
+        await settleDraft(tester);
+
+        expect(api.draftsSaved, hasLength(1));
+        expect(api.draftsSaved.single['apiKey'], 'api-key');
+        expect(api.draftsSaved.single['sequence'], 4);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
     testWidgets('a failed discard keeps the draft and the queue usable', (
       tester,
     ) async {
