@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/plugin_api/live_channels.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show PluginLiveChannelHandle, PluginLiveChannelSubscription;
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
