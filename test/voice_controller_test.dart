@@ -1069,6 +1069,26 @@ void main() {
         expect(controller.call?.error, isNull);
       });
 
+      test(
+        'an older $setting failure stays quiet while a newer one is pending',
+        () async {
+          final media = await join();
+          final gates = [Completer<void>(), Completer<void>()];
+          var next = 0;
+          hold(media, (_) => gates[next++].future);
+          final older = set(true);
+          final newer = set(false);
+          gates[0].completeError(StateError('older operation rejected'));
+          await older;
+          expect(controller.call?.error, isNull);
+
+          gates[1].complete();
+          await newer;
+          expect(value(), isFalse);
+          expect(controller.call?.error, isNull);
+        },
+      );
+
       for (final newerFirst in [false, true]) {
         test(
           '$setting restores accepted state when both fail, newer first $newerFirst',
@@ -1929,8 +1949,10 @@ void main() {
           room: VoiceRoom.fromJson(fixture('room')),
         );
         await pumpEventQueue();
+        expect(controller.isJoining(firstSite, 7), isTrue);
 
         controller.forget(firstSite);
+        expect(controller.isJoining(firstSite, 7), isFalse);
         gate.complete();
         await joining;
 
@@ -1969,6 +1991,50 @@ void main() {
         );
         expect(controller.call?.room.id, 7);
         expect(mediaFactory.sessions, hasLength(1));
+      },
+    );
+
+    test(
+      'a retired join finishing does not hide the rejoin still pending',
+      () async {
+        final controlled = _ControlledVoiceTransport()
+          ..heldPluginWritePaths.add('/voice/rooms/7/join.json');
+        useTransport(controlled);
+        final room = VoiceRoom.fromJson(fixture('room'));
+
+        final retired = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: room,
+        );
+        await pumpEventQueue();
+        controller.forget(firstSite);
+        final rejoining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: room,
+        );
+        controlled.pendingPluginWrites
+            .removeAt(0)
+            .response
+            .complete(fixture('join_mesh'));
+        await retired;
+        await pumpEventQueue();
+
+        expect(
+          controlled.writes.where(
+            (write) => write.path.endsWith('/leave.json'),
+          ),
+          hasLength(1),
+        );
+        expect(controlled.pendingPluginWrites, hasLength(1));
+        expect(controller.isJoining(firstSite, 7), isTrue);
+        controlled.pendingPluginWrites.single.response.complete(
+          fixture('join_mesh'),
+        );
+        await rejoining;
+        expect(controller.isJoining(firstSite, 7), isFalse);
+        expect(controller.call?.room.id, 7);
       },
     );
 
@@ -4519,6 +4585,38 @@ void main() {
     });
 
     test(
+      'a rate-limited join retired during its delay is not retried',
+      () async {
+        transport.failures['POST /voice/rooms/7/join.json'] =
+            const WriteException(
+              WriteFailure.rateLimited,
+              statusCode: 429,
+              retryAfter: Duration.zero,
+            );
+
+        await controller.ensureLoaded(firstSite);
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await pumpEventQueue();
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+        controller.forget(firstSite);
+        await joining;
+
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+        expect(controller.call, isNull);
+      },
+    );
+
+    test(
       'explains a denied microphone and leaves the partial server join',
       () async {
         final connectGate = Completer<void>();
@@ -4545,6 +4643,7 @@ void main() {
           'Microphone access is blocked. Allow microphone access in your '
           'system settings, then try joining again.',
         );
+        expect(systemCall.failures, 1);
         expect(mediaFactory.sessions.single.disposeCount, 1);
         final leave = transport.writes.singleWhere(
           (write) => write.path.endsWith('/leave.json'),
@@ -4553,6 +4652,47 @@ void main() {
           leave.body['participant_session_id'],
           'mesh-participant-session',
         );
+      },
+    );
+
+    test('joining the room already held leaves it', () async {
+      final room = VoiceRoom.fromJson(fixture('room'));
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+      expect(controller.call?.room.id, 7);
+
+      await controller.join(siteUrl: firstSite, siteName: 'One', room: room);
+      await pumpEventQueue();
+
+      expect(controller.call, isNull);
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/join.json')),
+        hasLength(1),
+      );
+      expect(mediaFactory.sessions.single.disposeCount, 1);
+    });
+
+    test(
+      'media connecting mid-join does not announce the call early',
+      () async {
+        final connectGate = Completer<void>();
+        final connectStarted = Completer<void>();
+        mediaFactory.nextConnectGate = connectGate;
+        mediaFactory.nextConnectStarted = connectStarted;
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        await connectStarted.future;
+        final media = mediaFactory.sessions.single
+          ..connectionState = VoiceMediaConnectionState.connected;
+        media.notifyListeners();
+
+        expect(controller.call?.status, VoiceCallStatus.joining);
+        connectGate.complete();
+        await joining;
+        expect(controller.call?.status, VoiceCallStatus.connected);
       },
     );
 
@@ -6500,7 +6640,7 @@ void main() {
       },
     );
 
-    test('a kick from another room leaves the call alone', () async {
+    test('events from another room leave the call alone', () async {
       transport.responses['GET /voice/rooms.json'] = {
         'index_message_bus_last_id': 144,
         'rooms': [
@@ -6516,10 +6656,26 @@ void main() {
       );
       final media = mediaFactory.sessions.single;
 
+      firstTracker.deliver('/voice/rooms/8', {
+        'type': 'signal',
+        'sender_id': 2,
+        'data': {'type': 'offer'},
+      });
+      firstTracker.deliver('/voice/rooms/8', {
+        'type': 'recording',
+        'room_id': 8,
+        'recording': {
+          'started_at': 1786204800,
+          'started_by': {'id': 2, 'username': 'lee'},
+        },
+      });
       firstTracker.deliver('/voice/rooms/8', {'type': 'kicked', 'room_id': 8});
       await pumpEventQueue();
 
       expect(controller.call?.room.id, 7);
+      expect(controller.call?.room.recording, isNull);
+      expect(controller.room(firstSite, 8)?.recording?.active, isTrue);
+      expect(media.signals, isEmpty);
       expect(media.disposeCount, 0);
     });
 
@@ -7212,11 +7368,12 @@ void main() {
         {'id': 1, 'username': 'sam', 'role': 'participant'},
         {'id': 2, 'username': 'lee', 'role': 'participant'},
       ],
+      bool canManage = true,
     }) async {
       final payload = fixture('join_mesh');
       final room = payload['room'] as Map<String, dynamic>;
       room['room_type'] = 'stage';
-      room['can_manage'] = true;
+      room['can_manage'] = canManage;
       room['active_participants'] = roster;
       transport.responses['POST /voice/rooms/7/join.json'] = payload;
       await controller.ensureLoaded(firstSite);
@@ -7290,12 +7447,44 @@ void main() {
           'room_id': 7,
           'user_id': 1,
           'raised': false,
+          'reason': 'lowered',
+        });
+        await pumpEventQueue();
+        expect(notices, hasLength(1));
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 1,
+          'raised': false,
           'reason': 'dismissed',
         });
         await pumpEventQueue();
         expect(notices.last.message, 'Your request to speak was dismissed.');
       },
     );
+
+    test('only managers hear about raised hands', () async {
+      await joinAsManager(canManage: false);
+
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'hand_raise',
+        'room_id': 7,
+        'user_id': 2,
+        'raised': true,
+        'raised_at': 1786204801.5,
+        'reason': 'raised',
+      });
+      await pumpEventQueue();
+
+      expect(
+        controller.call?.room.participants
+            .singleWhere((participant) => participant.id == 2)
+            .handRaisedAt,
+        isNotNull,
+      );
+      expect(notices, isEmpty);
+    });
 
     test('announces own role changes only', () async {
       await joinAsManager();
@@ -7331,6 +7520,11 @@ void main() {
     test('tells participants when someone else records the call', () async {
       await joinAsManager();
 
+      firstTracker.deliver('/voice/rooms/7', {
+        'type': 'recording',
+        'room_id': 7,
+        'recording': null,
+      });
       firstTracker.deliver('/voice/rooms/7', {
         'type': 'recording',
         'room_id': 7,

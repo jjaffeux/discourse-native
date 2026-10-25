@@ -43,6 +43,8 @@ import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart'
     show voiceAnswerConfirmationWindow;
+import 'package:discourse_native/src/plugins/voice/voice_join.dart'
+    show confirmVoiceMeshPrivacy;
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
@@ -4951,6 +4953,68 @@ void _meshPrivacyTests() {
         isEmpty,
       );
       expect(harness.preferences.meshPrivacyWrites, isEmpty);
+    });
+
+    testWidgets('accepting without "don\'t show again" warns next time', (
+      tester,
+    ) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DDialogContent),
+          matching: find.widgetWithText(DButton, 'Join room'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(harness.controller.call, isNotNull);
+      expect(harness.preferences.meshPrivacyWrites, isEmpty);
+
+      await harness.controller.leave();
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+      expect(find.text('Before you join this room'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      harness.dispose();
+    });
+
+    testWidgets('a repeat request while the warning is open asks nothing', (
+      tester,
+    ) async {
+      final room = meshRoom();
+      final harness = _Harness(joinRoom: room);
+      addTearDown(harness.dispose);
+      await tester.pumpWidget(
+        _app(harness.controller, room: room, meshPrivacyWarningEnabled: true),
+      );
+      await tester.tap(find.text('Join room'));
+      await tester.pumpAndSettle();
+
+      final repeated = confirmVoiceMeshPrivacy(
+        tester.element(find.text('Before you join this room')),
+        controller: harness.controller,
+        room: room,
+        enabled: true,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Before you join this room'), findsOneWidget);
+      expect(await repeated, isFalse);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Before you join this room'), findsNothing);
+      expect(harness.controller.call, isNull);
     });
 
     testWidgets('accepting joins, and "don\'t show again" is remembered', (
