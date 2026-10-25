@@ -94,6 +94,53 @@ void main() {
     });
   }
 
+  for (final edit in ['remove', 'clear']) {
+    test('a retried server read cannot undo $edit', () async {
+      final rig = _Rig();
+      rig.server.gates.add(Completer<List<String>>());
+      final failed = rig.history.load();
+      await pumpEventQueue();
+      rig.server.gates.first.completeError(StateError('offline'));
+      await failed;
+      rig.server.gates.add(Completer<List<String>>());
+      final retrying = rig.history.load();
+      await pumpEventQueue();
+      expect(rig.server.calls, 2);
+      if (edit == 'remove') {
+        rig.history.remove('old');
+      } else {
+        expect(await rig.history.clear(), RecentSearchClearOutcome.cleared);
+      }
+      rig.history.remember(_request('local'));
+      rig.server.gates.last.complete(['old', 'other']);
+      await retrying;
+      expect(
+        rig.history.terms,
+        edit == 'remove' ? ['local', 'other'] : ['local'],
+      );
+    });
+  }
+
+  test(
+    'a retired read failure cannot invalidate its successor cache',
+    () async {
+      final rig = _Rig();
+      rig.server.gates.add(Completer<List<String>>());
+      final retired = rig.history.load();
+      await pumpEventQueue();
+      rig.lifecycle.invalidate(_site);
+      rig.history.configure(siteUrl: _site, username: 'other');
+      rig.server.recent = ['current'];
+      await rig.history.load();
+      expect(rig.history.terms, ['current']);
+      rig.server.gates.single.completeError(StateError('offline'));
+      await retired;
+      await rig.history.load();
+      expect(rig.server.calls, 2);
+      expect(rig.history.terms, ['current']);
+    },
+  );
+
   for (final edit in [
     'none',
     'remember',

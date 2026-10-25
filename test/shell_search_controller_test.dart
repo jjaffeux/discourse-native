@@ -329,8 +329,48 @@ void main() {
   });
 
   group('recent-search failure handling', () {
-    test('reports a failed load once without degrading search', () async {
-      final api = _SearchApi()..recentFailure = StateError('offline');
+    test(
+      'reopening retries a failed read and deduplicates pending work',
+      () async {
+        final api = _SearchApi()..recentFailure = StateError('offline');
+        final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
+        final search = _search(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+        )..selectSite(site);
+        addTearDown(search.dispose);
+
+        search.openPanel();
+        await pumpEventQueue();
+        expect(search.recentSearches, isEmpty);
+        await pumpEventQueue();
+        expect(api.recentSites, [site]);
+        api
+          ..recentFailure = null
+          ..gateRecentSearches = true;
+        search.closePanel();
+        search.openPanel();
+        search.openPanel();
+        await pumpEventQueue();
+        expect(api.recentSites, [site, site]);
+        search.closePanel();
+        search.openPanel();
+        await pumpEventQueue();
+        expect(api.recentSites, [site, site]);
+
+        api.completeRecent(0, ['recovered']);
+        await pumpEventQueue();
+        expect(search.recentSearches, ['recovered']);
+        search.closePanel();
+        search.openPanel();
+        await pumpEventQueue();
+        expect(api.recentSites, [site, site]);
+      },
+    );
+
+    test('reopening keeps a successful empty read cached', () async {
+      final api = _SearchApi();
       final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
       final search = _search(
         api: api,
@@ -338,17 +378,59 @@ void main() {
         lifecycle: SiteLifecycle(),
       )..selectSite(site);
       addTearDown(search.dispose);
-
       search.openPanel();
       await pumpEventQueue();
+      expect(search.recentSearches, isEmpty);
+      api.recent = ['later'];
       search.closePanel();
       search.openPanel();
       await pumpEventQueue();
-
-      expect(search.recentSearches, isEmpty);
       expect(api.recentSites, [site]);
+      expect(search.recentSearches, isEmpty);
     });
+
+    for (final lookup in ['key', 'client']) {
+      test('reopening retries a failed $lookup lookup', () async {
+        final api = _SearchApi()..recent = ['recovered'];
+        final credentials = _FailingCredentials()
+          ..keys[site] = 'secret'
+          ..failedLookup = lookup;
+        final search = _search(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+        )..selectSite(site);
+        addTearDown(search.dispose);
+        search.openPanel();
+        await pumpEventQueue();
+        expect(api.recentSites, isEmpty);
+        expect(search.recentSearches, isEmpty);
+
+        credentials.failedLookup = null;
+        search.closePanel();
+        search.openPanel();
+        await pumpEventQueue();
+        expect(api.recentSites, [site]);
+        expect(search.recentSearches, ['recovered']);
+      });
+    }
   });
+}
+
+final class _FailingCredentials extends FakeApiCredentialReader {
+  String? failedLookup;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (failedLookup == 'key') throw StateError('storage unavailable');
+    return super.apiKeyFor(siteUrl);
+  }
+
+  @override
+  Future<String> clientId() async {
+    if (failedLookup == 'client') throw StateError('storage unavailable');
+    return super.clientId();
+  }
 }
 
 final class _RecordingCredentials extends FakeApiCredentialReader {
