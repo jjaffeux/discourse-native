@@ -14,10 +14,12 @@ import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
+import 'support/stock_glass.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -95,6 +97,14 @@ void main() {
         of: split,
         matching: find.byType(AnimatedContainer),
       );
+      final splitLens = find.descendant(
+        of: split,
+        matching: find.byType(LiquidGlass),
+      );
+      // The desktop shell defaults to glass, where the hover surface is a
+      // stock lens rather than the standard appearance's sheen and rim.
+      expect(DMaterialTheme.glassOf(tester.element(split)), isTrue);
+      expect(splitLens, findsNothing);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
@@ -103,11 +113,12 @@ void main() {
       final hover =
           tester.widget<AnimatedContainer>(splitArt).decoration!
               as BoxDecoration;
-      expect(hover.gradient!.colors.last.a, greaterThan(0));
-      expect((hover.border! as Border).top.color.a, greaterThan(0));
+      expectStockGlass(tester, splitLens);
+      expect(hover.gradient, isNull);
       expect(hover.borderRadius, BorderRadius.circular(999));
       await mouse.moveTo(Offset.zero);
       await tester.pumpAndSettle();
+      expect(splitLens, findsNothing);
       final splitWidth = tester.getSize(mainPanel).width;
       await tester.tap(split);
       await tester.pumpAndSettle();
