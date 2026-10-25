@@ -124,6 +124,111 @@ void main() {
     });
   });
 
+  group('local-date composer admission', () {
+    List<String> projected(String source) => [
+      for (final block in parseLocalDateComposerBlocks(
+        source,
+        environment: environment,
+      ))
+        block.source,
+    ];
+
+    test('accepts the last valid clock values and five preview zones', () {
+      const zones =
+          'UTC|Europe/Paris|Asia/Tokyo|America/New_York|Europe/London';
+      for (final source in [
+        '[date-range from=2026-09-08T23:59:59 to=2026-09-09T23:00]',
+        '[date=2026-12-31 timezones="$zones"]',
+      ]) {
+        expect(projected(source), [source], reason: source);
+      }
+      expect(
+        projected('[date=2026-12-31 timezones="$zones|Australia/Sydney"]'),
+        isEmpty,
+      );
+    });
+
+    test('keeps a date holding range attributes and a range holding date '
+        'options raw', () {
+      for (final source in [
+        '[date=2026-09-08 from=2026-09-08T09:00]',
+        '[date=2026-09-08 to=2026-09-09T09:00]',
+        '[date-range from=2026-09-08T09:00 to=2026-09-09 recurring=1.weeks]',
+        '[date-range from=2026-09-08T09:00 to=2026-09-09 countdown=true]',
+        '[date-range from=2026-09-08T09:00 to=2026-09-09 date=2026-09-08]',
+      ]) {
+        expect(projected(source), isEmpty, reason: source);
+      }
+    });
+
+    test('admits only the calendar values and range ends upstream reads', () {
+      for (final source in [
+        '[date=2026-09-08 calendar=on]',
+        '[date=2026-09-08 calendar=off]',
+        '[date-range from=2026-09-08 to=2026-09-09]',
+      ]) {
+        expect(projected(source), [source], reason: source);
+      }
+      for (final source in [
+        '[date-range from=2026-09-08T09:00 to=2026-02-30]',
+        '[date-range from=2026-09-08T09:00T10 to=2026-09-09]',
+        '[date=2026-09-08 future= ]',
+      ]) {
+        expect(projected(source), isEmpty, reason: source);
+      }
+    });
+
+    test('keeps a bracket inside an unquoted value raw', () {
+      // The closing scan reads the quote as opening a value, so the bracket
+      // lands inside the tag; the attribute parser must still refuse it.
+      expect(projected('[date=2026-09-08 future=a"]"]'), isEmpty);
+    });
+
+    test('a tag name cut off by the end of the draft is not a tag', () {
+      expect(projected('see [date'), isEmpty);
+      expect(projected('see [date-range'), isEmpty);
+    });
+
+    test('a block contains its source range end-exclusively', () {
+      final block = parseLocalDateComposerBlocks(
+        'x $_date y',
+        environment: environment,
+      ).single;
+
+      expect(block.containsOffset(block.start), isTrue);
+      expect(block.containsOffset(block.end - 1), isTrue);
+      expect(block.containsOffset(block.start - 1), isFalse);
+      expect(block.containsOffset(block.end), isFalse);
+    });
+  });
+
+  group('local-date markup values', () {
+    test('quotes values the unquoted grammar would misread', () {
+      expect(renderLocalDateMarkupValue('UTC'), 'UTC');
+      expect(renderLocalDateMarkupValue(''), '""');
+      for (final (open, _) in _quotes) {
+        expect(
+          renderLocalDateMarkupValue('${open}x'),
+          isNot(startsWith(open)),
+          reason: open,
+        );
+      }
+    });
+
+    test('an implicit date edits without gaining a name', () {
+      final block = parseLocalDateComposerBlocks(
+        '[date= 2026-09-08 timezone=UTC]',
+        environment: environment,
+      ).single;
+
+      expect(block.attributes.first.withValue('2026-10-01'), '= 2026-10-01');
+      expect(
+        block.attributes.last.withValue('Asia/Tokyo'),
+        ' timezone=Asia/Tokyo',
+      );
+    });
+  });
+
   group('local-date composer scaling', () {
     test('a draft whose brackets open no date is not scanned for code', () {
       // Every composer parses every edit, whether or not the site has dates.

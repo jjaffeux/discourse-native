@@ -1042,6 +1042,43 @@ void main() {
       expect(nextPollName(source), 'poll2');
     });
 
+    test('leaves bodies the sheet cannot rewrite losslessly raw', () {
+      for (final source in [
+        '[poll]\n# One\n# Two\n* A\n[/poll]',
+        '[poll]\n* A\n# Late title\n[/poll]',
+        '[poll]\n* A\n * B\n[/poll]',
+        '[poll type=number min=1 max=3]\n* A\n[/poll]',
+        '[poll type=weird]\n* A\n* B\n[/poll]',
+        '[poll name=a]b]\n* A\n[/poll]',
+        '[poll]\n# Title without options\n[/poll]',
+      ]) {
+        expect(parsePollComposerBlocks(source), isEmpty, reason: source);
+      }
+    });
+
+    test('trims option text, reads an empty type as regular, and contains '
+        'its range end-exclusively', () {
+      final block = parsePollComposerBlocks(
+        'x\n[poll type=""]\n*   Soup  \n* Salad\n[/poll]\ny',
+      ).single;
+
+      expect(block.type, ComposerPollType.regular);
+      expect(block.optionSources, ['Soup', 'Salad']);
+      expect(block.containsOffset(block.start), isTrue);
+      expect(block.containsOffset(block.end - 1), isTrue);
+      expect(block.containsOffset(block.end), isFalse);
+    });
+
+    test('an edited value switches quotes rather than break the markup', () {
+      final [double, single] = parsePollComposerBlocks(
+        '[poll name="a b" title=\'c d\']\n* A\n[/poll]',
+      ).single.attributes;
+
+      expect(double.withValue('say "hi"'), " name='say \"hi\"'");
+      expect(single.withValue("it's"), ' title="it\'s"');
+      expect(() => double.withValue('both " and \''), throwsArgumentError);
+    });
+
     test('an unmatched outer poll does not project an apparent inner poll', () {
       const source =
           '[poll]\n'
