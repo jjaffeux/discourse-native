@@ -435,6 +435,38 @@ void main() {
     }
   }
 
+  testWidgets('a live previous preview is ready on first reveal and inert', (
+    tester,
+  ) async {
+    final state = await _pump(tester, livePreviews: true);
+    state.visit(1);
+    await tester.pumpAndSettle();
+    final semantics = tester.ensureSemantics();
+    try {
+      expect(find.text('Previous preview'), findsNothing);
+      final preview = find.text('Previous preview', skipOffstage: false);
+      final element = tester.element(preview);
+      state.previewFocus.requestFocus();
+      await tester.pump();
+      expect(state.previewFocus.hasFocus, isFalse);
+
+      final back = await _drag(tester, distance: 260);
+      expect(find.text('Previous preview'), findsOneWidget);
+      expect(tester.element(preview), same(element));
+      expect(find.byType(RawImage), findsNothing);
+      expect(find.bySemanticsLabel('Previous preview'), findsNothing);
+      await tester.tapAt(tester.getCenter(preview));
+      expect(state.previewTaps, 0);
+      await back.cancel();
+      await tester.pumpAndSettle();
+      expect(find.text('Previous preview'), findsNothing);
+      expect(tester.element(preview), same(element));
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('short drags and pointer cancellation restore the live page', (
     tester,
   ) async {
