@@ -98,4 +98,48 @@ void main() {
       expect(restored, user);
     });
   });
+
+  group('Assign payload defaults', () {
+    test('statuses stay off unless the site enables them', () {
+      expect(
+        AssignSettings.fromWire(const {'assign_statuses': 'New|Done'}),
+        const AssignSettings(),
+      );
+      expect(
+        AssignSettings.fromWire(const {
+          'enable_assign_status': true,
+          'assign_statuses': ' New || Done ',
+        }).statuses,
+        ['New', 'Done'],
+      );
+      expect(
+        assignSettingsPersistenceCodec.decode(const {'statuses': <Object>[]}),
+        const AssignSettings(),
+      );
+    });
+
+    test('one present capability leaves the other unknown', () {
+      expect(
+        AssignCurrentUser.fromWire(const {'can_assign': true}),
+        const AssignCurrentUser(canAssign: true),
+      );
+      expect(
+        AssignCurrentUser.fromWire(const {'can_assign_globally': true}),
+        const AssignCurrentUser(canAssignGlobally: true),
+      );
+    });
+
+    test('a stored record without boolean capabilities is absent', () {
+      expect(
+        assignCurrentUserPersistenceCodec.decode(const {'canAssign': 'yes'}),
+        isNull,
+      );
+      expect(
+        assignCurrentUserPersistenceCodec.decodeLegacy(const {
+          'canAssign': true,
+        }),
+        const AssignCurrentUser(canAssign: true),
+      );
+    });
+  });
 }
