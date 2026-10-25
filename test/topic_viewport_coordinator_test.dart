@@ -553,8 +553,296 @@ void main() {
         },
       );
     }
+
+    test('navigation credits the departing reader and flushes its owner, and '
+        'teardown credits the last one', () async {
+      final frames = _FrameQueue();
+      final clock = _ManualClock();
+      final subject = _coordinator(
+        frames: frames,
+        geometry: _Geometry(),
+        clock: clock,
+      );
+      _disposeAfter(subject, frames);
+      final first = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      final second = _Owner(_snapshot(topicId: 2, postIds: const [20]));
+      subject
+        ..bind(first.binding)
+        ..restoreInitialPost(first.snapshot)
+        ..recordObservation(
+          snapshot: first.snapshot,
+          saveAnchor: false,
+          readable: const (postId: 10, postNumber: 1, caughtUp: false),
+        );
+      clock.elapse(const Duration(milliseconds: 200));
+
+      subject.bind(second.binding);
+      await _drainMicrotasks();
+
+      expect(first.reads, const [(postNumber: 1, caughtUp: false)]);
+      expect(first.flushCount, 1);
+      clock.elapse(const Duration(seconds: 1));
+      await _drainMicrotasks();
+      expect(first.reads, hasLength(1));
+
+      subject
+        ..restoreInitialPost(second.snapshot)
+        ..recordObservation(
+          snapshot: second.snapshot,
+          saveAnchor: false,
+          readable: const (postId: 20, postNumber: 1, caughtUp: true),
+        )
+        ..dispose();
+      await _drainMicrotasks();
+
+      expect(second.reads, const [(postNumber: 1, caughtUp: true)]);
+    });
+
+    test('an inactive reader is not credited when navigating away', () async {
+      final frames = _FrameQueue();
+      final subject = _coordinator(
+        frames: frames,
+        geometry: _Geometry(),
+        clock: _ManualClock(),
+      );
+      _disposeAfter(subject, frames);
+      final first = _Owner(_snapshot(topicId: 1, postIds: const [10]));
+      subject
+        ..bind(first.binding)
+        ..restoreInitialPost(first.snapshot)
+        ..recordObservation(
+          snapshot: first.snapshot,
+          saveAnchor: false,
+          readable: const (postId: 10, postNumber: 1, caughtUp: true),
+        );
+      first.forumActive = false;
+
+      subject.bind(_Owner(_snapshot(topicId: 2, postIds: const [20])).binding);
+      await _drainMicrotasks();
+
+      expect(first.reads, isEmpty);
+    });
+
+    test(
+      'paging and anchor work rejected by a stale binding stays requestable',
+      () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry()
+          ..offsets[11] = 40
+          ..position = (pixels: 100, minScrollExtent: 0, maxScrollExtent: 500);
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final owner = _Owner(
+          _snapshot(topicId: 1, postIds: const [10, 11], hasMore: true),
+        );
+        subject
+          ..bind(owner.binding)
+          ..updateLaidOutSnapshot(owner.snapshot)
+          ..scheduleLoadMore(owner.snapshot)
+          ..holdViewportAnchor(11, 0, token: Object());
+        owner.current = false;
+
+        frames.flushAll();
+
+        expect(owner.loadMoreCount, 0);
+        expect(geometry.pixelJumps, isEmpty);
+
+        owner.current = true;
+        subject.scheduleLoadMore(owner.snapshot);
+        frames.flushFrame();
+
+        expect(owner.loadMoreCount, 1);
+      },
+    );
+
+    test('a stale binding does not restore its saved position', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry();
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]))
+        ..savedPostNumber = 99;
+      subject
+        ..bind(owner.binding)
+        ..restoreInitialPost(owner.snapshot);
+      owner.current = false;
+
+      frames.flushAll();
+
+      expect(geometry.itemJumps, isEmpty);
+    });
+
+    test('a saved offset on the first post is restored, not reset', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry();
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner =
+          _Owner(
+              _snapshot(
+                topicId: 1,
+                postIds: const [10, 11],
+                initialPostIndex: 0,
+              ),
+            )
+            ..savedPostNumber = 1
+            ..savedPostOffset = -40
+            ..postNumbers[10] = 1;
+      subject
+        ..bind(owner.binding)
+        ..restoreInitialPost(owner.snapshot);
+
+      frames.flushAll();
+
+      expect(geometry.itemJumps, isNotEmpty);
+      expect(
+        geometry.itemJumps,
+        everyElement((itemIndex: 0, viewportOffset: -40.0)),
+      );
+      expect(subject.anchorRestorePostId, 10);
+    });
+
+    test('only a prepend outside restoration holds the leading anchor', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry()
+        ..capturedAnchor = (postId: 10, viewportOffset: 5);
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      subject.bind(_Owner(_snapshot(topicId: 1, postIds: const [10])).binding);
+      TopicViewportWindowChange window(List<int> postIds) =>
+          subject.updateWindow(
+            _snapshot(topicId: 1, postIds: postIds),
+            hasHeader: false,
+          );
+
+      window(const [10, 11]);
+      final appended = window(const [10, 11, 12]);
+      expect(appended.prepended, isFalse);
+      expect(appended.extentAction, TopicViewportExtentAction.none);
+      expect(subject.anchorRestorePostId, isNull);
+
+      subject.beginRestoration();
+      window(const [9, 10, 11, 12]);
+      expect(subject.anchorRestorePostId, isNull);
+
+      subject.finishRestoration();
+      final prepended = window(const [8, 9, 10, 11, 12]);
+      expect(prepended.prepended, isTrue);
+      expect(prepended.extentAction, TopicViewportExtentAction.invalidate);
+      expect(subject.anchorRestorePostId, 10);
+      expect(subject.restoring, isTrue);
+    });
+
+    test('a reader drag cancels the anchor being restored', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry()
+        ..offsets[11] = 40
+        ..position = (pixels: 100, minScrollExtent: 0, maxScrollExtent: 500);
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      subject
+        ..bind(owner.binding)
+        ..updateLaidOutSnapshot(owner.snapshot)
+        ..holdViewportAnchor(11, 0, token: Object())
+        ..handleScroll(
+          ScrollStartNotification(
+            metrics: _metrics(pixels: 100),
+            context: _UnusedBuildContext(),
+            dragDetails: DragStartDetails(),
+          ),
+          owner.snapshot,
+        );
+
+      frames.flushAll();
+
+      expect(geometry.pixelJumps, isEmpty);
+      expect(subject.anchorRestorePostId, isNull);
+    });
+
+    test('the anchor survives the scroll update of its own correction', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry()
+        ..offsets[11] = 40
+        ..position = (pixels: 100, minScrollExtent: 0, maxScrollExtent: 500);
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      void scrolled() => subject.handleScroll(
+        ScrollUpdateNotification(
+          metrics: _metrics(pixels: geometry.position.pixels),
+          context: _UnusedBuildContext(),
+        ),
+        owner.snapshot,
+      );
+      geometry.duringPixelJump = scrolled;
+      subject
+        ..bind(owner.binding)
+        ..updateLaidOutSnapshot(owner.snapshot)
+        ..holdViewportAnchor(11, 0, token: Object());
+
+      frames.flushFrame();
+
+      expect(geometry.pixelJumps, [140]);
+      expect(subject.anchorRestorePostId, 11);
+
+      scrolled();
+
+      expect(subject.anchorRestorePostId, isNull);
+    });
+
+    test('a recycled anchor jumps past the leading earlier-posts row', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry();
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(
+        _snapshot(topicId: 1, postIds: const [10, 11], hasEarlier: true),
+      );
+      subject
+        ..bind(owner.binding)
+        ..updateLaidOutSnapshot(owner.snapshot)
+        ..holdViewportAnchor(11, 10, token: Object());
+
+      frames.flushFrame();
+
+      expect(geometry.itemJumps, const [(itemIndex: 2, viewportOffset: 10)]);
+    });
+
+    test('observations during restoration do not save the anchor', () {
+      final frames = _FrameQueue();
+      final geometry = _Geometry()..offsets[10] = 0;
+      final subject = _coordinator(frames: frames, geometry: geometry);
+      _disposeAfter(subject, frames);
+      final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
+      void observe() => subject.recordObservation(
+        snapshot: owner.snapshot,
+        saveAnchor: true,
+        leading: const (postId: 10, postNumber: 1, caughtUp: false),
+      );
+      subject
+        ..bind(owner.binding)
+        ..restoreInitialPost(owner.snapshot)
+        ..beginRestoration();
+
+      observe();
+      expect(owner.anchors, isEmpty);
+
+      subject.finishRestoration();
+      observe();
+      expect(owner.anchors, const [(postNumber: 1, viewportOffset: 0.0)]);
+    });
   });
 }
+
+ScrollMetrics _metrics({required double pixels}) => FixedScrollMetrics(
+  minScrollExtent: 0,
+  maxScrollExtent: 5000,
+  pixels: pixels,
+  viewportDimension: 800,
+  axisDirection: AxisDirection.down,
+  devicePixelRatio: 1,
+);
 
 TopicViewportCoordinator _coordinator({
   required _FrameQueue frames,
@@ -575,6 +863,7 @@ TopicViewportSnapshot _snapshot({
   required List<int> postIds,
   bool hasMore = false,
   bool hasEarlier = false,
+  int? initialPostIndex,
   int? navigationRevision,
 }) => TopicViewportSnapshot(
   topicId: topicId,
@@ -592,7 +881,7 @@ TopicViewportSnapshot _snapshot({
   loadingEarlier: false,
   hasMore: hasMore,
   hasEarlier: hasEarlier,
-  initialPostIndex: null,
+  initialPostIndex: initialPostIndex,
   recommendations: null,
   summary: false,
   summaryLoading: false,
@@ -610,6 +899,8 @@ final class _Owner {
   bool current = true;
   bool forumActive = true;
   int? savedPostNumber;
+  double savedPostOffset = 0;
+  final Map<int, int> postNumbers = {};
   int loadMoreCount = 0;
   int flushCount = 0;
   final List<({int postNumber, bool caughtUp})> reads = [];
@@ -641,8 +932,8 @@ final class _Owner {
         anchors.add((postNumber: postNumber, viewportOffset: viewportOffset)),
     flushAnchorPersist: () => flushCount++,
     savedPostNumber: () => savedPostNumber,
-    savedPostOffset: () => 0,
-    postNumberFor: (postId) => null,
+    savedPostOffset: () => savedPostOffset,
+    postNumberFor: (postId) => postNumbers[postId],
   );
 }
 
@@ -658,6 +949,9 @@ final class _Geometry implements TopicViewportGeometry {
   );
   final List<double> pixelJumps = [];
   final List<({int itemIndex, double viewportOffset})> itemJumps = [];
+
+  /// Runs inside a pixel jump, where Flutter delivers its scroll update.
+  VoidCallback? duringPixelJump;
 
   @override
   bool get canCorrectAnchor => true;
@@ -676,6 +970,7 @@ final class _Geometry implements TopicViewportGeometry {
       minScrollExtent: position.minScrollExtent,
       maxScrollExtent: position.maxScrollExtent,
     );
+    duringPixelJump?.call();
   }
 
   @override
