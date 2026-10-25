@@ -67,11 +67,12 @@ final class DiscourseAccountApi {
     );
 
     try {
-      final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! List<dynamic>) {
-        throw FormatException(appL10n.expectedATopicTrackingStateList);
-      }
-      return TopicTrackingState.fromJson(decoded);
+      return await decodeAndProjectJsonHttpResponse(
+        response,
+        project: _topicTrackingStateProjection(
+          appL10n.expectedATopicTrackingStateList,
+        ),
+      );
     } catch (error, stackTrace) {
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
@@ -824,6 +825,15 @@ final class DiscourseAccountApi {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
   }
 }
+
+TopicTrackingState Function(Object?) _topicTrackingStateProjection(
+  String invalidRootMessage,
+) => (decoded) {
+  if (decoded is! List<dynamic>) {
+    throw FormatException(invalidRootMessage);
+  }
+  return TopicTrackingState.fromJson(decoded);
+};
 
 UserDraftPage Function(Object?) _userDraftPageProjection({
   required int limit,

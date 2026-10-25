@@ -1,14 +1,222 @@
 import 'dart:convert';
+import 'dart:isolate';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
+import 'package:discourse_native/src/data/json_decode.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:intl/intl.dart';
 
 void main() {
+  group('topicTrackingState', () {
+    for (final rowCount in [4, TopicTrackingState.maxReportTopics]) {
+      test(
+        'preserves a $rowCount-row report without capturing API state',
+        () async {
+          final rows = <Object?>[
+            for (var i = 0; i < rowCount; i++)
+              {
+                'topic_id': i + 1,
+                'highest_post_number': 20 + i,
+                'last_read_post_number': i.isEven ? 2 : null,
+                'category_id': i % 4 + 1,
+                'is_category_topic': i % 13 == 0,
+                'notification_level': i % 3 + 1,
+                'created_in_new_period': i % 3 != 0,
+                'is_seen': i % 5 == 0,
+                'tags': [
+                  {'id': i % 7 + 1},
+                  {'id': 22},
+                ],
+                'deleted': i % 11 == 0,
+              },
+            null,
+            'invalid row',
+            {'topic_id': 0},
+            {'topic_id': -1},
+            {'highest_post_number': 8},
+            {
+              'topic_id': 1,
+              'highest_post_number': 100,
+              'last_read_post_number': 1,
+              'category_id': 4,
+              'is_category_topic': true,
+              'notification_level': 3,
+              'created_in_new_period': true,
+              'is_seen': false,
+              'tags': [
+                {'id': 9},
+                {'id': 22},
+              ],
+              'deleted': false,
+            },
+          ];
+          final body = jsonEncode(rows);
+          expect(
+            utf8.encode(body).length >= backgroundJsonDecodeThreshold,
+            rowCount == TopicTrackingState.maxReportTopics,
+          );
+          final clockState = ReceivePort();
+          addTearDown(clockState.close);
+          final api = _accountApi(
+            clock: () {
+              clockState.close();
+              return DateTime(2026);
+            },
+            client: MockClient((request) async {
+              expect(request.url.pathSegments, [
+                'u',
+                'member name',
+                'topic-tracking-state.json',
+              ]);
+              expect(request.headers['User-Api-Key'], 'tracking-key');
+              expect(request.headers['User-Api-Client-Id'], 'client-id');
+              return http.Response(
+                body,
+                200,
+                headers: {'content-type': 'application/json; charset=utf-8'},
+              );
+            }),
+          );
+
+          final actual = await api.topicTrackingState(
+            siteUrl: 'https://example.com',
+            apiKey: 'tracking-key',
+            username: 'member name',
+            clientId: 'client-id',
+          );
+
+          final expected = TopicTrackingState.fromJson(rows);
+          expect(actual.topics, orderedEquals(expected.topics));
+          expect(
+            actual.topic(1),
+            const TrackedTopicState(
+              topicId: 1,
+              highestPostNumber: 100,
+              lastReadPostNumber: 1,
+              categoryId: 4,
+              isCategoryTopic: true,
+              notificationLevel: 3,
+              createdInNewPeriod: true,
+              tagIds: {9, 22},
+            ),
+          );
+          expect(actual.newActivityCounts, expected.newActivityCounts);
+          expect(
+            actual.newActivityCountsFor(categoryId: 4, tagIds: {22}),
+            expected.newActivityCountsFor(categoryId: 4, tagIds: {22}),
+          );
+          final before = actual.newActivityCounts;
+          expect(actual.markRead(1, 100), isTrue);
+          expect(actual.topic(1)!.lastReadPostNumber, 100);
+          expect(actual.topic(1)!.isUnread, isFalse);
+          expect(actual.newActivityCounts, (
+            newTopics: before.newTopics,
+            newReplies: before.newReplies - 1,
+          ));
+          expect(expected.topic(1)!.lastReadPostNumber, 1);
+        },
+      );
+    }
+
+    for (final large in [false, true]) {
+      test(
+        'wraps an invalid ${large ? 'large' : 'small'} root with caller messages',
+        () async {
+          await Intl.withLocale('fr', () async {
+            final message = appL10n.expectedATopicTrackingStateList;
+            final api = _accountApi(
+              client: MockClient(
+                (_) async => http.Response(
+                  jsonEncode({
+                    'padding': large ? 'x' * backgroundJsonDecodeThreshold : '',
+                  }),
+                  200,
+                  headers: {'content-type': 'application/json'},
+                ),
+              ),
+            );
+
+            await expectLater(
+              api.topicTrackingState(
+                siteUrl: 'https://example.com',
+                apiKey: 'tracking-key',
+                username: 'member',
+              ),
+              throwsA(
+                isA<SiteLookupException>()
+                    .having(
+                      (error) => error.failure,
+                      'failure',
+                      SiteLookupFailure.unreachable,
+                    )
+                    .having(
+                      (error) => error.term,
+                      'term',
+                      'https://example.com',
+                    )
+                    .having(
+                      (error) => error.cause,
+                      'cause',
+                      isA<FormatException>().having(
+                        (error) => error.message,
+                        'message',
+                        message,
+                      ),
+                    )
+                    .having(
+                      (error) => error.causeStackTrace,
+                      'causeStackTrace',
+                      isNotNull,
+                    ),
+              ),
+            );
+          });
+        },
+      );
+
+      test('wraps malformed ${large ? 'large' : 'small'} JSON', () async {
+        final api = _accountApi(
+          client: MockClient(
+            (_) async => http.Response(
+              '{${large ? ' ' * backgroundJsonDecodeThreshold : ''}',
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        );
+
+        await expectLater(
+          api.topicTrackingState(
+            siteUrl: 'https://example.com',
+            apiKey: 'tracking-key',
+            username: 'member',
+          ),
+          throwsA(
+            isA<SiteLookupException>()
+                .having(
+                  (error) => error.failure,
+                  'failure',
+                  SiteLookupFailure.unreachable,
+                )
+                .having((error) => error.cause, 'cause', isA<FormatException>())
+                .having(
+                  (error) => error.causeStackTrace,
+                  'causeStackTrace',
+                  isNotNull,
+                ),
+          ),
+        );
+      });
+    }
+  });
+
   group('notificationTotals', () {
     test(
       'core reads its counters without claiming plugin wire fields',
@@ -1022,8 +1230,15 @@ http.Response _invalidAccess({int statusCode = 403}) => http.Response(
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
-DiscourseAccountApi _accountApi({http.Client? client}) {
+DiscourseAccountApi _accountApi({
+  http.Client? client,
+  DateTime Function()? clock,
+}) {
   final transport = DiscourseTransport.create(client: client);
   addTearDown(transport.close);
-  return DiscourseAccountApi(transport, const DiscourseModelCodec.core());
+  return DiscourseAccountApi(
+    transport,
+    const DiscourseModelCodec.core(),
+    clock: clock,
+  );
 }
