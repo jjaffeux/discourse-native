@@ -588,6 +588,38 @@ void boardsReaderTests({
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final save in [false, true]) {
+    testWidgets(
+      'add-topic dialog closes safely after ${save ? 'save' : 'cancel'}',
+      (tester) async {
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        await tester.pumpWidget(page(fixture));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('board-add-10')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuItem, 'Add topic as card'),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '678');
+        await tester.tap(
+          find.widgetWithText(DButton, save ? 'Save' : 'Cancel'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('Add existing topic'), findsNothing);
+        expect(find.text('Product roadmap'), findsOneWidget);
+        expect(find.text('Added topic'), save ? findsOneWidget : findsNothing);
+        expect(fixture.refreshedTopics, save ? [678] : isEmpty);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
   testWidgets('large text reader and add menu use bounded Native controls', (
     tester,
   ) async {

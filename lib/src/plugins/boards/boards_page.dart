@@ -873,7 +873,7 @@ class _BoardsPageState extends State<BoardsPage> {
     final handle = _handle!;
     final lease = widget.controller.requests.capture(widget.site);
     final revision = widget.controller.accountRevision(widget.site);
-    final input = TextEditingController();
+    var input = '';
     final value = await showDDialog<String>(
       context: context,
       builder: (context, dialog) => boardDialogGuard(
@@ -885,7 +885,7 @@ class _BoardsPageState extends State<BoardsPage> {
           children: [
             Text(context.l10n.boardsAddTopic),
             DInput(
-              controller: input,
+              onChanged: (value) => input = value,
               labelText: context.l10n.boardsTopicId,
               autofocus: true,
             ),
@@ -897,7 +897,7 @@ class _BoardsPageState extends State<BoardsPage> {
                 ),
                 DButton(
                   label: Text(context.l10n.save),
-                  onPressed: () => dialog.close(input.text),
+                  onPressed: () => dialog.close(input),
                 ),
               ],
             ),
@@ -905,7 +905,6 @@ class _BoardsPageState extends State<BoardsPage> {
         ),
       ),
     );
-    input.dispose();
     if (value == null ||
         !mounted ||
         !identical(handle, _handle) ||
