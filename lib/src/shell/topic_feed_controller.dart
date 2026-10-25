@@ -316,6 +316,7 @@ final class _FeedSession {
   final _FeedKey key;
   final _FeedWindow window;
   TopicFeed? feed;
+  String? requestedPath;
   Object? revision;
   int? scrollRow;
   ({IncomingTopicsFilter filter, int order})? incomingFilter;
@@ -382,6 +383,7 @@ final class _FeedSession {
     cancelPaging();
     incomingRequests.clear();
     feed = null;
+    requestedPath = null;
     scrollRow = null;
     incomingFilter = null;
     window.owners.clear();
@@ -604,6 +606,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       path: path,
       incoming: incoming,
     );
+    session.requestedPath = path;
     final active = session.loadRequest;
     if (active != null) {
       if (!force) return active;
@@ -626,6 +629,38 @@ final class TopicFeedController extends FrameSafeNotifier {
     }
 
     return _startLoad(session, load);
+  }
+
+  Future<bool> refreshRetained({
+    required DiscourseInstance instance,
+    required SiteLease lease,
+    IncomingTopics? incoming,
+  }) async {
+    if (isDisposed || !lease.isCurrent) return false;
+    final retained = [
+      for (final session in _sessions.values)
+        if (session.key.$1 == instance.url && session.requestedPath != null)
+          (session: session, path: session.requestedPath!),
+    ];
+    for (final entry in retained) {
+      if (!lease.isCurrent || isDisposed) return false;
+      if (!identical(_sessions[entry.session.key], entry.session)) continue;
+      await load(
+        instance: instance,
+        destinationId: entry.session.key.$2,
+        path: entry.path,
+        incoming: incoming,
+        force: true,
+      );
+    }
+    return lease.isCurrent &&
+        !isDisposed &&
+        retained.every(
+          (entry) =>
+              !identical(_sessions[entry.session.key], entry.session) ||
+              (entry.session.feed?.loaded == true &&
+                  entry.session.feed?.error == null),
+        );
   }
 
   Future<void> _startLoad(_FeedSession session, _FeedLoad load) {

@@ -155,8 +155,11 @@ final class OpenNewTopicComposerRequest {
   const OpenNewTopicComposerRequest({
     required this.siteUrl,
     required this.sourceRouteId,
-    required this.seed,
+    this.seed = const ComposerSeed(raw: ''),
     this.initialCategoryId,
+    this.initialTitle,
+    this.initialTags = const [],
+    this.onCompleted,
     this.sourceStillCurrent,
   });
 
@@ -164,6 +167,12 @@ final class OpenNewTopicComposerRequest {
   final String sourceRouteId;
   final ComposerSeed seed;
   final int? initialCategoryId;
+  final String? initialTitle;
+  final List<String> initialTags;
+
+  /// A single completion for this invocation's isolated composer. A queued
+  /// topic has no confirmed topic ID and must not be treated as created.
+  final void Function(PluginTopicCreationOutcome)? onCompleted;
 
   /// Optional plugin-owned source guard for modeless surfaces whose route is
   /// independent of the shell route identified by [sourceRouteId].
@@ -171,6 +180,30 @@ final class OpenNewTopicComposerRequest {
 }
 
 enum OpenComposerResult { opened, unavailable, sourceChanged }
+
+sealed class PluginTopicCreationOutcome {
+  const PluginTopicCreationOutcome();
+}
+
+final class PluginTopicCreated extends PluginTopicCreationOutcome {
+  const PluginTopicCreated({
+    required this.topicId,
+    required this.slug,
+    required this.title,
+  });
+
+  final int topicId;
+  final String slug;
+  final String title;
+}
+
+final class PluginTopicCreationQueued extends PluginTopicCreationOutcome {
+  const PluginTopicCreationQueued();
+}
+
+final class PluginTopicCreationCancelled extends PluginTopicCreationOutcome {
+  const PluginTopicCreationCancelled();
+}
 
 final class PluginTarget {
   const PluginTarget.topic(this.id) : kind = 'topic', topicId = id;
@@ -204,11 +237,13 @@ final class PluginSiteStateHost {
   const PluginSiteStateHost({
     required this.currentUserFor,
     required this.siteConfigFor,
+    this.siteConfigListenableFor,
     this.categoryFor,
   });
 
   final PluginCurrentUserReader currentUserFor;
   final PluginSiteConfigReader siteConfigFor;
+  final PluginSiteConfigListenableReader? siteConfigListenableFor;
 
   /// Read-only access to category metadata already loaded by the host.
   final TopicCategory? Function(String siteUrl, int id)? categoryFor;
@@ -253,10 +288,23 @@ abstract interface class PluginFreshAccountHost {
 }
 
 final class PluginTopicRefreshHost {
-  const PluginTopicRefreshHost({required this.reloadTopic});
+  const PluginTopicRefreshHost({
+    required this.reloadTopic,
+    this.refreshAfterMutation,
+  });
 
   final PluginTopicReloader reloadTopic;
+
+  /// Reconciles an external mutation under the account that performed it.
+  final Future<PluginTopicRefreshResult> Function({
+    required String siteUrl,
+    required int topicId,
+    required PluginSiteLease lease,
+  })?
+  refreshAfterMutation;
 }
+
+enum PluginTopicRefreshResult { refreshed, needsRefresh, sourceChanged }
 
 /// This facade deliberately exposes no navigation, topic mutation, or shell
 /// state. [siteConfigListenableFor] exposes only the configuration for the

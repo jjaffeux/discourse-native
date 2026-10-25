@@ -140,6 +140,8 @@ final class TopicDataOwner {
 
 final class _TopicState {
   Object? reading;
+  Completer<void>? readSettled;
+  int acceptedReads = 0;
   bool refreshPending = false;
   int? refreshPostNumber;
   bool stale = false;
@@ -149,6 +151,7 @@ final class _TopicState {
   List<int>? summary;
   final Map<(int, bool), Object> gaps = {};
   final Map<TopicStatusProperty, int> statuses = {};
+  final Map<_MetadataField, int> metadata = {};
   int pin = 0;
   bool pinPending = false;
   int archive = 0;
@@ -160,6 +163,8 @@ final class _TopicState {
   _LiveBatch? queuedLive;
   int? deferredPostsCount;
 }
+
+enum _MetadataField { title, category, tags }
 
 final class _PostState {
   final Set<Object> holders = {};
@@ -241,6 +246,9 @@ final class TopicDataSession implements BookmarkTopicData {
     _retired = true;
     _detach?.call();
     _detach = null;
+    for (final state in _topics.values) {
+      state.readSettled?.complete();
+    }
     _topics.clear();
     _posts.clear();
     _pluginWrites.clear();
@@ -289,6 +297,42 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
     }
+  }
+
+  void projectAcceptedMetadata(
+    int topicId, {
+    String? title,
+    int? categoryId,
+    bool clearCategory = false,
+    List<TopicTag>? tags,
+  }) {
+    if (!isCurrent) return;
+    final fields = _topic(topicId).metadata;
+    if (title != null) fields[_MetadataField.title] = ++_actionEpoch;
+    if (categoryId != null || clearCategory) {
+      fields[_MetadataField.category] = ++_actionEpoch;
+    }
+    if (tags != null) fields[_MetadataField.tags] = ++_actionEpoch;
+    _update<TopicDetail>(
+      topicId,
+      (detail) => detail.copyWith(
+        title: title,
+        categoryId: categoryId,
+        clearCategory: clearCategory,
+        tags: tags,
+      ),
+    );
+    _update<Topic>(topicId, (row) {
+      final accepted = _store.read<TopicDetail>(siteUrl, topicId);
+      final projectsCategory = categoryId != null || clearCategory;
+      final category = accepted == null ? categoryId : accepted.categoryId;
+      return row.copyWith(
+        title: title == null ? null : accepted?.title ?? title,
+        categoryId: projectsCategory ? category : null,
+        clearCategory: projectsCategory && category == null,
+        tags: tags == null ? null : accepted?.tags ?? tags,
+      );
+    });
   }
 
   bool projectAcceptedDeletion(int topicId, bool deleted, DateTime at) {
@@ -363,8 +407,23 @@ final class TopicDataSession implements BookmarkTopicData {
 
   TopicDetail _actionsFromRead(int atDispatch, TopicDetail incoming) {
     final held = _store.read<TopicDetail>(siteUrl, incoming.id);
-    if (held == null) return incoming;
+    final row = _store.read<Topic>(siteUrl, incoming.id);
+    if (held == null && row == null) return incoming;
     final state = _topic(incoming.id);
+    if ((state.metadata[_MetadataField.title] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(title: held?.title ?? row?.title);
+    }
+    if ((state.metadata[_MetadataField.category] ?? 0) > atDispatch) {
+      final categoryId = held == null ? row?.categoryId : held.categoryId;
+      incoming = incoming.copyWith(
+        categoryId: categoryId,
+        clearCategory: categoryId == null,
+      );
+    }
+    if ((state.metadata[_MetadataField.tags] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(tags: held?.tags ?? row?.tags);
+    }
+    if (held == null) return incoming;
     for (final entry in state.statuses.entries) {
       if (entry.value > atDispatch) {
         incoming = incoming.withStatus(entry.key, held.statusValue(entry.key));
@@ -386,6 +445,19 @@ final class TopicDataSession implements BookmarkTopicData {
     if (state == null) return incoming;
     final held = _store.read<TopicDetail>(siteUrl, incoming.id);
     final row = _store.read<Topic>(siteUrl, incoming.id);
+    if ((state.metadata[_MetadataField.title] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(title: row?.title ?? held?.title);
+    }
+    if ((state.metadata[_MetadataField.category] ?? 0) > atDispatch) {
+      final categoryId = row == null ? held?.categoryId : row.categoryId;
+      incoming = incoming.copyWith(
+        categoryId: categoryId,
+        clearCategory: categoryId == null,
+      );
+    }
+    if ((state.metadata[_MetadataField.tags] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(tags: row?.tags ?? held?.tags);
+    }
     if ((state.statuses[TopicStatusProperty.closed] ?? 0) > atDispatch) {
       incoming = incoming.copyWith(closed: row?.closed ?? held?.closed);
     }
@@ -503,6 +575,7 @@ final class TopicDataSession implements BookmarkTopicData {
     }
     if (!_readIsCurrent(stamp)) return null;
     state.stale = false;
+    state.acceptedReads++;
     _update<Topic>(topicId, (row) {
       final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
       final projected = actionRowFromRead(
@@ -511,6 +584,9 @@ final class TopicDataSession implements BookmarkTopicData {
           row
               .copyWith(
                 title: accepted.title,
+                categoryId: accepted.categoryId,
+                clearCategory: accepted.categoryId == null,
+                tags: accepted.tags,
                 postsCount: accepted.postsCount,
                 closed: accepted.closed,
                 pinned: accepted.pinned,
@@ -754,6 +830,7 @@ final class TopicDataSession implements BookmarkTopicData {
     var stamp = _stamp(topicId);
     final reading = Object();
     state.reading = reading;
+    state.readSettled = Completer<void>();
     state.refreshPending = false;
     state.refreshPostNumber = null;
     if (force) state.stale = true;
@@ -845,6 +922,9 @@ final class TopicDataSession implements BookmarkTopicData {
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
+        final settled = state.readSettled;
+        state.readSettled = null;
+        settled?.complete();
         settledPosition = state.positions;
         replay = state.refreshPending;
         _changed();
@@ -903,6 +983,7 @@ final class TopicDataSession implements BookmarkTopicData {
     var stamp = _stamp(topicId);
     final reading = Object();
     state.reading = reading;
+    state.readSettled = Completer<void>();
     state.refreshPending = false;
     state.refreshPostNumber = null;
     state.stale = true;
@@ -940,11 +1021,31 @@ final class TopicDataSession implements BookmarkTopicData {
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
+        final settled = state.readSettled;
+        state.readSettled = null;
+        settled?.complete();
         _changed();
         if (isCurrent && state.reading == null && state.refreshPending) {
           unawaited(refresh(topicId, postNumber: state.refreshPostNumber));
         }
       }
+    }
+  }
+
+  Future<bool> refreshAfterMutation(int topicId) async {
+    if (!isCurrent) return false;
+    final state = _topic(topicId);
+    try {
+      while (isCurrent && state.reading != null) {
+        await state.readSettled!.future.timeout(_owner.loadTimeout);
+      }
+      if (!isCurrent) return false;
+      final accepted = state.acceptedReads;
+      await refresh(topicId).timeout(_owner.loadTimeout);
+      return isCurrent && state.acceptedReads > accepted && !state.stale;
+    } on TimeoutException {
+      if (isCurrent) state.stale = true;
+      return false;
     }
   }
 

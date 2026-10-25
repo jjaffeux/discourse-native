@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -174,6 +175,36 @@ void main() {
     expect(api.drafts, isNotEmpty);
     return composer;
   }
+
+  test('a plugin completion receives the reconciled topic only once', () async {
+    final outcomes = <PluginTopicCreationOutcome>[];
+    api.createdByReachable = false;
+    await shell.openNewTopicFromPlugin(
+      OpenNewTopicComposerRequest(
+        siteUrl: _siteUrl,
+        sourceRouteId: shell.currentContent!.id,
+        initialTitle: 'A confirmed correlated topic',
+        seed: const ComposerSeed(raw: 'The original correlated topic body.'),
+        onCompleted: outcomes.add,
+      ),
+    );
+    final composer = shell.visibleComposer!;
+    await composer.flushDraft();
+    await composer.finishDraftSaves();
+    await shell.submitComposer(composer: composer);
+    expect(composer.canRecheck, isTrue);
+    expect(outcomes, isEmpty);
+
+    api.createdByReachable = true;
+    await shell.recheckComposer(composer: composer);
+
+    expect(api.topicCreates, hasLength(1));
+    expect(outcomes, hasLength(1));
+    expect((outcomes.single as PluginTopicCreated).topicId, 901);
+    expect(composer.isDisposed, isTrue);
+    shell.closeComposer(composer: composer);
+    expect(outcomes, hasLength(1));
+  });
 
   test('a draft recreated after the topic landed does not read as '
       'not posted', () async {

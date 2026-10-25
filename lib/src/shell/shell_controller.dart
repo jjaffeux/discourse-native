@@ -5,7 +5,14 @@ import 'dart:ui' show Color, Rect;
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, Listenable, ValueListenable, listEquals;
+    show
+        ChangeNotifier,
+        Listenable,
+        ValueListenable,
+        listEquals,
+        FlutterError,
+        FlutterErrorDetails,
+        ErrorDescription;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
@@ -604,6 +611,7 @@ class ShellController extends FrameSafeNotifier
         PluginSiteStateHost(
           currentUserFor: (siteUrl) => _instanceAt(siteUrl)?.user,
           siteConfigFor: siteConfigFor,
+          siteConfigListenableFor: _pluginSiteConfigListenableFor,
           categoryFor: (siteUrl, id) => categoryFor(id, siteUrl: siteUrl),
         ),
       ),
@@ -634,6 +642,7 @@ class ShellController extends FrameSafeNotifier
         PluginTopicRefreshHost(
           reloadTopic: (siteUrl, topicId) =>
               _topicData.forSite(siteUrl).refresh(topicId, slug: ''),
+          refreshAfterMutation: _refreshPluginTopicAfterMutation,
         ),
       ),
       _pluginTrackerHostPort(),
@@ -5652,7 +5661,72 @@ class ShellController extends FrameSafeNotifier
   }
 
   late final _RetainedComposerRegistry _composerRegistry =
-      _RetainedComposerRegistry(_composerDrafts);
+      _RetainedComposerRegistry(
+        _composerDrafts,
+        onRemoved: _cancelPluginTopicCreation,
+      );
+  final _pluginTopicCreations = <ComposerController, _PluginTopicCreation>{};
+
+  void _cancelPluginTopicCreation(ComposerController composer) {
+    _completePluginTopicCreation(
+      composer,
+      const PluginTopicCreationCancelled(),
+    );
+  }
+
+  void _completePluginTopicCreation(
+    ComposerController composer,
+    PluginTopicCreationOutcome outcome,
+  ) {
+    final continuation = _pluginTopicCreations.remove(composer);
+    if (continuation == null) return;
+    try {
+      continuation.completed(
+        continuation.lease.isCurrent
+            ? outcome
+            : const PluginTopicCreationCancelled(),
+      );
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'plugin composer',
+          context: ErrorDescription('while delivering a creation outcome'),
+        ),
+      );
+    }
+  }
+
+  Future<PluginTopicRefreshResult> _refreshPluginTopicAfterMutation({
+    required String siteUrl,
+    required int topicId,
+    required PluginSiteLease lease,
+  }) async {
+    if (lease is! _ShellPluginSiteLease || !lease.isCurrent) {
+      return PluginTopicRefreshResult.sourceChanged;
+    }
+    final session = _topicData.forLease(siteUrl, lease.value);
+    final instance = _instanceAt(siteUrl);
+    if (session == null || instance == null) {
+      return PluginTopicRefreshResult.sourceChanged;
+    }
+    final refreshed = await session.refreshAfterMutation(topicId);
+    if (!lease.isCurrent || isDisposed) {
+      return PluginTopicRefreshResult.sourceChanged;
+    }
+    final feeds = await topicFeeds.refreshRetained(
+      instance: instance,
+      lease: lease.value,
+      incoming: _liveSessions.trackerFor(siteUrl)?.incoming,
+    );
+    if (!lease.isCurrent || isDisposed) {
+      return PluginTopicRefreshResult.sourceChanged;
+    }
+    return refreshed && feeds
+        ? PluginTopicRefreshResult.refreshed
+        : PluginTopicRefreshResult.needsRefresh;
+  }
 
   ComposerController? get composerRevealTarget =>
       _composerRegistry.revealTarget;
@@ -6204,6 +6278,7 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final siteUrl = request.siteUrl;
     final sourceRouteId = request.sourceRouteId;
+    final initialTags = List<String>.of(request.initialTags);
     final route = currentContent;
     final tabId = activeTabId;
     final feedId = currentFeedId;
@@ -6212,8 +6287,7 @@ class ShellController extends FrameSafeNotifier
     if (!forumActive || route?.id != sourceRouteId || !sourceIsCurrent()) {
       return OpenComposerResult.sourceChanged;
     }
-    if (request.seed.raw.trim().isEmpty ||
-        currentInstance?.url != siteUrl ||
+    if (currentInstance?.url != siteUrl ||
         currentInstance?.user == null ||
         tabId == null ||
         feedId == null) {
@@ -6245,6 +6319,9 @@ class ShellController extends FrameSafeNotifier
               .firstOrNull;
     var composer = visibleComposer;
     final reusable =
+        request.onCompleted == null &&
+        request.initialTitle == null &&
+        initialTags.isEmpty &&
         composer != null &&
         composer.target.isNewTopic &&
         composer.target.siteUrl == siteUrl &&
@@ -6270,6 +6347,10 @@ class ShellController extends FrameSafeNotifier
         originFeedId: feedId,
         draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
         initialCategoryId: category?.id,
+        initialTags: [
+          for (final name in initialTags)
+            if (name.trim().isNotEmpty) TopicTag(name: name.trim()),
+        ],
       );
       composer = _buildTextComposer(
         target,
@@ -6292,14 +6373,25 @@ class ShellController extends FrameSafeNotifier
         activeTabId != tabId) {
       return OpenComposerResult.sourceChanged;
     }
-    switch (request.seed.placement) {
-      case ComposerSeedPlacement.block:
-        if (!composer.insertBlock(
-          expectedValue: composer.value,
-          markdown: request.seed.raw,
-        )) {
-          return OpenComposerResult.sourceChanged;
-        }
+    if (request.initialTitle case final title?) {
+      composer.title.text = title;
+    }
+    if (request.seed.raw.isNotEmpty) {
+      switch (request.seed.placement) {
+        case ComposerSeedPlacement.block:
+          if (!composer.insertBlock(
+            expectedValue: composer.value,
+            markdown: request.seed.raw,
+          )) {
+            return OpenComposerResult.sourceChanged;
+          }
+      }
+    }
+    if (request.onCompleted case final completed?) {
+      _pluginTopicCreations[composer] = _PluginTopicCreation(
+        lease: lease,
+        completed: completed,
+      );
     }
     composer.requestFocus();
     return OpenComposerResult.opened;
@@ -7683,6 +7775,25 @@ class ShellController extends FrameSafeNotifier
     final composer = attempt.editor;
     final retained =
         _composerRegistry.owns(composer) && composer.ownsSubmission(attempt);
+    if (retained ||
+        (result.acceptance is _SubmissionEnqueued &&
+            _composerRegistry.owns(composer))) {
+      switch (result.acceptance) {
+        case _SubmissionTopic(:final topicId, :final slug, :final title):
+          _completePluginTopicCreation(
+            composer,
+            PluginTopicCreated(topicId: topicId, slug: slug, title: title),
+          );
+        case _SubmissionEnqueued():
+          _completePluginTopicCreation(
+            composer,
+            const PluginTopicCreationQueued(),
+          );
+        case _SubmissionReply() || _SubmissionEdited():
+          break;
+      }
+    }
+    if (isDisposed || !lease.isCurrent) return;
     if (result.acceptance is! _SubmissionEnqueued && retained) {
       _composerRegistry.closeSubmitted(composer);
     }
@@ -7740,16 +7851,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _applyTopicTags(String siteUrl, int topicId, List<TopicTag> tags) {
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (detail) => detail.copyWith(tags: tags),
-    );
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (topic) => topic.copyWith(tags: tags),
-    );
+    _topicData.forSite(siteUrl).projectAcceptedMetadata(topicId, tags: tags);
   }
 
   @override
@@ -9241,6 +9343,13 @@ final class _ScopedEmojiPreferenceStore implements EmojiPreferenceStore {
     _requireOwned(context);
     return _delegate.clearHistory(siteUrl: siteUrl, context: context);
   }
+}
+
+final class _PluginTopicCreation {
+  const _PluginTopicCreation({required this.lease, required this.completed});
+
+  final SiteLease lease;
+  final void Function(PluginTopicCreationOutcome) completed;
 }
 
 final class _ShellPluginSiteLease implements PluginSiteLease {

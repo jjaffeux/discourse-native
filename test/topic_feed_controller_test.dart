@@ -111,6 +111,86 @@ void main() {
     }
   });
 
+  for (final initialPending in [false, true]) {
+    test(
+      'external reconciliation refreshes original feed path (pending=$initialPending)',
+      () async {
+        final lifecycle = SiteLifecycle();
+        controller.dispose();
+        controller = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: lifecycle,
+          store: store,
+        );
+        final site = instance('one.example');
+        final loading = controller.load(
+          instance: site,
+          destinationId: 'category-project',
+          path: '/c/project/12/l/latest.json',
+          incoming: null,
+        );
+        await pumpEventQueue();
+        if (!initialPending) {
+          api.requests.single.response.complete(_page(7));
+          await loading;
+        }
+        var settled = false;
+        final refreshing = controller
+            .refreshRetained(instance: site, lease: lifecycle.capture(site.url))
+            .then((value) {
+              settled = true;
+              return value;
+            });
+        await pumpEventQueue();
+        expect(settled, isFalse);
+        if (initialPending) {
+          expect(api.requests, hasLength(1));
+          api.requests.first.response.complete(_page(7));
+          await loading;
+          await pumpEventQueue();
+        }
+        expect(api.requests, hasLength(2));
+        expect(api.requests.last.path, '/c/project/12/l/latest.json');
+        api.requests.last.response.complete(_page(8));
+
+        expect(await refreshing, isTrue);
+        expect(controller.feedFor(site.url, 'category-project')?.topicIds, [8]);
+      },
+    );
+  }
+
+  test('external feed refresh keeps the original account lease', () async {
+    final lifecycle = SiteLifecycle();
+    controller.dispose();
+    controller = TopicFeedController(
+      api: api,
+      credentials: credentials,
+      lifecycle: lifecycle,
+      store: store,
+    );
+    final site = instance('one.example');
+    final loading = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(_page(7));
+    await loading;
+    final refreshing = controller.refreshRetained(
+      instance: site,
+      lease: lifecycle.capture(site.url),
+    );
+    await pumpEventQueue();
+    lifecycle.invalidate(site.url);
+    api.requests.last.response.complete(_page(8));
+
+    expect(await refreshing, isFalse);
+    expect(store.read<Topic>(site.url, 8), isNull);
+  });
+
   group('bounded cache reuse', () {
     final site = instance('one.example');
 

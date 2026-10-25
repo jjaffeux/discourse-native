@@ -297,6 +297,104 @@ Future<ReplyLookupResult> _lookupReply(
 
 void main() {
   test(
+    'canonical refresh reconciles category and tags into a retained row',
+    () async {
+      final f = _Fixture()..seed();
+      f.store.put(
+        _site,
+        const Topic(id: 7, title: 'Old', slug: 'old', categoryId: 1),
+      );
+      final refreshing = f.data.refreshAfterMutation(7);
+      await f.api.waitTopics(1);
+      f.api.topicReads.single.result.complete((
+        detail: _payload(
+          [],
+        ).detail.copyWith(categoryId: 2, tags: const [TopicTag(name: 'new')]),
+        posts: const <Post>[],
+      ));
+
+      expect(await refreshing, isTrue);
+      expect(f.store.read<Topic>(_site, 7)?.categoryId, 2);
+      expect(f.store.read<Topic>(_site, 7)?.tags, const [
+        TopicTag(name: 'new'),
+      ]);
+    },
+  );
+
+  test(
+    'older detail and feed reads preserve accepted metadata fields',
+    () async {
+      final f = _Fixture()..seed();
+      f.store.put(
+        _site,
+        const Topic(id: 7, title: 'Old', slug: 'old', categoryId: 1),
+      );
+      final data = f.data;
+      final stamp = data.actionEpoch;
+      final reading = data.refresh(7);
+      await f.api.waitTopics(1);
+      data.projectAcceptedMetadata(
+        7,
+        title: 'Accepted title',
+        categoryId: 3,
+        tags: const [TopicTag(name: 'accepted')],
+      );
+      f.api.topicReads.single.result.complete(_payload([]));
+      await reading;
+
+      final detail = f.store.read<TopicDetail>(_site, 7)!;
+      final row = f.store.read<Topic>(_site, 7)!;
+      expect(detail.title, 'Accepted title');
+      expect(detail.categoryId, 3);
+      expect(detail.tags, const [TopicTag(name: 'accepted')]);
+      expect(row.categoryId, 3);
+      final incoming = data.actionRowFromRead(
+        stamp,
+        const Topic(id: 7, title: 'Stale', slug: 'old', categoryId: 1),
+      );
+      expect(incoming.title, 'Accepted title');
+      expect(incoming.categoryId, 3);
+      expect(incoming.tags, const [TopicTag(name: 'accepted')]);
+    },
+  );
+
+  test('external refresh awaits a new read after an active old read', () async {
+    final f = _Fixture()..seed();
+    final oldRead = f.data.refresh(7);
+    await f.api.waitTopics(1);
+    var settled = false;
+    final refreshing = f.data.refreshAfterMutation(7).then((value) {
+      settled = true;
+      return value;
+    });
+    await _drain();
+    expect(settled, isFalse);
+    expect(f.api.topicReads, hasLength(1));
+    f.api.topicReads.first.result.complete(_payload([]));
+    await oldRead;
+    await f.api.waitTopics(2);
+    expect(settled, isFalse);
+    f.api.topicReads.last.result.complete(_payload([]));
+    expect(await refreshing, isTrue);
+  });
+
+  test('external refresh reports failed reads and retired accounts', () async {
+    final f = _Fixture()..seed();
+    final data = f.data;
+    final failed = data.refreshAfterMutation(7);
+    await f.api.waitTopics(1);
+    f.api.topicReads.first.result.completeError(StateError('offline'));
+    expect(await failed, isFalse);
+    final oldRead = data.refresh(7);
+    await f.api.waitTopics(2);
+    final retired = data.refreshAfterMutation(7);
+    f.lifecycle.invalidate(_site);
+    expect(await retired, isFalse);
+    f.api.topicReads.last.result.complete(_payload([]));
+    await oldRead;
+  });
+
+  test(
     'last-post resolution excludes a post removed during the request',
     () async {
       final f = _Fixture()..seed();

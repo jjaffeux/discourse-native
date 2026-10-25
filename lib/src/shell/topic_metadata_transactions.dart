@@ -104,30 +104,18 @@ extension _TopicMetadataTransactions on ShellController {
       switch (command) {
         case _TopicTitleCommand(:final title):
           final stored = update.title ?? title;
-          store.update<TopicDetail>(
-            siteUrl,
-            topicId,
-            (topic) => topic.copyWith(title: stored),
-          );
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) => topic.copyWith(title: stored),
-          );
+          _topicData
+              .forLease(siteUrl, lease)
+              ?.projectAcceptedMetadata(topicId, title: stored);
           _retitle(siteUrl, topicId, stored);
         case _TopicCategoryCommand(:final title, :final categoryId):
-          store.update<TopicDetail>(
-            siteUrl,
-            topicId,
-            (topic) =>
-                topic.copyWith(categoryId: categoryId, tags: update.tags),
-          );
-          store.update<Topic>(
-            siteUrl,
-            topicId,
-            (topic) =>
-                topic.copyWith(categoryId: categoryId, tags: update.tags),
-          );
+          _topicData
+              .forLease(siteUrl, lease)
+              ?.projectAcceptedMetadata(
+                topicId,
+                categoryId: categoryId,
+                tags: update.tags,
+              );
           _updateTopicRouteMetadata(siteUrl, topicId, title, categoryId);
         case _TopicTagsCommand(:final tags):
           _applyTopicTags(siteUrl, topicId, tags);

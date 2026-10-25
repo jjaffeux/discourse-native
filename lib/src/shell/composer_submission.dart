@@ -546,18 +546,9 @@ final class _ComposerSubmissionOwner {
           );
         }
         if (_accountCurrent(attempt)) {
-          shell.store.update<TopicDetail>(
-            target.siteUrl,
-            target.topicId,
-            (detail) => detail.copyWith(tags: edit.tags),
-          );
-          if (_accountCurrent(attempt)) {
-            shell.store.update<Topic>(
-              target.siteUrl,
-              target.topicId,
-              (topic) => topic.copyWith(tags: edit.tags),
-            );
-          }
+          shell._topicData
+              .forLease(target.siteUrl, attempt.lease)
+              ?.projectAcceptedMetadata(target.topicId, tags: edit.tags);
         }
         return _SubmissionAccepted(attempt, const _SubmissionEdited());
       }
@@ -671,26 +662,14 @@ final class _ComposerSubmissionOwner {
     required bool titleChanged,
   }) {
     if (!_accountCurrent(attempt)) return;
-    shell.store.update<TopicDetail>(
-      target.siteUrl,
-      target.topicId,
-      (detail) => detail.copyWith(
-        title: titleChanged ? metadata.title : null,
-        categoryId: metadata.categoryId,
-        clearCategory: metadata.categoryId == null,
-        tags: metadata.tags,
-      ),
-    );
-    if (!_accountCurrent(attempt)) return;
-    shell.store.update<Topic>(
-      target.siteUrl,
-      target.topicId,
-      (topic) => topic.copyWith(
-        title: titleChanged ? metadata.title : null,
-        categoryId: metadata.categoryId,
-        clearCategory: metadata.categoryId == null,
-        tags: metadata.tags,
-      ),
-    );
+    shell._topicData
+        .forLease(target.siteUrl, attempt.lease)
+        ?.projectAcceptedMetadata(
+          target.topicId,
+          title: titleChanged ? metadata.title : null,
+          categoryId: metadata.categoryId,
+          clearCategory: metadata.categoryId == null,
+          tags: metadata.tags,
+        );
   }
 }

@@ -1,9 +1,10 @@
 part of 'shell_controller.dart';
 
 final class _RetainedComposerRegistry {
-  _RetainedComposerRegistry(this._drafts);
+  _RetainedComposerRegistry(this._drafts, {this.onRemoved});
 
   final ComposerDraftCoordinator _drafts;
+  final void Function(ComposerController composer)? onRemoved;
   final Set<ComposerController> _members = {};
   final Map<String, ComposerController> _selected = {};
   ComposerController? _revealTarget;
@@ -64,6 +65,7 @@ final class _RetainedComposerRegistry {
       }
     }
     _drafts.detach(composer);
+    onRemoved?.call(composer);
   }
 
   bool replaceSelected(String? siteUrl) {
@@ -112,7 +114,8 @@ final class _RetainedComposerRegistry {
   }
 
   void dispose() {
-    for (final composer in _members) {
+    for (final composer in _members.toList()) {
+      onRemoved?.call(composer);
       composer.dispose();
     }
     _members.clear();
