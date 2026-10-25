@@ -24,12 +24,12 @@ final class BoardsRoute {
     final match = RegExp(
       r'^boards/([1-9][0-9]*)(?:/cards/([1-9][0-9]*))?$',
     ).firstMatch(id);
-    return match == null
-        ? null
-        : BoardsRoute(
-            boardId: int.parse(match[1]!),
-            cardId: int.tryParse(match[2] ?? ''),
-          );
+    final boardId = boardInt(int.tryParse(match?[1] ?? ''));
+    if (boardId == null) return null;
+    return BoardsRoute(
+      boardId: boardId,
+      cardId: boardInt(int.tryParse(match?[2] ?? '')),
+    );
   }
 }
 
@@ -101,11 +101,12 @@ final class BoardsNavigation implements PluginLinkHandler {
       final match = RegExp(
         r'^/boards/[^/]+/([1-9][0-9]*)(?:/cards/([1-9][0-9]*))?/?$',
       ).firstMatch(path);
-      if (match != null) {
+      final boardId = boardInt(int.tryParse(match?[1] ?? ''));
+      if (boardId != null) {
         route = BoardsRoute(
-          boardId: int.parse(match[1]!),
-          cardId: int.tryParse(
-            match[2] ?? target.queryParameters['card'] ?? '',
+          boardId: boardId,
+          cardId: boardInt(
+            int.tryParse(match?[2] ?? target.queryParameters['card'] ?? ''),
           ),
         );
       }

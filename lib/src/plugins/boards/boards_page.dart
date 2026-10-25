@@ -33,6 +33,7 @@ class _BoardsPageState extends State<BoardsPage> {
   int? _column;
   String? _directoryError;
   bool _directoryLoading = false;
+  Object? _directoryToken;
   final _horizontal = ScrollController();
   final _vertical = <int, ScrollController>{};
   final _lists = <int, ListController>{};
@@ -59,6 +60,9 @@ class _BoardsPageState extends State<BoardsPage> {
       _handle = null;
       _column = null;
       _highlighted = null;
+      _directoryToken = null;
+      _directoryLoading = false;
+      _directoryError = null;
       _load();
     }
   }
@@ -78,16 +82,23 @@ class _BoardsPageState extends State<BoardsPage> {
 
   Future<void> _directory() async {
     if (_directoryLoading) return;
+    final token = Object();
+    final site = widget.site;
+    _directoryToken = token;
     setState(() {
       _directoryLoading = true;
       _directoryError = null;
     });
     try {
-      await widget.controller.loadDirectory(widget.site);
+      await widget.controller.loadDirectory(site);
     } catch (error) {
-      if (mounted) _directoryError = error.toString();
+      if (mounted && identical(token, _directoryToken)) {
+        _directoryError = error.toString();
+      }
     }
-    if (mounted) setState(() => _directoryLoading = false);
+    if (mounted && identical(token, _directoryToken)) {
+      setState(() => _directoryLoading = false);
+    }
   }
 
   @override
@@ -156,6 +167,14 @@ class _BoardsPageState extends State<BoardsPage> {
         if (!mounted) return;
         _highlighted = linkedCard.id;
         final column = board.column(linkedCard.columnId)!;
+        if (_horizontal.hasClients) {
+          _horizontal.jumpTo(
+            (board.columns.indexOf(column) * 330.0).clamp(
+              0.0,
+              _horizontal.position.maxScrollExtent,
+            ),
+          );
+        }
         final list = _lists[column.id];
         final scroll = _vertical[column.id];
         if (list != null &&
@@ -374,6 +393,7 @@ class _BoardsPageState extends State<BoardsPage> {
     final item = DItem(
       key: _cardKeys.putIfAbsent(card.id, GlobalKey.new),
       shape: DItemShape.card,
+      variant: DItemVariant.outline,
       selected: widget.route.cardId == card.id,
       onPressed: card.kind == BoardCardKind.topic && card.topicId != null
           ? () => widget.navigation.openTopic(widget.site, card)
@@ -480,70 +500,69 @@ class _BoardsPageState extends State<BoardsPage> {
     );
   }
 
-  Widget _menu(BoardSnapshot board, BoardColumn column, BoardCard card) =>
-      DDropdownMenu(
-        sheetOnMobile: true,
-        content: DDropdownMenuContent(
-          children: [
-            DDropdownMenuItem(
-              onPressed: () => _moveDialog(board, card),
-              child: Text(context.l10n.boardsMoveTo),
-            ),
-            if (card.kind == BoardCardKind.standalone)
-              DDropdownMenuItem(
-                onPressed: () => _edit(column, card: card),
-                child: Text(context.l10n.edit),
-              ),
-            if (card.kind == BoardCardKind.standalone &&
-                widget.controller.composer != null)
-              DDropdownMenuItem(
-                onPressed: _handle!.composing(column.id, cardId: card.id)
-                    ? null
-                    : () async {
-                        if (_handle!.createdTopic(column.id, cardId: card.id) !=
-                            null) {
-                          _report(
-                            await _handle!.attachCreatedTopic(
-                              column.id,
-                              cardId: card.id,
-                            ),
-                          );
-                        } else {
-                          await _handle!.createTopic(
-                            widget.route.id,
-                            column.id,
-                            cardId: card.id,
-                          );
-                        }
-                      },
-                child: Text(
-                  _handle!.createdTopic(column.id, cardId: card.id) == null
-                      ? context.l10n.boardsConvertTopic
-                      : context.l10n.boardsAttachTopic,
-                ),
-              ),
-            DDropdownMenuItem(
-              onPressed: () async {
-                final handle = _handle!;
-                final lease = widget.controller.requests.capture(widget.site);
-                final revision = widget.controller.accountRevision(widget.site);
-                final confirmed = await _confirm(context.l10n.boardsRemoveCard);
-                if (confirmed &&
-                    identical(handle, _handle) &&
-                    widget.controller.sourceCurrent(
-                      widget.site,
-                      lease,
-                      revision,
-                    )) {
-                  _report(await handle.removeCard(card.id));
-                }
-              },
-              child: Text(context.l10n.delete),
-            ),
-          ],
+  Widget _menu(
+    BoardSnapshot board,
+    BoardColumn column,
+    BoardCard card,
+  ) => DDropdownMenu(
+    sheetOnMobile: true,
+    content: DDropdownMenuContent(
+      children: [
+        DDropdownMenuItem(
+          onPressed: () => _moveDialog(board, card),
+          child: Text(context.l10n.boardsMoveTo),
         ),
-        child: DDropdownMenuTrigger.button(label: Text(context.l10n.edit)),
-      );
+        if (card.kind == BoardCardKind.standalone)
+          DDropdownMenuItem(
+            onPressed: () => _edit(column, card: card),
+            child: Text(context.l10n.edit),
+          ),
+        if (card.kind == BoardCardKind.standalone &&
+            widget.controller.composer != null)
+          DDropdownMenuItem(
+            onPressed: _handle!.composing(column.id, cardId: card.id)
+                ? null
+                : () async {
+                    if (_handle!.createdTopic(column.id, cardId: card.id) !=
+                        null) {
+                      _report(
+                        await _handle!.attachCreatedTopic(
+                          column.id,
+                          cardId: card.id,
+                        ),
+                      );
+                    } else {
+                      await _handle!.createTopic(
+                        widget.route.id,
+                        column.id,
+                        cardId: card.id,
+                      );
+                    }
+                  },
+            child: Text(
+              _handle!.createdTopic(column.id, cardId: card.id) == null
+                  ? context.l10n.boardsConvertTopic
+                  : context.l10n.boardsAttachTopic,
+            ),
+          ),
+        DDropdownMenuItem(
+          onPressed: () async {
+            final handle = _handle!;
+            final lease = widget.controller.requests.capture(widget.site);
+            final revision = widget.controller.accountRevision(widget.site);
+            final confirmed = await _confirm(context.l10n.boardsRemoveCard);
+            if (confirmed &&
+                identical(handle, _handle) &&
+                widget.controller.sourceCurrent(widget.site, lease, revision)) {
+              _report(await handle.removeCard(card.id));
+            }
+          },
+          child: Text(context.l10n.delete),
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger.button(label: Text(context.l10n.moreActions)),
+  );
   Future<bool> _confirm(String message) async =>
       await showDDialog<bool>(
         context: context,
@@ -679,27 +698,33 @@ class _BoardsPageState extends State<BoardsPage> {
     final input = TextEditingController();
     final value = await showDDialog<String>(
       context: context,
-      builder: (context, dialog) => DDialogContent(
-        children: [
-          Text(context.l10n.boardsAddTopic),
-          DInput(
-            controller: input,
-            labelText: context.l10n.boardsTopicId,
-            autofocus: true,
-          ),
-          DDialogFooter(
-            children: [
-              DButton(
-                label: Text(context.l10n.cancel),
-                onPressed: () => dialog.close(),
-              ),
-              DButton(
-                label: Text(context.l10n.save),
-                onPressed: () => dialog.close(input.text),
-              ),
-            ],
-          ),
-        ],
+      builder: (context, dialog) => boardDialogGuard(
+        widget.controller,
+        widget.site,
+        lease,
+        revision,
+        DDialogContent(
+          children: [
+            Text(context.l10n.boardsAddTopic),
+            DInput(
+              controller: input,
+              labelText: context.l10n.boardsTopicId,
+              autofocus: true,
+            ),
+            DDialogFooter(
+              children: [
+                DButton(
+                  label: Text(context.l10n.cancel),
+                  onPressed: () => dialog.close(),
+                ),
+                DButton(
+                  label: Text(context.l10n.save),
+                  onPressed: () => dialog.close(input.text),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
     input.dispose();

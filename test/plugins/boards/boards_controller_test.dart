@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,150 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/boards_fixture.dart';
 
 void main() {
+  test(
+    'same-account user refresh preserves failed attachment recovery',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      var opens = 0;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          opens++;
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.transport.failures['PUT /boards/api/boards/1/cards/102'] =
+          const WriteException(WriteFailure.forbidden);
+      await handle.createTopic('boards/1', 10, cardId: 102);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Release',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.createdTopic(10, cardId: 102), 777);
+      fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+      await handle.refresh();
+      expect(handle.createdTopic(10, cardId: 102), 777);
+      expect(
+        await handle.createTopic('boards/1', 10, cardId: 102),
+        OpenComposerResult.unavailable,
+      );
+      expect((await handle.attachCreatedTopic(10, cardId: 102)).saved, isTrue);
+      expect(opens, 1);
+    },
+  );
+  test(
+    'applied topic move with a lost reply still repairs canonical topic data',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.transport.responders['PUT /boards/api/boards/1/cards/101'] = (_) {
+        final source = fixture.columns.first['cards'] as List;
+        final card = source.firstWhere((raw) => boardObject(raw)['id'] == 101);
+        source.remove(card);
+        (card as Map)['column_id'] = 11;
+        (fixture.columns[1]['cards'] as List).add(card);
+        throw const WriteException(WriteFailure.unreachable);
+      };
+      final result = await handle.move(
+        101,
+        11,
+        const PlaceFirst(),
+        review: (_, _, _) async => const BoardRepair(),
+      );
+      expect(result.state, BoardWriteState.unknown);
+      expect(handle.snapshot!.card(101)!.columnId, 11);
+      expect(fixture.refreshedTopics, [500]);
+      expect(
+        fixture.transport.writes.where(
+          (request) => request.path.endsWith('/cards/101'),
+        ),
+        hasLength(1),
+      );
+    },
+  );
+  test(
+    'late tracker attachment refreshes changes missed during bootstrap',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      (fixture.data['board'] as Map)['name'] = 'Roadmap after bootstrap';
+      final channels = RecordingPluginLiveChannels();
+      fixture.controller.attachPluginTracker(boardsSite, channels);
+      await handle.refresh();
+      expect(handle.snapshot!.name, 'Roadmap after bootstrap');
+      expect(channels.subscriberCount('/boards/1'), 1);
+      expect(fixture.live.channels, isEmpty);
+    },
+  );
+  test(
+    'promotion adopts a replacement card identity from authoritative refresh',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.transport.responders['PUT /boards/api/boards/1/cards/102'] = (_) {
+        final cards = fixture.columns.first['cards'] as List;
+        cards.removeWhere((raw) => boardObject(raw)['id'] == 102);
+        final card = {
+          'id': 999,
+          'column_id': 10,
+          'card_type': 'topic',
+          'topic_id': 777,
+          'topic': {'id': 777, 'title': 'Created release topic'},
+        };
+        cards.add(card);
+        return {'card': card, 'adopted_floater_id': 102};
+      };
+      await handle.createTopic('boards/1', 10, cardId: 102);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Created release topic',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.snapshot!.card(102), isNull);
+      expect(handle.snapshot!.card(999)!.kind, BoardCardKind.topic);
+      expect(handle.createdTopic(10, cardId: 102), isNull);
+    },
+  );
   test(
     'setting disabling immediately clears mounted snapshots and subscriptions',
     () async {
