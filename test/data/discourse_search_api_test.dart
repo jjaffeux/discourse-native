@@ -181,13 +181,16 @@ void main() {
             jsonEncode({
               'success': 'OK',
               'recent_searches': [
+                7,
                 'one',
+                null,
                 'two',
+                false,
                 'three',
+                {'invalid': 'search'},
                 'four',
                 'five',
                 'ignored',
-                7,
               ],
             }),
             200,

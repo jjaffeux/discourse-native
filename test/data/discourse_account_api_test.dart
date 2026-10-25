@@ -1094,12 +1094,10 @@ void main() {
 
   group('revokeApiKey', () {
     test('posts the key back to the site', () async {
-      String? path;
-      String? method;
+      late http.Request sent;
       final api = _accountApi(
         client: MockClient((request) async {
-          path = request.url.path;
-          method = request.method;
+          sent = request;
           return http.Response('', 200);
         }),
       );
@@ -1107,10 +1105,13 @@ void main() {
       await api.revokeApiKey(
         siteUrl: 'https://meta.discourse.org',
         apiKey: 'the-key',
+        clientId: 'the-client',
       );
 
-      expect(method, 'POST');
-      expect(path, '/user-api-key/revoke');
+      expect(sent.method, 'POST');
+      expect(sent.url.path, '/user-api-key/revoke');
+      expect(sent.headers['user-api-key'], 'the-key');
+      expect(sent.headers['user-api-client-id'], 'the-client');
     });
 
     test('reports a site too old to revoke its notification key', () async {
