@@ -262,9 +262,17 @@ void main() {
       }
       expect(tester.element(imageFinder), same(imageElement));
       expect(stream.hasListeners, isTrue);
-      // A partially visible post remains active, even when its GIF itself
-      // has scrolled out; visibility is deliberately owned by the post.
+      // A post at the viewport edge stays active, but its GIF plays only
+      // while some of the image itself is painted.
       final viewportTop = tester.getTopLeft(topicPostListFinder()).dy;
+      final gifBottom = tester.getBottomLeft(imageFinder).dy;
+      list.controller!.jumpTo(
+        list.controller!.offset + gifBottom - viewportTop - 5,
+      );
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(stream.hasListeners, isTrue);
       final postBottom = tester.getBottomLeft(find.byKey(const ValueKey(1))).dy;
       list.controller!.jumpTo(
         list.controller!.offset + postBottom - viewportTop - 5,
@@ -272,7 +280,7 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await tester.pump(const Duration(milliseconds: 20));
       }
-      expect(stream.hasListeners, isTrue);
+      expect(stream.hasListeners, isFalse);
       list.listController!.jumpToItem(
         index: 0,
         scrollController: list.controller!,
