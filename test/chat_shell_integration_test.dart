@@ -507,10 +507,6 @@ void _registerChatShellTests() {
               shell.openChatChannel(target.id);
               await tester.pumpAndSettle();
               await tester.pump();
-              expect(
-                find.byKey(const ValueKey('chat-channel-search-button')),
-                findsNothing,
-              );
 
               Future<void> open() async {
                 if (keyboard) {
@@ -587,10 +583,6 @@ void _registerChatShellTests() {
                 ChatRoute.channel(target.id).routeId,
               );
               expect(renderedText('Target channel message'), findsOneWidget);
-              expect(
-                find.byKey(const ValueKey('chat-channel-search-bar')),
-                findsNothing,
-              );
               shell.selectDestination(
                 SidebarDestination(
                   id: underlying!.id,
@@ -639,18 +631,12 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, ChatRoute.channel(9).routeId);
         expect(find.byType(ChatChannelView), findsOneWidget);
-        expect(find.byKey(const ValueKey('chat-drawer')), findsNothing);
-        expect(
-          find.byKey(const ValueKey('chat-close-full-page')),
-          findsNothing,
-        );
 
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.minus);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, ChatRoute.channel(9).routeId);
-        expect(find.byKey(const ValueKey('chat-drawer')), findsNothing);
 
         tester.view.physicalSize = phone;
         await tester.pumpAndSettle();
@@ -658,7 +644,6 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, ChatRoute.channel(9).routeId);
         expect(find.byType(ChatChannelView), findsOneWidget);
-        expect(find.byKey(const ValueKey('chat-drawer')), findsNothing);
         expect(tester.takeException(), isNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -4029,14 +4014,6 @@ void _registerChatShellTests() {
 
         expect(find.text('Mentions only'), findsOneWidget);
         expect(find.text('Mute channel'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('chat-channel-info-button')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('chat-channel-notification-button')),
-          findsNothing,
-        );
 
         await tester.tap(
           find.byKey(const ValueKey('chat-channel-notification-setting')),

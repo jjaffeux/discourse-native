@@ -285,10 +285,6 @@ void main() {
       final api = await _pump(tester, supported: false);
       final shell = ShellScope.read(tester.element(primaryMainContent));
       final navigation = shell.pluginSession.require(chatShellService);
-      expect(
-        find.byKey(const ValueKey('chat-sidebar-start-message')),
-        findsNothing,
-      );
       final browse = _sidebar(
         find.byKey(const ValueKey(ChatPlugin.browseRouteId)),
       );

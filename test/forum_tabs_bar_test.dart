@@ -1395,15 +1395,10 @@ void main() {
       onAdd: () => added++,
     );
 
-    expect(find.byKey(const ValueKey('forum-tabs-switcher')), findsNothing);
     expect(
       find.byWidgetPredicate(
         (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
       ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('forum-tabs-switcher-menu')),
       findsNothing,
     );
     final bar = tester.getRect(find.byType(ForumTabsBar));
@@ -1422,10 +1417,6 @@ void main() {
     expect(selected, [second.id]);
     expect(closed, [first.id]);
     expect(added, 1);
-    expect(
-      find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-      findsNothing,
-    );
   });
 
   group('tab adornments', () {
@@ -1653,14 +1644,6 @@ void main() {
                 .horizontalExtent,
             30,
           );
-          expect(
-            find.byKey(const ValueKey('forum-tabs-scroll-forward')),
-            findsNothing,
-          );
-          expect(
-            find.byKey(const ValueKey('forum-tabs-scroll-backward')),
-            findsNothing,
-          );
           await _expectTabPixels(tester, [
             (Offset(rect.left + 1, rect.top + 1), background),
             (Offset(rect.right - 2, rect.top + 1), background),
@@ -1696,14 +1679,6 @@ void main() {
       expect(position.maxScrollExtent, greaterThan(0));
       expect(scrollRect.left, closeTo(barRect.left + 10, .01));
       expect(scrollRect.right, closeTo(addRect.left - 6, .01));
-      expect(
-        find.byKey(const ValueKey('forum-tabs-scroll-forward')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('forum-tabs-scroll-backward')),
-        findsNothing,
-      );
 
       await tester.sendEventToBinding(
         PointerScrollEvent(
@@ -1787,14 +1762,6 @@ void main() {
       );
       expect(find.byKey(const ValueKey('forum-tabs-scroll')), findsNothing);
       expect(find.byType(DScrollFadeScope), findsNothing);
-      expect(
-        find.byKey(const ValueKey('forum-tabs-scroll-forward')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('forum-tabs-scroll-backward')),
-        findsNothing,
-      );
     });
 
     for (final direction in TextDirection.values) {

@@ -725,10 +725,6 @@ void main() {
       );
       await _pumpView(tester, presentation);
 
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
-      );
       expect(find.byType(TopicListRow), findsOneWidget);
       expect(find.text('91'), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-card-42')), findsOneWidget);

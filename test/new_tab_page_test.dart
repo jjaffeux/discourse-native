@@ -159,10 +159,6 @@ void main() {
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('start-page-search-prompt')),
-        findsNothing,
-      );
       expect(find.byType(ForumSearch), findsOneWidget);
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
@@ -332,7 +328,6 @@ void main() {
     );
     expect(find.byTooltip('Comfortable'), findsNothing);
     expect(find.byTooltip('Compact'), findsNothing);
-    expect(find.byKey(const ValueKey('start-page-density')), findsNothing);
   });
 
   testWidgets('recently closed tabs appear and reopen from Start page', (

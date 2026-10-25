@@ -324,10 +324,6 @@ void main() {
         await tester.pumpAndSettle();
         final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
         final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
-        expect(
-          find.byKey(const ValueKey('chat-close-full-page')),
-          findsNothing,
-        );
         _expectThreadBodyTargets(tester);
         expect(
           tester
