@@ -211,7 +211,6 @@ class _Api extends FakeDiscourseApi {
   _Api(this.section) : super(user: _user, feeds: const {'/latest.json': []});
   final String section;
   var pending = Completer<Object>();
-  final readPaths = <String>[];
   int detailRequests = 0;
   int sectionRequests = 0;
 
@@ -273,7 +272,6 @@ class _Api extends FakeDiscourseApi {
     required String? apiKey,
     String? clientId,
   }) async {
-    readPaths.add(path);
     final uri = Uri.parse(path);
     if (uri.path == '/groups/support.json') {
       detailRequests++;

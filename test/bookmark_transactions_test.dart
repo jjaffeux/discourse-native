@@ -233,7 +233,6 @@ final class _Fixture {
   final data = _TopicData();
   final void Function()? onMenu;
   final void Function()? onChanged;
-  final errors = <String>[];
   int menu = 0;
   int list = 0;
   late final BookmarkTransactions bookmarks;
