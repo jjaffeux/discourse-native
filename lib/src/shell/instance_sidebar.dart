@@ -191,104 +191,104 @@ class InstanceSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filled =
-        mobile ||
-        Theme.of(context).extension<ForumThemeEffects>()?.sidebarTheme != null;
-    return ForumSidebarTheme(
-      child: ShellSelector<_SidebarSnapshot>(
-        select: (controller) {
-          final instance = controller.currentInstance;
-          final currentContent = controller.currentContent;
-          // The focused document owns the highlighted sidebar destination.
-          var selectedDestinationId =
-              controller.topicListTab?.rootDestinationId;
-          if (currentContent?.groupRoute != null) {
-            selectedDestinationId = 'groups';
-          } else if (currentContent?.isBadges == true) {
-            selectedDestinationId = 'badges';
-          } else if (currentContent?.isAppearance == true ||
-              currentContent?.isPreferences == true ||
-              currentContent?.isPage(CorePage.categories) == true ||
-              currentContent?.isPage(CorePage.bookmarks) == true) {
-            selectedDestinationId = currentContent?.id;
-          } else if (currentContent?.isTopic == true &&
-              selectedDestinationId == 'drafts') {
-            // Reply drafts keep Drafts in their back stack, but the topic itself
-            // is not the Drafts route.
-            selectedDestinationId = null;
-          }
-          if (controller.sidebarFilterRoute != null) {
-            selectedDestinationId = controller.sidebarFilterDestinationId;
-          }
-          final categorySection = instance == null
-              ? null
-              : controller.categorySidebarSectionFor(instance.url);
-          final tagSection = instance == null
-              ? null
-              : controller.tagSidebarSectionFor(instance.url);
-          return _SidebarSnapshot(
-            siteUrl: instance?.url,
-            // A mobile root must not highlight a retained, hidden document.
-            destinationId:
-                mobile &&
-                    (!controller.mobileNavigationEnabled ||
-                        controller.mobileNavigation.atRoot)
-                ? null
-                : selectedDestinationId,
-            draftCount: instance?.user?.draftCount ?? 0,
-            canCreateTopic: instance?.user?.canCreateTopic ?? false,
-            navigationLoading:
-                instance != null &&
-                controller.sidebarNavigationLoadingFor(instance.url),
-            presentationToken: instance == null
-                ? null
-                : controller.presentationTokenFor(instance.url),
-            topicTrackingRevision: instance == null
-                ? 0
-                : controller.topicTrackingRevisionFor(instance.url),
-            sections: instance == null
-                ? const <SidebarSection>[]
-                : controller.sidebarSectionsFor(instance),
-            navigationSections: [?categorySection, ?tagSection],
-          );
-        },
-        builder: (context, sidebar, _) {
-          final backgroundColor = filled
-              ? ForumWindowBackground.surfaceColor(
-                  context,
-                  DTokens.of(context).muted,
-                )
-              : Colors.transparent;
-          if (sidebar.siteUrl == null) {
-            return ColoredBox(color: backgroundColor);
-          }
-          return LayoutBuilder(
-            builder: (context, constraints) => DSidebarProvider(
-              mobileBreakpoint: 0,
-              open: true,
-              child: SafeArea(
-                top: !mobile,
-                bottom: !mobile,
-                left: false,
-                child: _SidebarPanelBody(
-                  sidebar: sidebar,
-                  backgroundColor: backgroundColor,
-                  width: constraints.maxWidth,
-                  mobile: mobile,
-                  panelOwner: panelOwner,
-                  onNavigate: onNavigate,
-                  footer: footer,
-                  communityHeaderLeadingInset: communityHeaderLeadingInset,
-                  sectionStore:
-                      sectionStore ?? ShellScope.read(context).sidebarSections,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
+    // Desktop navigation sits on the window ground beside the rail, so it
+    // paints no surface of its own and cannot carry the darker sidebar
+    // palette, whose foreground is only legible over that palette's surface.
+    final navigation = _navigation(context);
+    return mobile ? ForumSidebarTheme(child: navigation) : navigation;
   }
+
+  Widget _navigation(BuildContext context) => ShellSelector<_SidebarSnapshot>(
+    select: (controller) {
+      final instance = controller.currentInstance;
+      final currentContent = controller.currentContent;
+      // The focused document owns the highlighted sidebar destination.
+      var selectedDestinationId = controller.topicListTab?.rootDestinationId;
+      if (currentContent?.groupRoute != null) {
+        selectedDestinationId = 'groups';
+      } else if (currentContent?.isBadges == true) {
+        selectedDestinationId = 'badges';
+      } else if (currentContent?.isAppearance == true ||
+          currentContent?.isPreferences == true ||
+          currentContent?.isPage(CorePage.categories) == true ||
+          currentContent?.isPage(CorePage.bookmarks) == true) {
+        selectedDestinationId = currentContent?.id;
+      } else if (currentContent?.isTopic == true &&
+          selectedDestinationId == 'drafts') {
+        // Reply drafts keep Drafts in their back stack, but the topic itself
+        // is not the Drafts route.
+        selectedDestinationId = null;
+      }
+      if (controller.sidebarFilterRoute != null) {
+        selectedDestinationId = controller.sidebarFilterDestinationId;
+      }
+      final categorySection = instance == null
+          ? null
+          : controller.categorySidebarSectionFor(instance.url);
+      final tagSection = instance == null
+          ? null
+          : controller.tagSidebarSectionFor(instance.url);
+      return _SidebarSnapshot(
+        siteUrl: instance?.url,
+        // A mobile root must not highlight a retained, hidden document.
+        destinationId:
+            mobile &&
+                (!controller.mobileNavigationEnabled ||
+                    controller.mobileNavigation.atRoot)
+            ? null
+            : selectedDestinationId,
+        draftCount: instance?.user?.draftCount ?? 0,
+        canCreateTopic: instance?.user?.canCreateTopic ?? false,
+        navigationLoading:
+            instance != null &&
+            controller.sidebarNavigationLoadingFor(instance.url),
+        presentationToken: instance == null
+            ? null
+            : controller.presentationTokenFor(instance.url),
+        topicTrackingRevision: instance == null
+            ? 0
+            : controller.topicTrackingRevisionFor(instance.url),
+        sections: instance == null
+            ? const <SidebarSection>[]
+            : controller.sidebarSectionsFor(instance),
+        navigationSections: [?categorySection, ?tagSection],
+      );
+    },
+    builder: (context, sidebar, _) {
+      final backgroundColor = mobile
+          ? ForumWindowBackground.surfaceColor(
+              context,
+              DTokens.of(context).muted,
+            )
+          : Colors.transparent;
+      if (sidebar.siteUrl == null) {
+        return ColoredBox(color: backgroundColor);
+      }
+      return LayoutBuilder(
+        builder: (context, constraints) => DSidebarProvider(
+          mobileBreakpoint: 0,
+          open: true,
+          child: SafeArea(
+            top: !mobile,
+            bottom: !mobile,
+            left: false,
+            child: _SidebarPanelBody(
+              sidebar: sidebar,
+              backgroundColor: backgroundColor,
+              width: constraints.maxWidth,
+              mobile: mobile,
+              panelOwner: panelOwner,
+              onNavigate: onNavigate,
+              footer: footer,
+              communityHeaderLeadingInset: communityHeaderLeadingInset,
+              sectionStore:
+                  sectionStore ?? ShellScope.read(context).sidebarSections,
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _SidebarPanelBody extends StatefulWidget {
