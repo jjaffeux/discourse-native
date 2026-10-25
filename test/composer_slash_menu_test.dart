@@ -363,6 +363,10 @@ void main() {
     await pump(tester, scale: 2);
     await type(tester, '/');
     expect(tester.takeException(), isNull);
+    expect(find.text('Close menu'), findsOneWidget);
+    final close = tester.getRect(find.text('Close menu'));
+    expect(close.left, greaterThanOrEqualTo(0));
+    expect(close.right, lessThanOrEqualTo(360));
     await tester.tapAt(const Offset(5, 5));
     await tester.pumpAndSettle();
     expect(find.text('Close menu'), findsNothing);

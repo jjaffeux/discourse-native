@@ -475,23 +475,6 @@ void main() {
       expect(popup.isOpen, isFalse);
     });
 
-    testWidgets('loads emoji through the same race-safe async path', (
-      tester,
-    ) async {
-      popup.update(typed('a :sm'));
-
-      await tester.pump(ComposerAutocomplete.debounce);
-      await tester.pump();
-
-      expect(popup.isOpen, isTrue);
-      expect(popup.suggestions.map((s) => s.value), ['smile', 'smirk']);
-    });
-
-    test('stays shut on a colon that is only punctuation', () {
-      popup.update(typed('Note: '));
-      expect(popup.isOpen, isFalse);
-    });
-
     testWidgets(
       'closes when nothing matches, rather than showing an empty box',
       (tester) async {

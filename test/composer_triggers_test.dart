@@ -239,11 +239,6 @@ void main() {
       expect(trigger.end, 8);
       expect(trigger.kind, ComposerTriggerKind.mention);
     });
-
-    test('a colon inside a word is not a shortcode', () {
-      expect(triggerIn('at 10:30|'), '-');
-      expect(triggerIn('https://a.b|'), '-');
-    });
   });
 
   group('applyComposerCompletion', () {

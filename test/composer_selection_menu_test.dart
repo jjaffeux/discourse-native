@@ -91,6 +91,10 @@ Future<void> action(WidgetTester tester, String label) async {
 void main() {
   testWidgets('colors are hidden without the server plugin', (tester) async {
     await pumpEditor(tester);
+    expect(
+      find.descendant(of: toolbar, matching: find.byTooltip('Bold')),
+      findsOneWidget,
+    );
     expect(find.byTooltip('Color'), findsNothing);
   });
 
