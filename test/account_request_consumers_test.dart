@@ -76,9 +76,9 @@ void main() {
         ]);
         expect(
           auth.clientReads,
-          before + 1,
+          before,
           reason:
-              'Feed preparation already captures the category directory credentials; empty or cached IDs must add no read.',
+              'The loaded category directory needs no credentials; empty or cached IDs must add no read.',
         );
       },
     );

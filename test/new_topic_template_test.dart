@@ -119,6 +119,8 @@ void main() {
     'choosing a category swaps an untouched template and keeps an edited one',
     () async {
       final (:shell, api: _) = await start();
+      // Categories can only be chosen from the site's loaded directory.
+      await shell.loadCategories(_siteUrl);
       await shell.openNewTopic();
       final composer = shell.visibleComposer!;
       expect(composer.text.text, isEmpty);
@@ -388,6 +390,8 @@ void main() {
     'a site with templates requires a category before it asks the site',
     () async {
       final (:shell, :api) = await start();
+      // Whether the site has templates is read from its loaded directory.
+      await shell.loadCategories(_siteUrl);
       await shell.openNewTopic();
       final composer = shell.visibleComposer!;
       composer.title.text = 'A question';

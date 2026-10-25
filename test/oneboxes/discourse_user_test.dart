@@ -1,7 +1,9 @@
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
@@ -138,16 +140,13 @@ void main() {
             hasFocusAction: true,
           ),
         );
-        final ink = find.descendant(of: target, matching: find.byType(InkWell));
-        expect(ink, findsOneWidget);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: tester.getCenter(target));
+        await tester.pump();
         expect(
-          tester.widget<InkWell>(ink).mouseCursor,
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
           SystemMouseCursors.click,
-        );
-        expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
-        expect(
-          tester.widget<InkWell>(ink).focusColor,
-          Theme.of(tester.element(target)).shell.hover,
         );
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -157,7 +156,7 @@ void main() {
           isSemantics(isFocusable: true, isFocused: true),
         );
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(launched, ['https://github.com']);
       } finally {

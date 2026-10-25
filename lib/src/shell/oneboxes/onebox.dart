@@ -262,17 +262,19 @@ class OneboxCard extends StatelessWidget {
     final link = LinkTarget(
       url: url,
       siteUrl: siteUrl,
+      // The card draws its own bounds, so the item adds no inset or hover
+      // fill: the card stays flush with the post column at any width.
       child: DItem(
-        size: DItemSize.sm,
+        size: DItemSize.artwork,
+        highlightOnInteraction: false,
+        link: mergeLinkSemantics,
         onPressed: () => openLink(context, url, siteUrl: siteUrl),
-        children: [
-          DItemContent(children: [card]),
-        ],
+        children: [card],
       ),
     );
     if (!mergeLinkSemantics) return link;
 
-    return MergeSemantics(child: Semantics(link: true, child: link));
+    return MergeSemantics(child: link);
   }
 
   Widget _genericBody(BuildContext context) {

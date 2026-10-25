@@ -209,7 +209,7 @@ _fixture(WidgetTester tester, String source, String note) async {
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: user),
     ]),
-    api: _WireAssignmentApi(wire),
+    api: _WireAssignmentApi(wire, user: user),
     authenticator: FakeAuthenticator()..keys[_site] = 'synthetic-key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
@@ -246,9 +246,11 @@ _fixture(WidgetTester tester, String source, String note) async {
 }
 
 /// Unrelated bootstrap reads stay local; topic decoding and all Assign requests
-/// use production codecs and HTTP encoding.
+/// use production codecs and HTTP encoding. The session answers with the
+/// stored user, since a different account would retire the topic read.
 final class _WireAssignmentApi extends FakeDiscourseApi {
-  _WireAssignmentApi(this.wire) : super(feeds: const {'/latest.json': []});
+  _WireAssignmentApi(this.wire, {super.user})
+    : super(feeds: const {'/latest.json': []});
   final DiscourseApi wire;
 
   @override

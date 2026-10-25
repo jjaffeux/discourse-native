@@ -238,7 +238,11 @@ void main() {
     await request;
     expect(api.feedPaths, hasLength(reads));
     expect(shell.currentFeed!.topicIds, [1, 2, 3]);
-    expect(shell.newReplyCount, 3);
+    // The retired account's tracking counts retire with its lease, so the
+    // canonical rows are where a leaked dismissal would show.
+    for (final id in [1, 2, 3]) {
+      expect(shell.store.read<Topic>(_site, id)!.hasUnseenActivity, isTrue);
+    }
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   for (final mode in [TopicListMode.unread, TopicListMode.newReplies]) {
     testWidgets('${mode.name} removes fully read topics after moving on', (
@@ -744,6 +748,8 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
     feedGates: {'/unread.json?page=1': ?nextPageGate},
     // An empty stream keeps this test's explicit reading observations in
     // control while exercising the real sidebar, reader route and selectors.
+    // Each read reports the level the tracking snapshot holds, since a topic
+    // read is authoritative for it.
     topics: {
       for (final row in rows)
         row.id: (
@@ -753,6 +759,9 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
             stream: const [],
             postsCount: 10,
             privateMessage: folder != null,
+            notificationLevel: folder == null && !newIds.contains(row.id)
+                ? TopicNotificationLevel.tracking
+                : TopicNotificationLevel.normal,
           ),
           posts: [],
         ),

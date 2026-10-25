@@ -7,7 +7,9 @@ import 'package:discourse_native/src/plugins/local_dates/local_dates_cooked_time
 import 'package:discourse_native/src/shell/cooked_dom.dart';
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -233,21 +235,19 @@ void main() {
               hasFocusAction: true,
             ),
           );
-          final ink = find.descendant(
-            of: target,
-            matching: find.byType(InkWell),
-          );
-          expect(ink, findsOneWidget);
+          expect(tester.getSize(target).height, lessThan(44));
+        }
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        for (final target in [author, counts]) {
+          await mouse.moveTo(tester.getCenter(target));
+          await tester.pump();
           expect(
-            tester.widget<InkWell>(ink).mouseCursor,
+            RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
             SystemMouseCursors.click,
           );
-          expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
-          expect(
-            tester.widget<InkWell>(ink).focusColor,
-            Theme.of(tester.element(target)).shell.hover,
-          );
-          expect(tester.getSize(target).height, lessThan(44));
         }
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -265,7 +265,7 @@ void main() {
           tester.getSemantics(counts),
           isSemantics(isFocusable: true, isFocused: true),
         );
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
 
         expect(launched, [authorUrl, countsUrl]);

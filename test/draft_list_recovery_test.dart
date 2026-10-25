@@ -227,11 +227,15 @@ void main() {
 
     testWidgets('keeps a newer local-only copy over the row', (tester) async {
       final drafts = FakeDraftStore();
-      // Written while the site could not be reached, so it never received it.
+      // Written against the row's sequence while the site could not be
+      // reached, so the site never received it.
       await drafts.write(
         _siteUrl,
         listed.key,
-        const ComposerDraft(reply: 'Newer text kept on this device').encode(),
+        LocalComposerDraft(
+          draft: const ComposerDraft(reply: 'Newer text kept on this device'),
+          sequence: listed.sequence,
+        ).encode(),
       );
       final api = _api(serverDraft: listed);
       final shell = await _openShell(tester, api: api, drafts: drafts);

@@ -333,7 +333,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 13.5,
+                                  fontSize: DiscourseTypography.compact,
                                   fontWeight: FontWeight.w600,
                                   height: 1.3,
                                   color: tokens.foreground,
@@ -353,7 +353,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                                           ),
                                       size: 12,
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: DiscourseTypography.xs,
                                         height: 1.3,
                                         color: tokens.mutedForeground,
                                       ),
@@ -363,7 +363,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: DiscourseTypography.xs,
                                           height: 1.3,
                                           color: tokens.mutedForeground,
                                         ),
