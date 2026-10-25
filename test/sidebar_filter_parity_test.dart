@@ -284,16 +284,26 @@ void main() {
         await capture(tester, 'sidebar-headings-root-$scale');
         await tester.tap(row('Product'));
         await tester.pumpAndSettle();
+        await tester.ensureVisible(row('Alpha'));
+        await tester.pumpAndSettle();
         await tester.tap(row('Alpha'));
         await tester.pumpAndSettle();
         await capture(tester, 'sidebar-headings-selected-$scale');
         expect(heading('Categories'), categories);
         expect(heading('Tags'), tagHeading);
 
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('sidebar-tags-up')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('sidebar-tags-up')));
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.tagName, isNull);
         expect(heading('Tags'), tagHeading);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('sidebar-categories-up')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.categoryId, isNull);
