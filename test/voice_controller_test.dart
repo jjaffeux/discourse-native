@@ -131,7 +131,6 @@ final class FakeVoiceMediaSession extends ChangeNotifier
       VoiceMediaConnectionState.connected;
   @override
   Object? connectionFailure;
-  int connectCount = 0;
   int disposeCount = 0;
   bool muted = false;
   bool deafened = false;
@@ -186,7 +185,6 @@ final class FakeVoiceMediaSession extends ChangeNotifier
 
   @override
   Future<void> connect() async {
-    connectCount++;
     if (connectStarted case final started? when !started.isCompleted) {
       started.complete();
     }
