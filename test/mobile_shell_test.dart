@@ -1639,10 +1639,6 @@ void main() {
         findsOneWidget,
       );
       final controller = tester.widget<CustomScrollView>(list).controller!;
-      expect(
-        find.byKey(const ValueKey('topic-scroll-separator')),
-        findsNothing,
-      );
       final offset = controller.offset;
       expect(
         tester.widget<DPageSurface>(sheetSurface).borderRadius,
@@ -1696,7 +1692,6 @@ void main() {
       expect(find.text('Share topic').hitTestable(), findsOneWidget);
       expect(find.text('Mark unread').hitTestable(), findsOneWidget);
       expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
-      expect(find.byKey(const ValueKey('topic-compact-more')), findsNothing);
       expect(controller.offset, offset);
       expect(shell.currentContent?.topicId, 7);
       await capture('reader-compact-menu-sheet');

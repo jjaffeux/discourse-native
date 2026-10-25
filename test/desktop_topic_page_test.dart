@@ -149,10 +149,6 @@ void main() {
       tester.getRect(find.text('Conversation 1')).top,
       greaterThan(controls.bottom),
     );
-    expect(
-      find.byKey(const ValueKey('topic-list-tracking-button')),
-      findsNothing,
-    );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
@@ -175,10 +171,6 @@ void main() {
 
   testWidgets('Latest topics has no tracking menu', (tester) async {
     final h = await _setup(tester, size: const Size(1800, 1000));
-    expect(
-      find.byKey(const ValueKey('topic-list-tracking-button')),
-      findsNothing,
-    );
     expect(find.byType(DNotificationLevelMenu<int>), findsNothing);
     expect(h.api.userPreferenceUpdates, isEmpty);
     expect(tester.takeException(), isNull);

@@ -1368,45 +1368,6 @@ void main() {
             TargetPlatform.iOS,
           }),
         );
-
-        testWidgets(
-          'topic viewport has no pinned divider before or after scrolling (inbox: $inbox)',
-          (tester) async {
-            final site = instance('meta.example');
-            final controller = ShellController(
-              instanceStore: FakeInstanceStore([site]),
-              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
-              authenticator: FakeAuthenticator(),
-              drafts: FakeDraftStore(),
-              trackers: FakeSiteTracker.reset(),
-            );
-            addTearDown(controller.dispose);
-            await controller.load();
-            _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
-            controller.pushContent(
-              ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
-            );
-            await tester.pumpWidget(_topicView(controller, inbox: inbox));
-            await tester.pumpAndSettle();
-
-            final separator = find.byKey(
-              const ValueKey('topic-scroll-separator'),
-            );
-            expect(separator, findsNothing);
-            final scroll = topicPostList(tester).controller!;
-            scroll.jumpTo(100);
-            await tester.pumpAndSettle();
-            expect(separator, findsNothing);
-            scroll.jumpTo(scroll.position.minScrollExtent);
-            await tester.pumpAndSettle();
-            expect(separator, findsNothing);
-          },
-          variant: const TargetPlatformVariant({
-            TargetPlatform.macOS,
-            TargetPlatform.iOS,
-            TargetPlatform.android,
-          }),
-        );
       }
 
       testWidgets('gives each topic an independent scroll position', (

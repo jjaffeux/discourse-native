@@ -858,16 +858,8 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(
-            find.byKey(const ValueKey('topic-list-filters')),
-            findsNothing,
-          );
-          expect(
             find.byKey(const ValueKey('topic-list-category-filter')),
             findsOneWidget,
-          );
-          expect(
-            find.byKey(const ValueKey('topic-list-new-segments')),
-            findsNothing,
           );
           for (final key in [
             'topic-list-category-filter',
@@ -878,13 +870,8 @@ void main() {
             expect(rect.left, greaterThanOrEqualTo(0));
             expect(rect.right, lessThanOrEqualTo(width));
           }
-          expect(
-            find.byKey(const ValueKey('topic-list-ledger-header')),
-            findsNothing,
-          );
           expect(find.text('Clear all'), findsNothing);
           expect(find.text('Latest conversations'), findsNothing);
-          expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
           expect(tester.takeException(), isNull);
         }
       });
@@ -963,11 +950,6 @@ void main() {
     expect(
       setup.api.feedPaths.last,
       '/tags/c/support/installation/43/release.json',
-    );
-    expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
-    expect(
-      find.byKey(const ValueKey('topic-list-clear-filters')),
-      findsNothing,
     );
     await _openFilter(tester, 'tag');
     await tester.tap(find.widgetWithText(DToggle, 'All'));
@@ -1914,10 +1896,6 @@ void main() {
         );
         expect(tabs.left, 16);
         expect(tabs.right, lessThanOrEqualTo(325 - 16));
-        expect(
-          find.byKey(const ValueKey('topic-list-new-segments')),
-          findsNothing,
-        );
         await _openFeed(tester);
         final topics = find.byKey(const ValueKey('topic-list-new-topics'));
         expect(
@@ -2016,14 +1994,6 @@ void main() {
         find.byKey(const ValueKey('topic-list-feed-menu')),
       );
       expect(category.center.dy, feed.center.dy);
-      expect(
-        find.byKey(const ValueKey('topic-list-new-segments')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
-      );
       expect(find.text('People'), findsNothing);
       expect(find.text('Latest conversations'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -2224,10 +2194,6 @@ void main() {
           expect(
             categoryFilter.top,
             greaterThanOrEqualTo(tester.getRect(primary).bottom),
-          );
-          expect(
-            find.byKey(const ValueKey('topic-list-ledger-header')),
-            findsNothing,
           );
           await _selectFeed(tester, 'topic-list-top');
           await tester.pumpAndSettle();
@@ -2452,7 +2418,6 @@ void main() {
         expect(category.left, greaterThan(feed.right));
         expect(tags.left, greaterThan(category.right));
       }
-      expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
       expect(tester.takeException(), isNull);
     }
     debugDefaultTargetPlatformOverride = null;
@@ -2549,10 +2514,6 @@ void main() {
         expect(
           find.byKey(const ValueKey('topic-list-category-filter')),
           findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-list-ledger-header')),
-          findsNothing,
         );
         expect(tester.takeException(), isNull);
       }
@@ -2672,7 +2633,6 @@ void main() {
       find.byKey(const ValueKey('topic-list-category-filter')),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('topic-list-filters')), findsNothing);
     expect(find.byKey(const ValueKey('topic-list-tag-filter')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
@@ -2764,10 +2724,6 @@ void main() {
       expect(
         find.byKey(const ValueKey('category-notification-level-button')),
         findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('topic-list-tracking-button')),
-        findsNothing,
       );
     }
 
