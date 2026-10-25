@@ -258,6 +258,10 @@ void main() {
     final railSelector = _onlyChild(rail);
     final contentSelector = _onlyChild(content);
     final listSelector = _onlyChild(list);
+    var notifications = 0;
+    void count() => notifications++;
+    controller.addListener(count);
+    addTearDown(() => controller.removeListener(count));
     final rebuilt = <Element>{};
     final previousRebuildCallback = debugOnRebuildDirtyWidget;
     debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -271,6 +275,10 @@ void main() {
     controller.selectInstance(0);
     await tester.pump();
 
+    // The facade did notify and redraw its dependents, so the viewport stayed
+    // out of that redraw rather than missing a change that never happened.
+    expect(notifications, greaterThan(0));
+    expect(rebuilt, isNotEmpty);
     for (final isolated in [
       rail,
       railSelector,
