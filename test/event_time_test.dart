@@ -72,6 +72,86 @@ void main() {
     );
   });
 
+  test('offset instants with an impossible clock are rejected, not rolled', () {
+    for (final source in [
+      '2026-09-08T24:00:00Z',
+      '2026-09-08T23:60:00+02:00',
+    ]) {
+      expect(eventDate(source, zones: ports.zones), isNull, reason: source);
+    }
+  });
+
+  test('labels drop the end date only when both ends share a calendar day', () {
+    String label(Map<String, Object?> overrides) => eventDateLabel(
+      PostEvent.decode(eventJson(overrides: overrides))!,
+      ports.zones,
+      accountTimezone: 'Europe/Paris',
+      locale: 'en_US',
+      use24HourClock: true,
+    );
+
+    expect(
+      label({
+        'starts_at': '2026-09-08T10:00:00+02:00',
+        'ends_at': '2026-09-08T11:00:00+02:00',
+      }),
+      'Sep 8, 2026, 10:00 → 11:00 (Europe/Paris)',
+    );
+    expect(
+      label({
+        'starts_at': '2026-09-08T10:00:00+02:00',
+        'ends_at': '2026-10-08T11:00:00+02:00',
+      }),
+      'Sep 8, 2026, 10:00 → Oct 8, 2026, 11:00 (Europe/Paris)',
+    );
+    expect(
+      label({
+        'all_day': true,
+        'starts_at': '2026-09-08',
+        'ends_at': '2026-09-08',
+      }),
+      'Sep 8, 2026 · All day',
+    );
+    expect(
+      label({
+        'all_day': true,
+        'starts_at': '2026-09-08',
+        'ends_at': '2026-09-10',
+      }),
+      'Sep 8, 2026 – Sep 10, 2026 · All day',
+    );
+  });
+
+  test('show_local_time labels name the event zone, not the reader zone', () {
+    expect(
+      eventDateLabel(
+        PostEvent.decode(
+          eventJson(
+            overrides: {
+              'show_local_time': true,
+              'timezone': 'America/New_York',
+              'starts_at': '2026-09-08T09:00:00',
+              'ends_at': '2026-09-08T10:00:00',
+            },
+          ),
+        )!,
+        ports.zones,
+        accountTimezone: 'Europe/Paris',
+        locale: 'en_US',
+        use24HourClock: true,
+      ),
+      'Sep 8, 2026, 09:00 → 10:00 (America/New_York)',
+    );
+  });
+
+  test('a series that does not repeat has no recurrence label', () {
+    for (final none in [null, '', 'none']) {
+      expect(eventRecurrenceLabel(none), isNull, reason: none);
+    }
+    expect(eventRecurrenceLabel('every_week'), 'Every week');
+    expect(eventRecurrenceLabel('every_quarter'), 'Repeating event');
+  });
+
   test(
     'midnight range displays the next day and series without dates is safe',
     () {

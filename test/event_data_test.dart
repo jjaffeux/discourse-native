@@ -58,6 +58,50 @@ void main() {
     expect(data.oneboxes[700]!.topicId, 700);
   });
 
+  test('an event naming another post is not decoded as this event', () {
+    expect(
+      PostEvent.decode(
+        eventJson(
+          overrides: {
+            'post': {'id': 43},
+          },
+        ),
+      ),
+      isNull,
+    );
+    expect(
+      PostEvent.decode(
+        eventJson(
+          overrides: {
+            'post': {'id': 42},
+          },
+        ),
+      )!.id,
+      42,
+    );
+  });
+
+  test('event links without a scheme open over https', () {
+    expect(eventLinkUrl('meet.example/team'), 'https://meet.example/team');
+    expect(eventLinkUrl('//meet.example/team'), 'https://meet.example/team');
+    expect(eventLinkUrl('zoommtg://zoom.us/join'), 'zoommtg://zoom.us/join');
+  });
+
+  test('every FullCalendar year view name opens the year agenda', () {
+    for (final name in ['year', 'listNextYear', 'listYear']) {
+      expect(EventCalendarView.parse(name), EventCalendarView.year);
+    }
+  });
+
+  test('settings that differ only in calendar colors are not equal', () {
+    EventSettings colored(String color) => EventSettings.decode({
+      'map_events_to_color':
+          '[{"type":"tag","slug":"launch","color":"$color"}]',
+    });
+    expect(colored('#d25'), colored('#d25'));
+    expect(colored('#d25'), isNot(colored('#0077aa')));
+  });
+
   test('private omission remains unknown and synthetic invitees lack IDs', () {
     final full = PostEvent.decode(eventJson())!;
     expect(full.sampleInvitees.single.id, isNull);

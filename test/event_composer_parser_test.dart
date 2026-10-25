@@ -89,6 +89,24 @@ void main() {
     );
   });
 
+  test('replacement keeps unchanged spelling and quotes what it writes', () {
+    const raw = "[event start='2026-09-08 12:00' name=Call]\nAgenda\n[/event]";
+    final block = parseEventBlocks(raw).single;
+    expect(block.replace({'start': '2026-09-08 12:00', 'name': 'Call'}), raw);
+    expect(
+      block.replace({'name': ''}),
+      "[event start='2026-09-08 12:00']\nAgenda\n[/event]",
+    );
+    expect(
+      block.replace({'name': 'The "Big" one'}),
+      "[event start='2026-09-08 12:00' name='The \"Big\" one']\nAgenda\n[/event]",
+    );
+    expect(
+      block.replace({'name': "Lee's call"}),
+      "[event start='2026-09-08 12:00' name=\"Lee's call\"]\nAgenda\n[/event]",
+    );
+  });
+
   test('custom fields round-trip through the attribute upstream stores', () {
     // By setting name: the key the web composer writes (raw-event-helper's
     // camelCase) and the attribute Parser.custom_field_data_attribute stores
