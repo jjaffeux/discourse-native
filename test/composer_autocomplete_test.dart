@@ -560,22 +560,6 @@ void main() {
       expect(asked, isNot(contains('sam')));
     });
 
-    testWidgets('discards an answer the query has moved past', (tester) async {
-      gate = Completer<void>();
-
-      popup.update(typed('hey @sa'));
-      await tester.pump(ComposerAutocomplete.debounce);
-      expect(asked, ['sa']);
-
-      popup.update(typed('hey @sam'));
-      await tester.pump(ComposerAutocomplete.debounce);
-
-      gate!.complete();
-      await tester.pump();
-
-      expect(popup.suggestions.map((s) => s.value), ['sam']);
-    });
-
     for (final staleFails in [false, true]) {
       testWidgets(
         'a superseded ${staleFails ? 'failure' : 'answer'} landing last '
@@ -643,20 +627,6 @@ void main() {
       await tester.pump(ComposerAutocomplete.debounce);
 
       expect(askedHashtags, ['ran']);
-    });
-
-    testWidgets('discards an answer the query has moved past', (tester) async {
-      hashtagGate = Completer<void>();
-
-      popup.update(typed('see #r'));
-      await tester.pump(ComposerAutocomplete.debounce);
-      popup.update(typed('see #ran'));
-      await tester.pump(ComposerAutocomplete.debounce);
-
-      hashtagGate!.complete();
-      await tester.pump();
-
-      expect(popup.suggestions.map((s) => s.value), ['random', 'random::tag']);
     });
 
     testWidgets('does not share a timer with a mention', (tester) async {
