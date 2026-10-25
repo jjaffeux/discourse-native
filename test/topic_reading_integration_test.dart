@@ -1071,10 +1071,6 @@ void _registerTopicReadingTests() {
           ),
           findsNothing,
         );
-        expect(
-          find.byKey(const ValueKey('topic-feed-refresh-progress')),
-          findsNothing,
-        );
         expect(tester.getTopLeft(firstTopic).dy, initialTop);
 
         gate.complete();
@@ -4709,10 +4705,6 @@ void _registerTopicReadingTests() {
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('topic-list-ledger-header')),
-        findsNothing,
-      );
       final tabs = [
         find.text('Suggested'),
         find.text('Related'),
@@ -4867,10 +4859,6 @@ void _registerTopicReadingTests() {
         expect(
           find.byKey(const ValueKey('topic-more-topics-jump')),
           findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-list-ledger-header')),
-          findsNothing,
         );
         expect(find.text('Suggested'), findsNothing);
         expect(find.text('Related'), findsNothing);

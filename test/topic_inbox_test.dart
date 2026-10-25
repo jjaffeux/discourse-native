@@ -646,8 +646,6 @@ void main() {
           find.byKey(const ValueKey('topic-header-closed')),
         );
         final footer = find.byKey(const ValueKey('topic-bottom-bar'));
-        final separator = find.byKey(const ValueKey('topic-scroll-separator'));
-        expect(separator, findsNothing);
         // Only what renders identically once loaded is drawn from the row.
         expect(inHeader(find.text('Topic 1')), findsOneWidget);
         expect(closed, findsOneWidget);
@@ -708,7 +706,6 @@ void main() {
           find.byKey(const ValueKey('topic-header-activity')),
           findsNothing,
         );
-        expect(separator, findsNothing);
         expect(footer, findsNothing);
         expect(tester.getRect(reader), loadingReader);
         _expectFloatingProgressFits(tester, 'loaded reader at $width');
@@ -1725,10 +1722,6 @@ void main() {
             of: find.byType(TopicView),
             matching: find.byType(CustomScrollView),
           ),
-        );
-        expect(
-          find.byKey(const ValueKey('topic-scroll-separator')),
-          findsNothing,
         );
         final inset = limited && viewport.width > 825
             ? (viewport.width - 825) / 2
@@ -3033,10 +3026,6 @@ void main() {
       final timestamp = find.byKey(const ValueKey('inbox-row-time-1'));
       expect(timestamp, findsOneWidget);
       expect(find.text('First topic preview'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('topic-ledger-activity-1')),
-        findsNothing,
-      );
       await tester.drag(
         find.byKey(const ValueKey('inbox-list-resize-handle')),
         const Offset(90, 0),
@@ -3344,10 +3333,6 @@ void main() {
       expect(shell.currentTopicListMode, TopicListMode.topWeekly);
       expect(tester.widget<Text>(heading).data, _child.name);
       expect(tester.state(find.byType(TopicView)), same(readerState));
-      expect(
-        find.byKey(const ValueKey('topic-list-clear-filters')),
-        findsNothing,
-      );
       expect(
         find.byKey(const ValueKey('topic-list-category-filter')),
         findsOneWidget,

@@ -10,7 +10,8 @@ import 'package:discourse_native/discourse_ui.dart'
         DMaterialTheme,
         DPullToRefresh,
         DSeparator,
-        DSpinner;
+        DSpinner,
+        DTableHead;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -633,7 +634,7 @@ void main() {
   });
 
   testWidgets(
-    'full-width rows retain separators without table headings while scrolling',
+    'full-width rows keep separators and no table heading while scrolling',
     (tester) async {
       final api = _ControlledPagingApi();
       final controller = await _controlledShell(api, sites.first);
@@ -645,31 +646,21 @@ void main() {
       await tester.pumpWidget(_LiveTestList(controller: controller));
       await tester.pumpAndSettle();
 
-      final separator = find.byKey(
-        const ValueKey('topic-list-header-separator'),
-      );
-      final header = find.byKey(const ValueKey('compact-topic-list-header'));
-      void expectNoTableDivider() {
-        expect(separator, findsNothing);
-        expect(
-          find.byKey(const ValueKey('topic-list-scroll-separator')),
-          findsNothing,
-        );
-        expect(header, findsNothing);
+      void expectRowsWithoutHeading() {
+        expect(find.byType(DSeparator), findsWidgets);
+        expect(find.byType(DTableHead), findsNothing);
       }
 
-      expectNoTableDivider();
+      expectRowsWithoutHeading();
       final scroll = tester
           .state<ScrollableState>(find.byType(Scrollable))
           .position;
       scroll.jumpTo(100);
       await tester.pumpAndSettle();
-
-      expectNoTableDivider();
-      expect(find.byType(DSeparator), findsWidgets);
+      expectRowsWithoutHeading();
       scroll.jumpTo(scroll.minScrollExtent);
       await tester.pumpAndSettle();
-      expectNoTableDivider();
+      expectRowsWithoutHeading();
     },
   );
 
@@ -1152,10 +1143,6 @@ void main() {
     expect(api.requests, hasLength(beforeRefresh + 1));
 
     expect(find.text('Topic 1'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('topic-feed-refresh-progress')),
-      findsNothing,
-    );
 
     api.requests.last.response.completeError(Exception('offline'));
     await refresh;

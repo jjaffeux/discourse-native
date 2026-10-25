@@ -181,10 +181,6 @@ void topicCompactActionsSheetTests({
               .controller!;
           final offset = scroll.offset;
           expect(
-            find.byKey(const ValueKey('topic-compact-more')),
-            findsNothing,
-          );
-          expect(
             find.byKey(const ValueKey('topic-header-taxonomy')),
             findsNothing,
           );

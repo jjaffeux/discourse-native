@@ -111,7 +111,6 @@ void main() {
     );
     expect(find.byKey(const ValueKey('topic-list-tag-filter')), findsOneWidget);
     expect(find.textContaining('matching topics'), findsNothing);
-    expect(find.byKey(const ValueKey('topic-list-filter-reset')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -801,7 +800,6 @@ void main() {
     expect(find.text('Discourse Native App'), findsOneWidget);
     expect(find.text('Design'), findsOneWidget);
     expect(find.text('User experience'), findsOneWidget);
-    expect(find.byKey(const ValueKey('topic-list-filter-reset')), findsNothing);
     final categoryHeight = tester
         .getSize(find.byKey(const ValueKey('topic-list-category-filter')))
         .height;

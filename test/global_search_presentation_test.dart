@@ -901,7 +901,6 @@ void main({bool useDeviceMetrics = false}) {
     'slash opens global search on a topic list and leaves typing to the editor',
     (tester) async {
       final shell = await _pumpSearch(tester);
-      expect(find.byKey(const ValueKey('topic-list-search')), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '/');
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);

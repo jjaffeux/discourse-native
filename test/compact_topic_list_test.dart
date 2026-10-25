@@ -151,11 +151,6 @@ void main() {
       tester,
     ) async {
       await _setup(tester, width: width, scale: scale);
-      final header = find.byKey(const ValueKey('compact-topic-list-header'));
-      expect(
-        find.descendant(of: header, matching: find.text('Category')),
-        findsNothing,
-      );
       final row = find.byKey(const ValueKey('topic-card-1'));
       final category = find.descendant(
         of: row,
@@ -496,10 +491,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const ValueKey('topic-card-60')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('compact-topic-list-header')),
-        findsNothing,
-      );
 
       await shell.appSettings.setTopicListMode(TopicListDisplayMode.card);
       await tester.pumpAndSettle();
@@ -516,15 +507,7 @@ void main() {
     'sparse assignments follow the metadata without reserving a column',
     (tester) async {
       await _setup(tester);
-      final header = find.byKey(const ValueKey('compact-topic-list-header'));
-      expect(
-        find.descendant(of: header, matching: find.text('Assigned to')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: header, matching: find.byType(DTableHead)),
-        findsNothing,
-      );
+      expect(find.byType(DTableHead), findsNothing);
       final assigned = find.byKey(const ValueKey('topic-card-1'));
       final unassigned = find.byKey(const ValueKey('topic-card-2'));
       expect(
@@ -535,6 +518,8 @@ void main() {
         find.descendant(of: unassigned, matching: find.text('Assigned to')),
         findsNothing,
       );
+      // No column heading repeats the label above the rows.
+      expect(find.text('Assigned to'), findsOneWidget);
       expect(find.bySemanticsLabel('Assigned to: none'), findsNothing);
       final tag = find.descendant(of: assigned, matching: find.text('#mobile'));
       final person = find.text('joffrey');
