@@ -585,9 +585,14 @@ void main() {
         'api_key::https://one.example': 'one-key',
         'api_key::https://two.example': 'two-key',
       });
-      final reopened = SecureStore(storage: storage);
+      final coldStorage = _FakeStorage(storage.values);
+      final reopened = SecureStore(storage: coldStorage);
       expect(await reopened.readApiKey('https://one.example'), 'one-key');
       expect(await reopened.readApiKey('https://two.example'), 'two-key');
+      expect(coldStorage.events, [
+        'read:api_key::https://one.example',
+        'read:api_key::https://two.example',
+      ]);
     });
 
     test('reuses a persisted key without repeated platform reads', () async {
