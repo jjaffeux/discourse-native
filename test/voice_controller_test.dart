@@ -3387,7 +3387,7 @@ void main() {
       );
     });
 
-    test('report asynchronous signal and roster-media failures', () async {
+    test('contains asynchronous signal and roster-media failures', () async {
       await pumpEventQueue();
       await controller.ensureLoaded(firstSite);
       await controller.join(

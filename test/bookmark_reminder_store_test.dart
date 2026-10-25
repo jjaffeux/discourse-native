@@ -28,7 +28,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('missing choices decode as absent without a warning', () async {
+  test('missing choices decode as absent', () async {
     expect(await store.read(_site, 'reader'), isNull);
   });
 
@@ -65,7 +65,7 @@ void main() {
     ('double', 1.5),
     ('list', <String>[_privateValue]),
   ]) {
-    test('$type choices are reported as absent without overwriting', () async {
+    test('$type choices decode as absent without overwriting', () async {
       SharedPreferences.setMockInitialValues({
         _legacyKey: value,
         'unrelated': 'kept',
@@ -81,7 +81,7 @@ void main() {
   }
 
   test(
-    'platform read failures are reported and can retry without writing',
+    'platform read failures decode as absent and can retry without writing',
     () async {
       final preferences =
           _ControlledPreferences({
@@ -132,7 +132,7 @@ void main() {
 
   for (final throwsError in [true, false]) {
     test(
-      'platform write ${throwsError ? 'exceptions' : 'rejections'} are reported without throwing',
+      'platform write ${throwsError ? 'exceptions' : 'rejections'} are contained without throwing',
       () async {
         final preferences =
             _ControlledPreferences({

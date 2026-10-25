@@ -385,7 +385,7 @@ void main() {
         },
       );
 
-      test('failed persistence keeps fetched colors and reports it', () async {
+      test('failed persistence keeps fetched colors', () async {
         final fetched = siteAppearance(accent: const Color(0xFF445566));
         final api = _PresentationApi()..appearance = fetched;
         final controller = _controller(
