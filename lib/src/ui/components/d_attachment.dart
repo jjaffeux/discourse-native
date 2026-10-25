@@ -144,18 +144,19 @@ class _DAttachmentState extends State<DAttachment> {
               : borderColor,
         ),
       ),
-      foregroundDecoration: _focused && DFocusHighlight.visibleOf(context)
-          ? BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(
+      // Keep the wrapper mounted so focus changes retain the controls below it.
+      foregroundDecoration: BoxDecoration(
+        borderRadius: radius,
+        border: _focused && DFocusHighlight.visibleOf(context)
+            ? Border.all(
                 color: tokens.focusRing.withValues(
                   alpha: tokens.focusRing.a * .5,
                 ),
                 width: 3,
                 strokeAlign: BorderSide.strokeAlignOutside,
-              ),
-            )
-          : null,
+              )
+            : null,
+      ),
       child: card,
     );
     if (widget.state == DAttachmentState.idle) {
