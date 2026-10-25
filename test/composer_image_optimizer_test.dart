@@ -526,7 +526,10 @@ void main() {
       );
       for (final entry in [
         (source(), const ComposerImageOptimization()),
-        (source(), const ComposerImageOptimization(enabled: false)),
+        (
+          source(),
+          const ComposerImageOptimization(enabled: false, bytesThreshold: 1),
+        ),
         (source(length: composerImageMaxInputBytes + 1), settings),
         (source(encoded: true), settings),
         (source(name: 'notes.pdf'), settings),

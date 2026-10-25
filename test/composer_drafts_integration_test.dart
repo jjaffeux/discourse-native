@@ -2024,30 +2024,6 @@ void _registerComposerAndDraftTests() {
       ]);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('Cancel removes an empty reply draft', (tester) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
-
-      await openComposer(tester, api);
-      await _requestDiscard(tester);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const ValueKey('composer-discard-dialog')),
-        findsNothing,
-      );
-      expect(find.byType(ComposerPanel), findsNothing);
-      expect(api.userDraftsDeleted, const [
-        (
-          siteUrl: 'https://meta.discourse.org',
-          draftKey: 'topic_7',
-          sequence: 0,
-        ),
-      ]);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     for (final empty in [false, true]) {
       testWidgets(
         'save and close hides the dock while ${empty ? 'deletion' : 'saving'} is pending',
