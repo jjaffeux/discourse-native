@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -24,6 +25,14 @@ const _category = TopicCategory(
   topicTemplate: 'Describe the bug',
 );
 const _listed = UserDraft(key: 'new_topic_listed', sequence: 1, data: null);
+const _ideas = TopicCategory(
+  id: 6,
+  name: 'Ideas',
+  color: '888888',
+  slug: 'ideas',
+  permission: 1,
+  topicTemplate: 'Pitch the idea',
+);
 final _tagRoute = ContentRoute.list(ListLink.parse('/tag/release')!);
 
 void main() {
@@ -263,25 +272,56 @@ void main() {
     },
   );
 
-  for (final edit in ['no', 'metadata', 'body']) {
+  for (final edit in [
+    'no changes',
+    'metadata changes',
+    'body changes',
+    'an unapplied draft',
+  ]) {
     test(
-      'an undrafted editor with $edit changes '
-      '${edit == 'no' ? 'is replaced silently' : 'needs confirmation'}',
+      'an undrafted editor with $edit '
+      '${edit == 'no changes' ? 'is replaced silently' : 'needs confirmation'}',
       () async {
         final harness = _Harness();
         addTearDown(harness.dispose);
         final first = harness.buildUndrafted(await harness.plan());
         switch (edit) {
-          case 'metadata':
+          case 'metadata changes':
             first.setTags([const TopicTag(id: 8, name: 'authored')]);
-          case 'body':
+          case 'body changes':
             first.text.text = 'Unsaved body';
+          case 'an unapplied draft':
+            first.protectUnappliedDraft(
+              const ComposerDraft(reply: 'Stored elsewhere'),
+              wasLocal: true,
+            );
         }
 
         final plan = await harness.planOrNull();
 
-        expect(plan, edit == 'no' ? isNotNull : isNull);
-        expect(harness.confirmations, edit == 'no' ? isEmpty : [first]);
+        expect(plan, edit == 'no changes' ? isNotNull : isNull);
+        expect(harness.confirmations, edit == 'no changes' ? isEmpty : [first]);
+      },
+    );
+  }
+
+  for (final pending in ['submitting', 'checking']) {
+    test(
+      'a draft-backed editor $pending its post refuses replacement',
+      () async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        final first = harness.build(await harness.plan());
+        harness.drafts.startNewDraft(first);
+        first.text.text = 'Posted body';
+        const sent = _Sent(Object());
+        first.beginSubmit(attempt: sent.attempt);
+        first.retainSubmission(sent);
+        if (pending == 'checking') first.checking();
+
+        expect(await harness.planOrNull(), isNull);
+        expect(harness.selectedComposer, same(first));
+        expect(harness.confirmations, isEmpty);
       },
     );
   }
@@ -420,14 +460,7 @@ void main() {
     () async {
       final harness = _Harness();
       addTearDown(harness.dispose);
-      harness.categories[6] = const TopicCategory(
-        id: 6,
-        name: 'Ideas',
-        color: '888888',
-        slug: 'ideas',
-        permission: 1,
-        topicTemplate: 'Pitch the idea',
-      );
+      harness.categories[6] = _ideas;
       final plan = await harness.plan();
       final composer = harness.build(plan);
       final setup = harness.owner.start(plan, composer);
@@ -449,6 +482,29 @@ void main() {
       expect(composer.categoryId, 6);
       expect(composer.text.text, 'Pitch the idea');
       expect(composer.tags.map((tag) => tag.name), ['kept']);
+    },
+  );
+
+  test(
+    'a superseded category change stops checking its remaining tags',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.categories[6] = _ideas;
+      final composer = harness.build(await harness.plan());
+      composer.setTags(const [
+        TopicTag(id: 1, name: 'first'),
+        TopicTag(id: 2, name: 'second'),
+      ]);
+      harness.tagGate = Completer<void>();
+      final change = harness.owner.changeCategory(composer, 6);
+      await pumpEventQueue();
+      composer.setCategory(5);
+      harness.tagGate!.complete();
+      await change;
+
+      expect(harness.searchedTags, ['first']);
+      expect(composer.tags.map((tag) => tag.name), ['first', 'second']);
     },
   );
 }
@@ -492,6 +548,8 @@ final class _Harness
   final confirmations = <ComposerController>[];
   Future<void>? Function(ComposerController composer)? onConfirm;
   TopicTagSearch Function(String term)? tagResults;
+  Completer<void>? tagGate;
+  final searchedTags = <String>[];
   void Function()? onPublish;
   final credentials = FakeAuthenticator()..keys[_site] = 'api-key';
   final lifecycle = SiteLifecycle();
@@ -623,7 +681,11 @@ final class _Harness
   Future<TopicTagSearch> searchTags(
     ComposerController composer,
     String term,
-  ) async => tagResults?.call(term) ?? const TopicTagSearch();
+  ) async {
+    searchedTags.add(term);
+    await tagGate?.future;
+    return tagResults?.call(term) ?? const TopicTagSearch();
+  }
 
   void dispose() {
     disposed = true;
@@ -692,4 +754,11 @@ final class _GatedApi extends FakeDiscourseApi {
       categoryId: categoryId,
     );
   }
+}
+
+final class _Sent implements ComposerSubmission {
+  const _Sent(this.attempt);
+
+  @override
+  final Object attempt;
 }
