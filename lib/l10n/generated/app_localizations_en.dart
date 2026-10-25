@@ -8441,26 +8441,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moveToMainPanel => 'Move to main panel';
 
   @override
-  String get browseTabs => 'Browse tabs';
-
-  @override
-  String get searchTabs => 'Search tabs...';
-
-  @override
   String closeForumtabsbar(String itemTitle) {
     return 'Close $itemTitle';
   }
-
-  @override
-  String browseTabsIn(String forumName) {
-    return 'Browse tabs in $forumName';
-  }
-
-  @override
-  String get lists => 'Lists';
-
-  @override
-  String get recentlyClosed => 'Recently closed ';
 
   @override
   String dropHere(String itemTitle) {

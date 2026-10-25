@@ -157,13 +157,11 @@ void main() {
   const first = ForumTabItem(
     id: 'topic-1',
     title: 'A long-running topic',
-    kind: ForumTabKind.topic,
     icon: DIcons.comment,
   );
   const second = ForumTabItem(
     id: 'chat-2',
     title: 'Team chat',
-    kind: ForumTabKind.chat,
     icon: DIcons.comments,
   );
   const third = ForumTabItem(
@@ -219,18 +217,8 @@ void main() {
 
         update(() {
           items = [
-            ForumTabItem(
-              id: first.id,
-              title: first.title,
-              kind: first.kind,
-              icon: first.icon,
-            ),
-            ForumTabItem(
-              id: second.id,
-              title: second.title,
-              kind: second.kind,
-              icon: second.icon,
-            ),
+            ForumTabItem(id: first.id, title: first.title, icon: first.icon),
+            ForumTabItem(id: second.id, title: second.title, icon: second.icon),
           ];
           onSelect = (id) => selected = 'new:$id';
         });
@@ -245,7 +233,6 @@ void main() {
             ForumTabItem(
               id: 'chat-2',
               title: 'Renamed chat',
-              kind: ForumTabKind.chat,
               icon: DIcons.comments,
               badge: SidebarBadge.count(3),
             ),
@@ -531,13 +518,7 @@ void main() {
       final barRect = tester.getRect(bar);
       final selectedRect = tester.getRect(selected);
       final ordinaryRect = tester.getRect(ordinary);
-      expect(
-        selectedRect.left,
-        tester
-                .getRect(find.byKey(const ValueKey('forum-tabs-switcher')))
-                .right +
-            8,
-      );
+      expect(selectedRect.left, barRect.left + 10);
       expect(selectedRect.top, barRect.top + 10.5);
       expect(selectedRect.bottom, barRect.bottom - 10.5);
       expect(ordinaryRect.top, selectedRect.top);
@@ -1399,398 +1380,52 @@ void main() {
     );
   });
 
-  group('tab switcher', () {
-    testWidgets(
-      'matches mockup groups, selected row, width, and close action',
-      (tester) async {
-        const category = ForumTabItem(
-          id: 'category',
-          title: 'flourpower',
-          color: Color(0xFFE9A23B),
-        );
-        const start = ForumTabItem(
-          id: 'start',
-          title: 'Start page',
-          icon: DIcons.house,
-        );
-        const baking = ForumTabItem(
-          id: 'baking',
-          title: 'baking',
-          kind: ForumTabKind.chat,
-        );
-        final closed = <String>[];
-        final selected = <String>[];
-        await _pumpBar(
-          tester,
-          items: const [category, start],
-          selectedId: start.id,
-          recentlyClosedItems: const [baking],
-          onClose: closed.add,
-          onSelect: selected.add,
-        );
-
-        await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-        await tester.pumpAndSettle();
-
-        final popup = find.byType(DPopoverContent);
-        expect(tester.getSize(popup).width, 420);
-        expect(tester.widget<DPopoverContent>(popup).cornerRadius, 12);
-        expect(find.text('Lists 2'), findsOneWidget);
-        expect(find.text('Chats 1'), findsNothing);
-        expect(find.text('Recently closed 1'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('forum-tabs-switcher-recent-baking')),
-          findsOneWidget,
-        );
-        final selectedRow = find.byKey(
-          const ValueKey('forum-tabs-switcher-open-start'),
-        );
-        final item = tester.widget<DItem>(
-          find.descendant(of: selectedRow, matching: find.byType(DItem)),
-        );
-        expect(item.selected, isTrue);
-        expect(item.shape, DItemShape.menu);
-        expect(item.selectionStyle, DItemSelectionStyle.strongNeutral);
-        expect(item.showSelectionIndicator, isFalse);
-
-        await tester.tap(
-          find.descendant(of: selectedRow, matching: find.byType(DButton)),
-        );
-        await tester.pumpAndSettle();
-        expect(closed, [start.id]);
-        expect(selected, isEmpty);
-        expect(
-          find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-          findsOneWidget,
-        );
-      },
+  testWidgets('shows tabs directly without a tab-list dropdown', (
+    tester,
+  ) async {
+    final selected = <String>[];
+    final closed = <String>[];
+    var added = 0;
+    await _pumpBar(
+      tester,
+      items: const [first, second],
+      selectedId: first.id,
+      onSelect: selected.add,
+      onClose: closed.add,
+      onAdd: () => added++,
     );
 
-    testWidgets('reverses tab groups in the secondary panel', (tester) async {
-      await _pumpBar(
-        tester,
-        items: const [third, second, first],
-        selectedId: first.id,
-        panel: ForumPanel.secondary,
-      );
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
-
-      final topics = tester.getTopLeft(find.text('Topics 1')).dy;
-      final chats = tester.getTopLeft(find.text('Chats 1')).dy;
-      final lists = tester.getTopLeft(find.text('Lists 1')).dy;
-      expect(topics, lessThan(chats));
-      expect(chats, lessThan(lists));
-    });
-
-    testWidgets('arrow keys move from search through visible tab rows', (
-      tester,
-    ) async {
-      final selected = <String>[];
-      await _pumpBar(
-        tester,
-        items: const [third, second, first],
-        selectedId: third.id,
-        onSelect: selected.add,
-      );
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      DItem row(String id) => tester.widget<DItem>(
-        find.descendant(
-          of: find.byKey(ValueKey('forum-tabs-switcher-open-$id')),
-          matching: find.byType(DItem),
-        ),
-      );
-      expect(row(third.id).focusNode!.hasFocus, isTrue);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
-      expect(row(second.id).focusNode!.hasFocus, isTrue);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(selected, [second.id]);
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('matches the circular mockup surface without moving on hover', (
-      tester,
-    ) async {
-      await _pumpBar(tester, items: const [first], selectedId: first.id);
-
-      final switcher = find.byKey(const ValueKey('forum-tabs-switcher'));
-      final before = tester.getRect(switcher);
-      expect(
-        before.size,
-        Size.square(tester.getSize(find.byType(DDocumentTab)).height),
-      );
-      expect(tester.widget<DButton>(switcher).variant, DButtonVariant.recessed);
-      final surface = buttonSurface(tester, of: switcher);
-      expect(surface.borderRadius, BorderRadius.circular(before.height / 2));
-      expect(surface.color, Colors.black.withValues(alpha: .045));
-      expect(surface.borderColor, Colors.transparent);
-      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(pointer.removePointer);
-      await pointer.addPointer(location: const Offset(500, 500));
-      await tester.pumpAndSettle();
-
-      await pointer.moveTo(tester.getCenter(switcher));
-      await tester.pumpAndSettle();
-      expect(
-        buttonSurface(tester, of: switcher).color,
-        Colors.black.withValues(alpha: .07),
-      );
-      expect(
-        buttonSurface(tester, of: switcher).borderRadius,
-        surface.borderRadius,
-      );
-      expect(tester.getRect(switcher), before);
-    });
-
-    testWidgets(
-      'keeps the tab list circular in both themes and at larger text',
-      (tester) async {
-        for (final material in DAppearanceMaterial.values) {
-          for (final base in [AppTheme.light, AppTheme.dark]) {
-            final theme = DMaterialTheme.apply(base, material);
-            for (final scale in [1.0, 2.0]) {
-              await tester.pumpWidget(const SizedBox.shrink());
-              await _pumpBar(
-                tester,
-                items: const [first],
-                selectedId: first.id,
-                theme: theme,
-                textScaler: TextScaler.linear(scale),
-              );
-              final switcher = find.byKey(
-                const ValueKey('forum-tabs-switcher'),
-              );
-              final before = tester.getRect(switcher);
-              final tab = tester.getRect(find.byType(DDocumentTab));
-              expect(before.size, Size.square(tab.height));
-              expect(before.center.dy, tab.center.dy);
-              expect(
-                buttonSurface(tester, of: switcher).borderRadius,
-                BorderRadius.circular(before.height / 2),
-              );
-              await _expectTabPixels(tester, [
-                (before.topLeft + const Offset(3, 3), theme.shell.sidebar),
-              ]);
-              await tester.tap(switcher);
-              await tester.pumpAndSettle();
-              expect(
-                find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-                findsOneWidget,
-              );
-              expect(tester.getRect(switcher), before);
-              expect(
-                buttonSurface(tester, of: switcher).borderRadius,
-                BorderRadius.circular(before.height / 2),
-              );
-              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-              await tester.pumpAndSettle();
-              expect(tester.takeException(), isNull);
-            }
-          }
-        }
-      },
+    expect(find.byKey(const ValueKey('forum-tabs-switcher')), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.chevronDown,
+      ),
+      findsNothing,
     );
+    expect(
+      find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+      findsNothing,
+    );
+    final bar = tester.getRect(find.byType(ForumTabsBar));
+    final tab = tester.getRect(
+      find.byKey(const ValueKey('forum-tab-item-topic-1')),
+    );
+    expect(tab.left, bar.left + 10);
 
-    testWidgets('searches open tabs and restores a chosen closed tab', (
-      tester,
-    ) async {
-      final selected = <String>[];
-      final reopened = <String>[];
-      await _pumpBar(
-        tester,
-        items: const [first, second],
-        recentlyClosedItems: const [third],
-        selectedId: first.id,
-        onSelect: selected.add,
-        onReopen: reopened.add,
-      );
+    await tester.tap(find.text(second.title));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-tab-close-topic-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('forum-tabs-add')));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Topics 1'), findsOneWidget);
-      expect(find.text('Chats 1'), findsOneWidget);
-      expect(find.text('Recently closed 1'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
-        findsOneWidget,
-      );
-      final rowTitle = tester.widget<Text>(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
-          matching: find.text(first.title),
-        ),
-      );
-      expect(rowTitle.style?.fontSize, 14);
-      expect(find.textContaining('Scoped to'), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is DIcon && widget.icon == DIcons.comment,
-          ),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.enterText(
-        find.byKey(const ValueKey('forum-tabs-switcher-search')),
-        'updates',
-      );
-      await tester.pump();
-
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-open-topic-1')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
-        findsOneWidget,
-      );
-      expect(find.text('Topics 1'), findsNothing);
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-      );
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
-        findsNothing,
-      );
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-      );
-      await tester.pump();
-
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-recent-updates-3')),
-      );
-      await tester.pumpAndSettle();
-      expect(reopened, [third.id]);
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-menu')),
-        findsNothing,
-      );
-
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<DInput>(
-              find.byKey(const ValueKey('forum-tabs-switcher-search')),
-            )
-            .controller!
-            .text,
-        'updates',
-      );
-      await tester.enterText(
-        find.byKey(const ValueKey('forum-tabs-switcher-search')),
-        '',
-      );
-      await tester.pump();
-      await tester.tap(
-        find.byKey(const ValueKey('forum-tabs-switcher-open-chat-2')),
-      );
-      await tester.pumpAndSettle();
-      expect(selected, [second.id]);
-    });
-
-    testWidgets('shows empty history count and sizes the menu to its results', (
-      tester,
-    ) async {
-      await _pumpBar(tester, items: const [first], selectedId: first.id);
-
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const ValueKey('forum-tabs-switcher-history')),
-        findsOneWidget,
-      );
-      expect(find.text('Recently closed 0'), findsOneWidget);
-      final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
-      expect(tester.getSize(menu).height, lessThan(200));
-
-      await tester.enterText(
-        find.byKey(const ValueKey('forum-tabs-switcher-search')),
-        'missing',
-      );
-      await tester.pump();
-
-      expect(find.text('Topics 1'), findsNothing);
-      expect(tester.getSize(menu).height, lessThan(200));
-    });
-
-    for (final theme in [AppTheme.light, AppTheme.dark]) {
-      testWidgets(
-        'wraps titles and keeps close actions separate at 200% text size in ${theme.brightness.name} mode',
-        (tester) async {
-          tester.view
-            ..physicalSize = const Size(320, 540)
-            ..devicePixelRatio = 1;
-          tester.platformDispatcher.textScaleFactorTestValue = 2;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-          const longTab = ForumTabItem(
-            id: 'long-topic',
-            title:
-                'SECURITY: Enforce private livestream event chat permissions',
-            icon: DIcons.layerGroup,
-          );
-          final closed = <String>[];
-          final selected = <String>[];
-          await _pumpBar(
-            tester,
-            items: const [longTab, third],
-            selectedId: longTab.id,
-            width: 320,
-            theme: theme,
-            onClose: closed.add,
-            onSelect: selected.add,
-          );
-
-          await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')));
-          await tester.pumpAndSettle();
-
-          final menu = find.byKey(const ValueKey('forum-tabs-switcher-menu'));
-          final row = find.byKey(
-            const ValueKey('forum-tabs-switcher-open-long-topic'),
-          );
-          final shortRow = find.byKey(
-            const ValueKey('forum-tabs-switcher-open-updates-3'),
-          );
-          final close = find.descendant(
-            of: row,
-            matching: find.byType(DButton),
-          );
-          expect(tester.takeException(), isNull);
-          expect(
-            tester.getSize(row).height,
-            greaterThanOrEqualTo(tester.getSize(shortRow).height),
-          );
-          expect(tester.getRect(menu).right, lessThanOrEqualTo(320));
-          expect(tester.getRect(menu).bottom, lessThanOrEqualTo(540));
-          expect(tester.getRect(row).contains(tester.getCenter(close)), isTrue);
-
-          await tester.tap(close);
-          await tester.pumpAndSettle();
-
-          expect(closed, [longTab.id]);
-          expect(selected, isEmpty);
-          expect(menu, findsOneWidget);
-        },
-      );
-    }
+    expect(selected, [second.id]);
+    expect(closed, [first.id]);
+    expect(added, 1);
+    expect(
+      find.byKey(const ValueKey('forum-tabs-switcher-menu')),
+      findsNothing,
+    );
   });
 
   group('tab adornments', () {
@@ -2056,12 +1691,10 @@ void main() {
           .position;
       final add = find.byKey(const ValueKey('forum-tabs-add'));
       final addRect = tester.getRect(add);
-      final switcher = tester.getRect(
-        find.byKey(const ValueKey('forum-tabs-switcher')),
-      );
+      final barRect = tester.getRect(find.byType(ForumTabsBar));
       final scrollRect = tester.getRect(scroll);
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(scrollRect.left, closeTo(switcher.right + 8, .01));
+      expect(scrollRect.left, closeTo(barRect.left + 10, .01));
       expect(scrollRect.right, closeTo(addRect.left - 6, .01));
       expect(
         find.byKey(const ValueKey('forum-tabs-scroll-forward')),
@@ -2738,8 +2371,6 @@ Future<void> _pumpBar(
   ValueChanged<String>? onClose,
   void Function(String id, int newIndex)? onReorder,
   ValueChanged<String>? onCloseOthers,
-  List<ForumTabItem> recentlyClosedItems = const [],
-  ValueChanged<String>? onReopen,
   void Function(String id, String title)? onRename,
   double width = 500,
   ThemeData? theme,
@@ -2810,8 +2441,6 @@ Future<void> _pumpBar(
                         onClose: onClose ?? (_) {},
                         onReorder: onReorder ?? (_, _) {},
                         onCloseOthers: onCloseOthers ?? (_) {},
-                        recentlyClosedItems: recentlyClosedItems,
-                        onReopen: onReopen,
                         onRename: onRename,
                       ),
                     ),

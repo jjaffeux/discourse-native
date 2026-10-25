@@ -102,8 +102,6 @@ void main() {
           'interactiveBackgroundColor': 1,
         },
         'lib/src/shell/composer/components/image.dart': {'foregroundColor': 1},
-        // The tab switcher uses Native's pill shape.
-        'lib/src/shell/forum_tabs_bar.dart': {'shape': 1},
         // A day separator is a pill on the stream's own surface and border.
         'lib/src/shell/stream_day_separator.dart': {
           'shape': 1,

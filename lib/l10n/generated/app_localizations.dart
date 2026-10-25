@@ -14512,38 +14512,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Browse tabs'**
-  String get browseTabs;
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Search tabs...'**
-  String get searchTabs;
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Close {itemTitle}'**
   String closeForumtabsbar(String itemTitle);
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Browse tabs in {forumName}'**
-  String browseTabsIn(String forumName);
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Lists'**
-  String get lists;
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Recently closed '**
-  String get recentlyClosed;
 
   /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
   ///
