@@ -743,14 +743,7 @@ void main() {
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
 
-      await tester.tap(find.byKey(const ValueKey('forum-tabs-switcher')).first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(ValueKey('forum-tabs-switcher-open-$originalId')),
-          matching: find.byType(DButton),
-        ),
-      );
+      await tester.tap(find.byKey(ValueKey('forum-tab-close-$originalId')));
       await tester.pumpAndSettle();
       expect(controller.tabsForCurrentForum, hasLength(4));
       expect(
@@ -761,16 +754,25 @@ void main() {
       );
       expect(_bar(tester).items.map((item) => item.id), contains(newId));
       expect(_bar(tester).selectedId, isNot(originalId));
-      expect(_bar(tester).recentlyClosedItems.single.id, originalId);
-      await tester.tap(
-        find.byKey(ValueKey('forum-tabs-switcher-recent-$originalId')),
+      expect(
+        controller.recentlyClosedTabsForCurrentForum.single.id,
+        originalId,
+      );
+      expect(
+        await _pressShortcut(
+          tester,
+          LogicalKeyboardKey.metaLeft,
+          LogicalKeyboardKey.keyT,
+          shift: true,
+        ),
+        isTrue,
       );
       await tester.pumpAndSettle();
 
       expect(controller.activeTabId, originalId);
       expect(_bar(tester).selectedId, originalId);
       expect(_bar(tester).items, hasLength(4));
-      expect(_bar(tester).recentlyClosedItems, isEmpty);
+      expect(controller.recentlyClosedTabsForCurrentForum, isEmpty);
     }),
   );
 
@@ -1003,12 +1005,6 @@ void main() {
               matching: find.byType(ForumTabsBar),
             );
             final barRect = tester.getRect(bar);
-            final switcher = tester.getRect(
-              find.descendant(
-                of: bar,
-                matching: find.byKey(const ValueKey('forum-tabs-switcher')),
-              ),
-            );
             final tab = tester.getRect(
               find.descendant(of: bar, matching: find.byType(DDocumentTab)),
             );
@@ -1017,10 +1013,7 @@ void main() {
             // padding may shift its controls away from the panel edges.
             expect(headerRect.height, 56);
             expect(barRect.topLeft, headerRect.topLeft);
-            expect(switcher.left - headerRect.left, 10);
-            expect(tab.left, switcher.right + 8);
-            expect(switcher.size, Size.square(tab.height));
-            expect(switcher.center.dy, headerRect.center.dy);
+            expect(tab.left - headerRect.left, 10);
             expect(tab.center.dy, headerRect.center.dy);
             if (size != _compact) {
               final target = (header.widget as TopicPanelTabs).panel!;

@@ -43,7 +43,7 @@ enum DControlSize {
   /// Desktop workspace document tab: 35px artwork and 13px label.
   documentTab,
 
-  /// Desktop workspace tab switcher and new-tab actions.
+  /// Desktop workspace new-tab actions.
   tabAction,
 
   /// The close action inside a workspace document tab.

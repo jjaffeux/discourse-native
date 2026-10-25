@@ -11211,14 +11211,6 @@
   "@moveToMainPanel": {
     "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
   },
-  "browseTabs": "Browse tabs",
-  "@browseTabs": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
-  },
-  "searchTabs": "Search tabs...",
-  "@searchTabs": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
-  },
   "closeForumtabsbar": "Close {itemTitle}",
   "@closeForumtabsbar": {
     "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.",
@@ -11227,23 +11219,6 @@
         "type": "String"
       }
     }
-  },
-  "browseTabsIn": "Browse tabs in {forumName}",
-  "@browseTabsIn": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.",
-    "placeholders": {
-      "forumName": {
-        "type": "String"
-      }
-    }
-  },
-  "lists": "Lists",
-  "@lists": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
-  },
-  "recentlyClosed": "Recently closed ",
-  "@recentlyClosed": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
   },
   "dropHere": "Drop {itemTitle} here",
   "@dropHere": {

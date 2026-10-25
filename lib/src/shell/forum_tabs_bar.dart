@@ -9,7 +9,6 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
-import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -26,14 +25,11 @@ import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'start_page_drag.dart';
 
-enum ForumTabKind { list, chat, topic }
-
 @immutable
 class ForumTabItem {
   const ForumTabItem({
     required this.id,
     required this.title,
-    this.kind = ForumTabKind.list,
     this.siteUrl,
     this.icon,
     this.color,
@@ -53,7 +49,6 @@ class ForumTabItem {
 
   final String id;
   final String title;
-  final ForumTabKind kind;
   final String? siteUrl;
   final DIconData? icon;
   final Color? color;
@@ -70,7 +65,6 @@ class ForumTabItem {
   Object get _presentation => (
     id,
     title,
-    kind,
     siteUrl,
     icon,
     color,
@@ -97,8 +91,6 @@ class ForumTabsBar extends StatefulWidget {
     required this.onClose,
     required this.onReorder,
     required this.onCloseOthers,
-    this.recentlyClosedItems = const [],
-    this.onReopen,
     this.onRename,
     this.showAdd = true,
     this.acceptsTab,
@@ -142,8 +134,6 @@ class ForumTabsBar extends StatefulWidget {
   final ValueChanged<String> onClose;
   final void Function(String id, int newIndex) onReorder;
   final ValueChanged<String> onCloseOthers;
-  final List<ForumTabItem> recentlyClosedItems;
-  final ValueChanged<String>? onReopen;
   final void Function(String id, String title)? onRename;
 
   @override
@@ -184,7 +174,6 @@ int? _destinationFor(int source, int insertion) {
 
 class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 6.0;
-  static const _switcherGap = 8.0;
   static const _minimumTabWidth = 110.0;
   static const _tabVerticalInset = 10.5;
   static const _tabShadowOutset = 20.0;
@@ -390,15 +379,10 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
             oldWidget.incomingTab?._presentation ||
         (widget.onDropTab == null) != (oldWidget.onDropTab == null) ||
         (widget.onAdd == null) != (oldWidget.onAdd == null) ||
-        (widget.onReopen == null) != (oldWidget.onReopen == null) ||
         (widget.onRename == null) != (oldWidget.onRename == null) ||
         widget.panel != oldWidget.panel ||
         (widget.onMoveToPanel == null) != (oldWidget.onMoveToPanel == null) ||
-        !_sameItems(widget.items, oldWidget.items) ||
-        !_sameItems(
-          widget.recentlyClosedItems,
-          oldWidget.recentlyClosedItems,
-        )) {
+        !_sameItems(widget.items, oldWidget.items)) {
       _contents = null;
     }
   }
@@ -524,31 +508,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
         key: _barKey,
         children: [
           Positioned.fill(
-            // Only the tabs take the strip's vertical inset. The switcher and
-            // add actions are regular-size squares, taller than that inset
-            // leaves, so they center on the full strip instead of being
-            // squashed into the tab lane.
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    widthFactor: 1,
-                    child: _ForumTabSwitcher(
-                      forumName: widget.forumName,
-                      panel: widget.panel,
-                      items: widget.items,
-                      selectedId: widget.selectedId,
-                      recentlyClosedItems: widget.recentlyClosedItems,
-                      onSelect: (id) => widget.onSelect(id),
-                      onClose: (id) => widget.onClose(id),
-                      onReopen: widget.onReopen == null
-                          ? null
-                          : (id) => widget.onReopen!(id),
-                    ),
-                  ),
-                  const SizedBox(width: _switcherGap),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -681,497 +645,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       ),
     );
   }
-}
-
-class _ForumTabSwitcher extends StatefulWidget {
-  const _ForumTabSwitcher({
-    required this.forumName,
-    required this.panel,
-    required this.items,
-    required this.selectedId,
-    required this.recentlyClosedItems,
-    required this.onSelect,
-    required this.onClose,
-    required this.onReopen,
-  });
-
-  final String forumName;
-  final ForumPanel? panel;
-  final List<ForumTabItem> items;
-  final String selectedId;
-  final List<ForumTabItem> recentlyClosedItems;
-  final ValueChanged<String> onSelect;
-  final ValueChanged<String> onClose;
-  final ValueChanged<String>? onReopen;
-
-  @override
-  State<_ForumTabSwitcher> createState() => _ForumTabSwitcherState();
-}
-
-class _ForumTabSwitcherState extends State<_ForumTabSwitcher> {
-  final DDropdownMenuController _menu = DDropdownMenuController();
-  final TextEditingController _search = TextEditingController();
-  final FocusNode _searchFocus = FocusNode(debugLabel: 'tab switcher search');
-  final FocusNode _historyFocus = FocusNode(debugLabel: 'recently closed');
-  final Map<String, FocusNode> _rowFocus = {};
-  bool _historyExpanded = true;
-
-  FocusNode _focusFor(String key) => _rowFocus.putIfAbsent(
-    key,
-    () => FocusNode(debugLabel: 'tab switcher $key'),
-  );
-
-  @override
-  void didUpdateWidget(_ForumTabSwitcher oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final retained = {
-      for (final item in widget.items) 'open-${item.id}',
-      for (final item in widget.recentlyClosedItems) 'recent-${item.id}',
-    };
-    for (final key in _rowFocus.keys.toList()) {
-      if (retained.contains(key)) continue;
-      final node = _rowFocus.remove(key)!;
-      WidgetsBinding.instance.addPostFrameCallback((_) => node.dispose());
-    }
-  }
-
-  @override
-  void dispose() {
-    _menu.dispose();
-    _searchFocus.dispose();
-    _historyFocus.dispose();
-    for (final node in _rowFocus.values) {
-      node.dispose();
-    }
-    _search.dispose();
-    super.dispose();
-  }
-
-  void _handleOpen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _menu.isOpen) _searchFocus.requestFocus();
-    });
-  }
-
-  bool _matches(ForumTabItem item) {
-    final query = _search.text.trim().toLowerCase();
-    return query.isEmpty || item.title.toLowerCase().contains(query);
-  }
-
-  void _select(String id) {
-    widget.onSelect(id);
-    _menu.close();
-  }
-
-  void _reopen(String id) {
-    widget.onReopen?.call(id);
-    _menu.close();
-  }
-
-  KeyEventResult _navigate(KeyEvent event, List<FocusNode> nodes) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-    final key = event.logicalKey;
-    if (key != LogicalKeyboardKey.arrowDown &&
-        key != LogicalKeyboardKey.arrowUp &&
-        key != LogicalKeyboardKey.home &&
-        key != LogicalKeyboardKey.end) {
-      return KeyEventResult.ignored;
-    }
-    final current = nodes.indexWhere((node) => node.hasFocus);
-    final next = switch (key) {
-      LogicalKeyboardKey.home => 0,
-      LogicalKeyboardKey.end => nodes.length - 1,
-      LogicalKeyboardKey.arrowUp => (current - 1 + nodes.length) % nodes.length,
-      _ => (current + 1) % nodes.length,
-    };
-    nodes[next].requestFocus();
-    return KeyEventResult.handled;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final viewportSize = MediaQuery.sizeOf(context);
-    final panelWidth = math.max(0.0, math.min(420.0, viewportSize.width - 16));
-    final availablePanelHeight = math.max(
-      0.0,
-      viewportSize.height -
-          MediaQuery.paddingOf(context).vertical -
-          MediaQuery.viewInsetsOf(context).bottom -
-          72,
-    );
-    final groups = widget.panel == ForumPanel.secondary
-        ? ForumTabKind.values.reversed
-        : ForumTabKind.values;
-    final visibleOpenItems = [
-      for (final kind in groups)
-        ...widget.items.where((item) => item.kind == kind && _matches(item)),
-    ];
-    final navigationNodes = [
-      _searchFocus,
-      for (final item in visibleOpenItems) _focusFor('open-${item.id}'),
-      _historyFocus,
-      if (_historyExpanded)
-        for (final item in widget.recentlyClosedItems)
-          _focusFor('recent-${item.id}'),
-    ];
-
-    return Center(
-      widthFactor: 1,
-      child: Semantics(
-        container: true,
-        explicitChildNodes: true,
-        child: DDropdownMenu(
-          controller: _menu,
-          onOpenChange: (open, reason) {
-            if (open) {
-              _handleOpen();
-            } else {
-              _searchFocus.unfocus();
-            }
-          },
-          content: DDropdownMenuContent(
-            semanticLabel: context.l10n.browseTabs,
-            width: panelWidth,
-            cornerRadius: 12,
-            constraints: BoxConstraints(
-              maxHeight: math.min(480.0, availablePanelHeight),
-            ),
-            autofocus: false,
-            children: [
-              Focus(
-                canRequestFocus: false,
-                onKeyEvent: (_, event) => _navigate(event, navigationNodes),
-                child: Padding(
-                  key: const ValueKey('forum-tabs-switcher-menu'),
-                  padding: const EdgeInsets.all(3),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      DInput(
-                        key: const ValueKey('forum-tabs-switcher-search'),
-                        controller: _search,
-                        focusNode: _searchFocus,
-                        onChanged: (_) => setState(() {}),
-                        size: DControlSize.large,
-                        textInputAction: TextInputAction.search,
-                        hintText: context.l10n.searchTabs,
-                        prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
-                      ),
-                      const SizedBox(height: 10),
-                      for (final kind in groups)
-                        if (widget.items.any(
-                          (item) => item.kind == kind && _matches(item),
-                        )) ...[
-                          _TabSwitcherHeading(
-                            kind: kind,
-                            count: widget.items
-                                .where(
-                                  (item) => item.kind == kind && _matches(item),
-                                )
-                                .length,
-                          ),
-                          for (final item in widget.items)
-                            if (item.kind == kind && _matches(item))
-                              _TabSwitcherRow(
-                                key: ValueKey(
-                                  'forum-tabs-switcher-open-${item.id}',
-                                ),
-                                item: item,
-                                selected: item.id == widget.selectedId,
-                                focusNode: _focusFor('open-${item.id}'),
-                                onTap: () => _select(item.id),
-                                trailing: _TabSwitcherRowAction(
-                                  label: context.l10n.closeForumtabsbar(
-                                    (item.title).toString(),
-                                  ),
-                                  icon: DIcons.xmark,
-                                  onPressed: () => widget.onClose(item.id),
-                                ),
-                              ),
-                          const SizedBox(height: 10),
-                        ],
-                      DSeparator(space: 1, color: theme.shell.divider),
-                      _TabSwitcherHistoryToggle(
-                        count: widget.recentlyClosedItems.length,
-                        expanded: _historyExpanded,
-                        focusNode: _historyFocus,
-                        onTap: () => setState(
-                          () => _historyExpanded = !_historyExpanded,
-                        ),
-                      ),
-                      if (_historyExpanded)
-                        for (final item in widget.recentlyClosedItems)
-                          _TabSwitcherRow(
-                            key: ValueKey(
-                              'forum-tabs-switcher-recent-${item.id}',
-                            ),
-                            item: item,
-                            recentlyClosed: true,
-                            focusNode: _focusFor('recent-${item.id}'),
-                            onTap: widget.onReopen == null
-                                ? null
-                                : () => _reopen(item.id),
-                            trailing: const DIcon(
-                              DIcons.arrowRotateLeft,
-                              size: 15,
-                            ),
-                          ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          child: DDropdownMenuTrigger(
-            builder: (context, state) => DButton.iconOnly(
-              key: const ValueKey('forum-tabs-switcher'),
-              semanticLabel: context.l10n.browseTabsIn(
-                (widget.forumName).toString(),
-              ),
-              tooltip: context.l10n.browseTabs,
-              variant: DButtonVariant.recessed,
-              size: DControlSize.documentTab,
-              shape: DButtonShape.pill,
-              icon: const DIcon(DIcons.chevronDown),
-              focusNode: state.focusNode,
-              hasPopup: true,
-              expanded: state.open,
-              onPressed: state.toggle,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabSwitcherHeading extends StatelessWidget {
-  const _TabSwitcherHeading({required this.kind, required this.count});
-
-  final ForumTabKind kind;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = switch (kind) {
-      ForumTabKind.list => context.l10n.lists,
-      ForumTabKind.chat => context.l10n.chats,
-      ForumTabKind.topic => context.l10n.topics,
-    };
-    return Semantics(
-      header: true,
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 10, 4),
-        child: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: '$label ',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              TextSpan(
-                text: '$count',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            letterSpacing: 0.24,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabSwitcherHistoryToggle extends StatelessWidget {
-  const _TabSwitcherHistoryToggle({
-    required this.count,
-    required this.expanded,
-    required this.focusNode,
-    required this.onTap,
-  });
-
-  final int count;
-  final bool expanded;
-  final FocusNode focusNode;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: DButton(
-        key: const ValueKey('forum-tabs-switcher-history'),
-        onPressed: onTap,
-        variant: DButtonVariant.inline,
-        size: DControlSize.small,
-        expanded: expanded,
-        focusNode: focusNode,
-        icon: DIcon(
-          expanded ? DIcons.chevronDown : DIcons.chevronRight,
-          size: 10,
-          color: muted,
-        ),
-        label: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: context.l10n.recentlyClosed,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              TextSpan(
-                text: '$count',
-                style: TextStyle(color: muted, fontWeight: FontWeight.w400),
-              ),
-            ],
-          ),
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: muted,
-            fontSize: DiscourseTypography.xs,
-            letterSpacing: 0.24,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabSwitcherRow extends StatelessWidget {
-  const _TabSwitcherRow({
-    super.key,
-    required this.item,
-    required this.onTap,
-    this.selected = false,
-    this.recentlyClosed = false,
-    this.focusNode,
-    this.trailing,
-  });
-
-  final ForumTabItem item;
-  final VoidCallback? onTap;
-  final bool selected;
-  final bool recentlyClosed;
-  final FocusNode? focusNode;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final foreground = recentlyClosed
-        ? theme.colorScheme.onSurfaceVariant
-        : theme.colorScheme.onSurface;
-    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: foreground,
-      fontSize: DiscourseTypography.sm,
-      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-    );
-    final maxLines = MediaQuery.textScalerOf(context).scale(14) > 21 ? null : 1;
-    final title = switch (item.siteUrl) {
-      final siteUrl? => SiteEmojiText.plain(
-        item.title,
-        siteUrl: siteUrl,
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        style: labelStyle,
-      ),
-      null => Text(
-        item.title,
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        style: labelStyle,
-      ),
-    };
-    final icon = recentlyClosed
-        ? DIcon(
-            switch (item.kind) {
-              ForumTabKind.list => DIcons.list,
-              ForumTabKind.chat => DIcons.comment,
-              ForumTabKind.topic => DIcons.layerGroup,
-            },
-            size: 14,
-            color: theme.colorScheme.onSurfaceVariant,
-          )
-        : _tabPrefix(
-                context,
-                item,
-                theme.colorScheme.onSurfaceVariant,
-                size: 15,
-              ) ??
-              DIcon(
-                DIcons.layerGroup,
-                size: 15,
-                color: theme.colorScheme.onSurfaceVariant,
-              );
-    final row = Padding(
-      padding: EdgeInsets.only(bottom: recentlyClosed ? 2 : 0),
-      child: DTooltip(
-        message: item.title,
-        excludeFromSemantics: true,
-        child: DItem(
-          size: DItemSize.xs,
-          shape: DItemShape.menu,
-          selected: selected,
-          selectionStyle: DItemSelectionStyle.strongNeutral,
-          showSelectionIndicator: false,
-          focusNode: focusNode,
-          onPressed: onTap,
-          semanticLabel: item.title,
-          children: [
-            DItemMedia(
-              child: SizedBox(
-                width: 18,
-                height: 20,
-                child: Center(child: icon),
-              ),
-            ),
-            DItemContent(children: [title]),
-            if (trailing != null) DItemActions(children: [trailing!]),
-          ],
-        ),
-      ),
-    );
-    final shell = ShellScope.maybeRead(context);
-    final tab =
-        shell?.currentWorkspace?.tabById(item.id) ??
-        shell?.recentlyClosedTabsForCurrentForum
-            .where((tab) => tab.id == item.id)
-            .firstOrNull;
-    return tab == null
-        ? row
-        : LinkTarget.content(content: tab.currentContent, child: row);
-  }
-}
-
-class _TabSwitcherRowAction extends StatelessWidget {
-  const _TabSwitcherRowAction({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String label;
-  final DIconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => DButton.iconOnly(
-    onPressed: onPressed,
-    variant: DButtonVariant.inline,
-    size: DControlSize.tabClose,
-    tooltip: label,
-    icon: DIcon(icon, size: 13),
-  );
 }
 
 Widget? _tabPrefix(
@@ -1949,7 +1422,6 @@ final class _CurrentForumTabsSnapshot {
     required this.siteUrl,
     required this.forumName,
     required this.tabs,
-    required this.recentlyClosedTabs,
     required this.activeTabId,
     required this.presentationToken,
     required this.listTabId,
@@ -1962,7 +1434,6 @@ final class _CurrentForumTabsSnapshot {
       siteUrl: instance?.url,
       forumName: instance?.title,
       tabs: controller.tabsForCurrentForum,
-      recentlyClosedTabs: controller.recentlyClosedTabsForCurrentForum,
       activeTabId: controller.activeTabId,
       listTabId: controller.listPanelTab?.id,
       bookmarksRevision: controller.destinationBookmarksRevision,
@@ -1975,7 +1446,6 @@ final class _CurrentForumTabsSnapshot {
   final String? siteUrl;
   final String? forumName;
   final List<ForumTab> tabs;
-  final List<ForumTab> recentlyClosedTabs;
   final String? activeTabId;
   final Object? presentationToken;
   final String? listTabId;
@@ -1988,18 +1458,9 @@ final class _CurrentForumTabsSnapshot {
       bookmarksRevision == other.bookmarksRevision &&
       forumName == other.forumName &&
       identical(tabs, other.tabs) &&
-      _sameTabs(recentlyClosedTabs, other.recentlyClosedTabs) &&
       activeTabId == other.activeTabId &&
       listTabId == other.listTabId &&
       identical(presentationToken, other.presentationToken);
-
-  static bool _sameTabs(List<ForumTab> left, List<ForumTab> right) {
-    if (left.length != right.length) return false;
-    for (var index = 0; index < left.length; index++) {
-      if (!identical(left[index], right[index])) return false;
-    }
-    return true;
-  }
 
   @override
   int get hashCode => Object.hash(
@@ -2007,7 +1468,6 @@ final class _CurrentForumTabsSnapshot {
     bookmarksRevision,
     forumName,
     identityHashCode(tabs),
-    Object.hashAll(recentlyClosedTabs.map(identityHashCode)),
     activeTabId,
     listTabId,
     identityHashCode(presentationToken),
@@ -2131,10 +1591,6 @@ class CurrentForumTabsBar extends StatelessWidget {
               ),
             ),
             items: [for (final tab in tabs) itemFor(tab)],
-            recentlyClosedItems: [
-              for (final tab in state.recentlyClosedTabs)
-                if (panel == null || tab.panel == panel) itemFor(tab),
-            ],
             selectedId: tabs.any((tab) => tab.id == selectedId)
                 ? selectedId!
                 : tabs.first.id,
@@ -2154,13 +1610,6 @@ class CurrentForumTabsBar extends StatelessWidget {
               state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
             ),
             onCloseOthers: (id) => controller.closeOtherTabs(id, panel: panel),
-            onReopen: controller.canCreateTab
-                ? (id) {
-                    if (controller.reopenClosedTab(id)) {
-                      controller.selectTab(id);
-                    }
-                  }
-                : null,
           );
         },
       );
@@ -2176,19 +1625,12 @@ ForumTabItem _forumTabItem(
   required ForumTab tab,
 }) {
   final route = tab.currentContent;
-  final kind = route.isTopic
-      ? ForumTabKind.topic
-      : route.destination is ExtensionDestination &&
-            route.id.startsWith('chat-')
-      ? ForumTabKind.chat
-      : ForumTabKind.list;
   final destination = registry.forumTabDestination(context, siteUrl, tab);
   if (destination != null) {
     final emoji = destination.emoji;
     return ForumTabItem(
       id: tab.id,
       title: destination.label,
-      kind: kind,
       siteUrl: siteUrl,
       icon: destination.icon,
       color: destination.color,
@@ -2207,7 +1649,6 @@ ForumTabItem _forumTabItem(
   return ForumTabItem(
     id: tab.id,
     title: route.tabTitle,
-    kind: kind,
     siteUrl: siteUrl,
     icon: route.icon,
     color: route.color,
