@@ -259,6 +259,234 @@ void main() {
       expect(fixture.refreshes, 0);
     },
   );
+
+  test(
+    'a replacement tracking account on the same lease retires older writes',
+    () async {
+      final fixture = _Fixture();
+      final gate = Completer<void>();
+      fixture.api.topicGates.add(gate);
+      final stale = fixture.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.muted,
+      );
+      await pumpEventQueue();
+
+      fixture.tracking = TopicTrackingReconciler();
+      final replacement = fixture.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.watching,
+      );
+      await pumpEventQueue();
+      gate.complete();
+
+      expect(await stale, isFalse);
+      expect(await replacement, isTrue);
+      expect(
+        fixture.store.read<TopicDetail>(_site, 7)?.notificationLevel,
+        TopicNotificationLevel.watching,
+      );
+      expect(
+        fixture.tracking.notificationLevel(7),
+        TopicNotificationLevel.watching,
+      );
+    },
+  );
+
+  test('a finished write does not pin a later rollback baseline', () async {
+    final fixture = _Fixture();
+    expect(
+      await fixture.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.watching,
+      ),
+      isTrue,
+    );
+    await pumpEventQueue();
+    fixture.owner.observeTopicMessage(_site, 7, const {
+      'notification_level_change': 1,
+    }, fixture.lifecycle.capture(_site));
+    fixture.api.topicFailure = StateError('rejected');
+
+    expect(
+      await fixture.owner.updateTopic(_site, 7, TopicNotificationLevel.muted),
+      isFalse,
+    );
+    expect(
+      fixture.store.read<TopicDetail>(_site, 7)?.notificationLevel,
+      TopicNotificationLevel.normal,
+    );
+    expect(
+      fixture.tracking.notificationLevel(7),
+      TopicNotificationLevel.normal,
+    );
+  });
+
+  test('a missing API key rolls back topic and category choices', () async {
+    final fixture = _Fixture(credentials: FakeApiCredentialReader());
+
+    expect(
+      await fixture.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.watching,
+      ),
+      isFalse,
+    );
+    expect(
+      await fixture.owner.updateCategory(
+        _site,
+        1,
+        CategoryNotificationLevel.muted,
+      ),
+      isFalse,
+    );
+    expect(
+      fixture.store.read<TopicDetail>(_site, 7)?.notificationLevel,
+      TopicNotificationLevel.tracking,
+    );
+    expect(
+      fixture.tracking.notificationLevel(7),
+      TopicNotificationLevel.tracking,
+    );
+    expect(
+      fixture.store.read<TopicCategory>(_site, 1)!.notificationLevel,
+      CategoryNotificationLevel.normal,
+    );
+    expect(fixture.api.topicNotificationLevelsUpdated, isEmpty);
+    expect(fixture.api.writes, isEmpty);
+  });
+
+  test(
+    'a preference read begun before a newer category write is discarded',
+    () async {
+      final fixture = _Fixture();
+      final first = Completer<List<int>?>()..complete(null);
+      fixture.api.nextWrite = first;
+      expect(
+        await fixture.owner.updateCategory(
+          _site,
+          1,
+          CategoryNotificationLevel.muted,
+        ),
+        isTrue,
+      );
+      final staleRead = fixture.preferenceReads.single;
+      fixture.api.accounts['key'] = fixture.user;
+      expect(
+        await fixture.owner.updateCategory(
+          _site,
+          1,
+          CategoryNotificationLevel.normal,
+        ),
+        isTrue,
+      );
+
+      await staleRead();
+      expect(fixture.user.mutedCategoryIds, isEmpty);
+    },
+  );
+
+  test(
+    'a confirmed category write invalidates the sidebar and announces it',
+    () async {
+      final fixture = _Fixture();
+      expect(
+        await fixture.owner.updateCategory(
+          _site,
+          1,
+          CategoryNotificationLevel.muted,
+        ),
+        isTrue,
+      );
+      expect(fixture.taxonomy.invalidations, 1);
+      expect(fixture.changes, 1);
+    },
+  );
+
+  test(
+    'publication that retires the account stops its follow-up effects',
+    () async {
+      final fixture = _Fixture();
+      fixture.onPublish = () => fixture.owner.forget(_site);
+      expect(
+        await fixture.owner.updateCategory(
+          _site,
+          1,
+          CategoryNotificationLevel.muted,
+        ),
+        isTrue,
+      );
+      expect(fixture.taxonomy.invalidations, 0);
+      expect(fixture.refreshes, 0);
+      expect(fixture.changes, 0);
+    },
+  );
+
+  test(
+    'an earlier finished category write keeps later writes serialized',
+    () async {
+      final fixture = _Fixture();
+      final first = Completer<List<int>?>();
+      final second = Completer<List<int>?>();
+      fixture.api.nextWrite = first;
+      final writes = [
+        fixture.owner.updateCategory(_site, 1, CategoryNotificationLevel.muted),
+      ];
+      await pumpEventQueue();
+      writes.add(
+        fixture.owner.updateCategory(
+          _site,
+          2,
+          CategoryNotificationLevel.tracking,
+        ),
+      );
+      fixture.api.nextWrite = second;
+      first.complete([]);
+      await pumpEventQueue();
+      expect(fixture.api.writes.map((write) => write.id), [1, 2]);
+
+      writes.add(
+        fixture.owner.updateCategory(
+          _site,
+          1,
+          CategoryNotificationLevel.watching,
+        ),
+      );
+      await pumpEventQueue();
+      expect(fixture.api.writes.map((write) => write.id), [1, 2]);
+
+      second.complete([]);
+      expect(await Future.wait(writes), [true, true, true]);
+      expect(fixture.api.writes.map((write) => write.id), [1, 2, 1]);
+    },
+  );
+
+  test('a disposed owner refuses new writes', () async {
+    final fixture = _Fixture();
+    fixture.owner.dispose();
+    expect(
+      await fixture.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.watching,
+      ),
+      isFalse,
+    );
+    expect(
+      await fixture.owner.updateCategory(
+        _site,
+        1,
+        CategoryNotificationLevel.muted,
+      ),
+      isFalse,
+    );
+    expect(fixture.api.topicNotificationLevelsUpdated, isEmpty);
+    expect(fixture.api.writes, isEmpty);
+  });
 }
 
 final class _Fixture {
@@ -278,6 +506,7 @@ final class _Fixture {
         publish: (_, lease, updated) {
           if (failPublication) throw StateError('persistence unavailable');
           user = updated;
+          onPublish?.call();
         },
       ),
       taxonomy: taxonomy,
@@ -294,12 +523,15 @@ final class _Fixture {
               refreshCategoryPreferences,
             }) async {
               refreshes++;
+              if (refreshCategoryPreferences != null) {
+                preferenceReads.add(refreshCategoryPreferences);
+              }
               if (failRefresh) throw StateError('refresh unavailable');
               tracking.cancelSnapshot(ticket);
             },
       ),
       topicChanged: (_) {},
-      changed: () {},
+      changed: () => changes++,
     );
     addTearDown(owner.dispose);
   }
@@ -315,6 +547,9 @@ final class _Fixture {
   bool failPublication = false;
   bool failRefresh = false;
   int refreshes = 0;
+  int changes = 0;
+  void Function()? onPublish;
+  final preferenceReads = <Future<void> Function()>[];
 
   void replaceAccount() {
     final lease = lifecycle.capture(_site);
@@ -354,9 +589,10 @@ final class _Taxonomy implements NotificationPreferenceTaxonomy {
   _Taxonomy(this.store);
   final Store store;
   void Function(int, CategoryNotificationLevel)? onProject;
+  int invalidations = 0;
 
   @override
-  void invalidateCategorySidebar(String siteUrl) {}
+  void invalidateCategorySidebar(String siteUrl) => invalidations++;
 
   @override
   void projectNotificationLevel(
@@ -379,6 +615,28 @@ final class _Taxonomy implements NotificationPreferenceTaxonomy {
 final class _Api extends FakeDiscourseApi {
   Completer<List<int>?>? nextWrite;
   final writes = <({int id, CategoryNotificationLevel level})>[];
+  final topicGates = <Completer<void>>[];
+  Object? topicFailure;
+
+  @override
+  Future<void> updateTopicNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required TopicNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    await super.updateTopicNotificationLevel(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      topicId: topicId,
+      notificationLevel: notificationLevel,
+      clientId: clientId,
+    );
+    if (topicGates.isNotEmpty) await topicGates.removeAt(0).future;
+    final failure = topicFailure;
+    if (failure != null) throw failure;
+  }
 
   @override
   Future<List<int>?> updateCategoryNotificationLevel({
