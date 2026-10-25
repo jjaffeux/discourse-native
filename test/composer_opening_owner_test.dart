@@ -336,6 +336,10 @@ final class _Harness
   }
 
   @override
+  void Function(List<TopicCategory>) captureCategoryRead(String siteUrl) =>
+      (categories) => mergeCategories(siteUrl, categories);
+
+  @override
   Future<void> ensureForOpening(String siteUrl) => metadataReady.future;
 
   @override

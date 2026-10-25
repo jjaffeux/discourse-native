@@ -29,8 +29,9 @@ abstract interface class NotificationPreferenceTaxonomy {
     String siteUrl,
     int categoryId,
     CategoryNotificationLevel level,
-    SiteLease lease,
-  );
+    SiteLease lease, {
+    required bool pending,
+  });
   void invalidateCategorySidebar(String siteUrl);
 }
 
@@ -320,7 +321,7 @@ final class NotificationPreferenceTransactions {
         });
     account.admit(queue, write, tail);
     unawaited(tail);
-    _projectCategoryNotificationLevel(queue, write, level);
+    _projectCategoryNotificationLevel(queue, write, level, pending: true);
     return write.result.future;
   }
 
@@ -512,14 +513,16 @@ final class NotificationPreferenceTransactions {
   void _projectCategoryNotificationLevel(
     _CategoryNotificationQueue queue,
     _QueuedCategoryNotification write,
-    CategoryNotificationLevel level,
-  ) {
+    CategoryNotificationLevel level, {
+    bool pending = false,
+  }) {
     if (!_isLatestCategoryNotification(queue, write)) return;
     taxonomy.projectNotificationLevel(
       queue.account.siteUrl,
       queue.categoryId,
       level,
       queue.account.lease,
+      pending: pending,
     );
   }
 }

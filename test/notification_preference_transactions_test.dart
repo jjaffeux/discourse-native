@@ -363,8 +363,9 @@ final class _Taxonomy implements NotificationPreferenceTaxonomy {
     String siteUrl,
     int categoryId,
     CategoryNotificationLevel level,
-    SiteLease lease,
-  ) {
+    SiteLease lease, {
+    required bool pending,
+  }) {
     if (!lease.isCurrent) return;
     store.update<TopicCategory>(
       siteUrl,

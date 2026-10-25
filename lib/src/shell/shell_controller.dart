@@ -4492,7 +4492,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (currentInstance?.url != targetSiteUrl) return;
 
-    store.put(targetSiteUrl, category);
+    _taxonomy.mergeCategories(targetSiteUrl, [category]);
     final categories = _taxonomy.categoriesFor(targetSiteUrl);
     final byId = <int, TopicCategory>{
       for (final item in categories) item.id: item,
@@ -9983,6 +9983,10 @@ final class _ShellComposerOpeningHost
   @override
   void mergeCategories(String siteUrl, List<TopicCategory> categories) =>
       _shell._taxonomy.mergeCategories(siteUrl, categories);
+
+  @override
+  void Function(List<TopicCategory>) captureCategoryRead(String siteUrl) =>
+      _shell._taxonomy.captureCategoryRead(siteUrl);
 
   @override
   Future<void> ensureForOpening(String siteUrl) async {

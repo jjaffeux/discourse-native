@@ -69,6 +69,7 @@ abstract interface class ComposerOpeningMetadata {
   TopicCategory? categoryFor(String siteUrl, int? categoryId);
   List<TopicCategory> categoriesFor(String siteUrl);
   void mergeCategories(String siteUrl, List<TopicCategory> categories);
+  void Function(List<TopicCategory>) captureCategoryRead(String siteUrl);
   Future<void> ensureForOpening(String siteUrl);
   TopicComposerCapabilities capabilitiesFor(String siteUrl);
   Future<TopicTagSearch> searchTags(ComposerController composer, String term);
@@ -254,6 +255,7 @@ final class ComposerOpeningOwner {
         placeholderCategory != null &&
         identical(loadedCategory, placeholderCategory);
     if (categoryId != null && (loadedCategory == null || stillHasPlaceholder)) {
+      final publishCategories = _metadata.captureCategoryRead(siteUrl);
       final credential = await readCredentials();
       if (!isCurrent()) return;
       if (credential != null) {
@@ -267,7 +269,7 @@ final class ComposerOpeningOwner {
           );
           if (!isCurrent()) return;
           if (found.isNotEmpty) {
-            _metadata.mergeCategories(siteUrl, found);
+            publishCategories(found);
             _presentation.publishOpening();
           }
         } catch (_) {}

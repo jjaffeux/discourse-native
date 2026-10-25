@@ -1,7 +1,25 @@
 part of 'shell_controller.dart';
 
+final class _CategoryNotificationAuthority {
+  int revision = 0;
+  bool pending = false;
+}
+
+final class _CategoryRead {
+  _CategoryRead(this.site)
+    : revisions = {
+        for (final entry in site.categoryNotificationAuthorities.entries)
+          entry.key: entry.value.revision,
+      };
+
+  final _TaxonomySite site;
+  final Map<int, int> revisions;
+}
+
 final class _CategoryIdRequest {
-  _CategoryIdRequest(this.ids);
+  _CategoryIdRequest(this.ids, this.notificationRead);
+
+  final _CategoryRead notificationRead;
 
   final List<int> ids;
   final completion = Completer<List<TopicCategory>>();
@@ -17,6 +35,8 @@ final class _TaxonomySite {
   List<TopicCategory>? categories;
   CategoryFeed categoryFeed = const CategoryFeed();
   final Map<int, _CategoryIdRequest> categoryIdRequests = {};
+  final Map<int, _CategoryNotificationAuthority>
+  categoryNotificationAuthorities = {};
   Object? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   Object? tagDirectoryRequest;
@@ -81,8 +101,9 @@ final class _TaxonomyDirectoryController
     String siteUrl,
     int categoryId,
     CategoryNotificationLevel level,
-    SiteLease lease,
-  ) {
+    SiteLease lease, {
+    required bool pending,
+  }) {
     final site = _sites[siteUrl];
     if (site == null ||
         !identical(site.lease.session, lease.session) ||
@@ -90,7 +111,17 @@ final class _TaxonomyDirectoryController
         !site.lease.isCurrent) {
       return;
     }
-    final held = _shell.store.read<TopicCategory>(siteUrl, categoryId);
+    final authority = site.categoryNotificationAuthorities.putIfAbsent(
+      categoryId,
+      _CategoryNotificationAuthority.new,
+    );
+    authority.revision++;
+    authority.pending = pending;
+    final held =
+        _shell.store.read<TopicCategory>(siteUrl, categoryId) ??
+        site.categories
+            ?.where((category) => category.id == categoryId)
+            .firstOrNull;
     if (held == null || held.notificationLevel == level) return;
     final category = held.withNotificationLevel(level);
     final byId = <int, TopicCategory>{
@@ -306,7 +337,9 @@ final class _TaxonomyDirectoryController
     required String siteUrl,
     required String term,
   }) async {
-    final lease = _site(siteUrl).lease;
+    final site = _site(siteUrl);
+    final lease = site.lease;
+    final notificationRead = _CategoryRead(site);
     if (!lease.isCurrent) return const [];
     final categories = await _shell._filterLookup(
       siteUrl,
@@ -324,10 +357,17 @@ final class _TaxonomyDirectoryController
     if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
     if (categories.isNotEmpty) {
       final previous = categoriesFor(siteUrl);
-      mergeCategories(siteUrl, categories);
+      mergeCategories(siteUrl, categories, notificationRead: notificationRead);
       if (!listEquals(previous, categoriesFor(siteUrl))) _shell._notify();
     }
-    return categories;
+    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    final canonical = {
+      for (final category in site.categories ?? const <TopicCategory>[])
+        category.id: category,
+    };
+    return [
+      for (final category in categories) canonical[category.id] ?? category,
+    ];
   }
 
   Future<List<TopicFilterLookupValue>> searchFilterTags({
@@ -427,7 +467,9 @@ final class _TaxonomyDirectoryController
     required String siteUrl,
     required String term,
   }) async {
-    final lease = _site(siteUrl).lease;
+    final site = _site(siteUrl);
+    final lease = site.lease;
+    final notificationRead = _CategoryRead(site);
     if (!lease.isCurrent) return const [];
     final held = await _shell._credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return const [];
@@ -445,10 +487,17 @@ final class _TaxonomyDirectoryController
     );
     if (!lease.isCurrent) return const [];
     lease.commit(() {
-      mergeCategories(siteUrl, categories);
+      mergeCategories(siteUrl, categories, notificationRead: notificationRead);
       _shell._notify();
     });
-    return categories;
+    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    final canonical = {
+      for (final category in site.categories ?? const <TopicCategory>[])
+        category.id: category,
+    };
+    return [
+      for (final category in categories) canonical[category.id] ?? category,
+    ];
   }
 
   Future<void> loadCategories(String siteUrl, {bool force = false}) async {
@@ -574,7 +623,7 @@ final class _TaxonomyDirectoryController
           }
         }
         if (batch.isNotEmpty) {
-          final request = _CategoryIdRequest(batch);
+          final request = _CategoryIdRequest(batch, _CategoryRead(site));
           for (final id in batch) {
             site.categoryIdRequests[id] = request;
           }
@@ -620,6 +669,7 @@ final class _TaxonomyDirectoryController
                   instance.url,
                   changed,
                   isCurrent: requestIsCurrent,
+                  notificationRead: request.notificationRead,
                 );
                 if (requestIsCurrent()) _shell._notify();
               }
@@ -728,6 +778,7 @@ final class _TaxonomyDirectoryController
   }) async {
     if (!isCurrent()) return;
     final session = site.lease;
+    final notificationRead = _CategoryRead(site);
     try {
       final requestSession = AccountRequestSession(instance.url, session);
       final credential = instance.isConnected
@@ -745,7 +796,12 @@ final class _TaxonomyDirectoryController
       await _shell._presentation.ensureConfig(instance.url);
       if (!isCurrent()) return;
       session.commit(() {
-        mergeCategories(instance.url, result.categories, isCurrent: isCurrent);
+        mergeCategories(
+          instance.url,
+          result.categories,
+          isCurrent: isCurrent,
+          notificationRead: notificationRead,
+        );
         if (!isCurrent()) return;
 
         final held = site.categoryFeed;
@@ -793,10 +849,17 @@ final class _TaxonomyDirectoryController
     }
   }
 
+  void Function(List<TopicCategory>) captureCategoryRead(String siteUrl) {
+    final read = _CategoryRead(_site(siteUrl));
+    return (categories) =>
+        mergeCategories(siteUrl, categories, notificationRead: read);
+  }
+
   void mergeCategories(
     String siteUrl,
     Iterable<TopicCategory> incoming, {
     bool Function()? isCurrent,
+    _CategoryRead? notificationRead,
   }) {
     if (_shell.accountSessionDisposed || isCurrent?.call() == false) return;
     final site = _site(siteUrl);
@@ -804,12 +867,25 @@ final class _TaxonomyDirectoryController
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
         identical(_sites[siteUrl], site) &&
+        (notificationRead == null || identical(notificationRead.site, site)) &&
         (isCurrent?.call() ?? true);
     if (!canMerge()) return;
     final stored = <TopicCategory>[];
     for (final category in incoming) {
       if (!canMerge()) return;
-      stored.add(_shell.store.put(siteUrl, category));
+      final held =
+          _shell.store.read<TopicCategory>(siteUrl, category.id) ??
+          site.categories?.where((held) => held.id == category.id).firstOrNull;
+      final authority = site.categoryNotificationAuthorities[category.id];
+      final preserveLevel =
+          notificationRead == null ||
+          authority?.pending == true ||
+          (notificationRead.revisions[category.id] ?? 0) !=
+              (authority?.revision ?? 0);
+      final incoming = held != null && preserveLevel
+          ? category.withNotificationLevel(held.notificationLevel)
+          : category;
+      stored.add(_shell.store.put(siteUrl, incoming));
       if (!canMerge()) return;
     }
     final byId = <int, TopicCategory>{
@@ -843,6 +919,7 @@ final class _TaxonomyDirectoryController
 
     final lease = site.lease;
     final request = Object();
+    final notificationRead = _CategoryRead(site);
     site.categoryPageRequest = request;
     site.categoryFeed = feed.loadingNextPage();
     _shell._notify();
@@ -875,6 +952,7 @@ final class _TaxonomyDirectoryController
           siteUrl,
           result.categories,
           isCurrent: requestIsCurrent,
+          notificationRead: notificationRead,
         );
         if (!requestIsCurrent()) return;
         site.categoryPageRequest = null;
