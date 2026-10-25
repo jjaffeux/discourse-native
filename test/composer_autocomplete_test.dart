@@ -575,6 +575,46 @@ void main() {
 
       expect(popup.suggestions.map((s) => s.value), ['sam']);
     });
+
+    for (final staleFails in [false, true]) {
+      testWidgets(
+        'a superseded ${staleFails ? 'failure' : 'answer'} landing last '
+        'keeps the newer rows',
+        (tester) async {
+          final answers = <String, Completer<List<ComposerSuggestion>>>{};
+          final racing = ComposerAutocomplete(
+            search: (
+              users: (term) =>
+                  (answers[term] = Completer<List<ComposerSuggestion>>())
+                      .future,
+              hashtags: (_) async => const [],
+              emojis: (_) async => const [],
+            ),
+          );
+          addTearDown(racing.dispose);
+
+          racing.update(typed('hey @sa'));
+          await tester.pump(ComposerAutocomplete.debounce);
+          racing.update(typed('hey @sam'));
+          await tester.pump(ComposerAutocomplete.debounce);
+          answers['sam']!.complete([user('sam')]);
+          await tester.pump();
+          final sam = racing.suggestions.single;
+
+          if (staleFails) {
+            answers['sa']!.completeError(StateError('offline'));
+          } else {
+            answers['sa']!.complete([user('sally')]);
+          }
+          await tester.pump();
+
+          expect(racing.suggestions, [same(sam)]);
+          expect(racing.canAccept(sam), isTrue);
+          expect(racing.hasError, isFalse);
+          expect(racing.isLoading, isFalse);
+        },
+      );
+    }
   });
 
   group('hashtag autocomplete', () {

@@ -118,6 +118,18 @@ void main() {
     expect(fixture.terms, ['sam']);
   });
 
+  testWidgets('source disposal during the debounce sends no lookup', (
+    tester,
+  ) async {
+    final fixture = _Fixture();
+    addTearDown(fixture.dispose);
+    fixture.lookup.search('sam');
+    await tester.pump(const Duration(milliseconds: 199));
+    fixture.sourceCurrent = false;
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(fixture.terms, isEmpty);
+  });
+
   testWidgets(
     'selected users and groups survive rejected stale selection reset',
     (tester) async {

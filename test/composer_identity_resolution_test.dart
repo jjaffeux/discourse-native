@@ -171,30 +171,50 @@ void main() {
     },
   );
 
-  test('retirement cancels remaining identity batches', () async {
-    final wire = _IdentityWire()..gate = Completer<void>();
-    final api = _IdentityApi()..wire = wire.api;
+  for (final retirement in ['lease and state', 'lease', 'state']) {
+    test('$retirement retirement cancels remaining identity batches', () async {
+      final wire = _IdentityWire()..gate = Completer<void>();
+      final api = _IdentityApi()..wire = wire.api;
+      final shell = await _shell(api);
+      final pills = _pills(shell);
+      final refs = {for (var i = 0; i < 45; i++) 'tag$i'};
+      final names = {for (var i = 0; i < 45; i++) 'user$i'};
+      pills.resolve(refs, names);
+      await pumpEventQueue();
+      expect(wire.hashtagRequests, hasLength(1));
+      expect(wire.mentionRequests, hasLength(1));
+      if (retirement != 'state') shell.lifecycle.invalidate(_site);
+      if (retirement != 'lease') shell.clearAccountSessionState(_site);
+      wire.gate!.complete();
+      await pumpEventQueue();
+      pills.resolve(refs, names);
+      await pumpEventQueue();
+      expect(wire.hashtagRequests, hasLength(1));
+      expect(wire.mentionRequests, hasLength(1));
+      expect(pills.hashtag('tag0'), isNull);
+      expect(pills.mention('user0'), isNull);
+      if (retirement == 'lease and state') {
+        final snapshot = shell.cookingRequest(
+          siteUrl: _site,
+          raw: '#tag0 @user0',
+        );
+        expect(snapshot.snapshot.hashtags, isEmpty);
+        expect(snapshot.snapshot.mentions, isEmpty);
+      }
+    });
+  }
+
+  test('a retired lease hides identities before its state clears', () async {
+    final api = _IdentityApi();
     final shell = await _shell(api);
     final pills = _pills(shell);
-    final refs = {for (var i = 0; i < 45; i++) 'tag$i'};
-    final names = {for (var i = 0; i < 45; i++) 'user$i'};
-    pills.resolve(refs, names);
-    await pumpEventQueue();
-    expect(wire.hashtagRequests, hasLength(1));
-    expect(wire.mentionRequests, hasLength(1));
+    await shell.searchHashtags(siteUrl: _site, term: 'sail');
+    await shell.searchUsers(siteUrl: _site, topicId: 7, term: 'ali');
+    expect(pills.hashtag('sailing'), _hashtag);
+    expect(pills.mention('Alice'), isTrue);
     shell.lifecycle.invalidate(_site);
-    shell.clearAccountSessionState(_site);
-    wire.gate!.complete();
-    await pumpEventQueue();
-    pills.resolve(refs, names);
-    await pumpEventQueue();
-    expect(wire.hashtagRequests, hasLength(1));
-    expect(wire.mentionRequests, hasLength(1));
-    expect(pills.hashtag('tag0'), isNull);
-    expect(pills.mention('user0'), isNull);
-    final snapshot = shell.cookingRequest(siteUrl: _site, raw: '#tag0 @user0');
-    expect(snapshot.snapshot.hashtags, isEmpty);
-    expect(snapshot.snapshot.mentions, isEmpty);
+    expect(pills.hashtag('sailing'), isNull);
+    expect(pills.mention('Alice'), isNull);
   });
 
   test('search seeds the same pills and frozen cooking identity', () async {
