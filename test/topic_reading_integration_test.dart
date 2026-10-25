@@ -737,7 +737,7 @@ void _registerTopicReadingTests() {
       expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('the sidebar hides New Topic when the account cannot post', (
+    testWidgets('New Topic stays unavailable when the account cannot post', (
       tester,
     ) async {
       const user = DiscourseUser(
@@ -758,6 +758,9 @@ void _registerTopicReadingTests() {
       );
 
       expect(sidebarDestination('New Topic'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.pumpAndSettle();
+      expect(find.byType(ComposerPanel), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('compact New Topic reveals the composer pane', (tester) async {
@@ -1868,21 +1871,35 @@ void _registerTopicReadingTests() {
     testWidgets('a long category name ellipsizes instead of overflowing', (
       tester,
     ) async {
+      final name = 'Feature ${List.filled(30, 'requests-').join()}';
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': latest},
-        categoryList: [
-          TopicCategory(
-            id: 5,
-            name: 'Feature ${List.filled(30, 'requests-').join()}',
-            color: '0088CC',
-          ),
-        ],
+        categoryList: [TopicCategory(id: 5, name: name, color: '0088CC')],
       );
 
       await pumpShell(tester, phone, api: api);
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
+      final list = find.byType(TopicListView);
+      final label = find.descendant(
+        of: list,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              (widget.data?.startsWith('Feat') ?? false) &&
+              widget.data!.contains('…'),
+        ),
+      );
+      expect(label, findsOneWidget);
+      expect(
+        find.descendant(of: list, matching: find.text(name)),
+        findsNothing,
+      );
+      expect(
+        tester.getRect(label).right,
+        lessThanOrEqualTo(tester.getRect(list).right),
+      );
       expect(tester.takeException(), isNull);
     });
 
