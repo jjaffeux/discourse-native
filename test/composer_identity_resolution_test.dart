@@ -326,6 +326,44 @@ void main() {
     expect(snapshot.hashtags['SAILING::tag'], containsPair('id', 8));
   });
 
+  test('canonical typed suppression spans lookup batches', () async {
+    final requested = <List<String>>[];
+    final api = _IdentityApi()
+      ..wire = DiscourseApi(
+        client: MockClient((request) async {
+          final refs = request.url.queryParametersAll['slugs[]']!;
+          requested.add(refs);
+          return http.Response(
+            jsonEncode({
+              'tag': [
+                if (refs.contains('SAILING') || refs.contains('SAILING::tag'))
+                  {'type': 'tag', 'ref': 'sailing', 'slug': 'sailing', 'id': 8},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+    final shell = await _shell(api);
+    final pills = _pills(shell);
+    final refs = {
+      'SAILING',
+      for (var i = 0; i < 19; i++) 'missing$i',
+      'SAILING::tag',
+    };
+    pills.resolve(refs, {});
+    await pumpEventQueue();
+    expect(requested.map((batch) => batch.length), [20, 1]);
+    expect(requested.last, ['SAILING::tag']);
+    expect(pills.hashtag('SAILING'), isNull);
+    expect(pills.hashtag('SAILING::tag')?.id, 8);
+    final snapshot = shell
+        .cookingRequest(siteUrl: _site, raw: '#SAILING #SAILING::tag')
+        .snapshot;
+    expect(snapshot.hashtags, isNot(contains('SAILING')));
+    expect(snapshot.hashtags['SAILING::tag'], containsPair('id', 8));
+  });
+
   test('negative lookup entries deduplicate and failures can retry', () async {
     final api = _IdentityApi()..lookupGate = Completer<void>();
     final shell = await _shell(api);
