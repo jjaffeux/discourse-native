@@ -16,6 +16,240 @@ typedef BoardCapture = Future<void> Function(WidgetTester tester, String name);
 void main() => boardsWidgetTests();
 
 void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
+  Widget retainedPage(
+    BoardsFixture fixture, {
+    String site = boardsSite,
+    BoardsRoute route = const BoardsRoute(boardId: 1),
+  }) => MaterialApp(
+    theme: AppTheme.light,
+    home: Scaffold(
+      body: BoardsPage(
+        key: const ValueKey('retained-board-page'),
+        site: site,
+        route: route,
+        controller: fixture.controller,
+        navigation: fixture.navigation,
+      ),
+    ),
+  );
+
+  void setEnabled(BoardsFixture fixture, bool enabled) {
+    fixture.config = SiteConfig(
+      plugins: PluginData.none.withValue(
+        boardsSettingsKey,
+        BoardsSettings(enabled: enabled),
+      ),
+    );
+  }
+
+  for (final initiallyEnabled in [true, false]) {
+    testWidgets(
+      'retained detail activates with initially enabled $initiallyEnabled',
+      (tester) async {
+        final fixture = BoardsFixture(enabled: initiallyEnabled);
+        addTearDown(fixture.dispose);
+        fixture.controller.activatePluginSite(boardsSite, connected: true);
+        await tester.pumpWidget(retainedPage(fixture));
+        await tester.pumpAndSettle();
+        if (!initiallyEnabled) {
+          expect(
+            find.text('Boards is not enabled on this site.'),
+            findsOneWidget,
+          );
+          expect(fixture.transport.reads, isEmpty);
+          setEnabled(fixture, true);
+          await tester.pumpAndSettle();
+        }
+        expect(fixture.transport.reads.map((request) => request.path), [
+          '/boards/api/boards/1.json',
+        ]);
+        expect(find.text('Improve search'), findsOneWidget);
+        expect(fixture.live.subscriberCount('/boards/1'), 1);
+        fixture.controller.changed();
+        await tester.pumpAndSettle();
+        expect(fixture.transport.reads, hasLength(1));
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(fixture.live.channels, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('retained directory activates on each enable transition', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture(enabled: false);
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    await tester.pumpWidget(retainedPage(fixture, route: const BoardsRoute()));
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads, isEmpty);
+    for (var cycle = 0; cycle < 2; cycle++) {
+      setEnabled(fixture, true);
+      await tester.pumpAndSettle();
+      expect(find.text('Product roadmap'), findsOneWidget);
+      expect(
+        fixture.transport.reads.map((request) => request.path),
+        List.filled(cycle + 1, '/boards/api/boards.json'),
+      );
+      expect(fixture.live.channels, isEmpty);
+      setEnabled(fixture, false);
+      await tester.pumpAndSettle();
+      expect(find.text('Boards is not enabled on this site.'), findsOneWidget);
+      expect(find.text('Product roadmap'), findsNothing);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    setEnabled(fixture, true);
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads, hasLength(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reenabling detail fences a read from the disabled account', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture(enabled: false);
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    final old = Completer<Map<String, dynamic>>();
+    var reads = 0;
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+      if (++reads == 1) return old.future;
+      final fresh = boardFixtureJson();
+      (fresh['board'] as Map)['name'] = 'Current board';
+      return fresh;
+    };
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    setEnabled(fixture, true);
+    await tester.pump();
+    expect(reads, 1);
+    expect(fixture.live.subscriberCount('/boards/1'), 1);
+    setEnabled(fixture, false);
+    await tester.pumpAndSettle();
+    expect(find.text('Boards is not enabled on this site.'), findsOneWidget);
+    expect(fixture.live.channels, isEmpty);
+    fixture.requests.forget(boardsSite);
+    setEnabled(fixture, true);
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(find.text('Current board'), findsOneWidget);
+    final stale = boardFixtureJson();
+    (stale['board'] as Map)['name'] = 'Private retired board';
+    old.complete(stale);
+    await tester.pumpAndSettle();
+    expect(find.text('Current board'), findsOneWidget);
+    expect(find.text('Private retired board'), findsNothing);
+    expect(fixture.live.subscriberCount('/boards/1'), 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(fixture.live.channels, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reenabled directory ignores the old pending failure', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    final old = Completer<Map<String, dynamic>>();
+    var reads = 0;
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+        ++reads == 1
+        ? old.future
+        : {
+            'boards': [
+              {'id': 2, 'name': 'Current directory board'},
+            ],
+          };
+    await tester.pumpWidget(retainedPage(fixture, route: const BoardsRoute()));
+    await tester.pump();
+    expect(reads, 1);
+    setEnabled(fixture, false);
+    await tester.pumpAndSettle();
+    expect(find.text('Boards is not enabled on this site.'), findsOneWidget);
+    setEnabled(fixture, true);
+    await tester.pumpAndSettle();
+    expect(reads, 2);
+    expect(find.text('Current directory board'), findsOneWidget);
+    old.completeError(StateError('Retired private directory failure'));
+    await tester.pumpAndSettle();
+    expect(find.text('Current directory board'), findsOneWidget);
+    expect(
+      find.textContaining('Retired private directory failure'),
+      findsNothing,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('retained detail transfers ownership to its new controller', (
+    tester,
+  ) async {
+    final first = BoardsFixture();
+    final json = boardFixtureJson();
+    (json['board'] as Map)['name'] = 'Replacement controller board';
+    final second = BoardsFixture(json: json);
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    first.controller.activatePluginSite(boardsSite, connected: true);
+    second.controller.activatePluginSite(boardsSite, connected: true);
+    await tester.pumpWidget(retainedPage(first));
+    await tester.pumpAndSettle();
+    expect(first.live.subscriberCount('/boards/1'), 1);
+    await tester.pumpWidget(retainedPage(second));
+    await tester.pumpAndSettle();
+    expect(find.text('Replacement controller board'), findsOneWidget);
+    expect(first.live.channels, isEmpty);
+    expect(second.live.subscriberCount('/boards/1'), 1);
+    expect(second.transport.reads.single.path, '/boards/api/boards/1.json');
+    setEnabled(first, false);
+    await tester.pumpAndSettle();
+    expect(find.text('Replacement controller board'), findsOneWidget);
+    setEnabled(second, false);
+    await tester.pumpAndSettle();
+    expect(find.text('Boards is not enabled on this site.'), findsOneWidget);
+    expect(second.live.channels, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('disabled retained route admits only its latest site and board', (
+    tester,
+  ) async {
+    const otherSite = 'https://other.example';
+    final fixture = BoardsFixture(enabled: false);
+    addTearDown(fixture.dispose);
+    fixture.controller.activatePluginSite(boardsSite, connected: true);
+    fixture.controller.activatePluginSite(otherSite, connected: true);
+    fixture.transport.responders['GET /boards/api/boards/2.json'] = (_) {
+      final json = boardFixtureJson();
+      (json['board'] as Map)
+        ..['id'] = 2
+        ..['name'] = 'Latest route board';
+      return json;
+    };
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      retainedPage(
+        fixture,
+        site: otherSite,
+        route: const BoardsRoute(boardId: 2),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads, isEmpty);
+    setEnabled(fixture, true);
+    await tester.pumpAndSettle();
+    expect(find.text('Latest route board'), findsOneWidget);
+    expect(fixture.transport.reads.single.siteUrl, otherSite);
+    expect(fixture.transport.reads.single.path, '/boards/api/boards/2.json');
+    expect(fixture.live.channels, ['/boards/2']);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(fixture.live.channels, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
   if (!nativeView) {
     testWidgets('board columns do not repeat the page safe inset', (
       tester,
