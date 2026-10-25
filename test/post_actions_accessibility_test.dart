@@ -25,13 +25,12 @@ void main() {
 
     expect(tester.getSize(action), HoverActionButton.size);
     final menu = find
-        .ancestor(
-          of: action,
-          matching: find.byWidgetPredicate(
-            (widget) => widget is Material && widget.elevation == 2,
-          ),
+        .descendant(
+          of: find.byType(HoverActionToolbar),
+          matching: find.byType(Material),
         )
         .first;
+    expect(tester.widget<Material>(menu).elevation, 0);
     expect(tester.getSize(menu).width, HoverActionButton.width);
     expect(
       tester.getRect(menu).right,
