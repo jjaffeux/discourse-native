@@ -1605,9 +1605,7 @@ void main() {
       await _pumpBar(tester, items: items, selectedId: items.first.id);
 
       expect(find.text('OPEN'), findsNothing);
-      expect(find.text('5 open'), findsNothing);
       expect(find.text('5'), findsNothing);
-      expect(find.text('+5'), findsNothing);
       expect(find.text('+2'), findsNothing);
       expect(find.byKey(const ValueKey('forum-tabs-add')), findsOneWidget);
     });

@@ -156,7 +156,7 @@ void main() {
             .pressed,
         isTrue,
       );
-      expect(find.textContaining('Your response:'), findsNothing);
+      expect(find.textContaining('Interested'), findsOneWidget);
       await tester.tap(find.text('Going'));
       expect(responses, [('going', false)]);
       await pump(

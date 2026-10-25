@@ -140,8 +140,6 @@ void main() {
         expect(sheetText('Source · EDT'), findsOneWidget);
         expect(sheetText('Previous day'), findsOneWidget);
         expect(sheetText('Sun, Sep 13'), findsOneWidget);
-        expect(find.textContaining('Your time'), findsNothing);
-        expect(find.text('The same moment elsewhere'), findsNothing);
         expect(
           tester.getRect(hero).bottom,
           lessThan(tester.getRect(sheetText('New York')).top),

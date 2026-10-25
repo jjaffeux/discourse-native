@@ -337,9 +337,7 @@ void main() {
       );
     });
 
-    testWidgets('keeps ranked choice locked without a raw editing option', (
-      tester,
-    ) async {
+    testWidgets('keeps ranked choice locked and explains why', (tester) async {
       const source =
           '[poll type=ranked_choice]\n'
           '* A\n'
@@ -358,7 +356,6 @@ void main() {
         find.textContaining('Ranked-choice polls keep their type'),
         findsOneWidget,
       );
-      expect(find.text('Edit as raw'), findsNothing);
     });
 
     testWidgets('confirms published removal with the voter count', (

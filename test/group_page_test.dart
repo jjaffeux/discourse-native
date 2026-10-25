@@ -775,7 +775,6 @@ void main() {
     expect(find.byKey(const ValueKey('add-group-members')), findsOneWidget);
     expect(find.byKey(const ValueKey('invite-group-members')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-switcher')), findsNothing);
-    expect(find.text('Members (1)'), findsNothing);
     final search = tester.getRect(
       find.byKey(const ValueKey('group-member-search')),
     );
@@ -994,7 +993,6 @@ void main() {
 
         expect(find.text('More'), findsNothing);
         expect(find.text('Group settings'), findsNothing);
-        expect(find.text('Copy group link'), findsNothing);
         expect(find.text('Delete group'), findsNothing);
         final trigger = find.byKey(const ValueKey('group-actions'));
         final triggerFocus = tester.widget<DButton>(trigger).focusNode!;

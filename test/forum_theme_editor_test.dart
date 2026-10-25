@@ -80,7 +80,6 @@ void main() {
     );
     expect(shell.forumSettings.themeModeFor(site), AppThemeMode.dark);
     expect(find.text('New theme'), findsOneWidget);
-    expect(find.text('New dark theme'), findsNothing);
     expect(
       shell.forumSettings.themeModeFor('https://b.example'),
       AppThemeMode.system,

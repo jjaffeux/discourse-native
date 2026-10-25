@@ -1898,7 +1898,7 @@ void _registerShellNavigationTests() {
 
     await pumpShell(tester, desktop);
 
-    expect(find.text('COMMUNITY'), findsNothing);
+    expect(find.widgetWithText(DSidebarGroupLabel, 'Community'), findsNothing);
     expect(find.widgetWithText(DSidebarMenuButton, 'Community'), findsNothing);
     final topics = sidebarDestination('Topics');
     expect(topics, findsOneWidget);

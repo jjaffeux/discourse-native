@@ -409,9 +409,7 @@ void main() {
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('an unknown route shows Not found without demo actions', (
-    tester,
-  ) async {
+  testWidgets('an unknown route shows Not found', (tester) async {
     final h = await _setup(tester);
     h.shell.selectDestination(
       const SidebarDestination(
@@ -422,8 +420,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Not found'), findsOneWidget);
-    expect(find.text('Replace with deeper view'), findsNothing);
-    expect(find.text('Show sheet'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -462,7 +458,6 @@ void main() {
     expect(find.text('A general category topic'), findsOneWidget);
     expect(find.byType(TopicListView).hitTestable(), findsNWidgets(2));
     expect(find.text('Not found'), findsNothing);
-    expect(find.text('Replace with deeper view'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

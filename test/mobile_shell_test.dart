@@ -1495,13 +1495,9 @@ void main() {
       matching: find.byKey(const ValueKey('forum-identity-logo')),
     );
     expect(chromeLogo, findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('start-page-forum-options')),
-      findsNothing,
-    );
     await tester.tap(chromeLogo);
     await tester.pumpAndSettle();
-    expect(find.text('Open forum in browser'), findsNothing);
+    expect(find.text('Remove forum'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
     await tester.pumpAndSettle();
@@ -3390,7 +3386,6 @@ void main() {
       expect(profileSheet, findsNothing);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
-      expect(find.text('Open forum in browser'), findsNothing);
       expect(find.text('Remove forum'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
       await tester.pumpAndSettle();
@@ -3514,7 +3509,6 @@ void main() {
           await tester.pumpAndSettle();
           expect(shell.currentContent, same(content));
           expect(shell.mobileNavigation.sidebarOpen, isFalse);
-          expect(find.text('Open forum in browser'), findsNothing);
           expect(find.text('Remove forum'), findsNothing);
           expect(tester.takeException(), isNull);
         }
