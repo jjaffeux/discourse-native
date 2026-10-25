@@ -91,13 +91,11 @@ void main() {
         settings.process(alert.generatorUrl, missingTime, now: now).toString(),
         alert.generatorUrl,
       );
+      const undecodable =
+          'https://logs.example.com/app/kibana#/discover?_g=%FF';
       expect(
-        settings.process(
-          'https://logs.example.com/app/kibana#/discover?_g=%FF',
-          alert,
-          now: now,
-        ),
-        isNotNull,
+        settings.process(undecodable, alert, now: now).toString(),
+        undecodable,
       );
     },
   );
