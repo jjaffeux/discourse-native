@@ -124,7 +124,7 @@ final class YoutubeVideoData {
           : 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg',
       startSeconds: start,
       endSeconds: end,
-      loop: query.containsKey('loop'),
+      loop: _firstQuery(query, 'loop') == '1',
     );
   }
 
