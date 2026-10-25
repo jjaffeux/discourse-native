@@ -9,6 +9,41 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/boards_fixture.dart';
 
 void main() {
+  test('same-account permission refresh retains an active composer', () async {
+    late BoardsFixture fixture;
+    OpenNewTopicComposerRequest? request;
+    final composer = PluginComposerHost(
+      buildComposer: (_) => null,
+      openNewTopic: (value) async {
+        request = value;
+        return OpenComposerResult.opened;
+      },
+      isActive: (_) => true,
+      siteConfigFor: (_) => fixture.config,
+      siteConfigListenableFor: (_) => fixture.settings,
+    );
+    fixture = BoardsFixture(composer: composer);
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    await handle.createTopic('boards/1', 10, cardId: 102);
+    fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+    await handle.refresh();
+    expect(handle.composing(10, cardId: 102), isTrue);
+    expect(request!.sourceStillCurrent!(), isTrue);
+    expect(
+      await handle.createTopic('boards/1', 10, cardId: 102),
+      OpenComposerResult.unavailable,
+    );
+    request!.onCompleted!(
+      const PluginTopicCreated(topicId: 777, slug: 'release', title: 'Release'),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(handle.composing(10, cardId: 102), isFalse);
+    expect(fixture.transport.writes, hasLength(1));
+    expect(handle.snapshot!.card(102)!.topicId, 777);
+  });
   test(
     'same-account user refresh preserves failed attachment recovery',
     () async {
@@ -98,8 +133,15 @@ void main() {
       await handle.refresh();
       (fixture.data['board'] as Map)['name'] = 'Roadmap after bootstrap';
       final channels = RecordingPluginLiveChannels();
+      final reads = fixture.transport.reads.length;
+      fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+        expect(channels.subscriberCount('/boards/1'), 1);
+        return fixture.data;
+      };
       fixture.controller.attachPluginTracker(boardsSite, channels);
-      await handle.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.reading, isFalse);
+      expect(fixture.transport.reads.length, reads + 1);
       expect(handle.snapshot!.name, 'Roadmap after bootstrap');
       expect(channels.subscriberCount('/boards/1'), 1);
       expect(fixture.live.channels, isEmpty);
@@ -186,6 +228,146 @@ void main() {
       expect(handle.snapshot, isNotNull);
     },
   );
+  test(
+    'setting disable cycle cancels an admitted write before transport',
+    () async {
+      final requests = _PausedWriteRequestHost();
+      final fixture = BoardsFixture(requestHost: requests);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      final lease = requests.capture(boardsSite);
+      final write = handle.saveStandalone(10, 'Retired task', '');
+      await requests.admitted.future;
+      expect(handle.writing, isTrue);
+      fixture.config = _boardsConfig(enabled: false);
+      fixture.config = _boardsConfig(enabled: true);
+      expect(lease.isCurrent, isTrue);
+      requests.ready.complete();
+      expect((await write).state, BoardWriteState.cancelled);
+      expect(fixture.transport.writes, isEmpty);
+      await handle.refresh();
+      expect(handle.snapshot!.card(900), isNull);
+      expect(handle.canWrite, isTrue);
+      expect((await handle.saveStandalone(10, 'New task', '')).saved, isTrue);
+      expect(fixture.transport.writes, hasLength(1));
+      expect(handle.snapshot!.card(900)!.title, 'New task');
+    },
+  );
+  test(
+    'retired dispatched completion cannot release a successor write lane',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      final oldReply = Completer<Map<String, dynamic>>();
+      final oldSent = Completer<void>();
+      fixture.transport.responders['POST /boards/api/boards/1/cards'] = (_) {
+        oldSent.complete();
+        return oldReply.future;
+      };
+      final oldWrite = handle.saveStandalone(10, 'Retired task', '');
+      await oldSent.future;
+      fixture.config = _boardsConfig(enabled: false);
+      fixture.config = _boardsConfig(enabled: true);
+      await handle.refresh();
+      final newReply = Completer<Map<String, dynamic>>();
+      final newSent = Completer<void>();
+      fixture.transport.responders['POST /boards/api/boards/1/cards'] = (_) {
+        newSent.complete();
+        return newReply.future;
+      };
+      final newWrite = handle.saveStandalone(10, 'Current task', '');
+      await newSent.future;
+      final reads = fixture.transport.reads.length;
+      oldReply.complete({
+        'card': {'id': 901},
+      });
+      expect((await oldWrite).state, BoardWriteState.cancelled);
+      expect(handle.writing, isTrue);
+      expect(handle.snapshot!.card(901), isNull);
+      expect(fixture.transport.reads.length, reads);
+      expect(
+        (await handle.saveStandalone(10, 'Overlapping task', '')).state,
+        BoardWriteState.refused,
+      );
+      expect(fixture.transport.writes, hasLength(2));
+      newReply.complete({
+        'card': {'id': 902},
+      });
+      expect((await newWrite).saved, isTrue);
+      expect(handle.canWrite, isTrue);
+    },
+  );
+  test(
+    'same-account permission refresh retains the admitted write lane',
+    () async {
+      final requests = _PausedWriteRequestHost();
+      final fixture = BoardsFixture(requestHost: requests);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      final write = handle.saveStandalone(10, 'Current task', '');
+      await requests.admitted.future;
+      fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+      expect(handle.writing, isTrue);
+      expect(
+        (await handle.saveStandalone(10, 'Overlapping task', '')).state,
+        BoardWriteState.refused,
+      );
+      requests.ready.complete();
+      expect((await write).saved, isTrue);
+      expect(fixture.transport.writes, hasLength(1));
+      expect(handle.snapshot!.card(900)!.title, 'Current task');
+      expect(handle.canWrite, isTrue);
+    },
+  );
+  for (final status in [403, 404]) {
+    test(
+      'manual recovery after $status restores live updates before reading',
+      () async {
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        final handle = fixture.controller.acquire(boardsSite, 1);
+        addTearDown(handle.release);
+        await handle.refresh();
+        expect(fixture.live.subscriberCount('/boards/1'), 1);
+        fixture.transport.failures['GET /boards/api/boards/1.json'] =
+            SiteLookupException(
+              SiteLookupFailure.unreachable,
+              boardsSite,
+              statusCode: status,
+            );
+        await handle.refresh();
+        expect(handle.snapshot, isNull);
+        expect(fixture.live.channels, isEmpty);
+        final reply = Completer<Map<String, dynamic>>();
+        final sent = Completer<void>();
+        var reads = 0;
+        fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+          if (++reads == 1) {
+            sent.complete();
+            return reply.future;
+          }
+          return boardFixtureJson(canWrite: false);
+        };
+        final recovery = handle.refresh();
+        expect(fixture.live.subscriberCount('/boards/1'), 1);
+        await sent.future;
+        fixture.live.deliver('/boards/1', {'type': 'board_updated'});
+        reply.complete(boardFixtureJson());
+        await recovery;
+        expect(reads, 2);
+        expect(handle.snapshot!.canWrite, isFalse);
+        expect(handle.error, isNull);
+        expect(fixture.live.subscriberCount('/boards/1'), 1);
+      },
+    );
+  }
   test(
     'disposing the controller before releasing mounted handles is safe',
     () async {
@@ -683,4 +865,31 @@ void main() {
       expect(handle.snapshot!.canWrite, isFalse);
     },
   );
+}
+
+SiteConfig _boardsConfig({required bool enabled}) => SiteConfig(
+  plugins: PluginData.none.withValue(
+    boardsSettingsKey,
+    BoardsSettings(enabled: enabled),
+  ),
+);
+
+final class _PausedWriteRequestHost implements PluginRequestHost {
+  final delegate = PluginTestRequestHost(apiKeys: {boardsSite: 'key'});
+  final admitted = Completer<void>();
+  final ready = Completer<void>();
+
+  @override
+  PluginSiteLease capture(String siteUrl) => delegate.capture(siteUrl);
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) =>
+      delegate.credentialsFor(siteUrl);
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async {
+    if (!admitted.isCompleted) admitted.complete();
+    await ready.future;
+    return delegate.writeCredentialFor(siteUrl);
+  }
 }

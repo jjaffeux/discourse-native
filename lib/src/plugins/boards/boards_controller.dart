@@ -132,7 +132,7 @@ final class BoardsController extends FrameSafeNotifier
     );
     for (final entry
         in _entries.values.where((entry) => entry.site == site).toList()) {
-      entry._reset();
+      entry._reset(retire: retire);
     }
     notifySafely();
   }
@@ -258,12 +258,12 @@ final class BoardHandle extends ChangeNotifier {
   }
 
   void release() => owner._release(this);
-  void _reset() {
+  void _reset({required bool retire}) {
     _generation++;
     _readToken = null;
     _read = null;
     reading = false;
-    if (_writeLease?.isCurrent != true) {
+    if (retire || _writeLease?.isCurrent != true) {
       writing = false;
       _writeToken = null;
       _writeLease = null;
@@ -295,6 +295,7 @@ final class BoardHandle extends ChangeNotifier {
       snapshot = null;
       return Future.value();
     }
+    _subscribe();
     if (writing) {
       _dirty = true;
       return Future.value();

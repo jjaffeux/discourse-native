@@ -95,6 +95,7 @@ final class BoardsFixture {
     bool connected = true,
     Map<String, dynamic>? json,
     PluginComposerHost? composer,
+    PluginRequestHost? requestHost,
   }) {
     settings = ValueNotifier(
       SiteConfig(
@@ -135,7 +136,7 @@ final class BoardsFixture {
     );
     controller = BoardsController(
       api: BoardsApi(transport),
-      requests: requests,
+      requests: requestHost ?? requests,
       siteState: PluginSiteStateHost(
         currentUserFor: (_) =>
             connected ? const DiscourseUser(username: 'lee', id: 2) : null,
