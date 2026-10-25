@@ -60,11 +60,17 @@ final class _ChatSourceMessageMove {
 }
 
 final class _AccountMessageWrites {
-  _AccountMessageWrites(this.chat, this.siteUrl, this.lease);
+  _AccountMessageWrites(
+    this.chat,
+    this.siteUrl,
+    this.lease, {
+    required this.onChanged,
+  });
 
   final ChatController chat;
   final String siteUrl;
   final PluginSiteLease lease;
+  final void Function() onChanged;
   final Map<int, _MessageWrite> _active = {};
   bool _retired = false;
 
@@ -381,9 +387,7 @@ final class _AccountMessageWrites {
 
       final threadIds = <int>{
         for (final id in ids)
-          if (chat._store.read<ChatMessage>(siteUrl, id)?.threadId
-              case final threadId?)
-            threadId,
+          ?chat._store.read<ChatMessage>(siteUrl, id)?.threadId,
       };
 
       final move = await requestCredentials.run(
@@ -480,7 +484,7 @@ final class _AccountMessageWrites {
         chat._recordThreadChange(siteUrl, before, after);
       }
     }
-    if (_owns(ticket)) chat.notifySafely();
+    if (_owns(ticket)) onChanged();
   }
 
   Future<String?> setDeleted(int messageId, {required bool deleted}) async {

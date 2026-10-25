@@ -846,6 +846,7 @@ class ChatController extends FrameSafeNotifier {
       this,
       siteUrl,
       _requests.capture(siteUrl),
+      onChanged: notifySafely,
     );
     _messageWriteOwners[siteUrl] = owner;
     return owner;
