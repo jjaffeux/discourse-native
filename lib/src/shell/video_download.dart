@@ -6,6 +6,7 @@ import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
@@ -105,7 +106,7 @@ final class NativeVideoDownloader implements VideoDownloader {
     try {
       final file = File('${directory.path}/$filename');
       await ensurePrivateFile(file);
-      await _fetch(
+      final mediaType = await _fetch(
         client,
         url: url,
         account: account,
@@ -122,10 +123,23 @@ final class NativeVideoDownloader implements VideoDownloader {
           ).pathSegments.last,
         );
       }
+      final shareFilename = downloadFilename(
+        title: title,
+        url: url.toString(),
+        fallback: 'video',
+        mediaExtensions: _VideoMediaType.values.expand(
+          (type) => type.extensions,
+        ),
+        preferredExtensions: mediaType?.extensions ?? const [],
+      );
+      final shareFile = shareFilename == filename
+          ? file
+          : await file.rename('${directory.path}/$shareFilename');
+      _requireCurrent(lease);
       final outcome = await _environment.shareVideo(
-        file,
-        filename: filename,
-        mimeType: _videoMimeType(filename),
+        shareFile,
+        filename: shareFilename,
+        mimeType: mediaType?.mimeType ?? 'application/octet-stream',
         sharePositionOrigin: sharePositionOrigin,
       );
       return switch (outcome) {
@@ -142,7 +156,7 @@ final class NativeVideoDownloader implements VideoDownloader {
     }
   }
 
-  Future<void> _fetch(
+  Future<_VideoMediaType?> _fetch(
     http.Client client, {
     required Uri url,
     required SiteAssetAccount? account,
@@ -195,6 +209,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         RandomAccessFile? output;
         var bodyStarted = false;
         var length = 0;
+        final prefix = <int>[];
         try {
           _requireCurrent(lease);
           output = await file.open(mode: FileMode.write);
@@ -203,6 +218,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           await for (final chunk in response.stream.timeout(requestTimeout)) {
             _requireCurrent(lease);
             await output.writeFrom(chunk);
+            prefix.addAll(chunk.take(32 - prefix.length));
             length += chunk.length;
           }
         } finally {
@@ -212,7 +228,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           await output?.close();
         }
         if (length == 0) throw const VideoDownloadException();
-        return;
+        return _videoMediaType(prefix, response.headers['content-type']);
       }
     } finally {
       abort.complete();
@@ -269,23 +285,44 @@ String videoDownloadFilename({required String title, required Uri url}) =>
       title: title,
       url: url.toString(),
       fallback: 'video',
-      mediaExtensions: _videoMimeTypes.keys,
+      mediaExtensions: _VideoMediaType.values.expand((type) => type.extensions),
     );
 
-String _videoMimeType(String filename) =>
-    _videoMimeTypes[filename.split('.').last.toLowerCase()] ??
-    'application/octet-stream';
+_VideoMediaType? _videoMediaType(List<int> prefix, String? contentType) {
+  final normalized = contentType?.split(';').first.trim().toLowerCase();
+  final declared = _VideoMediaType.fromMimeType(normalized);
+  final detected = lookupMimeType('', headerBytes: prefix);
+  // The mime package labels every EBML header as audio/weba, including
+  // WebM video and Matroska. Only their declared type resolves that ambiguity.
+  if (detected == 'audio/weba') {
+    return switch (declared) {
+      _VideoMediaType.webm || _VideoMediaType.matroska => declared,
+      _ => null,
+    };
+  }
+  if (detected != null) return _VideoMediaType.fromMimeType(detected);
+  return declared;
+}
 
-// Also the only extensions a video's title may keep as its own.
-const _videoMimeTypes = {
-  'mp4': 'video/mp4',
-  'm4v': 'video/mp4',
-  'mov': 'video/quicktime',
-  'webm': 'video/webm',
-  'ogv': 'video/ogg',
-  'ogg': 'video/ogg',
-  'avi': 'video/x-msvideo',
-  'mkv': 'video/x-matroska',
-};
+enum _VideoMediaType {
+  mp4('video/mp4', ['mp4', 'm4v']),
+  quicktime('video/quicktime', ['mov']),
+  webm('video/webm', ['webm']),
+  ogg('video/ogg', ['ogv', 'ogg']),
+  avi('video/x-msvideo', ['avi']),
+  matroska('video/x-matroska', ['mkv']);
+
+  const _VideoMediaType(this.mimeType, this.extensions);
+
+  final String mimeType;
+  final List<String> extensions;
+
+  static _VideoMediaType? fromMimeType(String? mimeType) {
+    for (final type in values) {
+      if (type.mimeType == mimeType) return type;
+    }
+    return null;
+  }
+}
 
 const _redirectStatuses = {301, 302, 303, 307, 308};
