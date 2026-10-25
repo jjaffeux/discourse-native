@@ -904,7 +904,13 @@ class _DPopoverState extends State<DPopover>
               _ => DPopoverChangeReason.closePress,
             }, DPopoverInteraction.imperative);
           },
-          trigger: DSheetTrigger(builder: (_, _) => trigger),
+          // The real keyboard inset is for the sheet. The trigger keeps the
+          // environment it was placed in, as it does when the popover floats,
+          // since a trigger can be a whole surface whose ancestors decided
+          // how it should see the keyboard.
+          trigger: DSheetTrigger(
+            builder: (_, _) => MediaQuery(data: media, child: trigger),
+          ),
           content: DSheetContent(
             side: DSheetSide.bottom,
             variant: widget.fullScreenOnMobile
