@@ -349,11 +349,24 @@ class LocalDateFormatter {
 
   static String formatMoment(DateTime value, String format, Locale locale) {
     final localeName = _localeName(locale);
+    String numericDate(bool padded) {
+      final pattern = DateFormat.yMd(localeName).pattern!.replaceAllMapped(
+        RegExp(r"'(?:[^']|'')*'|y+|M+|d+"),
+        (match) => switch (match[0]![0]) {
+          'y' => 'yyyy',
+          'M' => padded ? 'MM' : 'M',
+          'd' => padded ? 'dd' : 'd',
+          _ => match[0]!,
+        },
+      );
+      return DateFormat(pattern, localeName).format(value);
+    }
+
     final aliases = <String, String Function()>{
       'LT': () => DateFormat.jm(localeName).format(value),
       'LTS': () => DateFormat.jms(localeName).format(value),
-      'L': () => DateFormat.yMd(localeName).format(value),
-      'l': () => DateFormat.yMd(localeName).format(value),
+      'L': () => numericDate(true),
+      'l': () => numericDate(false),
       'LL': () => DateFormat.yMMMMd(localeName).format(value),
       'll': () => DateFormat.yMMMd(localeName).format(value),
       'LLL': () => DateFormat.yMMMMd(localeName).add_jm().format(value),

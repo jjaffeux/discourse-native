@@ -658,11 +658,7 @@ void main() {
         'L/l L l 01/05/2026 | 1/5/2026 13:07',
       );
       expect(
-        LocalDateFormatter.formatMoment(
-          date,
-          'L [|] l LT',
-          const Locale('fr'),
-        ),
+        LocalDateFormatter.formatMoment(date, 'L [|] l LT', const Locale('fr')),
         '05/01/2026 | 5/1/2026 13:07',
       );
     });

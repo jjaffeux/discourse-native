@@ -75,7 +75,9 @@ void main() {
       final date = find.byType(LocalDateInline);
       expect(date, findsOneWidget);
       final rendered = tester
-          .widgetList<Text>(find.descendant(of: date, matching: find.byType(Text)))
+          .widgetList<Text>(
+            find.descendant(of: date, matching: find.byType(Text)),
+          )
           .map(
             (text) =>
                 text.data ??
