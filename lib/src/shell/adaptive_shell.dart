@@ -973,9 +973,6 @@ class _WideShellState extends State<_WideShell> {
             !context.isTouch && sidebarExpanded && ShellTitleBar.hasWindowChrome
             ? 40.0
             : 0.0;
-        // The title bar's height follows the main column's width, which a
-        // sidebar drag changes on every tick. Only the two boxes sized by it
-        // listen to the drag, so the sidebar and content stay unrebuilt.
         double chromeHeight() => ShellTitleBar.heightFor(
           context,
           sidebarExpanded
@@ -1009,11 +1006,18 @@ class _WideShellState extends State<_WideShell> {
                       child: Column(
                         children: [
                           SizedBox(height: MediaQuery.paddingOf(context).top),
-                          chromeSized(),
+                          SizedBox(
+                            height: ShellTitleBar.heightFor(
+                              context,
+                              constraints.maxWidth,
+                            ),
+                          ),
                           Expanded(
-                            child: sidebarExpanded
-                                ? _expandedRail
-                                : _collapsedRail,
+                            child: RepaintBoundary(
+                              child: sidebarExpanded
+                                  ? _expandedRail
+                                  : _collapsedRail,
+                            ),
                           ),
                           SizedBox(height: profileExtent),
                         ],
