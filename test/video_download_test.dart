@@ -328,13 +328,229 @@ void main() {
     expect(directory.listSync(), isEmpty);
   });
 
+  test('media typing shares an extensionless signed MP4 as a video', () async {
+    final bytes = await File(
+      'darwin/Tests/Fixtures/thumbnail.mp4',
+    ).readAsBytes();
+    final result = await download(
+      MockClient(
+        (_) async => http.Response.bytes(
+          bytes,
+          200,
+          headers: {'content-type': 'video/mp4'},
+        ),
+      ),
+      platform: TargetPlatform.iOS,
+      source: Uri.parse('https://cdn.example/download?signature=private&id=9'),
+      title: 'Recording',
+    );
+
+    expect(result, isA<MediaDownloadShared>());
+    expect(environment.sharedBytes, bytes);
+    expect(environment.sharedName, 'Recording.mp4');
+    expect(environment.sharedPathName, 'Recording.mp4');
+    expect(environment.mimeType, 'video/mp4');
+    expect(directory.listSync(), isEmpty);
+  });
+
+  test(
+    'media typing corrects misleading title and source extensions',
+    () async {
+      final bytes = await File(
+        'darwin/Tests/Fixtures/thumbnail.mp4',
+      ).readAsBytes();
+      await download(
+        MockClient(
+          (_) async => http.Response.bytes(
+            bytes,
+            200,
+            headers: {'content-type': 'video/mp4'},
+          ),
+        ),
+        platform: TargetPlatform.android,
+        source: Uri.parse(
+          'https://cdn.example/recording.webm?signature=private',
+        ),
+        title: 'Recording.MOV',
+      );
+
+      expect(environment.sharedBytes, bytes);
+      expect(environment.sharedName, 'Recording.mp4');
+      expect(environment.sharedPathName, 'Recording.mp4');
+      expect(environment.mimeType, 'video/mp4');
+    },
+  );
+
+  test('media typing uses the final response after a redirect', () async {
+    final requests = <http.Request>[];
+    await download(
+      MockClient((request) async {
+        requests.add(request);
+        if (requests.length == 1) {
+          return http.Response(
+            '',
+            302,
+            headers: {
+              'location': 'https://cdn.example/download?signature=private',
+              'content-type': 'video/quicktime',
+            },
+          );
+        }
+        return http.Response.bytes(
+          [1, 2, 3],
+          200,
+          headers: {'content-type': 'Video/WebM; codecs=vp9'},
+        );
+      }),
+      platform: TargetPlatform.iOS,
+      title: 'Recording.mov',
+    );
+
+    expect(requests, hasLength(2));
+    expect(requests.first.headers['User-Api-Key'], 'secret');
+    expect(requests.last.headers, isNot(contains('User-Api-Key')));
+    expect(environment.sharedName, 'Recording.webm');
+    expect(environment.sharedPathName, 'Recording.webm');
+    expect(environment.mimeType, 'video/webm');
+  });
+
+  test(
+    'media typing detects an MP4 prefix split across stream chunks',
+    () async {
+      final bytes = await File(
+        'darwin/Tests/Fixtures/thumbnail.mp4',
+      ).readAsBytes();
+      Stream<List<int>> body() async* {
+        for (var index = 0; index < 16; index++) {
+          yield [bytes[index]];
+        }
+        yield bytes.sublist(16);
+      }
+
+      await download(
+        MockClient.streaming(
+          (_, _) async => http.StreamedResponse(
+            body(),
+            200,
+            headers: {'content-type': 'application/octet-stream'},
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+        source: Uri.parse('https://cdn.example/download?signature=private'),
+        title: 'Recording',
+      );
+
+      expect(environment.sharedBytes, bytes);
+      expect(environment.sharedName, 'Recording.mp4');
+      expect(environment.mimeType, 'video/mp4');
+    },
+  );
+
+  for (final contentType in <String?>[
+    null,
+    'application/octet-stream',
+    'text/plain',
+  ]) {
+    test(
+      'media typing keeps unknown bytes generic with $contentType',
+      () async {
+        await download(
+          MockClient(
+            (_) async => http.Response.bytes(
+              [1, 2, 3],
+              200,
+              headers: {'content-type': ?contentType},
+            ),
+          ),
+          platform: TargetPlatform.iOS,
+          title: 'Recording.mov',
+        );
+
+        expect(environment.sharedBytes, [1, 2, 3]);
+        expect(environment.mimeType, 'application/octet-stream');
+      },
+    );
+  }
+
+  test(
+    'media typing retains a declared WebM type for an EBML container',
+    () async {
+      final bytes = [0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3];
+      await download(
+        MockClient(
+          (_) async => http.Response.bytes(
+            bytes,
+            200,
+            headers: {'content-type': 'video/webm'},
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+        title: 'Recording.mp4',
+      );
+
+      expect(environment.sharedName, 'Recording.webm');
+      expect(environment.mimeType, 'video/webm');
+    },
+  );
+
+  test('media typing does not label an AVIF container as MP4', () async {
+    final bytes = [0, 0, 0, 24, ...'ftypavif'.codeUnits, 0, 0, 0, 0];
+    await download(
+      MockClient(
+        (_) async => http.Response.bytes(
+          bytes,
+          200,
+          headers: {'content-type': 'application/octet-stream'},
+        ),
+      ),
+      platform: TargetPlatform.iOS,
+      title: 'Recording.mp4',
+    );
+
+    expect(environment.mimeType, 'application/octet-stream');
+  });
+
+  test('media typing preserves the desktop selected save path', () async {
+    final bytes = await File(
+      'darwin/Tests/Fixtures/thumbnail.mp4',
+    ).readAsBytes();
+    environment.savePath = '${directory.path}/My selected name.custom';
+    final result = await download(
+      MockClient(
+        (_) async => http.Response.bytes(
+          bytes,
+          200,
+          headers: {'content-type': 'video/mp4'},
+        ),
+      ),
+      title: 'Recording.mov',
+    );
+
+    expect(
+      result,
+      isA<MediaDownloadSaved>().having(
+        (result) => result.filename,
+        'filename',
+        'My selected name.custom',
+      ),
+    );
+    expect(environment.suggestedName, 'Recording.mov');
+    expect(await File(environment.savePath!).readAsBytes(), bytes);
+    expect(environment.sharedName, isNull);
+    expect(directory.listSync().whereType<Directory>(), isEmpty);
+  });
+
   test(
     'mobile shares a real file and cleans up after the sheet closes',
     () async {
       final result = await download(
         MockClient((request) async {
           expect(request.headers, isNot(contains('User-Api-Key')));
-          return http.Response.bytes([4, 5], 200);
+          return http.Response.bytes(
+            [4, 5],
+            200,
+            headers: {'content-type': 'video/quicktime'},
+          );
         }),
         platform: TargetPlatform.iOS,
         source: Uri.parse('https://cdn.example/demo.mov'),
@@ -352,7 +568,13 @@ void main() {
 
   test('shares a dotted title as the video type it downloads', () async {
     await download(
-      MockClient((_) async => http.Response.bytes([4, 5], 200)),
+      MockClient(
+        (_) async => http.Response.bytes(
+          [4, 5],
+          200,
+          headers: {'content-type': 'video/quicktime'},
+        ),
+      ),
       platform: TargetPlatform.iOS,
       source: Uri.parse('$siteUrl/uploads/default/original/1X/abc123.mov'),
       title: 'Screen Recording 2024-01-02 at 10.45.12',
@@ -661,6 +883,7 @@ class _Environment implements VideoDownloadEnvironment {
   VoidCallback? onChoose;
   List<int>? sharedBytes;
   String? sharedName;
+  String? sharedPathName;
   String? mimeType;
   Rect? shareOrigin;
 
@@ -683,6 +906,7 @@ class _Environment implements VideoDownloadEnvironment {
   }) async {
     sharedBytes = await file.readAsBytes();
     sharedName = filename;
+    sharedPathName = file.uri.pathSegments.last;
     this.mimeType = mimeType;
     shareOrigin = sharePositionOrigin;
     return MediaShareOutcome.shared;
