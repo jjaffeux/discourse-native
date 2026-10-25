@@ -14,6 +14,19 @@ class DMaterialTheme extends ThemeExtension<DMaterialTheme> {
   static bool glassOf(BuildContext context) =>
       of(context)?.material == DAppearanceMaterial.liquidGlass &&
       !reducedOf(context);
+
+  /// The theme for an overlay opened from [context]. A [DFlatMaterial] drops
+  /// the material only for its own controls, so its overlays get it back.
+  static ThemeData overlayThemeOf(BuildContext context) {
+    final theme = Theme.of(context);
+    final window = context
+        .dependOnInheritedWidgetOfExactType<_FlatMaterialScope>()
+        ?.material;
+    return window == null || theme.extension<DMaterialTheme>() != null
+        ? theme
+        : apply(theme, window);
+  }
+
   static bool reducedOf(BuildContext context) =>
       MediaQuery.highContrastOf(context) ||
       (context
@@ -35,6 +48,15 @@ class DMaterialTheme extends ThemeExtension<DMaterialTheme> {
   @override
   DMaterialTheme lerp(DMaterialTheme? other, double t) =>
       t < .5 ? this : other ?? this;
+
+  // Overlay routes compare captured themes to decide whether to rebuild, and
+  // overlayThemeOf builds a fresh extension on every capture.
+  @override
+  bool operator ==(Object other) =>
+      other is DMaterialTheme && other.material == material;
+
+  @override
+  int get hashCode => material.hashCode;
 }
 
 /// Draws [child] in the Standard material whatever the saved choice, for
@@ -68,17 +90,28 @@ class DFlatMaterial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (theme.extension<DMaterialTheme>() == null) return child;
-    return Theme(
-      data: theme.copyWith(
-        extensions: [
-          for (final extension in theme.extensions.values)
-            if (extension is! DMaterialTheme) extension,
-        ],
+    final material = theme.extension<DMaterialTheme>()?.material;
+    if (material == null) return child;
+    return _FlatMaterialScope(
+      material: material,
+      child: Theme(
+        data: theme.copyWith(
+          extensions: [
+            for (final extension in theme.extensions.values)
+              if (extension is! DMaterialTheme) extension,
+          ],
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
+}
+
+class _FlatMaterialScope extends InheritedWidget {
+  const _FlatMaterialScope({required this.material, required super.child});
+  final DAppearanceMaterial material;
+  @override
+  bool updateShouldNotify(_FlatMaterialScope old) => old.material != material;
 }
 
 /// Keeps the OS Reduce Transparency preference live without changing the saved
