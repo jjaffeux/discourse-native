@@ -345,7 +345,7 @@ class _Posts implements PluginPostHost {
     required String? apiKey,
     required PluginSiteLease lease,
   }) async {
-    if (lease.isCurrent) refreshed.add(postId);
+    refreshed.add(postId);
     onRefresh?.call();
     if (refreshFailure != null) throw refreshFailure!;
   }
