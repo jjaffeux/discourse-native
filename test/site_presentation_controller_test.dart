@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/site_presentation_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -483,6 +484,42 @@ void main() {
           expect(notifications, 1);
 
           await controller.ensureConfig(site);
+          expect(api.configCalls, 1);
+        },
+      );
+
+      test(
+        'startup revalidates saved settings for newly installed plugins',
+        () async {
+          const pluginSettings = PluginDataKey<bool>(
+            owner: 'example-plugin',
+            name: 'settings',
+          );
+          const stored = SiteConfig(emojiSet: 'apple');
+          final fetched = SiteConfig(
+            emojiSet: 'apple',
+            plugins: PluginData.none.withValueFor(pluginSettings, true),
+          );
+          final gate = Completer<SiteConfig>();
+          final api = _PresentationApi()..configGate = gate;
+          final controller = _controller(api, persisted: {site: stored});
+
+          final warming = controller.warmConfig(site);
+          final ensuring = controller.ensureConfig(site);
+          await pumpEventQueue();
+
+          expect(controller.configFor(site), same(stored));
+          expect(controller.configFor(site).plugins.get(pluginSettings), isNull);
+          expect(api.configCalls, 1);
+
+          gate.complete(fetched);
+          await Future.wait([warming, ensuring]);
+
+          expect(controller.configFor(site).plugins.get(pluginSettings), isTrue);
+          await Future.wait([
+            controller.warmConfig(site),
+            controller.ensureConfig(site),
+          ]);
           expect(api.configCalls, 1);
         },
       );
