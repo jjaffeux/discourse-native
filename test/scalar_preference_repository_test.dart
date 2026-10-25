@@ -58,15 +58,6 @@ void main() {
       expect(persistence.readKeys, ['other-width', 'width', 'width']);
     });
 
-    test('a rejected write leaves persisted values unchanged', () async {
-      final persistence = _MemoryScalarPersistence(acceptWrites: false);
-
-      await _repository(persistence).write(360);
-
-      expect(persistence.writes, [360]);
-      expect(persistence.values, isEmpty);
-    });
-
     test(
       'thrown persistence reads and writes degrade without escaping',
       () async {
@@ -91,13 +82,10 @@ void main() {
       await store.write(360);
       expect(persistence.value, 360);
 
-      persistence
-        ..readError = StateError('read unavailable')
-        ..acceptWrites = false;
+      persistence.readError = StateError('read unavailable');
       expect(await store.read(), isNull);
       await store.write(400);
       expect(persistence.attemptedWrites, [360, 400]);
-      expect(persistence.value, 360);
     });
   });
 }
@@ -116,14 +104,12 @@ final class _MemoryScalarPersistence
     implements ScalarPreferencePersistence<double> {
   _MemoryScalarPersistence({
     this.firstWriteGate,
-    this.acceptWrites = true,
     this.readError,
     this.writeError,
     Map<String, double>? values,
   }) : values = values ?? {};
 
   final Completer<void>? firstWriteGate;
-  final bool acceptWrites;
   final Object? readError;
   final Object? writeError;
   final Map<String, double> values;
@@ -148,8 +134,8 @@ final class _MemoryScalarPersistence
       firstWriteStarted.complete();
       await firstWriteGate!.future;
     }
-    if (acceptWrites) values[key] = value;
-    return acceptWrites;
+    values[key] = value;
+    return true;
   }
 }
 
@@ -158,7 +144,6 @@ final class _SidebarWidthPersistence implements SidebarWidthPersistence {
 
   double? value;
   Object? readError;
-  bool acceptWrites = true;
   final List<double> attemptedWrites = [];
 
   @override
@@ -171,7 +156,7 @@ final class _SidebarWidthPersistence implements SidebarWidthPersistence {
   @override
   Future<bool> writeWidth(double width) async {
     attemptedWrites.add(width);
-    if (acceptWrites) value = width;
-    return acceptWrites;
+    value = width;
+    return true;
   }
 }

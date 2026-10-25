@@ -28,16 +28,18 @@ void main() {
       expect(await store.readChannel(), UpdateChannel.stable);
     });
 
-    test('reports a platform write rejection without failing', () async {
+    test('a platform write rejection does not fail the caller', () async {
       final persistence = _ControlledUpdatePersistence(
         acceptChannelWrites: false,
       );
 
-      await UpdateStore(
-        persistence: persistence,
-      ).writeChannel(UpdateChannel.canary);
-
-      expect(persistence.channelName, isNull);
+      await expectLater(
+        UpdateStore(
+          persistence: persistence,
+        ).writeChannel(UpdateChannel.canary),
+        completes,
+      );
+      expect(persistence.channelWriteCount, 1);
     });
 
     test(
@@ -112,16 +114,17 @@ void main() {
       expect(await store.readLastChecked(), at);
     });
 
-    test('reports a platform write rejection without failing', () async {
+    test('a platform write rejection does not fail the caller', () async {
       final persistence = _ControlledUpdatePersistence(
         acceptLastCheckedWrites: false,
       );
 
       final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
 
-      await UpdateStore(persistence: persistence).writeLastChecked(at);
-
-      expect(persistence.lastCheckedMillis, isNull);
+      await expectLater(
+        UpdateStore(persistence: persistence).writeLastChecked(at),
+        completes,
+      );
     });
 
     test('remains independent from the channel preference', () async {

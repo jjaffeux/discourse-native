@@ -946,28 +946,23 @@ void main() {
       },
     );
 
-    group('disposal diagnostics', () {
-      setUp(() async {});
+    group('disposal', () {
+      test('an unsupported updater disposes cleanly', () async {
+        final controller = UpdateController(
+          updater: const UnsupportedUpdater(),
+          store: FakeUpdateStore(),
+        );
 
-      test(
-        'an unsupported updater disposes without reporting a failure',
-        () async {
-          final controller = UpdateController(
-            updater: const UnsupportedUpdater(),
-            store: FakeUpdateStore(),
-          );
+        await controller.load();
+        expect(controller.status, UpdateStatus.idle);
 
-          await controller.load();
-          expect(controller.status, UpdateStatus.idle);
-
-          expect(controller.dispose, returnsNormally);
-          await Future<void>.delayed(Duration.zero);
-        },
-      );
+        expect(controller.dispose, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
+      });
 
       for (final asyncFailure in [false, true]) {
         test(
-          'reports a ${asyncFailure ? 'future' : 'synchronous'} cleanup failure without breaking disposal',
+          'a ${asyncFailure ? 'future' : 'synchronous'} cleanup failure does not break disposal',
           () async {
             final controller = controllerWith(
               updater: _ThrowingDiscardUpdater(asyncFailure: asyncFailure),
