@@ -46,6 +46,9 @@ void main() {
       ]);
       expect(h.api.catalogSessions, [same(h.lifecycle.capture(_site).session)]);
       expect(h.activity.otherNotificationsFor(_site).loaded, isTrue);
+      expect(h.api.feedFilters.first, const [
+        NotificationTypeName('custom_alert'),
+      ], reason: 'Other leaves out the types a feature already claims.');
       await h.owner.loadOtherNotifications(_site);
       expect(h.api.catalogs, hasLength(1));
     },
@@ -106,6 +109,19 @@ void main() {
     );
   }
 
+  test('mark-all needs a connected account and its key', () async {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    final connected = h.current;
+    h.current = connected.copyWith(clearUser: true);
+    await h.owner.markAllNotificationsRead(_site);
+    h.current = connected;
+    h.credentials.keys.remove(_site);
+    await h.owner.markAllNotificationsRead(_site);
+    expect(h.api.catalogs, isEmpty);
+    expect(h.api.markedTypesRead, isEmpty);
+  });
+
   test('forget without lease invalidation fences original catalog', () async {
     final h = _Harness();
     addTearDown(h.dispose);
@@ -133,6 +149,11 @@ void main() {
     h.owner.acceptLiveState(_site, const {}, lease);
     await tester.pump(const Duration(seconds: 2));
     expect(h.api.feedKeys, isEmpty);
+    expect(
+      h.authorityCalls,
+      0,
+      reason: 'Ungrouped state carries no authority.',
+    );
     await h.activity.loadPluginNotifications(h.current, _feed);
     h.api.feedKeys.clear();
     h.owner.acceptLiveState(_site, const {}, lease);
@@ -309,6 +330,7 @@ final class _Api extends FakeDiscourseApi {
   final catalogKeys = <String?>[];
   final catalogSessions = <Object?>[];
   final feedKeys = <String>[];
+  final feedFilters = <List<NotificationTypeName>>[];
 
   @override
   Future<List<NotificationWireType>> siteNotificationTypes({
@@ -334,6 +356,7 @@ final class _Api extends FakeDiscourseApi {
     String? clientId,
   }) async {
     feedKeys.add(apiKey);
+    feedFilters.add(filterByTypes);
     return const [];
   }
 }
