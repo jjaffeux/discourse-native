@@ -198,7 +198,7 @@ void main() {
       authenticator.gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsNothing);
+      expect(find.textContaining('could not be verified'), findsNothing);
     });
 
     testWidgets('a removal dialog ignores a replaced controller', (
@@ -456,7 +456,6 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsNothing);
       expect(find.textContaining('Too fast'), findsNothing);
     });
 
@@ -544,7 +543,6 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsNothing);
       expect(find.textContaining('Too fast'), findsNothing);
     });
 
@@ -593,7 +591,6 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(find.byType(SnackBar), findsNothing);
       expect(find.textContaining('Too fast'), findsNothing);
     });
   });
@@ -625,6 +622,7 @@ Widget _reactionHost(ShellController controller, _OpenModal open) => ShellScope(
   controller: controller,
   child: MaterialApp(
     theme: AppTheme.light,
+    builder: (context, child) => DToaster(child: child!),
     home: Scaffold(
       body: PluginUiScope.own(
         reactionsPluginId,
@@ -643,6 +641,7 @@ Widget _contentHost(ShellController controller, Widget child) => ShellScope(
   controller: controller,
   child: MaterialApp(
     theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+    builder: (context, child) => DToaster(child: child!),
     home: Scaffold(body: Center(child: child)),
   ),
 );
