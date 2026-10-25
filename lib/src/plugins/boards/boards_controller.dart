@@ -380,10 +380,7 @@ final class BoardHandle extends ChangeNotifier {
     _writeToken = token;
     _writeLease = lease;
     bool current() =>
-        enabled &&
-        lease.isCurrent &&
-        identical(_writeToken, token) &&
-        (!requireManage || snapshot?.canManage == true);
+        enabled && lease.isCurrent && identical(_writeToken, token);
     _changed();
     var saved = false;
     BoardWriteResult? result;
@@ -395,13 +392,24 @@ final class BoardHandle extends ChangeNotifier {
       if (credential.failure case final failure?) throw failure;
       final credentials = credential.credentials;
       if (credentials == null) {
-        return const BoardWriteResult(BoardWriteState.refused);
+        result = const BoardWriteResult(BoardWriteState.refused);
+      } else {
+        final completed = await credentials.run(() async {
+          if (!current() || requireManage && snapshot?.canManage != true) {
+            return false;
+          }
+          await operation(credentials);
+          return true;
+        });
+        if (!current()) {
+          return const BoardWriteResult(BoardWriteState.cancelled);
+        }
+        if (completed) {
+          saved = true;
+        } else {
+          result = const BoardWriteResult(BoardWriteState.cancelled);
+        }
       }
-      await credentials.run(() => operation(credentials));
-      if (!current()) {
-        return const BoardWriteResult(BoardWriteState.cancelled);
-      }
-      saved = true;
     } catch (failure) {
       if (!current()) {
         return const BoardWriteResult(BoardWriteState.cancelled);

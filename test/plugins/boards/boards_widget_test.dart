@@ -674,7 +674,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       expect(fixture.host.openedTopic, 500);
       await tester.tap(find.byKey(const ValueKey('board-add-10')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add card').last);
+      await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Add card'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(DInput).first,

@@ -328,6 +328,13 @@ class _BoardsPageState extends State<BoardsPage> {
                             children: [
                               for (final column in board.columns)
                                 SizedBox(
+                                  key: PageStorageKey((
+                                    _identity,
+                                    widget.controller.accountRevision(
+                                      widget.site,
+                                    ),
+                                    column.id,
+                                  )),
                                   width: width,
                                   child: ConstrainedBox(
                                     constraints: BoxConstraints(
@@ -337,13 +344,6 @@ class _BoardsPageState extends State<BoardsPage> {
                                     child: _columnDropTarget(
                                       column,
                                       BoardColumnPanel(
-                                        key: PageStorageKey((
-                                          _identity,
-                                          widget.controller.accountRevision(
-                                            widget.site,
-                                          ),
-                                          column.id,
-                                        )),
                                         column: column,
                                         linkedCardId: widget.route.cardId,
                                         menu: board.canManage

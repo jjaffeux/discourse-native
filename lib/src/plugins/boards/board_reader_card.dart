@@ -42,7 +42,6 @@ class BoardReaderCard extends StatelessWidget {
       variant: DItemVariant.outline,
       selected: selected,
       onPressed: onPressed,
-      cornerAction: menu,
       footer:
           board.detailed &&
               (card.activityAt != null ||
@@ -80,13 +79,22 @@ class BoardReaderCard extends StatelessWidget {
       children: [
         DItemContent(
           children: [
-            DItemTitle(
-              maxLines: null,
-              child: Text(
-                card.title.isEmpty
-                    ? context.l10n.boardsUnsupported
-                    : card.title,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DItemTitle(
+                    maxLines: null,
+                    child: Text(
+                      card.title.isEmpty
+                          ? context.l10n.boardsUnsupported
+                          : card.title,
+                    ),
+                  ),
+                ),
+                if (menu != null) const SizedBox(width: 4),
+                ?menu,
+              ],
             ),
             if (board.showThumbnail && card.imageUrl.isNotEmpty)
               SiteImage(
