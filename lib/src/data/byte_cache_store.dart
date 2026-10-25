@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/digests/sha256.dart';
 
+import 'byte_cache_directory.dart';
+
 abstract interface class ByteCacheStore {
   Future<Uint8List?> read(String url);
 
@@ -215,23 +217,20 @@ final class FileByteCacheStore implements ByteCacheStore {
     final directory = Directory(path);
     if (!directory.existsSync()) return;
     final files = <({File file, int bytes, DateTime usedAt})>[];
-    for (final entity in directory.listSync(followLinks: false)) {
-      if (entity is! File) continue;
-      try {
-        final stat = entity.statSync();
-        if (entity.path.endsWith('.tmp')) {
+    for (final entry in scanByteCacheDirectory(directory)) {
+      if (entry.file.path.endsWith('.tmp')) {
+        try {
           // A live writer's temporary file is recent. Old ones can only be
           // leftovers from a killed process and otherwise evade both bounds.
-          if (!stat.modified.isAfter(staleTemporaryBefore)) {
-            entity.deleteSync();
+          if (!entry.usedAt.isAfter(staleTemporaryBefore)) {
+            entry.file.deleteSync();
           }
-          continue;
+        } on FileSystemException {
+          // A cache file may disappear while the OS is reclaiming cache space.
         }
-        if (!entity.path.endsWith('.bin')) continue;
-        files.add((file: entity, bytes: stat.size, usedAt: stat.modified));
-      } on FileSystemException {
-        // A cache file may disappear while the OS is reclaiming cache space.
+        continue;
       }
+      files.add(entry);
     }
     files.sort((left, right) => right.usedAt.compareTo(left.usedAt));
     var keptEntries = 0;

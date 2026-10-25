@@ -33,6 +33,130 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('reconciles same-name external growth and mtime changes', () async {
+      final original = await seed(
+        'grown',
+        List.filled(8, 1),
+        now.subtract(const Duration(hours: 3)),
+      );
+      final retained = await seed(
+        'retained',
+        List.filled(8, 2),
+        now.subtract(const Duration(hours: 2)),
+      );
+      final store = FileByteCacheStore(
+        directory,
+        maxBytes: 40,
+        clock: () => now,
+      );
+      await store.initialize();
+
+      final encoded = await original.readAsBytes();
+      await original.writeAsBytes([
+        ...encoded.sublist(0, 12),
+        ...List.filled(35, 3),
+      ]);
+      await original.setLastModified(now);
+
+      await store.initialize();
+
+      expect(await original.exists(), isFalse);
+      expect(await retained.exists(), isTrue);
+      expect(
+        await store.read(_url('retained')),
+        orderedEquals(List.filled(8, 2)),
+      );
+      expect(
+        await directory
+            .list()
+            .where((file) => file.path.endsWith('.bin'))
+            .length,
+        1,
+      );
+    });
+
+    test(
+      'reconciles an existing name becoming the most recently used',
+      () async {
+        final oldest = await seed('oldest', [
+          1,
+        ], now.subtract(const Duration(hours: 3)));
+        final middle = await seed('middle', [
+          2,
+        ], now.subtract(const Duration(hours: 2)));
+        final store = FileByteCacheStore(
+          directory,
+          maxEntries: 2,
+          clock: () => now,
+        );
+        await store.initialize();
+        final newer = await seed('newer', [
+          3,
+        ], now.subtract(const Duration(hours: 1)));
+        await oldest.setLastModified(now);
+
+        await store.initialize();
+
+        expect(await oldest.exists(), isTrue);
+        expect(await middle.exists(), isFalse);
+        expect(await newer.exists(), isTrue);
+      },
+    );
+
+    test(
+      'concurrent stores converge within both limits with complete entries',
+      () async {
+        final stores = [
+          FileByteCacheStore(
+            directory,
+            maxEntries: 16,
+            maxBytes: 320,
+            clock: () => now,
+          ),
+          FileByteCacheStore(
+            directory,
+            maxEntries: 16,
+            maxBytes: 320,
+            clock: () => now,
+          ),
+        ];
+        await Future.wait(stores.map((store) => store.initialize()));
+
+        await Future.wait([
+          for (var index = 0; index < 128; index++)
+            stores[index % stores.length].write(
+              _url('parallel-$index'),
+              Uint8List.fromList(List.filled(8, index)),
+              expiresAt: expiresAt,
+            ),
+        ]);
+        await stores.first.initialize();
+
+        final files = await directory
+            .list()
+            .where((entry) => entry.path.endsWith('.bin'))
+            .cast<File>()
+            .toList();
+        expect(files, hasLength(16));
+        expect(files.fold(0, (size, file) => size + file.lengthSync()), 320);
+        var readable = 0;
+        for (var index = 0; index < 128; index++) {
+          final bytes = await stores.last.read(_url('parallel-$index'));
+          if (bytes == null) continue;
+          readable++;
+          expect(bytes, orderedEquals(List.filled(8, index)));
+        }
+        expect(readable, 16);
+        expect(
+          await directory
+              .list()
+              .where((entry) => entry.path.endsWith('.tmp'))
+              .isEmpty,
+          isTrue,
+        );
+      },
+    );
+
     test('keeps the most recently used files within maxEntries', () async {
       final oldest = await seed('oldest', [
         1,
