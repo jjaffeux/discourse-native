@@ -401,14 +401,30 @@ void main() {
   testWidgets('side drawer backdrop uses the handle axis and direction', (
     tester,
   ) async {
+    final closes = <DDrawerChangeReason>[];
     await tester.pumpWidget(
-      _host(_drawer<void>(direction: DDrawerSwipeDirection.right)),
+      _host(
+        _drawer<void>(
+          direction: DDrawerSwipeDirection.right,
+          onOpenChanged: (details) {
+            if (!details.open) closes.add(details.reason);
+          },
+        ),
+      ),
     );
     await tester.tap(find.text('Open drawer'));
     await tester.pumpAndSettle();
+    // Across the handle axis, then against its direction: neither dismisses.
+    for (final offset in [const Offset(0, 60), const Offset(-60, 0)]) {
+      await tester.flingFrom(const Offset(30, 50), offset, 1000);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDrawerContent), findsOneWidget, reason: '$offset');
+    }
+    expect(closes, isEmpty);
     await tester.flingFrom(const Offset(30, 50), const Offset(60, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.byType(DDrawerContent), findsNothing);
+    expect(closes, [DDrawerChangeReason.swipe]);
   });
 
   testWidgets('touch swipe dismisses and reports swipe reason', (tester) async {
