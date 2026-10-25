@@ -11,6 +11,14 @@ const _site = 'https://reader.example';
 final class _CountingStore extends Store {
   int reads = 0;
   int probes = 0;
+  int retainedVisits = 0;
+
+  @override
+  Iterable<T?> retainedRecords<T extends Storable<T>>(String siteUrl) =>
+      super.retainedRecords<T>(siteUrl).map((record) {
+        if (T == Post) retainedVisits++;
+        return record;
+      });
 
   @override
   T? read<T extends Storable<T>>(String siteUrl, Object id) {
@@ -164,27 +172,109 @@ void main() {
     final summary = [1, 3];
     for (var repeat = 0; repeat < 20; repeat++) {
       a.project(ordinary, null);
-      expect(store.structureDependenciesForTesting, (
-        keys: 3,
-        registrations: 3,
-      ));
+      expect(store.filteredStructureDependenciesForTesting, 1);
       a.project(summary, null);
-      expect(store.structureDependenciesForTesting, (
-        keys: 2,
-        registrations: 2,
-      ));
+      expect(store.filteredStructureDependenciesForTesting, 1);
     }
     final b = reader('b');
     b.project(summary, null);
-    expect(store.structureDependenciesForTesting, (keys: 2, registrations: 4));
+    expect(store.structureDependenciesForTesting, (keys: 0, registrations: 0));
+    expect(store.filteredStructureDependenciesForTesting, 2);
     owner.retainTabs(_site, lifecycle.capture(_site), {'b'});
-    expect(store.structureDependenciesForTesting, (keys: 2, registrations: 2));
+    expect(store.filteredStructureDependenciesForTesting, 1);
     lifecycle.invalidate(_site);
-    expect(store.structureDependenciesForTesting, (keys: 0, registrations: 0));
+    expect(store.filteredStructureDependenciesForTesting, 0);
     reader('b').project(ordinary, null);
-    expect(store.structureDependenciesForTesting, (keys: 3, registrations: 3));
+    expect(store.filteredStructureDependenciesForTesting, 1);
     owner.dispose();
-    expect(store.structureDependenciesForTesting, (keys: 0, registrations: 0));
+    expect(store.filteredStructureDependenciesForTesting, 0);
+  });
+
+  test(
+    'sparse projections use first stream position and actual post numbers',
+    () {
+      final tab = reader('a');
+      final stream = [900, 200, 800, 400, 600, 100, 700];
+      store.putAll(_site, [
+        _post(900, number: 1),
+        _post(800, number: 90),
+        _post(100, number: 80),
+        _post(700, number: 2),
+      ]);
+      expect(tab.project(stream, 80).range, (2, 2));
+      expect(tab.project(stream, 999).range, (0, 0));
+      expect(tab.project(stream, null).range, (0, 0));
+      store.put(_site, _post(200, number: 100));
+      final arrived = tab.project(stream, 80);
+      expect(arrived.ids, [900, 200, 800]);
+      expect(tab.initialIndex(arrived.ids, 80, hasEarlier: false), 1);
+      store.remove<Post>(_site, 200);
+      expect(tab.project(stream, 80).range, (2, 2));
+
+      store.forget(_site);
+      store.putAll(_site, [_post(500, number: 4), _post(333, number: 100)]);
+      expect(tab.project([500, 900, 500, 111, 333], 3).range, (0, 0));
+    },
+  );
+
+  test('deep invalidation visits retained records rather than missing IDs', () {
+    final tab = reader('a');
+    final stream = [for (var id = 1; id <= 16000; id++) id];
+    store.putAll(_site, [_post(15900), _post(15901)]);
+    expect(tab.project(stream, 15900).ids, [15900, 15901]);
+    expect(store.reads, lessThanOrEqualTo(5));
+    expect(store.retainedVisits, 2);
+    store.reads = 0;
+    store.retainedVisits = 0;
+    store.put(_site, _post(15899));
+    expect(tab.project(stream, 15900).ids, [15899, 15900, 15901]);
+    expect(store.reads, lessThanOrEqualTo(6));
+    expect(store.retainedVisits, 3);
+  });
+
+  test(
+    'short stream projection avoids visiting a larger retained partition',
+    () {
+      final tab = reader('a');
+      store.putAll(_site, [for (var id = 1; id <= 200; id++) _post(id)]);
+      expect(tab.project([4, 2, 6], 3).ids, [4, 2, 6]);
+      expect(store.retainedVisits, 0);
+      expect(store.reads, lessThanOrEqualTo(5));
+    },
+  );
+
+  test('long stream head avoids visiting unrelated retained posts', () {
+    final tab = reader('a');
+    store.putAll(_site, [
+      for (var id = 1; id <= 20; id++) _post(id),
+      for (var id = 20000; id < 24000; id++) _post(id),
+    ]);
+    final stream = [for (var id = 1; id <= 16000; id++) id];
+    expect(tab.project(stream, 10).ids, List.generate(20, (i) => i + 1));
+    expect(store.retainedVisits, 0);
+    store.put(_site, _post(2, number: 3));
+    store.reads = 0;
+    expect(tab.project(stream, 10).range, (0, 19));
+    expect(store.retainedVisits, 0);
+    expect(store.reads, lessThanOrEqualTo(30));
+    expect(tab.project(stream, null).range, (0, 19));
+    expect(store.retainedVisits, 0);
+  });
+
+  test('sparse projection invalidates after eviction and site forget', () {
+    final bounded = Store(maxEntries: 2);
+    final projections = TopicReaderProjections(bounded);
+    addTearDown(projections.dispose);
+    final tab = projections.forTab(_site, 'a', lifecycle.capture(_site))!;
+    final stream = [for (var id = 1; id <= 100; id++) id];
+    bounded.putAll(_site, [_post(90), _post(91)]);
+    expect(tab.project(stream, 90).ids, [90, 91]);
+    bounded.put(_site, _post(200));
+    expect(tab.project(stream, 90).ids, [91]);
+    bounded.forget(_site);
+    expect(tab.project(stream, 90).ids, isEmpty);
+    bounded.put(_site, _post(90));
+    expect(tab.project(stream, 90).ids, [90]);
   });
 
   test('ordinary and summary stream identities select independent windows', () {

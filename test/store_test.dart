@@ -429,6 +429,132 @@ void main() {
       );
     });
 
+    group('filtered structure dependencies', () {
+      test(
+        'matches missing arrivals, structure, eviction and future arrivals',
+        () {
+          final store = Store(maxEntries: 2);
+          final ids = {1, 2};
+          final dependency = store.trackStructureWhere<Post>(
+            _site,
+            ids.contains,
+          );
+          addTearDown(dependency.dispose);
+          var token = dependency.token;
+          expect(store.length, 0);
+          expect(store.filteredStructureDependenciesForTesting, 1);
+          expect(store.structureDependenciesForTesting, (
+            keys: 0,
+            registrations: 0,
+          ));
+          const first = Post(
+            id: 1,
+            postNumber: 1,
+            username: 'a',
+            cooked: 'one',
+          );
+          store.put(_otherSite, first);
+          store.put(_site, const _OtherRecord(1));
+          store.put(
+            _site,
+            const Post(id: 3, postNumber: 3, username: 'a', cooked: ''),
+          );
+          expect(dependency.token, same(token));
+          store.put(_site, first);
+          expect(dependency.token, isNot(same(token)));
+          token = dependency.token;
+          store.put(_site, first.copyWith(cooked: 'two'));
+          expect(dependency.token, same(token));
+          store.update<Post>(
+            _site,
+            1,
+            (_) =>
+                const Post(id: 1, postNumber: 4, username: 'a', cooked: 'two'),
+          );
+          expect(dependency.token, isNot(same(token)));
+          token = dependency.token;
+          store.put(
+            _site,
+            const Post(id: 4, postNumber: 4, username: 'a', cooked: ''),
+          );
+          store.put(
+            _site,
+            const Post(id: 5, postNumber: 5, username: 'a', cooked: ''),
+          );
+          expect(store.containsRecord<Post>(_site, 1), isFalse);
+          expect(dependency.token, isNot(same(token)));
+          token = dependency.token;
+          store.forget(_site);
+          expect(dependency.token, isNot(same(token)));
+          token = dependency.token;
+          store.put(_site, first);
+          expect(dependency.token, isNot(same(token)));
+          dependency.dispose();
+          dependency.dispose();
+          token = dependency.token;
+          store.remove<Post>(_site, 1);
+          store.forget(_site);
+          expect(dependency.token, same(token));
+          expect(store.filteredStructureDependenciesForTesting, 0);
+        },
+      );
+
+      test(
+        'invalidates before notifications including forget of empty IDs',
+        () {
+          final store = Store();
+          final dependency = store.trackStructureWhere<_Record>(
+            _site,
+            {1}.contains,
+          );
+          final missing = store.trackStructureWhere<_Record>(
+            _site,
+            {2}.contains,
+          );
+          addTearDown(dependency.dispose);
+          addTearDown(missing.dispose);
+          final tokens = <Object>[];
+          final ref = store.ref<_Record>(_site, 1);
+          void listen() => tokens.add(dependency.token);
+          ref.addListener(listen);
+          addTearDown(() => ref.removeListener(listen));
+          final empty = dependency.token;
+          final missingEmpty = missing.token;
+          store.put(_site, const _Record(1, 'one'));
+          expect(tokens.single, isNot(same(empty)));
+          expect(tokens.single, same(dependency.token));
+          final beforeForget = dependency.token;
+          store.forget(_site);
+          expect(tokens.last, same(dependency.token));
+          expect(tokens.last, isNot(same(beforeForget)));
+          expect(missing.token, isNot(same(missingEmpty)));
+          final forgottenEmpty = missing.token;
+          store.forget(_site);
+          expect(missing.token, isNot(same(forgottenEmpty)));
+        },
+      );
+    });
+
+    test(
+      'retained record views include empty refs without touching LRU order',
+      () {
+        final store = Store(maxEntries: 3);
+        store.put(_site, const _Record(1, 'oldest'));
+        store.put(_site, const _Record(2, 'newer'));
+        store.ref<_Record>(_site, 3);
+        final records = store.retainedRecords<_Record>(_site);
+        expect(records.length, 3);
+        expect(records.map((record) => record?.id), [1, 2, null]);
+        expect(store.retainedRecords<_Record>(_otherSite), isEmpty);
+        expect(store.retainedRecords<_OtherRecord>(_site), isEmpty);
+        expect(store.statisticsForTesting.observedEntries, 0);
+        store.put(_site, const _Record(4, 'arrival'));
+        expect(store.containsRecord<_Record>(_site, 1), isFalse);
+        expect(store.containsRecord<_Record>(_site, 2), isTrue);
+        expect(store.length, 3);
+      },
+    );
+
     test('absent updates and removals do not allocate refs', () {
       final store = Store();
 

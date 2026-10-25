@@ -162,6 +162,41 @@ void main() {
           'errors': 0,
         });
       }
+      for (final workload in ['cold-stream', 'post-structure']) {
+        if (workload == 'cold-stream') {
+          store.update<TopicDetail>(
+            site.url,
+            7,
+            (topic) => topic.copyWith(stream: List.of(topic.stream)),
+          );
+        } else {
+          store.update<Post>(
+            site.url,
+            posts.last.id,
+            (post) => Post(
+              id: post.id,
+              postNumber: post.postNumber + 1,
+              username: post.username,
+              cooked: post.cooked,
+            ),
+          );
+        }
+        store.postReads = 0;
+        final clock = Stopwatch()..start();
+        final snapshot = TopicViewportSnapshot.from(shell);
+        clock.stop();
+        expect(snapshot.postIds, expected);
+        expect(snapshot.initialPostIndex, initialIndex);
+        expect(store.postReads, lessThanOrEqualTo(loaded * 2 + 5));
+        reports.add({
+          'streamLength': streamLength,
+          'loaded': loaded,
+          'workload': workload,
+          'microseconds': [clock.elapsedMicroseconds],
+          'postReads': store.postReads,
+          'errors': 0,
+        });
+      }
     }
     final encoded = jsonEncode(reports);
     debugPrint('TOPIC_WINDOW_UPDATE_PROFILE $encoded', wrapWidth: 2048);

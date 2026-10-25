@@ -88,10 +88,18 @@ class Ref<T extends Object> extends ChangeNotifier
 /// Tracks structural changes to a fixed set of record IDs without holding refs.
 /// Dispose when the owner no longer needs those IDs.
 final class StoreStructureDependency {
-  StoreStructureDependency._(this._store, this._keys);
+  StoreStructureDependency._(this._store, this._keys) : _partition = null;
+
+  StoreStructureDependency._filtered(
+    this._store,
+    this._partition,
+    this._includes,
+  ) : _keys = {};
 
   Store? _store;
   final Set<(String, Type, Object)> _keys;
+  final (String, Type)? _partition;
+  bool Function(Object)? _includes;
   Object _token = Object();
 
   Object get token => _token;
@@ -102,6 +110,7 @@ final class StoreStructureDependency {
     _store = null;
     store._releaseStructureDependency(this);
     _keys.clear();
+    _includes = null;
   }
 }
 
@@ -149,6 +158,8 @@ class Store {
   final Map<String, int> _entriesBySite = {};
   final Map<(String, Type, Object), Set<StoreStructureDependency>>
   _structureDependencies = {};
+  final Map<(String, Type), Set<StoreStructureDependency>>
+  _filteredStructureDependencies = {};
 
   int _evictions = 0;
   int _recordEvictions = 0;
@@ -174,7 +185,38 @@ class Store {
     return dependency;
   }
 
+  /// Tracks structural changes selected by a stable, side-effect-free predicate.
+  /// Includes missing IDs without allocating per-ID registrations.
+  StoreStructureDependency trackStructureWhere<T extends Storable<T>>(
+    String siteUrl,
+    bool Function(Object id) includes,
+  ) {
+    final partition = (siteUrl, T);
+    final dependency = StoreStructureDependency._filtered(
+      this,
+      partition,
+      includes,
+    );
+    (_filteredStructureDependencies[partition] ??= {}).add(dependency);
+    return dependency;
+  }
+
+  /// A lazy view of retained slots, including empty refs, with O(1) length.
+  /// Does not touch LRU order. Finish iteration before reading or changing Store.
+  Iterable<T?> retainedRecords<T extends Storable<T>>(String siteUrl) =>
+      _partitions[siteUrl]?[T]?.map((slot) => slot.ref.value as T?) ??
+      Iterable<T?>.empty();
+
   void _releaseStructureDependency(StoreStructureDependency dependency) {
+    final partition = dependency._partition;
+    if (partition != null) {
+      final dependencies = _filteredStructureDependencies[partition]!;
+      dependencies.remove(dependency);
+      if (dependencies.isEmpty) {
+        _filteredStructureDependencies.remove(partition);
+      }
+      return;
+    }
     for (final key in dependency._keys) {
       final dependencies = _structureDependencies[key]!;
       dependencies.remove(dependency);
@@ -185,9 +227,16 @@ class Store {
   void _bumpStructure(String siteUrl, Type type, Object id) {
     _structureGenerations[(siteUrl, type)] = Object();
     final dependencies = _structureDependencies[(siteUrl, type, id)];
-    if (dependencies == null) return;
-    for (final dependency in dependencies) {
-      dependency._token = Object();
+    if (dependencies != null) {
+      for (final dependency in dependencies) {
+        dependency._token = Object();
+      }
+    }
+    final filtered = _filteredStructureDependencies[(siteUrl, type)];
+    if (filtered != null) {
+      for (final dependency in filtered) {
+        if (dependency._includes!(id)) dependency._token = Object();
+      }
     }
   }
 
@@ -449,6 +498,8 @@ class Store {
     final dependencies = <StoreStructureDependency>{
       for (final entry in _structureDependencies.entries)
         if (entry.key.$1 == siteUrl) ...entry.value,
+      for (final entry in _filteredStructureDependencies.entries)
+        if (entry.key.$1 == siteUrl) ...entry.value,
     };
     for (final dependency in dependencies) {
       dependency._token = Object();
@@ -481,6 +532,13 @@ class Store {
       (total, dependencies) => total + dependencies.length,
     ),
   );
+
+  @visibleForTesting
+  int get filteredStructureDependenciesForTesting =>
+      _filteredStructureDependencies.values.fold(
+        0,
+        (total, dependencies) => total + dependencies.length,
+      );
 
   @visibleForTesting
   StoreStatistics get statisticsForTesting {

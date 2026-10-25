@@ -67,6 +67,7 @@ final class TopicReaderProjection {
   ({List<int> stream, int? target, Object? structure})? _key;
   TopicReaderWindow _window = emptyWindow;
   List<int>? _stream;
+  Map<int, int> _positions = {};
   StoreStructureDependency? _structure;
   ({List<int> ids, int target, bool hasEarlier, Object? structure, int? index})?
   _initial;
@@ -87,6 +88,7 @@ final class TopicReaderProjection {
     _structure?.dispose();
     _structure = null;
     _stream = null;
+    _positions = {};
     _window = emptyWindow;
     _initial = null;
   }
@@ -96,7 +98,15 @@ final class TopicReaderProjection {
     if (!identical(_stream, stream)) {
       _structure?.dispose();
       _stream = stream;
-      _structure = _store.trackStructure<Post>(_siteUrl, stream);
+      final positions = <int, int>{};
+      for (var index = 0; index < stream.length; index++) {
+        positions.putIfAbsent(stream[index], () => index);
+      }
+      _positions = positions;
+      _structure = _store.trackStructureWhere<Post>(
+        _siteUrl,
+        positions.containsKey,
+      );
     }
     final structure = _structure!.token;
     final key = _key;
@@ -119,19 +129,46 @@ final class TopicReaderProjection {
   (int, int)? _loadedRange(List<int> stream, int? target) {
     if (stream.isEmpty) return null;
     var anchor = -1;
-    if (target != null) {
-      for (var i = 0; i < stream.length; i++) {
-        final post = _store.read<Post>(_siteUrl, stream[i]);
-        if (post != null && post.postNumber >= target) {
-          anchor = i;
+    final retained = _store.retainedRecords<Post>(_siteUrl);
+    if (retained.length < stream.length) {
+      for (var index = 0; index < stream.length; index++) {
+        final post = _store.read<Post>(_siteUrl, stream[index]);
+        if (post == null) break;
+        if (target == null || post.postNumber >= target) {
+          anchor = index;
           break;
         }
       }
-    }
-    if (anchor < 0) {
-      anchor = stream.indexWhere(
-        (id) => _store.read<Post>(_siteUrl, id) != null,
-      );
+      if (anchor < 0) {
+        var fallback = -1;
+        for (final post in retained) {
+          if (post == null) continue;
+          final index = _positions[post.id];
+          if (index == null) continue;
+          if (fallback < 0 || index < fallback) fallback = index;
+          if ((target == null || post.postNumber >= target) &&
+              (anchor < 0 || index < anchor)) {
+            anchor = index;
+          }
+        }
+        if (anchor < 0) anchor = fallback;
+        if (anchor >= 0) _store.read<Post>(_siteUrl, stream[anchor]);
+      }
+    } else {
+      if (target != null) {
+        for (var i = 0; i < stream.length; i++) {
+          final post = _store.read<Post>(_siteUrl, stream[i]);
+          if (post != null && post.postNumber >= target) {
+            anchor = i;
+            break;
+          }
+        }
+      }
+      if (anchor < 0) {
+        anchor = stream.indexWhere(
+          (id) => _store.read<Post>(_siteUrl, id) != null,
+        );
+      }
     }
     if (anchor < 0) return null;
     var first = anchor;
