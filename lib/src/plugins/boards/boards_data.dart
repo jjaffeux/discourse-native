@@ -14,6 +14,8 @@ Map<String, dynamic> boardObject(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : const {};
 int? boardInt(Object? value) => value is int && value > 0 ? value : null;
 String boardText(Object? value) => value is String ? value : '';
+DateTime? boardDate(Object? value) =>
+    value is String ? DateTime.tryParse(value) : null;
 List<int> boardIds(Object? value) => value is List
     ? List.unmodifiable(value.whereType<int>().where((id) => id > 0))
     : const [];
@@ -55,6 +57,10 @@ final class BoardCard {
     this.assignee,
     this.closed,
     this.imageUrl,
+    this.recencyAt,
+    this.activityAt,
+    this.activityUser,
+    this.assignees,
   );
   static BoardCard? decode(Object? value) {
     final json = boardObject(value);
@@ -100,6 +106,25 @@ final class BoardCard {
       boardText(assignment['username'] ?? assignment['name']),
       topic['closed'] == true,
       boardText(topic['image_url']),
+      boardDate(json['recency_at']),
+      boardDate(json['recency_at']) ??
+          boardDate(
+            kind == BoardCardKind.topic
+                ? topic['bumped_at']
+                : json['created_at'],
+          ),
+      BoardCreator.decode(
+        kind == BoardCardKind.topic ? topic['last_poster'] : json['created_by'],
+      ),
+      List.unmodifiable([
+        for (final raw
+            in kind == BoardCardKind.topic &&
+                    topic['all_assigned_users'] is List &&
+                    (topic['all_assigned_users'] as List).isNotEmpty
+                ? topic['all_assigned_users'] as List
+                : [assignment])
+          ?BoardCreator.decode(raw),
+      ]),
     );
   }
 
@@ -111,6 +136,9 @@ final class BoardCard {
   final int position;
   final bool closed;
   final String imageUrl;
+  final DateTime? recencyAt, activityAt;
+  final BoardCreator? activityUser;
+  final List<BoardCreator> assignees;
 }
 
 final class BoardColumn {
@@ -124,6 +152,7 @@ final class BoardColumn {
     this.moveAssigned,
     this.moveStatus,
     this.icon,
+    this.color,
   );
   static BoardColumn? decode(Object? value) {
     final json = boardObject(value);
@@ -150,6 +179,7 @@ final class BoardColumn {
       boardText(json['move_to_assigned']),
       boardText(json['move_to_status']),
       boardText(json['icon']),
+      boardText(json['color']),
     );
   }
 
@@ -157,7 +187,7 @@ final class BoardColumn {
   final String title;
   final BoardColumnOrder order;
   final List<BoardCard> cards;
-  final String tagName, moveAssigned, moveStatus, icon;
+  final String tagName, moveAssigned, moveStatus, icon, color;
   final int? moveCategoryId;
 }
 

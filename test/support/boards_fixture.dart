@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/models/topic.dart' show TopicCategory;
 import 'package:discourse_native/src/plugins/boards/boards_api.dart';
 import 'package:discourse_native/src/plugins/boards/boards_controller.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
@@ -12,6 +13,7 @@ const boardsSite = 'https://forum.example/community';
 
 Map<String, dynamic> boardFixtureJson({
   bool canWrite = true,
+  bool? canManage,
   bool archived = false,
   String sort = 'priority',
   int extraCards = 0,
@@ -21,7 +23,7 @@ Map<String, dynamic> boardFixtureJson({
     'name': 'Product roadmap',
     'slug': 'product-roadmap',
     'can_write': canWrite,
-    'can_manage': canWrite,
+    'can_manage': canManage ?? canWrite,
     'archived': archived,
     'require_confirmation': false,
     'show_tags': true,
@@ -96,6 +98,7 @@ final class BoardsFixture {
     Map<String, dynamic>? json,
     PluginComposerHost? composer,
     PluginRequestHost? requestHost,
+    Map<int, TopicCategory> categories = const {},
   }) {
     settings = ValueNotifier(
       SiteConfig(
@@ -134,6 +137,31 @@ final class BoardsFixture {
         },
       },
     );
+    transport.responders['POST /boards/api/boards/1/move-column'] = (request) {
+      final index = columns.indexWhere(
+        (column) => column['id'] == request.body['column_id'],
+      );
+      final direction = request.body['direction'] as int;
+      final column = columns.removeAt(index);
+      columns.insert(index + direction, column);
+      return <String, dynamic>{};
+    };
+    for (final column in columns) {
+      final id = column['id'];
+      transport.responders['PUT /boards/api/boards/1/columns/$id'] = (request) {
+        column.addAll(boardObject(request.body['column']));
+        return {'column': column};
+      };
+      transport.responders['DELETE /boards/api/boards/1/columns/$id/cards'] =
+          (_) {
+            (column['cards'] as List).clear();
+            return <String, dynamic>{};
+          };
+      transport.responders['DELETE /boards/api/boards/1/columns/$id'] = (_) {
+        columns.removeWhere((value) => value['id'] == id);
+        return <String, dynamic>{};
+      };
+    }
     controller = BoardsController(
       api: BoardsApi(transport),
       requests: requestHost ?? requests,
@@ -141,6 +169,7 @@ final class BoardsFixture {
         currentUserFor: (_) =>
             connected ? const DiscourseUser(username: 'lee', id: 2) : null,
         siteConfigFor: (_) => config,
+        categoryFor: (_, id) => categories[id],
         siteConfigListenableFor: (_) => settings,
       ),
       trackers: (_) => live,
@@ -179,6 +208,7 @@ final class BoardsFixture {
       cards.removeWhere((Object? card) => boardObject(card)['id'] == id);
     }
     final card = held!..addAll(fields);
+    card['recency_at'] = DateTime.now().toUtc().toIso8601String();
     final target = columns.firstWhere(
       (column) => column['id'] == card['column_id'],
     );

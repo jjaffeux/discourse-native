@@ -240,6 +240,7 @@ final class BoardHandle extends ChangeNotifier {
   bool get enabled => !_disposed && owner.enabled(site);
   bool get canWrite =>
       enabled && !reading && !writing && snapshot?.canWrite == true;
+  bool get canManage => canWrite && snapshot?.canManage == true;
   bool _current(PluginSiteLease lease, int generation) =>
       enabled && lease.isCurrent && generation == _generation;
   void _changed() {
@@ -366,9 +367,12 @@ final class BoardHandle extends ChangeNotifier {
   Future<BoardWriteResult> _write(
     Future<Map<String, dynamic>> Function(PluginRequestCredentials credentials)
     operation, {
-    int? topicId,
+    Iterable<int> topicIds = const [],
+    bool requireManage = false,
   }) async {
-    if (!canWrite) return const BoardWriteResult(BoardWriteState.refused);
+    if (!canWrite || requireManage && !canManage) {
+      return const BoardWriteResult(BoardWriteState.refused);
+    }
     writing = true;
     _generation++;
     final lease = owner.requests.capture(site);
@@ -388,13 +392,24 @@ final class BoardHandle extends ChangeNotifier {
       if (credential.failure case final failure?) throw failure;
       final credentials = credential.credentials;
       if (credentials == null) {
-        return const BoardWriteResult(BoardWriteState.refused);
+        result = const BoardWriteResult(BoardWriteState.refused);
+      } else {
+        final completed = await credentials.run(() async {
+          if (!current() || requireManage && snapshot?.canManage != true) {
+            return false;
+          }
+          await operation(credentials);
+          return true;
+        });
+        if (!current()) {
+          return const BoardWriteResult(BoardWriteState.cancelled);
+        }
+        if (completed) {
+          saved = true;
+        } else {
+          result = const BoardWriteResult(BoardWriteState.cancelled);
+        }
       }
-      await credentials.run(() => operation(credentials));
-      if (!current()) {
-        return const BoardWriteResult(BoardWriteState.cancelled);
-      }
-      saved = true;
     } catch (failure) {
       if (!current()) {
         return const BoardWriteResult(BoardWriteState.cancelled);
@@ -419,32 +434,127 @@ final class BoardHandle extends ChangeNotifier {
       return const BoardWriteResult(BoardWriteState.cancelled);
     }
     await refresh();
-    if ((saved || result?.state == BoardWriteState.unknown) &&
-        topicId != null &&
-        enabled &&
-        lease.isCurrent) {
-      try {
-        final repair = owner.topics.refreshAfterMutation;
-        if (repair != null) {
-          final result = await repair(
-            siteUrl: site,
-            topicId: topicId,
-            lease: lease,
-          );
-          if (result != PluginTopicRefreshResult.refreshed && saved) {
-            return const BoardWriteResult(BoardWriteState.refreshNeeded);
-          }
-        } else {
-          await owner.topics.reloadTopic(site, topicId);
+    if (saved || result?.state == BoardWriteState.unknown) {
+      var refreshFailed = false;
+      for (final affectedId in topicIds.toSet()) {
+        if (!enabled || !lease.isCurrent) {
+          return const BoardWriteResult(BoardWriteState.cancelled);
         }
-      } catch (_) {
-        if (saved) return const BoardWriteResult(BoardWriteState.refreshNeeded);
+        try {
+          final repair = owner.topics.refreshAfterMutation;
+          if (repair != null) {
+            final refreshed = await repair(
+              siteUrl: site,
+              topicId: affectedId,
+              lease: lease,
+            );
+            refreshFailed |= refreshed != PluginTopicRefreshResult.refreshed;
+          } else {
+            await owner.topics.reloadTopic(site, affectedId);
+          }
+        } catch (_) {
+          refreshFailed = true;
+        }
+      }
+      if (!enabled || !lease.isCurrent) {
+        return const BoardWriteResult(BoardWriteState.cancelled);
+      }
+      if (refreshFailed && saved) {
+        return const BoardWriteResult(BoardWriteState.refreshNeeded);
       }
     }
     return result ??
         BoardWriteResult(
           error == null ? BoardWriteState.saved : BoardWriteState.refreshNeeded,
         );
+  }
+
+  Future<BoardWriteResult> updateColumn(
+    int columnId, {
+    required String title,
+    required String icon,
+    required BoardColumnOrder order,
+  }) {
+    final column = snapshot?.column(columnId);
+    if (!canManage ||
+        column == null ||
+        title.trim().isEmpty ||
+        column.order == BoardColumnOrder.unsupported ||
+        order == BoardColumnOrder.unsupported) {
+      return Future.value(const BoardWriteResult(BoardWriteState.refused));
+    }
+    return _write((credentials) {
+      final current = snapshot?.column(columnId);
+      if (current == null) throw const WriteException(WriteFailure.forbidden);
+      return owner.api.write(
+        site,
+        'boards/$id/columns/$columnId',
+        credentials,
+        method: 'PUT',
+        body: {
+          'column': {
+            'title': title.trim(),
+            'icon': icon.trim(),
+            'color': current.color.isEmpty ? null : current.color,
+            'default_sort': order.name,
+            'tag_name': current.tagName.isEmpty ? null : current.tagName,
+            'move_to_category_id': current.moveCategoryId,
+            'move_to_assigned': current.moveAssigned.isEmpty
+                ? null
+                : current.moveAssigned,
+            'move_to_status': current.moveStatus.isEmpty
+                ? null
+                : current.moveStatus,
+          },
+        },
+      );
+    }, requireManage: true);
+  }
+
+  Future<BoardWriteResult> moveColumn(int columnId, int direction) {
+    final columns = snapshot?.columns ?? const <BoardColumn>[];
+    final index = columns.indexWhere((column) => column.id == columnId);
+    if (!canManage ||
+        (direction != -1 && direction != 1) ||
+        index < 0 ||
+        index + direction < 0 ||
+        index + direction >= columns.length) {
+      return Future.value(const BoardWriteResult(BoardWriteState.refused));
+    }
+    return _write(
+      (credentials) => owner.api.write(
+        site,
+        'boards/$id/move-column',
+        credentials,
+        method: 'POST',
+        body: {'column_id': columnId, 'direction': direction},
+      ),
+      requireManage: true,
+    );
+  }
+
+  Future<BoardWriteResult> clearColumn(int columnId) =>
+      _removeColumn(columnId, delete: false);
+  Future<BoardWriteResult> deleteColumn(int columnId) =>
+      _removeColumn(columnId, delete: true);
+
+  Future<BoardWriteResult> _removeColumn(int columnId, {required bool delete}) {
+    final column = snapshot?.column(columnId);
+    if (!canManage || column == null || !delete && column.cards.isEmpty) {
+      return Future.value(const BoardWriteResult(BoardWriteState.refused));
+    }
+    final topics = {for (final card in column.cards) ?card.topicId};
+    return _write(
+      (credentials) => owner.api.write(
+        site,
+        'boards/$id/columns/$columnId${delete ? '' : '/cards'}',
+        credentials,
+        method: 'DELETE',
+        body: const {},
+      ),
+      topicIds: topics,
+      requireManage: true,
+    );
   }
 
   bool composing(int columnId, {int? cardId}) =>
@@ -561,7 +671,7 @@ final class BoardHandle extends ChangeNotifier {
           },
         },
       ),
-      topicId: topicId,
+      topicIds: [topicId],
     );
     if (result.saved) owner._createdTopics.remove(key);
     _changed();
@@ -639,7 +749,7 @@ final class BoardHandle extends ChangeNotifier {
           if (repair != null) 'constraint_fix': repair.json,
         },
       ),
-      topicId: card.topicId,
+      topicIds: [?card.topicId],
     );
   }
 
@@ -682,7 +792,7 @@ final class BoardHandle extends ChangeNotifier {
       method: 'DELETE',
       body: const {},
     ),
-    topicId: snapshot?.card(cardId)?.topicId,
+    topicIds: [?snapshot?.card(cardId)?.topicId],
   );
 
   Future<BoardWriteResult> addTopic(
@@ -729,7 +839,7 @@ final class BoardHandle extends ChangeNotifier {
           if (repair != null) 'constraint_fix': repair.json,
         },
       ),
-      topicId: topicId,
+      topicIds: [topicId],
     );
   }
 }

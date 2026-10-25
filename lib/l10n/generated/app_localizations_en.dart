@@ -14419,4 +14419,66 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get boardsAddCard => 'Add card';
+
+  @override
+  String get boardsAddTopicAsCard => 'Add topic as card';
+
+  @override
+  String get boardsEditColumn => 'Edit column';
+
+  @override
+  String get boardsMoveLeft => 'Move left';
+
+  @override
+  String get boardsMoveRight => 'Move right';
+
+  @override
+  String get boardsClearColumn => 'Clear column';
+
+  @override
+  String get boardsDeleteColumn => 'Delete column';
+
+  @override
+  String get boardsColumnControls => 'Column controls';
+
+  @override
+  String get boardsColumnIcon => 'Icon name';
+
+  @override
+  String get boardsColumnSort => 'Card order';
+
+  @override
+  String get boardsSortPriority => 'Priority';
+
+  @override
+  String get boardsSortRecency => 'Recent activity';
+
+  @override
+  String boardsShowOlder(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count older cards',
+      one: '1 older card',
+    );
+    return 'Show $_temp0';
+  }
+
+  @override
+  String boardsClearColumnConfirm(String title, int count) {
+    return 'Remove $count cards from \"$title\"? This also removes the column tag from affected topics.';
+  }
+
+  @override
+  String boardsDeleteColumnConfirm(String title, int count) {
+    return 'Delete \"$title\" and its $count cards? The topics themselves will remain.';
+  }
+
+  @override
+  String boardsTypeColumnName(String title) {
+    return 'Type \"$title\" to confirm';
+  }
 }

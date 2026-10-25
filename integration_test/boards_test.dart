@@ -2,11 +2,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import '../test/plugins/boards/boards_directory_test.dart' as directory;
+import '../test/plugins/boards/boards_reader_test.dart' as reader;
 import '../test/plugins/boards/boards_widget_test.dart' as boards;
 
 void main() {
@@ -36,4 +36,5 @@ void main() {
 
   boards.boardsWidgetTests(nativeView: true, onCapture: capture);
   directory.boardsDirectoryWidgetTests(nativeView: true, onCapture: capture);
+  reader.boardsReaderTests(nativeView: true, onCapture: capture);
 }
