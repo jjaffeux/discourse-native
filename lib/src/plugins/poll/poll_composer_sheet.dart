@@ -73,7 +73,11 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
       maxWidth: 640,
       semanticLabel: title,
       children: [
-        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+        DDialogHeader(
+          children: [
+            DDialogTitle(child: Semantics(headingLevel: 1, child: Text(title))),
+          ],
+        ),
         DDialogScrollArea(
           maxHeightFactor: 0.7,
           child: editor(dialogContext, dialog.close),

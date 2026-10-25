@@ -88,8 +88,8 @@ void main() {
       } finally {
         semantics.dispose();
       }
-      expect(find.byType(Dialog), findsOneWidget);
-      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsNothing);
 
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
@@ -102,7 +102,8 @@ void main() {
         PollComposerDraft.newPoll(name: 'poll', defaultPublic: false),
       );
 
-      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(DDialogContent), findsNothing);
+      expect(find.byType(DSheetContent), findsOneWidget);
       expect(find.byType(PollComposerSheet), findsOneWidget);
     });
   });
