@@ -458,13 +458,14 @@ void main() {
           ),
         ),
       );
-      controller.text = 'updated';
-      controller.selection = const TextSelection(
-        baseOffset: 1,
-        extentOffset: 3,
+      const updated = TextEditingValue(
+        text: 'updated',
+        selection: TextSelection(baseOffset: 1, extentOffset: 3),
       );
+      controller.value = updated;
+      await tester.pump();
       form.currentState!.save();
-      expect(controller.text, 'updated');
+      expect(controller.value, updated);
       expect(callbacks, 0);
     },
   );

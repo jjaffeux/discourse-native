@@ -1,4 +1,4 @@
-import 'dart:ui' show CheckedState;
+import 'dart:ui' show CheckedState, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
@@ -39,7 +39,6 @@ Widget _command({
   TextEditingController? editingController,
   FocusNode? inputFocus,
   VoidCallback? onEmptyBackspace,
-  ScrollController? scrollController,
 }) => DCommand<String>(
   controller: controller,
   query: query,
@@ -227,6 +226,8 @@ void main() {
         .evaluate()
         .length;
     expect(mountedRows(), lessThan(60));
+    expect(mountedRows(), greaterThan(0));
+    expect(find.text('tag-0').hitTestable(), findsOneWidget);
     final scrollable = find.descendant(
       of: find.byType(DCommandList<String>),
       matching: find.byType(Scrollable),
@@ -238,6 +239,18 @@ void main() {
       greaterThan(400),
     );
     expect(mountedRows(), lessThan(60));
+    expect(mountedRows(), greaterThan(0));
+    expect(
+      find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.data != null &&
+                RegExp(r'^tag-(?:[1-9]\d*)$').hasMatch(widget.data!),
+          )
+          .hitTestable(),
+      findsWidgets,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -332,56 +345,83 @@ void main() {
   ) async {
     final controller = DCommandController<String>();
     addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      _host(
-        DCommand<String>(
-          controller: controller,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const DCommandInput<String>(),
-              DCommandList<String>(
-                children: [
-                  for (var i = 0; i < 500; i++)
-                    DCommandItem<String>(
-                      value: 'Row $i',
-                      child: Text('Row $i'),
-                    ),
-                ],
-              ),
-            ],
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(
+        _host(
+          DCommand<String>(
+            controller: controller,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const DCommandInput<String>(),
+                DCommandList<String>(
+                  children: [
+                    for (var i = 0; i < 500; i++)
+                      DCommandItem<String>(
+                        value: 'Row $i',
+                        child: Text('Row $i'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    var builds = 0;
-    var listBuilds = 0;
-    var inputBuilds = 0;
-    final previous = debugOnRebuildDirtyWidget;
-    debugOnRebuildDirtyWidget = (element, builtOnce) {
-      previous?.call(element, builtOnce);
-      builds++;
-      if (element.widget is DCommandList<String>) listBuilds++;
-      if (element.widget is DCommandInput<String>) inputBuilds++;
-    };
-    try {
-      for (final value in ['Row 1', 'Row 2', 'Row 3']) {
-        builds = 0;
-        controller.highlight(value);
-        await tester.pump();
-        expect(controller.value, value);
-        expect(
-          builds,
-          lessThan(200),
-          reason: 'Only the old and new highlight should rebuild.',
-        );
+      );
+      await tester.pumpAndSettle();
+      Tristate selected(String value) => tester
+          .getSemantics(
+            find
+                .ancestor(
+                  of: find.text(value),
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Semantics &&
+                        widget.properties.selected != null,
+                  ),
+                )
+                .first,
+          )
+          .flagsCollection
+          .isSelected;
+      controller.highlight('Row 0');
+      await tester.pump();
+      expect(selected('Row 0'), Tristate.isTrue);
+      var builds = 0;
+      var listBuilds = 0;
+      var inputBuilds = 0;
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        builds++;
+        if (element.widget is DCommandList<String>) listBuilds++;
+        if (element.widget is DCommandInput<String>) inputBuilds++;
+      };
+      try {
+        var previousValue = 'Row 0';
+        for (final value in ['Row 1', 'Row 2', 'Row 3']) {
+          builds = 0;
+          controller.highlight(value);
+          await tester.pump();
+          expect(controller.value, value);
+          expect(selected(previousValue), Tristate.isFalse);
+          expect(selected(value), Tristate.isTrue);
+          previousValue = value;
+          expect(
+            builds,
+            lessThan(200),
+            reason: 'Only the old and new highlight should rebuild.',
+          );
+        }
+        expect(listBuilds, 0);
+        expect(inputBuilds, 0);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugOnRebuildDirtyWidget = previous;
       }
-      expect(listBuilds, 0);
-      expect(inputBuilds, 0);
-      expect(tester.takeException(), isNull);
     } finally {
-      debugOnRebuildDirtyWidget = previous;
+      semantics.dispose();
     }
   });
   testWidgets(
@@ -1326,7 +1366,7 @@ void main() {
     await mouse.removePointer();
   });
 
-  testWidgets('checked state is semantic and touch rows are 48 pixels', (
+  testWidgets('checked state is semantic and touch rows match visible bounds', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1415,20 +1455,18 @@ void main() {
     },
   );
 
-  testWidgets('loading, scrolling, borrowed resources and RTL remain live', (
+  testWidgets('loading, borrowed resources and RTL remain live', (
     tester,
   ) async {
     final command = DCommandController<String>();
     final editing = TextEditingController();
     final focus = FocusNode();
-    final scroll = ScrollController();
     await tester.pumpWidget(
       _host(
         _command(
           controller: command,
           editingController: editing,
           inputFocus: focus,
-          scrollController: scroll,
           loading: true,
         ),
         direction: TextDirection.rtl,
@@ -1441,11 +1479,9 @@ void main() {
     expect(() => command.updateQuery('safe'), returnsNormally);
     expect(() => editing.text = 'safe', returnsNormally);
     expect(() => focus.requestFocus(), returnsNormally);
-    expect(scroll.hasClients, isFalse);
     command.dispose();
     editing.dispose();
     focus.dispose();
-    scroll.dispose();
   });
 
   testWidgets(

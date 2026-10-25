@@ -77,10 +77,27 @@ void main() {
     await tester.pump();
 
     expect(find.text('Question 1 of 2'), findsOneWidget);
-    await tester.tap(find.text('Next'));
+    final nextFocus = Focus.of(tester.element(find.text('Next')));
+    nextFocus.requestFocus();
+    await tester.pump();
+    expect(nextFocus.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(find.text('Choose an answer to continue.'), findsOneWidget);
-    expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+    expect(
+      tester
+          .widget<FocusableActionDetector>(
+            find
+                .ancestor(
+                  of: find.text('A').first,
+                  matching: find.byType(FocusableActionDetector),
+                )
+                .first,
+          )
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
 
     await tester.tap(find.text('B').first);
     await tester.tap(find.text('Next'));

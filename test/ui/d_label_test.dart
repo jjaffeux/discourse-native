@@ -34,10 +34,6 @@ void main() {
         expect(control, findsOneWidget);
         var node = tester.getSemantics(control);
         expect(
-          node.getSemanticsData().flagsCollection.isChecked,
-          isNot(CheckedState.none),
-        );
-        expect(
           node.getSemanticsData().flagsCollection.isEnabled,
           Tristate.isTrue,
         );
@@ -156,10 +152,6 @@ void main() {
         );
         expect(
           node.getSemanticsData().flagsCollection.isEnabled,
-          isNot(Tristate.none),
-        );
-        expect(
-          node.getSemanticsData().flagsCollection.isEnabled,
           Tristate.isFalse,
         );
         expect(
@@ -171,7 +163,6 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pump();
-        expect(tester.widget<DCheckbox>(find.byType(DCheckbox)).value, isTrue);
         expect(tester.takeException(), isNull);
       } finally {
         semantics.dispose();

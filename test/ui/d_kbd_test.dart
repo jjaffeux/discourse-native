@@ -213,7 +213,6 @@ void main() {
         tester.getCenter(find.text('Ctrl')).dx,
         lessThan(tester.getCenter(find.text('←')).dx),
       );
-      expect(tester.widget<Text>(find.text('←')).data, '←');
     },
   );
 

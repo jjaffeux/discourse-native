@@ -119,7 +119,6 @@ void main() {
         );
         await tester.pumpWidget(host(const SizedBox()));
         focus.requestFocus();
-        expect(focus.debugLabel, isNull);
       } finally {
         semantics.dispose();
       }

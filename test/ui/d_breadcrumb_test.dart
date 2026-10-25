@@ -194,20 +194,44 @@ void main() {
     expect(destination, 42);
   });
 
-  testWidgets('touch links retain 48 pixel activation bounds', (tester) async {
-    await pumpBreadcrumb(
-      tester,
-      const DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
-      platform: TargetPlatform.iOS,
-    );
-    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 21);
-
-    await pumpBreadcrumb(
-      tester,
-      const DBreadcrumbLink(onPressed: _noop, child: Text('Home')),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(DBreadcrumbLink)).height, 21);
+  testWidgets('link activation stays within visible label bounds', (
+    tester,
+  ) async {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      var activations = 0;
+      await pumpBreadcrumb(
+        tester,
+        Center(
+          child: DBreadcrumbLink(
+            onPressed: () => activations++,
+            child: const Text('Home'),
+          ),
+        ),
+        platform: platform,
+      );
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(find.byType(DBreadcrumbLink));
+      expect(bounds.height, 21);
+      for (final point in [
+        Offset(bounds.left + 1, bounds.center.dy),
+        Offset(bounds.right - 1, bounds.center.dy),
+        Offset(bounds.center.dx, bounds.top + 1),
+        Offset(bounds.center.dx, bounds.bottom - 1),
+      ]) {
+        final before = activations;
+        await tester.tapAt(point);
+        expect(activations, before + 1);
+      }
+      for (final point in [
+        Offset(bounds.left - 1, bounds.center.dy),
+        Offset(bounds.right + 1, bounds.center.dy),
+        Offset(bounds.center.dx, bounds.top - 1),
+        Offset(bounds.center.dx, bounds.bottom + 1),
+      ]) {
+        await tester.tapAt(point);
+        expect(activations, 4);
+      }
+    }
   });
 
   testWidgets('landmark and current page expose useful semantics only', (

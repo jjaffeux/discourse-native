@@ -25,30 +25,26 @@ Widget host(
   ),
 );
 
-DAccordionItem<String> item(
-  String value, {
-  bool disabled = false,
-  FocusNode? focusNode,
-  Widget? content,
-}) => DAccordionItem<String>(
-  key: ValueKey('item-$value'),
-  value: value,
+DAccordionItem<String> item(String value, {Widget? content}) =>
+    DAccordionItem<String>(
+      key: ValueKey('item-$value'),
+      value: value,
 
-  child: Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      DAccordionHeader(
-        child: DAccordionTrigger(
-          key: ValueKey('trigger-$value'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DAccordionHeader(
+            child: DAccordionTrigger(
+              key: ValueKey('trigger-$value'),
 
-          child: Text('Question $value'),
-        ),
+              child: Text('Question $value'),
+            ),
+          ),
+          DAccordionContent(child: content ?? Text('Answer $value')),
+        ],
       ),
-      DAccordionContent(child: content ?? Text('Answer $value')),
-    ],
-  ),
-);
+    );
 
 void main() {
   testWidgets('unkeyed direct items do not receive duplicate wrapper keys', (
@@ -104,23 +100,19 @@ void main() {
   testWidgets('Tab follows document order and keyboard activation is native', (
     tester,
   ) async {
-    final first = FocusNode();
-    final second = FocusNode();
-    addTearDown(first.dispose);
-    addTearDown(second.dispose);
     await tester.pumpWidget(
-      host(
-        DAccordion<String>(
-          children: [
-            item('a', focusNode: first),
-            item('b', focusNode: second),
-          ],
-        ),
-      ),
+      host(DAccordion<String>(children: [item('a'), item('b')])),
     );
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
     expect(Focus.of(tester.element(find.text('Question a'))).hasFocus, isTrue);
+    expect(find.text('Answer a'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Answer a'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(find.text('Answer a'), findsNothing);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
     expect(Focus.of(tester.element(find.text('Question b'))).hasFocus, isTrue);
@@ -166,16 +158,12 @@ void main() {
   testWidgets(
     'inherited retention preserves fields and collapse restores trigger focus',
     (tester) async {
-      final trigger = FocusNode();
-      addTearDown(trigger.dispose);
       await tester.pumpWidget(
         host(
           DAccordion<String>(
             keepMounted: true,
             defaultValues: const ['a'],
-            children: [
-              item('a', focusNode: trigger, content: const TextField()),
-            ],
+            children: [item('a', content: const TextField())],
           ),
         ),
       );

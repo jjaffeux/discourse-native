@@ -49,10 +49,7 @@ void main() {
     ),
   );
 
-  DMessage message({
-    DMessageAlign align = DMessageAlign.start,
-    bool footer = false,
-  }) => DMessage(
+  DMessage message({bool footer = false}) => DMessage(
     key: const ValueKey('message'),
 
     children: [
