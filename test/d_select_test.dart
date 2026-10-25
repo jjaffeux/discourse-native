@@ -1144,17 +1144,32 @@ void main() {
       final focus = FocusNode();
       final popover = DPopoverController();
       final scroll = ScrollController();
+      const entries = [
+        DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
+      ];
       await _mount(
         tester,
-        DSelect<String>(
-          focusNode: focus,
+        DSelect<String>(focusNode: focus, entries: entries, onChanged: (_) {}),
+      );
+      await tester.pumpWidget(const SizedBox());
+      expect(() => focus.requestFocus(), returnsNormally);
 
-          entries: const [
-            DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple')),
-          ],
+      // Only the multiple-selection Select borrows popover and scroll
+      // controllers; open it so both are attached before it unmounts.
+      await _mount(
+        tester,
+        DMultiSelect<String>(
+          focusNode: focus,
+          popoverController: popover,
+          scrollController: scroll,
+          entries: entries,
           onChanged: (_) {},
         ),
       );
+      popover.open();
+      await tester.pumpAndSettle();
+      expect(find.text('Apple'), findsOneWidget);
+      expect(scroll.hasClients, isTrue);
       await tester.pumpWidget(const SizedBox());
 
       expect(() => focus.requestFocus(), returnsNormally);
