@@ -3,6 +3,60 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('word comparison retains shared text and identifies each change', () {
+    for (final (current, saved, expected) in [
+      (
+        'café 👩🏽‍💻',
+        'café 👩🏽‍💻',
+        [('café 👩🏽‍💻', DTextRevisionKind.unchanged)],
+      ),
+      (
+        'A new sentence.',
+        'A saved sentence.',
+        [
+          ('A ', DTextRevisionKind.unchanged),
+          ('new', DTextRevisionKind.removed),
+          ('saved', DTextRevisionKind.restored),
+          (' sentence.', DTextRevisionKind.unchanged),
+        ],
+      ),
+      (
+        'old keep red',
+        'new keep blue',
+        [
+          ('old', DTextRevisionKind.removed),
+          ('new', DTextRevisionKind.restored),
+          (' keep ', DTextRevisionKind.unchanged),
+          ('red', DTextRevisionKind.removed),
+          ('blue', DTextRevisionKind.restored),
+        ],
+      ),
+      (
+        'café\n👩🏽‍💻',
+        'thé\n👩🏽‍💻',
+        [
+          ('café', DTextRevisionKind.removed),
+          ('thé', DTextRevisionKind.restored),
+          ('\n👩🏽‍💻', DTextRevisionKind.unchanged),
+        ],
+      ),
+      (
+        '  indent\n',
+        '  indent\n\n',
+        [
+          ('  indent\n', DTextRevisionKind.unchanged),
+          ('\n', DTextRevisionKind.restored),
+        ],
+      ),
+    ]) {
+      expect(
+        textRevisionRuns(current, saved).map((run) => (run.text, run.kind)),
+        expected,
+        reason: '$current → $saved',
+      );
+    }
+  });
+
   for (final (current, saved) in [
     ('A new sentence.', 'A saved sentence.'),
     ('👩🏽‍💻 café\nnext', '👩🏽‍💻 thé\nfirst'),

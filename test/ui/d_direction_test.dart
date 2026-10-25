@@ -220,7 +220,6 @@ class _ReadDirection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final direction = DDirection.of(context);
-    expect(DDirection.of(context), direction);
     expect(Directionality.of(context), direction);
     return Text('$label: ${direction.name}');
   }
