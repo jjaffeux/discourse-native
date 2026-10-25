@@ -318,7 +318,7 @@ class _PostActionsState extends State<PostActions> {
             onInvoke: () => unawaited(
               Clipboard.setData(
                 ClipboardData(
-                  text: PostQuoteSelectionResolver(post.cooked).plainText,
+                  text: PostQuoteSelectionResolver(post.cooked).exportText,
                 ),
               ),
             ),

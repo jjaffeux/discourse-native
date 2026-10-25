@@ -58,6 +58,7 @@ final class PostQuoteSelectionResolver {
   final _CookedSelectionSource? _source;
 
   String get plainText => _source?.plainText ?? '';
+  String get exportText => _source?.exportText ?? '';
   String get entirePost => _source?.markdown(0, plainText.length) ?? '';
 
   String contentsFor(String plainText) => resolve(plainText).markdown;
@@ -143,12 +144,13 @@ class _CookedSelectionCharacter {
 }
 
 class _CookedSelectionSource {
-  _CookedSelectionSource(this.characters, this.breaks)
+  _CookedSelectionSource(this.characters, this.breaks, this.explicitBreaks)
     : plainText = characters.map((character) => character.value).join();
 
   factory _CookedSelectionSource.fromHtml(String cooked) {
     final characters = <_CookedSelectionCharacter>[];
     final breaks = <int, int>{};
+    final explicitBreaks = <int, int>{};
 
     void addBreak(int lines) {
       if (characters.isEmpty) return;
@@ -221,6 +223,8 @@ class _CookedSelectionSource {
         continue;
       }
       if (node.localName == 'br') {
+        final offset = characters.length;
+        explicitBreaks[offset] = (explicitBreaks[offset] ?? 0) + 1;
         addBreak(1);
         continue;
       }
@@ -246,17 +250,25 @@ class _CookedSelectionSource {
       ));
       pushNodes(node.nodes, childMarks, fastEditBlocked, code);
     }
-    return _CookedSelectionSource._trimmed(characters, breaks);
+    return _CookedSelectionSource._trimmed(characters, breaks, explicitBreaks);
   }
 
   factory _CookedSelectionSource._trimmed(
     List<_CookedSelectionCharacter> characters,
     Map<int, int> breaks,
+    Map<int, int> explicitBreaks,
   ) {
     final kept = <_CookedSelectionCharacter>[];
     final keptBreaks = <int, int>{};
+    final keptExplicitBreaks = <int, int>{};
 
-    for (var offset = 0; offset < characters.length; offset++) {
+    for (var offset = 0; offset <= characters.length; offset++) {
+      final explicit = explicitBreaks[offset];
+      if (explicit != null) {
+        keptExplicitBreaks[kept.length] =
+            (keptExplicitBreaks[kept.length] ?? 0) + explicit;
+      }
+      if (offset == characters.length) break;
       final lines = breaks[offset];
       if (lines != null && kept.isNotEmpty) {
         final current = keptBreaks[kept.length] ?? 0;
@@ -274,13 +286,36 @@ class _CookedSelectionSource {
       }
       kept.add(character);
     }
-    return _CookedSelectionSource(kept, keptBreaks);
+    return _CookedSelectionSource(kept, keptBreaks, keptExplicitBreaks);
   }
 
   final List<_CookedSelectionCharacter> characters;
   final Map<int, int> breaks;
+  final Map<int, int> explicitBreaks;
   final String plainText;
   late final String foldedPlainText = plainText.toLowerCase();
+
+  String get exportText {
+    final out = StringBuffer();
+    var trailingNewlines = 0;
+    for (var offset = 0; offset <= characters.length; offset++) {
+      final structural = offset > 0 && offset < characters.length
+          ? breaks[offset] ?? 0
+          : 0;
+      final explicit = explicitBreaks[offset] ?? 0;
+      final missing = structural - trailingNewlines;
+      final inserted = explicit > missing ? explicit : missing;
+      for (var line = 0; line < inserted; line++) {
+        out.write('\n');
+        trailingNewlines++;
+      }
+      if (offset == characters.length) break;
+      final value = characters[offset].value;
+      out.write(value);
+      trailingNewlines = value == '\n' ? trailingNewlines + 1 : 0;
+    }
+    return out.toString();
+  }
 
   ({int start, int end, bool unique})? match(String selected) {
     if (selected.isEmpty) return null;
