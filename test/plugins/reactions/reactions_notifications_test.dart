@@ -27,7 +27,7 @@ void main() {
       }),
     );
 
-    expect(resolved.presentation.actor, 'sam');
+    expect(resolved.presentation.actor, 'sam, alex');
     expect(
       resolved.presentation.phrase,
       'reacted to your post in Better image handling',
@@ -35,6 +35,35 @@ void main() {
     expect(resolved.presentation.icon, DIcons.discourseEmojis);
     expect(resolved.path, '/t/better-image-handling/7/12');
   });
+
+  test(
+    'reactions from more than two people name the newest and count the rest',
+    () {
+      DiscourseNotification reactedBy(int count) =>
+          DiscourseNotification.fromJson({
+            'id': 7,
+            'notification_type': 25,
+            'topic_id': 7,
+            'post_number': 12,
+            'data': {
+              'topic_title': 'Better image handling',
+              'display_username': 'sam',
+              'username2': 'alex',
+              'count': count,
+            },
+          });
+
+      expect(
+        registry.resolveNotification(_siteUrl, reactedBy(3)).presentation.actor,
+        'sam and 2 others',
+      );
+      expect(
+        registry.resolveNotification(_siteUrl, reactedBy(1)).presentation.actor,
+        'sam',
+        reason: 'a single reaction names only its reactor',
+      );
+    },
+  );
 
   test('consolidated reactions count posts and filter by the actor', () {
     final resolved = registry.resolveNotification(
