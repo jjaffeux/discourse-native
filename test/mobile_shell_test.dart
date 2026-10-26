@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
@@ -14,13 +15,16 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
+import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -31,6 +35,7 @@ import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/category_notifications.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -44,8 +49,10 @@ import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
+import 'package:discourse_native/src/shell/user_summary.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -61,17 +68,19 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
-final _user = DiscourseUser(
+DiscourseUser _reader({bool staff = false}) => DiscourseUser(
   id: 7,
   username: 'reader',
   hidePresence: false,
   canCreateTopic: true,
   canSendPrivateMessages: true,
+  staff: staff,
   plugins: PluginData.none.withValue(
     chatCurrentUserDataKey,
     const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
   ),
 );
+final _user = _reader();
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
@@ -129,6 +138,66 @@ Future<void> _chatWheel(
   await tester.pumpAndSettle(const Duration(milliseconds: 16));
 }
 
+/// The labels on the dock, left to right. The dock calls the inbox Inbox and
+/// More calls it Messages; both name the same place here.
+List<String> _dockLabels(WidgetTester tester) => [
+  for (final element
+      in find
+          .descendant(of: _bar, matching: find.byType(DMobileDockItem))
+          .evaluate())
+    if (element.widget.key != const ValueKey('mobile-mode-more'))
+      switch ((element.widget as DMobileDockItem).label) {
+        'Inbox' => 'Messages',
+        final label => label,
+      },
+];
+
+List<String> _menuLabels(WidgetTester tester) => [
+  for (final item in tester.widgetList<DDropdownMenuItem>(
+    find.byType(DDropdownMenuItem),
+  ))
+    (item.child as Text).data!,
+];
+
+/// Opens More and returns every place in the order a person meets them: the
+/// dock first, then the menu.
+Future<List<String>> _placesInOrder(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+  await tester.pumpAndSettle();
+  return [..._dockLabels(tester), ..._menuLabels(tester)];
+}
+
+/// Picks a place from More. A menu this long opens at its lower detent, so a
+/// place below the screen edge needs the handle dragged up first.
+Future<void> _chooseFromMore(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+  await tester.pumpAndSettle();
+  final place = find.descendant(
+    of: find.byType(DDropdownMenuItem),
+    matching: find.text(label),
+  );
+  if (place.hitTestable().evaluate().isEmpty) {
+    await tester.drag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(place);
+  await tester.pumpAndSettle();
+}
+
+const _topicDraft = UserDraft(
+  key: 'new_topic',
+  sequence: 1,
+  title: 'Unfinished topic',
+  data: ComposerDraft(
+    reply: 'A reply',
+    action: ComposerDraft.createTopicAction,
+    title: 'Unfinished topic',
+  ),
+);
+
 Future<void> _tapDockTab(
   WidgetTester tester,
   String tab, {
@@ -143,6 +212,9 @@ Future<void> _tapDockTab(
       'messages' => 'Messages',
       'users' => 'Users',
       'destination/events-upcoming' => 'Events',
+      'destination/user-bookmarks' => 'Bookmarks',
+      'destination/summary' => 'Summary',
+      'destination/activity' => 'Activity',
       _ => throw StateError('No dock menu label for $tab'),
     };
     await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
@@ -163,6 +235,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool voice = false,
   bool events = false,
   bool chat = true,
+  DiscourseUser? user,
   int chatUnreadCount = 0,
   TopicPayload? topic,
   PluginManifest? pluginManifest,
@@ -191,8 +264,9 @@ Future<ShellController> pumpMobileShellFixture(
         .withValue(eventSettingsKey, EventSettings(enabled: events))
         .withValue(boardsSettingsKey, BoardsSettings(enabled: board != null)),
   );
+  final account = user ?? _user;
   final api = FakeDiscourseApi(
-    user: _user,
+    user: account,
     doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
     customSidebarSectionsBySite: const {
       _site: [
@@ -315,7 +389,7 @@ Future<ShellController> pumpMobileShellFixture(
       instance(
         'meta.discourse.org',
         title: 'Meta',
-      ).copyWith(user: _user, config: config),
+      ).copyWith(user: account, config: config),
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     api: api,
@@ -776,7 +850,7 @@ void main() {
           'offset=${scroll.offset}, max=${scroll.position.maxScrollExtent}, chrome=${DScrollChrome.maybeOf(tester.element(messages))?.hiddenFraction}',
     );
     expect(
-      find.byKey(const ValueKey('mobile-mode-start')).hitTestable(),
+      find.byKey(const ValueKey('mobile-mode-topics')).hitTestable(),
       findsNothing,
     );
     expect(
@@ -815,7 +889,7 @@ void main() {
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();
       final messages = find.byType(DMessageScrollerViewport);
-      final start = find.byKey(const ValueKey('mobile-mode-start'));
+      final topics = find.byKey(const ValueKey('mobile-mode-topics'));
       final send = find.byKey(const ValueKey('chat-composer-send'));
       final originalSend = tester.getRect(send);
       final originalBar = tester.getRect(_bar);
@@ -825,7 +899,7 @@ void main() {
       scroll.jumpTo(700);
       await tester.pumpAndSettle();
       await _chatWheel(tester, messages, 160);
-      expect(start.hitTestable(), findsNothing);
+      expect(topics.hitTestable(), findsNothing);
       expect(
         find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
         findsNothing,
@@ -853,7 +927,7 @@ void main() {
       );
       // Sending refocuses the full composer. Resume reading before checking
       // the shared scroll reversal slack.
-      expect(start.hitTestable(), findsNothing);
+      expect(topics.hitTestable(), findsNothing);
       tester
           .widget<ComposerEditor>(find.byType(ComposerEditor))
           .composer
@@ -862,11 +936,11 @@ void main() {
       await tester.pumpAndSettle();
       await _chatWheel(tester, messages, 160);
       await _chatWheel(tester, messages, -20);
-      expect(start.hitTestable(), findsNothing);
+      expect(topics.hitTestable(), findsNothing);
       expect(send.hitTestable(), findsOneWidget);
       // Reverse past the shared chrome's 40px slack.
       await _chatWheel(tester, messages, -80);
-      expect(start.hitTestable(), findsOneWidget);
+      expect(topics.hitTestable(), findsOneWidget);
       expect(
         find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
         findsOneWidget,
@@ -940,7 +1014,7 @@ void main() {
           final scroll = tester
               .widget<DMessageScrollerViewport>(messages)
               .scrollController!;
-          final start = find.byKey(const ValueKey('mobile-mode-start'));
+          final topics = find.byKey(const ValueKey('mobile-mode-topics'));
           final panel = find.byKey(const ValueKey('mobile-content-panel'));
           final originalBar = tester.getRect(_bar);
           final title = find.text(thread ? 'Support thread' : 'Support');
@@ -957,16 +1031,16 @@ void main() {
             const Duration(milliseconds: 300),
           );
           await tester.pumpAndSettle();
-          expect(start.hitTestable(), findsNothing);
+          expect(topics.hitTestable(), findsNothing);
           expect(title.hitTestable(), findsNothing);
           expect(send.hitTestable(), readOnly ? findsNothing : findsOneWidget);
           expect(tester.getRect(panel).bottom, originalPanel.bottom);
           expect(tester.element(messages), same(streamElement));
           await _chatWheel(tester, messages, -20);
-          expect(start.hitTestable(), findsNothing);
+          expect(topics.hitTestable(), findsNothing);
           expect(title.hitTestable(), findsNothing);
           await _chatWheel(tester, messages, -80);
-          expect(start.hitTestable(), findsOneWidget);
+          expect(topics.hitTestable(), findsOneWidget);
           expect(title.hitTestable(), findsOneWidget);
           expect(tester.getRect(_bar), originalBar);
           // The physical bottom reveals navigation even without reversing.
@@ -975,10 +1049,11 @@ void main() {
           await _chatWheel(tester, messages, 2000);
           expect(scroll.offset, 0);
           expect(title.hitTestable(), findsOneWidget);
-          expect(start.hitTestable(), findsOneWidget);
-          await tester.tap(start);
+          expect(topics.hitTestable(), findsOneWidget);
+          await tester.tap(topics);
           await tester.pumpAndSettle();
-          expect(shell.currentContent?.isNewTab, isTrue);
+          expect(shell.mobileNavigation.tab, MobileTab.topics);
+          expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );
@@ -1313,8 +1388,7 @@ void main() {
         }
 
         expectBody();
-        await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
-        await tester.pumpAndSettle();
+        await _tapDockTab(tester, 'destination/user-bookmarks');
         expectBody();
         await _tapDockTab(tester, 'panel/chat');
         expectBody();
@@ -1363,17 +1437,17 @@ void main() {
               )
               .borderRadius;
 
-          final start = find.byKey(const ValueKey('mobile-mode-start'));
+          final topics = find.byKey(const ValueKey('mobile-mode-topics'));
           final label = find.descendant(
-            of: start,
-            matching: find.text('Start'),
+            of: topics,
+            matching: find.text('Topics'),
           );
           final glyph = find.descendant(
-            of: start,
+            of: topics,
             matching: find.byType(DIcon),
           );
           final button = find.descendant(
-            of: start,
+            of: topics,
             matching: find.byType(DButton),
           );
           final before = (
@@ -1406,7 +1480,7 @@ void main() {
     }
   }
 
-  _mobileTest('Start shares the rounded inset mobile body', (tester) async {
+  _mobileTest('Topics shares the rounded inset mobile body', (tester) async {
     await _loadChromeCaptureFonts(tester);
     tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
     tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
@@ -1414,7 +1488,6 @@ void main() {
       tester,
       size: const Size(390, 844),
     );
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
     for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
       await shell.forumSettings.setThemeMode(_site, mode);
       await shell.forumSettings.setThemes(
@@ -1428,7 +1501,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _captureChrome(tester, 'start-${mode.name}-flat');
+      await _captureChrome(tester, 'topics-${mode.name}-flat');
       final body = find.byKey(const ValueKey('mobile-content-panel'));
       expect(tester.getRect(body).bottom, 844);
       expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
@@ -1436,7 +1509,7 @@ void main() {
           .descendant(of: body, matching: find.byType(DPageSurface))
           .first;
       _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
-      expect(find.byKey(const ValueKey('start-page-content')), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
     if (const bool.fromEnvironment('captureMobileChrome')) {
@@ -1467,45 +1540,6 @@ void main() {
       await gesture.cancel();
       await tester.pumpAndSettle();
     }
-  });
-
-  _mobileTest('Start opens the start page from another mobile tab', (
-    tester,
-  ) async {
-    final shell = await pumpMobileShellFixture(tester);
-    final start = find.byKey(const ValueKey('mobile-mode-start'));
-    expect(start, findsOneWidget);
-    expect(
-      tester.getRect(start).left,
-      lessThan(
-        tester.getRect(find.byKey(const ValueKey('mobile-mode-topics'))).left,
-      ),
-    );
-
-    await _tapDockTab(tester, 'panel/chat');
-    await tester.pumpAndSettle();
-    await tester.tap(start);
-    await tester.pumpAndSettle();
-
-    expect(shell.mobileNavigation.tab, MobileTab.start);
-    expect(shell.currentContent?.isNewTab, isTrue);
-    expect(find.byKey(const ValueKey('start-page-content')), findsOneWidget);
-    expect(shell.canPopContent, isFalse);
-
-    final chromeLogo = find.descendant(
-      of: _header,
-      matching: find.byKey(const ValueKey('forum-identity-logo')),
-    );
-    expect(chromeLogo, findsOneWidget);
-    await tester.tap(chromeLogo);
-    await tester.pumpAndSettle();
-    expect(find.text('Remove forum'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
-    await tester.pumpAndSettle();
-    expect(shell.mobileNavigation.tab, MobileTab.topics);
-    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 
   _mobileTest(
@@ -1727,7 +1761,7 @@ void main() {
       expect(find.byType(InstanceRail), findsNothing);
       expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
       double right = -1;
-      for (final tab in ['start', 'topics', 'panel/chat', 'more']) {
+      for (final tab in ['topics', 'panel/chat', 'more']) {
         final button = find.byKey(ValueKey('mobile-mode-$tab'));
         final rect = tester.getRect(button);
         expect(rect.left, greaterThanOrEqualTo(right));
@@ -1747,7 +1781,6 @@ void main() {
         );
         expect(tester.getSize(glyph).height, closeTo(iconHeight, .01));
       }
-      expect(find.text('Start'), findsOneWidget);
       expect(find.text('Topics'), findsWidgets);
       expect(find.text('Chat'), findsOneWidget);
       expect(find.text('More'), findsNothing);
@@ -2290,10 +2323,7 @@ void main() {
     );
     expect(tester.getRect(topic).right, lessThan(tester.getRect(_bar).right));
     expect(tester.getCenter(topic).dy, tester.getCenter(_bar).dy);
-    expect(
-      find.descendant(of: topic, matching: find.text('New topic')),
-      findsNothing,
-    );
+    expect(tester.widget<DButton>(topic).tooltip, 'New topic');
     await tester.tap(topic);
     await tester.pumpAndSettle();
     expect(shell.visibleComposer, isNotNull);
@@ -2565,16 +2595,15 @@ void main() {
   );
 
   _mobileTest(
-    'fallback creation stays reachable on Start and dock slots stay put',
+    'fallback creation stays reachable on Bookmarks and dock slots stay put',
     (tester) async {
       await pumpMobileShellFixture(tester);
       final topic = find.byKey(const ValueKey('mobile-new-topic'));
-      final start = find.byKey(const ValueKey('mobile-mode-start'));
-      final startRect = tester.getRect(start);
-      await tester.tap(start);
-      await tester.pumpAndSettle();
+      final topics = find.byKey(const ValueKey('mobile-mode-topics'));
+      final topicsRect = tester.getRect(topics);
+      await _tapDockTab(tester, 'destination/user-bookmarks');
       expect(topic.hitTestable(), findsOneWidget);
-      expect(tester.getRect(start), startRect);
+      expect(tester.getRect(topics), topicsRect);
       await _tapDockTab(tester, 'topics');
       expect(topic.hitTestable(), findsOneWidget);
       // Replace an action before its entrance has finished.
@@ -2583,26 +2612,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(topic, findsNothing);
       expect(find.byKey(const ValueKey('mobile-panel-action')), findsOneWidget);
-      expect(tester.getRect(start), startRect);
+      expect(tester.getRect(topics), topicsRect);
       expect(tester.takeException(), isNull);
     },
   );
 
-  _mobileTest('Home to topic and back animates the contextual action', (
+  _mobileTest('Topics to topic and back animates the contextual action', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(
       tester,
       topic: topicPayload(id: 7, canCreatePost: true),
     );
-    await _tapDockTab(tester, 'start');
     final transition = find.descendant(
       of: _bar,
       matching: find.byType(DActionTransition),
     );
     final element = tester.element(transition);
     final dockRect = tester.getRect(
-      find.byKey(const ValueKey('mobile-mode-start')),
+      find.byKey(const ValueKey('mobile-mode-topics')),
     );
     shell.openTopic(
       const Topic(id: 7, slug: 'shared', title: 'Shared topic card'),
@@ -2642,7 +2670,7 @@ void main() {
     expect(entering.center.dx, closeTo(settled.center.dx, .001));
     expect(entering.center.dy, closeTo(settled.center.dy, .001));
     expect(
-      tester.getRect(find.byKey(const ValueKey('mobile-mode-start'))),
+      tester.getRect(find.byKey(const ValueKey('mobile-mode-topics'))),
       dockRect,
     );
     expect(shell.handleBack(), isTrue);
@@ -2676,14 +2704,14 @@ void main() {
       tester.view.physicalSize = Size(width, 844);
       await tester.pumpAndSettle();
       Map<Key?, Rect>? expected;
-      // Start has no trailing action, Topics and Messages each have their
-      // own, and Chat carries its panel action: none may move a slot.
+      // Topics and Messages each have their own trailing action, Chat carries
+      // its panel action, and Bookmarks the fallback one: none may move a slot.
       for (final tab in [
-        'start',
+        'destination/user-bookmarks',
         'topics',
         'panel/chat',
         'messages',
-        'start',
+        'destination/user-bookmarks',
       ]) {
         await _tapDockTab(tester, tab);
         final slots = {
@@ -2943,6 +2971,14 @@ void main() {
         tester.widget<DSheetContent>(sheet).variant,
         DSheetVariant.adaptiveMenu,
       );
+      final handle = find.descendant(
+        of: sheet,
+        matching: find.byKey(const ValueKey('sheet-drag-handle')),
+      );
+      // A menu this long opens at its lower detent. The handle lifts it clear
+      // of the screen edge.
+      await tester.drag(handle, const Offset(0, -300));
+      await tester.pumpAndSettle();
       final bounds = tester.getRect(sheet);
       expect(bounds.left, 6);
       expect(bounds.right, phone.width - 6);
@@ -2962,10 +2998,6 @@ void main() {
           findsOneWidget,
         );
       }
-      final handle = find.descendant(
-        of: sheet,
-        matching: find.byKey(const ValueKey('sheet-drag-handle')),
-      );
       expect(tester.getSize(handle), const Size(36, 5));
 
       await tester.tapAt(Offset(phone.width / 2, bounds.top - 30));
@@ -3029,6 +3061,182 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('Start is not a place: the bar and its More menu are Start', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobile-mode-start')), findsNothing);
+    expect(await _placesInOrder(tester), isNot(contains('Start')));
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a phone left on the Start page lands on Topics', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await _tapDockTab(tester, 'panel/chat');
+    shell.selectMobileDestination(
+      const MobileTab.destination('new-tab'),
+      const SidebarDestination(
+        id: 'new-tab',
+        label: 'Start page',
+        icon: DIcons.house,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(shell.currentContent?.id, 'latest');
+    expect(find.byKey(const ValueKey('start-page-content')), findsNothing);
+    expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('the dock and More offer what the Start page offered, in order', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, events: true);
+    expect(await _placesInOrder(tester), [
+      'Topics',
+      'Chat',
+      'Bookmarks',
+      'Messages',
+      'Users',
+      'Events',
+      'Categories',
+      'Groups',
+      'Badges',
+      'Settings',
+      'Preferences',
+      'Summary',
+      'Activity',
+      'Channels',
+      'Threads',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('staff reach Dashboard right after Bookmarks', (tester) async {
+    await pumpMobileShellFixture(tester, user: _reader(staff: true));
+    final places = await _placesInOrder(tester);
+    expect(places.take(5), [
+      'Topics',
+      'Chat',
+      'Bookmarks',
+      'Dashboard',
+      'Messages',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a signed-out phone offers no account pages', (tester) async {
+    await pumpShell(
+      tester,
+      phone,
+      instances: [instance('meta.discourse.org')],
+      api: FakeDiscourseApi(),
+    );
+    final places = await _placesInOrder(tester);
+    expect(places.first, 'Topics');
+    expect(places, containsAll(['Users', 'Categories', 'Groups', 'Badges']));
+    for (final label in [
+      'Bookmarks',
+      'Preferences',
+      'Summary',
+      'Activity',
+      'Drafts',
+    ]) {
+      expect(places, isNot(contains(label)));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final (label, id, page) in [
+    ('Summary', 'summary', find.byType(UserSummaryView)),
+    ('Activity', 'activity', find.byType(UserActivityView)),
+    ('Channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
+    ('Threads', 'chat-my-threads', find.byType(ChatMyThreadsView)),
+  ]) {
+    _mobileTest(
+      '$label opens its page from More and becomes the current place',
+      (tester) async {
+        final shell = await pumpMobileShellFixture(tester);
+        await _chooseFromMore(tester, label);
+        expect(page, findsOneWidget);
+        expect(shell.currentContent?.id, id);
+        expect(shell.mobileNavigation.tab, MobileTab.destination(id));
+        expect(
+          tester
+              .widget<DMobileDockItem>(
+                find.byKey(const ValueKey('mobile-mode-more')),
+              )
+              .selected,
+          isTrue,
+        );
+        _expectPage();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  _mobileTest('Drafts comes last and only while a draft can be resumed', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final shell = await pumpMobileShellFixture(
+      tester,
+      events: true,
+      onApi: (fake) => api = fake,
+    );
+    // An edit draft cannot be resumed from a list.
+    api.userDraftList = const [
+      UserDraft(
+        key: 'edit_topic_7',
+        sequence: 1,
+        topicId: 7,
+        data: ComposerDraft(reply: 'An edit', action: 'edit'),
+      ),
+    ];
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
+    expect(await _placesInOrder(tester), isNot(contains('Drafts')));
+    await tester.tapAt(const Offset(195, 100));
+    await tester.pumpAndSettle();
+
+    api.userDraftList = [...api.userDraftList, _topicDraft];
+    await shell.draftList.load(shell.currentInstance!, refresh: true);
+    await tester.pumpAndSettle();
+    final places = await _placesInOrder(tester);
+    expect(places.last, 'Drafts');
+    expect(places.where((label) => label == 'Drafts'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('Drafts opens the drafts page and stays while it is open', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (api) => api.userDraftList = const [_topicDraft],
+    );
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
+    await _chooseFromMore(tester, 'Drafts');
+    expect(find.byType(DraftListView), findsOneWidget);
+    expect(shell.currentContent?.id, 'drafts');
+    expect(shell.mobileNavigation.tab, const MobileTab.destination('drafts'));
+
+    // Deleting the last draft empties the page, which stays on screen.
+    shell.draftList.recordDeleted(_site, 'new_topic', knownToExist: true);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'drafts');
+    expect(shell.mobileNavigation.tab, const MobileTab.destination('drafts'));
+    expect(find.byType(DraftListView), findsOneWidget);
+
+    await _tapDockTab(tester, 'topics');
+    expect(await _placesInOrder(tester), isNot(contains('Drafts')));
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('More owns spilled destinations until the dock has room', (
     tester,
   ) async {
@@ -3062,7 +3270,7 @@ void main() {
       isTrue,
     );
 
-    tester.view.physicalSize = const Size(700, 844);
+    tester.view.physicalSize = const Size(800, 844);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('mobile-mode-users')), findsOneWidget);
     expect(
@@ -3243,6 +3451,8 @@ void main() {
         ('messages', 'panel/chat', -1),
         ('messages', 'users', 1),
         ('destination/events-upcoming', 'topics', -1),
+        ('destination/summary', 'topics', -1),
+        ('destination/activity', 'destination/user-bookmarks', -1),
       ]) {
         await _tapDockTab(tester, from);
         final restingPanel = tester.getRect(panel);
@@ -3824,7 +4034,13 @@ void main() {
   ) async {
     final shell = await pumpMobileShellFixture(tester);
     final header = tester.getRect(_header);
-    for (final tab in ['topics', 'start', 'panel/chat', 'messages', 'users']) {
+    for (final tab in [
+      'topics',
+      'destination/user-bookmarks',
+      'panel/chat',
+      'messages',
+      'users',
+    ]) {
       await _tapDockTab(tester, tab);
       expect(shell.mobileNavigation.tab.name, tab);
       expect(shell.canPopContent, isFalse);
@@ -4064,7 +4280,7 @@ void main() {
         .descendant(of: root, matching: find.byWidgetPredicate((_) => true))
         .evaluate();
     final dockItems = find.byType(DMobileDockItem).evaluate().toList();
-    expect(dockItems, hasLength(greaterThanOrEqualTo(4)));
+    expect(dockItems, isNotEmpty);
     final panels = find
         .byType(InstanceSidebar, skipOffstage: false)
         .evaluate()

@@ -1,6 +1,7 @@
 import '../models/forum_workspace.dart';
 
-/// The visual order of the mobile navigation buttons, including optional tabs.
+/// The identity of a place the phone's bottom bar offers, including the
+/// optional ones. Their order is the bar's, not this class's.
 final class MobileTab {
   const MobileTab._(this.name) : panelOwner = null;
   const MobileTab.panel(String owner)
@@ -9,11 +10,9 @@ final class MobileTab {
   const MobileTab.destination(String id)
     : name = 'destination/$id',
       panelOwner = null;
-  static const start = MobileTab._('start');
   static const topics = MobileTab._('topics');
   static const messages = MobileTab._('messages');
   static const users = MobileTab._('users');
-  static const more = MobileTab._('more');
   final String name;
   final String? panelOwner;
   @override
