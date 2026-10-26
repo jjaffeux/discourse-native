@@ -72,5 +72,27 @@ void main() {
         );
       },
     );
+
+    test('a date without a time names no moment to be reminded at', () {
+      final dateOnly =
+          '<p><span class="discourse-local-date" '
+          'data-date="$futureYear-01-10" data-timezone="Europe/Paris">'
+          'January 10</span></p>';
+
+      expect(
+        plugin.futureBookmarkReminder(
+          dateOnly,
+          accountTimezone: 'America/New_York',
+        ),
+        isNull,
+      );
+      expect(
+        plugin.futureBookmarkReminder(
+          '$dateOnly<p>$futureDate</p>',
+          accountTimezone: 'America/New_York',
+        ),
+        DateTime.utc(futureYear, 1, 15, 9, 24),
+      );
+    });
   });
 }
