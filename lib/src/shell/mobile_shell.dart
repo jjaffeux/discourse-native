@@ -702,7 +702,7 @@ List<_DockDestination> _mobilePlaces(
       SidebarDestination(
         id: 'all-categories',
         label: context.l10n.categories,
-        icon: DIcons.layerGroup,
+        icon: DIcons.tag,
       ),
     ),
     for (final id in ['groups', 'badges'])

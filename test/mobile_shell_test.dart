@@ -3374,6 +3374,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('no two places on the bar share a glyph', (tester) async {
+    await pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Categories'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final glyphs = [
+      for (final item in tester.widgetList<DMobileDockItem>(
+        find.descendant(
+          of: find.byType(DMobileDock),
+          matching: find.byType(DMobileDockItem),
+        ),
+      ))
+        if (item.label != 'More') (item.icon as DIcon).icon,
+    ];
+    expect(glyphs, hasLength(4));
+    expect(glyphs.toSet(), hasLength(glyphs.length));
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('a page past the bar\'s columns stands where the ⋮ was', (
     tester,
   ) async {
