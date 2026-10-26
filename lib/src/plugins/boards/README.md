@@ -16,7 +16,10 @@ the older Kanban theme component are not separate supported protocols.
 
 Each account and board has one immutable authoritative snapshot. Views share the
 snapshot and keep their own selected column and scroll positions. Live messages
-invalidate that snapshot. Local writes use one lane and always refresh afterward.
+invalidate that snapshot. When its last view leaves, a board keeps its snapshot
+without live updates, so returning draws it at once and refreshes it in the
+background. The eight most recently left boards are kept; an account change
+clears them. Local writes use one lane and always refresh afterward.
 There is no optimistic rollback or automatic retry of uncertain creates. Cards
 use card IDs because the same topic can occupy several columns.
 

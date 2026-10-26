@@ -686,6 +686,76 @@ void main() {
     expect(fixture.live.channels, isEmpty);
   });
   test(
+    'a released board keeps its snapshot and refreshes when shown again',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      int boardReads() => fixture.transport.reads
+          .where((request) => request.path == '/boards/api/boards/1.json')
+          .length;
+      final first = fixture.controller.acquire(boardsSite, 1);
+      await pumpEventQueue();
+      first.release();
+      expect(fixture.live.channels, isEmpty);
+      (fixture.data['board'] as Map)['name'] = 'Renamed while away';
+      final reads = boardReads();
+      final second = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(second.release);
+      expect(second, same(first));
+      expect(second.snapshot?.name, 'Product roadmap');
+      await pumpEventQueue();
+      expect(second.snapshot?.name, 'Renamed while away');
+      expect(boardReads(), reads + 1);
+      expect(fixture.live.subscriberCount('/boards/1'), 1);
+    },
+  );
+  test('released boards stay idle and an account refresh drops them', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final first = fixture.controller.acquire(boardsSite, 1);
+    await pumpEventQueue();
+    first.release();
+    final reads = fixture.transport.reads.length;
+    final channels = RecordingPluginLiveChannels();
+    fixture.controller
+      ..setForeground(false)
+      ..setForeground(true)
+      ..attachPluginTracker(boardsSite, channels);
+    await fixture.controller.hydratePluginRoute(boardsSite, 'boards/1');
+    await pumpEventQueue();
+    expect(fixture.transport.reads, hasLength(reads));
+    expect(fixture.live.channels, isEmpty);
+    expect(channels.channels, isEmpty);
+    fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+    await pumpEventQueue();
+    expect(fixture.transport.reads, hasLength(reads));
+    final second = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(second.release);
+    expect(second.snapshot, isNull);
+  });
+  test('only the eight most recently released boards are kept', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    for (var id = 2; id <= 9; id++) {
+      fixture.transport.responders['GET /boards/api/boards/$id.json'] = (_) => {
+        ...fixture.data,
+        'board': {...boardObject(fixture.data['board']), 'id': id},
+      };
+    }
+    for (var id = 1; id <= 9; id++) {
+      final handle = fixture.controller.acquire(boardsSite, id);
+      await pumpEventQueue();
+      expect(handle.snapshot?.id, id);
+      handle.release();
+    }
+    final oldest = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(oldest.release);
+    expect(oldest.snapshot, isNull);
+    final kept = fixture.controller.acquire(boardsSite, 2);
+    addTearDown(kept.release);
+    expect(kept.snapshot?.id, 2);
+  });
+  test(
     'priority move uses server command and refetches both board and topic',
     () async {
       final fixture = BoardsFixture();
