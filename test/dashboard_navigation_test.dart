@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -164,7 +165,7 @@ void main() {
   );
   for (final platform in [TargetPlatform.linux, TargetPlatform.iOS]) {
     testWidgets(
-      'staff dashboard route and shell refresh are native on $platform',
+      'staff dashboard route, shell refresh, and pull are native on $platform',
       (tester) async {
         final api = DashboardTestApi();
         final auth = FakeAuthenticator()..keys[siteUrl] = 'staff-key';
@@ -187,6 +188,16 @@ void main() {
         await shell.refreshCurrentTab();
         await tester.pumpAndSettle();
         expect(api.requests, 2);
+        await tester.drag(
+          find.descendant(
+            of: find.byType(DashboardPage),
+            matching: find.byType(DPullToRefresh),
+          ),
+          const Offset(0, 500),
+        );
+        await tester.pumpAndSettle();
+        expect(api.requests, 3);
+        expect(find.text('128'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
