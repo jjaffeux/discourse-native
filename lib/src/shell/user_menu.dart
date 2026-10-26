@@ -1307,6 +1307,7 @@ class UserMenuAvatar extends StatelessWidget {
     required this.avatarUrl,
     required this.initial,
     required this.connecting,
+    this.dimension,
   });
 
   final String? avatarUrl;
@@ -1315,14 +1316,18 @@ class UserMenuAvatar extends StatelessWidget {
 
   final bool connecting;
 
+  /// The face's size; the standard avatar's when not given.
+  final double? dimension;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     if (connecting) {
-      return const DAvatar(
+      return DAvatar(
+        dimension: dimension,
         border: false,
-        child: Padding(padding: EdgeInsets.all(4), child: DSpinner()),
+        child: const Padding(padding: EdgeInsets.all(4), child: DSpinner()),
       );
     }
 
@@ -1339,10 +1344,11 @@ class UserMenuAvatar extends StatelessWidget {
     );
 
     return DAvatar(
+      dimension: dimension,
       border: false,
       child: AvatarImage(
         url: avatarUrl,
-        size: DAvatarSize.standard.dimension,
+        size: dimension ?? DAvatarSize.standard.dimension,
         fallback: fallback,
       ),
     );

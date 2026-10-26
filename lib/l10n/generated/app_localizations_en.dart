@@ -10386,6 +10386,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsPaused => 'Notifications paused';
 
   @override
+  String get places => 'Places';
+
+  @override
+  String get yourAccount => 'Your account';
+
+  @override
   String get offline => 'Offline';
 
   @override

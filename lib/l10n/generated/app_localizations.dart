@@ -17814,6 +17814,18 @@ abstract class AppLocalizations {
   /// **'Notifications paused'**
   String get notificationsPaused;
 
+  /// English UI message used by ui/components/d_mobile_dock.dart: the name of the panel a phone's bar grows into. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Places'**
+  String get places;
+
+  /// English UI message used by shell/mobile_shell.dart: what the panel's tile for the signed-in account is called to assistive technology. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account'**
+  String get yourAccount;
+
   /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

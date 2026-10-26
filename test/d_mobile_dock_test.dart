@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 
@@ -11,6 +13,7 @@ Widget fixture({
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   VoidCallback? onReveal,
+  ValueChanged<String>? onPlace,
   List<String> labels = const [
     'Start',
     'Topics',
@@ -19,13 +22,15 @@ Widget fixture({
     'Users',
     'A very long destination',
   ],
+  String? selected = 'Topics',
+  DMobileDockYou? you,
+  ValueChanged<bool>? onPanelChanged,
   bool hidden = false,
   ThemeData? theme,
   Color backdrop = Colors.white,
   bool highContrast = false,
   bool reducedMotion = false,
   double foot = 0,
-  DMobileDockCurrent current = const DMobileDockCurrent.place(1),
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -55,27 +60,22 @@ Widget fixture({
                       geometry: geometry,
                       collapsed: collapsed,
                       destinationsHidden: hidden,
-                      current: current,
                       places: [
                         for (final name in labels)
-                          DMobileDockItem(
+                          DMobileDockPlace(
                             key: ValueKey(name),
                             icon: const Icon(Icons.forum),
                             label: name,
                             badge: name == 'Chat'
                                 ? const DBadge.overlay(child: Text('99+'))
                                 : null,
-                            selected: name == 'Topics',
-                            onPressed: () {},
+                            selected: name == selected,
+                            onPressed: () => onPlace?.call(name),
                           ),
                       ],
-                      more: DMobileDockItem(
-                        key: const ValueKey('more'),
-                        bare: true,
-                        icon: const Icon(Icons.more_vert),
-                        label: 'More',
-                        onPressed: () {},
-                      ),
+                      more: (icon: const Icon(Icons.more_vert), label: 'More'),
+                      you: you,
+                      onPanelChanged: onPanelChanged,
                       collapsedDestination: DMobileDockItem(
                         key: const ValueKey('reveal'),
                         collapsed: true,
@@ -101,6 +101,31 @@ Widget fixture({
     ),
   ),
 );
+
+/// You, as the shell would hand the dock: a face, a name and a presence.
+DMobileDockYou you({Color? ring, VoidCallback? onPressed}) => (
+  face: const ColoredBox(
+    key: ValueKey('face'),
+    color: Colors.orange,
+    child: SizedBox.expand(),
+  ),
+  name: 'Jo',
+  ring: ring,
+  semanticLabel: 'Your account, online',
+  onPressed: onPressed ?? () {},
+);
+
+final _panel = find.byKey(DMobileDock.panelKey);
+final _dim = find.byKey(DMobileDock.dimKey);
+final _more = find.byKey(DMobileDock.moreKey);
+
+/// The names on the panel's tiles, in the order a person reads them.
+List<String> _tileLabels(WidgetTester tester) => [
+  for (final item in tester.widgetList<DMobileDockItem>(
+    find.descendant(of: _panel, matching: find.byType(DMobileDockItem)),
+  ))
+    item.label,
+];
 
 final _frame = find.byKey(const ValueKey('dock-frame'));
 final _surface = find.byKey(const ValueKey('mobile-dock-surface'));
@@ -140,7 +165,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(DMobileDockAction), findsNothing);
           final surface = tester.getRect(_surface);
-          final more = tester.getRect(find.byKey(const ValueKey('more')));
+          final more = tester.getRect(_more);
           // The capsule is 378 wide: 366 inside, columns of 88.5 and 4 gaps.
           expect(more.width, 40);
           if (direction == TextDirection.ltr) {
@@ -272,7 +297,7 @@ void main() {
           expect(rect.width, closeTo(91.5, .01), reason: key);
           expect(rect.height, 50);
         }
-        final more = tester.getRect(find.byKey(const ValueKey('more')));
+        final more = tester.getRect(_more);
         expect(fromStart(more), closeTo(286.5, .01));
         expect(more.width, 40);
         final action = tester.getRect(find.byType(DMobileDockAction));
@@ -287,13 +312,7 @@ void main() {
           'New topic',
         );
         final semantics = tester.ensureSemantics();
-        expect(
-          tester
-              .getSemantics(find.byKey(const ValueKey('more')))
-              .getSemanticsData()
-              .label,
-          'More',
-        );
+        expect(tester.getSemantics(_more).getSemanticsData().label, 'More');
         semantics.dispose();
         expect(tester.takeException(), isNull);
       },
@@ -378,16 +397,7 @@ void main() {
           fixture(
             foot: 34,
             direction: direction,
-            current: DMobileDockCurrent.overflowed(
-              DMobileDockItem(
-                key: const ValueKey('here'),
-                icon: const Icon(Icons.forum),
-                label: 'A very long destination',
-                selected: true,
-                hasPopup: true,
-                onPressed: () {},
-              ),
-            ),
+            selected: 'A very long destination',
           ),
         );
         await tester.pumpAndSettle();
@@ -395,15 +405,17 @@ void main() {
         double fromStart(Rect rect) => direction == TextDirection.ltr
             ? rect.left - surface.left - 6
             : surface.right - 6 - rect.right;
-        expect(find.byKey(const ValueKey('more')), findsNothing);
-        final here = find.byKey(const ValueKey('here'));
+        expect(_more, findsNothing);
+        final here = find.byKey(const ValueKey('A very long destination'));
         expect(here.hitTestable(), findsOneWidget);
+        expect(tester.widget<DMobileDockItem>(here).hasPopup, isTrue);
+        expect(tester.widget<DMobileDockItem>(here).selected, isTrue);
         // The four share (3 * 91.5 + 40) with the three gaps kept.
         for (final (index, key) in [
           'Start',
           'Topics',
           'Chat',
-          'here',
+          'A very long destination',
         ].indexed) {
           final rect = tester.getRect(find.byKey(ValueKey(key)));
           expect(fromStart(rect), closeTo(index * 82.625, .01), reason: key);
@@ -455,11 +467,7 @@ void main() {
         // Moving to Chat: its mark grows in over 200 ms as Topics' goes, or
         // at once under reduced motion.
         await tester.pumpWidget(
-          fixture(
-            foot: 34,
-            reducedMotion: reduced,
-            current: const DMobileDockCurrent.place(2),
-          ),
+          fixture(foot: 34, reducedMotion: reduced, selected: 'Chat'),
         );
         await tester.pump(const Duration(milliseconds: 100));
         if (reduced) {
@@ -475,11 +483,7 @@ void main() {
         expect(mark(1).width, 0);
         // Nothing current, nothing marked.
         await tester.pumpWidget(
-          fixture(
-            foot: 34,
-            reducedMotion: reduced,
-            current: const DMobileDockCurrent.none(),
-          ),
+          fixture(foot: 34, reducedMotion: reduced, selected: null),
         );
         await tester.pumpAndSettle();
         for (final index in [0, 1, 2]) {
@@ -493,21 +497,7 @@ void main() {
   testWidgets('the page standing where the ⋮ was carries the mark', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      fixture(
-        foot: 34,
-        current: DMobileDockCurrent.overflowed(
-          DMobileDockItem(
-            key: const ValueKey('here'),
-            icon: const Icon(Icons.forum),
-            label: 'Users',
-            selected: true,
-            hasPopup: true,
-            onPressed: () {},
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
     await tester.pumpAndSettle();
     final mark = tester.getRect(
       find.byKey(const ValueKey('mobile-dock-mark-3')),
@@ -516,7 +506,7 @@ void main() {
     expect(mark.top, tester.getRect(_surface).top);
     expect(
       mark.center.dx,
-      closeTo(tester.getCenter(find.byKey(const ValueKey('here'))).dx, .01),
+      closeTo(tester.getCenter(find.byKey(const ValueKey('Users'))).dx, .01),
     );
     for (final index in [0, 1, 2]) {
       expect(
@@ -556,7 +546,7 @@ void main() {
         for (final scale in [1.0, 2.0]) {
           await tester.pumpWidget(fixture(width: width, scale: scale));
           await tester.pumpAndSettle();
-          final more = find.byKey(const ValueKey('more'));
+          final more = _more;
           final action = find.byType(DMobileDockAction);
           expect(more.hitTestable(), findsOneWidget);
           expect(action.hitTestable(), findsOneWidget);
@@ -571,4 +561,321 @@ void main() {
       }
     },
   );
+
+  for (final direction in TextDirection.values) {
+    testWidgets('the ⋮ grows the bar into its panel of the rest ($direction)', (
+      tester,
+    ) async {
+      final changes = <bool>[];
+      await tester.pumpWidget(
+        fixture(
+          foot: 34,
+          direction: direction,
+          you: you(ring: Colors.green),
+          onPanelChanged: changes.add,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final frame = tester.getRect(_frame);
+      final rest = tester.getRect(_surface);
+      expect(_panel, findsNothing);
+      expect(tester.widget<DMobileDockItem>(_more).expanded, isFalse);
+      await tester.tap(_more);
+      // The first frame out: the bar has not moved, so nothing jumps.
+      await tester.pump();
+      expect(tester.getRect(_surface), rest);
+      expect(_panel, findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(changes, [true]);
+      // Three places past the columns and you: one row, 190 tall from the
+      // foot, the bar risen 88 to be its head with 16 kept for the grabber.
+      final geometry = const DMobileDockGeometry(foot: 34).panel(tiles: 4);
+      expect(geometry.height, 190);
+      final panel = tester.getRect(_panel);
+      expect(panel.left, frame.left);
+      expect(panel.right, frame.right);
+      expect(panel.bottom, frame.bottom);
+      expect(panel.height, 190);
+      final head = tester.getRect(_surface);
+      expect(head.top, closeTo(frame.bottom - 86 - 88, .01));
+      expect(head.width, frame.width);
+      final grabber = tester.getRect(find.byKey(DMobileDock.grabberKey));
+      expect(grabber.size, const Size(36, 5));
+      expect(grabber.top, panel.top + 6);
+      expect(grabber.center.dx, closeTo(frame.center.dx, .01));
+      // The dim lies over the whole screen under them both.
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      expect(tester.getRect(_dim), Offset.zero & screen);
+      final dim = tester.widget<ColoredBox>(_dim).color;
+      expect(dim.a, closeTo(.32, .001));
+      expect(dim.r + dim.g + dim.b, 0);
+      // The tiles, on the bar's columns, you last.
+      expect(_tileLabels(tester), [
+        'Inbox',
+        'Users',
+        'A very long destination',
+        'Jo',
+      ]);
+      double fromStart(Rect rect) => direction == TextDirection.ltr
+          ? rect.left - panel.left
+          : panel.right - rect.right;
+      for (final (index, name) in ['Inbox', 'Users'].indexed) {
+        final tile = tester.getRect(
+          find.byKey(DMobileDock.tileKey(ValueKey(name))),
+        );
+        expect(fromStart(tile), closeTo(6 + index * 95.5, .01), reason: name);
+        expect(tile.width, closeTo(91.5, .01), reason: name);
+        expect(tile.height, 56, reason: name);
+        expect(tile.top, panel.top + 92, reason: name);
+      }
+      final youTile = tester.getRect(find.byKey(DMobileDock.youKey));
+      expect(fromStart(youTile), closeTo(6 + 3 * 95.5, .01));
+      expect(find.text('Jo'), findsOneWidget);
+      expect(tester.getSize(find.byKey(const ValueKey('face'))).width, 22);
+      // The head's places are tiles now, the ⋮ gone and out of reach.
+      final topics = find.byKey(const ValueKey('Topics'));
+      expect(tester.getSize(topics).height, 56);
+      expect(tester.getSize(topics).width, closeTo(91.5, .01));
+      expect(tester.widget<DMobileDockItem>(_more).expanded, isTrue);
+      expect(_more.hitTestable(), findsNothing);
+      expect(
+        tester
+            .widget<Opacity>(
+              find.ancestor(of: _more, matching: find.byType(Opacity)).first,
+            )
+            .opacity,
+        0,
+      );
+      // The action stands in the middle of the last column, named.
+      final action = tester.getRect(find.byType(DMobileDockAction));
+      expect(
+        fromStart(action) + action.width / 2,
+        closeTo(6 + 3 * 95.5 + 91.5 / 2, .01),
+      );
+      expect(find.text('New topic'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // A press on the dim, over the page, closes it.
+      final gesture = await tester.startGesture(Offset(screen.width / 2, 40));
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(changes, [true, false]);
+      expect(_panel, findsNothing);
+      expect(_dim, findsNothing);
+      expect(tester.getRect(_surface), rest);
+      expect(tester.widget<DMobileDockItem>(_more).expanded, isFalse);
+      expect(_more.hitTestable(), findsOneWidget);
+      expect(tester.getSize(topics).height, 50);
+      expect(find.text('New topic'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a tile, a head place and you close the panel and go there', (
+    tester,
+  ) async {
+    final pressed = <String>[];
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        onPlace: pressed.add,
+        you: you(onPressed: () => pressed.add('you')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> open() async {
+      await tester.tap(_more);
+      await tester.pumpAndSettle();
+      expect(_panel, findsOneWidget);
+    }
+
+    await open();
+    await tester.tap(find.byKey(DMobileDock.tileKey(const ValueKey('Users'))));
+    await tester.pumpAndSettle();
+    expect(pressed, ['Users']);
+    expect(_panel, findsNothing);
+    await open();
+    await tester.tap(find.byKey(const ValueKey('Topics')));
+    await tester.pumpAndSettle();
+    expect(pressed, ['Users', 'Topics']);
+    expect(_panel, findsNothing);
+    await open();
+    await tester.tap(find.byKey(DMobileDock.youKey));
+    await tester.pumpAndSettle();
+    expect(pressed, ['Users', 'Topics', 'you']);
+    expect(_panel, findsNothing);
+    // Closed, a place goes there without a panel to close.
+    await tester.tap(find.byKey(const ValueKey('Chat')));
+    await tester.pumpAndSettle();
+    expect(pressed, ['Users', 'Topics', 'you', 'Chat']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the page in the ⋮\'s slot opens the panel and gives its room '
+      'back', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
+    await tester.pumpAndSettle();
+    final users = find.byKey(const ValueKey('Users'));
+    expect(tester.getSize(users).width, closeTo(78.625, .01));
+    await tester.tap(users);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(tester.getSize(users).width, 0);
+    for (final name in ['Start', 'Topics', 'Chat']) {
+      expect(
+        tester.getSize(find.byKey(ValueKey(name))).width,
+        closeTo(91.5, .01),
+        reason: name,
+      );
+    }
+    final tile = find.byKey(DMobileDock.tileKey(const ValueKey('Users')));
+    expect(tester.widget<DMobileDockItem>(tile).selected, isTrue);
+    expect(
+      tester
+          .widget<DButton>(
+            find.descendant(of: tile, matching: find.byType(DButton)),
+          )
+          .backgroundColor,
+      DTokens.of(tester.element(tile)).foreground.withValues(alpha: .10),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('under reduced motion the panel is out at once', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34, reducedMotion: true));
+    await tester.pumpAndSettle();
+    final frame = tester.getRect(_frame);
+    await tester.tap(_more);
+    await tester.pump();
+    expect(tester.getRect(_surface).top, closeTo(frame.bottom - 86 - 88, .01));
+    expect(tester.widget<ColoredBox>(_dim).color.a, closeTo(.32, .001));
+    await tester.tap(find.byKey(const ValueKey('Topics')));
+    await tester.pump();
+    expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the panel is put away with the bar, with no animation', (
+    tester,
+  ) async {
+    final changes = <bool>[];
+    await tester.pumpWidget(fixture(foot: 34, onPanelChanged: changes.add));
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    await tester.pumpWidget(
+      fixture(foot: 34, collapsed: true, onPanelChanged: changes.add),
+    );
+    await tester.pump();
+    expect(_panel, findsNothing);
+    expect(_dim, findsNothing);
+    await tester.pumpAndSettle();
+    expect(changes, [true, false]);
+    // Nor is there a panel with nothing past the bar's columns.
+    await tester.pumpWidget(
+      fixture(foot: 34, labels: const ['Start', 'Topics', 'Chat']),
+    );
+    await tester.pumpAndSettle();
+    expect(_more, findsNothing);
+    expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a sheet opened over the panel goes above it', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final tile = find.byKey(DMobileDock.tileKey(const ValueKey('Users')));
+    expect(tile.hitTestable(), findsOneWidget);
+    unawaited(
+      Navigator.of(tester.element(_more)).push(
+        PageRouteBuilder<void>(
+          opaque: false,
+          pageBuilder: (_, _, _) =>
+              const ColoredBox(key: ValueKey('over'), color: Colors.red),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('over')).hitTestable(), findsOneWidget);
+    expect(tile.hitTestable(), findsNothing);
+    expect(_dim.hitTestable(), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the panel is a modal region of buttons, the current one '
+      'selected', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        selected: 'Users',
+        you: you(ring: Colors.green),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('Users')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Places')),
+      matchesSemantics(
+        label: 'Places',
+        scopesRoute: true,
+        namesRoute: true,
+        hasDismissAction: true,
+      ),
+    );
+    final users = tester.getSemantics(
+      find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+    );
+    expect(
+      users,
+      matchesSemantics(
+        label: 'Users',
+        isButton: true,
+        hasSelectedState: true,
+        isSelected: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        isFocusable: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+      ),
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Inbox'))),
+      ),
+      // The first tile takes focus as the panel opens.
+      matchesSemantics(
+        label: 'Inbox',
+        isButton: true,
+        hasSelectedState: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        isFocusable: true,
+        isFocused: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+      ),
+    );
+    expect(
+      tester.getSemantics(find.byKey(DMobileDock.youKey)),
+      matchesSemantics(
+        label: 'Your account, online',
+        isButton: true,
+        hasSelectedState: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        isFocusable: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+      ),
+    );
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
 }

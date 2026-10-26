@@ -86,6 +86,17 @@ class DMobileDockGeometry {
 
   double get rowHeight => 50 + growth;
 
+  /// A place as a tile of the panel the bar grows into, and the head's
+  /// places with it: taller than the row, centred on it.
+  double get tileHeight => DMobileDockPanelGeometry.row + growth;
+
+  /// How far a tile in the bar's row stands past the row's edges.
+  double get headOverflow => (tileHeight - rowHeight) / 2;
+
+  /// One column of the four the bar and its panel share, across [width].
+  double gridColumn(double width) =>
+      (width - 2 * inset - (columns - 1) * columnGap) / columns;
+
   /// The folded bar.
   double get circle => 48 + growth;
 
@@ -227,11 +238,7 @@ class DMobileDockPanelGeometry {
   /// Under the last row, past the foot.
   static const footPadding = 8.0;
 
-  double get tileHeight => row + bar.growth;
-
-  /// How far a tile in the bar's row stands past the row's edges: the head's
-  /// tiles are centred on the row, taller than it.
-  double get headOverflow => (tileHeight - bar.rowHeight) / 2;
+  double get tileHeight => bar.tileHeight;
 
   int get rows => (tiles / DMobileDockGeometry.columns).ceil();
 
@@ -267,16 +274,9 @@ class DMobileDockPanelGeometry {
   static double gridOpacity(double growth) =>
       (growth * 1.6 - .6).clamp(0, 1).toDouble();
 
-  /// One column of the panel's grid across a screen [width] wide.
-  double columnWidth(double width) =>
-      (width -
-          2 * DMobileDockGeometry.inset -
-          (DMobileDockGeometry.columns - 1) * DMobileDockGeometry.columnGap) /
-      DMobileDockGeometry.columns;
-
   /// Where tile [index] sits, from the panel's top-start corner.
   Rect tileRect(int index, double width) {
-    final column = columnWidth(width);
+    final column = bar.gridColumn(width);
     const columns = DMobileDockGeometry.columns;
     return Rect.fromLTWH(
       DMobileDockGeometry.inset +

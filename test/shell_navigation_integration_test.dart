@@ -72,13 +72,14 @@ Finder get _railUpdateButton => find.descendant(
   matching: find.dIcon(DIcons.arrowsRotate),
 );
 
-Future<void> _openFromMore(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+/// Grows the bar into its panel and picks the place called [label].
+Future<void> _openFromPanel(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(DMobileDock.moreKey));
   await tester.pumpAndSettle();
   await tester.tap(
     find.descendant(
-      of: find.byType(DDropdownMenuItem),
-      matching: find.text(label),
+      of: find.byKey(DMobileDock.panelKey),
+      matching: find.widgetWithText(DMobileDockItem, label),
     ),
   );
   await tester.pumpAndSettle();
@@ -330,7 +331,7 @@ void _registerShellNavigationTests() {
         tester.getRect(button).intersect(tester.getRect(dock)),
         tester.getRect(button),
       );
-      await _openFromMore(tester, 'Categories');
+      await _openFromPanel(tester, 'Categories');
       expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byKey(const ValueKey('mobile-bottom-bar')), findsOneWidget);
@@ -407,7 +408,7 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final initial = tester.getRect(userMenu);
-      await _openFromMore(tester, 'Categories');
+      await _openFromPanel(tester, 'Categories');
       expect(tester.getRect(userMenu), initial);
       expect(
         find.descendant(of: primaryMainContent, matching: userMenu),

@@ -129,8 +129,9 @@ void main() {
 
     test('is laid out from the screen\'s foot on the bar\'s columns', () {
       final panel = round.panel(tiles: 5);
+      expect(round.tileHeight, 56);
+      expect(round.headOverflow, 3);
       expect(panel.tileHeight, 56);
-      expect(panel.headOverflow, 3);
       expect(panel.rows, 2);
       // 16 above the bar, its 6 inset, its row as a 56 tile, and a row gap.
       expect(panel.topPadding, 92);
@@ -139,7 +140,7 @@ void main() {
       expect(panel.barTop, 86);
       expect(panel.reveal, 174);
       expect(panel.travel, 158);
-      expect(panel.columnWidth(390), 91.5);
+      expect(round.gridColumn(390), 91.5);
       expect(panel.tileRect(0, 390), const Rect.fromLTWH(6, 92, 91.5, 56));
       expect(panel.tileRect(3, 390), const Rect.fromLTWH(292.5, 92, 91.5, 56));
       expect(panel.tileRect(4, 390), const Rect.fromLTWH(6, 162, 91.5, 56));
@@ -202,7 +203,7 @@ void main() {
         growth: 11,
       ).panel(tiles: 5);
       expect(panel.tileHeight, 67);
-      expect(panel.headOverflow, 3);
+      expect(panel.bar.headOverflow, 3);
       expect(panel.topPadding, 103);
       expect(panel.height, 293);
       expect(panel.tileRect(4, 390).top, 184);

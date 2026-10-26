@@ -12,6 +12,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'account_menu_scope.dart';
 import 'composer/presentation.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
@@ -23,6 +24,7 @@ import 'mobile_navigation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'user_menu.dart';
 import 'user_menu_button.dart';
 
 typedef _DockDestination = ({
@@ -55,9 +57,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
+  // The header's account menu, which the panel's you tile opens too.
+  final _accountMenu = DPopoverController();
+
   @override
   void dispose() {
     _footerAction.dispose();
+    _accountMenu.dispose();
     super.dispose();
   }
 
@@ -76,6 +82,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       listenable: Listenable.merge([
         shell,
         shell.accountActivity.totalsListenable,
+        shell.doNotDisturb,
         shell.draftList,
         ...registry.sidebarPanelListenables(context),
         ...registry.communitySidebarListenables(context),
@@ -270,9 +277,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        const UserMenuButton(
+                        UserMenuButton(
                           compact: true,
                           presentation: UserMenuPresentation.notifications,
+                          menuController: _accountMenu,
                         ),
                       ];
                       final largeText =
@@ -348,6 +356,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             geometry: geometry,
                             destinations: places,
                             selected: selected,
+                            instance: instance,
                             showReply: showReply,
                             showNewMessage: showNewMessage,
                             panelAction: panelAction,
@@ -433,6 +442,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required DMobileDockGeometry geometry,
     required List<_DockDestination> destinations,
     required MobileTab selected,
+    required DiscourseInstance instance,
     required bool showReply,
     required bool showNewMessage,
     required SidebarPanelAction? panelAction,
@@ -488,34 +498,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final active = destinations
         .where((item) => item.tab == selected)
         .firstOrNull;
-    final activeIndex = active == null ? -1 : destinations.indexOf(active);
-    final overflowed = activeIndex >= DMobileDockGeometry.placeColumns;
-    // The rest of the places, opened by the ⋮ or by the current page when it
-    // is one of them and stands where the ⋮ would be.
-    Widget moreMenu(DDropdownMenuTriggerBuilder trigger) => DDropdownMenu(
-      sheetOnMobile: true,
-      mobileSheetVariant: DSheetVariant.adaptiveMenu,
-      content: DDropdownMenuContent(
-        semanticLabel: context.l10n.moreDestinations,
-        side: DPopoverSide.top,
-        align: DPopoverAlign.end,
-        children: [
-          for (final item in destinations.skip(
-            DMobileDockGeometry.placeColumns,
-          ))
-            DDropdownMenuItem(
-              leading: DIcon(item.icon),
-              onPressed: item.onPressed,
-              child: Text(
-                item.tab == MobileTab.messages
-                    ? context.l10n.messages
-                    : item.label,
-              ),
-            ),
-        ],
-      ),
-      child: DDropdownMenuTrigger(builder: trigger),
-    );
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
       geometry: geometry,
@@ -531,7 +513,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       ),
       places: [
         for (final item in destinations)
-          DMobileDockItem(
+          DMobileDockPlace(
             key: ValueKey('mobile-mode-${item.tab.name}'),
             icon: DIcon(item.icon),
             label: item.label,
@@ -540,38 +522,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             onPressed: item.onPressed,
           ),
       ],
-      current: active == null
-          ? const DMobileDockCurrent.none()
-          : overflowed
-          ? DMobileDockCurrent.overflowed(
-              moreMenu(
-                (context, state) => DMobileDockItem(
-                  key: ValueKey('mobile-mode-${active.tab.name}'),
-                  icon: DIcon(active.icon),
-                  label: active.label,
-                  badge: active.badge,
-                  selected: true,
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                  onPressed: state.toggle,
-                ),
-              ),
-            )
-          : DMobileDockCurrent.place(activeIndex),
-      more: moreMenu(
-        (context, state) => DMobileDockItem(
-          key: const ValueKey('mobile-mode-more'),
-          bare: true,
-          icon: const DIcon(DIcons.ellipsisVertical),
-          label: context.l10n.more,
-          selected: active == null,
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
-          onPressed: state.toggle,
-        ),
+      more: (
+        icon: const DIcon(DIcons.ellipsisVertical),
+        label: context.l10n.more,
       ),
+      you: _you(context, shell: shell, instance: instance),
       action: primaryAction == null
           ? null
           : DActionTransition(
@@ -584,6 +539,50 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 child: primaryAction,
               ),
             ),
+    );
+  }
+
+  /// You, among the panel's places: your face ringed by your presence as
+  /// the header's account button rings it, named as the account menu names
+  /// you, opening what that button opens.
+  DMobileDockYou? _you(
+    BuildContext context, {
+    required ShellController shell,
+    required DiscourseInstance instance,
+  }) {
+    final user = instance.user;
+    final username = user?.username;
+    if (!instance.isConnected || username == null) return null;
+    final tokens = DTokens.of(context);
+    final paused = shell.doNotDisturb
+        .stateFor(instance.url)
+        .isActiveAt(DateTime.now());
+    final hidePresence = shell.hidePresenceFor(instance.url);
+    final presence = paused
+        ? context.l10n.notificationsPaused
+        : hidePresence == false
+        ? context.l10n.online
+        : hidePresence == true
+        ? context.l10n.offline
+        : context.l10n.presenceUnavailable;
+    return (
+      face: UserMenuAvatar(
+        avatarUrl: user?.avatarUrl,
+        initial: username.characters.first.toUpperCase(),
+        connecting: shell.connecting,
+        dimension: 22,
+      ),
+      name: user?.displayName ?? username,
+      ring: paused
+          ? tokens.subtleMark
+          : hidePresence == false
+          ? tokens.success
+          : null,
+      semanticLabel: '${context.l10n.yourAccount}, $presence',
+      onPressed: () {
+        AccountMenuScope.activate(context, _accountMenu);
+        _accountMenu.open();
+      },
     );
   }
 
@@ -602,10 +601,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   );
 }
 
-/// Every place the phone offers, in the order its dock shows them and its More
-/// menu lists the overflow. The bar is the phone's Start page, so this list
-/// holds what that page offers elsewhere; the dock and the history gestures
-/// read this one order.
+/// Every place the phone offers, in the order its bar shows them and the
+/// panel the bar grows into holds the rest. The bar is the phone's Start
+/// page, so this list holds what that page offers elsewhere; the dock and the
+/// history gestures read this one order.
 List<_DockDestination> _mobilePlaces(
   BuildContext context, {
   required ShellController shell,

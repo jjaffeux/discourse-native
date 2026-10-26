@@ -10,9 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' as fixture;
 
-void mobileMoreBackdropTests({bool native = false}) {
+void mobileDockPanelBackdropTests({bool native = false}) {
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
-    testWidgets('More backdrop opens without flashing ${mode.name}', (
+    testWidgets('the panel\'s dim darkens without flashing ${mode.name}', (
       tester,
     ) async {
       final previousDilation = timeDilation;
@@ -39,17 +39,17 @@ void mobileMoreBackdropTests({bool native = false}) {
               final data = (await image.toByteData(
                 format: ui.ImageByteFormat.rawRgba,
               ))!;
-              if (const bool.fromEnvironment('MORE_BACKDROP_CAPTURE')) {
+              if (const bool.fromEnvironment('PANEL_BACKDROP_CAPTURE')) {
                 final png = (await image.toByteData(
                   format: ui.ImageByteFormat.png,
                 ))!;
                 await File(
-                  '/private/tmp/more-backdrop-${native ? 'native' : 'widget'}-${mode.name}-flat-$opening-$frame.png',
+                  '/private/tmp/panel-backdrop-${native ? 'native' : 'widget'}-${mode.name}-flat-$opening-$frame.png',
                 ).writeAsBytes(png.buffer.asUint8List());
               }
               return [
-                // Both points stay on the page behind the sheet, whose menu
-                // rises past the middle of the screen.
+                // Both points stay on the page under the dim, above the
+                // panel's top edge.
                 for (final point in [
                   const Offset(180, 70),
                   const Offset(180, 250),
@@ -70,14 +70,14 @@ void mobileMoreBackdropTests({bool native = false}) {
         for (; opening < 2; opening++) {
           samples.clear();
           await sample(0);
-          await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+          await tester.tap(find.byKey(DMobileDock.moreKey));
           await tester.pump();
           for (var frame = 1; frame <= 32; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             await sample(frame);
           }
-          if (const bool.fromEnvironment('MORE_BACKDROP_CAPTURE')) {
-            debugPrint('MORE_BACKDROP_SAMPLES ${mode.name}/flat: $samples');
+          if (const bool.fromEnvironment('PANEL_BACKDROP_CAPTURE')) {
+            debugPrint('PANEL_BACKDROP_SAMPLES ${mode.name}/flat: $samples');
           }
           for (var frame = 1; frame < samples.length; frame++) {
             for (var channel = 0; channel < samples[frame].length; channel++) {
@@ -90,11 +90,11 @@ void mobileMoreBackdropTests({bool native = false}) {
             }
           }
           await tester.pumpAndSettle();
-          final sheet = find.byType(DSheetContent);
-          expect(sheet, findsOneWidget);
-          await tester.tapAt(Offset(180, tester.getTopLeft(sheet).dy - 30));
+          final panel = find.byKey(DMobileDock.panelKey);
+          expect(panel, findsOneWidget);
+          await tester.tapAt(Offset(180, tester.getTopLeft(panel).dy - 30));
           await tester.pumpAndSettle();
-          expect(find.byType(DDropdownMenuContent), findsNothing);
+          expect(panel, findsNothing);
         }
         expect(tester.takeException(), isNull);
       } finally {
@@ -113,5 +113,5 @@ void main() {
           (_) async => null,
         ),
   );
-  mobileMoreBackdropTests();
+  mobileDockPanelBackdropTests();
 }

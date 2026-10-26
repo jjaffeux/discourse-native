@@ -123,6 +123,12 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get inlineCodeBorder => Color.lerp(background, foreground, .24)!;
 
   Color get mutedForeground => colors.onSurfaceVariant;
+
+  /// What is not text, outlines, off states and grab bars, at the 3:1 the
+  /// WCAG asks of marks: the mockup's `--mark-subtle`, two fifths of the way
+  /// from the background to the text.
+  Color get subtleMark => Color.lerp(background, foreground, .40)!;
+
   Color get primary => colors.primary;
   Color get primaryForeground => colors.onPrimary;
   Color get destructive => colors.error;
