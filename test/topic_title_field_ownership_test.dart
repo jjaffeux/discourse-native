@@ -212,6 +212,7 @@ void main() {
         expect(server.topic['title'], _renamed);
         expect(shell.currentTopic?.title, _renamed);
         expect(tester.widget<TopicTitle>(shown).title, _translation);
+        expect(shell.currentContent?.title, _translation);
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({
@@ -228,6 +229,12 @@ void main() {
     final shell = await _fixture(server, api: _RefreshTopicApi(server));
     await shell.loadTopic(_row.id, _row.slug, force: true);
     expect(shell.currentContent?.title, _translation);
+    final row = shell.store.read<Topic>(_siteUrl, _row.id)!;
+    expect((row.title, row.displayTitle), (_row.title, _translation));
+    shell.closeTopic();
+    shell.openTopicFromList(row);
+    expect(shell.currentContent?.title, _translation);
+    await pumpEventQueue();
 
     shell.openEdit(_editable(shell));
     final composer = shell.visibleComposer!;
@@ -250,15 +257,46 @@ void main() {
     expect(
       [
         for (final request in server.requests)
-          (
-            jsonDecode(request.body)['title'],
-            jsonDecode(request.body)['original_title'],
-          ),
+          if (jsonDecode(request.body) case {
+            'title': final title,
+            'original_title': final originalTitle,
+          })
+            (title, originalTitle),
       ],
       [(_row.title, _row.title), (_row.title, _row.title)],
     );
     expect(server.topic['title'], _row.title);
     expect(server.topic['category_id'], _categoryA.id);
+    expect(shell.currentContent?.title, _translation);
+  });
+
+  test('a topic opened from a localized row is titled by its translation '
+      'before it loads', () async {
+    const row = Topic(
+      id: 9,
+      title: 'Stored title',
+      localizedTitle: _translation,
+      slug: 'stored-title',
+    );
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([instance('meta.example')]),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [row],
+        },
+      ),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      forumTabs: FakeForumTabStore(),
+      trackers: FakeSiteTracker.reset(),
+      updater: FakeUpdater(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    await shell.loadFeed('latest');
+
+    shell.openTopicFromList(row);
     expect(shell.currentContent?.title, _translation);
   });
 

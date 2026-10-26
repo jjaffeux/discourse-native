@@ -1,13 +1,16 @@
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
@@ -106,6 +109,67 @@ void main() {
       isNot(localized.hashCode),
     );
     expect(original.isLocalized, isFalse);
+  });
+
+  test('topic records show the title content localization translated and '
+      'keep the stored one for writes', () {
+    const localized = {
+      'id': 7,
+      'title': 'Original & title',
+      'fancy_title': 'Titre &amp; traduit',
+      'fancy_title_localized': true,
+      'slug': 'original-title',
+    };
+    final untranslated = {...localized}..remove('fancy_title_localized');
+    final topic = Topic.fromJson(localized, const {}, siteUrl);
+    final detail = TopicDetail.parse(localized, siteUrl).detail;
+
+    expect([
+      (topic.title, topic.displayTitle),
+      (detail.title, detail.displayTitle),
+    ], everyElement(('Original & title', 'Titre & traduit')));
+    // An edit replaces the stored title and the site keeps its translation.
+    expect(topic.copyWith(title: 'Renamed').displayTitle, 'Titre & traduit');
+    expect(detail.copyWith(title: 'Renamed').displayTitle, 'Titre & traduit');
+    expect(topic.copyWith(clearLocalizedTitle: true).displayTitle, topic.title);
+    expect(Topic.fromJson(untranslated, const {}, siteUrl), isNot(topic));
+    expect(TopicDetail.parse(untranslated, siteUrl).detail, isNot(detail));
+    expect([
+      Topic.fromJson(untranslated, const {}, siteUrl).displayTitle,
+      TopicDetail.parse(untranslated, siteUrl).detail.displayTitle,
+    ], everyElement('Original & title'));
+
+    expect([
+      CategoryFeaturedTopic.fromJson(localized).title,
+      Bookmark.fromJson(const {
+        ...localized,
+        'bookmarkable_type': 'Topic',
+      }).title,
+      SearchResults.fromJson(const {
+        'posts': [
+          {'id': 70, 'topic_id': 7, 'post_number': 1},
+        ],
+        'topics': [localized],
+      }, siteUrl).hits.single.topicTitle,
+      UserSummary.fromJson(const {
+        'user_summary': {
+          'topic_ids': [7],
+        },
+        'topics': [localized],
+      }, siteUrl).topics.single.title,
+      BadgeGrantPage.fromJson(const {
+        'user_badge_info': {
+          'user_badges': [
+            {
+              'id': 1,
+              'user': {'username': 'sam'},
+              'topic': localized,
+              'post_number': 1,
+            },
+          ],
+        },
+      }, siteUrl).grants.single.topicTitle,
+    ], everyElement('Titre & traduit'));
   });
 
   test('posts mentioning a user with a status hash by value', () {

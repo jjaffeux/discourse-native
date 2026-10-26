@@ -591,6 +591,8 @@ final class TopicDataSession implements BookmarkTopicData {
           row
               .copyWith(
                 title: accepted.title,
+                localizedTitle: accepted.localizedTitle,
+                clearLocalizedTitle: accepted.localizedTitle == null,
                 categoryId: accepted.categoryId,
                 clearCategory: accepted.categoryId == null,
                 tags: accepted.tags,
@@ -2144,7 +2146,11 @@ final class TopicDataSession implements BookmarkTopicData {
       final detail = _publishTopic(candidate.payload, candidate.stamp);
       return detail == null
           ? null
-          : (topicId: detail.id, slug: candidate.slug, title: detail.title);
+          : (
+              topicId: detail.id,
+              slug: candidate.slug,
+              title: detail.displayTitle,
+            );
     } finally {
       for (final state in heldStates) {
         state.matchingReads--;

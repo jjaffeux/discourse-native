@@ -584,7 +584,7 @@ final class ShellTabContext {
     final result = shell._openTopic(
       topic.id,
       topic.slug,
-      topic.title,
+      topic.displayTitle,
       context: this,
       postNumber: topic.lastUnreadPostNumber,
       replace: currentContent?.isTopic == true && topicListContent != null,

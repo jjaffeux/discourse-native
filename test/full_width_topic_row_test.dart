@@ -67,6 +67,36 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('a row draws the title content localization translated', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: TopicListRow(
+            siteUrl: 'https://example.invalid',
+            topic: const Topic(
+              id: 1,
+              title: 'Welcome to our community',
+              localizedTitle: 'Bienvenue dans notre communauté',
+              slug: 'welcome',
+            ),
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TopicTitle>(find.byType(TopicTitle)).title,
+      'Bienvenue dans notre communauté',
+    );
+  });
+
   for (final (count, replies, views) in [
     (1, '1 reply', '1 view'),
     (2, '2 replies', '2 views'),

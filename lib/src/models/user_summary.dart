@@ -177,7 +177,11 @@ final class UserSummaryTopic {
   factory UserSummaryTopic._fromJson(Map<String, dynamic> json) =>
       UserSummaryTopic(
         id: jsonInt(json['id']),
-        title: jsonTitle(json['title'], json['fancy_title']),
+        title: jsonTitle(
+          json['title'],
+          json['fancy_title'],
+          localized: json['fancy_title_localized'],
+        ),
         slug: jsonString(json['slug']),
         categoryId: jsonIntOrNull(json['category_id']),
         likeCount: jsonInt(json['like_count']),

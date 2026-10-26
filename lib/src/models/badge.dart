@@ -238,7 +238,13 @@ final class BadgeGrantPage {
           // Core omits the topic object for posts the viewer cannot see.
           topicId: topicId > 0 ? topicId : null,
           topicSlug: jsonText(topic['slug']),
-          topicTitle: jsonText(jsonTitle(topic['title'], topic['fancy_title'])),
+          topicTitle: jsonText(
+            jsonTitle(
+              topic['title'],
+              topic['fancy_title'],
+              localized: topic['fancy_title_localized'],
+            ),
+          ),
           postNumber: postNumber > 0 ? postNumber : null,
         ),
       );

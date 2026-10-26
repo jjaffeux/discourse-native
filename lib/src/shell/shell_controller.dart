@@ -4289,7 +4289,7 @@ class ShellController extends FrameSafeNotifier
       if (currentInstance?.url == siteUrl) _notifyLiveChange();
     },
     published: (siteUrl, detail) {
-      final changed = _retitle(siteUrl, detail.id, detail.title);
+      final changed = _retitle(siteUrl, detail.id, detail.displayTitle);
       _topicNavigation.armHighlightIfLoaded();
       return changed;
     },
@@ -4462,7 +4462,7 @@ class ShellController extends FrameSafeNotifier
   TabOpenResult openTopic(Topic topic) => _openTopic(
     topic.id,
     topic.slug,
-    topic.title,
+    topic.displayTitle,
     postNumber: topic.lastUnreadPostNumber,
   );
 
@@ -5139,7 +5139,7 @@ class ShellController extends FrameSafeNotifier
     _openTopic(
       topicId,
       row?.slug ?? '',
-      detail?.title ?? row?.title ?? appL10n.topic,
+      detail?.displayTitle ?? row?.displayTitle ?? appL10n.topic,
       postNumber: postNumber,
     );
   }
@@ -5391,6 +5391,12 @@ class ShellController extends FrameSafeNotifier
     if (changed) _workspace.put(workspace.copyWith(tabs: tabs));
   }
 
+  /// What routes call a topic the store holds: its detail's title, else its
+  /// list row's.
+  String? _shownTopicTitle(String siteUrl, int topicId) =>
+      store.read<TopicDetail>(siteUrl, topicId)?.displayTitle ??
+      store.read<Topic>(siteUrl, topicId)?.displayTitle;
+
   /// Whether any route of the topic changed.
   bool _retitle(String siteUrl, int topicId, String title) {
     if (title.isEmpty) return false;
@@ -5408,10 +5414,7 @@ class ShellController extends FrameSafeNotifier
   ) {
     // Category writes carry their opening title. A newer rename can finish
     // before that response, so routes follow the title the store now holds.
-    final title =
-        store.read<TopicDetail>(siteUrl, topicId)?.title ??
-        store.read<Topic>(siteUrl, topicId)?.title ??
-        fallbackTitle;
+    final title = _shownTopicTitle(siteUrl, topicId) ?? fallbackTitle;
     final category = categoryFor(categoryId, siteUrl: siteUrl);
     _rewriteTopicRoutes(siteUrl, topicId, (route) {
       return ContentRoute(

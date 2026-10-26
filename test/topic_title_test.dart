@@ -342,6 +342,53 @@ void main() {
     },
   );
 
+  for (final framed in [false, true]) {
+    testWidgets(
+      'a ${framed ? 'framed' : 'borderless'} editor draws a translated title '
+      'and edits the stored one',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final controller = _controller();
+        addTearDown(controller.dispose);
+        final saved = <String>[];
+        final baselines = <String>[];
+        await tester.pumpWidget(
+          _TestEditor(
+            controller: controller,
+            title: 'Original title',
+            localizedTitle: 'Un titre traduit',
+            baselines: baselines,
+            showEditingFrame: framed,
+            onSave: (value) async {
+              saved.add(value);
+              return null;
+            },
+          ),
+        );
+        final shown = find.byType(TopicTitle);
+        expect(tester.widget<TopicTitle>(shown).title, 'Un titre traduit');
+        if (!framed) {
+          expect(find.bySemanticsLabel('Un titre traduit'), findsOneWidget);
+        }
+
+        await tester.tap(
+          find.byKey(const ValueKey('topic-header-title-field')),
+        );
+        await tester.pumpAndSettle();
+        final field = find.byType(DInput);
+        expect(tester.widget<DInput>(field).controller!.text, 'Original title');
+        await tester.enterText(field, 'Renamed title');
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(saved, ['Renamed title']);
+        expect(baselines, ['Original title']);
+        expect(tester.widget<TopicTitle>(shown).title, 'Un titre traduit');
+        semantics.dispose();
+      },
+    );
+  }
+
   testWidgets(
     'inline title saves on blur and preserves a failed edit for retry or Escape',
     (tester) async {
@@ -593,6 +640,8 @@ class _TestEditor extends StatelessWidget {
   const _TestEditor({
     required this.controller,
     required this.title,
+    this.localizedTitle,
+    this.baselines,
     required this.onSave,
     this.style,
     this.width,
@@ -605,6 +654,10 @@ class _TestEditor extends StatelessWidget {
 
   final ShellController controller;
   final String title;
+  final String? localizedTitle;
+
+  /// Collects the conflict baseline each save is checked against.
+  final List<String>? baselines;
   final Future<String?> Function(String title) onSave;
   final TextStyle? style;
   final double? width;
@@ -631,9 +684,13 @@ class _TestEditor extends StatelessWidget {
               width: width,
               child: InlineTopicTitleEditor(
                 title: title,
+                localizedTitle: localizedTitle,
                 siteUrl: 'https://meta.example',
                 style: style,
-                onSave: (title, {required originalTitle}) => onSave(title),
+                onSave: (title, {required originalTitle}) {
+                  baselines?.add(originalTitle);
+                  return onSave(title);
+                },
                 maxLines: maxLines,
                 showEditingFrame: showEditingFrame,
                 autofocus: autofocus,

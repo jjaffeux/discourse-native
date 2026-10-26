@@ -183,6 +183,7 @@ class Topic with Storable<Topic> {
   const Topic({
     required this.id,
     required this.title,
+    this.localizedTitle,
     required this.slug,
     this.categoryId,
     this.excerpt,
@@ -251,6 +252,10 @@ class Topic with Storable<Topic> {
     return Topic(
       id: jsonInt(json['id']),
       title: jsonTitle(json['title'], json['fancy_title']),
+      localizedTitle: jsonLocalizedTitle(
+        json['fancy_title'],
+        json['fancy_title_localized'],
+      ),
       slug: jsonString(json['slug']),
       excerpt: jsonHtmlText(json['excerpt']),
       lastPosterUsername: jsonText(json['last_poster_username']),
@@ -325,7 +330,18 @@ class Topic with Storable<Topic> {
   }
 
   final int id;
+
+  /// The title as the topic stores it, which edits change and every write's
+  /// `original_title` is checked against.
   final String title;
+
+  /// The viewer's translation of [title], when content localization has one.
+  /// An edit to [title] leaves it as it is, as the site does.
+  final String? localizedTitle;
+
+  /// What a reader sees, as upstream's topic-title-token chooses it.
+  String get displayTitle => localizedTitle ?? title;
+
   final String slug;
   final int? categoryId;
   final String? excerpt;
@@ -407,6 +423,8 @@ class Topic with Storable<Topic> {
 
   Topic copyWith({
     String? title,
+    String? localizedTitle,
+    bool clearLocalizedTitle = false,
     int? categoryId,
     bool clearCategory = false,
     int? postsCount,
@@ -428,6 +446,9 @@ class Topic with Storable<Topic> {
   }) => Topic(
     id: id,
     title: title ?? this.title,
+    localizedTitle: clearLocalizedTitle
+        ? null
+        : localizedTitle ?? this.localizedTitle,
     slug: slug,
     excerpt: excerpt,
     lastPosterUsername: lastPosterUsername,
@@ -464,6 +485,7 @@ class Topic with Storable<Topic> {
   Topic withPlugins(PluginData next) => Topic(
     id: id,
     title: title,
+    localizedTitle: localizedTitle,
     slug: slug,
     excerpt: excerpt,
     lastPosterUsername: lastPosterUsername,
@@ -499,6 +521,7 @@ class Topic with Storable<Topic> {
       other is Topic &&
           other.id == id &&
           other.title == title &&
+          other.localizedTitle == localizedTitle &&
           other.slug == slug &&
           other.excerpt == excerpt &&
           other.lastPosterUsername == lastPosterUsername &&
@@ -531,6 +554,7 @@ class Topic with Storable<Topic> {
   int get hashCode => Object.hashAll([
     id,
     title,
+    localizedTitle,
     slug,
     excerpt,
     lastPosterUsername,
@@ -782,7 +806,11 @@ class CategoryFeaturedTopic {
   factory CategoryFeaturedTopic.fromJson(Map<String, dynamic> json) =>
       CategoryFeaturedTopic(
         id: jsonInt(json['id']),
-        title: jsonTitle(json['title'], json['fancy_title']),
+        title: jsonTitle(
+          json['title'],
+          json['fancy_title'],
+          localized: json['fancy_title_localized'],
+        ),
         slug: jsonString(json['slug']),
         pinned: json['pinned'] == true,
         closed: json['closed'] == true,

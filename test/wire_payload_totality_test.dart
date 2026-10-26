@@ -85,6 +85,7 @@ const _keys = [
   'name',
   'title',
   'fancy_title',
+  'fancy_title_localized',
   'slug',
   'username',
   'url',

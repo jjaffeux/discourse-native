@@ -1338,7 +1338,8 @@ class _TopicViewState extends State<TopicView>
     final row = topic != null || siteUrl == null || topicId == null
         ? null
         : controller.store.read<Topic>(siteUrl, topicId);
-    final title = topic?.title ?? widget.route?.title ?? row?.title;
+    final title =
+        topic?.displayTitle ?? widget.route?.title ?? row?.displayTitle;
     Widget buildBody(DPageHeaderGeometry header) => _buildBodyFrame(
       header: header,
       stream: null,
@@ -2001,7 +2002,7 @@ class _TopicViewState extends State<TopicView>
           child: widget.inbox
               ? TopicInboxHeader(
                   key: _headerKey(controller, siteUrl, snapshot.topicId),
-                  title: snapshot.topic!.title,
+                  title: snapshot.topic!.displayTitle,
                   siteUrl: siteUrl,
                   route: widget.route,
                   topic: snapshot.topic!,
@@ -2024,7 +2025,7 @@ class _TopicViewState extends State<TopicView>
                         inbox: widget.inbox,
                         keepTopicListOpen: widget.keepTopicListOpen,
                         registry: widget.registry,
-                        title: snapshot.topic!.title,
+                        title: snapshot.topic!.displayTitle,
                         siteUrl: siteUrl,
                         route: widget.route,
                         topic: snapshot.topic!,
@@ -2653,7 +2654,7 @@ class _TopicViewHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     if (inbox) {
       return TopicInboxHeader(
-        title: this.topic?.title ?? title,
+        title: this.topic?.displayTitle ?? title,
         siteUrl: this.siteUrl,
         topic: this.topic,
         route: route,
@@ -2697,13 +2698,14 @@ class _TopicViewHeader extends StatelessWidget {
                   child: topic?.canEdit == true && siteUrl != null
                       ? InlineTopicTitleEditor(
                           key: const ValueKey('topic-header-title'),
-                          title: title,
+                          title: topic!.title,
+                          localizedTitle: topic.localizedTitle,
                           siteUrl: siteUrl,
                           style: titleStyle,
                           onSave: (title, {required originalTitle}) =>
                               controller.saveTopicTitle(
                                 siteUrl: siteUrl,
-                                topicId: topic!.id,
+                                topicId: topic.id,
                                 title: title,
                                 originalTitle: originalTitle,
                               ),

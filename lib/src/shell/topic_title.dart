@@ -82,6 +82,7 @@ class InlineTopicTitleEditor extends StatefulWidget {
   const InlineTopicTitleEditor({
     super.key,
     required this.title,
+    this.localizedTitle,
     required this.siteUrl,
     required this.onSave,
     this.style,
@@ -90,7 +91,14 @@ class InlineTopicTitleEditor extends StatefulWidget {
     this.autofocus = false,
   });
 
+  /// The title as the topic stores it, which editing starts from and saves
+  /// over.
   final String title;
+
+  /// The viewer's translation of [title], drawn while the title is not being
+  /// edited. A save replaces [title] only, as the site does.
+  final String? localizedTitle;
+
   final String siteUrl;
   final Future<String?> Function(String title, {required String originalTitle})
   onSave;
@@ -319,7 +327,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         builder: (context, value, _) {
           if (widget.showEditingFrame) return _buildFramedEditor();
           final focused = _focus.hasFocus;
-          final displayedTitle = value.text.isEmpty ? ' ' : value.text;
+          final shown = focused
+              ? value.text
+              : widget.localizedTitle ?? value.text;
+          final displayedTitle = shown.isEmpty ? ' ' : shown;
           final editor = MouseRegion(
             key: const ValueKey('topic-header-title-pointer'),
             cursor: SystemMouseCursors.text,
@@ -336,7 +347,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
                     constraints: const BoxConstraints(minWidth: 12),
                     child: Opacity(
                       opacity: focused ? 0 : 1,
+                      // The field announces the stored title; a translation
+                      // drawn over it is announced too.
                       child: ExcludeSemantics(
+                        excluding: shown == value.text,
                         child: TopicTitle(
                           displayedTitle,
                           siteUrl: widget.siteUrl,
@@ -388,10 +402,10 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
         alignment: AlignmentDirectional.centerStart,
         focusNode: _triggerFocus,
         semanticLabel: appL10n.editTopicTitle,
-        tooltip: _savedTitle,
+        tooltip: widget.localizedTitle ?? _savedTitle,
         onPressed: _beginFramedEditing,
         label: TopicTitle(
-          _savedTitle,
+          widget.localizedTitle ?? _savedTitle,
           key: const ValueKey('topic-header-compact-title'),
           siteUrl: widget.siteUrl,
           maxLines: widget.maxLines,

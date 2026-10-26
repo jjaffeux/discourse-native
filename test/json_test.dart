@@ -211,6 +211,26 @@ void main() {
       expect(jsonTitle('', '&amp;'), '&');
     });
 
+    test('prefers the fancy one when core flags it as a translation', () {
+      expect(
+        jsonTitle('Original &', 'Traduit &amp; clair', localized: true),
+        'Traduit & clair',
+      );
+      expect(
+        jsonLocalizedTitle('Traduit &amp; clair', true),
+        'Traduit & clair',
+      );
+      expect(jsonTitle('Original', 'Original', localized: false), 'Original');
+      expect(jsonLocalizedTitle('Original', false), isNull);
+      expect(jsonLocalizedTitle('Original', 'true'), isNull);
+    });
+
+    test('a flagged translation with no text leaves the plain one', () {
+      expect(jsonTitle('Original', '<b> </b>', localized: true), 'Original');
+      expect(jsonLocalizedTitle(null, true), isNull);
+      expect(jsonLocalizedTitle('', true), isNull);
+    });
+
     test('accepts the largest legal escaped title intact', () {
       final escaped = List.filled(255, '&quot;').join();
       expect(escaped, hasLength(maximumFancyTitleSourceCodeUnits));
