@@ -294,7 +294,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _openSearch({SearchFocusMode? mode}) {
     if (_presentation.isLeaving) _pageLeft();
-    if (_search.siteUrl == null) return;
+    if (!_search.canSearch) return;
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
       _presentation.prepareOpening(
@@ -722,7 +722,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   @override
   Widget build(BuildContext context) {
-    if (_search.siteUrl == null) return const SizedBox.shrink();
+    if (!_search.canSearch) return const SizedBox.shrink();
     if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
     final mobile =

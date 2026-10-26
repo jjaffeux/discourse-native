@@ -72,6 +72,32 @@ void main() {
     },
   );
 
+  test('a denied anonymous search closes its panel and returns on sign-in', () {
+    final search = _search(
+      api: _SearchApi(),
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site, authenticated: false);
+    addTearDown(search.dispose);
+    search.openPanel();
+    expect(search.panelOpen, isTrue);
+
+    search.allowAnonymousSearch(site, false);
+    expect(search.panelOpen, isFalse);
+    search.requestFocus();
+    expect(search.panelOpen, isFalse);
+
+    search.selectSite(site, authenticated: true);
+    search.requestFocus();
+    expect(search.panelOpen, isTrue);
+
+    search.selectSite(site, authenticated: false);
+    expect(search.panelOpen, isFalse);
+    search.allowAnonymousSearch(site, true);
+    search.requestFocus();
+    expect(search.panelOpen, isTrue);
+  });
+
   test(
     'Users selection is one tab query with page-word adapters and retention',
     () {
