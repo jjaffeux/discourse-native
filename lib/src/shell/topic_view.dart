@@ -983,6 +983,9 @@ class _TopicViewState extends State<TopicView>
         caughtUp: caughtUp,
       );
       readablePostNumbers.add(readablePost.postNumber);
+      if (readablePost.postNumber > post.postNumber && !post.isSmallAction) {
+        readablePostNumbers.add(post.postNumber);
+      }
     }
 
     _viewport.recordObservation(
@@ -1002,6 +1005,15 @@ class _TopicViewState extends State<TopicView>
     Post post,
     int postIndex,
   ) {
+    // An unfiltered TopicView leaves only ignored users' posts out of the
+    // stream, reporting them as a gap, while highest_post_number still counts
+    // them. Like web's ScreenTrack, credit through the last of a trailing gap
+    // there, or the topic could never be read to its end. A summary skips
+    // posts the reader can still open, so it credits only what it showed.
+    final ignored = snapshot.summary
+        ? 0
+        : snapshot.topic?.gapsAfter[post.id]?.length ?? 0;
+    if (ignored > 0) return post.postNumber + ignored;
     if (!post.isSmallAction) return post.postNumber;
 
     // Discourse numbers small actions in the stream but deliberately leaves
