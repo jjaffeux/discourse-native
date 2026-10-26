@@ -11,7 +11,9 @@ final pullToRefreshExamples = ComponentExamples(
       'Use AlwaysScrollableScrollPhysics for short and empty lists. '
       'The child retains its scroll controller. A null callback disables refresh; '
       'the caller handles request errors. A screen-reader Refresh action is '
-      'available, and reduced motion keeps the spinner stationary.',
+      'available, and reduced motion keeps the spinner stationary. '
+      'Inside a standard or page sheet, content pulls stay with refresh, '
+      'including while disabled or busy. The sheet drag handle still dismisses.',
   examples: [
     for (final (title, count) in [
       ('Topics', 20),

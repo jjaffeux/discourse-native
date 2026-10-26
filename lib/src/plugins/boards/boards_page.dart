@@ -195,62 +195,71 @@ class _BoardsPageState extends State<BoardsPage> {
       framed: false,
       border: false,
       limitContentSize: false,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: _BoardHeader(
-              title: title,
-              badges: badges,
-              action: action,
-              sheet: widget.navigation.mobileNavigationEnabled,
-              onBack: () => widget.navigation.open(),
+      child: DPullToRefresh(
+        key: ValueKey((
+          widget.controller,
+          widget.site,
+          widget.route.boardId,
+          widget.controller.accountRevision(widget.site),
+        )),
+        onRefresh: handle.reading || handle.writing ? null : handle.refresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _BoardHeader(
+                title: title,
+                badges: badges,
+                action: action,
+                sheet: widget.navigation.mobileNavigationEnabled,
+                onBack: () => widget.navigation.open(),
+              ),
             ),
-          ),
-          SliverLayoutBuilder(
-            builder: (context, constraints) {
-              final dock = DScrollChrome.bottomInsetOf(context);
-              final dots = _columnDots(constraints.crossAxisExtent, columns)
-                  ? _columnDotsExtent
-                  : 0.0;
-              return SliverToBoxAdapter(
-                child: SizedBox(
-                  height: math.max(
-                    constraints.viewportMainAxisExtent -
-                        constraints.precedingScrollExtent,
-                    24 +
-                        MediaQuery.textScalerOf(
-                          context,
-                        ).scale(_minimumColumnHeight) +
-                        dots +
-                        dock,
+            SliverLayoutBuilder(
+              builder: (context, constraints) {
+                final dock = DScrollChrome.bottomInsetOf(context);
+                final dots = _columnDots(constraints.crossAxisExtent, columns)
+                    ? _columnDotsExtent
+                    : 0.0;
+                return SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: math.max(
+                      constraints.viewportMainAxisExtent -
+                          constraints.precedingScrollExtent,
+                      24 +
+                          MediaQuery.textScalerOf(
+                            context,
+                          ).scale(_minimumColumnHeight) +
+                          dots +
+                          dock,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: dock),
+                      child: body,
+                    ),
                   ),
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: dock),
-                    child: body,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
     if (board == null) {
       return page(
         l10n.boardsTitle,
-        action: handle.reading
-            ? null
-            : DButton(
-                size: DButtonSize.filter,
-                variant: DButtonVariant.outline,
-                label: Text(l10n.refresh),
-                onPressed: handle.refresh,
-              ),
         body: handle.reading
             ? const _BoardLoadingSkeleton()
             : Center(
                 child: DEmpty(
-                  children: [Text(handle.error ?? l10n.boardsNoBoards)],
+                  children: [
+                    Text(handle.error ?? l10n.boardsNoBoards),
+                    if (handle.error != null)
+                      DButton(
+                        label: Text(l10n.retry),
+                        onPressed: handle.refresh,
+                      ),
+                  ],
                 ),
               ),
       );
@@ -279,41 +288,35 @@ class _BoardsPageState extends State<BoardsPage> {
         if (board.archived)
           DBadge(size: DBadgeSize.control, child: Text(l10n.boardsArchived)),
       ],
-      action: DDropdownMenu(
-        content: DDropdownMenuContent(
-          children: [
-            DDropdownMenuItem(
-              leading: const DIcon(DIcons.arrowRotateRight),
-              onPressed: handle.reading || handle.writing
-                  ? null
-                  : handle.refresh,
-              child: Text(l10n.refresh),
-            ),
-            if (board.canManage)
-              DDropdownMenuItem(
-                leading: const DIcon(DIcons.gear),
-                onPressed: () =>
-                    widget.navigation.configure(widget.site, board),
-                child: Text(l10n.openInBrowser),
+      action: board.canManage
+          ? DDropdownMenu(
+              content: DDropdownMenuContent(
+                children: [
+                  DDropdownMenuItem(
+                    leading: const DIcon(DIcons.gear),
+                    onPressed: () =>
+                        widget.navigation.configure(widget.site, board),
+                    child: Text(l10n.openInBrowser),
+                  ),
+                ],
               ),
-          ],
-        ),
-        child: DDropdownMenuTrigger(
-          builder: (context, state) => DButton.iconOnly(
-            key: const ValueKey('board-controls'),
-            size: DButtonSize.filter,
-            variant: DButtonVariant.outline,
-            icon: const DIcon(DIcons.ellipsis),
-            tooltip: l10n.moreActions,
-            // Busy state stays inside the button so the header never reflows.
-            loading: handle.reading || handle.writing,
-            onPressed: state.toggle,
-            focusNode: state.focusNode,
-            hasPopup: true,
-            expanded: state.open,
-          ),
-        ),
-      ),
+              child: DDropdownMenuTrigger(
+                builder: (context, state) => DButton.iconOnly(
+                  key: const ValueKey('board-controls'),
+                  size: DButtonSize.filter,
+                  variant: DButtonVariant.outline,
+                  icon: const DIcon(DIcons.ellipsis),
+                  tooltip: l10n.moreActions,
+                  // Busy state stays inside the button so the header never reflows.
+                  loading: handle.reading || handle.writing,
+                  onPressed: state.toggle,
+                  focusNode: state.focusNode,
+                  hasPopup: true,
+                  expanded: state.open,
+                ),
+              ),
+            )
+          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

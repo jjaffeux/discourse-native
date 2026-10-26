@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/tokens.dart';
 import 'd_page_surface.dart';
 import 'd_spinner.dart';
@@ -19,6 +20,8 @@ import 'd_spinner.dart';
 ///
 /// A null [onRefresh] disables new requests without replacing the child. Use a
 /// key identifying the content when switching between independently loaded lists.
+/// In standard and page sheets, this content retains its pulls even while
+/// refresh is disabled. The sheet's drag handle remains available for dismissal.
 class DPullToRefresh extends StatefulWidget {
   const DPullToRefresh({
     super.key,
@@ -120,40 +123,43 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
     );
     final header = DPageSurface.headerGeometryOf(context);
 
-    return Semantics(
-      customSemanticsActions: widget.onRefresh == null
-          ? null
-          : {
-              CustomSemanticsAction(label: widget.refreshLabel): () {
-                unawaited(_indicator.currentState?.show());
+    return SheetContentGestureRegion(
+      child: Semantics(
+        customSemanticsActions: widget.onRefresh == null
+            ? null
+            : {
+                CustomSemanticsAction(label: widget.refreshLabel): () {
+                  unawaited(_indicator.currentState?.show());
+                },
               },
-            },
-      child: Stack(
-        children: [
-          RefreshIndicator.noSpinner(
-            key: _indicator,
-            onRefresh: _refresh,
-            notificationPredicate: _acceptScrollNotification,
-            onStatusChange: (status) {
-              if (mounted) {
-                setState(() {
-                  _status = status;
-                  if (status == null || status == RefreshIndicatorStatus.drag) {
-                    _pullDistance = 0;
-                  }
-                });
-              }
-            },
-            child: widget.child,
-          ),
-          if (visible)
-            Positioned(
-              top: DSpacing.sm,
-              left: 0,
-              right: 0,
-              child: header?.inset(indicator) ?? indicator,
+        child: Stack(
+          children: [
+            RefreshIndicator.noSpinner(
+              key: _indicator,
+              onRefresh: _refresh,
+              notificationPredicate: _acceptScrollNotification,
+              onStatusChange: (status) {
+                if (mounted) {
+                  setState(() {
+                    _status = status;
+                    if (status == null ||
+                        status == RefreshIndicatorStatus.drag) {
+                      _pullDistance = 0;
+                    }
+                  });
+                }
+              },
+              child: widget.child,
             ),
-        ],
+            if (visible)
+              Positioned(
+                top: DSpacing.sm,
+                left: 0,
+                right: 0,
+                child: header?.inset(indicator) ?? indicator,
+              ),
+          ],
+        ),
       ),
     );
   }

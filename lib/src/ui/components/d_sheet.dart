@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -852,21 +853,27 @@ class DSheetDragRegion extends StatelessWidget {
         .dependOnInheritedWidgetOfExactType<_DSheetSwipeScope>()
         ?.swipe;
     if (swipe == null) return child;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      supportedDevices: swipe.widget.page
-          ? const {
-              PointerDeviceKind.touch,
-              PointerDeviceKind.mouse,
-              PointerDeviceKind.trackpad,
-            }
-          : const {PointerDeviceKind.touch},
-      onVerticalDragStart: (_) => swipe._start(),
-      onVerticalDragUpdate: (details) => swipe._update(details.delta.dy),
-      onVerticalDragEnd: (details) =>
-          swipe._finish(details.primaryVelocity ?? 0),
-      onVerticalDragCancel: () => swipe._finish(0, cancelled: true),
-      child: child,
+    return Listener(
+      onPointerDown: swipe._claimHandlePointer,
+      onPointerPanZoomStart: swipe.widget.page
+          ? swipe._claimHandlePointer
+          : null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        supportedDevices: swipe.widget.page
+            ? const {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.trackpad,
+              }
+            : const {PointerDeviceKind.touch},
+        onVerticalDragStart: (_) => swipe._start(),
+        onVerticalDragUpdate: (details) => swipe._update(details.delta.dy),
+        onVerticalDragEnd: (details) =>
+            swipe._finish(details.primaryVelocity ?? 0),
+        onVerticalDragCancel: () => swipe._finish(0, cancelled: true),
+        child: child,
+      ),
     );
   }
 }
@@ -909,10 +916,14 @@ class _DSheetSwipeDismiss extends StatefulWidget {
   State<_DSheetSwipeDismiss> createState() => _DSheetSwipeDismissState();
 }
 
+enum _DSheetPointerOwner { sheet, content, handle }
+
 class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     with SingleTickerProviderStateMixin {
   late final _travel = AnimationController.unbounded(vsync: this);
   int? _pointer;
+  _DSheetPointerOwner _pointerOwner = _DSheetPointerOwner.sheet;
+  PointerEvent? _contentSignal;
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
   bool _dragging = false;
@@ -951,6 +962,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _onPointerSignal(PointerSignalEvent event) {
+    if (identical(event.original ?? event, _contentSignal)) {
+      _contentSignal = null;
+      return;
+    }
     if (!widget.page ||
         event is! PointerScrollEvent ||
         event.scrollDelta.dy.abs() < event.scrollDelta.dx.abs() ||
@@ -981,6 +996,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   void _onPanZoomStart(PointerPanZoomStartEvent event) {
     if (_exiting || _pointer != null) return;
     _pointer = event.pointer;
+    _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = VelocityTracker.withKind(PointerDeviceKind.trackpad)
       ..addPosition(event.timeStamp, Offset.zero);
   }
@@ -997,6 +1013,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
     }
     _pointer = null;
+    _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = null;
   }
 
@@ -1064,7 +1081,11 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _start() {
-    if (_exiting || _swipeIntercepted) return;
+    if (_exiting ||
+        _swipeIntercepted ||
+        _pointerOwner == _DSheetPointerOwner.content) {
+      return;
+    }
     final box = context.findRenderObject()! as RenderBox;
     _swipeExtent = math.max(
       1,
@@ -1076,7 +1097,11 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _update(double delta) {
-    if (_exiting || _swipeIntercepted) return;
+    if (_exiting ||
+        _swipeIntercepted ||
+        _pointerOwner == _DSheetPointerOwner.content) {
+      return;
+    }
     _travel.value = math.max(0, _travel.value + delta);
     if (widget.onDismissRequested != null &&
         _travel.value >= _swipeExtent * _sheetDismissFraction) {
@@ -1195,11 +1220,42 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     }
   }
 
+  void _claimContentPointer(PointerEvent event) =>
+      _claimPointer(event, _DSheetPointerOwner.content);
+
+  void _claimHandlePointer(PointerEvent event) =>
+      _claimPointer(event, _DSheetPointerOwner.handle);
+
+  void _claimPointer(PointerEvent event, _DSheetPointerOwner owner) {
+    if (_exiting ||
+        _dragging ||
+        (event is PointerPanZoomStartEvent && !widget.page) ||
+        (_pointer != null && _pointer != event.pointer) ||
+        (_pointer == event.pointer &&
+            _pointerOwner == _DSheetPointerOwner.handle)) {
+      return;
+    }
+    _pointer = event.pointer;
+    _pointerOwner = owner;
+    _velocity = VelocityTracker.withKind(event.kind)
+      ..addPosition(
+        event.timeStamp,
+        event is PointerPanZoomStartEvent ? Offset.zero : event.position,
+      );
+  }
+
+  void _claimContentSignal(PointerSignalEvent event) {
+    if (widget.page && !_wheeling && event is PointerScrollEvent) {
+      _contentSignal = event.original ?? event;
+    }
+  }
+
   void _onPointerDown(PointerDownEvent event) {
     if (_exiting || _pointer != null || event.kind != PointerDeviceKind.touch) {
       return;
     }
     _pointer = event.pointer;
+    _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = VelocityTracker.withKind(event.kind)
       ..addPosition(event.timeStamp, event.position);
   }
@@ -1216,6 +1272,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
     }
     _pointer = null;
+    _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = null;
   }
 
@@ -1223,6 +1280,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     if (event.pointer != _pointer) return;
     _finish(0, cancelled: true);
     _pointer = null;
+    _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = null;
   }
 
@@ -1231,6 +1289,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     if (_exiting ||
         _swipeIntercepted ||
         _pointer == null ||
+        _pointerOwner == _DSheetPointerOwner.content ||
         notification.metrics.axisDirection != AxisDirection.down ||
         (_scrollOrigin != null && _scrollOrigin != notification.context)) {
       return false;
@@ -1318,7 +1377,14 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
           },
           child: NotificationListener<ScrollNotification>(
             onNotification: _onScroll,
-            child: _DSheetSwipeScope(swipe: this, child: widget.child),
+            child: _DSheetSwipeScope(
+              swipe: this,
+              child: SheetContentGestureScope(
+                onPointer: _claimContentPointer,
+                onSignal: _claimContentSignal,
+                child: widget.child,
+              ),
+            ),
           ),
         ),
       ),
