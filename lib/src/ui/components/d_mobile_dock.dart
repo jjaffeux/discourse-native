@@ -193,6 +193,12 @@ class DMobileDock extends StatefulWidget {
   static const fadeDuration = Duration(milliseconds: 300);
   static const dimOpacity = .32;
 
+  /// A trackpad swipe settles this long after its last movement, and the
+  /// momentum the system sends on after that, for this long, is the same
+  /// swipe and must not start another.
+  static const swipeRest = Duration(milliseconds: 180);
+  static const swipeSpent = Duration(milliseconds: 160);
+
   @override
   State<DMobileDock> createState() => _DMobileDockState();
 }
@@ -240,6 +246,12 @@ class _DMobileDockState extends State<DMobileDock>
   int _settle = 0;
   bool _reportedOut = false;
 
+  // A trackpad swipe under way: how far it has pushed, upward positive,
+  // the rest that settles it, and until when its momentum is ignored.
+  double _swipePushed = 0;
+  Timer? _swipeRest;
+  Duration? _swipeSpentUntil;
+
   bool get _out => _phase is! _Closed;
 
   /// With nothing past the bar's columns, or the bar put away, there is
@@ -271,6 +283,7 @@ class _DMobileDockState extends State<DMobileDock>
 
   @override
   void dispose() {
+    _swipeRest?.cancel();
     _growth.dispose();
     _fade.dispose();
     _moreFocus.dispose();
@@ -285,6 +298,9 @@ class _DMobileDockState extends State<DMobileDock>
   void _dragStart(DragStartDetails details) {
     if (!_grows) return;
     _settle++;
+    _swipeRest?.cancel();
+    _swipeRest = null;
+    _swipePushed = 0;
     _growth.stop();
     _fade.stop();
     final start = _growth.value.clamp(0.0, 1.0);
@@ -328,29 +344,94 @@ class _DMobileDockState extends State<DMobileDock>
   Widget _draggable(BuildContext context, Widget child) {
     final view = View.of(context);
     final screenBottom = view.physicalSize.height / view.devicePixelRatio;
-    return RawGestureDetector(
-      behavior: HitTestBehavior.translucent,
-      gestures: widget.collapsed
-          ? const {}
-          : {
-              _GrowDragRecognizer:
-                  GestureRecognizerFactoryWithHandlers<_GrowDragRecognizer>(
-                    _GrowDragRecognizer.new,
-                    (recognizer) => recognizer
-                      ..homeBandTop = screenBottom - DMobileDockDrag.homeBand
-                      ..dragStartBehavior = DragStartBehavior.down
-                      ..onStart = _dragStart
-                      ..onUpdate = _dragUpdate
-                      ..onEnd = _dragEnd
-                      ..onCancel = _dragEnd,
-                  ),
-            },
-      child: child,
+    return _swipeable(
+      RawGestureDetector(
+        behavior: HitTestBehavior.translucent,
+        gestures: widget.collapsed
+            ? const {}
+            : {
+                _GrowDragRecognizer:
+                    GestureRecognizerFactoryWithHandlers<_GrowDragRecognizer>(
+                      _GrowDragRecognizer.new,
+                      (recognizer) => recognizer
+                        ..homeBandTop = screenBottom - DMobileDockDrag.homeBand
+                        ..dragStartBehavior = DragStartBehavior.down
+                        ..onStart = _dragStart
+                        ..onUpdate = _dragUpdate
+                        ..onEnd = _dragEnd
+                        ..onCancel = _dragEnd,
+                    ),
+              },
+        child: child,
+      ),
     );
   }
 
+  /// A trackpad swipe over the bar, the panel or the dim grows and shrinks
+  /// the bar as a sheet's does: [push] upward positive, at the event's
+  /// [at]. Settled once it rests, by the way the whole swipe went.
+  void _swipe(double push, Duration at) {
+    if (!_grows || push == 0) return;
+    if (_swipeSpentUntil case final until? when at < until) {
+      _swipeSpentUntil = at + DMobileDock.swipeSpent;
+      return;
+    }
+    switch (_phase) {
+      case _Dragging() when _swipeRest == null:
+        return;
+      case _Settling():
+        _settle++;
+        _growth.stop();
+        _fade.stop();
+      case _Closed() || _Open() || _Dragging():
+        break;
+    }
+    final panel = widget.geometry.panel(tiles: _tiles);
+    final travel = math.max(1.0, panel.reveal);
+    final start = _growth.value.clamp(0.0, 1.0);
+    final growth = (start + push / travel).clamp(0.0, 1.0);
+    final wasOut = _out;
+    if (!wasOut && growth == 0) return;
+    if (_phase is! _Dragging) {
+      setState(() => _phase = _Dragging(start: start));
+    }
+    _swipePushed += push;
+    _growth.value = growth;
+    _fade.value = growth;
+    if (!wasOut) _portal.show();
+    _reportOut();
+    _swipeRest?.cancel();
+    _swipeRest = Timer(DMobileDock.swipeRest, () {
+      _swipeRest = null;
+      if (!mounted || _phase is! _Dragging) return;
+      final opens = DMobileDockDrag.swipeSettlesOpen(
+        pushed: _swipePushed,
+        at: _growth.value,
+      );
+      _swipePushed = 0;
+      _swipeSpentUntil = at + DMobileDock.swipeRest + DMobileDock.swipeSpent;
+      _grow(opens);
+    });
+  }
+
+  /// Takes trackpad swipes and wheel turns over [child]. Fingers moving up
+  /// the trackpad, as a wheel turned down, push the bar up.
+  Widget _swipeable(Widget child) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerPanZoomUpdate: (event) =>
+        _swipe(-event.localPanDelta.dy, event.timeStamp),
+    onPointerSignal: (event) {
+      if (event is PointerScrollEvent) {
+        _swipe(event.scrollDelta.dy, event.timeStamp);
+      }
+    },
+    child: child,
+  );
+
   void _grow(bool opening) {
     if (opening ? !_grows : !_out) return;
+    _swipeRest?.cancel();
+    _swipeRest = null;
     final reduced = MediaQuery.disableAnimationsOf(context);
     final wasOut = _out;
     final token = ++_settle;
@@ -391,6 +472,9 @@ class _DMobileDockState extends State<DMobileDock>
   /// the overlay empties now and leaves once the frame is drawn.
   void _putAway() {
     _settle++;
+    _swipeRest?.cancel();
+    _swipeRest = null;
+    _swipePushed = 0;
     _growth
       ..stop()
       ..value = 0;
@@ -574,6 +658,13 @@ class _DMobileDockState extends State<DMobileDock>
               child: Listener(
                 behavior: HitTestBehavior.opaque,
                 onPointerDown: (_) => _grow(false),
+                onPointerPanZoomUpdate: (event) =>
+                    _swipe(-event.localPanDelta.dy, event.timeStamp),
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    _swipe(event.scrollDelta.dy, event.timeStamp);
+                  }
+                },
                 child: ExcludeSemantics(
                   child: ColoredBox(
                     key: DMobileDock.dimKey,
@@ -958,7 +1049,8 @@ class _DMobileDockState extends State<DMobileDock>
 
 /// A drag up or down the bar or its panel: accepted past the bar's own slop
 /// rather than the platform's, and never a touch that starts in the screen's
-/// home band, which is the system's.
+/// home band, which is the system's. A trackpad's swipe is not a drag; the
+/// bar takes it as a sheet does, settling once it rests.
 class _GrowDragRecognizer extends VerticalDragGestureRecognizer {
   _GrowDragRecognizer();
 
@@ -969,6 +1061,9 @@ class _GrowDragRecognizer extends VerticalDragGestureRecognizer {
       super.isPointerAllowed(event) &&
       !(event.kind == PointerDeviceKind.touch &&
           event.position.dy >= homeBandTop);
+
+  @override
+  bool isPointerPanZoomAllowed(PointerPanZoomStartEvent event) => false;
 
   @override
   bool hasSufficientGlobalDistanceToAccept(

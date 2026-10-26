@@ -1200,4 +1200,139 @@ void main() {
     expect(moreFocus.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a trackpad swipe grows the bar and settles once it rests', (
+    tester,
+  ) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    final bar = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    final gesture = await tester.createGesture(
+      kind: PointerDeviceKind.trackpad,
+    );
+    // Fingers moving up the trackpad push the bar up: 20 of 104, then 60.
+    await gesture.panZoomStart(bar, timeStamp: Duration.zero);
+    await gesture.panZoomUpdate(
+      bar,
+      pan: const Offset(0, -20),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    await tester.pump();
+    expect(_panel, findsOneWidget);
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 20 / 104, .01),
+    );
+    await gesture.panZoomUpdate(
+      bar,
+      pan: const Offset(0, -60),
+      timeStamp: const Duration(milliseconds: 32),
+    );
+    await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 40));
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 60 / 104, .01),
+    );
+    // It rests 180 ms after the last movement, then settles the way it went.
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 60 / 104, .01),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    expect(tester.widget<DMobileDockItem>(_more).expanded, isTrue);
+
+    // Momentum arriving within 160 ms of settling is the same swipe.
+    final head = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    await gesture.panZoomStart(
+      head,
+      timeStamp: const Duration(milliseconds: 250),
+    );
+    await gesture.panZoomUpdate(
+      head,
+      pan: const Offset(0, 30),
+      timeStamp: const Duration(milliseconds: 266),
+    );
+    await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 270));
+    await tester.pump();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+
+    // A short push down from open comes back; a longer one closes.
+    await gesture.panZoomStart(head, timeStamp: const Duration(seconds: 2));
+    await gesture.panZoomUpdate(
+      head,
+      pan: const Offset(0, 1),
+      timeStamp: const Duration(milliseconds: 2016),
+    );
+    await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 2020));
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * (1 - 1 / 104), .01),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    await gesture.panZoomStart(head, timeStamp: const Duration(seconds: 3));
+    await gesture.panZoomUpdate(
+      head,
+      pan: const Offset(0, 10),
+      timeStamp: const Duration(milliseconds: 3016),
+    );
+    await gesture.panZoomEnd(timeStamp: const Duration(milliseconds: 3020));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.getRect(_surface), rest);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a wheel turned down over the bar grows it as a swipe does', (
+    tester,
+  ) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    final bar = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: bar,
+        scrollDelta: const Offset(0, 30),
+        timeStamp: const Duration(milliseconds: 16),
+      ),
+    );
+    await tester.pump();
+    expect(_panel, findsOneWidget);
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 30 / 104, .01),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    // A turn up over the dim, over the page, closes it.
+    await tester.sendEventToBinding(
+      const PointerScrollEvent(
+        position: Offset(400, 40),
+        scrollDelta: Offset(0, -60),
+        timeStamp: Duration(seconds: 1),
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * (1 - 60 / 104), .01),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
