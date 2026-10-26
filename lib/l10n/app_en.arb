@@ -18599,6 +18599,10 @@
   "@dashboardLoadError": {
     "description": "Staff dashboard. Could not load the dashboard. Try again."
   },
+  "dashboardLoading": "Loading dashboard",
+  "@dashboardLoading": {
+    "description": "Staff dashboard. Accessible label for the placeholder shown while the dashboard loads."
+  },
   "dashboardMutationError": "Could not save this change. Try again.",
   "@dashboardMutationError": {
     "description": "Staff dashboard. Could not save this change. Try again."

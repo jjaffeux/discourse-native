@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../models/dashboard.dart';
 import '../theme/d_icons.dart';
 import 'dashboard_controller.dart';
+import 'skeleton_fill.dart';
 
 String dashboardSectionLabel(String id) => switch (id) {
   'highlights' => appL10n.dashboardHighlights,
@@ -123,6 +124,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 DButton.iconOnly(
                   tooltip: l10n.refresh,
                   icon: const DIcon(DIcons.arrowsRotate),
+                  loading: state.loading && snapshot != null,
                   onPressed: state.loading
                       ? null
                       : () => unawaited(widget.onRefresh()),
@@ -136,11 +138,11 @@ class _DashboardPageState extends State<DashboardPage> {
           if (!widget.staff)
             _empty(l10n.dashboardStaffOnly)
           else ...[
-            if (state.loading) DProgress(semanticsLabel: l10n.dashboardTitle),
             if (state.error) _error(l10n.dashboardLoadError),
             if (state.mutationError) _error(l10n.dashboardMutationError),
-            if (snapshot == null && !state.loading && !state.error)
-              _empty(l10n.dashboardNoData),
+            // The host's first refresh starts after the first frame, so an
+            // absent snapshot, not `loading`, is what marks the page as loading.
+            if (snapshot == null && !state.error) _skeleton(),
             if (snapshot != null && !snapshot.supported) ...[
               _empty(l10n.dashboardUnsupported),
               _openDashboard(),
@@ -153,23 +155,70 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               if (snapshot.sections.isEmpty) _empty(l10n.dashboardNoSections),
               for (final section in snapshot.sections)
-                Padding(
-                  key: ValueKey('dashboard-section-${section.id}'),
-                  padding: const EdgeInsets.only(top: 8, bottom: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        dashboardSectionLabel(section.id),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      _section(section),
-                    ],
+                _sectionFrame(
+                  Text(
+                    dashboardSectionLabel(section.id),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  _section(section),
+                  key: ValueKey('dashboard-section-${section.id}'),
                 ),
             ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionFrame(Widget heading, Widget content, {Key? key}) => Padding(
+    key: key,
+    padding: const EdgeInsets.only(top: 8, bottom: 24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [heading, const SizedBox(height: 12), content],
+    ),
+  );
+
+  Widget _skeleton() {
+    final text = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    Widget line(TextStyle? style, double width) => Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: DSkeleton(
+        width: width,
+        height: scaler.scale(style?.fontSize ?? 14),
+      ),
+    );
+    return DSkeletonRegion(
+      semanticsLabel: context.l10n.dashboardLoading,
+      color: skeletonFill(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionFrame(
+            line(text.titleMedium, 96),
+            _grid([
+              for (var i = 0; i < 3; i++)
+                _cardFrame([
+                  line(text.titleSmall, 120),
+                  line(text.headlineSmall, 72),
+                  line(text.bodySmall, 40),
+                ]),
+            ], maximumColumns: 3),
+          ),
+          _sectionFrame(
+            line(text.titleMedium, 80),
+            _grid([
+              for (var i = 0; i < 4; i++)
+                _cardFrame([
+                  line(text.titleSmall, 140),
+                  line(text.bodySmall, 220),
+                  line(text.headlineSmall, 64),
+                  const DSkeleton(height: 140),
+                  line(text.bodySmall, 96),
+                ]),
+            ]),
+          ),
         ],
       ),
     );
@@ -760,16 +809,17 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         },
       );
-  Widget _card(String title, Widget content) => DCard(
+  Widget _card(String title, Widget content) => _cardFrame([
+    Text(title, style: Theme.of(context).textTheme.titleSmall),
+    content,
+  ]);
+  Widget _cardFrame(List<Widget> children) => DCard(
     child: Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 10,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          content,
-        ],
+        children: children,
       ),
     ),
   );

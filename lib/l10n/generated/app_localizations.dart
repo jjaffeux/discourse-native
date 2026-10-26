@@ -22119,6 +22119,12 @@ abstract class AppLocalizations {
   /// **'Could not load the dashboard. Try again.'**
   String get dashboardLoadError;
 
+  /// Staff dashboard. Accessible label for the placeholder shown while the dashboard loads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading dashboard'**
+  String get dashboardLoading;
+
   /// Staff dashboard. Could not save this change. Try again.
   ///
   /// In en, this message translates to:
