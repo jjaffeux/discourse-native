@@ -96,8 +96,9 @@ final class BoardsPlugin
   List<Widget> _memberships(
     BuildContext context,
     String site,
-    BoardMemberships? memberships,
-  ) {
+    BoardMemberships? memberships, {
+    Widget? leading,
+  }) {
     final controller = PluginUiScope.require(context, boardsControllerKey);
     if (!controller.enabled(site)) return const [];
     final navigation = PluginUiScope.require(context, boardsNavigationKey);
@@ -105,6 +106,7 @@ final class BoardsPlugin
       for (final membership in memberships?.values ?? const <BoardMembership>[])
         DBadge.action(
           onPressed: () => navigation.openMembership(site, membership),
+          leading: leading,
           child: Text(
             membership.columnTitle.isEmpty
                 ? membership.name
@@ -119,7 +121,14 @@ final class BoardsPlugin
     BuildContext context,
     String siteUrl,
     Topic topic,
-  ) => _memberships(context, siteUrl, topic.plugins.get(boardsMembershipKey));
+  ) => _memberships(
+    context,
+    siteUrl,
+    topic.plugins.get(boardsMembershipKey),
+    // A topic row has no section label naming these pills, unlike the
+    // topic's properties, so each carries the Boards mark instead.
+    leading: const DIcon(boardsIcon),
+  );
   @override
   List<TopicPropertySection> topicProperties(
     BuildContext context,

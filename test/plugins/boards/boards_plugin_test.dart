@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/discourse_ui.dart' show DBadge;
 import 'package:discourse_native/src/plugins/boards/boards_controller.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_module.dart';
@@ -53,6 +54,86 @@ void main() {
       expect(installed.descriptors.single.routeNamespaces, {'boards'});
     },
   );
+  testWidgets('a topic row marks each board pill with the Boards icon', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture(enabled: true);
+    addTearDown(fixture.dispose);
+    final host = await PluginHostHarness.open(
+      transport: fixture.transport,
+      manifest: const PluginManifest([boardsModule]),
+      sites: [
+        PluginHostSite(
+          url: boardsSite,
+          apiKey: 'key',
+          user: const PluginHostUser(id: 2, username: 'lee'),
+          config: fixture.config,
+        ),
+      ],
+    );
+    addTearDown(host.close);
+    final installed = PluginInstaller.install(
+      const PluginManifest([boardsModule]),
+    );
+    addTearDown(installed.close);
+    final topic = installed.models.topicSummary({
+      'id': 500,
+      'title': 'Search',
+      'board_memberships': [
+        {
+          'board_id': 1,
+          'board_name': 'Roadmap',
+          'cards': [
+            {'card_id': 101, 'column_title': 'Backlog'},
+          ],
+        },
+        {
+          'board_id': 2,
+          'board_name': 'Triage',
+          'cards': [
+            {'card_id': 102, 'column_title': ''},
+          ],
+        },
+      ],
+    }, boardsSite);
+    await tester.pumpWidget(
+      host.scope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Wrap(
+                children: const BoardsPlugin().topicListMetadata(
+                  PluginUiScope.contextFor(context, boardsPluginId),
+                  boardsSite,
+                  topic,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (final name in ['Roadmap · Backlog', 'Triage']) {
+      final pill = find.ancestor(
+        of: find.text(name),
+        matching: find.byType(DBadge),
+      );
+      final icon = find.descendant(
+        of: pill,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == boardsIcon,
+        ),
+      );
+      expect(icon, findsOneWidget);
+      expect(
+        tester.getRect(icon).right,
+        lessThanOrEqualTo(tester.getRect(find.text(name)).left),
+      );
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   for (final enabled in [false, true]) {
     testWidgets(
       'registered Boards sidebar, route and heading respect setting $enabled',
