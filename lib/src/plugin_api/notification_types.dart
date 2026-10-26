@@ -560,10 +560,13 @@ String? _corePath(String siteUrl, DiscourseNotification notification) {
   return null;
 }
 
+/// The envelope's title is the topic's current one, so it wins over the
+/// payload's `topic_title`, which was the title when the row was written.
 String _coreTopicTitle(DiscourseNotification notification) {
+  if (notification.title.isNotEmpty) return notification.title;
   final payloadTitle = notification.data['topic_title'];
   if (payloadTitle is String && payloadTitle.isNotEmpty) return payloadTitle;
-  return notification.title.isEmpty ? appL10n.aTopic : notification.title;
+  return appL10n.aTopic;
 }
 
 /// A reminder names what was bookmarked. A post or topic bookmark carries
@@ -573,9 +576,9 @@ String _coreTopicTitle(DiscourseNotification notification) {
 /// back to.
 String _reminderTitle(DiscourseNotification notification) {
   final data = notification.data;
+  if (notification.title.isNotEmpty) return notification.title;
   final topicTitle = data['topic_title'];
   if (topicTitle is String && topicTitle.isNotEmpty) return topicTitle;
-  if (notification.title.isNotEmpty) return notification.title;
   final title = data['title'];
   if (title is String && title.isNotEmpty) return title;
   return appL10n.aTopic;
