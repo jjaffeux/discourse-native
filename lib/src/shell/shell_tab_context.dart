@@ -558,12 +558,14 @@ final class ShellTabContext {
       }
       if (tagName == null) return null;
     }
-    return DismissNewTopicsCommand(
+    final command = DismissNewTopicsCommand(
       instance: instance,
       route: route,
       mode: mode,
       tagName: tagName,
     );
+    if (command.listsTopicIds && command.widensToForum) return null;
+    return command;
   }
 
   TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) {
