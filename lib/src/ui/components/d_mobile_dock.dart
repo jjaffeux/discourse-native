@@ -255,6 +255,11 @@ class _DMobileDockState extends State<DMobileDock>
   final _barKey = GlobalKey(debugLabel: 'mobile-dock-bar');
   final _moreFocus = FocusNode(debugLabel: 'mobile-dock-more');
   final _panelFocus = FocusScopeNode(debugLabel: 'mobile-dock-panel');
+  final _firstTile = FocusNode(debugLabel: 'mobile-dock-first-tile');
+
+  /// What had the focus as the panel took it, to have it back as the panel
+  /// closes.
+  FocusNode? _focusBefore;
   _Growth _phase = const _Closed();
 
   // A settle that was interrupted must not report its end as the panel's.
@@ -309,6 +314,7 @@ class _DMobileDockState extends State<DMobileDock>
     _fade.dispose();
     _moreFocus.dispose();
     _panelFocus.dispose();
+    _firstTile.dispose();
     super.dispose();
   }
 
@@ -458,6 +464,7 @@ class _DMobileDockState extends State<DMobileDock>
     setState(() => _phase = _Settling(opening: opening));
     if (!wasOut) _portal.show();
     _reportOut();
+    if (opening) _takeFocus();
     _fade.animateTo(
       opening ? 1 : 0,
       duration: reduced ? Duration.zero : DMobileDock.fadeDuration,
@@ -477,16 +484,42 @@ class _DMobileDockState extends State<DMobileDock>
 
   void _close() => _grow(false);
 
+  /// The focus moves into the panel, to its first tile, once the panel is
+  /// meant to be open: pressed open, or let go to settle open. Not under a
+  /// finger that may yet set it back down, which would take the focus, and
+  /// the keyboard, from what a person is typing in.
+  void _takeFocus() {
+    if (_panelFocus.hasFocus) return;
+    _focusBefore = FocusManager.instance.primaryFocus;
+    _firstTile.requestFocus();
+  }
+
+  /// What had the focus takes it back. Nothing in particular had it, or it
+  /// has gone since, and the ⋮ takes it, or the page standing in its slot
+  /// that opened the panel in the ⋮'s stead.
+  void _giveFocusBack() {
+    final before = _focusBefore;
+    _focusBefore = null;
+    final target =
+        before != null &&
+            before is! FocusScopeNode &&
+            before.enclosingScope != null &&
+            before.canRequestFocus
+        ? before
+        : _moreFocus;
+    target.requestFocus();
+  }
+
   void _settled(bool opening) {
     if (opening) {
       setState(() => _phase = const _Open());
       return;
     }
-    final restoreFocus = _panelFocus.hasFocus;
+    final hadFocus = _panelFocus.hasFocus;
     setState(() => _phase = const _Closed());
     _portal.hide();
     _reportOut();
-    if (restoreFocus) _moreFocus.requestFocus();
+    if (hadFocus) _giveFocusBack();
   }
 
   /// Put away with the bar, as by the composer it opened, it comes back as
@@ -504,6 +537,8 @@ class _DMobileDockState extends State<DMobileDock>
       ..stop()
       ..value = 0;
     _phase = const _Closed();
+    // Whatever took the bar away has the focus to give.
+    _focusBefore = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_out) _portal.hide();
     });
@@ -599,7 +634,7 @@ class _DMobileDockState extends State<DMobileDock>
           DMobileDockItem(
             key: DMobileDock.tileKey(place.key),
             growth: 1,
-            autofocus: index == 0,
+            focusNode: index == 0 ? _firstTile : null,
             icon: place.icon,
             label: place.label,
             badge: place.badge,
@@ -665,6 +700,8 @@ class _DMobileDockState extends State<DMobileDock>
         ],
       ),
     );
+    // The head is the panel's too: the keyboard goes round its places, the
+    // action, the grid and you, and Escape closes it from any of them.
     return BlockSemantics(
       child: Semantics(
         container: true,
@@ -673,62 +710,62 @@ class _DMobileDockState extends State<DMobileDock>
         explicitChildNodes: true,
         label: context.l10n.places,
         onDismiss: () => _grow(false),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) => _grow(false),
-                onPointerPanZoomUpdate: (event) =>
-                    _swipe(-event.localPanDelta.dy, event.timeStamp),
-                onPointerSignal: (event) {
-                  if (event is PointerScrollEvent) {
-                    _swipe(event.scrollDelta.dy, event.timeStamp);
-                  }
-                },
-                child: ExcludeSemantics(
-                  child: ColoredBox(
-                    key: DMobileDock.dimKey,
-                    color: Colors.black.withValues(
-                      alpha: DMobileDock.dimOpacity * fade,
+        child: FocusScope(
+          node: _panelFocus,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () =>
+                  _grow(false),
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (_) => _grow(false),
+                    onPointerPanZoomUpdate: (event) =>
+                        _swipe(-event.localPanDelta.dy, event.timeStamp),
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent) {
+                        _swipe(event.scrollDelta.dy, event.timeStamp);
+                      }
+                    },
+                    child: ExcludeSemantics(
+                      child: ColoredBox(
+                        key: DMobileDock.dimKey,
+                        color: Colors.black.withValues(
+                          alpha: DMobileDock.dimOpacity * fade,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              left: left,
-              width: width,
-              top: foot - (panel.height - panel.clipInset(growth)),
-              height: panel.height - panel.clipInset(growth),
-              child: ClipRRect(
-                borderRadius: topRadius,
-                child: OverflowBox(
-                  alignment: Alignment.bottomCenter,
-                  minHeight: panel.height,
-                  maxHeight: panel.height,
-                  child: FocusScope(
-                    node: _panelFocus,
-                    child: CallbackShortcuts(
-                      bindings: {
-                        const SingleActivator(LogicalKeyboardKey.escape): () =>
-                            _grow(false),
-                      },
+                Positioned(
+                  left: left,
+                  width: width,
+                  top: foot - (panel.height - panel.clipInset(growth)),
+                  height: panel.height - panel.clipInset(growth),
+                  child: ClipRRect(
+                    borderRadius: topRadius,
+                    child: OverflowBox(
+                      alignment: Alignment.bottomCenter,
+                      minHeight: panel.height,
+                      maxHeight: panel.height,
                       child: _draggable(context, body),
                     ),
                   ),
                 ),
-              ),
+                Positioned(
+                  left: slot.left,
+                  top: slot.top - panel.barRise(growth),
+                  width: slot.width,
+                  height: slot.height,
+                  child: bar,
+                ),
+              ],
             ),
-            Positioned(
-              left: slot.left,
-              top: slot.top - panel.barRise(growth),
-              width: slot.width,
-              height: slot.height,
-              child: bar,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -909,7 +946,15 @@ class _DMobileDockState extends State<DMobileDock>
             children: [
               for (final (index, entry) in shown.indexed)
                 at(placeSlots[index], destination(place(entry))),
-              if (tailSlot case final slot?) at(slot, destination(fourth)),
+              // Grown, the ⋮ is out of the keyboard's round, not out of
+              // reach: it takes the focus back as the panel closes.
+              if (tailSlot case final slot?)
+                at(
+                  slot,
+                  destination(
+                    ExcludeFocusTraversal(excluding: out, child: fourth),
+                  ),
+                ),
               if (actionSlot case final slot?)
                 PositionedDirectional(
                   start: slot.start,

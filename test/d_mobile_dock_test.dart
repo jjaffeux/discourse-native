@@ -35,6 +35,7 @@ Widget fixture({
   bool highContrast = false,
   bool reducedMotion = false,
   double foot = 0,
+  Widget? page,
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -50,56 +51,66 @@ Widget fixture({
         key: const ValueKey('dock-capture'),
         child: Scaffold(
           backgroundColor: backdrop,
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              key: const ValueKey('dock-frame'),
-              width: width,
-              child: Builder(
-                builder: (context) {
-                  final geometry = DMobileDockGeometry.of(context);
-                  return Padding(
-                    padding: geometry.margin,
-                    child: DMobileDock(
-                      geometry: geometry,
-                      collapsed: collapsed,
-                      destinationsHidden: hidden,
-                      covered: covered,
-                      places: [
-                        for (final name in labels)
-                          DMobileDockPlace(
-                            key: ValueKey(name),
-                            icon: const Icon(Icons.forum),
-                            label: name,
-                            badge: name == 'Chat'
-                                ? const DBadge.overlay(child: Text('99+'))
-                                : null,
-                            selected: name == selected,
-                            onPressed: () => onPlace?.call(name),
+          body: Stack(
+            children: [
+              // The page the bar stands over, where a person may be typing.
+              ?page,
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(
+                  key: const ValueKey('dock-frame'),
+                  width: width,
+                  child: Builder(
+                    builder: (context) {
+                      final geometry = DMobileDockGeometry.of(context);
+                      return Padding(
+                        padding: geometry.margin,
+                        child: DMobileDock(
+                          geometry: geometry,
+                          collapsed: collapsed,
+                          destinationsHidden: hidden,
+                          covered: covered,
+                          places: [
+                            for (final name in labels)
+                              DMobileDockPlace(
+                                key: ValueKey(name),
+                                icon: const Icon(Icons.forum),
+                                label: name,
+                                badge: name == 'Chat'
+                                    ? const DBadge.overlay(child: Text('99+'))
+                                    : null,
+                                selected: name == selected,
+                                onPressed: () => onPlace?.call(name),
+                              ),
+                          ],
+                          more: (
+                            icon: const Icon(Icons.more_vert),
+                            label: 'More',
                           ),
-                      ],
-                      more: (icon: const Icon(Icons.more_vert), label: 'More'),
-                      you: you,
-                      onPanelChanged: onPanelChanged,
-                      collapsedDestination: DMobileDockItem(
-                        key: const ValueKey('reveal'),
-                        collapsed: true,
-                        icon: const Icon(Icons.forum),
-                        label: 'Reveal navigation',
-                        onPressed: onReveal ?? () {},
-                      ),
-                      action: withAction
-                          ? DMobileDockAction(
-                              icon: const Icon(Icons.add),
-                              label: 'New topic',
-                              onPressed: onAction ?? () {},
-                            )
-                          : null,
-                    ),
-                  );
-                },
+                          you: you,
+                          onPanelChanged: onPanelChanged,
+                          collapsedDestination: DMobileDockItem(
+                            key: const ValueKey('reveal'),
+                            collapsed: true,
+                            icon: const Icon(Icons.forum),
+                            label: 'Reveal navigation',
+                            onPressed: onReveal ?? () {},
+                          ),
+                          action: withAction
+                              ? DMobileDockAction(
+                                  key: const ValueKey('action'),
+                                  icon: const Icon(Icons.add),
+                                  label: 'New topic',
+                                  onPressed: onAction ?? () {},
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -131,6 +142,29 @@ List<String> _tileLabels(WidgetTester tester) => [
   ))
     item.label,
 ];
+
+/// The key of the place, the tile or the action holding the focus.
+Key? _focusedKey() {
+  final context = FocusManager.instance.primaryFocus?.context;
+  if (context == null) return null;
+  Key? key;
+  context.visitAncestorElements((element) {
+    final widget = element.widget;
+    if (widget is DMobileDockItem || widget is DMobileDockAction) {
+      key = widget.key;
+      return false;
+    }
+    return true;
+  });
+  return key;
+}
+
+Future<void> _tab(WidgetTester tester, {bool back = false}) async {
+  if (back) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  if (back) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+}
 
 final _frame = find.byKey(const ValueKey('dock-frame'));
 final _surface = find.byKey(const ValueKey('mobile-dock-surface'));
@@ -1358,6 +1392,104 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(usersFocus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a drag that settles closed leaves the focus where it was; one '
+      'that settles open takes it, and gives it back', (tester) async {
+    final field = FocusNode(debugLabel: 'field');
+    addTearDown(field.dispose);
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        page: Focus(focusNode: field, child: const SizedBox(height: 40)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    field.requestFocus();
+    await tester.pump();
+    expect(field.hasFocus, isTrue);
+    final topics = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    final gesture = await tester.createGesture();
+    await gesture.down(topics, timeStamp: Duration.zero);
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, -20),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    await tester.pump();
+    expect(_panel, findsOneWidget);
+    // Under the finger the panel is not open: what was typed in keeps the
+    // focus, and the keyboard with it.
+    expect(field.hasFocus, isTrue);
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 400),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 416));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(field.hasFocus, isTrue);
+    // Let go to settle open, the panel takes the focus to its first tile,
+    // and gives it back to the field as it closes.
+    await gesture.down(topics, timeStamp: const Duration(seconds: 1));
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, -60),
+      timeStamp: const Duration(milliseconds: 1016),
+    );
+    await tester.pump();
+    expect(field.hasFocus, isTrue);
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 1400),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 1416));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(field.hasFocus, isFalse);
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(field.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the keyboard reaches the head and the action from the grid, '
+      'and never the ⋮ while the panel is out', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34, you: you()));
+    await tester.pumpAndSettle();
+    final moreFocus = tester.widget<DMobileDockItem>(_more).focusNode!;
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final inbox = DMobileDock.tileKey(const ValueKey('Inbox'));
+    expect(_focusedKey(), inbox);
+    await _tab(tester, back: true);
+    expect(_focusedKey(), const ValueKey('action'));
+    await _tab(tester, back: true);
+    expect(_focusedKey(), const ValueKey('Chat'));
+    await _tab(tester, back: true);
+    expect(_focusedKey(), const ValueKey('Topics'));
+    await _tab(tester);
+    await _tab(tester);
+    await _tab(tester);
+    expect(_focusedKey(), inbox);
+    await _tab(tester);
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Users')));
+    await _tab(tester);
+    await _tab(tester);
+    expect(_focusedKey(), DMobileDock.youKey);
+    // Past the last tile, the head comes round again.
+    await _tab(tester);
+    expect(_focusedKey(), const ValueKey('Start'));
+    expect(moreFocus.hasFocus, isFalse);
+    // Nothing in particular had the focus before the ⋮ was pressed, so the
+    // ⋮ takes it as the panel closes.
+    await tester.tapAt(tester.getTopLeft(_dim) + const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(moreFocus.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
 
