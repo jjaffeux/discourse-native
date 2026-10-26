@@ -24,21 +24,28 @@ final class AiBotUser {
   final bool hasPersonalMessageBot;
 
   // The two serializers cover group-enabled LLM bots and individually allowed
-  // PM agents. Agents can be allowed even outside ai_bot_allowed_groups.
-  factory AiBotUser.fromWire(Map<String, dynamic> json) => AiBotUser(
-    hasPersonalMessageBot:
-        jsonObjects(json['ai_enabled_chat_bots']).any(
-          (bot) =>
-              bot['is_agent'] != true &&
-              jsonInt(bot['id']) != 0 &&
-              (jsonText(bot['username'])?.isNotEmpty ?? false),
-        ) ||
-        jsonObjects(json['ai_enabled_agents']).any(
-          (agent) =>
-              agent['allow_personal_messages'] == true &&
-              (jsonText(agent['username'])?.isNotEmpty ?? false),
-        ),
-  );
+  // PM agents. Only ai_bot_allowed_groups members receive
+  // ai_enabled_chat_bots. Servers whose agents carry their bot `user_id`
+  // require that membership for agent PMs too; older servers allowed agents
+  // outside the groups.
+  factory AiBotUser.fromWire(Map<String, dynamic> json) {
+    final inBotGroups = json.containsKey('ai_enabled_chat_bots');
+    return AiBotUser(
+      hasPersonalMessageBot:
+          jsonObjects(json['ai_enabled_chat_bots']).any(
+            (bot) =>
+                bot['is_agent'] != true &&
+                jsonInt(bot['id']) != 0 &&
+                (jsonText(bot['username'])?.isNotEmpty ?? false),
+          ) ||
+          jsonObjects(json['ai_enabled_agents']).any(
+            (agent) =>
+                agent['allow_personal_messages'] == true &&
+                (jsonText(agent['username'])?.isNotEmpty ?? false) &&
+                (inBotGroups || !agent.containsKey('user_id')),
+          ),
+    );
+  }
   @override
   bool operator ==(Object other) =>
       other is AiBotUser &&
