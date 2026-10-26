@@ -130,6 +130,73 @@ void main() {
       expect(find.text('System'), findsOneWidget);
     });
   }
+  testWidgets('a dashboard without a snapshot loads as a skeleton', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final state in [
+        const DashboardState(),
+        const DashboardState(loading: true),
+      ]) {
+        await tester.pumpWidget(dashboard(state: state));
+        await tester.pump();
+        expect(find.bySemanticsLabel('Loading dashboard'), findsOneWidget);
+        expect(find.byType(DProgress), findsNothing);
+        expect(find.text('No data for the selected period.'), findsNothing);
+      }
+      await tester.pumpWidget(
+        dashboard(state: const DashboardState(error: true)),
+      );
+      await tester.pump();
+      expect(
+        find.text('Could not load the dashboard. Try again.'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Loading dashboard'), findsNothing);
+    } finally {
+      semantics.dispose();
+    }
+  });
+  testWidgets('refreshing keeps the held dashboard and marks refresh busy', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      var refreshes = 0;
+      await tester.pumpWidget(
+        dashboard(
+          state: DashboardState(
+            snapshot: snapshot,
+            reports: reports,
+            loading: true,
+          ),
+          onRefresh: () => refreshes++,
+        ),
+      );
+      await tester.pump();
+      expect(find.text('128'), findsOneWidget);
+      expect(find.bySemanticsLabel('Loading dashboard'), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is DProgress && widget.value == null,
+        ),
+        findsNothing,
+      );
+      final refresh = find.byWidgetPredicate(
+        (widget) => widget is DButton && widget.tooltip == 'Refresh',
+      );
+      expect(
+        tester.getSemantics(refresh),
+        isSemantics(value: 'Loading', isEnabled: false),
+      );
+      await tester.tap(refresh, warnIfMissed: false);
+      await tester.pump();
+      expect(refreshes, 0);
+    } finally {
+      semantics.dispose();
+    }
+  });
   testWidgets('member page denies data and controls', (tester) async {
     await tester.pumpWidget(dashboard(staff: false, admin: false));
     await tester.pumpAndSettle();

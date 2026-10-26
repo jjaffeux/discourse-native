@@ -14104,6 +14104,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dashboardLoadError => 'Could not load the dashboard. Try again.';
 
   @override
+  String get dashboardLoading => 'Loading dashboard';
+
+  @override
   String get dashboardMutationError => 'Could not save this change. Try again.';
 
   @override
