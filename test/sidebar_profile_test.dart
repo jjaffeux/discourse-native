@@ -255,7 +255,6 @@ void main() {
         controller: shell,
         child: MaterialApp(
           home: UserMenuButton.drawer(
-            onBeforeProfileOpen: null,
             builder: (context, footer) =>
                 Text(footer == null ? 'Body without account' : 'Account body'),
           ),

@@ -335,7 +335,7 @@ void main() {
 
         expect(find.text('Pause notifications for…'), findsOneWidget);
         expect(find.text('Profile'), findsNothing);
-        expect(find.text('Meta User'), findsNothing);
+        expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
       }),
     );
 
