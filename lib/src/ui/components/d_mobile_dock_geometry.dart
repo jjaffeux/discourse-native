@@ -78,6 +78,12 @@ class DMobileDockGeometry {
   static const columnGap = 4.0;
   static const moreWidth = 40.0;
 
+  /// The current place's mark on the bar's top edge: as the rail marks its
+  /// forum, the same bar of the text's colour, with its bottom corners round.
+  static const markWidth = 28.0;
+  static const markHeight = 4.0;
+  static const markRadius = 3.0;
+
   double get rowHeight => 50 + growth;
 
   /// The folded bar.

@@ -38,7 +38,9 @@ final class DMobileDockOverflowed extends DMobileDockCurrent {
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
 /// column each of the row's four; the fourth holds the ⋮ for the places past
 /// them, or the current page when it is one of those, and the action at the
-/// row's end. Folded, it is a circle in the screen's bottom-start corner.
+/// row's end. The current place is marked by a short bar on the bar's top
+/// edge over its column. Folded, the bar is a circle in the screen's
+/// bottom-start corner.
 class DMobileDock extends StatelessWidget {
   const DMobileDock({
     super.key,
@@ -131,6 +133,61 @@ class DMobileDock extends StatelessWidget {
           ),
         ),
       );
+      // Every column carries its own mark, grown in from nothing when its
+      // place becomes current and gone the same way, so a move from one
+      // place to another is one mark shrinking as the other grows.
+      final markedIndex = switch (current) {
+        DMobileDockAtPlace(:final index) => index,
+        DMobileDockOverflowed() => DMobileDockGeometry.placeColumns,
+        DMobileDockNowhere() => null,
+      };
+      final markSlots = [
+        ...slots.places,
+        if (tail == DMobileDockTail.page) slots.tail!,
+      ];
+      final marks = IgnorePointer(
+        child: ExcludeSemantics(
+          child: AnimatedOpacity(
+            opacity: destinationsHidden ? 0 : navOpacity,
+            duration: reduced
+                ? Duration.zero
+                : const Duration(milliseconds: 100),
+            child: Stack(
+              children: [
+                for (final (index, slot) in markSlots.indexed)
+                  PositionedDirectional(
+                    top: 0,
+                    start: geometry.padding.start + slot.start,
+                    width: slot.width,
+                    height: DMobileDockGeometry.markHeight,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: AnimatedContainer(
+                        key: ValueKey('mobile-dock-mark-$index'),
+                        duration: reduced
+                            ? Duration.zero
+                            : const Duration(milliseconds: 200),
+                        curve: Curves.ease,
+                        width: index == markedIndex
+                            ? DMobileDockGeometry.markWidth
+                            : 0,
+                        height: DMobileDockGeometry.markHeight,
+                        decoration: BoxDecoration(
+                          color: tokens.foreground,
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(
+                              DMobileDockGeometry.markRadius,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
       // The circle's corner is measured from the screen's edges; the bar's
       // own margin already keeps part of that distance.
       final corner = geometry.cornerAt(round) - geometry.reach;
@@ -152,51 +209,56 @@ class DMobileDock extends StatelessWidget {
                 ? BorderRadius.circular(round / 2)
                 : geometry.borderRadius,
           ),
-          child: AnimatedPadding(
-            key: const ValueKey('mobile-dock-controls'),
-            padding: collapsed
-                ? const EdgeInsets.all(DMobileDock.circlePadding)
-                : geometry.padding,
-            duration: reduced
-                ? Duration.zero
-                : const Duration(milliseconds: 420),
-            curve: const Cubic(.32, .72, 0, 1),
-            child: ClipRRect(
-              borderRadius: radius,
-              child: Stack(
-                alignment: AlignmentDirectional.centerStart,
-                children: [
-                  ExcludeSemantics(
-                    excluding: collapsed || navOpacity < 1,
-                    child: IgnorePointer(
-                      ignoring: collapsed || navOpacity < 1,
-                      child: AnimatedOpacity(
-                        opacity: navOpacity,
-                        duration: reduced
-                            ? Duration.zero
-                            : const Duration(milliseconds: 100),
-                        child: navigation,
-                      ),
-                    ),
-                  ),
-                  if (collapsed || revealOpacity > 0)
-                    ExcludeSemantics(
-                      excluding: !collapsed || revealOpacity < 1,
-                      child: IgnorePointer(
-                        ignoring: !collapsed || revealOpacity < 1,
-                        child: Opacity(
-                          opacity: revealOpacity,
-                          child: SizedBox(
-                            width: round - 2 * DMobileDock.circlePadding,
-                            height: round - 2 * DMobileDock.circlePadding,
-                            child: collapsedDestination,
+          child: Stack(
+            children: [
+              AnimatedPadding(
+                key: const ValueKey('mobile-dock-controls'),
+                padding: collapsed
+                    ? const EdgeInsets.all(DMobileDock.circlePadding)
+                    : geometry.padding,
+                duration: reduced
+                    ? Duration.zero
+                    : const Duration(milliseconds: 420),
+                curve: const Cubic(.32, .72, 0, 1),
+                child: ClipRRect(
+                  borderRadius: radius,
+                  child: Stack(
+                    alignment: AlignmentDirectional.centerStart,
+                    children: [
+                      ExcludeSemantics(
+                        excluding: collapsed || navOpacity < 1,
+                        child: IgnorePointer(
+                          ignoring: collapsed || navOpacity < 1,
+                          child: AnimatedOpacity(
+                            opacity: navOpacity,
+                            duration: reduced
+                                ? Duration.zero
+                                : const Duration(milliseconds: 100),
+                            child: navigation,
                           ),
                         ),
                       ),
-                    ),
-                ],
+                      if (collapsed || revealOpacity > 0)
+                        ExcludeSemantics(
+                          excluding: !collapsed || revealOpacity < 1,
+                          child: IgnorePointer(
+                            ignoring: !collapsed || revealOpacity < 1,
+                            child: Opacity(
+                              opacity: revealOpacity,
+                              child: SizedBox(
+                                width: round - 2 * DMobileDock.circlePadding,
+                                height: round - 2 * DMobileDock.circlePadding,
+                                child: collapsedDestination,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              marks,
+            ],
           ),
         ),
       );

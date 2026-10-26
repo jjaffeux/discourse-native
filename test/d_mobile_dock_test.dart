@@ -421,6 +421,112 @@ void main() {
     );
   }
 
+  for (final reduced in [false, true]) {
+    testWidgets(
+      'the current place is marked on the bar\'s top edge (reduced motion: $reduced)',
+      (tester) async {
+        Rect mark(int index) =>
+            tester.getRect(find.byKey(ValueKey('mobile-dock-mark-$index')));
+        double over(String key) =>
+            tester.getCenter(find.byKey(ValueKey(key))).dx;
+        await tester.pumpWidget(fixture(foot: 34, reducedMotion: reduced));
+        await tester.pumpAndSettle();
+        final surface = tester.getRect(_surface);
+        expect(mark(1).size, const Size(28, 4));
+        expect(mark(1).top, surface.top);
+        expect(mark(1).center.dx, closeTo(over('Topics'), .01));
+        expect(mark(0).width, 0);
+        expect(mark(2).width, 0);
+        final decoration =
+            tester
+                    .widget<AnimatedContainer>(
+                      find.byKey(const ValueKey('mobile-dock-mark-1')),
+                    )
+                    .decoration
+                as BoxDecoration;
+        expect(
+          decoration.color,
+          DTokens.of(tester.element(_surface)).foreground,
+        );
+        expect(
+          decoration.borderRadius,
+          const BorderRadius.vertical(bottom: Radius.circular(3)),
+        );
+        // Moving to Chat: its mark grows in over 200 ms as Topics' goes, or
+        // at once under reduced motion.
+        await tester.pumpWidget(
+          fixture(
+            foot: 34,
+            reducedMotion: reduced,
+            current: const DMobileDockCurrent.place(2),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        if (reduced) {
+          expect(mark(2).width, 28);
+          expect(mark(1).width, 0);
+        } else {
+          expect(mark(2).width, inExclusiveRange(0, 28));
+          expect(mark(1).width, inExclusiveRange(0, 28));
+        }
+        await tester.pumpAndSettle();
+        expect(mark(2).size, const Size(28, 4));
+        expect(mark(2).center.dx, closeTo(over('Chat'), .01));
+        expect(mark(1).width, 0);
+        // Nothing current, nothing marked.
+        await tester.pumpWidget(
+          fixture(
+            foot: 34,
+            reducedMotion: reduced,
+            current: const DMobileDockCurrent.none(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final index in [0, 1, 2]) {
+          expect(mark(index).width, 0, reason: '$index');
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('the page standing where the ⋮ was carries the mark', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        current: DMobileDockCurrent.overflowed(
+          DMobileDockItem(
+            key: const ValueKey('here'),
+            icon: const Icon(Icons.forum),
+            label: 'Users',
+            selected: true,
+            hasPopup: true,
+            onPressed: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mark = tester.getRect(
+      find.byKey(const ValueKey('mobile-dock-mark-3')),
+    );
+    expect(mark.size, const Size(28, 4));
+    expect(mark.top, tester.getRect(_surface).top);
+    expect(
+      mark.center.dx,
+      closeTo(tester.getCenter(find.byKey(const ValueKey('here'))).dx, .01),
+    );
+    for (final index in [0, 1, 2]) {
+      expect(
+        tester.getRect(find.byKey(ValueKey('mobile-dock-mark-$index'))).width,
+        0,
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a long place name stays on one line inside its column', (
     tester,
   ) async {

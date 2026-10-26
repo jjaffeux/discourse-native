@@ -85,12 +85,12 @@ class DMobileDockItem extends StatelessWidget {
           expanded: expanded,
           hasPopup: hasPopup,
           onPressed: onPressed,
+          // The bar marks the current place on its own edge; the item says
+          // it only by its colour and weight.
           foregroundColor: selected
               ? tokens.foreground
               : tokens.mutedForeground,
-          backgroundColor: selected
-              ? Color.lerp(tokens.background, tokens.foreground, .20)
-              : Colors.transparent,
+          backgroundColor: Colors.transparent,
           label: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

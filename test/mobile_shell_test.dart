@@ -1941,6 +1941,56 @@ void main() {
     },
   );
 
+  _mobileTest('the current place is marked on the bar\'s top edge', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+    List<Rect> marks() => [
+      for (final element
+          in find
+              .descendant(
+                of: _bar,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnimatedContainer &&
+                      widget.key is ValueKey<String> &&
+                      (widget.key! as ValueKey<String>).value.startsWith(
+                        'mobile-dock-mark-',
+                      ),
+                ),
+              )
+              .evaluate())
+        tester.getRect(find.byElementPredicate((e) => e == element)),
+    ].where((rect) => rect.width > 0).toList();
+    void expectMarkOver(String tab) {
+      final shown = marks();
+      expect(shown, hasLength(1), reason: tab);
+      expect(shown.single.width, closeTo(28, .01), reason: tab);
+      expect(shown.single.height, closeTo(4, .01), reason: tab);
+      expect(
+        shown.single.top,
+        closeTo(tester.getRect(surface).top, .01),
+        reason: tab,
+      );
+      expect(
+        shown.single.center.dx,
+        closeTo(
+          tester.getCenter(find.byKey(ValueKey('mobile-mode-$tab'))).dx,
+          .01,
+        ),
+        reason: tab,
+      );
+    }
+
+    expectMarkOver('topics');
+    await _tapDockTab(tester, 'panel/chat');
+    expectMarkOver('panel/chat');
+    await _tapDockTab(tester, 'users');
+    expectMarkOver('users');
+    expect(tester.takeException(), isNull);
+  });
+
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
       tester,
