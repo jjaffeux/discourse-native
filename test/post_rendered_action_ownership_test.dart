@@ -5,10 +5,12 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/post_action_owner.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -173,6 +175,95 @@ void main() {
       expect(tester.takeException(), isNull);
     }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
   }
+
+  group('PostActionOwner', () {
+    testWidgets('answers only for the forum and post it was captured for', (
+      tester,
+    ) async {
+      await _Fixture.open(tester);
+      final context = tester.element(find.byType(PostActions).first);
+      final owner = PostActionOwner.capture(
+        context,
+        siteUrl: _siteA,
+        postId: 2,
+      );
+
+      expect(owner.isCurrent(context, siteUrl: _siteA, postId: 2), isTrue);
+      expect(owner.isCurrent(context, siteUrl: _siteB, postId: 2), isFalse);
+      expect(owner.isCurrent(context, siteUrl: _siteA, postId: 1), isFalse);
+    });
+
+    testWidgets('is never current for a forum other than its tab\'s', (
+      tester,
+    ) async {
+      await _Fixture.open(tester);
+      final context = tester.element(find.byType(PostActions).first);
+      final owner = PostActionOwner.capture(
+        context,
+        siteUrl: _siteB,
+        postId: 2,
+      );
+
+      expect(owner.isCurrent(context, siteUrl: _siteB, postId: 2), isFalse);
+    });
+
+    testWidgets('is never current through another shell with the same tab', (
+      tester,
+    ) async {
+      final other = ShellController(
+        api: FakeDiscourseApi(user: _user),
+        instanceStore: FakeInstanceStore(const []),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(other.dispose);
+      late BuildContext elsewhere;
+      await _Fixture.open(
+        tester,
+        sibling: (shell) => ShellScope(
+          controller: other,
+          child: ForumTabScope(
+            tabId: shell.activeTabId,
+            panel: ForumPanel.main,
+            child: Builder(
+              builder: (context) {
+                elsewhere = context;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      final rendered = tester.element(find.byType(PostActions).first);
+      final owner = PostActionOwner.capture(
+        rendered,
+        siteUrl: _siteA,
+        postId: 2,
+      );
+
+      expect(owner.isCurrent(rendered, siteUrl: _siteA, postId: 2), isTrue);
+      expect(owner.isCurrent(elsewhere, siteUrl: _siteA, postId: 2), isFalse);
+    });
+
+    testWidgets('is never current once its context is unmounted', (
+      tester,
+    ) async {
+      await _Fixture.open(tester);
+      final context = tester.element(find.byType(PostActions).first);
+      final owner = PostActionOwner.capture(
+        context,
+        siteUrl: _siteA,
+        postId: 2,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      expect(owner.isCurrent(context, siteUrl: _siteA, postId: 2), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
 
 Future<Finder> _control(WidgetTester tester, String action) async {
@@ -215,7 +306,11 @@ class _Fixture {
   final _Api api;
   final _FailingStore store;
 
-  static Future<_Fixture> open(WidgetTester tester, {Size? size}) async {
+  static Future<_Fixture> open(
+    WidgetTester tester, {
+    Size? size,
+    Widget Function(ShellController shell)? sibling,
+  }) async {
     final api = _Api();
     final store = _FailingStore();
     final shell = ShellController(
@@ -239,17 +334,21 @@ class _Fixture {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     replaceEmojiCache(MockClient((_) async => http.Response('', 404)));
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
-          builder: (_, child) => DToaster(child: child!),
-          home: Scaffold(
-            body: MainContent(layout: ShellLayout.forWidth(width)),
-          ),
-        ),
+    final app = ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+        builder: (_, child) => DToaster(child: child!),
+        home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(width))),
       ),
+    );
+    await tester.pumpWidget(
+      sibling == null
+          ? app
+          : Directionality(
+              textDirection: TextDirection.ltr,
+              child: Stack(children: [app, sibling(shell)]),
+            ),
     );
     await _settle(tester);
     expect(find.byType(PostActions), findsWidgets);
