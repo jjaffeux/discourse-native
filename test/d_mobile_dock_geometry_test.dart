@@ -124,6 +124,96 @@ void main() {
     expect(capsule.action, (start: 316.0, width: 50.0));
   });
 
+  group('the panel the bar grows into', () {
+    const round = DMobileDockGeometry(foot: 34);
+
+    test('is laid out from the screen\'s foot on the bar\'s columns', () {
+      final panel = round.panel(tiles: 5);
+      expect(panel.tileHeight, 56);
+      expect(panel.headOverflow, 3);
+      expect(panel.rows, 2);
+      // 16 above the bar, its 6 inset, its row as a 56 tile, and a row gap.
+      expect(panel.topPadding, 92);
+      expect(panel.bottomPadding, 42);
+      expect(panel.height, 260);
+      expect(panel.barTop, 86);
+      expect(panel.reveal, 174);
+      expect(panel.travel, 158);
+      expect(panel.columnWidth(390), 91.5);
+      expect(panel.tileRect(0, 390), const Rect.fromLTWH(6, 92, 91.5, 56));
+      expect(panel.tileRect(3, 390), const Rect.fromLTWH(292.5, 92, 91.5, 56));
+      expect(panel.tileRect(4, 390), const Rect.fromLTWH(6, 162, 91.5, 56));
+    });
+
+    test('measures what it holds, a row at a time', () {
+      expect(round.panel(tiles: 1).height, 190);
+      expect(round.panel(tiles: 4).height, 190);
+      expect(round.panel(tiles: 9).rows, 3);
+      expect(round.panel(tiles: 9).height, 330);
+    });
+
+    test('shows from the bar\'s top edge up as the bar rises', () {
+      final panel = round.panel(tiles: 5);
+      expect(panel.clipInset(0), 174);
+      expect(panel.clipInset(.5), 87);
+      expect(panel.clipInset(1), 0);
+      expect(panel.barRise(0), 0);
+      expect(panel.barRise(.5), 79);
+      expect(panel.barRise(1), 158);
+      expect(panel.grabberTop(0), 180);
+      expect(panel.grabberTop(1), 6);
+    });
+
+    test('a spring past open moves the bar alone', () {
+      final panel = round.panel(tiles: 5);
+      expect(panel.clipInset(1.1), 0);
+      expect(panel.clipInset(-.1), 174);
+      expect(panel.barRise(1.1), closeTo(173.8, 1e-9));
+      expect(panel.grabberTop(1.1), 6);
+    });
+
+    test('the grid comes up once the panel is out from under the bar', () {
+      expect(DMobileDockPanelGeometry.gridOpacity(0), 0);
+      expect(DMobileDockPanelGeometry.gridOpacity(.375), closeTo(0, 1e-9));
+      expect(DMobileDockPanelGeometry.gridOpacity(.5), closeTo(.2, 1e-9));
+      expect(DMobileDockPanelGeometry.gridOpacity(1), 1);
+      expect(DMobileDockPanelGeometry.gridOpacity(1.2), 1);
+    });
+
+    test('a capsule and a lifted bar have less of the panel above them', () {
+      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 5);
+      expect(capsule.barTop, 68);
+      expect(capsule.height, 226);
+      expect(capsule.reveal, 158);
+      expect(capsule.travel, 142);
+      final lifted = const DMobileDockGeometry(
+        foot: 34,
+        lift: 60,
+      ).panel(tiles: 5);
+      expect(lifted.barTop, 162);
+      expect(lifted.height, 260);
+      expect(lifted.reveal, 98);
+      expect(lifted.travel, 82);
+    });
+
+    test('larger text grows the tiles with the bar\'s row', () {
+      final panel = const DMobileDockGeometry(
+        foot: 34,
+        growth: 11,
+      ).panel(tiles: 5);
+      expect(panel.tileHeight, 67);
+      expect(panel.headOverflow, 3);
+      expect(panel.topPadding, 103);
+      expect(panel.height, 293);
+      expect(panel.tileRect(4, 390).top, 184);
+    });
+
+    test('equal inputs make equal panels', () {
+      expect(round.panel(tiles: 5), round.panel(tiles: 5));
+      expect(round.panel(tiles: 5), isNot(round.panel(tiles: 6)));
+    });
+  });
+
   test('equal inputs make equal geometries', () {
     expect(
       const DMobileDockGeometry(foot: 34, growth: 2),

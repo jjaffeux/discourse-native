@@ -178,6 +178,10 @@ class DMobileDockGeometry {
     ),
   );
 
+  /// The panel this bar grows into, holding [tiles] places.
+  DMobileDockPanelGeometry panel({required int tiles}) =>
+      DMobileDockPanelGeometry._(bar: this, tiles: tiles);
+
   @override
   bool operator ==(Object other) =>
       other is DMobileDockGeometry &&
@@ -187,4 +191,108 @@ class DMobileDockGeometry {
 
   @override
   int get hashCode => Object.hash(foot, lift, growth);
+}
+
+/// The panel a bar grows into: the places it has no room for, as tiles on
+/// the bar's own four columns, anchored at the screen's foot and shown from
+/// the bar's top edge upward as far as the bar has grown. The bar rides that
+/// edge up to be the panel's head, keeping the grabber's room over it. One
+/// value per count of tiles, from [DMobileDockGeometry.panel].
+///
+/// Growth runs from 0, the bar alone, to 1, the panel open. What settles
+/// past 1 or below 0 on its spring moves the bar alone; the panel is never
+/// revealed past its own height.
+@immutable
+class DMobileDockPanelGeometry {
+  const DMobileDockPanelGeometry._({required this.bar, required this.tiles})
+    : assert(tiles > 0);
+
+  final DMobileDockGeometry bar;
+  final int tiles;
+
+  /// A tile is as tall as the bar's row would be as a tile, the bar's own
+  /// places included, with a step between rows near the room the names
+  /// leave between columns.
+  static const row = 56.0;
+  static const rowGap = 14.0;
+  static const tileRadius = 16.0;
+
+  /// The room the panel keeps over the bar for the grabber every sheet has,
+  /// and where the grabber sits in it below the panel's moving top edge.
+  static const grabberRoom = 16.0;
+  static const grabberInset = 6.0;
+  static const grabberSize = Size(36, 5);
+  static const grabberRadius = 3.0;
+
+  /// Under the last row, past the foot.
+  static const footPadding = 8.0;
+
+  double get tileHeight => row + bar.growth;
+
+  /// How far a tile in the bar's row stands past the row's edges: the head's
+  /// tiles are centred on the row, taller than it.
+  double get headOverflow => (tileHeight - bar.rowHeight) / 2;
+
+  int get rows => (tiles / DMobileDockGeometry.columns).ceil();
+
+  /// From the panel's top edge to the grid: the grabber's room, then the
+  /// bar's row as the tile it becomes, a row step above the grid's first.
+  double get topPadding => grabberRoom + bar.padding.top + tileHeight + rowGap;
+
+  double get bottomPadding => bar.foot + footPadding;
+
+  /// The panel measures what it holds, not the room it could fill.
+  double get height =>
+      topPadding + rows * tileHeight + (rows - 1) * rowGap + bottomPadding;
+
+  /// The bar's top edge, up from the screen's foot.
+  double get barTop => bar.margin.bottom + bar.barHeight;
+
+  /// How much of the panel stands above the bar's resting top edge.
+  double get reveal => height - barTop;
+
+  /// How far the bar rises to be the panel's head.
+  double get travel => math.max(0, reveal - grabberRoom);
+
+  /// What is cut off the panel's top at [growth], so it shows from the bar's
+  /// top edge upward.
+  double clipInset(double growth) => (1 - growth.clamp(0, 1)) * reveal;
+
+  double barRise(double growth) => growth * travel;
+
+  /// The grabber's top, from the panel's own top edge.
+  double grabberTop(double growth) => clipInset(growth) + grabberInset;
+
+  /// The grid comes up only once the panel is well out from under the bar.
+  static double gridOpacity(double growth) =>
+      (growth * 1.6 - .6).clamp(0, 1).toDouble();
+
+  /// One column of the panel's grid across a screen [width] wide.
+  double columnWidth(double width) =>
+      (width -
+          2 * DMobileDockGeometry.inset -
+          (DMobileDockGeometry.columns - 1) * DMobileDockGeometry.columnGap) /
+      DMobileDockGeometry.columns;
+
+  /// Where tile [index] sits, from the panel's top-start corner.
+  Rect tileRect(int index, double width) {
+    final column = columnWidth(width);
+    const columns = DMobileDockGeometry.columns;
+    return Rect.fromLTWH(
+      DMobileDockGeometry.inset +
+          (index % columns) * (column + DMobileDockGeometry.columnGap),
+      topPadding + (index ~/ columns) * (tileHeight + rowGap),
+      column,
+      tileHeight,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DMobileDockPanelGeometry &&
+      other.bar == bar &&
+      other.tiles == tiles;
+
+  @override
+  int get hashCode => Object.hash(bar, tiles);
 }
