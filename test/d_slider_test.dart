@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -332,6 +333,47 @@ void main() {
     update(() => external = 80);
     await tester.pump();
     expect(tester.widget<DSlider>(find.byType(DSlider)).value, 80);
+  });
+
+  testWidgets('keyboard focus and hover ring the thumb', (tester) async {
+    var value = 50.0;
+    await tester.pumpWidget(
+      host(
+        DFocusHighlight(
+          child: StatefulBuilder(
+            builder: (context, setState) => DSlider(
+              value: value,
+              semanticLabel: 'Volume',
+              onChanged: (next) => setState(() => value = next),
+            ),
+          ),
+        ),
+      ),
+    );
+    final slider = find.byType(DSlider);
+    final ring = DTokens.of(
+      tester.element(slider),
+    ).focusRing.withValues(alpha: .5);
+    expect(slider, isNot(paints..rrect(color: ring)));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<DSlider>(),
+      isNotNull,
+    );
+    expect(slider, paints..rrect(color: ring));
+
+    FocusManager.instance.primaryFocus!.unfocus();
+    await tester.pumpAndSettle();
+    expect(slider, isNot(paints..rrect(color: ring)));
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(slider));
+    await tester.pumpAndSettle();
+    expect(slider, paints..rrect(color: ring));
   });
 
   testWidgets(
