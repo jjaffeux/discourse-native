@@ -269,10 +269,11 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'mobile drawer profile opens an independent sheet on $platform',
+      'mobile drawer profile opens a sheet over the sidebar on $platform',
       (tester) async {
         final shell = await _pumpProduction(tester, phone);
         final profile = find.byKey(UserMenuButton.avatarKey);
+        final navigation = find.byKey(const ValueKey('mobile-navigation-page'));
         expect(profile, findsNothing);
         expect(find.byKey(UserMenuButton.bellKey), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
@@ -285,11 +286,8 @@ void main() {
         await _capture(tester, '${platform.name}-drawer');
         await tester.tap(profile);
         await tester.pumpAndSettle();
-        expect(shell.mobileNavigation.sidebarOpen, isFalse);
-        expect(
-          find.byKey(const ValueKey('mobile-navigation-page')),
-          findsNothing,
-        );
+        expect(shell.mobileNavigation.sidebarOpen, isTrue);
+        expect(navigation, findsOneWidget);
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(
           find.byKey(const ValueKey('user-menu-own-card')),
@@ -299,12 +297,16 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
-        expect(profile, findsNothing);
+        expect(shell.mobileNavigation.sidebarOpen, isTrue);
+        expect(profile.hitTestable(), findsOneWidget);
         final focus = FocusManager.instance.primaryFocus?.context;
         expect(
           focus?.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false,
           isFalse,
         );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(shell.mobileNavigation.sidebarOpen, isFalse);
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
@@ -418,8 +420,10 @@ void main() {
     (tester) async {
       final shell = await _pumpProduction(tester, phone);
       Future<void> profile() async {
-        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
-        await tester.pumpAndSettle();
+        if (!shell.mobileNavigation.sidebarOpen) {
+          await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
         await tester.pumpAndSettle();
       }
@@ -428,11 +432,15 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
-      await profile();
-      await tester.tap(find.byKey(const ValueKey('user-menu-row-summary')));
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'summary');
-      expect(find.byType(DSheetContent), findsNothing);
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      for (var visit = 0; visit < 2; visit++) {
+        await profile();
+        await tester.tap(find.byKey(const ValueKey('user-menu-row-summary')));
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'summary');
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(shell.mobileNavigation.sidebarOpen, isFalse, reason: '$visit');
+      }
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
