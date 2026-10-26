@@ -166,6 +166,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the back is the shell\'s again once the sidebar has taken the '
+      'bar away with the panel out', (tester) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    expect(panel, findsOneWidget);
+    shell.toggleMobileSidebar();
+    await tester.pump();
+    expect(panel, findsNothing);
+    shell.closeMobileSidebar();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isTrue);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a place in the panel\'s head closes it and goes there', (
     tester,
   ) async {

@@ -169,7 +169,9 @@ class DMobileDock extends StatefulWidget {
   final bool covered;
 
   /// Told once as the panel comes out and once as it goes, never during a
-  /// build.
+  /// build. A dock taken out of the tree while the panel is out, as when
+  /// the sidebar takes the bar, tells as it is disposed that the panel is
+  /// in: a listener that outlives the dock is not left thinking it out.
   final ValueChanged<bool>? onPanelChanged;
 
   /// Around the folded circle's own button.
@@ -283,6 +285,12 @@ class _DMobileDockState extends State<DMobileDock>
 
   @override
   void dispose() {
+    // Gone while out, the panel is in. Said now rather than from a
+    // microtask, before whoever listens can be disposed after the dock.
+    if (_reportedOut) {
+      _reportedOut = false;
+      widget.onPanelChanged?.call(false);
+    }
     _swipeRest?.cancel();
     _growth.dispose();
     _fade.dispose();

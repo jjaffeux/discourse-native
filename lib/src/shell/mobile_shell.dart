@@ -499,6 +499,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final active = destinations
         .where((item) => item.tab == selected)
         .firstOrNull;
+    // Found now: the dock also tells it as it is disposed, when this context
+    // is no longer one to look up from.
+    final panelOut = MobileDockPanelScope.of(context);
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
       geometry: geometry,
@@ -531,7 +534,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: context.l10n.more,
       ),
       you: _you(context, shell: shell, instance: instance),
-      onPanelChanged: (out) => MobileDockPanelScope.of(context)?.value = out,
+      onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
       action: primaryAction == null
           ? null
           : DActionTransition(

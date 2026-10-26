@@ -800,6 +800,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a dock taken out of the tree while out says the panel is in', (
+    tester,
+  ) async {
+    final changes = <bool>[];
+    await tester.pumpWidget(fixture(foot: 34, onPanelChanged: changes.add));
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(changes, [true]);
+    await tester.pumpWidget(const SizedBox());
+    expect(changes, [true, false]);
+    await tester.pumpAndSettle();
+    expect(changes, [true, false]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the scroll chrome putting its footer away takes the panel '
       'with it', (tester) async {
     final owner = Object();
