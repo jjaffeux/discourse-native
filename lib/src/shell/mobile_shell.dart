@@ -52,7 +52,6 @@ class MobileForumRoot extends StatefulWidget {
 
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _navigationPageKey = GlobalKey();
-  int _shownDockCount = 3;
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
@@ -327,21 +326,26 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
                   dockBuilder: (hidden) {
-                    final clearance =
-                        ComposerDock.bottomOverlayInsetOf(context) +
-                        MediaQuery.paddingOf(context).bottom;
+                    final lift = ComposerDock.bottomOverlayInsetOf(context);
                     if (hideDock) {
                       return Padding(
-                        padding: EdgeInsets.only(bottom: clearance),
+                        padding: EdgeInsets.only(
+                          bottom: lift + MediaQuery.paddingOf(context).bottom,
+                        ),
                       );
                     }
+                    final geometry = DMobileDockGeometry.of(
+                      context,
+                      lift: lift,
+                    );
                     return ForumSidebarTheme(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(6, 6, 6, 6 + clearance),
+                        padding: geometry.margin,
                         child: LayoutBuilder(
                           builder: (context, constraints) => _buildBottomBar(
                             context,
                             constraints,
+                            geometry: geometry,
                             destinations: places,
                             selected: selected,
                             showReply: showReply,
@@ -426,6 +430,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   Widget _buildBottomBar(
     BuildContext context,
     BoxConstraints constraints, {
+    required DMobileDockGeometry geometry,
     required List<_DockDestination> destinations,
     required MobileTab selected,
     required bool showReply,
@@ -483,26 +488,48 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final active = destinations
         .where((item) => item.tab == selected)
         .firstOrNull;
-    final activeOverflow =
-        active == null || destinations.indexOf(active) >= _shownDockCount;
+    final activeIndex = active == null ? -1 : destinations.indexOf(active);
+    final overflowed = activeIndex >= DMobileDockGeometry.placeColumns;
+    // The rest of the places, opened by the ⋮ or by the current page when it
+    // is one of them and stands where the ⋮ would be.
+    Widget moreMenu(DDropdownMenuTriggerBuilder trigger) => DDropdownMenu(
+      sheetOnMobile: true,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
+      content: DDropdownMenuContent(
+        semanticLabel: context.l10n.moreDestinations,
+        side: DPopoverSide.top,
+        align: DPopoverAlign.end,
+        children: [
+          for (final item in destinations.skip(
+            DMobileDockGeometry.placeColumns,
+          ))
+            DDropdownMenuItem(
+              leading: DIcon(item.icon),
+              onPressed: item.onPressed,
+              child: Text(
+                item.tab == MobileTab.messages
+                    ? context.l10n.messages
+                    : item.label,
+              ),
+            ),
+        ],
+      ),
+      child: DDropdownMenuTrigger(builder: trigger),
+    );
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
+      geometry: geometry,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
-      onOverflowChanged: (shown) {
-        if (mounted && _shownDockCount != shown) {
-          setState(() => _shownDockCount = shown);
-        }
-      },
       collapsedDestination: DMobileDockItem(
         key: const ValueKey('mobile-dock-reveal'),
         collapsed: true,
-        icon: DIcon(activeOverflow ? DIcons.ellipsisVertical : active.icon),
+        icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
         label:
-            '${activeOverflow ? context.l10n.more : active.label}, ${context.l10n.openNavigation}',
+            '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
         onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
       ),
-      destinations: [
+      places: [
         for (final item in destinations)
           DMobileDockItem(
             key: ValueKey('mobile-mode-${item.tab.name}'),
@@ -513,38 +540,36 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             onPressed: item.onPressed,
           ),
       ],
-      more: DDropdownMenu(
-        sheetOnMobile: true,
-        mobileSheetVariant: DSheetVariant.adaptiveMenu,
-        content: DDropdownMenuContent(
-          semanticLabel: context.l10n.moreDestinations,
-          side: DPopoverSide.top,
-          align: DPopoverAlign.end,
-          children: [
-            for (final item in destinations.skip(_shownDockCount))
-              DDropdownMenuItem(
-                leading: DIcon(item.icon),
-                onPressed: item.onPressed,
-                child: Text(
-                  item.tab == MobileTab.messages
-                      ? context.l10n.messages
-                      : item.label,
+      current: active == null
+          ? const DMobileDockCurrent.none()
+          : overflowed
+          ? DMobileDockCurrent.overflowed(
+              moreMenu(
+                (context, state) => DMobileDockItem(
+                  key: ValueKey('mobile-mode-${active.tab.name}'),
+                  icon: DIcon(active.icon),
+                  label: active.label,
+                  badge: active.badge,
+                  selected: true,
+                  focusNode: state.focusNode,
+                  hasPopup: true,
+                  expanded: state.open,
+                  onPressed: state.toggle,
                 ),
               ),
-          ],
-        ),
-        child: DDropdownMenuTrigger(
-          builder: (context, state) => DMobileDockItem(
-            key: const ValueKey('mobile-mode-more'),
-            bare: true,
-            icon: const DIcon(DIcons.ellipsisVertical),
-            label: context.l10n.more,
-            selected: activeOverflow,
-            focusNode: state.focusNode,
-            hasPopup: true,
-            expanded: state.open,
-            onPressed: state.toggle,
-          ),
+            )
+          : DMobileDockCurrent.place(activeIndex),
+      more: moreMenu(
+        (context, state) => DMobileDockItem(
+          key: const ValueKey('mobile-mode-more'),
+          bare: true,
+          icon: const DIcon(DIcons.ellipsisVertical),
+          label: context.l10n.more,
+          selected: active == null,
+          focusNode: state.focusNode,
+          hasPopup: true,
+          expanded: state.open,
+          onPressed: state.toggle,
         ),
       ),
       action: primaryAction == null

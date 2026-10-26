@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../foundation/palette_contrast.dart';
 import 'control_theme.dart';
+import 'oklab.dart';
 
 /// Semantic component tokens. The host maps its palette at the theme boundary.
 @immutable
@@ -67,6 +68,14 @@ class DTokens extends ThemeExtension<DTokens> {
   double get controlRadius => controlTheme.radius;
 
   Color get foreground => colors.onSurface;
+
+  /// The ground a phone's chrome stands on: the background one step down its
+  /// own lightness in Oklch, keeping its chroma and hue, as the mockup's
+  /// `--well-fill` is.
+  Color get wellFill {
+    final lab = Oklab.of(background);
+    return lab.withLightness(lab.lightness - .08).toColor();
+  }
 
   /// Flat page pickers, including selected paths, in both appearance materials.
   /// Each step goes toward the palette's own text, so what is on it keeps the

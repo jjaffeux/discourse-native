@@ -25,6 +25,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
+import 'composer/presentation.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'forum_theme_surfaces.dart';
@@ -1932,28 +1933,34 @@ class _TopicViewState extends State<TopicView>
                     ? DScrollChrome.bottomInsetOf(context)
                     : 0.0;
                 final folded = dock > 0 && hiddenFraction >= .5;
-                final slot = DMobileDock.expandedExtentOf(context);
+                final geometry = DMobileDockGeometry.of(
+                  context,
+                  lift: ComposerDock.bottomOverlayInsetOf(context),
+                );
+                final corner = geometry.cornerAt(
+                  TopicProgressButton.floatingHeightOf(context),
+                );
                 final duration = DMotion.duration(
                   context,
                   const Duration(milliseconds: 420),
                 );
                 const curve = Cubic(.32, .72, 0, 1);
-                // Content keeps the open dock's clearance. The folded dock
-                // stays centred in its slot, under the shell's 6px upper
-                // inset, so the control centres on its start button there.
+                // Content keeps the open bar's clearance. Folded, the control
+                // settles into the bottom-end corner as the bar's circle does
+                // into the bottom-start one, on the bar's curve and time. The
+                // band slides without changing width, so the control is not
+                // laid out again each frame and keeps its painted label.
                 return AnimatedPositionedDirectional(
-                  start: DSpacing.sm,
-                  end: DSpacing.sm,
-                  bottom: folded ? dock - 6 - slot : DSpacing.sm + dock,
-                  height: slot,
+                  start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
+                  end: folded ? corner : DSpacing.sm,
+                  bottom: folded
+                      ? geometry.ground + corner
+                      : DSpacing.sm + dock,
+                  height: TopicProgressButton.floatingHeightOf(context),
                   duration: duration,
                   curve: curve,
-                  child: AnimatedAlign(
-                    alignment: folded
-                        ? AlignmentDirectional.centerEnd
-                        : AlignmentDirectional.bottomEnd,
-                    duration: duration,
-                    curve: curve,
+                  child: Align(
+                    alignment: AlignmentDirectional.bottomEnd,
                     child: child,
                   ),
                 );

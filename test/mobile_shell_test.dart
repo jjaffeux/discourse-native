@@ -84,6 +84,15 @@ final _user = _reader();
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
+/// What opens More: the ⋮, or the current page standing where the ⋮ was
+/// because the bar has no column for it.
+final _moreTrigger = find.descendant(
+  of: _bar,
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DMobileDockItem && widget.hasPopup,
+  ),
+);
+
 void _expectPageRadius(BorderRadiusGeometry? geometry) =>
     expect(geometry, BorderRadius.circular(22));
 
@@ -162,7 +171,7 @@ List<String> _menuLabels(WidgetTester tester) => [
 /// Opens More and returns every place in the order a person meets them: the
 /// dock first, then the menu.
 Future<List<String>> _placesInOrder(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+  await tester.tap(_moreTrigger);
   await tester.pumpAndSettle();
   return [..._dockLabels(tester), ..._menuLabels(tester)];
 }
@@ -170,7 +179,7 @@ Future<List<String>> _placesInOrder(WidgetTester tester) async {
 /// Picks a place from More. A menu this long opens at its lower detent, so a
 /// place below the screen edge needs the handle dragged up first.
 Future<void> _chooseFromMore(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+  await tester.tap(_moreTrigger);
   await tester.pumpAndSettle();
   final place = find.descendant(
     of: find.byType(DDropdownMenuItem),
@@ -204,6 +213,12 @@ Future<void> _tapDockTab(
   bool settle = true,
 }) async {
   final button = find.byKey(ValueKey('mobile-mode-$tab'));
+  // A More sheet from the previous choice may still be closing over the bar.
+  if (button.evaluate().isNotEmpty &&
+      button.hitTestable().evaluate().isEmpty &&
+      find.byType(DSheetContent).evaluate().isNotEmpty) {
+    await tester.pumpAndSettle();
+  }
   if (button.hitTestable().evaluate().isNotEmpty) {
     await tester.tap(button);
   } else {
@@ -217,7 +232,7 @@ Future<void> _tapDockTab(
       'destination/activity' => 'Activity',
       _ => throw StateError('No dock menu label for $tab'),
     };
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.tap(_moreTrigger);
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
@@ -1380,11 +1395,35 @@ void main() {
           final dock = tester.getRect(
             find.byKey(const ValueKey('mobile-dock-surface')),
           );
-          expect(dock.bottom, closeTo(phone.height - bottom - 6, .01));
-          expect(
-            DScrollChrome.bottomInsetOf(page),
-            closeTo(dock.height + 12 + bottom, .01),
+          // The app's baseline text scale grows the 50 row a little.
+          final growth = MediaQuery.textScalerOf(page).scale(11) - 11;
+          final row = tester.getRect(
+            find.byKey(const ValueKey('mobile-mode-topics')),
           );
+          expect(row.height, closeTo(50 + growth, .01));
+          expect(row.top, closeTo(dock.top + 6, .01));
+          if (bottom > 0) {
+            // The bar runs the screen's width down to its foot, its row held
+            // 30 above the bottom edge by its own padding.
+            expect(dock.left, 0);
+            expect(dock.right, phone.width);
+            expect(dock.bottom, closeTo(phone.height, .01));
+            expect(dock.height, closeTo(86 + growth, .01));
+            expect(row.bottom, closeTo(phone.height - 30, .01));
+            expect(
+              DScrollChrome.bottomInsetOf(page),
+              closeTo(dock.height + 6, .01),
+            );
+          } else {
+            expect(dock.left, 6);
+            expect(dock.right, phone.width - 6);
+            expect(dock.bottom, closeTo(phone.height - 6, .01));
+            expect(dock.height, closeTo(62 + growth, .01));
+            expect(
+              DScrollChrome.bottomInsetOf(page),
+              closeTo(dock.height + 12, .01),
+            );
+          }
         }
 
         expectBody();
@@ -1407,6 +1446,31 @@ void main() {
       },
     );
   }
+
+  _mobileTest('the phone ground is the bar\'s own fill', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      final canvas = find.byKey(const ValueKey('forum-window-canvas'));
+      final ground =
+          (tester.widget<DecoratedBox>(canvas).decoration as BoxDecoration)
+              .color!;
+      final bar = find.byKey(const ValueKey('mobile-dock-surface'));
+      final fill =
+          (tester.widget<AnimatedContainer>(bar).decoration as BoxDecoration)
+              .color!;
+      final tokens = DTokens.of(tester.element(canvas));
+      expect(ground, tokens.wellFill, reason: mode.name);
+      expect(fill, ground, reason: mode.name);
+      expect(ground.a, 1);
+      expect(
+        Oklab.of(ground).lightness,
+        closeTo(Oklab.of(tokens.background).lightness - .08, .005),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
     for (final scale in [1.0, 1.5]) {
@@ -1876,6 +1940,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('the current place is marked on the bar\'s top edge', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+    List<Rect> marks() => [
+      for (final element
+          in find
+              .descendant(
+                of: _bar,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnimatedContainer &&
+                      widget.key is ValueKey<String> &&
+                      (widget.key! as ValueKey<String>).value.startsWith(
+                        'mobile-dock-mark-',
+                      ),
+                ),
+              )
+              .evaluate())
+        tester.getRect(find.byElementPredicate((e) => e == element)),
+    ].where((rect) => rect.width > 0).toList();
+    void expectMarkOver(String tab) {
+      final shown = marks();
+      expect(shown, hasLength(1), reason: tab);
+      expect(shown.single.width, closeTo(28, .01), reason: tab);
+      expect(shown.single.height, closeTo(4, .01), reason: tab);
+      expect(
+        shown.single.top,
+        closeTo(tester.getRect(surface).top, .01),
+        reason: tab,
+      );
+      expect(
+        shown.single.center.dx,
+        closeTo(
+          tester.getCenter(find.byKey(ValueKey('mobile-mode-$tab'))).dx,
+          .01,
+        ),
+        reason: tab,
+      );
+    }
+
+    expectMarkOver('topics');
+    await _tapDockTab(tester, 'panel/chat');
+    expectMarkOver('panel/chat');
+    await _tapDockTab(tester, 'users');
+    expectMarkOver('users');
+    expect(tester.takeException(), isNull);
+  });
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
@@ -2557,42 +2671,44 @@ void main() {
     },
   );
 
-  _mobileTest(
-    'wide dock reveals creation labels when their action slot has room',
-    (tester) async {
-      await pumpMobileShellFixture(tester, size: const Size(800, 1000));
-      final topic = find.byKey(const ValueKey('mobile-new-topic'));
-      expect(
-        find.descendant(of: topic, matching: find.text('New topic')),
-        findsOneWidget,
-      );
-      expect(tester.widget<DButton>(topic).tooltip, 'New topic');
-      await _tapDockTab(tester, 'messages', settle: false);
-      await tester.pump();
-      final message = find.byKey(const ValueKey('new-message-button'));
-      expect(
-        find.descendant(of: message, matching: find.text('New message')),
-        findsOneWidget,
-      );
-      expect(tester.widget<DButton>(message).tooltip, 'New message');
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(topic, findsNothing);
-      expect(
-        tester
-            .widget<ScaleTransition>(
-              find
-                  .ancestor(of: message, matching: find.byType(ScaleTransition))
-                  .first,
-            )
-            .scale
-            .value,
-        1,
-      );
-      await tester.pumpAndSettle();
-      expect(topic, findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  _mobileTest('the dock action is an icon-only circle even on a wide phone', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, size: const Size(800, 1000));
+    final topic = find.byKey(const ValueKey('mobile-new-topic'));
+    expect(
+      find.descendant(of: topic, matching: find.text('New topic')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(topic).tooltip, 'New topic');
+    expect(tester.getSize(topic).width, tester.getSize(topic).height);
+    expect(tester.getRect(topic).right, tester.getRect(_bar).right - 6);
+    await _tapDockTab(tester, 'messages', settle: false);
+    await tester.pump();
+    final message = find.byKey(const ValueKey('new-message-button'));
+    expect(
+      find.descendant(of: message, matching: find.text('New message')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(message).tooltip, 'New message');
+    expect(tester.getSize(message).width, tester.getSize(message).height);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(topic, findsNothing);
+    expect(
+      tester
+          .widget<ScaleTransition>(
+            find
+                .ancestor(of: message, matching: find.byType(ScaleTransition))
+                .first,
+          )
+          .scale
+          .value,
+      1,
+    );
+    await tester.pumpAndSettle();
+    expect(topic, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
     'fallback creation stays reachable on Bookmarks and dock slots stay put',
@@ -2704,28 +2820,48 @@ void main() {
       tester.view.physicalSize = Size(width, 844);
       await tester.pumpAndSettle();
       Map<Key?, Rect>? expected;
-      // Topics and Messages each have their own trailing action, Chat carries
-      // its panel action, and Bookmarks the fallback one: none may move a slot.
+      Map<Key?, Rect> slots() => {
+        for (final item
+            in find
+                .descendant(of: _bar, matching: find.byType(DMobileDockItem))
+                .evaluate())
+          item.widget.key: tester.getRect(
+            find.byElementPredicate((e) => e == item),
+          ),
+      };
+      // Topics has its own trailing action, Chat carries its panel action,
+      // and Bookmarks the fallback one: none may move a slot.
       for (final tab in [
         'destination/user-bookmarks',
         'topics',
         'panel/chat',
-        'messages',
         'destination/user-bookmarks',
       ]) {
         await _tapDockTab(tester, tab);
-        final slots = {
-          for (final item
-              in find
-                  .descendant(of: _bar, matching: find.byType(DMobileDockItem))
-                  .evaluate())
-            item.widget.key: tester.getRect(
-              find.byElementPredicate((e) => e == item),
-            ),
-        };
-        expect(slots, expected ?? slots, reason: '$tab at $width');
-        expected ??= slots;
+        expect(slots(), expected ?? slots(), reason: '$tab at $width');
+        expected ??= slots();
       }
+      // Messages has no column: it stands where the ⋮ was and the three
+      // places move over for it, then take their slots back.
+      await _tapDockTab(tester, 'messages');
+      final shared = slots();
+      expect(shared.keys, isNot(contains(const ValueKey('mobile-mode-more'))));
+      final messages = shared[const ValueKey('mobile-mode-messages')]!;
+      for (final key in expected!.keys) {
+        if (key == const ValueKey('mobile-mode-more')) continue;
+        expect(
+          shared[key]!.width,
+          closeTo(messages.width, .01),
+          reason: '$key',
+        );
+        expect(
+          shared[key]!.width,
+          lessThan(expected[key]!.width),
+          reason: '$key',
+        );
+      }
+      await _tapDockTab(tester, 'destination/user-bookmarks');
+      expect(slots(), expected, reason: 'back from messages at $width');
     }
     expect(tester.takeException(), isNull);
   });
@@ -2845,12 +2981,12 @@ void main() {
           }
           expect(tester.takeException(), isNull);
         }
-        // At narrow widths More retains the spilled destinations and creation
-        // stays pinned on the right.
-        final more = find.byKey(const ValueKey('mobile-mode-more'));
+        // At narrow widths More, or the page standing in for it, keeps the
+        // spilled destinations and creation stays pinned on the right, the
+        // two touching on the narrowest bar.
         expect(
-          tester.getRect(more).right,
-          lessThan(tester.getRect(action).left),
+          tester.getRect(_moreTrigger).right,
+          lessThanOrEqualTo(tester.getRect(action).left + .01),
         );
         expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
         tester.view.physicalSize = phone;
@@ -2986,13 +3122,7 @@ void main() {
       expect(tester.widget<DMobileDockItem>(more).expanded, isTrue);
       expect(shell.currentContent, same(content));
       expect(shell.mobileNavigation.tab, tab);
-      for (final label in [
-        'Messages',
-        'Users',
-        'Groups',
-        'Badges',
-        'Bookmarks',
-      ]) {
+      for (final label in ['Messages', 'Users', 'Groups', 'Badges']) {
         expect(
           find.descendant(of: sheet, matching: find.text(label)).hitTestable(),
           findsOneWidget,
@@ -3021,29 +3151,38 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
+    // Bookmarks is the bar's third place, so More does not list it.
     for (final (label, id) in [
       ('Groups', 'groups'),
       ('Badges', 'badges'),
       ('Bookmarks', 'user-bookmarks'),
     ]) {
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-      await tester.pumpAndSettle();
-      for (final item in ['Groups', 'Badges', 'Bookmarks']) {
-        expect(
+      if (label == 'Bookmarks') {
+        await _tapDockTab(tester, 'destination/user-bookmarks');
+      } else {
+        await tester.tap(_moreTrigger);
+        await tester.pumpAndSettle();
+        for (final (item, listed) in [
+          ('Groups', true),
+          ('Badges', true),
+          ('Bookmarks', false),
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byType(DDropdownMenuItem),
+              matching: find.text(item),
+            ),
+            listed ? findsOneWidget : findsNothing,
+          );
+        }
+        await tester.tap(
           find.descendant(
             of: find.byType(DDropdownMenuItem),
-            matching: find.text(item),
+            matching: find.text(label),
           ),
-          findsOneWidget,
         );
+        await tester.pumpAndSettle();
       }
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DDropdownMenuItem),
-          matching: find.text(label),
-        ),
-      );
-      await tester.pumpAndSettle();
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(shell.currentContent?.id, id);
       expect(shell.mobileNavigation.tab, MobileTab.destination(id));
@@ -3164,14 +3303,12 @@ void main() {
         expect(page, findsOneWidget);
         expect(shell.currentContent?.id, id);
         expect(shell.mobileNavigation.tab, MobileTab.destination(id));
-        expect(
-          tester
-              .widget<DMobileDockItem>(
-                find.byKey(const ValueKey('mobile-mode-more')),
-              )
-              .selected,
-          isTrue,
-        );
+        // The page stands where the ⋮ was, marked current.
+        final place = find.byKey(ValueKey('mobile-mode-destination/$id'));
+        expect(place.hitTestable(), findsOneWidget);
+        expect(tester.widget<DMobileDockItem>(place).selected, isTrue);
+        expect(tester.widget<DMobileDockItem>(place).hasPopup, isTrue);
+        expect(find.byKey(const ValueKey('mobile-mode-more')), findsNothing);
         _expectPage();
         expect(tester.takeException(), isNull);
       },
@@ -3237,12 +3374,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('More owns spilled destinations until the dock has room', (
+  _mobileTest('a page past the bar\'s columns stands where the ⋮ was', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester, events: true);
-    expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    final users = find.byKey(const ValueKey('mobile-mode-users'));
+    final more = find.byKey(const ValueKey('mobile-mode-more'));
+    expect(users, findsNothing);
+    final chat = tester.getRect(
+      find.byKey(const ValueKey('mobile-mode-panel/chat')),
+    );
+    await tester.tap(more);
     await tester.pumpAndSettle();
     for (final label in ['Messages', 'Users', 'Events']) {
       expect(
@@ -3261,58 +3403,99 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(shell.mobileNavigation.tab, MobileTab.users);
+    // Users takes the ⋮'s slot as a fourth place, the four sharing the room
+    // the three and the ⋮ had; the circle would show its glyph.
+    expect(more, findsNothing);
+    expect(users.hitTestable(), findsOneWidget);
+    expect(tester.widget<DMobileDockItem>(users).selected, isTrue);
+    for (final tab in ['topics', 'panel/chat', 'destination/user-bookmarks']) {
+      expect(
+        tester.getSize(find.byKey(ValueKey('mobile-mode-$tab'))).width,
+        closeTo(tester.getSize(users).width, .01),
+        reason: tab,
+      );
+    }
+    expect(tester.getSize(users).width, lessThan(chat.width));
     expect(
-      tester
-          .widget<DMobileDockItem>(
-            find.byKey(const ValueKey('mobile-mode-more')),
-          )
-          .selected,
-      isTrue,
+      tester.getRect(users).right,
+      lessThan(
+        tester.getRect(find.byKey(const ValueKey('mobile-new-topic'))).left,
+      ),
     );
+    final reveal =
+        tester
+                .widget<DMobileDock>(find.byType(DMobileDock))
+                .collapsedDestination
+            as DMobileDockItem;
+    expect((reveal.icon as DIcon).icon, DIcons.users);
+    // Pressing it opens the rest, as the ⋮ did, Users still among them.
+    await tester.tap(users);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Users'),
+      ),
+      findsOneWidget,
+    );
+    expect(shell.mobileNavigation.tab, MobileTab.users);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DDropdownMenuItem),
+        matching: find.text('Events'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final events = find.byKey(
+      const ValueKey('mobile-mode-destination/events-upcoming'),
+    );
+    expect(events.hitTestable(), findsOneWidget);
+    expect(users, findsNothing);
+    expect(more, findsNothing);
 
     tester.view.physicalSize = const Size(800, 844);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('mobile-mode-users')), findsOneWidget);
-    expect(
-      tester
-          .widget<DMobileDockItem>(
-            find.byKey(const ValueKey('mobile-mode-users')),
-          )
-          .selected,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<DMobileDockItem>(
-            find.byKey(const ValueKey('mobile-mode-more')),
-          )
-          .selected,
-      isFalse,
-    );
+    expect(events, findsOneWidget);
+    expect(more, findsNothing);
+    await _tapDockTab(tester, 'topics');
+    expect(more.hitTestable(), findsOneWidget);
+    expect(tester.widget<DMobileDockItem>(more).selected, isFalse);
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('large labels spill into More without clipping the action', (
-    tester,
-  ) async {
+  _mobileTest('large text keeps three places, the ⋮ and the action on a '
+      'narrow bar', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpMobileShellFixture(tester, size: const Size(320, 720));
     final more = find.byKey(const ValueKey('mobile-mode-more'));
     final action = find.byKey(const ValueKey('mobile-new-topic'));
     expect(more, findsOneWidget);
-    expect(tester.getRect(more).right, lessThan(tester.getRect(action).left));
+    for (final tab in ['topics', 'panel/chat', 'destination/user-bookmarks']) {
+      expect(
+        find.byKey(ValueKey('mobile-mode-$tab')).hitTestable(),
+        findsOneWidget,
+      );
+    }
+    // On a bar this narrow the ⋮ and the action touch, and neither overlaps.
+    expect(
+      tester.getRect(more).right,
+      lessThanOrEqualTo(tester.getRect(action).left + .01),
+    );
     expect(tester.getSize(action).width, greaterThanOrEqualTo(44));
     expect(tester.getSize(action).width, tester.getSize(action).height);
     await tester.tap(more);
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byType(DDropdownMenuItem),
-        matching: find.text('Chat'),
-      ),
-      findsOneWidget,
-    );
+    for (final (label, listed) in [('Chat', false), ('Messages', true)]) {
+      expect(
+        find.descendant(
+          of: find.byType(DDropdownMenuItem),
+          matching: find.text(label),
+        ),
+        listed ? findsOneWidget : findsNothing,
+      );
+    }
     expect(tester.takeException(), isNull);
   });
 
@@ -3447,9 +3630,11 @@ void main() {
       final header = tester.getRect(_header);
       final bar = tester.getRect(_bar);
       final panel = find.byKey(const ValueKey('mobile-content-panel'));
+      // Each move ends on a place the bar shows: a place chosen from More
+      // moves only once its sheet has closed, after the frames read here.
       for (final (from, to, direction) in [
         ('messages', 'panel/chat', -1),
-        ('messages', 'users', 1),
+        ('panel/chat', 'destination/user-bookmarks', 1),
         ('destination/events-upcoming', 'topics', -1),
         ('destination/summary', 'topics', -1),
         ('destination/activity', 'destination/user-bookmarks', -1),

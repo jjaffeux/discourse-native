@@ -31,6 +31,14 @@ class TopicProgressButton extends StatelessWidget {
   final bool? expanded;
   final bool floating;
 
+  /// The floating control's height, for whoever settles it into a corner.
+  static double floatingHeightOf(BuildContext context) =>
+      DControlStyle.scaledHeight(
+        DButtonSize.chip,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
+
   @override
   Widget build(BuildContext context) {
     final boundedTotal = total < 1 ? 1 : total;
