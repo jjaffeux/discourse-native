@@ -31,8 +31,9 @@ final mobileDockExamples = ComponentExamples(
           'Reduced motion',
         ],
         code:
-            'DMobileDock(destinations: items, more: overflow, action: action, '
-            'collapsed: hidden, collapsedDestination: reveal, onOverflowChanged: onOverflow)',
+            'DMobileDock(geometry: geometry, places: items, more: overflow, '
+            'current: current, action: action, collapsed: hidden, '
+            'collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,
           height: 560,

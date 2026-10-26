@@ -8,17 +8,26 @@ import '../theme/app_theme.dart';
 import 'decorative_cadence.dart';
 import 'forum_texture.dart';
 
-Color _plainWindowColor(DTokens tokens) {
-  // The mockup ground mixes the palette background with 14% black in both
-  // brightness modes, independently of the sidebar fill.
-  return Color.lerp(tokens.background, Colors.black, .14)!;
-}
+/// A phone's ground is its bar's own fill. The desktop ground mixes the
+/// palette background with 14% black in both brightness modes, independently
+/// of the sidebar fill.
+Color _plainWindowColor(DTokens tokens, {required bool mobile}) => mobile
+    ? tokens.wellFill
+    : Color.lerp(tokens.background, Colors.black, .14)!;
 
 /// Paints one shared canvas behind the entire forum workspace.
 class ForumWindowBackground extends StatefulWidget {
-  const ForumWindowBackground({super.key, required this.child});
+  const ForumWindowBackground({
+    super.key,
+    required this.child,
+    this.mobile = false,
+  });
 
   final Widget child;
+
+  /// A phone paints the plain ground in its bar's colour; custom backgrounds
+  /// and textures are the same on every host.
+  final bool mobile;
 
   /// A custom canvas sits behind translucent framed panels. Inner page chrome
   /// lets it show through; controls and overlays retain their opaque tokens.
@@ -39,7 +48,7 @@ class ForumWindowBackground extends StatefulWidget {
   static Color chromeColor(BuildContext context, Color fallback) {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     return canvas != null && !canvas.continuous
-        ? _plainWindowColor(DTokens.of(context))
+        ? _plainWindowColor(DTokens.of(context), mobile: canvas.mobile)
         : fallback;
   }
 
@@ -105,14 +114,16 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final tokens = DTokens.of(context);
 
     final transparency = background?.transparency ?? 0;
+    final mobile = widget.mobile && background == null;
     return _ForumCanvas(
       continuous: background != null,
       transparency: transparency,
+      mobile: mobile,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
           // Every host window is opaque, so nothing sits behind this canvas.
-          color: _plainWindowColor(tokens),
+          color: _plainWindowColor(tokens, mobile: mobile),
           gradient: background == null ? effects?.windowGradient : null,
         ),
         child: Stack(
@@ -167,16 +178,19 @@ class _ForumCanvas extends InheritedWidget {
   const _ForumCanvas({
     required this.continuous,
     this.transparency = 0,
+    required this.mobile,
     required super.child,
   });
 
   final bool continuous;
   final double transparency;
+  final bool mobile;
 
   @override
   bool updateShouldNotify(_ForumCanvas oldWidget) =>
       continuous != oldWidget.continuous ||
-      transparency != oldWidget.transparency;
+      transparency != oldWidget.transparency ||
+      mobile != oldWidget.mobile;
 }
 
 /// Four slowly orbiting glows around the accent hue, overlaid on the canvas.
@@ -239,10 +253,15 @@ class ForumSidebarTheme extends StatelessWidget {
     final theme = Theme.of(context);
     final sidebar = theme.extension<ForumThemeEffects>()?.sidebarTheme;
     if (sidebar == null) return child;
+    final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     return Theme(
       data: sidebar.copyWith(platform: theme.platform),
       // Dark navigation needs its own opaque surface over a custom canvas.
-      child: _ForumCanvas(continuous: false, child: child),
+      child: _ForumCanvas(
+        continuous: false,
+        mobile: canvas?.mobile ?? false,
+        child: child,
+      ),
     );
   }
 }

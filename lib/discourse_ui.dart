@@ -71,6 +71,7 @@ export 'src/ui/components/d_message.dart';
 export 'src/ui/components/d_message_inbox_menu.dart';
 export 'src/ui/components/d_message_scroller.dart';
 export 'src/ui/components/d_mobile_dock.dart';
+export 'src/ui/components/d_mobile_dock_geometry.dart';
 export 'src/ui/components/d_mobile_dock_item.dart';
 export 'src/ui/components/d_navigation_menu.dart';
 export 'src/ui/components/d_notification_dot.dart';
@@ -122,4 +123,5 @@ export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;
 export 'src/ui/foundation/native_webview_scroll.dart'
     show NativeWebViewScrollBridge;
+export 'src/ui/foundation/oklab.dart';
 export 'src/ui/foundation/tokens.dart';

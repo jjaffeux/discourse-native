@@ -20,9 +20,10 @@ runs to the bottom screen edge under the home indicator. Inner pages inherit a
 clear surface so the panel fill paints once. The window header stays on the
 canvas.
 
-`MobileForumRoot` leaves the bottom safe area in the page's padding and adds it
-to the floating dock's bottom margin only, so the dock keeps its screen position
-while the page scrolls beneath it. The measured footer obstruction includes
+`MobileForumRoot` leaves the bottom safe area in the page's padding. The bar
+now rests on the screen's foot and holds its row above the safe area itself
+([phone bar parity](phone-bar-mockup-parity.md)), so it keeps its screen
+position while the page scrolls beneath it. The measured footer obstruction includes
 that safe area, so the last row of every page scrolls clear of the dock and
 the home indicator, and chat composers clear the dock without adding another
 inset. The inset navigation page still stops above the safe area. Keyboard

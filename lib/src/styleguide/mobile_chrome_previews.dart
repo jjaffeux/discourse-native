@@ -86,62 +86,66 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
           child: DScrollChrome(
             identity: _selected,
             floatingFooter: true,
-            footerBuilder: (hidden) => Padding(
-              padding: const EdgeInsets.all(6),
-              child: Builder(
-                builder: (context) => DMobileDock(
-                  collapsed: hidden || _initialFold,
-                  onOverflowChanged: (_) {},
-                  destinations: [
-                    for (final (index, name) in [
-                      'Start',
-                      'Topics',
-                      'Chat',
-                      'Inbox',
-                      'Users',
-                      'Events',
-                    ].indexed)
-                      DMobileDockItem(
-                        label: name,
-                        icon: DIcon(
-                          [
-                            DIcons.house,
-                            DIcons.layerGroup,
-                            DIcons.comment,
-                            DIcons.inbox,
-                            DIcons.users,
-                            DIcons.users,
-                          ][index],
+            footerBuilder: (hidden) => Builder(
+              builder: (context) {
+                final geometry = DMobileDockGeometry.of(context);
+                return Padding(
+                  padding: geometry.margin,
+                  child: DMobileDock(
+                    geometry: geometry,
+                    collapsed: hidden || _initialFold,
+                    current: DMobileDockCurrent.place(_selected),
+                    places: [
+                      for (final (index, name) in [
+                        'Start',
+                        'Topics',
+                        'Chat',
+                        'Inbox',
+                        'Users',
+                        'Events',
+                      ].indexed)
+                        DMobileDockItem(
+                          label: name,
+                          icon: DIcon(
+                            [
+                              DIcons.house,
+                              DIcons.layerGroup,
+                              DIcons.comment,
+                              DIcons.inbox,
+                              DIcons.users,
+                              DIcons.users,
+                            ][index],
+                          ),
+                          selected: _selected == index,
+                          badge: index == 2
+                              ? const DBadge.overlay(child: Text('12'))
+                              : null,
+                          onPressed: () => setState(() => _selected = index),
                         ),
-                        selected: _selected == index,
-                        badge: index == 2
-                            ? const DBadge.overlay(child: Text('12'))
-                            : null,
-                        onPressed: () => setState(() => _selected = index),
-                      ),
-                  ],
-                  more: DMobileDockItem(
-                    icon: const DIcon(DIcons.ellipsisVertical),
-                    label: 'More',
-                    bare: true,
-                    onPressed: () {},
+                    ],
+                    more: DMobileDockItem(
+                      icon: const DIcon(DIcons.ellipsisVertical),
+                      label: 'More',
+                      bare: true,
+                      onPressed: () {},
+                    ),
+                    collapsedDestination: DMobileDockItem(
+                      icon: const DIcon(DIcons.layerGroup),
+                      label: 'Reveal navigation',
+                      collapsed: true,
+                      onPressed: () {
+                        setState(() => _initialFold = false);
+                        DScrollChrome.maybeOf(context)?.reveal();
+                      },
+                    ),
+                    action: DMobileDockAction(
+                      icon: const DIcon(DIcons.penToSquare),
+                      label: 'New topic',
+                      onPressed: () {},
+                    ),
                   ),
-                  collapsedDestination: DMobileDockItem(
-                    icon: const DIcon(DIcons.layerGroup),
-                    label: 'Reveal navigation',
-                    collapsed: true,
-                    onPressed: () {
-                      setState(() => _initialFold = false);
-                      DScrollChrome.maybeOf(context)?.reveal();
-                    },
-                  ),
-                  action: DMobileDockAction(
-                    icon: const DIcon(DIcons.penToSquare),
-                    label: 'New topic',
-                    onPressed: () {},
-                  ),
-                ),
-              ),
+                );
+              },
             ),
             child: DPageSurface.scrollable(
               framed: false,

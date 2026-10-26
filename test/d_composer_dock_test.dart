@@ -257,11 +257,19 @@ void main() {
             final compact = tester.getRect(composer);
             expect(tester.widget<DInputGroup>(composer).compact, isTrue);
             expect(compact.height, lessThan(open.height));
-            expect(compact.bottom, 844 - 34 - 6 - 7);
+            // Beside the folded circle in the screen's corner: 13.32 in at
+            // 48 across, 11.71 at the larger text's 59, then the circle and 8.
+            final corner = scale == 1 ? 13.3225 : 11.7116;
+            final circle = 48 + (scale - 1) * 11;
+            expect(compact.bottom, closeTo(844 - corner, .001));
+            // Larger text keeps the line's own height past the circle's.
+            expect(compact.height, scale == 1 ? circle : greaterThan(circle));
             if (direction == TextDirection.ltr) {
-              expect(compact.left, 62 + (scale - 1) * 11);
+              expect(compact.left, closeTo(corner + circle + 8, .001));
+              expect(compact.right, closeTo(390 - corner, .001));
             } else {
-              expect(compact.right, 390 - 62 - (scale - 1) * 11);
+              expect(compact.right, closeTo(390 - corner - circle - 8, .001));
+              expect(compact.left, closeTo(corner, .001));
             }
             if (!reduced) expect(moving.bottom, lessThan(compact.bottom));
             expect(tester.state<EditableTextState>(editor), same(original));

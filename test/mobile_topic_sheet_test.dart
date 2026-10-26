@@ -356,31 +356,37 @@ void main() {
     expect(shell.currentContent?.id, 'latest');
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
-  testWidgets('topics opened from Start use the sheet and return to Start', (
-    tester,
-  ) async {
-    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
-    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
-    final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
-    await tester.pumpAndSettle();
-    final origin = shell.currentContent;
-    shell.openTopic(
-      const Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
-    );
-    await tester.pumpAndSettle();
-    expect(_handle, findsOneWidget);
-    expect(tester.getRect(_sheet).bottom, 844);
-    await tester.drag(_handle, const Offset(0, 180));
-    await tester.pumpAndSettle();
-    expect(shell.currentContent, origin);
-    expect(_sheet, findsNothing);
-    expect(
-      tester.getRect(find.byKey(const ValueKey('mobile-content-panel'))).bottom,
-      844,
-    );
-    expect(tester.takeException(), isNull);
-  }, variant: _platforms);
+  testWidgets(
+    'topics opened from Bookmarks use the sheet and return to Bookmarks',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      final shell = await pumpMobileShellFixture(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('mobile-mode-destination/user-bookmarks')),
+      );
+      await tester.pumpAndSettle();
+      final origin = shell.currentContent;
+      shell.openTopic(
+        const Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+      );
+      await tester.pumpAndSettle();
+      expect(_handle, findsOneWidget);
+      expect(tester.getRect(_sheet).bottom, 844);
+      await tester.drag(_handle, const Offset(0, 180));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent, origin);
+      expect(_sheet, findsNothing);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('mobile-content-panel')))
+            .bottom,
+        844,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   for (final width in [320.0, 800.0, 1024.0]) {
     testWidgets(
@@ -395,7 +401,17 @@ void main() {
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         expect(tester.getRect(_sheet).bottom, 844);
-        expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
+        // The bar reaches the screen's bottom; what it shows of its row
+        // keeps 30 over the foot.
+        expect(tester.getRect(_dock).bottom, 844);
+        expect(
+          tester
+              .getRect(
+                find.descendant(of: _dock, matching: find.byType(ClipRRect)),
+              )
+              .bottom,
+          closeTo(844 - 30, .01),
+        );
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));
         await tester.pumpAndSettle();

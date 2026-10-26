@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' as fixture;
+import 'support/dock_corner.dart';
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 
@@ -41,15 +42,19 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  {
+  for (final foot in [0.0, 34.0]) {
     for (final reduced in [false, true]) {
       testWidgets('topic progress follows the tab bar in both directions '
-          '(flat, reduced motion: $reduced)', (tester) async {
+          '(flat, foot $foot, reduced motion: $reduced)', (tester) async {
         tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
             FakeAccessibilityFeatures(disableAnimations: reduced);
         addTearDown(
           tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
         );
+        tester.view.padding = FakeViewPadding(top: 44, bottom: foot);
+        tester.view.viewPadding = FakeViewPadding(top: 44, bottom: foot);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewPadding);
         if (const bool.fromEnvironment('captureTopicProgressMotion')) {
           await tester.runAsync(() async {
             final manifest =
@@ -108,7 +113,8 @@ void main() {
           initial.bottom,
           closeTo(viewport.bottom - DSpacing.sm - inset, .5),
         );
-        final captureName = 'flat-${reduced ? 'reduced' : 'animated'}';
+        final captureName =
+            'flat-${foot.toInt()}-${reduced ? 'reduced' : 'animated'}';
         await _capture(tester, '$captureName-expanded');
 
         Future<List<double>> move(double delta, String name) async {
@@ -137,13 +143,21 @@ void main() {
           tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
           isTrue,
         );
-        final reveal = tester.getRect(
-          find.byKey(const ValueKey('mobile-dock-reveal')),
+        // Into the bottom-end corner as the bar's circle goes into the
+        // bottom-start one: on the corner's diagonal for its own height,
+        // never deeper than the foot, and the bar's 6 on a square screen.
+        final circle = tester.getRect(
+          find.byKey(const ValueKey('mobile-dock-surface')),
         );
-        expect(lowered.center.dy, closeTo(reveal.center.dy, .5));
+        final corner = dockCornerAt(lowered.height, foot);
+        expect(viewport.bottom - lowered.bottom, closeTo(corner, .01));
+        expect(viewport.right - lowered.right, closeTo(corner, .01));
+        final circleCorner = dockCornerAt(circle.height, foot);
+        expect(circleCorner, closeTo(foot == 0 ? 6 : 12.98, .01));
+        expect(circle.left, closeTo(circleCorner, .01));
+        expect(viewport.bottom - circle.bottom, closeTo(circleCorner, .01));
         expect(lowered.bottom, greaterThan(initial.bottom));
         expect(lowered.size, initial.size);
-        expect(lowered.right, initial.right);
         await _capture(tester, '$captureName-collapsed');
 
         final up = await move(-160, 'up');

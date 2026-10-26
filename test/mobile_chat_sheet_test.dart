@@ -25,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/chat_shell.dart';
+import 'support/dock_corner.dart';
 
 const _site = 'https://meta.discourse.org';
 final _handle = find.byKey(const ValueKey('sheet-drag-handle'));
@@ -530,7 +531,12 @@ void main() {
       final dock = find.byKey(const ValueKey('mobile-dock-surface'));
       final safeEdge = 844 - safeBottom;
       expect(tester.getRect(_sheet).bottom, 844);
-      expect(tester.getRect(dock).bottom, closeTo(safeEdge - 6, .01));
+      // At a foot the bar reaches the screen's bottom; on a square screen the
+      // capsule floats 6 above it.
+      expect(
+        tester.getRect(dock).bottom,
+        closeTo(safeBottom > 0 ? 844 : safeEdge - 6, .01),
+      );
       expect(
         tester.getRect(dock).top - tester.getRect(composer).bottom,
         closeTo(8, .01),
@@ -558,10 +564,19 @@ void main() {
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
       );
+      // The circle sits in the screen's corner, 12.98 in at a 34 foot for the
+      // app's baseline text scale and 6 on a square screen; the compact
+      // composer is level with it.
       final folded = tester.getRect(dock);
-      expect(folded.bottom, closeTo(safeEdge - 6 - 7, .01));
+      expect(folded.height, closeTo(50.36, .01));
+      final corner = dockCornerAt(folded.height, safeBottom);
+      expect(corner, closeTo(safeBottom > 0 ? 12.98 : 6, .01));
+      expect(folded.bottom, closeTo(844 - corner, .001));
+      expect(folded.left, closeTo(corner, .001));
       expect(tester.getRect(composer).top, closeTo(folded.top, .01));
       expect(tester.getRect(composer).bottom, closeTo(folded.bottom, .01));
+      expect(tester.getRect(composer).left, closeTo(folded.right + 8, .01));
+      expect(tester.getRect(composer).right, closeTo(390 - corner, .01));
       expect(
         find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
         findsOneWidget,
@@ -587,10 +602,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(_sheet).width, width);
       expect(tester.getRect(_sheet).bottom, 844);
-      expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
+      // The bar reaches the screen's bottom; what it shows of its row, and
+      // the composer above it, keep the bar's 30 of room over the foot.
+      expect(tester.getRect(_dock).bottom, 844);
+      expect(
+        tester
+            .getRect(
+              find.descendant(of: _dock, matching: find.byType(ClipRRect)),
+            )
+            .bottom,
+        closeTo(844 - 30, .01),
+      );
       expect(
         tester.getRect(find.byKey(const ValueKey('chat-composer-send'))).bottom,
-        lessThanOrEqualTo(810),
+        lessThanOrEqualTo(844 - 30),
       );
       await tester.showKeyboard(
         find.descendant(

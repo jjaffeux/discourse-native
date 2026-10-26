@@ -133,10 +133,13 @@ void main() {
 
       await pump(selected: true);
       await tester.pumpAndSettle();
+      // The bar marks the current place on its own edge; the item keeps no
+      // fill and says it by weight and colour.
       final decoration =
           tester.widget<AnimatedContainer>(capsule).decoration
               as DButtonDecoration;
-      expect(decoration.color, isNot(Colors.transparent));
+      expect(decoration.color, Colors.transparent);
+      expect(tester.widget<Text>(label).style?.fontWeight, FontWeight.w600);
 
       await pump(selected: true, scale: 2);
       await tester.pumpAndSettle();
