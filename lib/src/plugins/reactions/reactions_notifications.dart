@@ -27,9 +27,20 @@ ResolvedNotification? _decodeReactionNotification(
   final data = notification.data;
   final consolidated = data['consolidated'] == true;
   final count = jsonInt(data['count']);
-  final actor = jsonText(
+  final reactor = jsonText(
     data['display_username'] ?? data['username'] ?? data['original_username'],
   );
+  // A post several people reacted to keeps one row: `count` reactors, the
+  // newest as the actor and the one before as `username2`. A by-user
+  // consolidated row counts posts instead and carries no `username2`.
+  final secondReactor = jsonText(data['username2']);
+  final actor = switch (reactor) {
+    final name? when secondReactor != null && count == 2 =>
+      appL10n.likedByTwoUsers(name, secondReactor),
+    final name? when secondReactor != null && count > 2 =>
+      appL10n.likedByMultipleUsers(count - 1, name),
+    _ => reactor,
+  };
   final payloadTitle = data['topic_title'];
   final title = payloadTitle is String && payloadTitle.isNotEmpty
       ? payloadTitle
@@ -50,7 +61,7 @@ ResolvedNotification? _decodeReactionNotification(
         ? Uri(
             path: '/my/notifications/reactions-received',
             queryParameters: {
-              'acting_username': ?jsonText(data['username']) ?? actor,
+              'acting_username': ?jsonText(data['username']) ?? reactor,
               'include_likes': 'true',
             },
           ).toString()

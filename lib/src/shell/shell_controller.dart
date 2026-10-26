@@ -2273,22 +2273,24 @@ class ShellController extends FrameSafeNotifier
       accountActivity.totalsFor(instance.url)?.badge ?? 0;
 
   SidebarBadge sidebarBadgeFor(String destinationId) {
-    if (destinationId == 'drafts') {
-      return SidebarBadge.count(draftCountFor(currentInstance?.url));
-    }
-    final totals = currentTotals;
-    if (destinationId == 'latest') {
-      final count = currentInstance?.user?.unifiedNewEnabled == true
-          ? newActivityCount
-          : totals?.topicTrackingSidebarCount ?? 0;
-      return SidebarBadge.count(count);
-    }
-    if (destinationId == 'messages') {
-      return SidebarBadge.count(totals?.unreadPersonalMessages ?? 0);
-    }
-
     final instance = currentInstance;
     final user = instance?.user;
+    final communityCount = switch (destinationId) {
+      'drafts' => draftCountFor(instance?.url),
+      'latest' =>
+        user?.unifiedNewEnabled == true
+            ? newActivityCount
+            : currentTotals?.topicTrackingSidebarCount ?? 0,
+      'messages' => currentTotals?.unreadPersonalMessages ?? 0,
+      _ => null,
+    };
+    if (communityCount != null) {
+      if (communityCount <= 0) return SidebarBadge.none;
+      return user?.sidebarShowCountOfNewItems == true
+          ? SidebarBadge.count(communityCount)
+          : const SidebarBadge.dot();
+    }
+
     final tracking = instance == null
         ? null
         : _topicTracking.existing(instance.url)?.reconciler;

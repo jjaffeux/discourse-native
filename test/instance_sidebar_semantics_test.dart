@@ -10,7 +10,11 @@ import 'support/shell_test_harness.dart';
 void main() {
   testWidgets('a destination count is read as part of its row', (tester) async {
     const site = 'https://meta.discourse.org';
-    const user = DiscourseUser(id: 7, username: 'reader');
+    const user = DiscourseUser(
+      id: 7,
+      username: 'reader',
+      sidebarShowCountOfNewItems: true,
+    );
     final semantics = tester.ensureSemantics();
     try {
       await pumpShell(

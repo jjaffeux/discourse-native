@@ -221,6 +221,7 @@ void _registerConnectionSessionTests() {
         username: 'joffreyj',
         name: 'Joffrey',
         draftCount: 4,
+        sidebarShowCountOfNewItems: true,
       );
       final api = FakeDiscourseApi(
         user: user,

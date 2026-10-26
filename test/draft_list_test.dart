@@ -1495,6 +1495,7 @@ Future<_Fixture> _pump(
       username: 'reader',
       draftCount: draftCount,
       canCreateTopic: true,
+      sidebarShowCountOfNewItems: true,
     ),
   );
   final api = FakeDiscourseApi(
