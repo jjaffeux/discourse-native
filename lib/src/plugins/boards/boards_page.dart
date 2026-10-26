@@ -17,7 +17,7 @@ import 'boards_directory.dart';
 import 'boards_navigation.dart';
 
 /// How much of the next column a phone shows beside a full-width column.
-const _nextColumnPeek = 5.0;
+const _nextColumnPeek = 10.0;
 
 /// Narrower boards show one column at a time. Tablets also use mobile
 /// navigation but keep several fixed-width columns in view.
