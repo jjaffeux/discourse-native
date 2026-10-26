@@ -42,6 +42,7 @@ import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
+import 'package:discourse_native/src/shell/mobile_place_order.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -3243,6 +3244,33 @@ void main() {
       'Groups',
       'Badges',
       'Settings',
+      'Preferences',
+      'Summary',
+      'Activity',
+      'Channels',
+      'Threads',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('the places a person has placed come first, in the bar and the '
+      'panel, and a name the forum no longer offers is dropped', (
+    tester,
+  ) async {
+    final placed = MobilePlaceOrderController(_site, 'user:reader');
+    await placed.set(['destination/appearance', 'destination/gone', 'users']);
+    placed.dispose();
+    await pumpMobileShellFixture(tester);
+    expect(await _placesInOrder(tester), [
+      'Settings',
+      'Users',
+      'Topics',
+      'Chat',
+      'Bookmarks',
+      'Inbox',
+      'Categories',
+      'Groups',
+      'Badges',
       'Preferences',
       'Summary',
       'Activity',
