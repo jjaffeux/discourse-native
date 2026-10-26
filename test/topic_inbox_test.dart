@@ -3117,7 +3117,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('topic-more-topics-jump')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('topic-end-more-topics-panel')),
+      findsNothing,
+    );
     expect(find.text('Suggested'), findsNothing);
     expect(find.text('Related'), findsNothing);
     expect(tester.takeException(), isNull);

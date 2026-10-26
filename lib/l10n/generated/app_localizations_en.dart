@@ -13953,9 +13953,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hatchTexture => 'Hatch';
 
   @override
-  String get topicEndReached => 'You have reached the end of this topic';
-
-  @override
   String get postHiddenAfterFlags => 'Hidden after flags from the community';
 
   @override

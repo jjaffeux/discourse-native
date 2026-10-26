@@ -34,14 +34,14 @@ loading delay were introduced.
 
 ## Implemented changes
 
-The inline recommendations are a separate sliver after the post stream and
-end actions. A Native Card supplies the rounded 14px panel, reading-column
+The inline recommendations are a separate sliver after the post stream. A
+Native Card supplies the rounded 14px panel, reading-column
 width (including the user's width preference), minimum 8px side inset, 16px
 separation and 8px foot inset. It has a page-sized localized title, Native pill
 tabs, and ordinary topic rows. Narrow/enlarged layouts stack title and tabs.
-A localized end marker, Native More topics action and permission-gated Reply
-mark the topic's own end. More topics brings the panel into view; selecting a
-source brings its start into view. These explicit actions use an interruptible
+The panel follows the last post directly: the end marker, More topics action
+and Reply that once preceded it were removed on 2026-10-26, Reply being in the
+tab bar. Selecting a source brings its start into view with an interruptible
 400ms Flutter ease-out scroll; reduced motion jumps immediately. Ordinary
 scrolling has no snapping, pause timer, sticky overlap, grip, scale or fade.
 
