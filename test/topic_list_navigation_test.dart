@@ -44,7 +44,12 @@ const _legacyTotals = NotificationTotals(
 
 const _unifiedTotals = NotificationTotals(topicTrackingNew: 1059);
 
-const _user = DiscourseUser(id: 7, username: 'sam', unifiedNewEnabled: true);
+const _user = DiscourseUser(
+  id: 7,
+  username: 'sam',
+  unifiedNewEnabled: true,
+  sidebarShowCountOfNewItems: true,
+);
 
 const _latestTopic = Topic(id: 1, title: 'Latest topic', slug: 'latest-topic');
 
@@ -2822,7 +2827,11 @@ void main() {
   testWidgets('legacy New has no reply subset and counts only new topics', (
     tester,
   ) async {
-    const user = DiscourseUser(id: 8, username: 'lee');
+    const user = DiscourseUser(
+      id: 8,
+      username: 'lee',
+      sidebarShowCountOfNewItems: true,
+    );
     final setup = await _controller(user: user);
     final controller = setup.controller;
     addTearDown(controller.dispose);

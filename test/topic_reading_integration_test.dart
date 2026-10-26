@@ -2455,7 +2455,12 @@ void _registerTopicReadingTests() {
   });
 
   group('live counters', () {
-    const me = DiscourseUser(id: 7, username: 'joffreyj', name: 'Joffrey');
+    const me = DiscourseUser(
+      id: 7,
+      username: 'joffreyj',
+      name: 'Joffrey',
+      sidebarShowCountOfNewItems: true,
+    );
 
     final bellBadge = find.byKey(UserMenuButton.unreadDotKey);
 
@@ -2466,7 +2471,7 @@ void _registerTopicReadingTests() {
       await pumpShell(
         tester,
         desktop,
-        api: FakeDiscourseApi(totals: totals),
+        api: FakeDiscourseApi(totals: totals, user: me),
         instances: [
           instance('meta.discourse.org', title: 'Meta').copyWith(user: me),
         ],
