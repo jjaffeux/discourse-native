@@ -528,6 +528,25 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('a dragged card rides centred under the finger', (tester) async {
+    await _openBoard(tester, extraCards: 0);
+    final gesture = await lift(
+      tester,
+      find.byKey(const ValueKey('board-card-102')),
+    );
+    final finger = tester.getCenter(_column(10));
+    await gesture.moveTo(finger);
+    await tester.pump();
+    final preview = find.ancestor(
+      of: find.text('Write release notes'),
+      matching: find.byType(DCard),
+    );
+    expect(tester.getRect(preview).center, offsetMoreOrLessEquals(finger));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('a board that fits keeps its header still', (tester) async {
     await _openBoard(tester);
     final title = tester.getRect(_title);

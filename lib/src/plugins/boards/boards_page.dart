@@ -704,12 +704,21 @@ class _BoardsPageState extends State<BoardsPage> {
       card.id,
       DContentDrag(
         data: _BoardDrag(widget.site, board.id, card.id),
-        feedback: SizedBox(
-          width: 290,
-          child: DCard(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(card.title),
+        // A finger would hide the pointer corner and push most of the preview
+        // off a phone's edge, so touch boards centre it under the finger. Only
+        // the painting moves: drop targets still read the pointer as the
+        // drag offset.
+        feedback: FractionalTranslation(
+          translation: widget.navigation.mobileNavigationEnabled
+              ? const Offset(-.5, -.5)
+              : Offset.zero,
+          child: SizedBox(
+            width: 290,
+            child: DCard(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(card.title),
+              ),
             ),
           ),
         ),

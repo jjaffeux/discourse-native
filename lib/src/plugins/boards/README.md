@@ -60,7 +60,8 @@ and its footer (200 points, scaled with the text size), as on a landscape phone
 or with large text, the page scrolls as a whole instead of squeezing columns.
 
 A card drags with a mouse at once and on touch after a hold, as on the web
-client. The card leaves its column for the whole drag and a placeholder of its
+client. In the mobile sheet its preview rides centred under the finger; with a
+mouse the pointer holds the preview's corner. The card leaves its column for the whole drag and a placeholder of its
 height stands at the slot under the pointer: before the first card whose
 midpoint is below the pointer in a priority column, and at the top of a recency
 column, since a move stamps the card's column change and recency columns sort
