@@ -12157,6 +12157,22 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String likedByTwoUsers(String username, String username2) {
+    return '$username, $username2';
+  }
+
+  @override
+  String likedByMultipleUsers(int count, String username) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$username and $count others',
+      one: '$username and $count other',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String linked(String postsCount) {
     return 'linked $postsCount';
   }

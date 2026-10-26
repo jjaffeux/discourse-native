@@ -367,7 +367,7 @@ ResolvedNotification? _decodeCoreNotification(
     42 => false,
     _ => true,
   };
-  final actor = namesActor
+  final actingName = namesActor
       ? notification.actingUserName ??
             jsonText(
               data['display_username'] ??
@@ -376,6 +376,18 @@ ResolvedNotification? _decodeCoreNotification(
             ) ??
             appL10n.someone
       : null;
+  // One `liked` row stands for every recent like on the post: `count` people,
+  // the newest as the actor and the one before as `username2`.
+  final secondLiker = jsonText(data['name2'] ?? data['username2']);
+  final actor = switch (actingName) {
+    final name? when type == 5 && count == 2 && secondLiker != null =>
+      appL10n.likedByTwoUsers(name, secondLiker),
+    final name? when type == 5 && count >= 2 => appL10n.likedByMultipleUsers(
+      count - 1,
+      name,
+    ),
+    _ => actingName,
+  };
   final phrase = switch (type) {
     1 || 15 => appL10n.mentionedYouInNotificationtypes((title).toString()),
     2 => appL10n.repliedTo((title).toString()),

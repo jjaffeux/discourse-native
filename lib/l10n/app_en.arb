@@ -16467,6 +16467,30 @@
       }
     }
   },
+  "likedByTwoUsers": "{username}, {username2}",
+  "@likedByTwoUsers": {
+    "description": "English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      },
+      "username2": {
+        "type": "String"
+      }
+    }
+  },
+  "likedByMultipleUsers": "{count, plural, =1{{username} and {count} other} other{{username} and {count} others}}",
+  "@likedByMultipleUsers": {
+    "description": "English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "username": {
+        "type": "String"
+      }
+    }
+  },
   "linked": "linked {postsCount}",
   "@linked": {
     "description": "English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.",
