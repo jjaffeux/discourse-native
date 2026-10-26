@@ -17,6 +17,7 @@ Widget fixture({
   Color backdrop = Colors.white,
   bool highContrast = false,
   bool reducedMotion = false,
+  double foot = 0,
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -24,6 +25,7 @@ Widget fixture({
       textScaler: TextScaler.linear(scale),
       highContrast: highContrast,
       disableAnimations: reducedMotion,
+      padding: EdgeInsets.only(bottom: foot),
     ),
     child: Directionality(
       textDirection: direction,
@@ -34,55 +36,62 @@ Widget fixture({
           body: Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
+              key: const ValueKey('dock-frame'),
               width: width,
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: DMobileDock(
-                  collapsed: collapsed,
-                  destinationsHidden: hidden,
-                  onOverflowChanged: onOverflow ?? (_) {},
-                  destinations: [
-                    for (final name in [
-                      'Start',
-                      'Topics',
-                      'Chat',
-                      'Inbox',
-                      'Users',
-                      'A very long destination',
-                    ])
-                      DMobileDockItem(
-                        key: ValueKey(name),
-                        icon: const Icon(Icons.forum),
-                        label: name,
-                        badge: name == 'Chat'
-                            ? const DBadge.overlay(child: Text('99+'))
-                            : null,
-                        selected: name == 'Topics',
+              child: Builder(
+                builder: (context) {
+                  final geometry = DMobileDockGeometry.of(context);
+                  return Padding(
+                    padding: geometry.margin,
+                    child: DMobileDock(
+                      geometry: geometry,
+                      collapsed: collapsed,
+                      destinationsHidden: hidden,
+                      onOverflowChanged: onOverflow ?? (_) {},
+                      destinations: [
+                        for (final name in [
+                          'Start',
+                          'Topics',
+                          'Chat',
+                          'Inbox',
+                          'Users',
+                          'A very long destination',
+                        ])
+                          DMobileDockItem(
+                            key: ValueKey(name),
+                            icon: const Icon(Icons.forum),
+                            label: name,
+                            badge: name == 'Chat'
+                                ? const DBadge.overlay(child: Text('99+'))
+                                : null,
+                            selected: name == 'Topics',
+                            onPressed: () {},
+                          ),
+                      ],
+                      more: DMobileDockItem(
+                        key: const ValueKey('more'),
+                        bare: true,
+                        icon: const Icon(Icons.more_vert),
+                        label: 'More',
                         onPressed: () {},
                       ),
-                  ],
-                  more: DMobileDockItem(
-                    key: const ValueKey('more'),
-                    bare: true,
-                    icon: const Icon(Icons.more_vert),
-                    label: 'More',
-                    onPressed: () {},
-                  ),
-                  collapsedDestination: DMobileDockItem(
-                    key: const ValueKey('reveal'),
-                    collapsed: true,
-                    icon: const Icon(Icons.forum),
-                    label: 'Reveal navigation',
-                    onPressed: onReveal ?? () {},
-                  ),
-                  action: withAction
-                      ? DMobileDockAction(
-                          icon: const Icon(Icons.add),
-                          label: 'New topic',
-                          onPressed: () {},
-                        )
-                      : null,
-                ),
+                      collapsedDestination: DMobileDockItem(
+                        key: const ValueKey('reveal'),
+                        collapsed: true,
+                        icon: const Icon(Icons.forum),
+                        label: 'Reveal navigation',
+                        onPressed: onReveal ?? () {},
+                      ),
+                      action: withAction
+                          ? DMobileDockAction(
+                              icon: const Icon(Icons.add),
+                              label: 'New topic',
+                              onPressed: () {},
+                            )
+                          : null,
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -91,6 +100,9 @@ Widget fixture({
     ),
   ),
 );
+
+final _frame = find.byKey(const ValueKey('dock-frame'));
+final _surface = find.byKey(const ValueKey('mobile-dock-surface'));
 
 /// A primary-filled control built as the chat composer's send button is.
 Widget sendButtonFixture(ThemeData theme) => MaterialApp(
@@ -152,22 +164,63 @@ void main() {
         await tester.pumpAndSettle();
         final capsule = find.byKey(const ValueKey('mobile-dock-surface'));
         final surface = tester.getRect(capsule);
+        final frame = tester.getRect(_frame);
         final destination = tester.getRect(
           find.byKey(const ValueKey('Topics')),
         );
         final action = tester.getRect(find.byType(DMobileDockAction));
         expect(surface.height, 62);
+        expect(surface.left, frame.left + 6);
+        expect(surface.right, frame.right - 6);
+        expect(surface.bottom, frame.bottom - 6);
         expect(destination.height, 50);
         expect(destination.top - surface.top, 6);
         expect(surface.bottom - destination.bottom, 6);
         expect(surface.right - action.right, 6);
-        final fill =
-            (tester.widget<AnimatedContainer>(capsule).decoration
-                    as BoxDecoration)
-                .color!;
+        final decoration =
+            tester.widget<AnimatedContainer>(capsule).decoration
+                as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(31));
+        final fill = decoration.color!;
         expect(fill, DTokens.of(tester.element(capsule)).wellFill);
         expect(fill.a, 1);
 
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'a round screen\'s bar runs the full width down to the foot ($direction)',
+      (tester) async {
+        await tester.pumpWidget(fixture(foot: 34, direction: direction));
+        await tester.pumpAndSettle();
+        final surface = tester.getRect(_surface);
+        final frame = tester.getRect(_frame);
+        final destination = tester.getRect(
+          find.byKey(const ValueKey('Topics')),
+        );
+        final action = tester.getRect(find.byType(DMobileDockAction));
+        expect(surface.left, frame.left);
+        expect(surface.right, frame.right);
+        expect(surface.bottom, frame.bottom);
+        expect(surface.height, 86);
+        expect(destination.height, 50);
+        expect(destination.top - surface.top, 6);
+        expect(surface.bottom - destination.bottom, 30);
+        if (direction == TextDirection.ltr) {
+          expect(surface.right - action.right, 6);
+        } else {
+          expect(action.left - surface.left, 6);
+        }
+        final decoration =
+            tester.widget<AnimatedContainer>(_surface).decoration
+                as BoxDecoration;
+        expect(
+          decoration.borderRadius,
+          const BorderRadius.vertical(top: Radius.circular(31)),
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -254,28 +307,56 @@ void main() {
     expect(revealed, 1);
     expect(tester.takeException(), isNull);
   });
-  for (final scale in [1.0, 2.0]) {
-    testWidgets(
-      'folding and revealing ease around the capsule centre ($scale)',
-      (tester) async {
-        final surface = find.byKey(const ValueKey('mobile-dock-surface'));
-        await tester.pumpWidget(fixture(scale: scale));
+  for (final direction in TextDirection.values) {
+    for (final (foot, scale, corner) in [
+      (34.0, 1.0, 13.3225),
+      (34.0, 2.0, 11.7116),
+      (0.0, 1.0, 6.0),
+    ]) {
+      testWidgets('the folded circle settles into the bottom-start corner '
+          '($direction, foot $foot, scale $scale)', (tester) async {
+        await tester.pumpWidget(
+          fixture(foot: foot, scale: scale, direction: direction),
+        );
         await tester.pumpAndSettle();
-        final centre = tester.getCenter(surface).dy;
-        for (final collapsed in [true, false]) {
-          final resting = tester.getRect(surface);
-          await tester.pumpWidget(fixture(scale: scale, collapsed: collapsed));
-          expect(tester.getRect(surface), resting);
-          for (var frame = 0; frame < 15; frame++) {
-            await tester.pump(const Duration(milliseconds: 30));
-            expect(tester.getCenter(surface).dy, closeTo(centre, .01));
-          }
-          await tester.pumpAndSettle();
-          expect(tester.getCenter(surface).dy, closeTo(centre, .01));
+        final frame = tester.getRect(_frame);
+        final open = tester.getRect(_surface);
+        await tester.pumpWidget(
+          fixture(
+            foot: foot,
+            scale: scale,
+            direction: direction,
+            collapsed: true,
+          ),
+        );
+        expect(tester.getRect(_surface), open);
+        final widths = <double>[];
+        for (var step = 0; step < 15; step++) {
+          await tester.pump(const Duration(milliseconds: 30));
+          widths.add(tester.getRect(_surface).width);
         }
+        await tester.pumpAndSettle();
+        final circle = tester.getRect(_surface);
+        final diameter = 48 + (scale - 1) * 11;
+        expect(circle.size, Size(diameter, diameter));
+        expect(circle.bottom, closeTo(frame.bottom - corner, .001));
+        if (direction == TextDirection.ltr) {
+          expect(circle.left, closeTo(frame.left + corner, .001));
+        } else {
+          expect(circle.right, closeTo(frame.right - corner, .001));
+        }
+        for (var i = 1; i < widths.length; i++) {
+          expect(widths[i], lessThanOrEqualTo(widths[i - 1] + .01));
+        }
+        expect(widths.toSet().length, greaterThan(3));
+        await tester.pumpWidget(
+          fixture(foot: foot, scale: scale, direction: direction),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_surface), open);
         expect(tester.takeException(), isNull);
-      },
-    );
+      });
+    }
   }
   testWidgets(
     'large text spills destinations without clipping action or More',

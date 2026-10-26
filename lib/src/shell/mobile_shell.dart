@@ -327,21 +327,26 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
                   dockBuilder: (hidden) {
-                    final clearance =
-                        ComposerDock.bottomOverlayInsetOf(context) +
-                        MediaQuery.paddingOf(context).bottom;
+                    final lift = ComposerDock.bottomOverlayInsetOf(context);
                     if (hideDock) {
                       return Padding(
-                        padding: EdgeInsets.only(bottom: clearance),
+                        padding: EdgeInsets.only(
+                          bottom: lift + MediaQuery.paddingOf(context).bottom,
+                        ),
                       );
                     }
+                    final geometry = DMobileDockGeometry.of(
+                      context,
+                      lift: lift,
+                    );
                     return ForumSidebarTheme(
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(6, 6, 6, 6 + clearance),
+                        padding: geometry.margin,
                         child: LayoutBuilder(
                           builder: (context, constraints) => _buildBottomBar(
                             context,
                             constraints,
+                            geometry: geometry,
                             destinations: places,
                             selected: selected,
                             showReply: showReply,
@@ -426,6 +431,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   Widget _buildBottomBar(
     BuildContext context,
     BoxConstraints constraints, {
+    required DMobileDockGeometry geometry,
     required List<_DockDestination> destinations,
     required MobileTab selected,
     required bool showReply,
@@ -487,6 +493,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         active == null || destinations.indexOf(active) >= _shownDockCount;
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
+      geometry: geometry,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
       onOverflowChanged: (shown) {

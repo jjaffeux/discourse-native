@@ -406,7 +406,17 @@ void main() {
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         expect(tester.getRect(_sheet).bottom, 844);
-        expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
+        // The bar reaches the screen's bottom; what it shows of its row
+        // keeps 30 over the foot.
+        expect(tester.getRect(_dock).bottom, 844);
+        expect(
+          tester
+              .getRect(
+                find.descendant(of: _dock, matching: find.byType(ClipRRect)),
+              )
+              .bottom,
+          closeTo(844 - 30, .01),
+        );
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));
         await tester.pumpAndSettle();

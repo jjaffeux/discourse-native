@@ -1380,11 +1380,35 @@ void main() {
           final dock = tester.getRect(
             find.byKey(const ValueKey('mobile-dock-surface')),
           );
-          expect(dock.bottom, closeTo(phone.height - bottom - 6, .01));
-          expect(
-            DScrollChrome.bottomInsetOf(page),
-            closeTo(dock.height + 12 + bottom, .01),
+          // The app's baseline text scale grows the 50 row a little.
+          final growth = MediaQuery.textScalerOf(page).scale(11) - 11;
+          final row = tester.getRect(
+            find.byKey(const ValueKey('mobile-mode-topics')),
           );
+          expect(row.height, closeTo(50 + growth, .01));
+          expect(row.top, closeTo(dock.top + 6, .01));
+          if (bottom > 0) {
+            // The bar runs the screen's width down to its foot, its row held
+            // 30 above the bottom edge by its own padding.
+            expect(dock.left, 0);
+            expect(dock.right, phone.width);
+            expect(dock.bottom, closeTo(phone.height, .01));
+            expect(dock.height, closeTo(86 + growth, .01));
+            expect(row.bottom, closeTo(phone.height - 30, .01));
+            expect(
+              DScrollChrome.bottomInsetOf(page),
+              closeTo(dock.height + 6, .01),
+            );
+          } else {
+            expect(dock.left, 6);
+            expect(dock.right, phone.width - 6);
+            expect(dock.bottom, closeTo(phone.height - 6, .01));
+            expect(dock.height, closeTo(62 + growth, .01));
+            expect(
+              DScrollChrome.bottomInsetOf(page),
+              closeTo(dock.height + 12, .01),
+            );
+          }
         }
 
         expectBody();

@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
 
 import '../foundation/app_text_scaler.dart';
-import 'd_mobile_dock.dart';
+import 'd_mobile_dock_geometry.dart';
 import 'd_scroll_chrome.dart';
 
-/// Places a phone composer above the open navigation dock and beside its
-/// collapsed destination. Only the composer rebuilds as chrome folds away.
+/// Places a phone composer above the open navigation bar and, folded, beside
+/// its circle in the screen's corner. Only the composer rebuilds as chrome
+/// folds away.
 class DComposerDock extends StatefulWidget {
   const DComposerDock({super.key, required this.builder});
 
@@ -14,12 +15,16 @@ class DComposerDock extends StatefulWidget {
   /// Gap above the visible composer inside the measured dock.
   static const topInset = 6.0;
 
-  /// Height of the folded dock beside a compact composer. The dock keeps the
-  /// shell's text scale while the composer uses its reference scale, so the
-  /// dock is measured outside the composer's scale.
+  /// The bar beside and above the composer. The dock keeps the shell's text
+  /// scale while the composer uses its reference scale, so the bar is
+  /// measured outside the composer's scale.
+  static DMobileDockGeometry geometryOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DockGeometry>()?.geometry ??
+      DMobileDockGeometry.of(context);
+
+  /// Height of the folded dock beside a compact composer.
   static double foldedDockExtentOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_FoldedDock>()?.extent ??
-      DMobileDock.collapsedExtentOf(context);
+      geometryOf(context).circle;
 
   @override
   State<DComposerDock> createState() => _DComposerDockState();
@@ -81,8 +86,8 @@ class _DComposerDockState extends State<DComposerDock> {
   }
 
   @override
-  Widget build(BuildContext context) => _FoldedDock(
-    extent: DMobileDock.collapsedExtentOf(context),
+  Widget build(BuildContext context) => _DockGeometry(
+    geometry: DMobileDockGeometry.of(context),
     child: DReferenceTextScale(child: Builder(builder: _buildComposer)),
   );
 
@@ -98,6 +103,10 @@ class _DComposerDockState extends State<DComposerDock> {
     }
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final geometry = DComposerDock.geometryOf(context);
+    // Beside the folded circle, level with it: past its width and a gap, and
+    // as far in from the other side as the circle is from its own.
+    final corner = geometry.cornerAt(geometry.circle);
     final compact = _compact;
     final reduced = MediaQuery.disableAnimationsOf(context);
     final duration = reduced
@@ -114,18 +123,20 @@ class _DComposerDockState extends State<DComposerDock> {
         duration: duration,
         curve: curve,
         padding: EdgeInsetsDirectional.fromSTEB(
-          compact ? 6 + DComposerDock.foldedDockExtentOf(context) + 8 : 6,
+          compact ? corner + geometry.circle + 8 : 6,
           DComposerDock.topInset,
-          6,
+          compact ? corner : 6,
           keyboard
               ? 6
               : compact
-              ? safeBottom + 6 + DMobileDock.foldedInset
+              ? corner
               : _focus.hasFocus
               ? safeBottom + 6
-              // The shell's measured footer includes its 6px upper inset.
-              // The visible capsule and composer are separated by 8px.
-              : (room > 0 ? room : safeBottom + 74) + 2,
+              // The shell's measured footer includes the bar's upper margin.
+              // The visible bar and composer are separated by 8px.
+              : (room > 0 ? room : geometry.footerExtent) +
+                    8 -
+                    geometry.margin.top,
         ),
         child: reduced
             ? content
@@ -140,11 +151,12 @@ class _DComposerDockState extends State<DComposerDock> {
   }
 }
 
-class _FoldedDock extends InheritedWidget {
-  const _FoldedDock({required this.extent, required super.child});
+class _DockGeometry extends InheritedWidget {
+  const _DockGeometry({required this.geometry, required super.child});
 
-  final double extent;
+  final DMobileDockGeometry geometry;
 
   @override
-  bool updateShouldNotify(_FoldedDock oldWidget) => extent != oldWidget.extent;
+  bool updateShouldNotify(_DockGeometry oldWidget) =>
+      geometry != oldWidget.geometry;
 }

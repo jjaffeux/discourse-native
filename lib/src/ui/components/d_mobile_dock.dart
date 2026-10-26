@@ -5,12 +5,16 @@ import 'package:flutter/rendering.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_mobile_dock_geometry.dart';
 
-/// A floating capsule whose destinations divide the space left by its action.
-/// Natural label and badge widths determine overflow before the row is painted.
+/// A phone's bar, cut as its [DMobileDockGeometry] says, whose destinations
+/// divide the space left by its action. Natural label and badge widths
+/// determine overflow before the row is painted. Folded, it is a circle in
+/// the screen's bottom-start corner.
 class DMobileDock extends StatefulWidget {
   const DMobileDock({
     super.key,
+    required this.geometry,
     required this.destinations,
     required this.more,
     required this.collapsedDestination,
@@ -20,6 +24,7 @@ class DMobileDock extends StatefulWidget {
     this.destinationsHidden = false,
   });
 
+  final DMobileDockGeometry geometry;
   final List<Widget> destinations;
   final Widget more;
   final Widget collapsedDestination;
@@ -28,17 +33,8 @@ class DMobileDock extends StatefulWidget {
   final bool destinationsHidden;
   final ValueChanged<int> onOverflowChanged;
 
-  /// Height of the expanded capsule with the dock's selected text scale.
-  static double expandedExtentOf(BuildContext context) =>
-      62 + math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
-
-  /// Width of the folded destination, including its visible capsule insets.
-  static double collapsedExtentOf(BuildContext context) =>
-      expandedExtentOf(context) - 2 * foldedInset;
-
-  /// Gap between the folded capsule and the expanded one's top and bottom
-  /// edges: the dock folds around its vertical centre.
-  static const foldedInset = 7.0;
+  /// Around the folded circle's own button.
+  static const circlePadding = 4.0;
 
   @override
   State<DMobileDock> createState() => _DMobileDockState();
@@ -70,11 +66,8 @@ class _DMobileDockState extends State<DMobileDock> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final reduced = MediaQuery.disableAnimationsOf(context);
-      final expandedExtent = DMobileDock.expandedExtentOf(context);
-      final growth = expandedExtent - 62;
-      final round = DMobileDock.collapsedExtentOf(context);
-      final phase = collapsed ? 1.0 : 0.0;
-      final inset = 6 - 2 * phase;
+      final geometry = widget.geometry;
+      final round = geometry.circle;
       final navOpacity = (collapsed ? 0.0 : 1.0);
       final revealOpacity = (collapsed ? 1.0 : 0.0);
       final radius = BorderRadius.circular(999);
@@ -83,14 +76,14 @@ class _DMobileDockState extends State<DMobileDock> {
       final well = tokens.wellFill;
       final navigation = OverflowBox(
         alignment: AlignmentDirectional.centerStart,
-        minWidth: constraints.maxWidth - 12,
-        maxWidth: constraints.maxWidth - 12,
-        maxHeight: 50 + growth,
+        minWidth: constraints.maxWidth - geometry.padding.horizontal,
+        maxWidth: constraints.maxWidth - geometry.padding.horizontal,
+        maxHeight: geometry.rowHeight,
         child: _DockRow(
           direction: Directionality.of(context),
           onOverflowChanged: _overflow,
           count: destinations.length,
-          actionExtent: action == null ? 0 : 50 + growth,
+          actionExtent: action == null ? 0 : geometry.rowHeight,
           children: [
             for (final (index, item) in destinations.indexed)
               Offstage(
@@ -105,20 +98,32 @@ class _DMobileDockState extends State<DMobileDock> {
           ],
         ),
       );
-      final capsuleArtwork = Align(
-        alignment: AlignmentDirectional.centerStart,
-        heightFactor: 1,
-        widthFactor: 1,
+      // The circle's corner is measured from the screen's edges; the bar's
+      // own margin already keeps part of that distance.
+      final corner = geometry.cornerAt(round) - geometry.reach;
+      final capsuleArtwork = AnimatedPadding(
+        padding: collapsed
+            ? EdgeInsetsDirectional.only(start: corner, bottom: corner)
+            : EdgeInsetsDirectional.zero,
+        duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
+        curve: const Cubic(.32, .72, 0, 1),
         child: AnimatedContainer(
           key: const ValueKey('mobile-dock-surface'),
           duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
-          width: constraints.maxWidth + (round - constraints.maxWidth) * phase,
-          height: expandedExtent + (round - expandedExtent) * phase,
-          decoration: BoxDecoration(color: well, borderRadius: radius),
+          width: collapsed ? round : constraints.maxWidth,
+          height: collapsed ? round : geometry.barHeight,
+          decoration: BoxDecoration(
+            color: well,
+            borderRadius: collapsed
+                ? BorderRadius.circular(round / 2)
+                : geometry.borderRadius,
+          ),
           child: AnimatedPadding(
             key: const ValueKey('mobile-dock-controls'),
-            padding: EdgeInsets.all(inset),
+            padding: collapsed
+                ? const EdgeInsets.all(DMobileDock.circlePadding)
+                : geometry.padding,
             duration: reduced
                 ? Duration.zero
                 : const Duration(milliseconds: 420),
@@ -149,8 +154,8 @@ class _DMobileDockState extends State<DMobileDock> {
                         child: Opacity(
                           opacity: revealOpacity,
                           child: SizedBox(
-                            width: round - 8,
-                            height: round - 8,
+                            width: round - 2 * DMobileDock.circlePadding,
+                            height: round - 2 * DMobileDock.circlePadding,
                             child: collapsedDestination,
                           ),
                         ),
@@ -163,9 +168,9 @@ class _DMobileDockState extends State<DMobileDock> {
         ),
       );
       return SizedBox(
-        height: expandedExtent,
+        height: geometry.barHeight,
         child: Align(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.bottomStart,
           child: capsuleArtwork,
         ),
       );
