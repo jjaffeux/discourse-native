@@ -1912,6 +1912,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a place moved by a screen reader is the same tile after, to the '
+      'reader and to the keyboard, in the grid and in the head', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    var labels = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Last'];
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => fixture(
+          foot: 34,
+          labels: labels,
+          you: you(),
+          onMoved: (from, to) => setState(
+            () => labels = DMobileDockReorder.moved(labels, from, to),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    void moveLater(Finder finder) {
+      final node = tester.getSemantics(finder);
+      node.owner!.performAction(
+        node.id,
+        SemanticsAction.customAction,
+        CustomSemanticsAction.getIdentifier(
+          const CustomSemanticsAction(label: 'Move later'),
+        ),
+      );
+    }
+
+    // The panel open, its first tile, Inbox, has the focus. Moved later it
+    // is the tile it was: the same node to a reader, who need not find it
+    // again, and still the one with the focus.
+    final inbox = find.byKey(DMobileDock.tileKey(const ValueKey('Inbox')));
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    final inboxNode = tester.getSemantics(inbox).id;
+    final inboxElement = tester.element(inbox);
+    moveLater(inbox);
+    await tester.pumpAndSettle();
+    expect(_tileLabels(tester), ['Users', 'Inbox', 'Last', 'Jo']);
+    expect(tester.getSemantics(inbox).id, inboxNode);
+    expect(tester.element(inbox), same(inboxElement));
+    expect(tester.getSemantics(inbox), isSemantics(isFocused: true));
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    // In the head likewise.
+    final topics = find.byKey(const ValueKey('Topics'));
+    final topicsNode = tester.getSemantics(topics).id;
+    final topicsElement = tester.element(topics);
+    moveLater(topics);
+    await tester.pumpAndSettle();
+    expect(_barLabels(tester), ['Start', 'Chat', 'Topics']);
+    expect(tester.getSemantics(topics).id, topicsNode);
+    expect(tester.element(topics), same(topicsElement));
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Escape closes the panel and gives the ⋮ its focus back', (
     tester,
   ) async {

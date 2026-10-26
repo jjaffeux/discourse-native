@@ -350,6 +350,10 @@ class _DMobileDockState extends State<DMobileDock>
   final _panelFocus = FocusScopeNode(debugLabel: 'mobile-dock-panel');
   final _firstTile = FocusNode(debugLabel: 'mobile-dock-first-tile');
 
+  /// The place [_firstTile] is on: the grid's first as the panel took the
+  /// focus, and that place still wherever the moves take it.
+  Key? _firstTileKey;
+
   /// What had the focus as the panel took it, to have it back as the panel
   /// closes.
   FocusNode? _focusBefore;
@@ -602,6 +606,7 @@ class _DMobileDockState extends State<DMobileDock>
   void _takeFocus() {
     if (_panelFocus.hasFocus) return;
     _focusBefore = FocusManager.instance.primaryFocus;
+    _firstTileKey = _rest.first.key;
     _firstTile.requestFocus();
   }
 
@@ -851,7 +856,7 @@ class _DMobileDockState extends State<DMobileDock>
             DMobileDockItem(
               key: DMobileDock.tileKey(place.key),
               growth: 1,
-              focusNode: index == 0 ? _firstTile : null,
+              focusNode: place.key == _firstTileKey ? _firstTile : null,
               icon: place.icon,
               label: place.label,
               badge: place.badge,
@@ -866,6 +871,7 @@ class _DMobileDockState extends State<DMobileDock>
               },
             ),
           ),
+          key: _slotKey(place.key),
         ),
       if (widget.you case final you?)
         _tile(
@@ -1001,12 +1007,16 @@ class _DMobileDockState extends State<DMobileDock>
 
   // A tile keeps its own height, as the bar's places do: larger text grows
   // it past its row.
-  Widget _tile(Rect rect, Widget child) => PositionedDirectional(
+  Widget _tile(Rect rect, Widget child, {Key? key}) => PositionedDirectional(
+    key: key,
     start: rect.left,
     top: rect.top,
     width: rect.width,
     child: child,
   );
+
+  /// The slot a place's tile stands in, in the grid or in the head.
+  static Key _slotKey(Key place) => ValueKey(('mobile-dock-slot', place));
 
   /// A place's own tile keeps its room, its keys, its semantics and the
   /// focus, and shows nothing, while a place is on the move: the moving
@@ -1236,6 +1246,8 @@ class _DMobileDockState extends State<DMobileDock>
       Widget place(int index, DMobileDockPlace place) => DMobileDockItem(
         key: place.key,
         growth: out ? grown : 0,
+        // The panel's focus follows its place into the head.
+        focusNode: out && place.key == _firstTileKey ? _firstTile : null,
         icon: place.icon,
         label: place.label,
         badge: place.badge,
@@ -1287,11 +1299,13 @@ class _DMobileDockState extends State<DMobileDock>
           ),
         ),
       };
-      Widget at(DMobileDockSlot slot, Widget child) => PositionedDirectional(
-        start: slot.start,
-        width: slot.width,
-        child: child,
-      );
+      Widget at(DMobileDockSlot slot, Widget child, {Key? key}) =>
+          PositionedDirectional(
+            key: key,
+            start: slot.start,
+            width: slot.width,
+            child: child,
+          );
       // The row keeps its open size while the surface folds around it, and
       // fades before the fold reaches it.
       final navigation = OverflowBox(
@@ -1309,6 +1323,7 @@ class _DMobileDockState extends State<DMobileDock>
                 at(
                   placeSlots[index],
                   destination(_whileStill(place(index, entry))),
+                  key: _slotKey(entry.key),
                 ),
               // Grown, the ⋮ is out of the keyboard's round, not out of
               // reach: it takes the focus back as the panel closes.
