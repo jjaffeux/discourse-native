@@ -243,6 +243,41 @@ void main() {
     );
   });
 
+  test('agents with a bot user need ai_bot_allowed_groups membership', () {
+    // Servers that serialize an agent's bot user_id answer PMs only for
+    // ai_bot_allowed_groups members, the only users sent ai_enabled_chat_bots.
+    const agent = {
+      'id': -1,
+      'user_id': -120,
+      'username': 'general',
+      'allow_personal_messages': true,
+      'has_default_llm': true,
+      'default_llm_id': 1,
+    };
+    expect(
+      AiBotUser.fromWire({
+        'ai_enabled_agents': [agent],
+      }).hasPersonalMessageBot,
+      isFalse,
+    );
+    expect(
+      AiBotUser.fromWire({
+        'ai_enabled_agents': [agent],
+        'ai_available_llm_models': const <Object?>[],
+        'ai_enabled_chat_bots': [
+          {
+            'id': -120,
+            'agent_id': -1,
+            'username': 'general',
+            'has_default_llm': true,
+            'is_agent': true,
+          },
+        ],
+      }).hasPersonalMessageBot,
+      isTrue,
+    );
+  });
+
   test(
     'wire and stored codecs retain availability and revoke absent permissions',
     () {
