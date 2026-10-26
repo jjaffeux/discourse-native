@@ -48,9 +48,11 @@ void mobileMoreBackdropTests({bool native = false}) {
                 ).writeAsBytes(png.buffer.asUint8List());
               }
               return [
+                // Both points stay on the page behind the sheet, whose menu
+                // rises past the middle of the screen.
                 for (final point in [
                   const Offset(180, 70),
-                  const Offset(180, 350),
+                  const Offset(180, 250),
                 ])
                   for (var channel = 0; channel < 3; channel++)
                     data.getUint8(

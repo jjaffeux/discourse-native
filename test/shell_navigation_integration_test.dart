@@ -72,6 +72,18 @@ Finder get _railUpdateButton => find.descendant(
   matching: find.dIcon(DIcons.arrowsRotate),
 );
 
+Future<void> _openFromMore(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.descendant(
+      of: find.byType(DDropdownMenuItem),
+      matching: find.text(label),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   _registerShellNavigationTests();
   _registerShellUpdateTests();
@@ -311,15 +323,14 @@ void _registerShellNavigationTests() {
       tester,
     ) async {
       await pumpShell(tester, phone);
-      final button = find.byKey(const ValueKey('mobile-mode-start'));
+      final button = find.byKey(const ValueKey('mobile-mode-topics'));
       final dock = find.byKey(const ValueKey('mobile-bottom-bar'));
       expect(button.hitTestable(), findsOneWidget);
       expect(
         tester.getRect(button).intersect(tester.getRect(dock)),
         tester.getRect(button),
       );
-      await tester.tap(button);
-      await tester.pumpAndSettle();
+      await _openFromMore(tester, 'Categories');
       expect(primaryMainContent, findsOneWidget);
       expect(find.byType(InstanceSidebar), findsNothing);
       expect(find.byKey(const ValueKey('mobile-bottom-bar')), findsOneWidget);
@@ -396,8 +407,7 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final initial = tester.getRect(userMenu);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
-      await tester.pumpAndSettle();
+      await _openFromMore(tester, 'Categories');
       expect(tester.getRect(userMenu), initial);
       expect(
         find.descendant(of: primaryMainContent, matching: userMenu),
