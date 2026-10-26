@@ -97,6 +97,30 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('reopening a board shows it at once and refreshes it', (
+    tester,
+  ) async {
+    final shell = await _openBoard(tester);
+    expect(find.text('Improve search'), findsOneWidget);
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    await tester.tap(find.text('Product roadmap'));
+    await tester.pump();
+    expect(shell.currentContent?.id, 'boards/1');
+    expect(find.text('Improve search'), findsOneWidget);
+    final refreshing = find.descendant(
+      of: find.byKey(const ValueKey('board-controls')),
+      matching: find.byType(DSpinner),
+    );
+    expect(refreshing, findsOneWidget);
+    expect(find.byType(DSpinner), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Improve search'), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets(
     'pulling a board down after the app resumes shows the directory',
     (tester) async {
