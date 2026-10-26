@@ -649,6 +649,8 @@ final class GroupsController extends FrameSafeNotifier {
         if (pendingUpdate != null) {
           _unreconciledUpdates.remove(key);
           _projectUpdatedGroup(instance.url, pendingUpdate, detail.group);
+        } else {
+          _projectDirectoryGroup(instance.url, detail.group);
         }
         final detailKey = pendingUpdate == null
             ? key
@@ -1708,34 +1710,8 @@ final class GroupsController extends FrameSafeNotifier {
       _logs.removeWhere(
         (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
       );
-      for (final request in _requests.values) {
-        if (request.siteUrl == siteUrl && request.key is _DirectoryKey) {
-          request.directoryReplacements[updated.id] = updated;
-        }
-      }
-      for (final entry in _directories.entries) {
-        final state = entry.value;
-        if (entry.key.siteUrl != siteUrl ||
-            !state.groups.any((group) => group.id == updated.id)) {
-          continue;
-        }
-        _directories[entry.key] = GroupDirectoryState._(
-          groups: List.unmodifiable([
-            for (final group in state.groups)
-              group.id == updated.id ? updated : group,
-          ]),
-          typeFilters: state.typeFilters,
-          totalRows: state.totalRows,
-          nextPage: state.nextPage,
-          hasMore: state.hasMore,
-          loading: state.loading,
-          loadingMore: state.loadingMore,
-          loaded: state.loaded,
-          error: state.error,
-          pageError: state.pageError,
-        );
-      }
     }
+    _projectDirectoryGroup(siteUrl, updated);
     _details[newKey] = GroupDetailState(
       detail: GroupDetail(
         group: updated,
@@ -1743,6 +1719,39 @@ final class GroupsController extends FrameSafeNotifier {
       ),
       loaded: true,
     );
+  }
+
+  /// Replaces [updated]'s row in every cached directory list of [siteUrl],
+  /// and in directory pages still loading, with this newer server copy. The
+  /// directory is shown from its cache when the page returns to it.
+  void _projectDirectoryGroup(String siteUrl, Group updated) {
+    for (final request in _requests.values) {
+      if (request.siteUrl == siteUrl && request.key is _DirectoryKey) {
+        request.directoryReplacements[updated.id] = updated;
+      }
+    }
+    for (final entry in _directories.entries) {
+      final state = entry.value;
+      if (entry.key.siteUrl != siteUrl ||
+          !state.groups.any((group) => group.id == updated.id)) {
+        continue;
+      }
+      _directories[entry.key] = GroupDirectoryState._(
+        groups: List.unmodifiable([
+          for (final group in state.groups)
+            group.id == updated.id ? updated : group,
+        ]),
+        typeFilters: state.typeFilters,
+        totalRows: state.totalRows,
+        nextPage: state.nextPage,
+        hasMore: state.hasMore,
+        loading: state.loading,
+        loadingMore: state.loadingMore,
+        loaded: state.loaded,
+        error: state.error,
+        pageError: state.pageError,
+      );
+    }
   }
 
   Future<GroupWriteOutcome<T>> _mutate<T>(
