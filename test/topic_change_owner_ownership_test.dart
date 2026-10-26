@@ -55,6 +55,9 @@ void main() {
       expect(api.writes, hasLength(1));
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
+      // A dismissed dialog stays mounted for its exit transition, so a single
+      // frame cannot tell a held save from a dialog on its way out.
+      await tester.pump(const Duration(seconds: 1));
       expect(_dialog, findsOneWidget);
       await tester.binding.handlePopRoute();
       // Past the close transition, so a granted dismissal would have finished.
