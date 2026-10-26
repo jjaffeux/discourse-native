@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/pending_post.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -21,7 +24,9 @@ final _unicodeSpace = RegExp(
 
 /// The site's side of a new topic whose answer is lost: drafts keyed by
 /// sequence as DraftsController#create keeps them, and a create that advances
-/// the sequence and drops the draft as PostCreator does.
+/// the sequence and drops the draft as PostCreator does. A create the site
+/// [queues] is NewPostManager#enqueue instead: a reviewable in the reader's
+/// queue, and the draft left as it was.
 final class _TopicSiteApi extends FakeDiscourseApi {
   _TopicSiteApi({required super.user})
     : super(
@@ -41,6 +46,15 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   WriteException createFailure = const WriteException(WriteFailure.unreachable);
   bool createdByReachable = true;
   bool draftSavesReachable = true;
+  bool queues = false;
+  final queue = <PendingPost>[];
+
+  /// Which queue reads, counted from one, never reach the site.
+  Set<int> unreachableQueueReads = {};
+  final queueReads = <String>[];
+  Completer<void>? queueGate;
+  int _reviewableIds = 40;
+  int _landedTopics = 0;
 
   /// Topic#title after TextCleaner.clean_title with title_prettify.
   String Function(String title) storedTitle = (title) => title;
@@ -102,6 +116,52 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   }
 
   @override
+  Future<List<PendingPost>> pendingPosts({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    queueReads.add(username);
+    final read = queueReads.length;
+    final gate = queueGate;
+    if (gate != null) await gate.future;
+    if (unreachableQueueReads.contains(read)) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return queue.reversed.toList();
+  }
+
+  void enqueue(String title, String raw) =>
+      queue.add(PendingPost(id: ++_reviewableIds, title: title, raw: raw));
+
+  /// ReviewableQueuedPost#perform_approve_post: a PostCreator run from the
+  /// queued payload, which names no draft, so the draft stays where it was.
+  void approveQueue() {
+    for (final post in queue) {
+      _land(post.title!, post.raw!);
+    }
+    queue.clear();
+  }
+
+  void _land(String title, String raw) {
+    final id = 900 + ++_landedTopics;
+    final stored = storedTitle(title);
+    feeds[_createdBy] = [
+      Topic(id: id, title: stored, slug: 'created-$id'),
+      ...?feeds[_createdBy],
+    ];
+    topics[id] = topicPayload(id: id, title: stored, stream: [5000 + id]);
+    postsById[5000 + id] = Post(
+      id: 5000 + id,
+      postNumber: 1,
+      username: 'reader',
+      cooked: '<p>$raw</p>',
+      raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
+    );
+  }
+
+  @override
   Future<PostCreation> createTopic({
     required String siteUrl,
     required String apiKey,
@@ -116,23 +176,12 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     topicCreates.add(raw);
-    if (createLands) {
+    if (createLands && queues) {
+      enqueue(title, raw);
+    } else if (createLands) {
       sequences[draftKey] = (sequences[draftKey] ?? 0) + 1;
       drafts.remove(draftKey);
-      final id = 900 + topicCreates.length;
-      final stored = storedTitle(title);
-      feeds[_createdBy] = [
-        Topic(id: id, title: stored, slug: 'created-$id'),
-        ...?feeds[_createdBy],
-      ];
-      topics[id] = topicPayload(id: id, title: stored, stream: [5000 + id]);
-      postsById[5000 + id] = Post(
-        id: 5000 + id,
-        postNumber: 1,
-        username: 'reader',
-        cooked: '<p>$raw</p>',
-        raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
-      );
+      _land(title, raw);
     }
     if (missingTopicId) return const PostCreation(outcome: PostOutcome.created);
     throw createFailure;
@@ -146,7 +195,12 @@ void main() {
   late ShellController shell;
 
   setUp(() async {
-    const user = DiscourseUser(id: 7, username: 'reader', canCreateTopic: true);
+    const user = DiscourseUser(
+      id: 7,
+      username: 'reader',
+      canCreateTopic: true,
+      canSendPrivateMessages: true,
+    );
     api = _TopicSiteApi(user: user);
     shell = ShellController(
       instanceStore: FakeInstanceStore([
@@ -175,6 +229,175 @@ void main() {
     expect(api.drafts, isNotEmpty);
     return composer;
   }
+
+  group('a topic queued for review', () {
+    const queuedNotice =
+        'Your reply was sent for review, so it is not posted yet.';
+
+    test('whose answer was lost reads as queued, not as unsent', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      final draftKey = composer.target.draftKey;
+      api.queues = true;
+
+      await shell.submitComposer();
+      await pumpEventQueue();
+
+      expect(api.topicCreates, hasLength(1));
+      expect(api.queue, hasLength(1));
+      expect(composer.isDisposed, isFalse);
+      expect(composer.error, isNull);
+      expect(composer.notice, queuedNotice);
+      expect(composer.raw, isEmpty);
+      expect(composer.canSubmit, isFalse);
+      expect(composer.canRecheck, isFalse);
+      expect(api.userDraftsDeleted.map((deleted) => deleted.draftKey), [
+        draftKey,
+      ]);
+    });
+
+    test('older than the send does not stand in for one that never '
+        'arrived', () async {
+      api.enqueue('Printer is on fire', 'Please send help.');
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.createLands = false;
+
+      await shell.submitComposer();
+
+      expect(api.queueReads, hasLength(2));
+      expect(api.queue, hasLength(1));
+      expect(composer.state, ComposerState.editing);
+      expect(composer.canSubmit, isTrue);
+      expect(composer.notice, isNull);
+      expect(composer.raw, 'Please send help.');
+    });
+
+    test('older than the send leaves it unresolved when the queue before it '
+        'was never read', () async {
+      api.enqueue('Printer is on fire', 'Please send help.');
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.createLands = false;
+      api.unreachableQueueReads = {1};
+
+      await shell.submitComposer();
+
+      expect(api.queueReads, hasLength(2));
+      expect(composer.state, ComposerState.unresolved);
+      expect(composer.raw, 'Please send help.');
+    });
+
+    test('is looked for again when the queue could not be read', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.createLands = false;
+      api.unreachableQueueReads = {1, 2};
+
+      await shell.submitComposer();
+      expect(composer.state, ComposerState.unresolved);
+      expect(composer.canSubmit, isFalse);
+
+      await shell.recheckComposer();
+
+      expect(api.queueReads, hasLength(3));
+      expect(api.topicCreates, hasLength(1));
+      expect(composer.state, ComposerState.editing);
+      expect(composer.canSubmit, isTrue);
+    });
+
+    test('is found after edits moved the draft on', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.queues = true;
+      api.unreachableQueueReads = {2};
+      await shell.submitComposer();
+      expect(composer.state, ComposerState.unresolved);
+
+      composer.text.text = 'Please send help. Now';
+      await composer.flushDraft();
+      await composer.finishDraftSaves();
+      await shell.recheckComposer();
+
+      expect(api.topicCreates, hasLength(1));
+      expect(composer.notice, queuedNotice);
+      expect(composer.raw, isEmpty);
+      expect(composer.canSubmit, isFalse);
+    });
+
+    test('approved before Check again is found as a topic', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.queues = true;
+      api.unreachableQueueReads = {2};
+      await shell.submitComposer();
+      expect(composer.state, ComposerState.unresolved);
+
+      api.approveQueue();
+      await shell.recheckComposer();
+
+      expect(api.topicCreates, hasLength(1));
+      expect(api.queue, isEmpty);
+      expect(composer.isDisposed, isTrue);
+      expect(shell.currentContent?.topicId, 901);
+    });
+
+    test('is sent only once the queue before it has been read', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.queues = true;
+      final before = Completer<void>();
+      api.queueGate = before;
+
+      final sending = shell.submitComposer();
+      await pumpEventQueue();
+      expect(api.queueReads, hasLength(1));
+      expect(api.topicCreates, isEmpty);
+
+      api.queueGate = null;
+      before.complete();
+      await sending;
+
+      expect(api.topicCreates, hasLength(1));
+      expect(composer.notice, queuedNotice);
+    });
+
+    test('found after the account changed settles nothing', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.queues = true;
+      final before = Completer<void>();
+      final lookup = Completer<void>();
+      api.queueGate = before;
+      final sending = shell.submitComposer();
+      await pumpEventQueue();
+      expect(api.queueReads, hasLength(1));
+      api.queueGate = lookup;
+      before.complete();
+      await pumpEventQueue();
+      expect(api.queueReads, hasLength(2));
+
+      shell.lifecycle.invalidate(_siteUrl);
+      lookup.complete();
+      await sending;
+      await pumpEventQueue();
+
+      expect(api.queue, hasLength(1));
+      expect(composer.notice, isNot(queuedNotice));
+      expect(composer.raw, 'Please send help.');
+      expect(api.userDraftsDeleted, isEmpty);
+    });
+
+    test('is never looked for behind a private message', () async {
+      shell.openPrivateMessage(siteUrl: _siteUrl, targetRecipients: 'alice');
+      await pumpEventQueue();
+      final composer = shell.visibleComposer!;
+      composer.title.text = 'Printer is on fire';
+      composer.text.text = 'Please send help.';
+      await composer.flushDraft();
+      await composer.finishDraftSaves();
+      api.createLands = false;
+
+      await shell.submitComposer();
+
+      expect(api.topicCreates, hasLength(1));
+      expect(api.queueReads, isEmpty);
+      expect(composer.state, ComposerState.editing);
+      expect(composer.canSubmit, isTrue);
+    });
+  });
 
   test('a plugin completion receives the reconciled topic only once', () async {
     final outcomes = <PluginTopicCreationOutcome>[];

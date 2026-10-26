@@ -5005,6 +5005,57 @@ void _writeGroups() {
     });
   });
 
+  group('pendingPosts', () {
+    test("reads the reader's posts waiting for review", () async {
+      late Uri asked;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          asked = request.url;
+          return http.Response(
+            jsonEncode({
+              'pending_posts': [
+                {
+                  'id': 31,
+                  'created_at': '2026-10-26T09:00:00.000Z',
+                  'raw_text': 'Please send help.',
+                  'title': 'Printer is on fire',
+                  'topic_id': null,
+                  'username': 'jöreader',
+                },
+                {'raw_text': 'A row without its reviewable id'},
+                {
+                  'id': 30,
+                  'raw_text': 'A queued reply',
+                  'title': 'Native drafts',
+                  'topic_id': 12,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final queued = await api.pendingPosts(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        username: 'jöreader',
+      );
+
+      expect(asked.path, '/posts/j%C3%B6reader/pending.json');
+      expect(
+        [
+          for (final post in queued)
+            (post.id, post.title, post.raw, post.topicId),
+        ],
+        [
+          (31, 'Printer is on fire', 'Please send help.', null),
+          (30, 'Native drafts', 'A queued reply', 12),
+        ],
+      );
+    });
+  });
+
   group('updatePost', () {
     test('nests raw under post, and reads the rewritten post back', () async {
       late http.Request sent;

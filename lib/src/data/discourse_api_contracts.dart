@@ -12,6 +12,7 @@ import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
+import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
@@ -947,6 +948,14 @@ abstract interface class ComposerPersistenceApi {
     required String siteUrl,
     required String apiKey,
     required String draftKey,
+    String? clientId,
+  });
+
+  /// Every post of [username]'s still waiting for review, newest first.
+  Future<List<PendingPost>> pendingPosts({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
     String? clientId,
   });
 }

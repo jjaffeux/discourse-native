@@ -242,6 +242,19 @@ to be examined. A missing pre-send boundary or ambiguous positive lookup leaves
 the attempt unresolved. This is a conservative boundary, not a server receipt. A previously hidden post above the boundary or another client's identical
 reply during the request cannot be distinguished without server request identity.
 
+New topics are reconciled through their draft, the review queue and the
+reader's created topics. A direct create advances the draft sequence, but
+core's `NewPostManager#enqueue` leaves it alone, and so does a moderator's later
+approval, which creates the topic from a queued payload that names no draft. A
+draft still at the sent sequence therefore settles only a private message,
+which core never queues. Before dispatching a new topic, the owner reads the
+reader's pending posts (`/posts/:username/pending.json`) and retains the newest
+reviewable ID. A lost answer settles as queued when a pending copy with the
+frozen title and raw sits above that ID, and as created when the created-topic
+lookup finds it. Only an untouched draft with neither reports that nothing was
+posted; a moved draft stays unresolved. A failed queue read, or an identical
+copy with no pre-send boundary, also leaves the attempt unresolved.
+
 Account authority and editor authority are checked separately. Retiring an
 editor prevents further writes and editor mutation, but an already accepted
 write can still publish canonical data for the original current account.

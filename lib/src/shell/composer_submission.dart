@@ -38,6 +38,11 @@ final class _SentComposerSubmission implements ComposerSubmission {
   final Duration typingDuration;
   final Duration openDuration;
   late final ReplySendBoundary? replyBoundary;
+
+  /// The newest reviewable id in the reader's queue before a new topic was
+  /// sent, 0 for an empty queue. Null when no queue was read: the target is
+  /// not one core can queue, or the read failed.
+  late final int? queueBoundary;
 }
 
 final class _ComposerEdit {
@@ -129,6 +134,8 @@ final class _SubmissionTopic extends _SubmissionAcceptance {
 final class _SubmissionEdited extends _SubmissionAcceptance {
   const _SubmissionEdited();
 }
+
+enum _QueueLookup { queued, absent, indeterminate }
 
 final class _ComposerSubmissionOwner {
   const _ComposerSubmissionOwner(this.shell);
@@ -232,6 +239,7 @@ final class _ComposerSubmissionOwner {
                 credential: credential.request!,
               )
         : null;
+    sent.queueBoundary = await _queueBoundary(attempt, credential.request!);
     if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
     editor.retainSubmission(sent);
     if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
@@ -380,12 +388,19 @@ final class _ComposerSubmissionOwner {
             ),
           );
           if (!_accountCurrent(attempt)) return _unresolved(attempt);
-          // A successful create advances this sequence, including when a later
-          // draft recreates the key. Equality proves that this create never ran.
-          if (retained.draft != null &&
-              retained.sequence == sent.draftSequence) {
+          // A created topic advances this sequence, including when a later
+          // draft recreates the key. Core's enqueue leaves it alone, and so
+          // does a moderator's later approval, which creates the topic from a
+          // payload that names no draft. Equality rules out only a direct
+          // create, which settles a private message: core never queues one.
+          final untouched =
+              retained.draft != null && retained.sequence == sent.draftSequence;
+          if (untouched && target.isPrivateMessage) {
             return _refuse(attempt, failure, checked: true);
           }
+          final queued = await _findQueued(sent, credential.request!);
+          if (!_accountCurrent(attempt)) return _unresolved(attempt);
+          if (queued == _QueueLookup.queued) return _enqueued(attempt);
           final username = attempt.username;
           if (username == null) return _unresolved(attempt);
           final match = await data.findCreatedTopic(
@@ -395,12 +410,17 @@ final class _ComposerSubmissionOwner {
             privateMessage: target.isPrivateMessage,
             credential: credential.request!,
           );
-          if (match == null) return _unresolved(attempt);
-          _settleDraft(attempt);
-          return _SubmissionAccepted(
-            attempt,
-            _SubmissionTopic(match.topicId, match.slug, match.title),
-          );
+          if (!_accountCurrent(attempt)) return _unresolved(attempt);
+          if (match != null) {
+            _settleDraft(attempt);
+            return _SubmissionAccepted(
+              attempt,
+              _SubmissionTopic(match.topicId, match.slug, match.title),
+            );
+          }
+          return untouched && queued == _QueueLookup.absent
+              ? _refuse(attempt, failure, checked: true)
+              : _unresolved(attempt);
         case ReplyComposerTarget():
           final landed = await data.findReply(
             topicId: target.topicId,
@@ -431,6 +451,66 @@ final class _ComposerSubmissionOwner {
     }
   }
 
+  /// The reader's review queue as it stands before a new topic is sent, so a
+  /// lost answer can tell its own queued copy from an older identical one.
+  /// Core never queues a private message.
+  Future<int?> _queueBoundary(
+    _ComposerAttempt attempt,
+    AccountRequestCredentials credential,
+  ) async {
+    final username = attempt.username;
+    if (!attempt.target.isNewTopic || username == null) return null;
+    try {
+      final queued = await _readQueue(attempt, username, credential);
+      return queued.fold<int>(0, (newest, post) => math.max(newest, post.id));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Whether the review queue holds this send's topic: a copy of its title
+  /// and raw above [_SentComposerSubmission.queueBoundary]. Without that
+  /// boundary an identical copy may be an older send, so it settles nothing.
+  Future<_QueueLookup> _findQueued(
+    _SentComposerSubmission sent,
+    AccountRequestCredentials credential,
+  ) async {
+    final attempt = sent.attempt;
+    final username = attempt.username;
+    if (!attempt.target.isNewTopic) return _QueueLookup.absent;
+    if (username == null) return _QueueLookup.indeterminate;
+    final List<PendingPost> queued;
+    try {
+      queued = await _readQueue(attempt, username, credential);
+    } catch (_) {
+      return _QueueLookup.indeterminate;
+    }
+    final raw = sent.raw.trim();
+    final copies = queued.where(
+      (post) =>
+          post.topicId == null && post.title == sent.title && post.raw == raw,
+    );
+    final boundary = sent.queueBoundary;
+    if (boundary == null) {
+      return copies.isEmpty ? _QueueLookup.absent : _QueueLookup.indeterminate;
+    }
+    return copies.any((post) => post.id > boundary)
+        ? _QueueLookup.queued
+        : _QueueLookup.absent;
+  }
+
+  Future<List<PendingPost>> _readQueue(
+    _ComposerAttempt attempt,
+    String username,
+    AccountRequestCredentials credential,
+  ) => credential.run(
+    () => shell.api.composerPersistence.pendingPosts(
+      siteUrl: attempt.target.siteUrl,
+      apiKey: credential.apiKey!,
+      username: username,
+    ),
+  );
+
   _CompletedSubmission _acceptCreation(
     _SentComposerSubmission sent,
     PostCreation creation,
@@ -445,15 +525,14 @@ final class _ComposerSubmissionOwner {
         data?.acceptNewTopicPost(creation.post!);
       }
     }
-    _settleDraft(
-      attempt,
-      sequence: creation.draftSequence,
-      keptOnServer: creation.isEnqueued,
-    );
     if (creation.isEnqueued) {
-      if (_editorCurrent(attempt)) attempt.editor.enqueued(creation.message);
-      return _SubmissionAccepted(attempt, const _SubmissionEnqueued());
+      return _enqueued(
+        attempt,
+        sequence: creation.draftSequence,
+        message: creation.message,
+      );
     }
+    _settleDraft(attempt, sequence: creation.draftSequence);
     if (target is ReplyComposerTarget) {
       return _SubmissionAccepted(
         attempt,
@@ -470,6 +549,16 @@ final class _ComposerSubmissionOwner {
         creation.topicTitle ?? sent.title,
       ),
     );
+  }
+
+  _SubmissionAccepted _enqueued(
+    _ComposerAttempt attempt, {
+    int? sequence,
+    String? message,
+  }) {
+    _settleDraft(attempt, sequence: sequence, keptOnServer: true);
+    if (_editorCurrent(attempt)) attempt.editor.enqueued(message);
+    return _SubmissionAccepted(attempt, const _SubmissionEnqueued());
   }
 
   void _settleDraft(
