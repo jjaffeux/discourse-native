@@ -257,7 +257,7 @@ void main() {
             final compact = tester.getRect(composer);
             expect(tester.widget<DInputGroup>(composer).compact, isTrue);
             expect(compact.height, lessThan(open.height));
-            expect(compact.bottom, 844 - 34 - 6);
+            expect(compact.bottom, 844 - 34 - 6 - 7);
             if (direction == TextDirection.ltr) {
               expect(compact.left, 62 + (scale - 1) * 11);
             } else {

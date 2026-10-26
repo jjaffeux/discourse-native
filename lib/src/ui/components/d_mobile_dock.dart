@@ -34,7 +34,11 @@ class DMobileDock extends StatefulWidget {
 
   /// Width of the folded destination, including its visible capsule insets.
   static double collapsedExtentOf(BuildContext context) =>
-      expandedExtentOf(context) - 14;
+      expandedExtentOf(context) - 2 * foldedInset;
+
+  /// Gap between the folded capsule and the expanded one's top and bottom
+  /// edges: the dock folds around its vertical centre.
+  static const foldedInset = 7.0;
 
   @override
   State<DMobileDock> createState() => _DMobileDockState();
@@ -85,6 +89,7 @@ class _DMobileDockState extends State<DMobileDock> {
         alignment: AlignmentDirectional.centerStart,
         minWidth: constraints.maxWidth - 12,
         maxWidth: constraints.maxWidth - 12,
+        maxHeight: 50 + growth,
         child: _DockRow(
           direction: Directionality.of(context),
           onOverflowChanged: _overflow,
@@ -105,7 +110,7 @@ class _DMobileDockState extends State<DMobileDock> {
         ),
       );
       final capsuleArtwork = Align(
-        alignment: AlignmentDirectional.bottomStart,
+        alignment: AlignmentDirectional.centerStart,
         heightFactor: 1,
         widthFactor: 1,
         child: AnimatedContainer(
@@ -113,6 +118,7 @@ class _DMobileDockState extends State<DMobileDock> {
           duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
           width: constraints.maxWidth + (round - constraints.maxWidth) * phase,
+          height: expandedExtent + (round - expandedExtent) * phase,
           decoration: BoxDecoration(color: well, borderRadius: radius),
           child: AnimatedPadding(
             key: const ValueKey('mobile-dock-controls'),
@@ -123,41 +129,38 @@ class _DMobileDockState extends State<DMobileDock> {
             curve: const Cubic(.32, .72, 0, 1),
             child: ClipRRect(
               borderRadius: radius,
-              child: SizedBox(
-                height: 50 + growth - 10 * phase,
-                child: Stack(
-                  alignment: AlignmentDirectional.centerStart,
-                  children: [
-                    ExcludeSemantics(
-                      excluding: collapsed || navOpacity < 1,
-                      child: IgnorePointer(
-                        ignoring: collapsed || navOpacity < 1,
-                        child: AnimatedOpacity(
-                          opacity: navOpacity,
-                          duration: reduced
-                              ? Duration.zero
-                              : const Duration(milliseconds: 100),
-                          child: navigation,
-                        ),
+              child: Stack(
+                alignment: AlignmentDirectional.centerStart,
+                children: [
+                  ExcludeSemantics(
+                    excluding: collapsed || navOpacity < 1,
+                    child: IgnorePointer(
+                      ignoring: collapsed || navOpacity < 1,
+                      child: AnimatedOpacity(
+                        opacity: navOpacity,
+                        duration: reduced
+                            ? Duration.zero
+                            : const Duration(milliseconds: 100),
+                        child: navigation,
                       ),
                     ),
-                    if (collapsed || revealOpacity > 0)
-                      ExcludeSemantics(
-                        excluding: !collapsed || revealOpacity < 1,
-                        child: IgnorePointer(
-                          ignoring: !collapsed || revealOpacity < 1,
-                          child: Opacity(
-                            opacity: revealOpacity,
-                            child: SizedBox(
-                              width: round - 8,
-                              height: round - 8,
-                              child: collapsedDestination,
-                            ),
+                  ),
+                  if (collapsed || revealOpacity > 0)
+                    ExcludeSemantics(
+                      excluding: !collapsed || revealOpacity < 1,
+                      child: IgnorePointer(
+                        ignoring: !collapsed || revealOpacity < 1,
+                        child: Opacity(
+                          opacity: revealOpacity,
+                          child: SizedBox(
+                            width: round - 8,
+                            height: round - 8,
+                            child: collapsedDestination,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -166,7 +169,7 @@ class _DMobileDockState extends State<DMobileDock> {
       return SizedBox(
         height: expandedExtent,
         child: Align(
-          alignment: AlignmentDirectional.bottomStart,
+          alignment: AlignmentDirectional.centerStart,
           child: capsuleArtwork,
         ),
       );

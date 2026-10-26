@@ -248,6 +248,29 @@ void main() {
     expect(revealed, 1);
     expect(tester.takeException(), isNull);
   });
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'folding and revealing ease around the capsule centre ($scale)',
+      (tester) async {
+        final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+        await tester.pumpWidget(fixture(scale: scale));
+        await tester.pumpAndSettle();
+        final centre = tester.getCenter(surface).dy;
+        for (final collapsed in [true, false]) {
+          final resting = tester.getRect(surface);
+          await tester.pumpWidget(fixture(scale: scale, collapsed: collapsed));
+          expect(tester.getRect(surface), resting);
+          for (var frame = 0; frame < 15; frame++) {
+            await tester.pump(const Duration(milliseconds: 30));
+            expect(tester.getCenter(surface).dy, closeTo(centre, .01));
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getCenter(surface).dy, closeTo(centre, .01));
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'large text spills destinations without clipping action or More',
     (tester) async {
