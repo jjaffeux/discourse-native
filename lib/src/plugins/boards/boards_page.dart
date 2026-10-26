@@ -356,6 +356,8 @@ class _BoardsPageState extends State<BoardsPage> {
                         )),
                         axes: DScrollAxes.horizontal,
                         controller: _horizontal,
+                        showScrollbar:
+                            !widget.navigation.mobileNavigationEnabled,
                         physics: single ? const _ColumnSnapPhysics() : null,
                         child: Padding(
                           padding: const EdgeInsets.all(12),

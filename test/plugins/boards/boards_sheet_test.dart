@@ -11,6 +11,12 @@ import '../../support/boards_fixture.dart';
 final _sheet = find.byType(DSheetContent);
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _title = find.byKey(const ValueKey('board-title'));
+final _columnScrollbar = find.ancestor(
+  of: find.byKey(const ValueKey('board-column-10')),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DScrollBar && widget.axis == Axis.horizontal,
+  ),
+);
 
 Future<ShellController> _openBoard(
   WidgetTester tester, {
@@ -155,6 +161,19 @@ void main() {
     expect(left(11), 12);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
+
+  for (final (device, size) in [
+    ('phone', const Size(390, 844)),
+    ('tablet', const Size(820, 1180)),
+  ]) {
+    testWidgets('a $device sheet scrolls columns without a scrollbar', (
+      tester,
+    ) async {
+      await _openBoard(tester, size: size);
+      expect(tester.widget<DScrollBar>(_columnScrollbar).showScrollbar, false);
+      expect(tester.takeException(), isNull);
+    }, variant: platforms);
+  }
 
   testWidgets('a tablet sheet keeps several fixed-width columns in view', (
     tester,
