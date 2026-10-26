@@ -34,7 +34,8 @@ final class _Credentials implements ApiCredentialReader {
 }
 
 final class _Api extends FakeDiscourseApi {
-  _Api({super.topicGate}) : super(topics: {7: topicPayload(id: 7)});
+  _Api({super.topicGate, TopicPayload? topic})
+    : super(topics: {7: topic ?? topicPayload(id: 7)});
   Completer<int>? write;
   final requests = <({String? apiKey, String? clientId, Object? session})>[];
   @override
@@ -237,6 +238,72 @@ void main() {
       expect((await pending).saved, isTrue);
     },
   );
+
+  // Since discourse 31f877169b1 the user menu serializes only what its rows
+  // render, so a bookmark there no longer names its target's type or id.
+  for (final current in [true, false]) {
+    for (final topicTarget in [false, true]) {
+      test(
+        'a ${current ? 'current' : 'legacy'} user-menu '
+        '${topicTarget ? 'topic' : 'post'} bookmark resolves to removing it',
+        () async {
+          const postBookmark = Bookmark(
+            id: 91,
+            bookmarkableId: 70,
+            bookmarkableType: 'Post',
+            postNumber: 3,
+          );
+          const topicBookmark = Bookmark(
+            id: 92,
+            bookmarkableId: 7,
+            bookmarkableType: 'Topic',
+          );
+          final f = _Fixture(
+            api: _Api(
+              topic: topicPayload(
+                id: 7,
+                posts: const [
+                  Post(
+                    id: 70,
+                    postNumber: 3,
+                    username: 'alex',
+                    cooked: '<p>Saved</p>',
+                    bookmark: postBookmark,
+                  ),
+                ],
+                bookmarks: const [postBookmark, topicBookmark],
+              ),
+            ),
+          );
+          final saved = topicTarget ? topicBookmark : postBookmark;
+          // Core links a topic bookmark to the first unread post, so its URL
+          // carries a post number either way.
+          const url = '$_site/t/topic/7/3';
+          final menuRow = Bookmark.fromJson({
+            'id': saved.id,
+            'name': null,
+            'fancy_title': 'Topic',
+            'topic_id': 7,
+            'bookmarkable_url': url,
+            'user': const {'id': 2, 'username': 'alex', 'avatar_template': ''},
+            if (!current) ...{
+              'bookmarkable_id': saved.bookmarkableId,
+              'bookmarkable_type': saved.bookmarkableType,
+              'linked_post_number': 3,
+            },
+          });
+
+          final action = await f.resolver.resolveBookmarkLink(
+            url,
+            targetBookmark: menuRow,
+          );
+
+          // A resolved action holding the bookmark is what offers removal.
+          expect(action?.bookmark, saved);
+        },
+      );
+    }
+  }
 
   test(
     'plugin capabilities stay current and pending answers expire with the account',
