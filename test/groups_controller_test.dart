@@ -2152,6 +2152,80 @@ void main() {
     });
   }
 
+  Map<String, dynamic> supportJson({bool member = false, String? fullName}) => {
+    'id': 7,
+    'name': 'support',
+    'full_name': ?fullName,
+    'user_count': member ? 2 : 1,
+    'is_group_user': member,
+    'public_admission': true,
+    'public_exit': true,
+  };
+  for (final (name, before, after, write)
+      in <
+        (
+          String,
+          Map<String, dynamic>,
+          Map<String, dynamic>,
+          Future<GroupWriteOutcome<Object?>> Function(GroupsController, Group),
+        )
+      >[
+        (
+          'joining',
+          supportJson(),
+          supportJson(member: true),
+          (controller, group) => controller.join(_connectedInstance, group),
+        ),
+        (
+          'leaving',
+          supportJson(member: true),
+          supportJson(),
+          (controller, group) => controller.leave(_connectedInstance, group),
+        ),
+        (
+          'saving the full name',
+          supportJson(member: true),
+          supportJson(member: true, fullName: 'Support team'),
+          (controller, group) => controller.updateGroup(
+            _connectedInstance,
+            group,
+            GroupUpdateCommand(const {'full_name': 'Support team'}),
+          ),
+        ),
+      ]) {
+    test('$name updates the group in the directory', () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              before,
+              {'id': 8, 'name': 'design', 'user_count': 3},
+            ],
+            'total_rows_groups': 2,
+          }),
+          _completed({'group': after}),
+        ])
+        ..onWrite = (_) => {'group': after};
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
+
+      await controller.loadDirectory(_connectedInstance, query);
+      final written = await write(
+        controller,
+        controller.directoryState(_site, query).groups.first,
+      );
+      expect(written.canApplyLocally, isTrue);
+
+      final groups = controller.directoryState(_site, query).groups;
+      expect(groups.map((group) => group.name), ['support', 'design']);
+      expect(groups.first.isGroupUser, after['is_group_user']);
+      expect(groups.first.userCount, after['user_count']);
+      expect(groups.first.fullName, after['full_name']);
+    });
+  }
+
   test(
     'members added while the next page loads are shown by the refresh',
     () async {
