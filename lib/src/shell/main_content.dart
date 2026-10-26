@@ -441,6 +441,14 @@ class _MainContentBody extends StatelessWidget {
         ShellScope.read(context).mobileNavigationEnabled) {
       final controller = ShellScope.read(context);
       final entry = controller.mobileNavigation.entryId;
+      final previous = state.previousRoute;
+      // The previous page's snapshot is discarded whenever the app leaves the
+      // foreground. A plugin page that draws its own chrome renders live
+      // instead, as it will once the sheet is dismissed.
+      final livePrevious =
+          previous != null &&
+          registry.ownsContentChrome(context, previous) &&
+          !registry.usesMobilePageSheet(context, previous);
       return DSheetViewport(
         key: ValueKey((
           route.isTopic ? 'mobile-topic-sheet' : 'mobile-plugin-page-sheet',
@@ -451,7 +459,22 @@ class _MainContentBody extends StatelessWidget {
             controller.handleBack();
           }
         },
-        underlay: DHistoryTransition.previousPageUnderlayOf(context),
+        underlay: livePrevious
+            ? DPageSurface(
+                border: false,
+                borderRadius: BorderRadius.zero,
+                backgroundColor: ForumWindowBackground.panelColor(context),
+                child: _MainContentBody(
+                  layout: layout,
+                  state: state.revealPrevious(),
+                  registry: registry,
+                  groupPages: groupPages,
+                  groupPagesPort: groupPagesPort,
+                  aboutPageKey: aboutPageKey,
+                  dashboardPageKey: dashboardPageKey,
+                ),
+              )
+            : DHistoryTransition.previousPageUnderlayOf(context),
         content: DSheetContent(
           side: DSheetSide.bottom,
           variant: DSheetVariant.page,
@@ -1765,6 +1788,7 @@ class _MainContentSnapshot {
     required this.activeTabId,
     required this.route,
     required this.sourceRoute,
+    required this.previousRoute,
     required this.canPop,
     required this.canReply,
     required this.bookmarkBusy,
@@ -1784,6 +1808,9 @@ class _MainContentSnapshot {
       activeTabId: tab.activeTabId,
       route: route,
       sourceRoute: tab.topicListContent,
+      previousRoute: controller.mobileNavigationEnabled
+          ? controller.mobileNavigation.previousLocation?.contentStack.last
+          : null,
       canPop: tab.canPopContent,
       canReply: tab.canReplyHere,
       bookmarkBusy: switch ((
@@ -1820,6 +1847,7 @@ class _MainContentSnapshot {
   final String? activeTabId;
   final ContentRoute? route;
   final ContentRoute? sourceRoute;
+  final ContentRoute? previousRoute;
   final bool canPop;
   final bool canReply;
   final bool bookmarkBusy;
@@ -1828,6 +1856,24 @@ class _MainContentSnapshot {
   final String? groupAccountIdentity;
   final Object groupSessionIdentity;
 
+  /// [previousRoute] as it renders once a page sheet over it is dismissed.
+  /// Only plugin pages that draw their own chrome are revealed this way, so
+  /// the shell header's Back state is never consulted.
+  _MainContentSnapshot revealPrevious() => _MainContentSnapshot(
+    siteUrl: siteUrl,
+    activeTabId: activeTabId,
+    route: previousRoute,
+    sourceRoute: null,
+    previousRoute: null,
+    canPop: false,
+    canReply: false,
+    bookmarkBusy: false,
+    isConnected: isConnected,
+    categoryFeed: null,
+    groupAccountIdentity: null,
+    groupSessionIdentity: groupSessionIdentity,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is _MainContentSnapshot &&
@@ -1835,6 +1881,7 @@ class _MainContentSnapshot {
       activeTabId == other.activeTabId &&
       identical(route, other.route) &&
       identical(sourceRoute, other.sourceRoute) &&
+      identical(previousRoute, other.previousRoute) &&
       canPop == other.canPop &&
       canReply == other.canReply &&
       bookmarkBusy == other.bookmarkBusy &&
@@ -1849,6 +1896,7 @@ class _MainContentSnapshot {
     activeTabId,
     identityHashCode(route),
     identityHashCode(sourceRoute),
+    identityHashCode(previousRoute),
     canPop,
     canReply,
     bookmarkBusy,
