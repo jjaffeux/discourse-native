@@ -5276,6 +5276,8 @@ class ShellController extends FrameSafeNotifier
             context.isCurrent &&
             context.currentContent?.topicId == topicId &&
             topicScrollPostNumber(topicId, tabId: context.tabId) == null,
+        sessionRead: () =>
+            _topicReads.lastReadPostNumberFor(instance.url, topicId),
         resume: (number) {
           final target = _targetCurrentTopicPost(
             number,

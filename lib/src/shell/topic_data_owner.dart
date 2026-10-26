@@ -25,11 +25,18 @@ final class TopicOpening {
     required this.received,
     required this.resume,
     required this.canResume,
+    this.sessionRead,
   });
 
   final void Function(TopicDetail detail) received;
   final TopicDataPosition? Function(int postNumber) resume;
   final bool Function() canResume;
+
+  /// The farthest post of the topic this session has read, if any.
+  final int? Function()? sessionRead;
+
+  int? _resumeFor(TopicDetail detail) =>
+      detail.resumePostNumberAfter(sessionRead?.call());
 }
 
 final class ReplySendBoundary {
@@ -783,12 +790,13 @@ final class TopicDataSession implements BookmarkTopicData {
       );
       return;
     }
+    final resumeHeld = held == null ? null : opening._resumeFor(held);
     if (postNumber == null &&
         !force &&
         !state.stale &&
-        held?.resumePostNumber != null &&
+        resumeHeld != null &&
         opening.canResume()) {
-      final target = opening.resume(held!.resumePostNumber!);
+      final target = opening.resume(resumeHeld);
       if (!isCurrent || positionAtOpen != state.positions) return;
       if (target != null && isCurrent) {
         await open(
@@ -915,7 +923,7 @@ final class TopicDataSession implements BookmarkTopicData {
         );
         opening.received(received);
         if (postNumber == null && opening.canResume()) {
-          resumeNumber = received.resumePostNumber;
+          resumeNumber = opening._resumeFor(received);
         }
       }
     } catch (_) {
