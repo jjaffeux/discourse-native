@@ -832,12 +832,19 @@ class TopicDetail with Storable<TopicDetail> {
 
   int? get resumePostNumber => resumePostNumberAfter(null);
 
-  /// Where an unpositioned open resumes, given [sessionRead], the farthest
-  /// post this session has read. A held detail keeps the
-  /// last_read_post_number it was fetched with, which those reads outrun.
+  /// The farther of [lastReadPostNumber] and [sessionRead], the farthest post
+  /// this session has read. A held detail keeps the last_read_post_number it
+  /// was fetched with, which those reads outrun.
+  int? lastReadAfter(int? sessionRead) {
+    final held = lastReadPostNumber;
+    return sessionRead != null && sessionRead > (held ?? 0)
+        ? sessionRead
+        : held;
+  }
+
+  /// Where an unpositioned open resumes; see [lastReadAfter].
   int? resumePostNumberAfter(int? sessionRead) {
-    final held = lastReadPostNumber ?? 0;
-    final read = sessionRead != null && sessionRead > held ? sessionRead : held;
+    final read = lastReadAfter(sessionRead) ?? 0;
     // Nested topics deliberately avoid flat numbered post routes. Post one is
     // already the unpositioned response, so it needs no second request.
     if (isNestedView || read <= 1) return null;

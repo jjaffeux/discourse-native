@@ -376,7 +376,9 @@ class _TopicViewState extends State<TopicView>
         previousTabId != _viewport.binding?.tabId ||
         !identical(previousController, controller) ||
         !identical(previousSession, _viewport.binding?.session)) {
-      _visitLastReadPostNumber = snapshot.topic?.lastReadPostNumber;
+      _visitLastReadPostNumber = ForumTabScope.tabOf(
+        context,
+      ).currentTopicLastReadPostNumber;
     }
 
     _interaction.bind(_TopicReaderNavigation(controller, _viewport));
