@@ -306,6 +306,34 @@ void main() {
     },
   );
 
+  testWidgets('community rows show dots when counts of new items are off', (
+    tester,
+  ) async {
+    const user = DiscourseUser(
+      id: 7,
+      username: 'reader',
+      unifiedNewEnabled: true,
+      draftCount: 2,
+    );
+    await pumpShell(
+      tester,
+      desktop,
+      instances: [instance('meta.discourse.org').copyWith(user: user)],
+      api: FakeDiscourseApi(
+        user: user,
+        trackingState: TopicTrackingState([_tracked]),
+        categoryList: const [_category],
+      ),
+      authenticator: FakeAuthenticator()..keys[_site] = 'reader-key',
+    );
+    final shell = ShellScope.read(tester.element(primaryMainContent));
+    await tester.pumpAndSettle();
+
+    expect(shell.sidebarBadgeFor('category-5'), const SidebarBadge.dot());
+    expect(shell.sidebarBadgeFor('latest'), const SidebarBadge.dot());
+    expect(shell.sidebarBadgeFor('drafts'), const SidebarBadge.dot());
+  });
+
   for (final level in [
     TopicNotificationLevel.normal,
     TopicNotificationLevel.muted,
