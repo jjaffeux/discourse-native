@@ -54,6 +54,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   final queueReads = <String>[];
   Completer<void>? queueGate;
   int _reviewableIds = 40;
+  int _landedTopics = 0;
 
   /// Topic#title after TextCleaner.clean_title with title_prettify.
   String Function(String title) storedTitle = (title) => title;
@@ -134,6 +135,32 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   void enqueue(String title, String raw) =>
       queue.add(PendingPost(id: ++_reviewableIds, title: title, raw: raw));
 
+  /// ReviewableQueuedPost#perform_approve_post: a PostCreator run from the
+  /// queued payload, which names no draft, so the draft stays where it was.
+  void approveQueue() {
+    for (final post in queue) {
+      _land(post.title!, post.raw!);
+    }
+    queue.clear();
+  }
+
+  void _land(String title, String raw) {
+    final id = 900 + ++_landedTopics;
+    final stored = storedTitle(title);
+    feeds[_createdBy] = [
+      Topic(id: id, title: stored, slug: 'created-$id'),
+      ...?feeds[_createdBy],
+    ];
+    topics[id] = topicPayload(id: id, title: stored, stream: [5000 + id]);
+    postsById[5000 + id] = Post(
+      id: 5000 + id,
+      postNumber: 1,
+      username: 'reader',
+      cooked: '<p>$raw</p>',
+      raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
+    );
+  }
+
   @override
   Future<PostCreation> createTopic({
     required String siteUrl,
@@ -154,20 +181,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     } else if (createLands) {
       sequences[draftKey] = (sequences[draftKey] ?? 0) + 1;
       drafts.remove(draftKey);
-      final id = 900 + topicCreates.length;
-      final stored = storedTitle(title);
-      feeds[_createdBy] = [
-        Topic(id: id, title: stored, slug: 'created-$id'),
-        ...?feeds[_createdBy],
-      ];
-      topics[id] = topicPayload(id: id, title: stored, stream: [5000 + id]);
-      postsById[5000 + id] = Post(
-        id: 5000 + id,
-        postNumber: 1,
-        username: 'reader',
-        cooked: '<p>$raw</p>',
-        raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
-      );
+      _land(title, raw);
     }
     if (missingTopicId) return const PostCreation(outcome: PostOutcome.created);
     throw createFailure;
@@ -292,20 +306,34 @@ void main() {
       final composer = await compose('Printer is on fire', 'Please send help.');
       api.queues = true;
       api.unreachableQueueReads = {2};
-      api.createdByReachable = false;
       await shell.submitComposer();
       expect(composer.state, ComposerState.unresolved);
 
       composer.text.text = 'Please send help. Now';
       await composer.flushDraft();
       await composer.finishDraftSaves();
-      api.createdByReachable = true;
       await shell.recheckComposer();
 
       expect(api.topicCreates, hasLength(1));
       expect(composer.notice, queuedNotice);
       expect(composer.raw, isEmpty);
       expect(composer.canSubmit, isFalse);
+    });
+
+    test('approved before Check again is found as a topic', () async {
+      final composer = await compose('Printer is on fire', 'Please send help.');
+      api.queues = true;
+      api.unreachableQueueReads = {2};
+      await shell.submitComposer();
+      expect(composer.state, ComposerState.unresolved);
+
+      api.approveQueue();
+      await shell.recheckComposer();
+
+      expect(api.topicCreates, hasLength(1));
+      expect(api.queue, isEmpty);
+      expect(composer.isDisposed, isTrue);
+      expect(shell.currentContent?.topicId, 901);
     });
 
     test('is sent only once the queue before it has been read', () async {
