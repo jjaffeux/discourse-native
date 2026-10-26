@@ -7423,6 +7423,40 @@ void main() {
       expect(subject.chat.messageRebakeWriteInFlight(site, 12), isFalse);
     });
 
+    test('a page read during the rebuild keeps the rebuilt HTML', () async {
+      final gate = Completer<void>();
+      final rebuilt = ChatMessage(
+        id: 12,
+        channelId: 9,
+        cooked: '<p>rebuilt</p>',
+        raw: '12',
+        author: const ChatMessageAuthor(id: 2, username: 'sam'),
+        createdAt: DateTime.utc(2026, 5, 5, 10),
+      );
+      final subject = build(
+        currentUser: staff,
+        rebakeGate: gate,
+        channels: {
+          site: ChatChannels(public: [channel(9)], direct: const []),
+        },
+        messages: {
+          key(9): page([rebuilt]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(site);
+      subject.store.put(site, message(12));
+
+      final writing = subject.chat.rebakeMessage(site, 12);
+      await Future<void>.delayed(Duration.zero);
+      expect(subject.api.chatMessagesRebaked, [(channelId: 9, messageId: 12)]);
+      await subject.chat.openChannel(site, 9, force: true);
+
+      expect(subject.chat.message(site, 12)?.cooked, '<p>rebuilt</p>');
+      gate.complete();
+      expect(await writing, isNull);
+    });
+
     test('ordinary readers and read-only channels do not expose rebuild', () {
       final readerSubject = build(currentUser: currentUser);
       final staffSubject = build(currentUser: staff);
@@ -10571,6 +10605,71 @@ void main() {
         ChatReaction(emoji: 'clap', count: 1, reacted: true, reactorIds: [7]),
       ]);
     });
+  });
+
+  group('a request answered after forget leaves no trace', () {
+    // Forgetting a site retires its owners even while the site lease is still
+    // current, so the replacement account's records must not be written by an
+    // answer to the forgotten account's request.
+    const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+    final source = channel(9, canDeleteSelf: true);
+
+    for (final request in ['reaction', 'reactor read', 'bulk delete']) {
+      test(request, () async {
+        final gate = Completer<void>();
+        final subject = build(
+          currentUser: staff,
+          channels: {
+            site: ChatChannels(public: [source], direct: const []),
+          },
+          reactionGate: gate,
+          reactorReadGate: gate,
+          messageMutationGate: gate,
+          chatReactors: {
+            ChatMessageReactors.key(9, 12, 'clap'): const ChatMessageReactors(
+              channelId: 9,
+              messageId: 12,
+              filter: 'clap',
+              total: 1,
+              reactors: [ChatReactor(id: 8, username: 'sam', reaction: 'clap')],
+            ),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        await subject.chat.loadChannels(site);
+        subject.store
+          ..put(site, message(12, authorId: 7))
+          ..put(site, message(14, authorId: 7));
+        final Future<Object?> old = switch (request) {
+          'reaction' => subject.chat.addMessageReaction(site, 12, 'clap'),
+          'reactor read' => subject.chat.loadMessageReactors(
+            siteUrl: site,
+            channelId: 9,
+            messageId: 12,
+            filter: 'clap',
+          ),
+          _ => subject.chat.deleteMessages(site, 9, [12, 14]),
+        };
+        await Future<void>.delayed(Duration.zero);
+        expect([
+          ...subject.api.chatReactionsSet,
+          ...subject.api.chatReactorsRequested,
+          ...subject.api.chatMessageBatchesDeleted,
+        ], hasLength(1));
+
+        subject.chat.forget(site);
+        final fresh = message(12, raw: 'replacement', authorId: 7);
+        subject.store.put(site, fresh);
+        gate.complete();
+        await old;
+
+        expect(subject.store.read<ChatMessage>(site, 12), same(fresh));
+        expect(
+          subject.chat.messageReactors(site, 9, 12, filter: 'clap'),
+          isNull,
+        );
+      });
+    }
   });
 
   group('paging towards the present', () {
