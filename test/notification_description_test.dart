@@ -156,6 +156,29 @@ void main() {
       );
     });
 
+    test('a like several people gave names who else liked it', () {
+      final two = describe(
+        CoreNotificationTypes.liked,
+        count: 2,
+        data: const {'username2': 'alex'},
+      );
+      expect(two.actor, 'sam, alex');
+      expect(line(two), 'sam, alex liked your post in Better image handling');
+      expect(
+        describe(
+          CoreNotificationTypes.liked,
+          count: 3,
+          data: const {'username2': 'alex'},
+        ).actor,
+        'sam and 2 others',
+      );
+      expect(
+        describe(CoreNotificationTypes.liked, count: 1).actor,
+        'sam',
+        reason: 'a single like names only its liker',
+      );
+    });
+
     test('core notifications without actors stand on their own', () {
       final badge = describe(
         CoreNotificationTypes.grantedBadge,
