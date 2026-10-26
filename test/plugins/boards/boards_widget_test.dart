@@ -355,6 +355,22 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(fixture.host.currentContent?.id, 'boards');
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets('board columns keep their scrollbar outside the sheet', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    final scrollbar = find.ancestor(
+      of: find.byKey(const ValueKey('board-column-10')),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DScrollBar && widget.axis == Axis.horizontal,
+      ),
+    );
+    expect(tester.widget<DScrollBar>(scrollbar).showScrollbar, true);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   if (!nativeView) {
     testWidgets('board columns do not repeat the page safe inset', (
       tester,
