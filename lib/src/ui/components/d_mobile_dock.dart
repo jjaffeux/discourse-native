@@ -218,11 +218,21 @@ final class _Closed extends _Growth {
   const _Closed();
 }
 
-/// Under a finger, from where it was when the drag began, with where the
-/// finger has been lately.
+/// Under a finger, from where it was when the drag began, with how far the
+/// finger has pulled and where it has been lately.
 final class _Dragging extends _Growth {
-  _Dragging({required this.start});
+  _Dragging({required this.start, required this.finger});
   final double start;
+
+  /// The recognizer whose finger has it, or none for a trackpad swipe. One
+  /// drag owns the growth at a time: another finger landing on the bar or
+  /// the panel meanwhile moves nothing.
+  final _GrowDragRecognizer? finger;
+
+  /// Upward, summed from the finger's moves rather than read from where
+  /// the finger is: a second finger on the same bar stands in for the
+  /// first from wherever it landed.
+  double pulled = 0;
   final trail = DMobileDockDragTrail();
 }
 
@@ -302,12 +312,11 @@ class _DMobileDockState extends State<DMobileDock>
     super.dispose();
   }
 
-  /// Where a drag began on the screen, so growth follows the finger from
-  /// where it was.
-  double _dragOrigin = 0;
-
-  void _dragStart(DragStartDetails details) {
+  /// A finger takes the growth over from a trackpad swipe, and never from
+  /// another finger.
+  void _dragStart(_GrowDragRecognizer finger) {
     if (!_grows) return;
+    if (_phase case _Dragging(finger: _?)) return;
     _settle++;
     _swipeRest?.cancel();
     _swipeRest = null;
@@ -315,35 +324,32 @@ class _DMobileDockState extends State<DMobileDock>
     _growth.stop();
     _fade.stop();
     final start = _growth.value.clamp(0.0, 1.0);
-    _dragOrigin = details.globalPosition.dy;
     final wasOut = _out;
-    setState(() => _phase = _Dragging(start: start));
+    setState(() => _phase = _Dragging(start: start, finger: finger));
     if (!wasOut) _portal.show();
     _reportOut();
   }
 
-  void _dragUpdate(DragUpdateDetails details) {
-    if (_phase case _Dragging(:final start, :final trail)) {
+  void _dragUpdate(_GrowDragRecognizer finger, DragUpdateDetails details) {
+    if (_phase case final _Dragging drag when drag.finger == finger) {
       final panel = widget.geometry.panel(tiles: _tiles);
       final travel = math.max(1.0, panel.reveal);
-      final pulled = _dragOrigin - details.globalPosition.dy;
-      final growth = (start + pulled / travel).clamp(0.0, 1.0);
+      drag.pulled -= details.delta.dy;
+      final growth = (drag.start + drag.pulled / travel).clamp(0.0, 1.0);
       _growth.value = growth;
       _fade.value = growth;
-      trail.add(
-        details.globalPosition.dy,
-        details.sourceTimeStamp ?? Duration.zero,
-      );
+      // Where a finger that had pulled this far would be, down the screen.
+      drag.trail.add(-drag.pulled, details.sourceTimeStamp ?? Duration.zero);
     }
   }
 
-  void _dragEnd([DragEndDetails? _]) {
-    if (_phase case _Dragging(:final start, :final trail)) {
+  void _dragEnd(_GrowDragRecognizer finger) {
+    if (_phase case final _Dragging drag when drag.finger == finger) {
       _grow(
         DMobileDockDrag.settlesOpen(
-          start: start,
+          start: drag.start,
           at: _growth.value,
-          velocity: trail.velocity,
+          velocity: drag.trail.velocity,
         ),
       );
     }
@@ -364,13 +370,16 @@ class _DMobileDockState extends State<DMobileDock>
                 _GrowDragRecognizer:
                     GestureRecognizerFactoryWithHandlers<_GrowDragRecognizer>(
                       _GrowDragRecognizer.new,
-                      (recognizer) => recognizer
-                        ..homeBandTop = screenBottom - DMobileDockDrag.homeBand
-                        ..dragStartBehavior = DragStartBehavior.down
-                        ..onStart = _dragStart
-                        ..onUpdate = _dragUpdate
-                        ..onEnd = _dragEnd
-                        ..onCancel = _dragEnd,
+                      (recognizer) {
+                        recognizer.homeBandTop =
+                            screenBottom - DMobileDockDrag.homeBand;
+                        recognizer.dragStartBehavior = DragStartBehavior.down;
+                        recognizer.onStart = (_) => _dragStart(recognizer);
+                        recognizer.onUpdate = (details) =>
+                            _dragUpdate(recognizer, details);
+                        recognizer.onEnd = (_) => _dragEnd(recognizer);
+                        recognizer.onCancel = () => _dragEnd(recognizer);
+                      },
                     ),
               },
         child: child,
@@ -388,7 +397,7 @@ class _DMobileDockState extends State<DMobileDock>
       return;
     }
     switch (_phase) {
-      case _Dragging() when _swipeRest == null:
+      case _Dragging(finger: _?):
         return;
       case _Settling():
         _settle++;
@@ -404,7 +413,7 @@ class _DMobileDockState extends State<DMobileDock>
     final wasOut = _out;
     if (!wasOut && growth == 0) return;
     if (_phase is! _Dragging) {
-      setState(() => _phase = _Dragging(start: start));
+      setState(() => _phase = _Dragging(start: start, finger: null));
     }
     _swipePushed += push;
     _growth.value = growth;

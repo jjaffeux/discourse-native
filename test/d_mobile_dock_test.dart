@@ -1222,6 +1222,115 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a second finger carries the drag on from where the first has '
+      'it, and one on the panel moves nothing', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    final topics = find.byKey(const ValueKey('Topics'));
+    // Three tiles: 104 of the panel stands above the bar's top, and the bar
+    // rises 88 over it.
+    void expectPulled(double pulled) => expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * pulled / 104, .01),
+    );
+    final first = await tester.createGesture(pointer: 1);
+    await first.down(tester.getCenter(topics), timeStamp: Duration.zero);
+    await tester.pump();
+    await first.moveBy(
+      const Offset(0, -40),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    await tester.pump();
+    expectPulled(40);
+    // A second finger lands lower on the risen bar and takes the drag over:
+    // the bar goes on from where it is, by how far that finger moves.
+    final second = await tester.createGesture(pointer: 2);
+    await second.down(
+      tester.getCenter(topics) + const Offset(0, 10),
+      timeStamp: const Duration(milliseconds: 32),
+    );
+    await tester.pump();
+    await second.moveBy(
+      const Offset(0, -15),
+      timeStamp: const Duration(milliseconds: 48),
+    );
+    await tester.pump();
+    expectPulled(55);
+    await first.up(timeStamp: const Duration(milliseconds: 64));
+    await tester.pump();
+    expectPulled(55);
+    await second.moveBy(
+      const Offset(0, -10),
+      timeStamp: const Duration(milliseconds: 80),
+    );
+    await tester.pump();
+    expectPulled(65);
+    await second.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 400),
+    );
+    await second.up(timeStamp: const Duration(milliseconds: 416));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expectPulled(104);
+
+    // Open, a finger pushing the head down owns the growth; another landing
+    // on a tile of the panel meanwhile moves nothing, before or after the
+    // first lets go.
+    final head = await tester.createGesture(pointer: 3);
+    await head.down(
+      tester.getCenter(topics),
+      timeStamp: const Duration(seconds: 1),
+    );
+    await tester.pump();
+    await head.moveBy(
+      const Offset(0, 10),
+      timeStamp: const Duration(milliseconds: 1016),
+    );
+    await tester.pump();
+    expectPulled(94);
+    final tile = await tester.createGesture(pointer: 4);
+    await tile.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: const Duration(milliseconds: 1032),
+    );
+    await tester.pump();
+    await tile.moveBy(
+      const Offset(0, 30),
+      timeStamp: const Duration(milliseconds: 1048),
+    );
+    await tester.pump();
+    expectPulled(94);
+    await head.moveBy(
+      const Offset(0, 5),
+      timeStamp: const Duration(milliseconds: 1064),
+    );
+    await tester.pump();
+    expectPulled(89);
+    await head.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 1400),
+    );
+    await head.up(timeStamp: const Duration(milliseconds: 1416));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expectPulled(104);
+    await tile.moveBy(
+      const Offset(0, 30),
+      timeStamp: const Duration(milliseconds: 1432),
+    );
+    await tester.pump();
+    expectPulled(104);
+    await tile.up(timeStamp: const Duration(milliseconds: 1448));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expectPulled(104);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Escape closes the panel and gives the ⋮ its focus back', (
     tester,
   ) async {
