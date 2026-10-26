@@ -2063,6 +2063,95 @@ void main() {
     expect(state.total, 2);
   });
 
+  const supportGroup = Group(id: 7, name: 'support', publicAdmission: true);
+  for (final (name, write, refreshesDetail)
+      in <
+        (
+          String,
+          Future<GroupWriteOutcome<Object?>> Function(GroupsController),
+          bool,
+        )
+      >[
+        (
+          'joining',
+          (controller) => controller.join(_connectedInstance, supportGroup),
+          true,
+        ),
+        (
+          'accepting a membership request',
+          (controller) => controller.handleRequest(
+            _connectedInstance,
+            supportGroup,
+            const GroupRequester(id: 1, username: 'sam'),
+            accept: true,
+          ),
+          false,
+        ),
+        (
+          'adding a member',
+          (controller) => controller.addMembers(
+            _connectedInstance,
+            supportGroup,
+            GroupAddMembersCommand(usernames: const ['sam']),
+          ),
+          true,
+        ),
+      ]) {
+    test('$name lists the new member in every loaded member list', () async {
+      Map<String, dynamic> page(List<String> usernames) => {
+        'members': [
+          for (final username in usernames)
+            {'id': username == 'sam' ? 1 : 2, 'username': username},
+        ],
+        'owners': <Object?>[],
+        'meta': {'total': usernames.length, 'limit': 50, 'offset': 0},
+      };
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed(page(['lee'])),
+          _completed(page(['lee'])),
+          if (refreshesDetail)
+            _completed({
+              'group': {'id': 7, 'name': 'support', 'user_count': 2},
+            }),
+          _completed(page(['sam', 'lee'])),
+          _completed(page(['sam', 'lee'])),
+        ]);
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const sorts = [
+        (order: null, ascending: true),
+        (order: 'added_at', ascending: false),
+      ];
+
+      for (final sort in sorts) {
+        await controller.loadMembers(
+          _connectedInstance,
+          supportGroup.name,
+          order: sort.order,
+          ascending: sort.ascending,
+        );
+      }
+      final written = await write(controller);
+      expect(written.canApplyLocally, isTrue);
+
+      for (final sort in sorts) {
+        final state = controller.membersState(
+          _site,
+          supportGroup.name,
+          order: sort.order,
+          ascending: sort.ascending,
+        );
+        expect(state.members.map((member) => member.username), [
+          'sam',
+          'lee',
+        ], reason: 'sorted by ${sort.order}');
+        expect(state.total, 2, reason: 'sorted by ${sort.order}');
+      }
+    });
+  }
+
   test(
     'members added while the next page loads are shown by the refresh',
     () async {
