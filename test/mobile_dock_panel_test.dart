@@ -242,6 +242,105 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Settings held and dropped on Bookmarks\' slot is the bar\'s '
+      'third, the shell left alone, and a remount keeps the order', (
+    tester,
+  ) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+    List<String> barLabels() => [
+      for (final item in tester.widgetList<DMobileDockItem>(
+        find.descendant(of: surface, matching: find.byType(DMobileDockItem)),
+      ))
+        if (item.key != DMobileDock.moreKey) item.label,
+    ];
+    List<String> panelLabels() => [
+      for (final item in tester.widgetList<DMobileDockItem>(
+        find.descendant(of: panel, matching: find.byType(DMobileDockItem)),
+      ))
+        if (item.key != DMobileDock.youKey) item.label,
+    ];
+    expect(barLabels(), ['Topics', 'Chat', 'Bookmarks']);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    final root = tester.element(find.byType(MobileForumRoot));
+    final chrome = tester.element(
+      find
+          .descendant(
+            of: find.byType(MobileForumRoot),
+            matching: find.byType(ListenableBuilder),
+          )
+          .first,
+    );
+    final page = tester.element(find.byType(TopicListView));
+    final header = tester.element(find.byKey(const ValueKey('mobile-header')));
+    var notifications = 0;
+    void count() => notifications++;
+    shell.addListener(count);
+    addTearDown(() => shell.removeListener(count));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    final settings = tester.getCenter(
+      find.descendant(
+        of: panel,
+        matching: find.widgetWithText(DMobileDockItem, 'Settings'),
+      ),
+    );
+    final bookmarks = tester.getCenter(
+      find.byKey(const ValueKey('mobile-mode-destination/user-bookmarks')),
+    );
+    final gesture = await tester.createGesture();
+    await gesture.down(settings, timeStamp: Duration.zero);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    final moving = find.byKey(
+      DMobileDock.movingKey(
+        const ValueKey('mobile-mode-destination/appearance'),
+      ),
+    );
+    expect(moving, findsOneWidget);
+    await gesture.moveTo(
+      bookmarks,
+      timeStamp: const Duration(milliseconds: 340),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    // The lift, the follow and the slot it was brought to left the shell,
+    // its chrome and the page alone.
+    expect(rebuilt, isNotEmpty);
+    expect(rebuilt, isNot(contains(root)));
+    expect(rebuilt, isNot(contains(chrome)));
+    expect(rebuilt, isNot(contains(page)));
+    expect(rebuilt, isNot(contains(header)));
+    expect(notifications, 0);
+    await gesture.up(timeStamp: const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    // Let go, the new order shows through the place list alone: the chrome
+    // rebuilt with it, the page and the shell did not.
+    expect(moving, findsNothing);
+    expect(rebuilt, isNot(contains(root)));
+    expect(rebuilt, isNot(contains(page)));
+    expect(notifications, 0);
+    expect(barLabels(), ['Topics', 'Chat', 'Settings']);
+    expect(panelLabels().take(3), ['Bookmarks', 'Inbox', 'Users']);
+    // The release pressed nothing.
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(panel, findsOneWidget);
+
+    await fixture.pumpMobileShellFixture(tester);
+    expect(barLabels(), ['Topics', 'Chat', 'Settings']);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    expect(panelLabels().take(3), ['Bookmarks', 'Inbox', 'Users']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a place in the panel\'s head closes it and goes there', (
     tester,
   ) async {

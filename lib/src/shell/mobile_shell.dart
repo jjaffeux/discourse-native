@@ -22,6 +22,7 @@ import 'message_create_button.dart';
 import 'mobile_dock_panel_scope.dart';
 import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
+import 'mobile_place_order.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -98,11 +99,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   Widget _buildChrome(BuildContext context) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
+    // The account's own order of the places; another account's comes with a
+    // new controller, and this build with it.
+    final placeOrder = MobilePlaceOrderHost.maybeOf(context);
     // The chrome reads facade and plugin state only. Topic feeds notify
     // several times per page, and the widgets that read them listen directly.
     final body = ListenableBuilder(
       listenable: Listenable.merge([
         shell,
+        ?placeOrder,
         shell.accountActivity.totalsListenable,
         shell.draftList,
         ...registry.sidebarPanelListenables(context),
@@ -165,6 +170,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           instance: instance,
           panels: panels,
           selected: selected,
+          order: placeOrder?.order ?? const [],
         );
         final tabOrder = [for (final place in places) place.tab];
         if (!tabOrder.contains(selected)) {
@@ -370,6 +376,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             panelAction: panelAction,
                             showNewTopic: showNewTopic,
                             shell: shell,
+                            placeOrder: placeOrder,
                             hideDestinations: hidden,
                           ),
                         ),
@@ -382,7 +389,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ],
         );
         return MobileHistoryGestures(
-          tabIndex: tabOrder.indexOf(selected),
+          tab: (id: selected, index: tabOrder.indexOf(selected)),
           navigationPreview: navigationPage,
           frameBuilder: frame,
           child: Stack(
@@ -456,6 +463,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
+    required MobilePlaceOrderController? placeOrder,
     required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
@@ -545,6 +553,20 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         ),
         you: _you(context, shell: shell, instance: instance),
         onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
+        // The order written is the one shown, the moved place in its new
+        // slot; a place hidden for now, Drafts between drafts, keeps the
+        // slot it had.
+        onMoved: placeOrder == null
+            ? null
+            : (from, to) => unawaited(
+                placeOrder.place(
+                  DMobileDockReorder.moved(
+                    [for (final item in destinations) item.tab.name],
+                    from,
+                    to,
+                  ),
+                ),
+              ),
         action: primaryAction == null
             ? null
             : DActionTransition(
@@ -621,9 +643,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
 }
 
 /// Every place the phone offers, in the order its bar shows them and the
-/// panel the bar grows into holds the rest. The bar is the phone's Start
-/// page, so this list holds what that page offers elsewhere; the dock and the
-/// history gestures read this one order.
+/// panel the bar grows into holds the rest: the ones the person has placed,
+/// as [order] names them, then the rest in their own order. The bar is the
+/// phone's Start page, so this list holds what that page offers elsewhere;
+/// the dock and the history gestures read this one order.
 List<_DockDestination> _mobilePlaces(
   BuildContext context, {
   required ShellController shell,
@@ -631,6 +654,7 @@ List<_DockDestination> _mobilePlaces(
   required DiscourseInstance instance,
   required List<OwnedSidebarPanel> panels,
   required MobileTab selected,
+  required List<String> order,
 }) {
   final signedIn = instance.isConnected;
   final destinations = instance.sections
@@ -669,7 +693,7 @@ List<_DockDestination> _mobilePlaces(
       .feedFor(instance.url)
       .drafts
       .any((draft) => draft.canResume);
-  return [
+  final places = <_DockDestination>[
     (
       tab: MobileTab.topics,
       label: context.l10n.topics,
@@ -762,6 +786,11 @@ List<_DockDestination> _mobilePlaces(
             (hasResumableDraft || selected == MobileTab.destination(drafts.id)))
       page(drafts),
   ];
+  return MobilePlaceOrderController.apply(
+    places,
+    order,
+    (place) => place.tab.name,
+  );
 }
 
 /// Adapts mobile visit history to the Native interactive transition.
@@ -769,12 +798,14 @@ class MobileHistoryGestures extends StatelessWidget {
   const MobileHistoryGestures({
     super.key,
     required this.child,
-    required this.tabIndex,
+    required this.tab,
     required this.navigationPreview,
     required this.frameBuilder,
   });
   final Widget child;
-  final int tabIndex;
+
+  /// The place the person is on, and where it stands among the places.
+  final DHistoryTab tab;
   final Widget navigationPreview;
   final Widget Function(BuildContext context, Widget page) frameBuilder;
 
@@ -789,7 +820,7 @@ class MobileHistoryGestures extends StatelessWidget {
     return DHistoryTransition(
       frameBuilder: frameBuilder,
       history: navigation.historyId,
-      tabIndex: sidebarOpen ? -1 : tabIndex,
+      tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
       entry: sidebarOpen ? sidebarEntry : navigation.entryId,
       // Navigation is adjacent to the tab root without becoming a visit in

@@ -8,6 +8,7 @@ import 'data/topic_recommendations_tab_store.dart' as p5;
 import 'data/topic_sidebar_store.dart' as p6;
 import 'data/user_directory_column_width_store.dart' as p7;
 import 'shell/header_preferences.dart' as p8;
+import 'shell/mobile_place_order.dart' as p9;
 
 const declaredSitePreferenceKeys = <SitePreferenceKey>[
   p0.BookmarkReminderStore.keys,
@@ -20,4 +21,5 @@ const declaredSitePreferenceKeys = <SitePreferenceKey>[
   p6.SharedPreferencesTopicSidebarPersistence.keys,
   p7.SharedPreferencesUserDirectoryColumnWidthPersistence.keys,
   p8.HeaderPreferencesController.keys,
+  p9.MobilePlaceOrderController.keys,
 ];

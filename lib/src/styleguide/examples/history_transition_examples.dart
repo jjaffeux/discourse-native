@@ -30,7 +30,7 @@ final historyTransitionExamples = ComponentExamples(
           'Select tabs in either direction. A short slide and crossfade indicate the tab order while the controls stay still.',
       states: const ['Tab order', 'RTL', 'Reduced motion'],
       code:
-          'DHistoryTransition(history: journeyId, entry: visitId, tabIndex: selectedIndex, tabOwner: accountId, child: currentPage)',
+          'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, child: currentPage)',
       builder: (_) => const _TabTransitionExample(),
     ),
     StyleguideExample(
@@ -117,7 +117,7 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
               previousPreview: _open ? null : navigation,
               onBack: _open ? null : _toggle,
               onForward: _open ? _toggle : null,
-              tabIndex: _open ? -1 : 0,
+              tab: (id: _open ? 'navigation' : 'page', index: _open ? -1 : 0),
               tabOwner: _history,
               child: _open
                   ? navigation
@@ -241,7 +241,7 @@ class _TabTransitionExampleState extends State<_TabTransitionExample> {
           child: DHistoryTransition(
             history: _index,
             entry: _index,
-            tabIndex: _index,
+            tab: (id: _index, index: _index),
             tabOwner: 'example',
             child: DCard(
               child: DCardContent(

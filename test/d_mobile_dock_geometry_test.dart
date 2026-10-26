@@ -209,6 +209,30 @@ void main() {
       expect(panel.tileRect(4, 390).top, 184);
     });
 
+    test('its places\' slots are the head\'s tiles, then the grid\'s', () {
+      final full = const DMobileDockGeometry(foot: 34).panel(tiles: 4);
+      expect(full.placeRects(places: 6, width: 390, action: true), const [
+        Rect.fromLTWH(6, 19, 91.5, 56),
+        Rect.fromLTWH(101.5, 19, 91.5, 56),
+        Rect.fromLTWH(197, 19, 91.5, 56),
+        Rect.fromLTWH(6, 92, 91.5, 56),
+        Rect.fromLTWH(101.5, 92, 91.5, 56),
+        Rect.fromLTWH(197, 92, 91.5, 56),
+      ]);
+      // A capsule stands in from the panel's edges by its own margin, and its
+      // fourth column grows to hold the ⋮ and the action, so the head's
+      // tiles are set in and narrower than the grid's.
+      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 4);
+      final slots = capsule.placeRects(places: 6, width: 390, action: true);
+      expect(slots.take(3), const [
+        Rect.fromLTWH(12, 19, 88, 56),
+        Rect.fromLTWH(104, 19, 88, 56),
+        Rect.fromLTWH(196, 19, 88, 56),
+      ]);
+      expect(slots[3], const Rect.fromLTWH(6, 92, 91.5, 56));
+      expect(slots, hasLength(6));
+    });
+
     test('equal inputs make equal panels', () {
       expect(round.panel(tiles: 5), round.panel(tiles: 5));
       expect(round.panel(tiles: 5), isNot(round.panel(tiles: 6)));

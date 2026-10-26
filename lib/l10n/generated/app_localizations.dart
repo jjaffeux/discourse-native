@@ -17820,6 +17820,18 @@ abstract class AppLocalizations {
   /// **'Your account'**
   String get yourAccount;
 
+  /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot earlier among a phone's places. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Move earlier'**
+  String get moveEarlier;
+
+  /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot later among a phone's places. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Move later'**
+  String get moveLater;
+
   /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

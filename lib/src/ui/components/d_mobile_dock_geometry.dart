@@ -274,6 +274,38 @@ class DMobileDockPanelGeometry {
   static double gridOpacity(double growth) =>
       (growth * 1.6 - .6).clamp(0, 1).toDouble();
 
+  /// Where each of [places] stands once the panel is open, from its top-start
+  /// corner and [width] across: the bar's first
+  /// [DMobileDockGeometry.placeColumns] as the tiles of its head, risen to
+  /// leave [grabberRoom] under the panel's top edge, with an [action] beside
+  /// them or not, then the rest on the grid. These are the slots a place
+  /// lifted to be moved is set down in.
+  List<Rect> placeRects({
+    required int places,
+    required double width,
+    required bool action,
+  }) {
+    const columns = DMobileDockGeometry.placeColumns;
+    final head = bar.rowSlots(
+      width - bar.margin.horizontal,
+      places: math.min(places, columns),
+      tail: places > columns ? DMobileDockTail.more : DMobileDockTail.none,
+      action: action,
+    );
+    final headTop = reveal - barRise(1) + bar.padding.top - bar.headOverflow;
+    return [
+      for (final slot in head.places)
+        Rect.fromLTWH(
+          bar.margin.start + bar.padding.start + slot.start,
+          headTop,
+          slot.width,
+          tileHeight,
+        ),
+      for (var index = columns; index < places; index++)
+        tileRect(index - columns, width),
+    ];
+  }
+
   /// Where tile [index] sits, from the panel's top-start corner.
   Rect tileRect(int index, double width) {
     final column = bar.gridColumn(width);

@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'header_preferences.dart';
+import 'mobile_place_order.dart';
 import 'shell_controller.dart';
 
 class ShellScope extends InheritedNotifier<ShellController> {
@@ -17,7 +18,9 @@ class ShellScope extends InheritedNotifier<ShellController> {
            registry: controller.plugins.registry,
            child: _ShellControllerIdentity(
              controller: controller,
-             child: HeaderPreferencesHost(child: child),
+             child: HeaderPreferencesHost(
+               child: MobilePlaceOrderHost(child: child),
+             ),
            ),
          ),
        );

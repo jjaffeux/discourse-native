@@ -10389,6 +10389,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yourAccount => 'Your account';
 
   @override
+  String get moveEarlier => 'Move earlier';
+
+  @override
+  String get moveLater => 'Move later';
+
+  @override
   String get offline => 'Offline';
 
   @override

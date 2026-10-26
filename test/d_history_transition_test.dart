@@ -746,6 +746,30 @@ void main() {
     );
   }
 
+  testWidgets('the selected tab moved among the others, as when tabs are '
+      'reordered, neither slides nor holds the page', (tester) async {
+    final state = await _pump(tester, tabTransitions: true);
+    state.moveTab(2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 70));
+    expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+    expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
+    expect(find.byType(RawImage), findsNothing);
+    expect(_live.hitTestable(), findsOneWidget);
+    // Another tab from there slides towards its index still.
+    state.selectTab(1);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 70));
+    final incoming = tester
+        .widget<Transform>(find.byKey(const ValueKey('history-incoming-tab')))
+        .transform
+        .getTranslation()
+        .x;
+    expect(incoming, lessThan(0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   for (final direction in TextDirection.values) {
     for (final livePreviews in [false, true]) {
       testWidgets(
@@ -971,7 +995,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   int index = 0;
   int furthest = 0;
   int swipes = 0;
-  late int? tabIndex = widget.tabTransitions ? 0 : null;
+  late DHistoryTab? tab = widget.tabTransitions ? (id: 0, index: 0) : null;
   Object tabOwner = Object();
 
   Widget _previewSurface(Widget child) => Padding(
@@ -982,17 +1006,21 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
     ),
   );
 
-  void selectTab(int tab) => setState(() {
+  void selectTab(int to) => setState(() {
     history = Object();
-    tabIndex = tab;
-    index = tab;
-    furthest = tab;
+    tab = (id: to, index: to);
+    index = to;
+    furthest = to;
   });
+
+  /// The selected tab stands at [at] among the tabs now, as when they are
+  /// put in another order.
+  void moveTab(int at) => setState(() => tab = (id: tab!.id, index: at));
 
   void changeOwner() => setState(() {
     tabOwner = Object();
     history = Object();
-    tabIndex = 0;
+    tab = (id: 0, index: 0);
     index = 0;
   });
 
@@ -1047,7 +1075,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
               )
             : null,
         history: history,
-        tabIndex: tabIndex,
+        tab: tab,
         tabOwner: tabOwner,
         entry: index,
         previousEntry: index > 0 ? index - 1 : null,

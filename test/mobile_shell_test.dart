@@ -42,6 +42,7 @@ import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
+import 'package:discourse_native/src/shell/mobile_place_order.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -58,6 +59,7 @@ import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -3252,6 +3254,76 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('the places a person has placed come first, in the bar and the '
+      'panel, and a name the forum no longer offers is dropped', (
+    tester,
+  ) async {
+    final placed = MobilePlaceOrderController(_site, 'user:reader');
+    await placed.set(['destination/appearance', 'destination/gone', 'users']);
+    placed.dispose();
+    await pumpMobileShellFixture(tester);
+    expect(await _placesInOrder(tester), [
+      'Settings',
+      'Users',
+      'Topics',
+      'Chat',
+      'Bookmarks',
+      'Inbox',
+      'Categories',
+      'Groups',
+      'Badges',
+      'Preferences',
+      'Summary',
+      'Activity',
+      'Channels',
+      'Threads',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a place dropped across the current one moves it over without '
+      'the page changing tabs', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await tester.tap(_moreTrigger);
+    await tester.pumpAndSettle();
+    final topics = tester.getCenter(
+      find.byKey(const ValueKey('mobile-mode-topics')),
+    );
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(find.byKey(const ValueKey('mobile-mode-panel/chat'))),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    await gesture.moveTo(topics, timeStamp: const Duration(milliseconds: 340));
+    await tester.pump();
+    await gesture.up(timeStamp: const Duration(milliseconds: 400));
+    // The frame that brings the places in their new order, and the next.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(_dockLabels(tester).take(2), ['Chat', 'Topics']);
+    // Topics is the page still, in another column: nothing slides, and the
+    // page takes input.
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
+    expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+    final live = find.byKey(const ValueKey('history-live-page'));
+    expect(live, findsOneWidget);
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find
+                .descendant(of: live, matching: find.byType(IgnorePointer))
+                .first,
+          )
+          .ignoring,
+      isFalse,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('staff reach Dashboard right after Bookmarks', (tester) async {
     await pumpMobileShellFixture(tester, user: _reader(staff: true));
     final places = await _placesInOrder(tester);
@@ -3343,6 +3415,53 @@ void main() {
     final places = await _placesInOrder(tester);
     expect(places.last, 'Drafts');
     expect(places.where((label) => label == 'Drafts'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a move keeps the slot of a place hidden for now, as Drafts is '
+      'between drafts', (tester) async {
+    final placed = MobilePlaceOrderController(_site, 'user:reader');
+    await placed.set(['destination/drafts']);
+    placed.dispose();
+    late FakeDiscourseApi api;
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (fake) => api = fake..userDraftList = const [_topicDraft],
+    );
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester).first, 'Drafts');
+    // The draft finished, Drafts goes, and Chat is moved before Topics.
+    shell.draftList.recordDeleted(_site, 'new_topic', knownToExist: true);
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester), ['Topics', 'Chat', 'Bookmarks']);
+    final semantics = tester.ensureSemantics();
+    await tester.tap(_moreTrigger);
+    await tester.pumpAndSettle();
+    final chat = tester.getSemantics(
+      find.byKey(const ValueKey('mobile-mode-panel/chat')),
+    );
+    chat.owner!.performAction(
+      chat.id,
+      SemanticsAction.customAction,
+      CustomSemanticsAction.getIdentifier(
+        const CustomSemanticsAction(label: 'Move earlier'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester), ['Chat', 'Topics', 'Bookmarks']);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    semantics.dispose();
+    // A new draft brings Drafts back where the person had put it.
+    api.userDraftList = const [_topicDraft];
+    await shell.draftList.load(shell.currentInstance!, refresh: true);
+    await tester.pumpAndSettle();
+    expect((await _placesInOrder(tester)).take(3), [
+      'Drafts',
+      'Chat',
+      'Topics',
+    ]);
     expect(tester.takeException(), isNull);
   });
 
