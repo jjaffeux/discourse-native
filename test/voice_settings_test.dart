@@ -193,6 +193,18 @@ void main() {
     expect(config.voiceSettings.namespace, VoiceNamespace.voice);
   });
 
+  test('a config persisted without Voice enabled is assumed current', () {
+    // The previous build read only voice_enabled, so a site that had already
+    // renamed the plugin was stored as disabled.
+    final config = SiteConfig.fromJson({
+      'plugins': {
+        voiceSettingsDataKey.id: const {'enabled': false},
+      },
+    }, extensions: _registry);
+
+    expect(config.voiceSettings.namespace, VoiceNamespace.live);
+  });
+
   test('a site without the plugin is assumed to be current', () {
     final config = SiteConfig.fromSettings(const {}, extensions: _registry);
 

@@ -38,6 +38,8 @@ Map<String, dynamic> fixture(String name) =>
 
 RecordingPluginLiveChannels tracker(String _) => RecordingPluginLiveChannels();
 
+VoiceNamespace _beforeLiveRename(String _) => VoiceNamespace.voice;
+
 Map<String, dynamic> renamedRoomEvent({
   String type = 'updated',
   int? messageBusLastId,
@@ -913,7 +915,7 @@ void main() {
     FakeChatConversationCapability? conversations,
     Duration heartbeatInterval = const Duration(days: 1),
     FakeVoiceSystemCall? system,
-    VoiceNamespace namespace = VoiceNamespace.voice,
+    VoiceNamespace Function(String siteUrl) namespaceFor = _beforeLiveRename,
   }) {
     controller.dispose();
     transport = value;
@@ -921,7 +923,7 @@ void main() {
     mediaFactory = FakeVoiceMediaFactory();
     systemCall = system ?? FakeVoiceSystemCall();
     controller = VoiceController(
-      api: VoiceApi(transport, namespaceFor: (_) => namespace),
+      api: VoiceApi(transport, namespaceFor: namespaceFor),
       chatConversations: chatConversations,
       requests: requests,
       trackerFor:
@@ -9501,7 +9503,7 @@ void main() {
             'GET /live/rooms/7/chat_session.json': fixture('chat'),
           },
         ),
-        namespace: VoiceNamespace.live,
+        namespaceFor: (_) => VoiceNamespace.live,
       );
       await controller.ensureLoaded(firstSite);
       await controller.openChat(firstSite, 7);
@@ -9528,6 +9530,26 @@ void main() {
         transport.reads.map((read) => read.path),
         everyElement(startsWith('/live/')),
       );
+    });
+
+    test('the call ring moves to the namespace the site settles on', () async {
+      var namespace = VoiceNamespace.voice;
+      useTransport(
+        RecordingPluginTransport(
+          responses: {'GET /live/rooms.json': fixture('directory')},
+        ),
+        namespaceFor: (_) => namespace,
+      );
+      // The shell attaches a site's tracker before it fetches the site's
+      // settings, so the stored config names the namespace at first.
+      controller.attachTracker(firstSite, firstTracker);
+      expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+
+      namespace = VoiceNamespace.live;
+      await controller.ensureLoaded(firstSite);
+
+      expect(firstTracker.subscriberCount('/voice/call-ring/1'), 0);
+      expect(firstTracker.subscriberCount('/live/call-ring/1'), 1);
     });
 
     test('follows the thread the server rolls the session over to', () async {
