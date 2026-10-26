@@ -192,6 +192,28 @@ void main() {
       expect(parse(postQuote).title, 'martin');
     });
 
+    test(
+      'an unattributed quote does not take a nested quote\'s attribution',
+      () {
+        // Core cooks `[quote]` with no source as an aside with no title row,
+        // and a quote nested inside it keeps its own title.
+        final data = parse('''
+<aside class="quote no-group">
+<blockquote>
+$postQuote
+<p>The outer quote's own words.</p>
+</blockquote>
+</aside>
+''');
+
+        expect(data.title, isNull);
+        expect(data.avatarUrl, isNull);
+        expect(data.link, isNull);
+        expect(data.bodyHtml, contains('The outer quote'));
+        expect(data.bodyHtml, contains('combining New and Unread'));
+      },
+    );
+
     test('reads a bare markdown blockquote as a quote with no attribution', () {
       final data = parse(plainBlockquote);
 
