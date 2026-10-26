@@ -136,6 +136,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a result shows its excerpt as text rather than escaped HTML', (
+    tester,
+  ) async {
+    // The search endpoint serializes `excerpt_for_display`, which core builds
+    // with PrettyText.excerpt and so HTML-escapes.
+    final page = ChatSearchPage.fromJson(const {
+      'messages': [
+        {
+          'id': 1,
+          'chat_channel_id': 9,
+          'message': "I'm stuck & lost",
+          'cooked': "<p>I'm stuck &amp; lost</p>",
+          'excerpt': 'I&#39;m stuck &amp; lost',
+          'created_at': '2026-08-25T10:00:00Z',
+          'user': {'id': 2, 'username': 'sam'},
+          'channel': {'id': 9, 'title': 'Ops', 'chatable_type': 'Category'},
+        },
+      ],
+    }, _site);
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatSearchPagesByKey: {FakeDiscourseApi.chatSearchKey('stuck'): page},
+    );
+    await _pump(tester, api);
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-search-field')),
+      'stuck',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is SearchText && widget.text == "I'm stuck & lost",
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a failed page waits for Try again instead of scrolling', (
     tester,
   ) async {
