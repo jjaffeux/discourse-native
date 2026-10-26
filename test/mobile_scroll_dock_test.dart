@@ -36,6 +36,7 @@ Future<void> _mount(
   bool loadingBefore = false,
   Object identity = 'topics',
   int count = 100,
+  bool dock = true,
   VoidCallback? onPressed,
 }) async {
   await tester.pumpWidget(
@@ -58,14 +59,16 @@ Future<void> _mount(
                   body ??
                   _list(controller: controller, reverse: reverse, count: count),
             ),
-            dockBuilder: (_) => SizedBox(
-              key: _dock,
-              height: 60,
-              child: DButton(
-                label: const Text('Dock action'),
-                onPressed: onPressed ?? () {},
-              ),
-            ),
+            dockBuilder: (_) => dock
+                ? SizedBox(
+                    key: _dock,
+                    height: 60,
+                    child: DButton(
+                      label: const Text('Dock action'),
+                      onPressed: onPressed ?? () {},
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
       ),
@@ -108,6 +111,19 @@ void main() {
       );
     },
   );
+
+  testWidgets('an empty floating footer clears the room of the dock before', (
+    tester,
+  ) async {
+    double clearance() =>
+        DScrollChrome.bottomInsetOf(tester.element(find.byKey(_body)));
+    await _mount(tester, floating: true);
+    expect(clearance(), 60);
+    await _mount(tester, floating: true, dock: false, identity: 'board');
+    expect(clearance(), 0);
+    await _mount(tester, floating: true);
+    expect(clearance(), 60);
+  });
 
   testWidgets('disabling scroll hiding restores and keeps the full dock', (
     tester,

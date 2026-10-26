@@ -235,11 +235,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 route.isTopic || registry.usesMobilePageSheet(context, route),
               null => false,
             };
-        final keepDockVisible =
+        final hideDock =
             !widget.boundary &&
             !panelRoot &&
             switch (shell.currentContent) {
-              final route? => registry.keepsMobileDockVisible(context, route),
+              final route? => registry.hidesMobileDock(context, route),
               null => false,
             };
         final dockDestinations = <_DockDestination>[
@@ -437,6 +437,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             Expanded(
               // The page runs under the home indicator; only the floating dock
               // keeps clear of it, and pages pad their last row by its height.
+              // A route without a dock keeps an empty footer of that clearance.
               child: ListenableBuilder(
                 listenable: _footerAction,
                 child: page,
@@ -448,35 +449,38 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     widget.boundary,
                   ),
                   visible: !sidebarOpen,
-                  hideOnScroll: !keepDockVisible,
+                  hideOnScroll: !hideDock,
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
-                  dockBuilder: (hidden) => ForumSidebarTheme(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        6,
-                        6,
-                        6,
-                        6 +
-                            ComposerDock.bottomOverlayInsetOf(context) +
-                            MediaQuery.paddingOf(context).bottom,
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => _buildBottomBar(
-                          context,
-                          constraints,
-                          destinations: dockDestinations,
-                          selected: selected,
-                          showReply: showReply,
-                          showNewMessage: showNewMessage,
-                          panelAction: panelAction,
-                          showNewTopic: showNewTopic,
-                          shell: shell,
-                          hideDestinations: hidden,
+                  dockBuilder: (hidden) {
+                    final clearance =
+                        ComposerDock.bottomOverlayInsetOf(context) +
+                        MediaQuery.paddingOf(context).bottom;
+                    if (hideDock) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: clearance),
+                      );
+                    }
+                    return ForumSidebarTheme(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(6, 6, 6, 6 + clearance),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => _buildBottomBar(
+                            context,
+                            constraints,
+                            destinations: dockDestinations,
+                            selected: selected,
+                            showReply: showReply,
+                            showNewMessage: showNewMessage,
+                            panelAction: panelAction,
+                            showNewTopic: showNewTopic,
+                            shell: shell,
+                            hideDestinations: hidden,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),

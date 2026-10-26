@@ -2304,11 +2304,10 @@ final class PluginRegistry
             plugin.usesMobilePageSheet(_uiContext(context, plugin), route),
       );
 
-  bool keepsMobileDockVisible(BuildContext context, ContentRoute route) =>
+  bool hidesMobileDock(BuildContext context, ContentRoute route) =>
       route.destination is ExtensionDestination &&
       plugins.whereType<ContentMobileDockPlugin>().any(
-        (plugin) =>
-            plugin.keepsMobileDockVisible(_uiContext(context, plugin), route),
+        (plugin) => plugin.hidesMobileDock(_uiContext(context, plugin), route),
       );
 
   bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>

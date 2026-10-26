@@ -22779,6 +22779,12 @@ abstract class AppLocalizations {
   /// **'Column controls'**
   String get boardsColumnControls;
 
+  /// Native Boards reader interface. Label of a position dot below a board that shows one column at a time.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to column {number} of {total}'**
+  String boardsGoToColumn(String number, String total);
+
   /// Native Boards reader interface.
   ///
   /// In en, this message translates to:
