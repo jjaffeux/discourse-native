@@ -604,7 +604,11 @@ void main() {
         expect(route.isAdvancedTopicFilter, isTrue, reason: query);
         expect(
           Uri.parse(api.feedPaths.last).queryParameters['q'],
-          Uri.parse(route.topicFilterRequestPath).queryParameters['q'],
+          Uri.parse(
+            route.topicFilterRequestPath(
+              (id) => shell.categoryFor(id, siteUrl: _siteUrl),
+            ),
+          ).queryParameters['q'],
           reason: query,
         );
       }
@@ -671,7 +675,7 @@ void main() {
       'future:"keep  spacing" category:1 tag:"customer feedback+123+中文"',
     );
     expect(
-      Uri.parse(route.topicFilterRequestPath).queryParameters['q'],
+      Uri.parse(route.topicFilterRequestPath((_) => null)).queryParameters['q'],
       'future:"keep  spacing" category:1 '
       'tag:"customer feedback"+123+中文',
     );
