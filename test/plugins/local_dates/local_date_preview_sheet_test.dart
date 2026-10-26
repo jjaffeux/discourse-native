@@ -42,6 +42,7 @@ void main() {
   Future<GlobalKey> open(
     WidgetTester tester, {
     LocalDateSpec spec = _spec,
+    LocalDateSpec? from,
     LocalDateSpec? end,
     double width = 390,
     double scale = 17 / 14,
@@ -83,6 +84,7 @@ void main() {
                 padding: const EdgeInsets.all(20),
                 child: LocalDateInline(
                   spec: spec,
+                  from: from,
                   to: end,
                   formatter: formatter,
                   now: () => DateTime.utc(2026, 9, 1),
@@ -237,6 +239,28 @@ void main() {
     expect(sheetText('00:00'), findsOneWidget);
     expect(sheetText('01:30'), findsOneWidget);
     expect(sheetText('22:30'), findsOneWidget);
+    expect(sheetText('→'), findsNWidgets(4));
+  });
+
+  testWidgets('a range previews whole from its ending date too', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      spec: const LocalDateSpec(
+        date: '2026-09-14',
+        time: '01:30:00',
+        timezone: 'America/New_York',
+        range: 'to',
+        fallbackText: '',
+      ),
+      from: _spec,
+      hour24: true,
+    );
+    expect(sheetText('06:00'), findsOneWidget);
+    expect(sheetText('07:30'), findsOneWidget);
+    expect(sheetText('00:00'), findsOneWidget);
+    expect(sheetText('01:30'), findsOneWidget);
     expect(sheetText('→'), findsNWidgets(4));
   });
 
