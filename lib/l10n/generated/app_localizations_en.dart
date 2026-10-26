@@ -7939,9 +7939,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get replyToThisTopic => 'Reply to this topic';
 
   @override
-  String get moreDestinations => 'More destinations';
-
-  @override
   String get selectedComposerrecipients => 'Selected';
 
   @override
@@ -10384,6 +10381,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationsPaused => 'Notifications paused';
+
+  @override
+  String get places => 'Places';
+
+  @override
+  String get yourAccount => 'Your account';
 
   @override
   String get offline => 'Offline';

@@ -141,6 +141,12 @@ class DScrollChrome extends StatefulWidget {
   static DScrollChromeController? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ChromeScope>()?.controller;
 
+  /// Whether the footer is put away: hidden by an owner that needs its room,
+  /// such as a composer, or not shown at all. What the footer holds that
+  /// stands beyond it, a phone bar's grown panel, goes with it.
+  static bool footerAwayOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_FooterAway>()?.away ?? false;
+
   @override
   State<DScrollChrome> createState() => _DScrollChromeState();
 }
@@ -643,10 +649,13 @@ class _DScrollChromeState extends State<DScrollChrome>
                               child: SizeChangedLayoutNotifier(
                                 child: Focus(
                                   focusNode: _footerFocus,
-                                  child: _ChromeExtent(
-                                    key: _footerContentKey,
-                                    child: _footerContent ??= widget
-                                        .footerBuilder(_hidden),
+                                  child: _FooterAway(
+                                    away: footerHidden,
+                                    child: _ChromeExtent(
+                                      key: _footerContentKey,
+                                      child: _footerContent ??= widget
+                                          .footerBuilder(_hidden),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -702,10 +711,12 @@ class _DScrollChromeState extends State<DScrollChrome>
                             alignment: Alignment.topCenter,
                             child: Focus(
                               focusNode: _footerFocus,
-                              child: _ChromeExtent(
-                                key: _footerContentKey,
-                                child: _footerContent ??= widget.footerBuilder(
-                                  _hidden,
+                              child: _FooterAway(
+                                away: gone,
+                                child: _ChromeExtent(
+                                  key: _footerContentKey,
+                                  child: _footerContent ??= widget
+                                      .footerBuilder(_hidden),
                                 ),
                               ),
                             ),
@@ -726,6 +737,14 @@ class _DScrollChromeState extends State<DScrollChrome>
 
 class _DockRoom extends InheritedNotifier<ValueNotifier<double>> {
   const _DockRoom({required super.notifier, required super.child});
+}
+
+class _FooterAway extends InheritedWidget {
+  const _FooterAway({required this.away, required super.child});
+  final bool away;
+
+  @override
+  bool updateShouldNotify(_FooterAway oldWidget) => away != oldWidget.away;
 }
 
 class _ChromeExtent extends SingleChildRenderObjectWidget {

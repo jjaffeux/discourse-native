@@ -94,7 +94,6 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   child: DMobileDock(
                     geometry: geometry,
                     collapsed: hidden || _initialFold,
-                    current: DMobileDockCurrent.place(_selected),
                     places: [
                       for (final (index, name) in [
                         'Start',
@@ -104,7 +103,8 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                         'Users',
                         'Events',
                       ].indexed)
-                        DMobileDockItem(
+                        DMobileDockPlace(
+                          key: ValueKey(name),
                           label: name,
                           icon: DIcon(
                             [
@@ -123,10 +123,15 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                           onPressed: () => setState(() => _selected = index),
                         ),
                     ],
-                    more: DMobileDockItem(
+                    more: (
                       icon: const DIcon(DIcons.ellipsisVertical),
                       label: 'More',
-                      bare: true,
+                    ),
+                    you: (
+                      face: const DAvatarFallback(child: Text('J')),
+                      name: 'Jo',
+                      ring: DTokens.of(context).success,
+                      semanticLabel: 'Your account, online',
                       onPressed: () {},
                     ),
                     collapsedDestination: DMobileDockItem(

@@ -9,8 +9,8 @@ final mobileDockExamples = ComponentExamples(
   description:
       'A measured floating dock with an active destination retained while reading.',
   notes:
-      'Labels and badges determine overflow. More appears only when needed. '
-      'The action shows its label when its own slot is at least 116px wide. '
+      'Three places take a column each; the ⋮ grows the bar into a panel of '
+      'the rest, risen from the foot over a dim, with you as its last tile. '
       'Compose with DScrollChrome(floatingFooter: true) and add bottomInsetOf '
       'to the primary viewport. The open dock extent stays reserved at the end '
       'of the content while the viewport remains fixed. A collapsed dock only '
@@ -31,8 +31,8 @@ final mobileDockExamples = ComponentExamples(
           'Reduced motion',
         ],
         code:
-            'DMobileDock(geometry: geometry, places: items, more: overflow, '
-            'current: current, action: action, collapsed: hidden, '
+            'DMobileDock(geometry: geometry, places: places, more: more, '
+            'you: you, action: action, collapsed: hidden, '
             'collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,

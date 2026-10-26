@@ -40,6 +40,7 @@ class UserMenuButton extends StatefulWidget {
     this.compact = false,
     this.leadingActions,
     this.presentation = UserMenuPresentation.combined,
+    this.menuController,
   }) : drawerBuilder = null;
 
   const UserMenuButton.drawer({
@@ -49,7 +50,8 @@ class UserMenuButton extends StatefulWidget {
        presentation = UserMenuPresentation.profileCard,
        ringColor = null,
        compact = false,
-       leadingActions = null;
+       leadingActions = null,
+       menuController = null;
 
   final Color? ringColor;
 
@@ -59,6 +61,11 @@ class UserMenuButton extends StatefulWidget {
   final List<Widget>? leadingActions;
   final UserMenuPresentation presentation;
   final Widget Function(BuildContext, Widget?)? drawerBuilder;
+
+  /// The notifications menu's controller, for what opens the menu from
+  /// elsewhere, as a phone's panel of places does. The button makes its own
+  /// when none is given.
+  final DPopoverController? menuController;
 
   static double footerExtent(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -94,7 +101,9 @@ typedef _AccountMenuOwner = ({
 });
 
 class _UserMenuButtonState extends State<UserMenuButton> {
-  final _notifications = DPopoverController();
+  DPopoverController? _ownNotifications;
+  DPopoverController get _notifications =>
+      widget.menuController ?? (_ownNotifications ??= DPopoverController());
   final _profile = DPopoverController();
   final _drawerPresence = DPopoverController();
   _AccountMenuOwner? _menuOwner;
@@ -150,7 +159,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   @override
   void dispose() {
     _shell?.removeListener(_handleShellChanged);
-    _notifications.dispose();
+    _ownNotifications?.dispose();
     _profile.dispose();
     _drawerPresence.dispose();
     super.dispose();

@@ -72,6 +72,7 @@ export 'src/ui/components/d_message_inbox_menu.dart';
 export 'src/ui/components/d_message_scroller.dart';
 export 'src/ui/components/d_mobile_dock.dart';
 export 'src/ui/components/d_mobile_dock_geometry.dart';
+export 'src/ui/components/d_mobile_dock_growth.dart';
 export 'src/ui/components/d_mobile_dock_item.dart';
 export 'src/ui/components/d_navigation_menu.dart';
 export 'src/ui/components/d_notification_dot.dart';

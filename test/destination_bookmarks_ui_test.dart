@@ -495,7 +495,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('phone dock More lists destinations without a bookmark action', (
+  testWidgets('the phone\'s panel lists places without a bookmark action', (
     tester,
   ) async {
     await pumpShell(
@@ -515,9 +515,9 @@ void main() {
     );
     await shell.openDestinationRoute(ContentRoute.allCategories());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+    await tester.tap(find.byKey(DMobileDock.moreKey));
     await tester.pumpAndSettle();
-    expect(find.byType(DSheetContent), findsWidgets);
+    expect(find.byKey(DMobileDock.panelKey), findsOneWidget);
     expect(
       find.byKey(const ValueKey('destination-bookmark-all-categories')),
       findsNothing,

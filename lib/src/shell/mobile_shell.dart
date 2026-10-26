@@ -12,17 +12,20 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import 'account_menu_scope.dart';
 import 'composer/presentation.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
 import 'message_create_button.dart';
+import 'mobile_dock_panel_scope.dart';
 import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'user_menu.dart';
 import 'user_menu_button.dart';
 
 typedef _DockDestination = ({
@@ -55,10 +58,29 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
+  // The header's account menu, which the panel's you tile opens too.
+  final _accountMenu = DPopoverController();
+
   @override
   void dispose() {
     _footerAction.dispose();
+    _accountMenu.dispose();
     super.dispose();
+  }
+
+  // Built once per content. The account button that hands the profile card
+  // down wraps the chrome in its menus and rebuilds on its own account,
+  // presence and unread counts among them; the chrome, the same widget each
+  // time, stays. New content, or a boundary, is the chrome's own change.
+  Widget? _chrome;
+
+  @override
+  void didUpdateWidget(MobileForumRoot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.content != oldWidget.content ||
+        widget.boundary != oldWidget.boundary) {
+      _chrome = null;
+    }
   }
 
   @override
@@ -67,7 +89,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     child: UserMenuButton.drawer(builder: _buildWithProfileFooter),
   );
 
-  Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) {
+  Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) =>
+      _ProfileFooterScope(
+        footer: profileFooter,
+        child: _chrome ??= Builder(builder: _buildChrome),
+      );
+
+  Widget _buildChrome(BuildContext context) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     // The chrome reads facade and plugin state only. Topic feeds notify
@@ -115,20 +143,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           key: ValueKey(('mobile-navigation', owner)),
                           mobile: true,
                           onNavigate: shell.closeMobileSidebar,
-                          footer: profileFooter == null
-                              ? null
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    const DSeparator(),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: profileFooter,
-                                    ),
-                                  ],
-                                ),
+                          footer: const _ProfileFooterSlot(),
                         ),
                       ),
                     ),
@@ -270,9 +285,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        const UserMenuButton(
+                        UserMenuButton(
                           compact: true,
                           presentation: UserMenuPresentation.notifications,
+                          menuController: _accountMenu,
                         ),
                       ];
                       final largeText =
@@ -348,6 +364,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             geometry: geometry,
                             destinations: places,
                             selected: selected,
+                            instance: instance,
                             showReply: showReply,
                             showNewMessage: showNewMessage,
                             panelAction: panelAction,
@@ -433,6 +450,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required DMobileDockGeometry geometry,
     required List<_DockDestination> destinations,
     required MobileTab selected,
+    required DiscourseInstance instance,
     required bool showReply,
     required bool showNewMessage,
     required SidebarPanelAction? panelAction,
@@ -488,102 +506,102 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final active = destinations
         .where((item) => item.tab == selected)
         .firstOrNull;
-    final activeIndex = active == null ? -1 : destinations.indexOf(active);
-    final overflowed = activeIndex >= DMobileDockGeometry.placeColumns;
-    // The rest of the places, opened by the ⋮ or by the current page when it
-    // is one of them and stands where the ⋮ would be.
-    Widget moreMenu(DDropdownMenuTriggerBuilder trigger) => DDropdownMenu(
-      sheetOnMobile: true,
-      mobileSheetVariant: DSheetVariant.adaptiveMenu,
-      content: DDropdownMenuContent(
-        semanticLabel: context.l10n.moreDestinations,
-        side: DPopoverSide.top,
-        align: DPopoverAlign.end,
-        children: [
-          for (final item in destinations.skip(
-            DMobileDockGeometry.placeColumns,
-          ))
-            DDropdownMenuItem(
-              leading: DIcon(item.icon),
+    // Found now: the dock also tells it as it is disposed, when this context
+    // is no longer one to look up from.
+    final panelOut = MobileDockPanelScope.of(context);
+    // Notifications paused rings the you tile, and nothing else here.
+    return ListenableBuilder(
+      listenable: shell.doNotDisturb,
+      builder: (context, _) => DMobileDock(
+        key: const ValueKey('mobile-bottom-bar'),
+        geometry: geometry,
+        collapsed: hideDestinations && pageAction == null,
+        destinationsHidden: hideDestinations && pageAction != null,
+        // A composer's sheet covers the shell from inside it; the panel, which
+        // paints over the shell, must not stand over the sheet.
+        covered: ComposerPresentationHost.hasMobileSheetOf(context),
+        collapsedDestination: DMobileDockItem(
+          key: const ValueKey('mobile-dock-reveal'),
+          collapsed: true,
+          icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
+          label:
+              '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
+          onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
+        ),
+        places: [
+          for (final item in destinations)
+            DMobileDockPlace(
+              key: ValueKey('mobile-mode-${item.tab.name}'),
+              icon: DIcon(item.icon),
+              label: item.label,
+              badge: item.badge,
+              selected: selected == item.tab,
               onPressed: item.onPressed,
-              child: Text(
-                item.tab == MobileTab.messages
-                    ? context.l10n.messages
-                    : item.label,
-              ),
             ),
         ],
-      ),
-      child: DDropdownMenuTrigger(builder: trigger),
-    );
-    return DMobileDock(
-      key: const ValueKey('mobile-bottom-bar'),
-      geometry: geometry,
-      collapsed: hideDestinations && pageAction == null,
-      destinationsHidden: hideDestinations && pageAction != null,
-      collapsedDestination: DMobileDockItem(
-        key: const ValueKey('mobile-dock-reveal'),
-        collapsed: true,
-        icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
-        label:
-            '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
-        onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
-      ),
-      places: [
-        for (final item in destinations)
-          DMobileDockItem(
-            key: ValueKey('mobile-mode-${item.tab.name}'),
-            icon: DIcon(item.icon),
-            label: item.label,
-            badge: item.badge,
-            selected: selected == item.tab,
-            onPressed: item.onPressed,
-          ),
-      ],
-      current: active == null
-          ? const DMobileDockCurrent.none()
-          : overflowed
-          ? DMobileDockCurrent.overflowed(
-              moreMenu(
-                (context, state) => DMobileDockItem(
-                  key: ValueKey('mobile-mode-${active.tab.name}'),
-                  icon: DIcon(active.icon),
-                  label: active.label,
-                  badge: active.badge,
-                  selected: true,
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                  onPressed: state.toggle,
-                ),
-              ),
-            )
-          : DMobileDockCurrent.place(activeIndex),
-      more: moreMenu(
-        (context, state) => DMobileDockItem(
-          key: const ValueKey('mobile-mode-more'),
-          bare: true,
+        more: (
           icon: const DIcon(DIcons.ellipsisVertical),
           label: context.l10n.more,
-          selected: active == null,
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
-          onPressed: state.toggle,
         ),
-      ),
-      action: primaryAction == null
-          ? null
-          : DActionTransition(
-              key: ValueKey((
-                shell.currentInstance?.url,
-                shell.currentAccountIdentity,
-              )),
-              child: KeyedSubtree(
-                key: ValueKey(actionIcon),
-                child: primaryAction,
+        you: _you(context, shell: shell, instance: instance),
+        onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
+        action: primaryAction == null
+            ? null
+            : DActionTransition(
+                key: ValueKey((
+                  shell.currentInstance?.url,
+                  shell.currentAccountIdentity,
+                )),
+                child: KeyedSubtree(
+                  key: ValueKey(actionIcon),
+                  child: primaryAction,
+                ),
               ),
-            ),
+      ),
+    );
+  }
+
+  /// You, among the panel's places: your face ringed by your presence as
+  /// the header's account button rings it, named as the account menu names
+  /// you, opening what that button opens.
+  DMobileDockYou? _you(
+    BuildContext context, {
+    required ShellController shell,
+    required DiscourseInstance instance,
+  }) {
+    final user = instance.user;
+    final username = user?.username;
+    if (!instance.isConnected || username == null) return null;
+    final tokens = DTokens.of(context);
+    final paused = shell.doNotDisturb
+        .stateFor(instance.url)
+        .isActiveAt(DateTime.now());
+    final hidePresence = shell.hidePresenceFor(instance.url);
+    final presence = paused
+        ? context.l10n.notificationsPaused
+        : hidePresence == false
+        ? context.l10n.online
+        : hidePresence == true
+        ? context.l10n.offline
+        : context.l10n.presenceUnavailable;
+    return (
+      face: UserMenuAvatar(
+        avatarUrl: user?.avatarUrl,
+        initial: username.characters.first.toUpperCase(),
+        connecting: shell.connecting,
+        dimension: 22,
+      ),
+      name: user?.displayName ?? username,
+      ring: paused
+          ? tokens.subtleMark
+          : hidePresence == false
+          ? tokens.success
+          : null,
+      semanticLabel: '${context.l10n.yourAccount}, $presence',
+      onPressed: () {
+        AccountMenuScope.activate(context, _accountMenu);
+        _accountMenu.open();
+      },
     );
   }
 
@@ -602,10 +620,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   );
 }
 
-/// Every place the phone offers, in the order its dock shows them and its More
-/// menu lists the overflow. The bar is the phone's Start page, so this list
-/// holds what that page offers elsewhere; the dock and the history gestures
-/// read this one order.
+/// Every place the phone offers, in the order its bar shows them and the
+/// panel the bar grows into holds the rest. The bar is the phone's Start
+/// page, so this list holds what that page offers elsewhere; the dock and the
+/// history gestures read this one order.
 List<_DockDestination> _mobilePlaces(
   BuildContext context, {
   required ShellController shell,
@@ -804,6 +822,41 @@ class MobileHistoryGestures extends StatelessWidget {
             }
           : null,
       child: child,
+    );
+  }
+}
+
+/// The sidebar's profile card, handed down from the account button whose
+/// menus it carries to the slot that shows it, so the button's rebuilds
+/// reach the card and not the chrome between them.
+class _ProfileFooterScope extends InheritedWidget {
+  const _ProfileFooterScope({required this.footer, required super.child});
+
+  final Widget? footer;
+
+  static Widget? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ProfileFooterScope>()?.footer;
+
+  @override
+  bool updateShouldNotify(_ProfileFooterScope oldWidget) =>
+      !identical(footer, oldWidget.footer);
+}
+
+/// Where the sidebar shows the profile card; nothing without an account.
+class _ProfileFooterSlot extends StatelessWidget {
+  const _ProfileFooterSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    final footer = _ProfileFooterScope.of(context);
+    if (footer == null) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const DSeparator(),
+        Padding(padding: const EdgeInsets.all(6), child: footer),
+      ],
     );
   }
 }

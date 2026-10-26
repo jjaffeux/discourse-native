@@ -111,6 +111,10 @@ enum DButtonDensity {
   /// The caller supplies the icon capsule and label within the Native kit.
   mobileDock,
 
+  /// A mobile dock item as a tile of the bar's grown panel: 56px tall, with
+  /// [DButton.interactiveBackgroundColor] as its hover and pressed fill.
+  mobileDockTile,
+
   /// The primary action beside a mobile dock: a 44px pill with a 20px icon
   /// matching the dock's artwork. Icon-only, its square bounds keep the pill
   /// circular, with the hit area matching the visible surface.
@@ -626,7 +630,8 @@ class DButton extends StatelessWidget {
         variant == DButtonVariant.quiet ||
         variant == DButtonVariant.quietSelected;
 
-    final mobileDock = density == DButtonDensity.mobileDock;
+    final mobileDockTile = density == DButtonDensity.mobileDockTile;
+    final mobileDock = density == DButtonDensity.mobileDock || mobileDockTile;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
     final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
 
@@ -714,7 +719,11 @@ class DButton extends StatelessWidget {
         );
     final visualDimension =
         mobileDock || mobileDockAction || mobileDockCollapsed
-        ? (mobileDockCollapsed ? 40.0 : 50.0) +
+        ? (mobileDockCollapsed
+                  ? 40.0
+                  : mobileDockTile
+                  ? 56.0
+                  : 50.0) +
               math.max(0, MediaQuery.textScalerOf(context).scale(11) - 11)
         : timeline
         ? (floatingCall ? 26 : 34) +
@@ -967,10 +976,16 @@ class DButton extends StatelessWidget {
       }
       if (mobileDock) {
         final foreground = foregroundColor ?? tokens.mutedForeground;
+        final interactive =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.pressed);
         return DButtonStateStyle(
           foregroundColor: foreground,
           iconColor: foreground,
-          backgroundColor: backgroundColor ?? Colors.transparent,
+          backgroundColor:
+              (interactive ? interactiveBackgroundColor : null) ??
+              backgroundColor ??
+              Colors.transparent,
           border: BorderSide.none,
         );
       }
