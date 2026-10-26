@@ -84,6 +84,19 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('going back from a board shows the directory already loaded', (
+    tester,
+  ) async {
+    final shell = await _openBoard(tester);
+    shell.handleBack();
+    await tester.pump();
+    expect(shell.currentContent?.id, 'boards');
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.text('Product roadmap'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets(
     'pulling a board down after the app resumes shows the directory',
     (tester) async {

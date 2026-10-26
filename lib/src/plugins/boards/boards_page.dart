@@ -57,7 +57,6 @@ class _BoardsPageState extends State<BoardsPage> {
   })?
   _identity;
   String? _directoryError;
-  bool _directoryLoaded = false;
   Object? _directoryToken;
   final _horizontal = ScrollController();
   (int, int, double, int)? _horizontalTarget;
@@ -106,7 +105,6 @@ class _BoardsPageState extends State<BoardsPage> {
     previous?.release();
     _horizontalTarget = null;
     _directoryToken = null;
-    _directoryLoaded = false;
     _directoryError = null;
     if (!identity.enabled) return;
     if (identity.boardId case final id?) {
@@ -116,16 +114,13 @@ class _BoardsPageState extends State<BoardsPage> {
     }
   }
 
-  Future<void> _directory() async {
+  Future<void> _directory({bool force = false}) async {
     final token = Object();
     final site = widget.site;
     _directoryToken = token;
     setState(() => _directoryError = null);
     try {
-      await widget.controller.loadDirectory(site);
-      if (mounted && identical(token, _directoryToken)) {
-        setState(() => _directoryLoaded = true);
-      }
+      await widget.controller.loadDirectory(site, force: force);
     } catch (error) {
       if (mounted && identical(token, _directoryToken)) {
         setState(() => _directoryError = error.toString());
@@ -149,20 +144,21 @@ class _BoardsPageState extends State<BoardsPage> {
     }
     final handle = _handle;
     if (handle == null) {
+      final boards = widget.controller.directory(widget.site);
       return BoardsDirectory(
         key: PageStorageKey(_identity),
         site: widget.site,
-        boards: widget.controller.directory(widget.site),
+        boards: boards ?? const [],
         categories: {
-          for (final board in widget.controller.directory(widget.site))
+          for (final board in boards ?? const <BoardSnapshot>[])
             for (final id in board.categoryIds)
               id: ?widget.controller.siteState.categoryFor
                   ?.call(widget.site, id)
                   ?.name,
         },
-        loaded: _directoryLoaded,
+        loaded: boards != null,
         error: _directoryError,
-        onRefresh: _directory,
+        onRefresh: () => _directory(force: true),
         onOpen: (board) => widget.navigation.open(board: board),
       );
     }

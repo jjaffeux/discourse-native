@@ -354,6 +354,30 @@ void boardsDirectoryWidgetTests({
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('returning to the directory shows its boards without a read', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    respond(fixture, [directoryBoard(2, 'Team release')]);
+    await tester.pumpWidget(page(fixture));
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.text('Team roadmap'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Team roadmap'), findsOneWidget);
+    expect(fixture.transport.reads, hasLength(1));
+    await pull(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Team release'), findsOneWidget);
+    expect(fixture.transport.reads, hasLength(2));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'directory loading failure can retry and distinguish an empty directory',
     (tester) async {

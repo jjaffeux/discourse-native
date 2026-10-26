@@ -56,15 +56,24 @@ final class BoardsController extends FrameSafeNotifier
       !isDisposed &&
       (siteState.siteConfigFor(site).plugins.get(boardsSettingsKey)?.enabled ??
           false);
-  List<BoardSnapshot> directory(String site) =>
-      enabled(site) ? _directory[site] ?? const [] : const [];
 
-  Future<List<BoardSnapshot>> loadDirectory(String site, {int? topicId}) async {
+  /// Null until a directory read has finished for the current account.
+  List<BoardSnapshot>? directory(String site) =>
+      enabled(site) ? _directory[site] : null;
+
+  /// Answers with the directory already read for this account unless
+  /// [force] asks for a new read. Topic-scoped choices are always read.
+  Future<List<BoardSnapshot>> loadDirectory(
+    String site, {
+    int? topicId,
+    bool force = false,
+  }) async {
     _observeSettings(site);
     if (!enabled(site)) return const [];
     if (topicId == null) {
       final held = _directoryReads[site];
       if (held != null) return held;
+      if (_directory[site] case final boards? when !force) return boards;
     }
     final lease = requests.capture(site);
     final revision = _revisions[site] ?? 0;
@@ -95,6 +104,17 @@ final class BoardsController extends FrameSafeNotifier
         final _ = _directoryReads.remove(site);
       }
     }
+  }
+
+  /// Board and directory reads share one serializer, so a board read is
+  /// also that board's current directory entry. Null removes the entry.
+  void _updateDirectory(String site, int id, BoardSnapshot? board) {
+    final boards = _directory[site];
+    if (boards == null) return;
+    _directory[site] = List.unmodifiable([
+      for (final held in boards)
+        if (held.id != id) held else ?board,
+    ]);
   }
 
   BoardHandle acquire(String site, int id) {
@@ -198,7 +218,7 @@ final class BoardsController extends FrameSafeNotifier
       return;
     }
     if (routeId == 'boards') {
-      await loadDirectory(siteUrl);
+      await loadDirectory(siteUrl, force: force);
       return;
     }
     final id = int.tryParse(routeId.split('/').elementAtOrNull(1) ?? '');
@@ -333,6 +353,7 @@ final class BoardHandle extends ChangeNotifier {
         lease.commit(() {
           snapshot = board;
           error = null;
+          owner._updateDirectory(site, id, board);
         });
       } catch (failure) {
         if (!_current(lease, generation) || !identical(_readToken, token)) {
@@ -347,11 +368,7 @@ final class BoardHandle extends ChangeNotifier {
             snapshot = null;
             _subscription?.cancel();
             _subscription = null;
-            owner._directory[site] = List.unmodifiable(
-              (owner._directory[site] ?? const <BoardSnapshot>[]).where(
-                (board) => board.id != id,
-              ),
-            );
+            owner._updateDirectory(site, id, null);
           }
         });
       }

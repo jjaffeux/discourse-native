@@ -906,7 +906,7 @@ void main() {
       expect(replies, hasLength(2));
       replies.first.complete(named('Before refresh'));
       expect(await stale, isEmpty);
-      expect(fixture.controller.directory(boardsSite), isEmpty);
+      expect(fixture.controller.directory(boardsSite), isNull);
       final joined = fixture.controller.loadDirectory(boardsSite);
       await Future<void>.delayed(Duration.zero);
       expect(replies, hasLength(2));
@@ -914,8 +914,58 @@ void main() {
       expect((await current).single.name, 'After refresh');
       expect((await joined).single.name, 'After refresh');
       expect(
-        fixture.controller.directory(boardsSite).single.name,
+        fixture.controller.directory(boardsSite)!.single.name,
         'After refresh',
+      );
+    },
+  );
+  test(
+    'board reads keep the held directory current without reading it',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      expect(fixture.controller.directory(boardsSite), isNull);
+      final held = await fixture.controller.loadDirectory(boardsSite);
+      expect(held.single.column(10)!.title, 'Backlog');
+      final result = await handle.updateColumn(
+        10,
+        title: 'Ideas',
+        icon: '',
+        order: BoardColumnOrder.priority,
+      );
+      expect(result.saved, isTrue);
+      final directory = fixture.controller.directory(boardsSite)!;
+      expect(directory.single.column(10)!.title, 'Ideas');
+      expect(
+        await fixture.controller.loadDirectory(boardsSite),
+        same(directory),
+      );
+      expect(
+        fixture.transport.reads.where(
+          (request) => request.path == '/boards/api/boards.json',
+        ),
+        hasLength(1),
+      );
+    },
+  );
+  test(
+    'a board revoked before the directory is read leaves it unread',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      fixture.transport.failures['GET /boards/api/boards/1.json'] =
+          const WriteException(WriteFailure.forbidden);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      expect(handle.snapshot, isNull);
+      expect(fixture.controller.directory(boardsSite), isNull);
+      expect(
+        (await fixture.controller.loadDirectory(boardsSite)).single.name,
+        'Product roadmap',
       );
     },
   );
@@ -935,7 +985,7 @@ void main() {
     );
     expect(choices.single.name, 'Support');
     expect(
-      fixture.controller.directory(boardsSite).single.name,
+      fixture.controller.directory(boardsSite)!.single.name,
       'Product roadmap',
     );
   });
@@ -1127,7 +1177,7 @@ void main() {
         expect(handle.snapshot == null, revoked);
         expect(fixture.live.subscriberCount('/boards/1'), revoked ? 0 : 1);
         expect(
-          fixture.controller.directory(boardsSite).map((board) => board.id),
+          fixture.controller.directory(boardsSite)!.map((board) => board.id),
           revoked ? isEmpty : [1],
         );
       }
