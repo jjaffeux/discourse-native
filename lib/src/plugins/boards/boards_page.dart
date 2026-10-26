@@ -15,6 +15,13 @@ import 'boards_data.dart';
 import 'boards_directory.dart';
 import 'boards_navigation.dart';
 
+/// How much of the next column a phone shows beside a full-width column.
+const _nextColumnPeek = 5.0;
+
+/// Narrower boards show one column at a time. Tablets also use mobile
+/// navigation but keep several fixed-width columns in view.
+const _singleColumnWidth = 600.0;
+
 class BoardsPage extends StatefulWidget {
   const BoardsPage({
     super.key,
@@ -156,17 +163,39 @@ class _BoardsPageState extends State<BoardsPage> {
       );
     }
     final board = handle.snapshot;
+    // The floating mobile dock covers the bottom of the page. Columns scroll
+    // individually, so the board stops above the dock rather than under it.
+    Widget page(
+      String title, {
+      List<Widget> badges = const [],
+      required Widget action,
+      required Widget body,
+    }) => DPageSurface(
+      framed: false,
+      border: false,
+      limitContentSize: false,
+      header: _BoardHeader(
+        title: title,
+        badges: badges,
+        action: action,
+        sheet: widget.navigation.mobileNavigationEnabled,
+        onBack: () => widget.navigation.open(),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+        child: body,
+      ),
+    );
     if (board == null) {
-      return DPageSurface.headed(
-        limitContentSize: false,
-        title: Text(l10n.boardsTitle),
-        controls: DButton(
+      return page(
+        l10n.boardsTitle,
+        action: DButton(
           size: DButtonSize.filter,
-          variant: DButtonVariant.quiet,
+          variant: DButtonVariant.outline,
           label: Text(l10n.refresh),
           onPressed: handle.reading ? null : handle.refresh,
         ),
-        child: handle.reading
+        body: handle.reading
             ? const Center(child: DSpinner())
             : Center(
                 child: DEmpty(
@@ -182,92 +211,58 @@ class _BoardsPageState extends State<BoardsPage> {
             for (final card in column.cards) ?card.categoryId,
         }.length >
         1;
-    return DPageSurface.headed(
-      limitContentSize: false,
-      title: Text(board.name),
-      controls: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 8,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final wrap =
-                  constraints.maxWidth < 400 &&
-                  MediaQuery.textScalerOf(context).scale(14) > 21;
-              final back = DButton(
-                size: DButtonSize.filter,
-                variant: DButtonVariant.link,
-                icon: const DIcon(DIcons.chevronLeft),
-                label: Text(l10n.boardsAll),
-                onPressed: () => widget.navigation.open(),
-              );
-              return DControlWrap(
-                spacing: 8,
-                runSpacing: 8,
-                wrap: wrap,
-                children: [
-                  if (wrap)
-                    back
-                  else
-                    DControlExpanded(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: back,
-                      ),
-                    ),
-                  if (board.archived) DBadge(child: Text(l10n.boardsArchived)),
-                  if (handle.reading || handle.writing) const DSpinner(),
-                  DDropdownMenu(
-                    content: DDropdownMenuContent(
-                      children: [
-                        DDropdownMenuItem(
-                          leading: const DIcon(DIcons.arrowRotateRight),
-                          onPressed: handle.reading || handle.writing
-                              ? null
-                              : handle.refresh,
-                          child: Text(l10n.refresh),
-                        ),
-                        if (board.canManage)
-                          DDropdownMenuItem(
-                            leading: const DIcon(DIcons.gear),
-                            onPressed: () =>
-                                widget.navigation.configure(widget.site, board),
-                            child: Text(l10n.openInBrowser),
-                          ),
-                      ],
-                    ),
-                    child: DDropdownMenuTrigger(
-                      builder: (context, state) => DButton.iconOnly(
-                        key: const ValueKey('board-controls'),
-                        size: DButtonSize.filter,
-                        variant: DButtonVariant.quiet,
-                        icon: const DIcon(DIcons.ellipsis),
-                        tooltip: l10n.moreActions,
-                        onPressed: state.toggle,
-                        focusNode: state.focusNode,
-                        hasPopup: true,
-                        expanded: state.open,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+    return page(
+      board.name,
+      badges: [
+        for (final id in board.categoryIds)
+          if (widget.controller.siteState.categoryFor?.call(widget.site, id)
+              case final category?)
+            _categoryBadge(category.name, category.colorValue),
+        for (final tag in board.tagNames)
+          DBadge(
+            variant: DBadgeVariant.secondary,
+            size: DBadgeSize.control,
+            child: Text('# $tag', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
-          if (board.tagNames.isNotEmpty || board.categoryIds.isNotEmpty)
-            Text(
-              [
-                for (final id in board.categoryIds)
-                  ?widget.controller.siteState.categoryFor
-                      ?.call(widget.site, id)
-                      ?.name,
-                ...board.tagNames,
-              ].join(', '),
-              style: TextStyle(color: DTokens.of(context).mutedForeground),
+        if (board.archived)
+          DBadge(size: DBadgeSize.control, child: Text(l10n.boardsArchived)),
+      ],
+      action: DDropdownMenu(
+        content: DDropdownMenuContent(
+          children: [
+            DDropdownMenuItem(
+              leading: const DIcon(DIcons.arrowRotateRight),
+              onPressed: handle.reading || handle.writing
+                  ? null
+                  : handle.refresh,
+              child: Text(l10n.refresh),
             ),
-        ],
+            if (board.canManage)
+              DDropdownMenuItem(
+                leading: const DIcon(DIcons.gear),
+                onPressed: () =>
+                    widget.navigation.configure(widget.site, board),
+                child: Text(l10n.openInBrowser),
+              ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            key: const ValueKey('board-controls'),
+            size: DButtonSize.filter,
+            variant: DButtonVariant.outline,
+            icon: const DIcon(DIcons.ellipsis),
+            tooltip: l10n.moreActions,
+            // Busy state stays inside the button so the header never reflows.
+            loading: handle.reading || handle.writing,
+            onPressed: state.toggle,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+          ),
+        ),
       ),
-      child: Column(
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (handle.error case final error?)
@@ -282,10 +277,14 @@ class _BoardsPageState extends State<BoardsPage> {
                 ? Center(child: DEmpty(children: [Text(l10n.boardsNoCards)]))
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final width = (constraints.maxWidth - 24).clamp(
-                        240.0,
-                        300.0,
-                      );
+                      final width =
+                          widget.navigation.mobileNavigationEnabled &&
+                              constraints.maxWidth < _singleColumnWidth
+                          ? (constraints.maxWidth - 24 - _nextColumnPeek).clamp(
+                              0.0,
+                              double.infinity,
+                            )
+                          : (constraints.maxWidth - 24).clamp(240.0, 300.0);
                       final stride = width + 12;
                       if (linkedCard != null) {
                         final target = (
@@ -394,6 +393,17 @@ class _BoardsPageState extends State<BoardsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _categoryBadge(String name, int color) {
+    final surface = DTokens.of(context).categoryControlSurface(Color(color));
+    return DBadge(
+      size: DBadgeSize.control,
+      backgroundColor: surface.background,
+      foregroundColor: surface.foreground,
+      borderColor: surface.border,
+      child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 
@@ -925,6 +935,68 @@ class _BoardsPageState extends State<BoardsPage> {
       return;
     }
     _report(await handle.addTopic(id, column.id, review: _review));
+  }
+}
+
+/// The topic reader's heading. In the mobile page sheet, whose dismissal goes
+/// back, the badges and [action] follow the title on its line and wrap below
+/// it when they do not fit. Elsewhere a back link leads to the directory and
+/// the controls follow the title on their own row.
+class _BoardHeader extends StatelessWidget {
+  const _BoardHeader({
+    required this.title,
+    required this.badges,
+    required this.action,
+    required this.sheet,
+    required this.onBack,
+  });
+  final String title;
+  final List<Widget> badges;
+  final Widget action;
+  final bool sheet;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = Semantics(
+      header: true,
+      headingLevel: 1,
+      child: Text(
+        title,
+        key: const ValueKey('board-title'),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.headlineSmall,
+      ),
+    );
+    if (sheet) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: DControlWrap(children: [heading, ...badges, action]),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: DButton(
+              key: const ValueKey('board-back'),
+              icon: const DIcon(DIcons.chevronLeft),
+              label: Text(context.l10n.boardsTitle),
+              variant: DButtonVariant.inline,
+              density: DButtonDensity.backLink,
+              onPressed: onBack,
+            ),
+          ),
+          heading,
+          const SizedBox(height: 16),
+          DControlWrap(children: [...badges, action]),
+        ],
+      ),
+    );
   }
 }
 

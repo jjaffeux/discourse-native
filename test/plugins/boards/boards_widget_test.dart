@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/topic.dart' show TopicCategory;
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/plugins/boards/boards_page.dart';
@@ -323,6 +324,36 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     await tester.pumpWidget(const SizedBox.shrink());
     expect(fixture.live.channels, isEmpty);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('board header follows the topic reader outside the sheet', (
+    tester,
+  ) async {
+    final json = boardFixtureJson();
+    (json['board'] as Map)
+      ..['tag_names'] = ['roadmap']
+      ..['category_ids'] = [5];
+    final fixture = BoardsFixture(
+      json: json,
+      categories: {
+        5: const TopicCategory(id: 5, name: 'Support', color: '12b5d8'),
+      },
+    );
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    final back = find.byKey(const ValueKey('board-back'));
+    final title = tester.getRect(find.byKey(const ValueKey('board-title')));
+    expect(tester.getRect(back).bottom, lessThanOrEqualTo(title.top));
+    for (final control in [
+      find.text('Support'),
+      find.text('# roadmap'),
+      find.byKey(const ValueKey('board-controls')),
+    ]) {
+      expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
+    }
+    await tester.tap(back);
+    expect(fixture.host.currentContent?.id, 'boards');
+    await tester.pumpWidget(const SizedBox.shrink());
   });
   if (!nativeView) {
     testWidgets('board columns do not repeat the page safe inset', (

@@ -30,6 +30,14 @@ If attachment fails after confirmed creation, the plugin retains the topic ID
 for attachment retry during the current app session. That recovery receipt is
 cleared on account retirement and is not persisted across app restart.
 
+On phones and tablets a board opens in the shared mobile page sheet, as a topic
+does, and pulling it down returns to the previous page. The sheet drops the
+directory back link; the board's categories, tags and menu follow its title and
+wrap below a long one. Below 600 points a column fills the sheet with 5 points
+of the next one showing. Elsewhere the header follows the topic reader: a back
+link above the title and the controls below it. Columns scroll individually, so
+the board stops above the floating mobile dock instead of continuing under it.
+
 Column title, icon, sorting, ordering, clear, and delete controls are native.
 The column editor preserves existing tag and move rules. Board-level
 configuration remains available through the browser link. Inline assignment
@@ -45,7 +53,8 @@ flutter test test/plugins/boards/boards_controller_test.dart \
   test/plugins/boards/boards_data_test.dart \
   test/plugins/boards/boards_directory_test.dart \
   test/plugins/boards/boards_column_actions_test.dart \
-  test/plugins/boards/boards_reader_test.dart
+  test/plugins/boards/boards_reader_test.dart \
+  test/plugins/boards/boards_sheet_test.dart
 ```
 
 The native integration entry point is `integration_test/boards_test.dart`.
