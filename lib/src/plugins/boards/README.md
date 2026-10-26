@@ -45,17 +45,38 @@ history snapshot, so it is still there after the app has been in the
 background. The sheet drops the
 directory back link and the mobile tab bar; the board's categories, tags and
 menu follow its title and wrap below a long one. Below 600 points a column fills
-the sheet with 10 points of the next one showing, and each swipe settles on one
-column. Dots below the column area mark the column in view, and tapping one
-scrolls to its column. They stay at the bottom of the board however short the
-columns are. The sheet hides the horizontal scrollbar under the columns; a
-partly visible column already shows that the board continues. Elsewhere the
-header follows the topic reader: a back link above the title and the controls
-below it. Columns scroll individually, so the board stops above the home
-indicator and a minimized composer instead of continuing under them.
+the sheet with 10 points of each neighbouring column showing, so a middle column
+hints at the one before it and the one after; the first and last columns rest
+against the padding and show 20 points of their one neighbour. Each swipe
+settles on one column. Dots below the column area mark the column in view, and
+tapping one scrolls to its column. They stay at the bottom of the board however
+short the columns are. The sheet hides the horizontal scrollbar under the
+columns; a partly visible column already shows that the board continues.
+Elsewhere the header follows the topic reader: a back link above the title and
+the controls below it. Columns scroll individually, so the board stops above the
+home indicator and a minimized composer instead of continuing under them.
 When the header leaves less room than a column needs for its heading, a card
 and its footer (200 points, scaled with the text size), as on a landscape phone
 or with large text, the page scrolls as a whole instead of squeezing columns.
+
+A card drags with a mouse at once and on touch after a hold, as on the web
+client. The card leaves its column for the whole drag and a placeholder of its
+height stands at the slot under the pointer: before the first card whose
+midpoint is below the pointer in a priority column, and at the top of a recency
+column, since a move stamps the card's column change and recency columns sort
+newest first. Over nothing it can land on, such as the recency column it already
+sits in, the placeholder shows at the card's own slot and a release does
+nothing; a release over its own slot writes nothing. After a release the card
+stays hidden and the placeholder stays at the drop slot through the constraint
+check, a review dialog, the write and its refresh, so the board never shows the
+card in its old place between the drop and the server's answer. Holding the
+card within 40 points of the board's edge scrolls the board to further columns,
+and within 40 points of a column list's top or bottom scrolls that list, at up
+to 600 points a second; on a phone the board settles on a column once the
+pointer leaves the edge, and the placeholder follows each scroll.
+`board_card_drag.dart` owns one drag session and resolves slots from the
+registered column and card geometry; `boardDropPlacement` in `boards_data.dart`
+turns a slot into the placement the server receives.
 
 Column title, icon, sorting, ordering, clear, and delete controls are native.
 The column editor preserves existing tag and move rules. Board-level

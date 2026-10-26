@@ -4,11 +4,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../mobile_shell_test.dart' show pumpMobileShellFixture;
 import '../../support/boards_fixture.dart';
+import '../../support/fakes.dart';
 
 final _sheet = find.byType(DSheetContent);
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
@@ -32,6 +34,7 @@ Future<ShellController> _openBoard(
   bool fromDirectory = true,
   double homeIndicator = 34,
   List<Map<String, Object?>> doneCards = const [],
+  void Function(FakeDiscourseApi api)? onApi,
 }) async {
   tester.view.padding = FakeViewPadding(top: 44, bottom: homeIndicator);
   tester.view.viewPadding = FakeViewPadding(top: 44, bottom: homeIndicator);
@@ -40,7 +43,17 @@ Future<ShellController> _openBoard(
     ..['name'] = name
     ..['tag_names'] = tags;
   ((board['columns'] as List).last as Map)['cards'] = doneCards;
-  final shell = await pumpMobileShellFixture(tester, size: size, board: board);
+  final shell = await pumpMobileShellFixture(
+    tester,
+    size: size,
+    board: board,
+    pluginResponses: {
+      'PUT /boards/api/boards/1/cards/102': {
+        'card': {'id': 102},
+      },
+    },
+    onApi: onApi,
+  );
   if (!fromDirectory) {
     shell.pushContent(
       ContentRoute(
@@ -200,7 +213,8 @@ void main() {
     final next = tester.getRect(find.byKey(const ValueKey('board-column-11')));
     expect(first.left - sheet.left, 12);
     expect(next.left - first.right, 12);
-    expect(sheet.right - next.left, 10);
+    // The first column has one neighbour, so it shows both slivers of it.
+    expect(sheet.right - next.left, 20);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -209,16 +223,19 @@ void main() {
     final sheet = tester.getRect(_sheet);
     Finder column(int id) => find.byKey(ValueKey('board-column-$id'));
     double left(int id) => tester.getRect(column(id)).left - sheet.left;
+    double right(int id) => sheet.right - tester.getRect(column(id)).right;
     await tester.fling(column(10), const Offset(-120, 0), 1000);
     await tester.pumpAndSettle();
-    expect(left(11), 12);
+    // A middle column shows 10 points of each neighbour beyond the padding.
+    expect(left(11), 12 + 10);
+    expect(tester.getRect(column(10)).right - sheet.left, 10);
+    expect(sheet.right - tester.getRect(column(12)).left, 10);
     // The last column rests against the trailing padding, showing the same
     // sliver of its predecessor that the first column shows of its successor.
-    double right(int id) => sheet.right - tester.getRect(column(id)).right;
     await tester.fling(column(11), const Offset(-200, 0), 8000);
     await tester.pumpAndSettle();
     expect(right(12), 12);
-    expect(left(12), 12 + 10);
+    expect(left(12), 12 + 20);
     final hold = await tester.startGesture(tester.getCenter(column(12)));
     for (var step = 0; step < 10; step++) {
       await hold.moveBy(const Offset(10, 0));
@@ -230,7 +247,7 @@ void main() {
     expect(right(12), 12);
     await tester.fling(column(12), const Offset(120, 0), 1000);
     await tester.pumpAndSettle();
-    expect(left(11), 12);
+    expect(left(11), 12 + 10);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -333,6 +350,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getRect(_column(10)).left - sheet.left, 12);
     expect(selected(), [true, false, false]);
+    await tester.tap(_dot(1));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_column(11)).left - sheet.left, 12 + 10);
+    expect(selected(), [false, true, false]);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -420,6 +441,90 @@ void main() {
     expect(tester.getRect(_dots.first), dots);
     expect(tester.getRect(last).bottom, lessThanOrEqualTo(dots.top));
     expect(tester.getRect(add).bottom, lessThanOrEqualTo(dots.top));
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  // Touch drags start after a hold; the first move after it carries the card.
+  Future<TestGesture> lift(WidgetTester tester, Finder card) async {
+    final gesture = await tester.startGesture(tester.getCenter(card));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveBy(const Offset(0, 4));
+    await tester.pump();
+    expect(card, findsNothing);
+    return gesture;
+  }
+
+  // Each 20 point auto-scroll step spans three 16 ms test frames.
+  Future<void> hold(WidgetTester tester, {int frames = 200}) async {
+    for (var frame = 0; frame < frames; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+  }
+
+  testWidgets('holding a dragged card at the right edge scrolls the board on', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    await _openBoard(tester, extraCards: 0, onApi: (value) => api = value);
+    final sheet = tester.getRect(_sheet);
+    Finder column(int id) => find.byKey(ValueKey('board-column-$id'));
+    final backlog = tester.getRect(column(10));
+    final gesture = await lift(
+      tester,
+      find.byKey(const ValueKey('board-card-102')),
+    );
+    // Inside the edge zone, and inside the last column once it rests against
+    // the trailing padding.
+    final edge = Offset(sheet.right - 20, backlog.center.dy);
+    await gesture.moveTo(edge);
+    await hold(tester);
+    expect(tester.getRect(column(10)).right, lessThan(sheet.left));
+    final under = [
+      11,
+      12,
+    ].firstWhere((id) => tester.getRect(column(id)).contains(edge));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final write = api.pluginWrites.single;
+    expect(write.path, '/boards/api/boards/1/cards/102');
+    expect((write.body['card'] as Map)['column_id'], under);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('holding a dragged card near the bottom of a column scrolls it', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    await _openBoard(tester, onApi: (value) => api = value);
+    final list = find.byKey(const PageStorageKey('board-column-list-10'));
+    final bounds = tester.getRect(list);
+    final ids = [101, 102, for (var i = 0; i < 30; i++) 200 + i];
+    final shownAtStart = {
+      for (final id in ids)
+        if (find.byKey(ValueKey('board-card-$id')).evaluate().isNotEmpty &&
+            tester.getRect(find.byKey(ValueKey('board-card-$id'))).bottom <=
+                bounds.bottom)
+          id,
+    };
+    expect(shownAtStart, hasLength(lessThan(ids.length)));
+    final position = tester
+        .state<ScrollableState>(
+          find.descendant(of: list, matching: find.byType(Scrollable)),
+        )
+        .position;
+    final gesture = await lift(
+      tester,
+      find.byKey(const ValueKey('board-card-102')),
+    );
+    await gesture.moveTo(Offset(bounds.center.dx, bounds.bottom - 8));
+    await hold(tester);
+    expect(position.pixels, greaterThan(0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final card = api.pluginWrites.single.body['card'] as Map;
+    expect(card['column_id'], 10);
+    expect(card['after_card_id'], isA<int>());
+    expect(shownAtStart, isNot(contains(card['after_card_id'])));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 

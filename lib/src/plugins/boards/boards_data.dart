@@ -314,6 +314,39 @@ Map<String, Object?> boardPlacement(
   };
 }
 
+/// Where dropping [card] at [index] among [target]'s cards places it, or null
+/// when the drop leaves the card where it is. [index] counts the target's cards
+/// with [card] left out, so a card released over its own slot resolves to the
+/// position it already holds. A recency column orders its own cards, so a card
+/// from another column lands wherever the server puts it and a card already in
+/// the column has nowhere to go.
+CardPlacement? boardDropPlacement(
+  BoardCard card,
+  BoardColumn target,
+  int index,
+) {
+  final home = card.columnId == target.id;
+  switch (target.order) {
+    case BoardColumnOrder.unsupported:
+      return null;
+    case BoardColumnOrder.recency:
+      return home ? null : const PlaceLast();
+    case BoardColumnOrder.priority:
+      if (home &&
+          target.cards.indexWhere((other) => other.id == card.id) == index) {
+        return null;
+      }
+      final others = [
+        for (final other in target.cards)
+          if (other.id != card.id) other,
+      ];
+      if (index <= 0 || others.isEmpty) return const PlaceFirst();
+      return PlaceAfter(
+        others[index > others.length ? others.length - 1 : index - 1].id,
+      );
+  }
+}
+
 final class BoardConstraintCheck {
   const BoardConstraintCheck({
     this.categoryIds = const [],
