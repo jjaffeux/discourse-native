@@ -59,6 +59,7 @@ import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -3414,6 +3415,53 @@ void main() {
     final places = await _placesInOrder(tester);
     expect(places.last, 'Drafts');
     expect(places.where((label) => label == 'Drafts'), hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a move keeps the slot of a place hidden for now, as Drafts is '
+      'between drafts', (tester) async {
+    final placed = MobilePlaceOrderController(_site, 'user:reader');
+    await placed.set(['destination/drafts']);
+    placed.dispose();
+    late FakeDiscourseApi api;
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (fake) => api = fake..userDraftList = const [_topicDraft],
+    );
+    await shell.draftList.load(shell.currentInstance!);
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester).first, 'Drafts');
+    // The draft finished, Drafts goes, and Chat is moved before Topics.
+    shell.draftList.recordDeleted(_site, 'new_topic', knownToExist: true);
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester), ['Topics', 'Chat', 'Bookmarks']);
+    final semantics = tester.ensureSemantics();
+    await tester.tap(_moreTrigger);
+    await tester.pumpAndSettle();
+    final chat = tester.getSemantics(
+      find.byKey(const ValueKey('mobile-mode-panel/chat')),
+    );
+    chat.owner!.performAction(
+      chat.id,
+      SemanticsAction.customAction,
+      CustomSemanticsAction.getIdentifier(
+        const CustomSemanticsAction(label: 'Move earlier'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_dockLabels(tester), ['Chat', 'Topics', 'Bookmarks']);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    semantics.dispose();
+    // A new draft brings Drafts back where the person had put it.
+    api.userDraftList = const [_topicDraft];
+    await shell.draftList.load(shell.currentInstance!, refresh: true);
+    await tester.pumpAndSettle();
+    expect((await _placesInOrder(tester)).take(3), [
+      'Drafts',
+      'Chat',
+      'Topics',
+    ]);
     expect(tester.takeException(), isNull);
   });
 

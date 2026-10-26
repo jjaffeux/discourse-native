@@ -554,11 +554,12 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         you: _you(context, shell: shell, instance: instance),
         onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
         // The order written is the one shown, the moved place in its new
-        // slot, so what the person has not placed stays as it was.
+        // slot; a place hidden for now, Drafts between drafts, keeps the
+        // slot it had.
         onMoved: placeOrder == null
             ? null
             : (from, to) => unawaited(
-                placeOrder.set(
+                placeOrder.place(
                   DMobileDockReorder.moved(
                     [for (final item in destinations) item.tab.name],
                     from,

@@ -58,6 +58,77 @@ void main() {
     });
   });
 
+  group('writing the order shown after a move', () {
+    List<String> placed(List<String> stored, List<String> shown) =>
+        MobilePlaceOrderController.placed(stored, shown);
+
+    test('nothing stored, the shown order is the one written', () {
+      expect(placed([], ['b', 'a']), ['b', 'a']);
+    });
+
+    test('a stored name not shown now keeps its place after the one before '
+        'it, or first', () {
+      expect(placed(['drafts', 'topics', 'chat'], ['chat', 'topics']), [
+        'drafts',
+        'chat',
+        'topics',
+      ]);
+      expect(placed(['topics', 'drafts', 'chat'], ['chat', 'topics']), [
+        'chat',
+        'topics',
+        'drafts',
+      ]);
+    });
+
+    test('stored names not shown stay together, in their sequence', () {
+      expect(placed(['a', 'h1', 'h2', 'b'], ['b', 'a']), [
+        'b',
+        'a',
+        'h1',
+        'h2',
+      ]);
+      expect(placed(['h1', 'h2', 'a', 'b'], ['b', 'a']), [
+        'h1',
+        'h2',
+        'b',
+        'a',
+      ]);
+    });
+
+    test('a shown place the stored order did not name stands where shown', () {
+      expect(placed(['a'], ['new', 'a']), ['new', 'a']);
+    });
+
+    test('applied to the places, the order written shows what was asked and '
+        'brings a hidden place back where it was', () {
+      final written = placed(['drafts', 'a', 'b', 'c'], ['c', 'a', 'b']);
+      String name(String place) => place;
+      expect(MobilePlaceOrderController.apply(['a', 'b', 'c'], written, name), [
+        'c',
+        'a',
+        'b',
+      ]);
+      expect(
+        MobilePlaceOrderController.apply(
+          ['a', 'b', 'c', 'drafts'],
+          written,
+          name,
+        ),
+        ['drafts', 'c', 'a', 'b'],
+      );
+    });
+  });
+
+  test('a move keeps a stored place not shown now where it was', () async {
+    final persistence = _Persistence();
+    final controller = _controller(persistence);
+    addTearDown(controller.dispose);
+    await controller.set(['drafts', 'a', 'b']);
+    await controller.place(['b', 'a']);
+    expect(controller.order, ['drafts', 'b', 'a']);
+    expect(persistence.written.last, ['drafts', 'b', 'a']);
+  });
+
   test('the order round trips within the account alone', () async {
     final persistence = _Persistence();
     final controller = _controller(persistence);

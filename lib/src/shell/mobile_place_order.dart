@@ -73,6 +73,27 @@ class MobilePlaceOrderController extends FrameSafeNotifier {
     ];
   }
 
+  /// [stored] with [shown], the places as they stand now, placed in that
+  /// order. A stored name not among them, a place hidden for now, keeps its
+  /// place after the one before it in [stored], or first, so [apply] brings
+  /// it back where it was.
+  static List<String> placed(List<String> stored, List<String> shown) {
+    final showing = shown.toSet();
+    final out = [...shown];
+    String? before;
+    for (final name in stored) {
+      if (!showing.contains(name)) {
+        out.insert(before == null ? 0 : out.indexOf(before) + 1, name);
+      }
+      before = name;
+    }
+    return out;
+  }
+
+  /// The shown places stand in the order [shown] now, written as [placed]
+  /// says.
+  Future<void> place(List<String> shown) => set(placed(order, shown));
+
   void forgetSites(ForgottenSites sites) {
     if (!sites.includes(_siteUrl, keys)) return;
     _retired = true;
