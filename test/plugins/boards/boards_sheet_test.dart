@@ -118,6 +118,27 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('pulling board content refreshes without dismissing the sheet', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final shell = await _openBoard(tester, onApi: (value) => api = value);
+    final before = api.pluginReadPaths
+        .where((path) => path == '/boards/api/boards/1.json')
+        .length;
+    await tester.dragFrom(tester.getCenter(_title), const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards/1');
+    expect(_sheet, findsOneWidget);
+    expect(
+      api.pluginReadPaths
+          .where((path) => path == '/boards/api/boards/1.json')
+          .length,
+      before + 1,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('reopening a board shows it at once and refreshes it', (
     tester,
   ) async {
