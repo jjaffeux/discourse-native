@@ -72,6 +72,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('notifications paused recolours the you tile\'s ring without '
+      'rebuilding the shell\'s chrome', (tester) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    final you = find.byKey(DMobileDock.youKey);
+    final ringBox = find.descendant(
+      of: you,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).shape == BoxShape.circle,
+      ),
+    );
+    Color? ring() =>
+        (tester.widget<DecoratedBox>(ringBox).decoration as BoxDecoration)
+            .border
+            ?.top
+            .color;
+    final tokens = DTokens.of(tester.element(you));
+    expect(ring(), tokens.success);
+    // The chrome's builder ran if and only if the frame it builds is a new
+    // widget; the dirty set says what was told to rebuild.
+    final frame = find.byKey(const ValueKey('mobile-root'));
+    final header = find.byKey(const ValueKey('mobile-header'));
+    final frameBefore = tester.widget(frame);
+    final headerBefore = tester.widget(header);
+    final root = tester.element(find.byType(MobileForumRoot));
+    final chrome = tester.element(
+      find.ancestor(of: frame, matching: find.byType(ListenableBuilder)).first,
+    );
+    final page = tester.element(find.byType(TopicListView));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    shell.doNotDisturb.acceptSnapshot(
+      shell.currentInstance!.url,
+      DateTime.now().add(const Duration(hours: 1)),
+      isCurrent: true,
+    );
+    await tester.pump();
+    expect(ring(), tokens.subtleMark);
+    expect(rebuilt, isNotEmpty);
+    expect(rebuilt, isNot(contains(root)));
+    expect(rebuilt, isNot(contains(chrome)));
+    expect(rebuilt, isNot(contains(page)));
+    expect(tester.widget(frame), same(frameBefore));
+    expect(tester.widget(header), same(headerBefore));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the system back closes the panel and goes nowhere else', (
     tester,
   ) async {

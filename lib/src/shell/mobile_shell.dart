@@ -68,13 +68,34 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     super.dispose();
   }
 
+  // Built once per content. The account button that hands the profile card
+  // down wraps the chrome in its menus and rebuilds on its own account,
+  // presence and unread counts among them; the chrome, the same widget each
+  // time, stays. New content, or a boundary, is the chrome's own change.
+  Widget? _chrome;
+
+  @override
+  void didUpdateWidget(MobileForumRoot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.content != oldWidget.content ||
+        widget.boundary != oldWidget.boundary) {
+      _chrome = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) => MobileFooterActionScope(
     controller: _footerAction,
     child: UserMenuButton.drawer(builder: _buildWithProfileFooter),
   );
 
-  Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) {
+  Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) =>
+      _ProfileFooterScope(
+        footer: profileFooter,
+        child: _chrome ??= Builder(builder: _buildChrome),
+      );
+
+  Widget _buildChrome(BuildContext context) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     // The chrome reads facade and plugin state only. Topic feeds notify
@@ -83,7 +104,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       listenable: Listenable.merge([
         shell,
         shell.accountActivity.totalsListenable,
-        shell.doNotDisturb,
         shell.draftList,
         ...registry.sidebarPanelListenables(context),
         ...registry.communitySidebarListenables(context),
@@ -123,20 +143,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           key: ValueKey(('mobile-navigation', owner)),
                           mobile: true,
                           onNavigate: shell.closeMobileSidebar,
-                          footer: profileFooter == null
-                              ? null
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    const DSeparator(),
-                                    Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: profileFooter,
-                                    ),
-                                  ],
-                                ),
+                          footer: const _ProfileFooterSlot(),
                         ),
                       ),
                     ),
@@ -502,51 +509,55 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     // Found now: the dock also tells it as it is disposed, when this context
     // is no longer one to look up from.
     final panelOut = MobileDockPanelScope.of(context);
-    return DMobileDock(
-      key: const ValueKey('mobile-bottom-bar'),
-      geometry: geometry,
-      collapsed: hideDestinations && pageAction == null,
-      destinationsHidden: hideDestinations && pageAction != null,
-      // A composer's sheet covers the shell from inside it; the panel, which
-      // paints over the shell, must not stand over the sheet.
-      covered: ComposerPresentationHost.hasMobileSheetOf(context),
-      collapsedDestination: DMobileDockItem(
-        key: const ValueKey('mobile-dock-reveal'),
-        collapsed: true,
-        icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
-        label:
-            '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
-        onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
-      ),
-      places: [
-        for (final item in destinations)
-          DMobileDockPlace(
-            key: ValueKey('mobile-mode-${item.tab.name}'),
-            icon: DIcon(item.icon),
-            label: item.label,
-            badge: item.badge,
-            selected: selected == item.tab,
-            onPressed: item.onPressed,
-          ),
-      ],
-      more: (
-        icon: const DIcon(DIcons.ellipsisVertical),
-        label: context.l10n.more,
-      ),
-      you: _you(context, shell: shell, instance: instance),
-      onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
-      action: primaryAction == null
-          ? null
-          : DActionTransition(
-              key: ValueKey((
-                shell.currentInstance?.url,
-                shell.currentAccountIdentity,
-              )),
-              child: KeyedSubtree(
-                key: ValueKey(actionIcon),
-                child: primaryAction,
-              ),
+    // Notifications paused rings the you tile, and nothing else here.
+    return ListenableBuilder(
+      listenable: shell.doNotDisturb,
+      builder: (context, _) => DMobileDock(
+        key: const ValueKey('mobile-bottom-bar'),
+        geometry: geometry,
+        collapsed: hideDestinations && pageAction == null,
+        destinationsHidden: hideDestinations && pageAction != null,
+        // A composer's sheet covers the shell from inside it; the panel, which
+        // paints over the shell, must not stand over the sheet.
+        covered: ComposerPresentationHost.hasMobileSheetOf(context),
+        collapsedDestination: DMobileDockItem(
+          key: const ValueKey('mobile-dock-reveal'),
+          collapsed: true,
+          icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
+          label:
+              '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
+          onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
+        ),
+        places: [
+          for (final item in destinations)
+            DMobileDockPlace(
+              key: ValueKey('mobile-mode-${item.tab.name}'),
+              icon: DIcon(item.icon),
+              label: item.label,
+              badge: item.badge,
+              selected: selected == item.tab,
+              onPressed: item.onPressed,
             ),
+        ],
+        more: (
+          icon: const DIcon(DIcons.ellipsisVertical),
+          label: context.l10n.more,
+        ),
+        you: _you(context, shell: shell, instance: instance),
+        onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
+        action: primaryAction == null
+            ? null
+            : DActionTransition(
+                key: ValueKey((
+                  shell.currentInstance?.url,
+                  shell.currentAccountIdentity,
+                )),
+                child: KeyedSubtree(
+                  key: ValueKey(actionIcon),
+                  child: primaryAction,
+                ),
+              ),
+      ),
     );
   }
 
@@ -811,6 +822,41 @@ class MobileHistoryGestures extends StatelessWidget {
             }
           : null,
       child: child,
+    );
+  }
+}
+
+/// The sidebar's profile card, handed down from the account button whose
+/// menus it carries to the slot that shows it, so the button's rebuilds
+/// reach the card and not the chrome between them.
+class _ProfileFooterScope extends InheritedWidget {
+  const _ProfileFooterScope({required this.footer, required super.child});
+
+  final Widget? footer;
+
+  static Widget? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ProfileFooterScope>()?.footer;
+
+  @override
+  bool updateShouldNotify(_ProfileFooterScope oldWidget) =>
+      !identical(footer, oldWidget.footer);
+}
+
+/// Where the sidebar shows the profile card; nothing without an account.
+class _ProfileFooterSlot extends StatelessWidget {
+  const _ProfileFooterSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    final footer = _ProfileFooterScope.of(context);
+    if (footer == null) return const SizedBox.shrink();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const DSeparator(),
+        Padding(padding: const EdgeInsets.all(6), child: footer),
+      ],
     );
   }
 }
