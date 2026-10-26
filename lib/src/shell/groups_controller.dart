@@ -1194,7 +1194,7 @@ final class GroupsController extends FrameSafeNotifier {
         userId: requester.id,
         accept: accept,
       ),
-      refreshDetail: false,
+      refreshDetail: accept,
       removeCachedRows: () {
         final keys = _requesters.keys.where(
           (key) =>

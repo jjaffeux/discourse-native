@@ -2085,7 +2085,7 @@ void main() {
             const GroupRequester(id: 1, username: 'sam'),
             accept: true,
           ),
-          false,
+          true,
         ),
         (
           'adding a member',
@@ -2562,6 +2562,9 @@ void main() {
           'meta': {'total': 3, 'limit': 2, 'offset': 0},
         }),
         nextPage,
+        _completed({
+          'group': {'id': 7, 'name': 'support'},
+        }),
         _completed({
           'members': [
             {'id': 3, 'username': 'kim'},
