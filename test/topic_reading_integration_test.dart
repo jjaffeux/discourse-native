@@ -4364,6 +4364,49 @@ void _registerTopicReadingTests() {
     );
 
     test(
+      'an unpositioned reopen resumes past posts read since it was loaded',
+      () async {
+        final fixture = await _serverResumeFixture(lastRead: 40);
+        final controller = fixture.controller;
+        final api = fixture.api;
+        addTearDown(controller.dispose);
+        void openUnpositioned() => controller.pushContent(
+          ContentRoute.topic(
+            topicId: _ServerResumeTopicApi.topicId,
+            slug: _ServerResumeTopicApi.slug,
+            title: _ServerResumeTopicApi.title,
+          ),
+        );
+
+        openUnpositioned();
+        await controller.loadTopic(
+          _ServerResumeTopicApi.topicId,
+          _ServerResumeTopicApi.slug,
+        );
+        expect(controller.currentContent?.postNumber, 40);
+
+        await controller.markTopicRead(
+          _ServerResumeTopicApi.siteUrl,
+          _ServerResumeTopicApi.topicId,
+          60,
+          caughtUp: false,
+          readPostNumbers: [
+            for (var number = 41; number < 60; number++) number,
+          ],
+        );
+        expect(controller.handleBack(canReturnToSidebar: false), isTrue);
+        openUnpositioned();
+        await controller.loadTopic(
+          _ServerResumeTopicApi.topicId,
+          _ServerResumeTopicApi.slug,
+        );
+
+        expect(controller.currentContent?.postNumber, 60);
+        expect(api.topicPostNumbersOpened.last, 60);
+      },
+    );
+
+    test(
       'a persisted local topic position wins over the server fallback',
       () async {
         final fixture = await _serverResumeFixture();
@@ -5326,7 +5369,7 @@ final class _MegaTopicApi extends FakeDiscourseApi {
 }
 
 final class _ServerResumeTopicApi extends FakeDiscourseApi {
-  _ServerResumeTopicApi()
+  _ServerResumeTopicApi({this.lastRead = lastPostNumber})
     : super(
         user: const DiscourseUser(username: 'reader'),
         feeds: const {'/latest.json': []},
@@ -5337,6 +5380,8 @@ final class _ServerResumeTopicApi extends FakeDiscourseApi {
   static const lastPostNumber = 74;
   static const slug = 'the-doerr-diaries-2026';
   static const title = 'The Doerr Diaries - 2026';
+
+  final int lastRead;
 
   @override
   Future<TopicPayload> topic({
@@ -5355,7 +5400,7 @@ final class _ServerResumeTopicApi extends FakeDiscourseApi {
     return TopicDetail.parse({
       'id': id,
       'title': title,
-      'last_read_post_number': lastPostNumber,
+      'last_read_post_number': lastRead,
       'highest_post_number': lastPostNumber,
       // The reported topic has one small-action stream row outside its
       // ordinary post count.
@@ -5379,8 +5424,10 @@ final class _ServerResumeTopicApi extends FakeDiscourseApi {
 }
 
 Future<({ShellController controller, _ServerResumeTopicApi api})>
-_serverResumeFixture() async {
-  final api = _ServerResumeTopicApi();
+_serverResumeFixture({
+  int lastRead = _ServerResumeTopicApi.lastPostNumber,
+}) async {
+  final api = _ServerResumeTopicApi(lastRead: lastRead);
   return (controller: await _readerController(api), api: api);
 }
 
