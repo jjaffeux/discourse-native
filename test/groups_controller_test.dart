@@ -2520,6 +2520,36 @@ void main() {
     },
   );
 
+  test('accepting a membership request counts the new member', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 1},
+        }),
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 2},
+        }),
+      ]);
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(id: 7, name: 'support');
+
+    await controller.loadDetail(_connectedInstance, group.name);
+    final accepted = await controller.handleRequest(
+      _connectedInstance,
+      group,
+      const GroupRequester(id: 1, username: 'sam'),
+      accept: true,
+    );
+
+    expect(accepted.canApplyLocally, isTrue);
+    expect(
+      controller.detailState(_site, group.name).detail?.group.userCount,
+      2,
+    );
+  });
+
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
     final transport = _ControlledGroupTransport()
