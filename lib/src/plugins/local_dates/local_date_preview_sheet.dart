@@ -260,12 +260,19 @@ class _PreviewValues extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final end = rangeEnd == null
-        ? null
-        : tz.TZDateTime.from(rangeEnd!, preview.value.location);
+    // A date without a time is its source zone's whole day. Where that day
+    // does not start at midnight, only its hours say which day is meant.
+    final window = !hasTime && !_isMidnight(preview.value);
+    final startTimed = hasTime || window;
+    final endTimed = rangeEndHasTime || window;
+    final end = rangeEnd != null
+        ? tz.TZDateTime.from(rangeEnd!, preview.value.location)
+        : window
+        ? preview.value.add(const Duration(hours: 24))
+        : null;
     final sameDay =
         end != null && _calendarDay(preview.value) == _calendarDay(end);
-    final inlineEnd = sameDay && hasTime && rangeEndHasTime;
+    final inlineEnd = sameDay && startTimed && endTimed;
     final textAlign = alignEnd ? TextAlign.end : TextAlign.start;
     final foreground = DTokens.of(context).foreground;
     Widget date(DateTime value) => DText(
@@ -276,7 +283,7 @@ class _PreviewValues extends StatelessWidget {
               : DateFormat.MMMEd(locale))
           .format(value),
       textAlign: textAlign,
-      variant: hasTime ? DTextVariant.small : DTextVariant.paragraph,
+      variant: startTimed ? DTextVariant.small : DTextVariant.paragraph,
       style: TextStyle(color: DTokens.of(context).mutedForeground),
     );
     Widget time(DateTime value) => _TimeLabel(
@@ -291,7 +298,7 @@ class _PreviewValues extends StatelessWidget {
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        if (hasTime) ...[
+        if (startTimed) ...[
           if (inlineEnd)
             Wrap(
               alignment: alignEnd ? WrapAlignment.end : WrapAlignment.start,
@@ -304,10 +311,10 @@ class _PreviewValues extends StatelessWidget {
           const SizedBox(height: 6),
         ],
         date(preview.value),
-        if (end != null && !inlineEnd && (!sameDay || rangeEndHasTime)) ...[
+        if (end != null && !inlineEnd && (!sameDay || endTimed)) ...[
           const SizedBox(height: 10),
           DText(context.l10n.end, variant: DTextVariant.small),
-          if (rangeEndHasTime) time(end),
+          if (endTimed) time(end),
           date(end),
         ],
       ],
@@ -370,3 +377,6 @@ class _TimeLabel extends StatelessWidget {
 
 DateTime _calendarDay(DateTime date) =>
     DateTime.utc(date.year, date.month, date.day);
+
+bool _isMidnight(DateTime value) =>
+    value.hour == 0 && value.minute == 0 && value.second == 0;
