@@ -2727,10 +2727,12 @@ void main() {
                 ),
                 reason: key,
               );
-              expect(
-                tester.getSize(control).height,
-                key == 'topic-reply-button' ? controlHeight : 30,
-              );
+              expect(tester.getSize(control).height, switch (key) {
+                'topic-reply-button' => controlHeight,
+                // Progress wears the day separator's chip.
+                'topic-progress-button' => 24,
+                _ => 30,
+              });
               expect(
                 tester.getRect(control).center.dy,
                 closeTo(tester.getRect(reply).center.dy, .01),
@@ -3582,8 +3584,11 @@ void _expectFloatingProgressFits(WidgetTester tester, String reason) {
   expect(rect.left, greaterThanOrEqualTo(reader.left), reason: reason);
   expect(rect.right, lessThanOrEqualTo(reader.right), reason: reason);
   expect(rect.bottom, lessThanOrEqualTo(reader.bottom), reason: reason);
-  expect(tester.widget<DButton>(progress).variant, DButtonVariant.ghost);
-  expect(tester.widget<DButton>(progress).density, DButtonDensity.floatingCall);
+  expect(
+    tester.widget<DButton>(progress).density,
+    DButtonDensity.floatingDate,
+    reason: reason,
+  );
   expect(
     rect,
     tester.getRect(

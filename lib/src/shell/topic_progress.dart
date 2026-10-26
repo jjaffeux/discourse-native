@@ -11,6 +11,7 @@ import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
+import 'stream_day_separator.dart';
 
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
@@ -34,7 +35,7 @@ class TopicProgressButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final boundedTotal = total < 1 ? 1 : total;
     final boundedPosition = position.clamp(1, boundedTotal);
-    return DButton(
+    return StreamChip.of(context, floating: floating).button(
       key: const ValueKey('topic-progress-button'),
       onPressed: onPressed,
       focusNode: focusNode,
@@ -45,11 +46,6 @@ class TopicProgressButton extends StatelessWidget {
         (boundedPosition).toString(),
         (boundedTotal).toString(),
       ),
-      variant: DButtonVariant.ghost,
-      density: floating
-          ? DButtonDensity.floatingCall
-          : DButtonDensity.topicProgress,
-      shape: DButtonShape.pill,
       label: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
@@ -130,6 +126,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
             total: widget.total,
             expanded: _sheet.isOpen,
             onPressed: open,
+            floating: widget.floating,
           ),
         ),
       );

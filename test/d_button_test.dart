@@ -21,7 +21,6 @@ void main() {
       for (final scale in [1.0, 2.0]) {
         for (final density in [
           DButtonDensity.floatingCall,
-          DButtonDensity.topicProgress,
           DButtonDensity.timelineEnd,
         ]) {
           await tester.pumpWidget(
@@ -83,11 +82,9 @@ void main() {
         for (final scale in [1.0, 2.0]) {
           for (final density in [
             DButtonDensity.floatingCall,
-            DButtonDensity.topicProgress,
             DButtonDensity.timelineEnd,
           ]) {
             final floating = density == DButtonDensity.floatingCall;
-            final footer = density == DButtonDensity.topicProgress;
             await tester.pumpWidget(
               MaterialApp(
                 theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
@@ -115,26 +112,11 @@ void main() {
             final fontSize = floating ? 11.5 : 12.5;
             expect(
               rect.height,
-              closeTo(
-                (floating
-                        ? 26
-                        : footer
-                        ? 30
-                        : 34) +
-                    fontSize * (scale - 1) * 1.5,
-                .01,
-              ),
+              closeTo((floating ? 26 : 34) + fontSize * (scale - 1) * 1.5, .01),
             );
             final surface = buttonSurface(tester);
 
-            expect(
-              surface.color.a,
-              floating
-                  ? closeTo(.4, .001)
-                  : footer || floating
-                  ? 0
-                  : 1,
-            );
+            expect(surface.color.a, floating ? closeTo(.4, .001) : 1);
             expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
 
             expect(surface.borderRadius.topLeft.x, 999);

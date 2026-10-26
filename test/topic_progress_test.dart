@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 
@@ -11,10 +12,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
+
 void main() {
-  testWidgets('phone and desktop progress keep their trigger heights', (
-    tester,
-  ) async {
+  testWidgets('progress trigger wears the day separator chip', (tester) async {
     await (FontLoader('Lato')
           ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
@@ -33,31 +34,50 @@ void main() {
                     .apply(fontFamily: 'Lato'),
               ),
               home: Scaffold(
-                body: Center(
-                  child: RepaintBoundary(
-                    key: capture,
-                    child: Builder(
-                      builder: (context) => ColoredBox(
-                        color: DTokens.of(context).background,
-                        child: Padding(
-                          padding: const EdgeInsets.all(28),
-                          child: TopicProgressButton(
-                            position: 1,
-                            total: 16,
-                            floating: floating,
-                            onPressed: () {},
+                body: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    StreamDaySeparator(
+                      key: const ValueKey('day'),
+                      day: DateTime(2026, 10, 20),
+                      floating: floating,
+                      onTap: () {},
+                    ),
+                    RepaintBoundary(
+                      key: capture,
+                      child: Builder(
+                        builder: (context) => ColoredBox(
+                          color: DTokens.of(context).background,
+                          child: Padding(
+                            padding: const EdgeInsets.all(28),
+                            child: TopicProgressButton(
+                              position: 1,
+                              total: 16,
+                              floating: floating,
+                              onPressed: () {},
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           );
           await tester.pumpAndSettle();
           final trigger = find.byKey(const ValueKey('topic-progress-button'));
-          expect(tester.getSize(trigger).height, floating ? 26 : 30);
+          final date = find.descendant(
+            of: find.byKey(const ValueKey('day')),
+            matching: find.byType(DButton),
+          );
+          final progressSurface = buttonSurface(tester, of: trigger);
+          final dateSurface = buttonSurface(tester, of: date);
+          expect(progressSurface.color.a, greaterThan(0));
+          expect(progressSurface.color, dateSurface.color);
+          expect(progressSurface.borderColor, dateSurface.borderColor);
+          expect(progressSurface.borderColor.a, floating ? greaterThan(0) : 0);
+          expect(tester.getSize(trigger).height, tester.getSize(date).height);
 
           final output =
               Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
@@ -72,7 +92,7 @@ void main() {
                 );
                 await Directory(output).create(recursive: true);
                 await File(
-                  '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-flat.png',
+                  '$output/${floating ? 'floating' : 'footer'}-${dark ? 'dark' : 'light'}-flat.png',
                 ).writeAsBytes(bytes!.buffer.asUint8List());
               } finally {
                 image.dispose();
@@ -233,15 +253,7 @@ void main() {
             ),
           );
           expect(bounds, tester.getRect(surface));
-          final control = tester.widget<DButton>(button);
-          expect(control.variant, DButtonVariant.ghost);
-          expect(
-            control.density,
-            scenario.floating
-                ? DButtonDensity.floatingCall
-                : DButtonDensity.topicProgress,
-          );
-          expect(control.icon, isNull);
+          expect(tester.widget<DButton>(button).icon, isNull);
           expect(
             find.bySemanticsLabel(
               RegExp(
