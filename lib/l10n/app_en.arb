@@ -10529,10 +10529,6 @@
   "@replyToThisTopic": {
     "description": "English UI message used by shell/mobile_shell.dart. Keep placeholders intact."
   },
-  "moreDestinations": "More destinations",
-  "@moreDestinations": {
-    "description": "English UI message used by shell/mobile_shell.dart. Keep placeholders intact."
-  },
   "selectedComposerrecipients": "Selected",
   "@selectedComposerrecipients": {
     "description": "English UI message used by shell/composer_recipients.dart. Keep placeholders intact."

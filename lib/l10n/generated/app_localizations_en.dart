@@ -7939,9 +7939,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get replyToThisTopic => 'Reply to this topic';
 
   @override
-  String get moreDestinations => 'More destinations';
-
-  @override
   String get selectedComposerrecipients => 'Selected';
 
   @override

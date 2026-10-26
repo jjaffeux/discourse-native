@@ -840,6 +840,9 @@ class _DMobileDockState extends State<DMobileDock>
               label: places[index].label,
               badge: places[index].badge,
               selected: true,
+              // It opens the panel in the ⋮'s stead, and takes the focus
+              // back in its stead as the panel closes.
+              focusNode: _moreFocus,
               hasPopup: true,
               expanded: out,
               onPressed: () => _grow(true),

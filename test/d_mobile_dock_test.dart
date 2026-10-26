@@ -1198,6 +1198,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(moreFocus.hasFocus, isTrue);
+    // A page standing in the ⋮'s slot opened it, and takes the focus back.
+    await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
+    await tester.pumpAndSettle();
+    final users = find.byKey(const ValueKey('Users'));
+    final usersFocus = tester.widget<DMobileDockItem>(users).focusNode!;
+    await tester.tap(users);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(usersFocus.hasFocus, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(usersFocus.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
 

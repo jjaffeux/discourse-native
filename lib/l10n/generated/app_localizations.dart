@@ -13642,12 +13642,6 @@ abstract class AppLocalizations {
   /// **'Reply to this topic'**
   String get replyToThisTopic;
 
-  /// English UI message used by shell/mobile_shell.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'More destinations'**
-  String get moreDestinations;
-
   /// English UI message used by shell/composer_recipients.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
