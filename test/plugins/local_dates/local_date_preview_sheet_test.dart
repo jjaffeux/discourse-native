@@ -274,6 +274,30 @@ void main() {
     expect(find.textContaining('AM', findRichText: true), findsNothing);
   });
 
+  testWidgets(
+    'a date-only entry read in another zone spans that zone’s hours',
+    (tester) async {
+      environment.setDeviceTimezone('America/New_York');
+      await open(
+        tester,
+        spec: const LocalDateSpec(
+          date: '2026-09-14',
+          timezone: 'Europe/Paris',
+          fallbackText: '',
+        ),
+      );
+
+      // Paris's September 14 runs from 6 PM on the 13th to 6 PM on the 14th in
+      // New York; the 13th alone would name a day the post never mentions.
+      expect(sheetText('Sunday, September 13, 2026'), findsOneWidget);
+      expect(sheetText('End'), findsOneWidget);
+      expect(sheetText('Monday, September 14, 2026'), findsOneWidget);
+      expect(sheetText('6:00 PM'), findsNWidgets(2));
+      expect(sheetText('Mon, Sep 14'), findsOneWidget);
+      expect(find.textContaining('AM', findRichText: true), findsNothing);
+    },
+  );
+
   testWidgets('day changes use calendar dates across DST and year boundaries', (
     tester,
   ) async {
