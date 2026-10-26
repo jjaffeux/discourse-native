@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget fixture({
@@ -26,6 +27,7 @@ Widget fixture({
   String? selected = 'Topics',
   DMobileDockYou? you,
   ValueChanged<bool>? onPanelChanged,
+  bool covered = false,
   bool hidden = false,
   ThemeData? theme,
   Color backdrop = Colors.white,
@@ -61,6 +63,7 @@ Widget fixture({
                       geometry: geometry,
                       collapsed: collapsed,
                       destinationsHidden: hidden,
+                      covered: covered,
                       places: [
                         for (final name in labels)
                           DMobileDockPlace(
@@ -774,6 +777,19 @@ void main() {
     expect(_dim, findsNothing);
     await tester.pumpAndSettle();
     expect(changes, [true, false]);
+    // Something over the bar, a composer's sheet, puts it away too.
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    await tester.pumpWidget(fixture(foot: 34, covered: true));
+    await tester.pump();
+    expect(_panel, findsNothing);
+    await tester.pumpWidget(fixture(foot: 34, covered: true));
+    await tester.tap(_more, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
     // Nor is there a panel with nothing past the bar's columns.
     await tester.pumpWidget(
       fixture(foot: 34, labels: const ['Start', 'Topics', 'Chat']),
@@ -781,6 +797,72 @@ void main() {
     await tester.pumpAndSettle();
     expect(_more, findsNothing);
     expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the scroll chrome putting its footer away takes the panel '
+      'with it', (tester) async {
+    final owner = Object();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.only(bottom: 34)),
+          child: Scaffold(
+            body: DScrollChrome(
+              identity: 1,
+              floatingFooter: true,
+              footerBuilder: (hidden) => Builder(
+                builder: (context) {
+                  final geometry = DMobileDockGeometry.of(context);
+                  return Padding(
+                    padding: geometry.margin,
+                    child: DMobileDock(
+                      geometry: geometry,
+                      collapsed: hidden,
+                      places: [
+                        for (final name in ['Start', 'Topics', 'Chat', 'Inbox'])
+                          DMobileDockPlace(
+                            key: ValueKey(name),
+                            icon: const Icon(Icons.forum),
+                            label: name,
+                            onPressed: () {},
+                          ),
+                      ],
+                      more: (icon: const Icon(Icons.more_vert), label: 'More'),
+                      collapsedDestination: DMobileDockItem(
+                        collapsed: true,
+                        icon: const Icon(Icons.forum),
+                        label: 'Reveal',
+                        onPressed: () {},
+                      ),
+                    ),
+                  );
+                },
+              ),
+              child: ListView(
+                key: const ValueKey('page'),
+                children: [for (var i = 0; i < 40; i++) Text('Row $i')],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    final chrome = DScrollChrome.maybeOf(
+      tester.element(find.byKey(const ValueKey('page'))),
+    )!;
+    chrome.setFooterHidden(owner, hidden: true);
+    await tester.pump();
+    expect(_panel, findsNothing);
+    await tester.pumpAndSettle();
+    chrome.setFooterHidden(owner, hidden: false);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(_more.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1099,6 +1181,23 @@ void main() {
     expect(_panel, findsNothing);
     await gesture.up(timeStamp: const Duration(milliseconds: 1032));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Escape closes the panel and gives the ⋮ its focus back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final moreFocus = tester.widget<DMobileDockItem>(_more).focusNode!;
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(moreFocus.hasFocus, isFalse);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(moreFocus.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
 }

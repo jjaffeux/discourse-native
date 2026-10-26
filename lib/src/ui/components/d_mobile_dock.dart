@@ -12,6 +12,7 @@ import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';
 import 'd_mobile_dock_growth.dart';
 import 'd_mobile_dock_item.dart';
+import 'd_scroll_chrome.dart';
 
 /// One of a phone's places, as the bar shows it in its row and as the panel
 /// the bar grows into shows it as a tile.
@@ -144,6 +145,7 @@ class DMobileDock extends StatefulWidget {
     this.you,
     this.collapsed = false,
     this.destinationsHidden = false,
+    this.covered = false,
     this.onPanelChanged,
   });
 
@@ -160,6 +162,11 @@ class DMobileDock extends StatefulWidget {
   final DMobileDockYou? you;
   final bool collapsed;
   final bool destinationsHidden;
+
+  /// Whether something in the app stands over the bar, a composer's sheet,
+  /// that the panel must not stand over in turn. The panel is put away
+  /// with the bar.
+  final bool covered;
 
   /// Told once as the panel comes out and once as it goes, never during a
   /// build.
@@ -240,7 +247,8 @@ class _DMobileDockState extends State<DMobileDock>
   bool get _grows =>
       widget.places.length > DMobileDockGeometry.placeColumns &&
       !widget.collapsed &&
-      !widget.destinationsHidden;
+      !widget.destinationsHidden &&
+      !widget.covered;
 
   List<DMobileDockPlace> get _rest =>
       widget.places.skip(DMobileDockGeometry.placeColumns).toList();
@@ -251,6 +259,14 @@ class _DMobileDockState extends State<DMobileDock>
   void didUpdateWidget(DMobileDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_out && !_grows) _putAway();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Read first, so the chrome's change is a dependency from the start.
+    final away = DScrollChrome.footerAwayOf(context);
+    if (away && _out) _putAway();
   }
 
   @override
@@ -430,14 +446,33 @@ class _DMobileDockState extends State<DMobileDock>
       info.childPaintTransform,
       Offset.zero & info.childSize,
     );
+    final panel = widget.geometry.panel(tiles: _tiles);
+    return PopScope(
+      // The system back closes the panel, as Escape does.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _grow(false);
+      },
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_growth, _fade]),
+        builder: (context, _) => _layer(context, slot, panel),
+      ),
+    );
+  }
+
+  /// The layer as it stands at this growth.
+  Widget _layer(
+    BuildContext context,
+    Rect slot,
+    DMobileDockPanelGeometry panel,
+  ) {
     final geometry = widget.geometry;
-    // The screen's edges, which the bar's margins keep it from: the panel
-    // runs between them, up from the foot.
+    // The screen's edges, which the bar's margins keep it from: the
+    // panel runs between them, up from the foot.
     final margin = geometry.margin;
     final left = slot.left - margin.start;
     final width = slot.width + margin.horizontal;
     final foot = slot.bottom + margin.bottom;
-    final panel = geometry.panel(tiles: _tiles);
     final tokens = DTokens.of(context);
     final topRadius = BorderRadius.vertical(
       top: Radius.circular(geometry.topRadius),
@@ -449,147 +484,140 @@ class _DMobileDockState extends State<DMobileDock>
         builder: (context, _) => _bar(context),
       ),
     );
-    return AnimatedBuilder(
-      animation: Listenable.merge([_growth, _fade]),
-      builder: (context, _) {
-        final growth = _growth.value;
-        final fade = _fade.value;
-        final tiles = [
-          for (final (index, place) in _rest.indexed)
-            _tile(
-              panel.tileRect(index, width),
-              DMobileDockItem(
-                key: DMobileDock.tileKey(place.key),
-                growth: 1,
-                autofocus: index == 0,
-                icon: place.icon,
-                label: place.label,
-                badge: place.badge,
-                selected: place.selected,
-                onPressed: () {
-                  _grow(false);
-                  place.onPressed();
-                },
-              ),
-            ),
-          if (widget.you case final you?)
-            _tile(
-              panel.tileRect(_rest.length, width),
-              DMobileDockItem(
-                key: DMobileDock.youKey,
-                growth: 1,
-                icon: _Face(face: you.face, ring: you.ring),
-                label: you.name,
-                semanticLabel: you.semanticLabel,
-                onPressed: () {
-                  _grow(false);
-                  you.onPressed();
-                },
-              ),
-            ),
-        ];
-        final body = DecoratedBox(
-          key: DMobileDock.panelKey,
-          decoration: BoxDecoration(
-            color: tokens.wellFill,
-            borderRadius: topRadius,
+    final growth = _growth.value;
+    final fade = _fade.value;
+    final tiles = [
+      for (final (index, place) in _rest.indexed)
+        _tile(
+          panel.tileRect(index, width),
+          DMobileDockItem(
+            key: DMobileDock.tileKey(place.key),
+            growth: 1,
+            autofocus: index == 0,
+            icon: place.icon,
+            label: place.label,
+            badge: place.badge,
+            selected: place.selected,
+            onPressed: () {
+              _grow(false);
+              place.onPressed();
+            },
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              PositionedDirectional(
-                top: panel.grabberTop(growth),
-                start: 0,
-                end: 0,
-                child: Center(
-                  child: ExcludeSemantics(
-                    child: DecoratedBox(
-                      key: DMobileDock.grabberKey,
-                      decoration: BoxDecoration(
-                        color: tokens.subtleMark,
-                        borderRadius: BorderRadius.circular(
-                          DMobileDockPanelGeometry.grabberRadius,
-                        ),
-                      ),
-                      child: SizedBox.fromSize(
-                        size: DMobileDockPanelGeometry.grabberSize,
-                      ),
+        ),
+      if (widget.you case final you?)
+        _tile(
+          panel.tileRect(_rest.length, width),
+          DMobileDockItem(
+            key: DMobileDock.youKey,
+            growth: 1,
+            icon: _Face(face: you.face, ring: you.ring),
+            label: you.name,
+            semanticLabel: you.semanticLabel,
+            onPressed: () {
+              _grow(false);
+              you.onPressed();
+            },
+          ),
+        ),
+    ];
+    final body = DecoratedBox(
+      key: DMobileDock.panelKey,
+      decoration: BoxDecoration(
+        color: tokens.wellFill,
+        borderRadius: topRadius,
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          PositionedDirectional(
+            top: panel.grabberTop(growth),
+            start: 0,
+            end: 0,
+            child: Center(
+              child: ExcludeSemantics(
+                child: DecoratedBox(
+                  key: DMobileDock.grabberKey,
+                  decoration: BoxDecoration(
+                    color: tokens.subtleMark,
+                    borderRadius: BorderRadius.circular(
+                      DMobileDockPanelGeometry.grabberRadius,
+                    ),
+                  ),
+                  child: SizedBox.fromSize(
+                    size: DMobileDockPanelGeometry.grabberSize,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Opacity(
+              opacity: DMobileDockPanelGeometry.gridOpacity(fade),
+              child: Stack(clipBehavior: Clip.none, children: tiles),
+            ),
+          ),
+        ],
+      ),
+    );
+    return BlockSemantics(
+      child: Semantics(
+        container: true,
+        scopesRoute: true,
+        namesRoute: true,
+        explicitChildNodes: true,
+        label: context.l10n.places,
+        onDismiss: () => _grow(false),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (_) => _grow(false),
+                child: ExcludeSemantics(
+                  child: ColoredBox(
+                    key: DMobileDock.dimKey,
+                    color: Colors.black.withValues(
+                      alpha: DMobileDock.dimOpacity * fade,
                     ),
                   ),
                 ),
               ),
-              Positioned.fill(
-                child: Opacity(
-                  opacity: DMobileDockPanelGeometry.gridOpacity(fade),
-                  child: Stack(clipBehavior: Clip.none, children: tiles),
+            ),
+            Positioned(
+              left: left,
+              width: width,
+              top: foot - (panel.height - panel.clipInset(growth)),
+              height: panel.height - panel.clipInset(growth),
+              child: ClipRRect(
+                borderRadius: topRadius,
+                child: OverflowBox(
+                  alignment: Alignment.bottomCenter,
+                  minHeight: panel.height,
+                  maxHeight: panel.height,
+                  child: FocusScope(
+                    node: _panelFocus,
+                    child: CallbackShortcuts(
+                      bindings: {
+                        const SingleActivator(LogicalKeyboardKey.escape): () =>
+                            _grow(false),
+                      },
+                      child: _draggable(context, body),
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
-        );
-        return BlockSemantics(
-          child: Semantics(
-            container: true,
-            scopesRoute: true,
-            namesRoute: true,
-            explicitChildNodes: true,
-            label: context.l10n.places,
-            onDismiss: () => _grow(false),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned.fill(
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _grow(false),
-                    child: ExcludeSemantics(
-                      child: ColoredBox(
-                        key: DMobileDock.dimKey,
-                        color: Colors.black.withValues(
-                          alpha: DMobileDock.dimOpacity * fade,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: left,
-                  width: width,
-                  top: foot - (panel.height - panel.clipInset(growth)),
-                  height: panel.height - panel.clipInset(growth),
-                  child: ClipRRect(
-                    borderRadius: topRadius,
-                    child: OverflowBox(
-                      alignment: Alignment.bottomCenter,
-                      minHeight: panel.height,
-                      maxHeight: panel.height,
-                      child: FocusScope(
-                        node: _panelFocus,
-                        child: CallbackShortcuts(
-                          bindings: {
-                            const SingleActivator(
-                              LogicalKeyboardKey.escape,
-                            ): () =>
-                                _grow(false),
-                          },
-                          child: _draggable(context, body),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: slot.left,
-                  top: slot.top - panel.barRise(growth),
-                  width: slot.width,
-                  height: slot.height,
-                  child: bar,
-                ),
-              ],
             ),
-          ),
-        );
-      },
+            Positioned(
+              left: slot.left,
+              top: slot.top - panel.barRise(growth),
+              width: slot.width,
+              height: slot.height,
+              child: bar,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

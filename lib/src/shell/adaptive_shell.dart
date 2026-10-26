@@ -31,6 +31,7 @@ import 'instance_sidebar.dart';
 import 'keyboard_navigation.dart';
 import 'keyboard_shortcuts_help.dart';
 import 'main_content.dart';
+import 'mobile_dock_panel_scope.dart';
 import 'mobile_shell.dart';
 import 'platform.dart';
 import 'resizable_pane.dart';
@@ -835,59 +836,79 @@ class _UnavailableForum extends StatelessWidget {
   }
 }
 
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends StatefulWidget {
   const _MobileShell();
+
+  @override
+  State<_MobileShell> createState() => _MobileShellState();
+}
+
+class _MobileShellState extends State<_MobileShell> {
+  final _dockPanelOut = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _dockPanelOut.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     onPopInvokedWithResult: (didPop, result) {
       if (didPop) return;
-      if (ComposerPresentationHost.hasMobileSheetOf(context)) {
+      // A composer's sheet and the bar's panel each take the back themselves.
+      if (ComposerPresentationHost.hasMobileSheetOf(context) ||
+          _dockPanelOut.value) {
         return;
       } else if (!ShellScope.read(context).handleBack()) {
         unawaited(SystemNavigator.pop());
       }
     },
-    child: ForumWindowBackground(
-      mobile: true,
-      child: SafeArea(
-        bottom: false,
-        child:
-            ShellSelector<({InstanceLoadStatus loadStatus, bool hasInstances})>(
-              select: (shell) => (
-                loadStatus: shell.loadStatus,
-                hasInstances: shell.hasInstances,
+    child: MobileDockPanelScope(
+      out: _dockPanelOut,
+      child: ForumWindowBackground(
+        mobile: true,
+        child: SafeArea(
+          bottom: false,
+          child:
+              ShellSelector<
+                ({InstanceLoadStatus loadStatus, bool hasInstances})
+              >(
+                select: (shell) => (
+                  loadStatus: shell.loadStatus,
+                  hasInstances: shell.hasInstances,
+                ),
+                builder: (context, state, _) {
+                  Widget homeStatus(Widget child) => Row(
+                    children: [
+                      const SizedBox(
+                        width: AdaptiveShell.railWidth,
+                        child: InstanceRail(),
+                      ),
+                      Expanded(child: child),
+                    ],
+                  );
+                  if (state.loadStatus == InstanceLoadStatus.loading) {
+                    return homeStatus(const _ShellLoadProgress());
+                  }
+                  if (state.loadStatus == InstanceLoadStatus.failed) {
+                    return homeStatus(const _ShellLoadFailure());
+                  }
+                  if (!state.hasInstances) {
+                    return homeStatus(const EmptyState());
+                  }
+                  return _PageComposerDock(
+                    child: MobileForumRoot(
+                      content: MainContent(
+                        key: ComposerPresentationHost.contentKeyOf(context),
+                        layout: ShellLayout.compact,
+                      ),
+                    ),
+                  );
+                },
               ),
-              builder: (context, state, _) {
-                Widget homeStatus(Widget child) => Row(
-                  children: [
-                    const SizedBox(
-                      width: AdaptiveShell.railWidth,
-                      child: InstanceRail(),
-                    ),
-                    Expanded(child: child),
-                  ],
-                );
-                if (state.loadStatus == InstanceLoadStatus.loading) {
-                  return homeStatus(const _ShellLoadProgress());
-                }
-                if (state.loadStatus == InstanceLoadStatus.failed) {
-                  return homeStatus(const _ShellLoadFailure());
-                }
-                if (!state.hasInstances) {
-                  return homeStatus(const EmptyState());
-                }
-                return _PageComposerDock(
-                  child: MobileForumRoot(
-                    content: MainContent(
-                      key: ComposerPresentationHost.contentKeyOf(context),
-                      layout: ShellLayout.compact,
-                    ),
-                  ),
-                );
-              },
-            ),
+        ),
       ),
     ),
   );

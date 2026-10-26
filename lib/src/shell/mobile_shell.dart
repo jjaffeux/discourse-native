@@ -19,6 +19,7 @@ import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
 import 'instance_sidebar.dart';
 import 'message_create_button.dart';
+import 'mobile_dock_panel_scope.dart';
 import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
 import 'mobile_scroll_dock.dart';
@@ -503,6 +504,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       geometry: geometry,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
+      // A composer's sheet covers the shell from inside it; the panel, which
+      // paints over the shell, must not stand over the sheet.
+      covered: ComposerPresentationHost.hasMobileSheetOf(context),
       collapsedDestination: DMobileDockItem(
         key: const ValueKey('mobile-dock-reveal'),
         collapsed: true,
@@ -527,6 +531,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: context.l10n.more,
       ),
       you: _you(context, shell: shell, instance: instance),
+      onPanelChanged: (out) => MobileDockPanelScope.of(context)?.value = out,
       action: primaryAction == null
           ? null
           : DActionTransition(

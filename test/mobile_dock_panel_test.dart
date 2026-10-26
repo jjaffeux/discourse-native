@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -68,6 +69,113 @@ void main() {
     // The drag pressed nothing: Topics was under the finger and is still
     // the place, not a place gone to.
     expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the system back closes the panel and goes nowhere else', (
+    tester,
+  ) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isTrue);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    expect(panel, findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(shell.currentContent?.isTopic, isTrue);
+    // Closed, the back is the shell's again.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('while the panel is out nothing under it scrolls, and the bar '
+      'does not fold', (tester) async {
+    await fixture.pumpMobileShellFixture(
+      tester,
+      topics: [
+        for (var id = 7; id < 40; id++)
+          Topic(id: id, title: 'Discussion $id', slug: 'discussion-$id'),
+      ],
+    );
+    final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+    final rest = tester.getRect(surface);
+    final list = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: find.byType(TopicListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    final offset = list.position.pixels;
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    expect(panel, findsOneWidget);
+    // A scroll over the page meets the dim: the press closes the panel and
+    // the page never moves.
+    await tester.drag(
+      find.byKey(const ValueKey('mobile-header')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(list.position.pixels, offset);
+    expect(tester.getRect(surface), rest);
+    // Closed, the same scroll moves the page and folds the bar.
+    await tester.drag(find.byType(TopicListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(list.position.pixels, greaterThan(offset));
+    expect(tester.getSize(surface).width, lessThan(rest.width));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the panel is put away with the bar, by the sidebar or a '
+      'composer', (tester) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    expect(panel, findsOneWidget);
+    shell.toggleMobileSidebar();
+    await tester.pump();
+    expect(panel, findsNothing);
+    shell.closeMobileSidebar();
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(
+      tester.widget<DMobileDockItem>(find.byKey(DMobileDock.moreKey)).expanded,
+      isFalse,
+    );
+    // The action in the panel's head does what it does, and the composer it
+    // opens puts the bar, and the panel with it, away the frame it arrives.
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+    final composer = find.byKey(const ValueKey('composer-topic-title'));
+    for (var frame = 0; composer.evaluate().isEmpty && frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(composer, findsOneWidget);
+    expect(panel, findsNothing);
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a place in the panel\'s head closes it and goes there', (
+    tester,
+  ) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(shell.mobileNavigation.tab, const MobileTab.panel('chat'));
     expect(tester.takeException(), isNull);
   });
 }
