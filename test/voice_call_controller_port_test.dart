@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart'
     show VoiceVideoSurface;
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,7 +40,7 @@ void main() {
       final mediaFactory = FakeVoiceMediaFactory();
       final channels = RecordingPluginLiveChannels();
       final controller = VoiceController(
-        api: VoiceApi(transport),
+        api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
         requests: PluginTestRequestHost(apiKeys: const {site: 'key'}),
         chatConversations: FakeChatConversationCapability(),
         trackerFor: (_) => channels,

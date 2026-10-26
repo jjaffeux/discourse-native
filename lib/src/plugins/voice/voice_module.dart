@@ -22,19 +22,26 @@ final class VoiceModule implements PluginModule {
   PluginDescriptor get descriptor => PluginDescriptor(
     id: voicePluginId,
     dependencies: [const PluginDependency(chatPluginId)],
-    routeNamespaces: {'voice'},
+    routeNamespaces: {
+      for (final namespace in VoiceNamespace.values) namespace.name,
+    },
     exclusiveClaims: {'app-global-media-session'},
-    liveChannelScopes: {const PluginLiveChannelScope.prefix('/voice')},
+    liveChannelScopes: {
+      for (final namespace in VoiceNamespace.values)
+        PluginLiveChannelScope.prefix(namespace.root),
+    },
   );
 
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(const VoicePlugin());
-    registrar.addRouteNamespace('voice');
+    for (final namespace in VoiceNamespace.values) {
+      registrar.addRouteNamespace(namespace.name);
+      registrar.addLiveChannelScope(
+        PluginLiveChannelScope.prefix(namespace.root),
+      );
+    }
     registrar.addExclusiveClaim('app-global-media-session');
-    registrar.addLiveChannelScope(
-      const PluginLiveChannelScope.prefix('/voice'),
-    );
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
@@ -50,7 +57,11 @@ final class VoiceModule implements PluginModule {
         late final VoiceController controller;
         late final VoiceShellService shell;
         controller = VoiceController(
-          api: VoiceApi(transport),
+          api: VoiceApi(
+            transport,
+            namespaceFor: (siteUrl) =>
+                siteState.siteConfigFor(siteUrl).voiceSettings.namespace,
+          ),
           chatConversations: dependencies.require(chatConversationService),
           requests: bindings.require(corePluginRequestPort),
           trackerFor: bindings.require(corePluginTrackerPort),

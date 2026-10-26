@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/manual_scheduler.dart';
@@ -376,7 +377,7 @@ final class _Harness
       clock: () => _now,
       timerFactory: scheduler.createTimer,
     );
-    owner.attach(_site, 1, tracker);
+    owner.attach(_site, 1, tracker, namespace: VoiceNamespace.voice);
   }
 
   late final VoiceIncomingCalls owner;

@@ -99,7 +99,8 @@ final class _VoiceChatAssociation {
     if (!isCurrent || !visible || liveUpdates != null) return;
     final tracker = controller._trackerFor(siteUrl);
     if (tracker == null) return;
-    liveUpdates = tracker.subscribe('/voice/rooms/$roomId/chat', (data, _) {
+    final root = controller.api.namespaceFor(siteUrl).root;
+    liveUpdates = tracker.subscribe('$root/rooms/$roomId/chat', (data, _) {
       if (!isCurrent || !visible) {
         return;
       }

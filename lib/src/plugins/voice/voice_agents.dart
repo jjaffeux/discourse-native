@@ -10,8 +10,10 @@ import 'voice_models.dart';
 final class VoiceAgentPermission {
   const VoiceAgentPermission(this.botId);
 
+  /// Named `voice_livekit_agent_bot_id` on sites from before the Live rename.
   static VoiceAgentPermission read(Map<String, dynamic> site) {
-    final value = site['voice_livekit_agent_bot_id'];
+    final value =
+        site['live_livekit_agent_bot_id'] ?? site['voice_livekit_agent_bot_id'];
     return VoiceAgentPermission(value is int && value < 0 ? value : null);
   }
 

@@ -2478,6 +2478,12 @@ void main() {
       );
       probe(
         'VoiceClientConfig.fromSettings',
+        () =>
+            VoiceClientConfig.fromSettings(withFields({'live_enabled': loose})),
+        (config) => config.enabled,
+      );
+      probe(
+        'VoiceClientConfig.fromSettings before Live',
         () => VoiceClientConfig.fromSettings(
           withFields({'voice_enabled': loose}),
         ),
@@ -2485,6 +2491,13 @@ void main() {
       );
       probe(
         'VoiceAgentPermission',
+        () => VoiceAgentPermission.read(
+          withFields({'live_livekit_agent_bot_id': loose}),
+        ),
+        (permission) => permission.botId != null,
+      );
+      probe(
+        'VoiceAgentPermission before Live',
         () => VoiceAgentPermission.read(
           withFields({'voice_livekit_agent_bot_id': loose}),
         ),

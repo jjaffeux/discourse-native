@@ -2,11 +2,19 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 import 'voice_agents.dart';
 import 'voice_models.dart';
+import 'voice_settings.dart';
 
 final class VoiceApi {
-  const VoiceApi(this._transport);
+  const VoiceApi(this._transport, {required this.namespaceFor});
 
   final PluginApiTransport _transport;
+
+  /// Looked up per request, so refreshed site settings apply from the next
+  /// request on.
+  final VoiceNamespace Function(String siteUrl) namespaceFor;
+
+  String _route(String siteUrl, String route) =>
+      '${namespaceFor(siteUrl).root}$route';
 
   Future<VoiceAgentPermission> agentPermission({
     required String siteUrl,
@@ -29,7 +37,10 @@ final class VoiceApi {
   }) async => readVoiceAgentNames(
     await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: refresh ? '/voice/agents.json?refresh=true' : '/voice/agents.json',
+      path: _route(
+        siteUrl,
+        refresh ? '/agents.json?refresh=true' : '/agents.json',
+      ),
       apiKey: apiKey,
       clientId: clientId,
     ),
@@ -47,7 +58,7 @@ final class VoiceApi {
     }
     return _voidWrite(
       siteUrl,
-      '/voice/rooms/$roomId/invite_agent.json',
+      '/rooms/$roomId/invite_agent.json',
       'POST',
       apiKey,
       {'agent_name': agentName.trim()},
@@ -62,7 +73,7 @@ final class VoiceApi {
   }) async => VoiceDirectory.fromJson(
     await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: '/voice/rooms.json',
+      path: _route(siteUrl, '/rooms.json'),
       apiKey: apiKey,
       clientId: clientId,
     ),
@@ -76,7 +87,7 @@ final class VoiceApi {
   }) async {
     final body = await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: '/voice/rooms/${Uri.encodeComponent(slug)}.json',
+      path: _route(siteUrl, '/rooms/${Uri.encodeComponent(slug)}.json'),
       apiKey: apiKey,
       clientId: clientId,
     );
@@ -96,7 +107,7 @@ final class VoiceApi {
     String? participantSessionId,
     String? clientId,
   }) async => VoiceJoinResponse.fromJson(
-    await _write(siteUrl, '/voice/rooms/$roomId/join.json', 'POST', apiKey, {
+    await _write(siteUrl, '/rooms/$roomId/join.json', 'POST', apiKey, {
       'skip_status': skipStatus ? true : null,
       'invited_by': invitedBy,
       'participant_session_id': participantSessionId,
@@ -110,17 +121,10 @@ final class VoiceApi {
     VoiceIdleState idle = VoiceIdleState.active,
     String? participantSessionId,
     String? clientId,
-  }) => _voidWrite(
-    siteUrl,
-    '/voice/rooms/$roomId/heartbeat.json',
-    'POST',
-    apiKey,
-    {
-      'idle_state': idle.wireName,
-      'participant_session_id': participantSessionId,
-    },
-    clientId,
-  );
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/heartbeat.json', 'POST', apiKey, {
+    'idle_state': idle.wireName,
+    'participant_session_id': participantSessionId,
+  }, clientId);
 
   Future<void> leave({
     required String siteUrl,
@@ -128,14 +132,9 @@ final class VoiceApi {
     required String apiKey,
     String? participantSessionId,
     String? clientId,
-  }) => _voidWrite(
-    siteUrl,
-    '/voice/rooms/$roomId/leave.json',
-    'DELETE',
-    apiKey,
-    {'participant_session_id': participantSessionId},
-    clientId,
-  );
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/leave.json', 'DELETE', apiKey, {
+    'participant_session_id': participantSessionId,
+  }, clientId);
 
   Future<void> signal({
     required String siteUrl,
@@ -144,14 +143,10 @@ final class VoiceApi {
     required Map<String, Object?> payload,
     String? participantSessionId,
     String? clientId,
-  }) => _voidWrite(
-    siteUrl,
-    '/voice/rooms/$roomId/signal.json',
-    'POST',
-    apiKey,
-    {'payload': payload, 'participant_session_id': participantSessionId},
-    clientId,
-  );
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/signal.json', 'POST', apiKey, {
+    'payload': payload,
+    'participant_session_id': participantSessionId,
+  }, clientId);
 
   Future<void> state({
     required String siteUrl,
@@ -164,7 +159,7 @@ final class VoiceApi {
     bool? watching,
     String? participantSessionId,
     String? clientId,
-  }) => _voidWrite(siteUrl, '/voice/rooms/$roomId/state.json', 'POST', apiKey, {
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/state.json', 'POST', apiKey, {
     'muted': muted,
     'deafened': deafened,
     'video': video,
@@ -181,7 +176,7 @@ final class VoiceApi {
   }) async => VoiceLiveKitCredentials.fromJson(
     await _write(
       siteUrl,
-      '/voice/rooms/$roomId/livekit_token.json',
+      '/rooms/$roomId/livekit_token.json',
       'POST',
       apiKey,
       const {},
@@ -199,7 +194,7 @@ final class VoiceApi {
     ensure
         ? await _write(
             siteUrl,
-            '/voice/rooms/$roomId/chat_session.json',
+            '/rooms/$roomId/chat_session.json',
             'POST',
             apiKey,
             const {},
@@ -207,7 +202,7 @@ final class VoiceApi {
           )
         : await _transport.pluginGetJson(
             siteUrl: siteUrl,
-            path: '/voice/rooms/$roomId/chat_session.json',
+            path: _route(siteUrl, '/rooms/$roomId/chat_session.json'),
             apiKey: apiKey,
             clientId: clientId,
           ),
@@ -220,14 +215,9 @@ final class VoiceApi {
     required String message,
     String? clientId,
   }) async => VoiceChatSession.fromJson(
-    await _write(
-      siteUrl,
-      '/voice/rooms/$roomId/chat_message.json',
-      'POST',
-      apiKey,
-      {'message': message},
-      clientId,
-    ),
+    await _write(siteUrl, '/rooms/$roomId/chat_message.json', 'POST', apiKey, {
+      'message': message,
+    }, clientId),
   );
 
   /// Starts a direct call: the server creates an ephemeral room holding the
@@ -238,7 +228,7 @@ final class VoiceApi {
     required String username,
     String? clientId,
   }) async => _roomFromWrite(
-    await _write(siteUrl, '/voice/calls.json', 'POST', apiKey, {
+    await _write(siteUrl, '/calls.json', 'POST', apiKey, {
       'username': username,
     }, clientId),
   );
@@ -250,7 +240,7 @@ final class VoiceApi {
     required List<String> usernames,
     String? clientId,
   }) async => VoiceInviteResult.fromJson(
-    await _write(siteUrl, '/voice/rooms/$roomId/invites.json', 'POST', apiKey, {
+    await _write(siteUrl, '/rooms/$roomId/invites.json', 'POST', apiKey, {
       'usernames': usernames,
     }, clientId),
   );
@@ -263,7 +253,7 @@ final class VoiceApi {
   }) async {
     final body = await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: '/voice/rooms/$roomId/invites/suggestions.json',
+      path: _route(siteUrl, '/rooms/$roomId/invites/suggestions.json'),
       apiKey: apiKey,
       clientId: clientId,
     );
@@ -279,7 +269,7 @@ final class VoiceApi {
     required VoiceRoomDraft draft,
     String? clientId,
   }) async => _roomFromWrite(
-    await _write(siteUrl, '/voice/rooms.json', 'POST', apiKey, {
+    await _write(siteUrl, '/rooms.json', 'POST', apiKey, {
       'room': draft.toJson(),
     }, clientId),
   );
@@ -291,7 +281,7 @@ final class VoiceApi {
     required VoiceRoomDraft draft,
     String? clientId,
   }) async => _roomFromWrite(
-    await _write(siteUrl, '/voice/rooms/$roomId.json', 'PUT', apiKey, {
+    await _write(siteUrl, '/rooms/$roomId.json', 'PUT', apiKey, {
       'room': draft.toJson(),
     }, clientId),
   );
@@ -303,7 +293,7 @@ final class VoiceApi {
     String? clientId,
   }) => _voidWrite(
     siteUrl,
-    '/voice/rooms/$roomId.json',
+    '/rooms/$roomId.json',
     'DELETE',
     apiKey,
     const {},
@@ -318,7 +308,7 @@ final class VoiceApi {
   }) async {
     final body = await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: '/voice/rooms/$roomId/memberships.json',
+      path: _route(siteUrl, '/rooms/$roomId/memberships.json'),
       apiKey: apiKey,
       clientId: clientId,
     );
@@ -338,14 +328,11 @@ final class VoiceApi {
     String? username,
     required VoiceRole role,
     String? clientId,
-  }) => _voidWrite(
-    siteUrl,
-    '/voice/rooms/$roomId/memberships.json',
-    'POST',
-    apiKey,
-    {'user_id': userId, 'username': username, 'role': role.wireName},
-    clientId,
-  );
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/memberships.json', 'POST', apiKey, {
+    'user_id': userId,
+    'username': username,
+    'role': role.wireName,
+  }, clientId);
 
   Future<void> updateMembership({
     required String siteUrl,
@@ -356,7 +343,7 @@ final class VoiceApi {
     String? clientId,
   }) => _voidWrite(
     siteUrl,
-    '/voice/rooms/$roomId/memberships/$membershipId.json',
+    '/rooms/$roomId/memberships/$membershipId.json',
     'PUT',
     apiKey,
     {'role': role.wireName},
@@ -371,7 +358,7 @@ final class VoiceApi {
     String? clientId,
   }) => _voidWrite(
     siteUrl,
-    '/voice/rooms/$roomId/memberships/$membershipId.json',
+    '/rooms/$roomId/memberships/$membershipId.json',
     'DELETE',
     apiKey,
     const {},
@@ -388,7 +375,7 @@ final class VoiceApi {
     String? clientId,
   }) => _voidWrite(
     siteUrl,
-    '/voice/rooms/$roomId/request_to_speak.json',
+    '/rooms/$roomId/request_to_speak.json',
     raised ? 'POST' : 'DELETE',
     apiKey,
     {'user_id': userId, 'participant_session_id': participantSessionId},
@@ -401,14 +388,9 @@ final class VoiceApi {
     required String apiKey,
     required int userId,
     String? clientId,
-  }) => _voidWrite(
-    siteUrl,
-    '/voice/rooms/$roomId/kick.json',
-    'DELETE',
-    apiKey,
-    {'user_id': userId},
-    clientId,
-  );
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/kick.json', 'DELETE', apiKey, {
+    'user_id': userId,
+  }, clientId);
 
   Future<void> flag({
     required String siteUrl,
@@ -418,7 +400,7 @@ final class VoiceApi {
     required int flagTypeId,
     required String message,
     String? clientId,
-  }) => _voidWrite(siteUrl, '/voice/rooms/$roomId/flag.json', 'POST', apiKey, {
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/flag.json', 'POST', apiKey, {
     'user_id': userId,
     'flag_type_id': flagTypeId,
     'message': message,
@@ -457,7 +439,7 @@ final class VoiceApi {
   }) async {
     final body = await _write(
       siteUrl,
-      '/voice/rooms/$roomId/recording.json',
+      '/rooms/$roomId/recording.json',
       active ? 'POST' : 'DELETE',
       apiKey,
       const {},
@@ -471,14 +453,14 @@ final class VoiceApi {
 
   Future<Map<String, dynamic>> _write(
     String siteUrl,
-    String path,
+    String route,
     String method,
     String apiKey,
     Map<String, Object?> body,
     String? clientId,
   ) => _transport.pluginWriteJson(
     siteUrl: siteUrl,
-    path: path,
+    path: _route(siteUrl, route),
     method: method,
     apiKey: apiKey,
     body: body,
@@ -487,13 +469,13 @@ final class VoiceApi {
 
   Future<void> _voidWrite(
     String siteUrl,
-    String path,
+    String route,
     String method,
     String apiKey,
     Map<String, Object?> body,
     String? clientId,
   ) async {
-    await _write(siteUrl, path, method, apiKey, body, clientId);
+    await _write(siteUrl, route, method, apiKey, body, clientId);
   }
 
   static VoiceRoom _roomFromWrite(Map<String, dynamic> body) =>

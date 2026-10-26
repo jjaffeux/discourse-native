@@ -235,7 +235,7 @@ Future<ShellController> pumpMobileShellFixture(
           'GET /boards/api/boards/${(board['board'] as Map)['id']}.json': board,
         },
         if (voice)
-          'GET /voice/rooms.json': {
+          'GET /live/rooms.json': {
             'rooms': [
               {
                 'id': 7,

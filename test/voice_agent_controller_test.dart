@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,7 +28,7 @@ const roomPayload = <String, dynamic>{
 class AgentHarness {
   AgentHarness() {
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       requests: requests,
       chatConversations: FakeChatConversationCapability(),
       trackerFor: (_) => channels,

@@ -128,7 +128,7 @@ class _ReviewState extends State<_Review> {
           ),
         },
         pluginResponses: {
-          'GET /voice/rooms.json': {
+          'GET /live/rooms.json': {
             'rooms': [
               for (final (id, name) in [
                 (7, 'Watercooler'),

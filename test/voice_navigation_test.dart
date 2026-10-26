@@ -68,7 +68,7 @@ void main() {
     );
     final transport = RecordingPluginTransport(
       responses: {
-        'GET /voice/rooms.json': {
+        'GET /live/rooms.json': {
           'rooms': [_room],
           'can_create_room': false,
         },
@@ -101,7 +101,7 @@ void main() {
     expect(host.currentContent?.id, 'voice-room-7');
     expect(host.currentContent?.title, 'Watercooler');
     expect(transport.reads.map((request) => request.path), [
-      '/voice/rooms.json',
+      '/live/rooms.json',
     ]);
   });
 
@@ -124,7 +124,7 @@ void main() {
     // base, subfolder included, so the recorded route carries no prefix.
     final transport = RecordingPluginTransport(
       responses: {
-        'GET /voice/rooms.json': {
+        'GET /live/rooms.json': {
           'rooms': [_room],
           'can_create_room': false,
         },
@@ -166,7 +166,7 @@ void main() {
     );
     final transport = RecordingPluginTransport(
       responses: {
-        'GET /voice/rooms.json': {
+        'GET /live/rooms.json': {
           'rooms': [_room],
           'can_create_room': false,
         },

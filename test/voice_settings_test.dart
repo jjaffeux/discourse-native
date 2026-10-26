@@ -40,6 +40,7 @@ void main() {
         meshPrivacyWarningEnabled: false,
       ),
     );
+    expect(config.voiceSettings.namespace, VoiceNamespace.live);
   });
 
   test('a site from before the Live rename sends Voice settings', () {
@@ -62,6 +63,7 @@ void main() {
     expect(
       config.voiceSettings,
       const VoiceClientConfig(
+        namespace: VoiceNamespace.voice,
         enabled: true,
         videoEnabled: true,
         videoMaxPublishers: 12,
@@ -83,6 +85,7 @@ void main() {
     final config = SiteConfig.fromJson({
       'plugins': {
         voiceSettingsDataKey.id: const {
+          'namespace': 'live',
           'enabled': true,
           'videoEnabled': true,
           'videoMaxPublishers': 10,
@@ -104,6 +107,7 @@ void main() {
     expect(stored, isNot(contains('voice')));
     expect(stored['plugins'], {
       voiceSettingsDataKey.id: {
+        'namespace': 'live',
         'enabled': true,
         'videoEnabled': true,
         'videoMaxPublishers': 10,
@@ -143,6 +147,7 @@ void main() {
     expect(
       config.voiceSettings,
       const VoiceClientConfig(
+        namespace: VoiceNamespace.voice,
         enabled: true,
         videoEnabled: true,
         videoMaxPublishers: 6,
@@ -159,6 +164,7 @@ void main() {
     );
     expect(config.toJson(extensions: _registry)['plugins'], {
       voiceSettingsDataKey.id: {
+        'namespace': 'voice',
         'enabled': true,
         'videoEnabled': true,
         'videoMaxPublishers': 6,
@@ -174,6 +180,24 @@ void main() {
         'meshPrivacyWarningEnabled': true,
       },
     });
+  });
+
+  test('a config persisted before the Live rename stays on Voice routes', () {
+    final config = SiteConfig.fromJson({
+      'plugins': {
+        voiceSettingsDataKey.id: const {'enabled': true},
+      },
+    }, extensions: _registry);
+
+    expect(config.voiceSettings.enabled, isTrue);
+    expect(config.voiceSettings.namespace, VoiceNamespace.voice);
+  });
+
+  test('a site without the plugin is assumed to be current', () {
+    final config = SiteConfig.fromSettings(const {}, extensions: _registry);
+
+    expect(config.voiceSettings.enabled, isFalse);
+    expect(config.voiceSettings.namespace, VoiceNamespace.live);
   });
 
   test('site-feature compatibility dispatch uses typed Voice settings', () {

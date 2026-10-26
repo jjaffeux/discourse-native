@@ -4,7 +4,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'voice_icons.dart';
 
 abstract final class VoiceNotificationTypes {
-  static const invitation = NotificationWireType(1000, 'voice_invitation');
+  /// Sites from before the Live rename name the same id `voice_invitation`;
+  /// notifications resolve by id, so both decode here.
+  static const invitation = NotificationWireType(1000, 'live_invitation');
 }
 
 const voiceNotificationTypes = <PluginNotificationType>[
@@ -39,6 +41,8 @@ ResolvedNotification? _decodeVoiceInvitation(
   );
 }
 
+/// `/voice/r/` is the one room path both server generations answer: current
+/// sites redirect it to `/live/r/`.
 String? _voiceInvitationPath(Map<String, dynamic> data) {
   final roomSlug = jsonText(data['room_slug']);
   final inviter = jsonText(data['display_username']);

@@ -33,10 +33,11 @@ final class ForumAbout {
 
   int? get members => stats['users_count'] ?? stats['user_count'];
 
-  /// The API omits this field when Voice or analytics are disabled. The web
-  /// initializer additionally requires Voice to be enabled and a nonzero count.
+  /// The API omits this field when Voice or analytics are disabled, and named
+  /// it `voice_users_7_days` before the Live rename. The web initializer
+  /// additionally requires Voice to be enabled and a nonzero count.
   int? voiceParticipants({required bool voiceEnabled}) {
-    final count = stats['voice_users_7_days'];
+    final count = stats['live_users_7_days'] ?? stats['voice_users_7_days'];
     return voiceEnabled && count != null && count > 0 ? count : null;
   }
 

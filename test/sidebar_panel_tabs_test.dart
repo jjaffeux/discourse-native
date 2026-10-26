@@ -108,7 +108,7 @@ Future<ShellController> pumpTabs(
           },
       pluginResponses: {
         if (voiceAccess)
-          'GET /voice/rooms.json': {
+          'GET /live/rooms.json': {
             'rooms': [
               for (var index = 0; rooms && index < roomCount; index++)
                 {

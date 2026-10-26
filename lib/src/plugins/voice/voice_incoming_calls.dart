@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import 'voice_callkit.dart';
 import 'voice_models.dart';
+import 'voice_settings.dart';
 
 /// How long a call answered from the system's UI waits for the user to
 /// confirm the peer-to-peer warning in the app: long enough to unlock the
@@ -184,12 +185,17 @@ final class VoiceIncomingCalls {
     }
   }
 
-  bool attach(String siteUrl, int? userId, PluginLiveChannelHandle tracker) {
+  bool attach(
+    String siteUrl,
+    int? userId,
+    PluginLiveChannelHandle tracker, {
+    required VoiceNamespace namespace,
+  }) {
     if (_closed || userId == null || _ringSubscriptions.containsKey(siteUrl)) {
       return false;
     }
     _ringSubscriptions[siteUrl] = tracker.subscribe(
-      '/voice/call-ring/$userId',
+      '${namespace.root}/call-ring/$userId',
       (data, _) => _onRingEvent(siteUrl, data),
     );
     return true;

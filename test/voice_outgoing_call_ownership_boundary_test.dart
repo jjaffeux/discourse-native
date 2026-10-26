@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:discourse_plugin_api/testing.dart';
@@ -300,7 +301,7 @@ Future<BuildContext> _mount(WidgetTester tester) async {
 final class _Harness {
   _Harness({bool privacyWarningEnabled = true}) {
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       chatConversations: FakeChatConversationCapability(),
       requests: requests,
       trackerFor: (_) => tracker,
