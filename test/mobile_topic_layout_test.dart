@@ -262,6 +262,10 @@ void main() {
         closeTo(panel.right - DSpacing.sm, .1),
       );
       expect(tester.widget<DButton>(progress).shape, DButtonShape.pill);
+      expect(
+        tester.widget<DButton>(progress).density,
+        DButtonDensity.floatingDate,
+      );
       expect(tester.takeException(), isNull);
     }
   }, variant: platforms);

@@ -78,9 +78,6 @@ enum DButtonDensity {
   /// A pinned date with a flat fill and the chosen control size.
   floatingDate,
 
-  /// A transparent 30px footer progress pill with 12.5px text and 8px insets.
-  topicProgress,
-
   /// Compact timeline endpoints: 12.5px text, 5px vertical / 7px horizontal
   /// insets and 7px corners. Surface and hit bounds grow with text.
   timelineEnd,
@@ -612,10 +609,8 @@ class DButton extends StatelessWidget {
     final postAction = density == DButtonDensity.postAction;
 
     final floatingCall = density == DButtonDensity.floatingCall;
-    final topicProgress = density == DButtonDensity.topicProgress;
-    final progressTrigger = floatingCall || topicProgress;
     final timelineEnd = density == DButtonDensity.timelineEnd;
-    final timeline = progressTrigger || timelineEnd;
+    final timeline = floatingCall || timelineEnd;
     final postReaction = density == DButtonDensity.postReaction;
     final chrome =
         density == DButtonDensity.chrome ||
@@ -662,7 +657,7 @@ class DButton extends StatelessWidget {
               : size);
     final fontSize = floatingCall
         ? 11.5
-        : topicProgress || timelineEnd
+        : timelineEnd
         ? 12.5
         : postReaction
         ? DPostReactionStyle.fontSize
@@ -722,11 +717,7 @@ class DButton extends StatelessWidget {
         ? (mobileDockCollapsed ? 40.0 : 50.0) +
               math.max(0, MediaQuery.textScalerOf(context).scale(11) - 11)
         : timeline
-        ? (floatingCall
-                  ? 26
-                  : topicProgress
-                  ? 30
-                  : 34) +
+        ? (floatingCall ? 26 : 34) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : postReaction
@@ -779,7 +770,6 @@ class DButton extends StatelessWidget {
               : postAction
               ? 8
               : floatingCall ||
-                    topicProgress ||
                     timelineEnd ||
                     postReaction ||
                     chrome ||
@@ -1029,13 +1019,7 @@ class DButton extends StatelessWidget {
         (timeline
             ? (_iconOnly
                   ? EdgeInsets.zero
-                  : EdgeInsets.symmetric(
-                      horizontal: floatingCall
-                          ? 11
-                          : topicProgress
-                          ? 8
-                          : 7,
-                    ))
+                  : EdgeInsets.symmetric(horizontal: floatingCall ? 11 : 7))
             : menuAction
             ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
             : header
@@ -1106,8 +1090,6 @@ class DButton extends StatelessWidget {
               ? FontWeight.w600
               : timelineEnd
               ? FontWeight.w500
-              : topicProgress
-              ? FontWeight.w400
               : postReaction
               ? FontWeight.w500
               : header || menuAction

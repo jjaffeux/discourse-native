@@ -49,8 +49,6 @@ void main() {
         'lib/src/shell/message_create_button.dart': {'shape': 3},
         // Composer gutter actions retain the documented transparent surface.
         'lib/src/shell/composer/block_surface.dart': {'backgroundColor': 1},
-        // Topic progress uses Native timeline artwork and the existing pill shape.
-        'lib/src/shell/topic_progress.dart': {'shape': 1},
         // X embeds retain provider identity and the reference's pill reply link,
         // using Native buttons for sizing, focus, hover and activation.
         'lib/src/shell/oneboxes/twitter.dart': {
@@ -110,7 +108,8 @@ void main() {
           'backgroundColor': 2,
           'interactiveBackgroundColor': 2,
         },
-        // A day separator is a pill on the stream's own surface and border.
+        // Day separators and topic progress share a pill on the stream's own
+        // surface and border.
         'lib/src/shell/stream_day_separator.dart': {
           'shape': 1,
           'backgroundColor': 1,
@@ -120,7 +119,7 @@ void main() {
         },
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
-        // The chat jump-to-latest control shares the topic progress capsule.
+        // The chat jump-to-latest control is the floating call capsule.
         'lib/src/plugins/chat/chat_channel_view.dart': {'shape': 1},
         // Mobile user-card actions match the documented borderless pill row.
         // Chat uses the mockup's muted fill beside the primary Message action.
