@@ -317,8 +317,11 @@ class _LocalDateInlineState extends State<LocalDateInline> {
         ? const <String>[]
         : service?.configFor(siteUrl).localDatesSettings.timezones ??
               const <String>[];
+    // Either span of a range opens the whole range, as on the web.
+    final start = widget.from ?? widget.spec;
+    final end = widget.from == null ? widget.to : widget.spec;
     final previews = widget.formatter.previews(
-      widget.spec,
+      start,
       locale: locale,
       accountTimezone: accountTimezone,
       defaultTimezones: defaultTimezones,
@@ -327,7 +330,7 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     if (previews.isEmpty) return;
     Widget body(BuildContext context) => _LocalDatePreviewBody(
       previews: previews,
-      rangeEnd: widget.to,
+      rangeEnd: end,
       formatter: widget.formatter,
       locale: locale,
       accountTimezone: accountTimezone,
@@ -341,11 +344,11 @@ class _LocalDateInlineState extends State<LocalDateInline> {
         barrierLabel: context.l10n.dismissDateAndTime,
         builder: (context, drawer) => LocalDatePreviewSheet(
           previews: previews,
-          hasTime: widget.spec.hasTime,
-          rangeEndHasTime: widget.to?.hasTime ?? false,
-          rangeEnd: widget.to == null
+          hasTime: start.hasTime,
+          rangeEndHasTime: end?.hasTime ?? false,
+          rangeEnd: end == null
               ? null
-              : widget.formatter.resolveInstant(widget.to!, now: _now),
+              : widget.formatter.resolveInstant(end, now: _now),
           onClose: drawer.close,
         ),
       );
