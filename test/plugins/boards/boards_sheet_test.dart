@@ -122,7 +122,7 @@ void main() {
     final next = tester.getRect(find.byKey(const ValueKey('board-column-11')));
     expect(first.left - sheet.left, 12);
     expect(next.left - first.right, 12);
-    expect(sheet.right - next.left, 5);
+    expect(sheet.right - next.left, 10);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -140,7 +140,7 @@ void main() {
     await tester.fling(column(11), const Offset(-200, 0), 8000);
     await tester.pumpAndSettle();
     expect(right(12), 12);
-    expect(left(12), 12 + 5);
+    expect(left(12), 12 + 10);
     final hold = await tester.startGesture(tester.getCenter(column(12)));
     for (var step = 0; step < 10; step++) {
       await hold.moveBy(const Offset(10, 0));
