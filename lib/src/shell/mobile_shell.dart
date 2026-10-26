@@ -389,7 +389,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ],
         );
         return MobileHistoryGestures(
-          tabIndex: tabOrder.indexOf(selected),
+          tab: (id: selected, index: tabOrder.indexOf(selected)),
           navigationPreview: navigationPage,
           frameBuilder: frame,
           child: Stack(
@@ -797,12 +797,14 @@ class MobileHistoryGestures extends StatelessWidget {
   const MobileHistoryGestures({
     super.key,
     required this.child,
-    required this.tabIndex,
+    required this.tab,
     required this.navigationPreview,
     required this.frameBuilder,
   });
   final Widget child;
-  final int tabIndex;
+
+  /// The place the person is on, and where it stands among the places.
+  final DHistoryTab tab;
   final Widget navigationPreview;
   final Widget Function(BuildContext context, Widget page) frameBuilder;
 
@@ -817,7 +819,7 @@ class MobileHistoryGestures extends StatelessWidget {
     return DHistoryTransition(
       frameBuilder: frameBuilder,
       history: navigation.historyId,
-      tabIndex: sidebarOpen ? -1 : tabIndex,
+      tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
       tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
       entry: sidebarOpen ? sidebarEntry : navigation.entryId,
       // Navigation is adjacent to the tab root without becoming a visit in

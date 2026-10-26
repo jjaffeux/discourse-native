@@ -3280,6 +3280,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('a place dropped across the current one moves it over without '
+      'the page changing tabs', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await tester.tap(_moreTrigger);
+    await tester.pumpAndSettle();
+    final topics = tester.getCenter(
+      find.byKey(const ValueKey('mobile-mode-topics')),
+    );
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(find.byKey(const ValueKey('mobile-mode-panel/chat'))),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    await gesture.moveTo(topics, timeStamp: const Duration(milliseconds: 340));
+    await tester.pump();
+    await gesture.up(timeStamp: const Duration(milliseconds: 400));
+    // The frame that brings the places in their new order, and the next.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(_dockLabels(tester).take(2), ['Chat', 'Topics']);
+    // Topics is the page still, in another column: nothing slides, and the
+    // page takes input.
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    expect(find.byKey(const ValueKey('history-outgoing-tab')), findsNothing);
+    expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+    final live = find.byKey(const ValueKey('history-live-page'));
+    expect(live, findsOneWidget);
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find
+                .descendant(of: live, matching: find.byType(IgnorePointer))
+                .first,
+          )
+          .ignoring,
+      isFalse,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('staff reach Dashboard right after Bookmarks', (tester) async {
     await pumpMobileShellFixture(tester, user: _reader(staff: true));
     final places = await _placesInOrder(tester);

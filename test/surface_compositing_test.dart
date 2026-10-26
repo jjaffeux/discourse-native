@@ -156,7 +156,7 @@ void main() {
           valueListenable: tab,
           builder: (_, value, _) => DHistoryTransition(
             history: value,
-            tabIndex: value,
+            tab: (id: value, index: value),
             tabOwner: 'audit',
             entry: value,
             child: ColoredBox(

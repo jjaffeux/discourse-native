@@ -8,6 +8,9 @@ import 'package:flutter/rendering.dart';
 
 import '../foundation/tokens.dart';
 
+/// A tab among ordered tabs: which one, and where it stands among them.
+typedef DHistoryTab = ({Object id, int index});
+
 /// Interactive edge swipes over a single live history page.
 ///
 /// Give each visit a stable [entry] identity and change [history] when its owner
@@ -42,10 +45,10 @@ class DHistoryTransition extends StatefulWidget {
 
     this.onBack,
     this.onForward,
-    this.tabIndex,
+    this.tab,
     this.tabOwner,
     this.frameBuilder,
-  }) : assert(tabIndex == null || tabOwner != null);
+  }) : assert(tab == null || tabOwner != null);
 
   /// The previous visit's inert snapshot for a descendant reading sheet.
   ///
@@ -90,10 +93,12 @@ class DHistoryTransition extends StatefulWidget {
   /// automatically. A [GlobalKey] can preserve it when it becomes [child].
   final Widget? previousPreview;
 
-  /// The selected tab's visual order. A changed index slides and fades pages in
-  /// that direction, mirrored in RTL, even when [history] resets for a new tab.
-  /// Only the destination is live; the outgoing page uses a bounded snapshot.
-  final int? tabIndex;
+  /// The selected tab and its visual order. Another tab slides and fades the
+  /// pages towards its index, mirrored in RTL, even when [history] resets for
+  /// it. Only the destination is live; the outgoing page uses a bounded
+  /// snapshot. The same tab at another index, as when tabs are reordered,
+  /// moves nothing.
+  final DHistoryTab? tab;
 
   /// Account/site identity for tab transitions. Changing owners clears images
   /// immediately and never animates the previous owner's content.
@@ -168,12 +173,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _committedEntry = null;
     if (oldWidget.tabOwner != widget.tabOwner) {
       _clear();
-    } else if (oldWidget.tabIndex != null &&
-        widget.tabIndex != null &&
-        oldWidget.tabIndex != widget.tabIndex &&
-        !committed &&
-        !MediaQuery.disableAnimationsOf(context) &&
-        _routeIsCurrent) {
+    } else if ((oldWidget.tab, widget.tab) case (final was?, final now?)
+        when was.id != now.id &&
+            !committed &&
+            !MediaQuery.disableAnimationsOf(context) &&
+            _routeIsCurrent) {
       final boundary = _boundary.currentContext?.findRenderObject();
       final image = boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
@@ -185,9 +189,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _clear();
       }
       _preview = image;
-      _tabSign =
-          (widget.tabIndex! > oldWidget.tabIndex! ? 1 : -1) *
-          (_rtl ? -1.0 : 1.0);
+      _tabSign = (now.index > was.index ? 1 : -1) * (_rtl ? -1.0 : 1.0);
       _switchingTab = true;
       unawaited(_animateTab());
     } else if (oldWidget.history != widget.history) {
