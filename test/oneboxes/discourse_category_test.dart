@@ -71,6 +71,19 @@ void main() {
       expect(data.subcategories[1].name, 'docs');
       expect(data.subcategories[1].color, const Color(0xFF00AA66));
     });
+
+    test('reads a category color stored as three hex digits', () {
+      // Core validates a category color as six or three hex digits and the
+      // onebox template writes it verbatim after `#`.
+      final data = parse(
+        categoryOnebox
+            .replaceFirst('#0088CC;', '#abc;')
+            .replaceFirst('#9900CC"', '#f60"'),
+      );
+
+      expect(data.color, const Color(0xFFAABBCC));
+      expect(data.subcategories[0].color, const Color(0xFFFF6600));
+    });
   });
 
   group('DiscourseCategoryOnebox', () {
