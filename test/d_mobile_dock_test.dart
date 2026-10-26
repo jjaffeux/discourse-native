@@ -25,6 +25,7 @@ Widget fixture({
   bool highContrast = false,
   bool reducedMotion = false,
   double foot = 0,
+  DMobileDockCurrent current = const DMobileDockCurrent.place(1),
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -54,6 +55,7 @@ Widget fixture({
                       geometry: geometry,
                       collapsed: collapsed,
                       destinationsHidden: hidden,
+                      current: current,
                       places: [
                         for (final name in labels)
                           DMobileDockItem(
@@ -368,6 +370,57 @@ void main() {
       });
     }
   }
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'the current page past the bar\'s columns stands where the ⋮ was ($direction)',
+      (tester) async {
+        await tester.pumpWidget(
+          fixture(
+            foot: 34,
+            direction: direction,
+            current: DMobileDockCurrent.overflowed(
+              DMobileDockItem(
+                key: const ValueKey('here'),
+                icon: const Icon(Icons.forum),
+                label: 'A very long destination',
+                selected: true,
+                hasPopup: true,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final surface = tester.getRect(_surface);
+        double fromStart(Rect rect) => direction == TextDirection.ltr
+            ? rect.left - surface.left - 6
+            : surface.right - 6 - rect.right;
+        expect(find.byKey(const ValueKey('more')), findsNothing);
+        final here = find.byKey(const ValueKey('here'));
+        expect(here.hitTestable(), findsOneWidget);
+        // The four share (3 * 91.5 + 40) with the three gaps kept.
+        for (final (index, key) in [
+          'Start',
+          'Topics',
+          'Chat',
+          'here',
+        ].indexed) {
+          final rect = tester.getRect(find.byKey(ValueKey(key)));
+          expect(fromStart(rect), closeTo(index * 82.625, .01), reason: key);
+          expect(rect.width, closeTo(78.625, .01), reason: key);
+        }
+        final label = find.text('A very long destination');
+        expect(label, findsOneWidget);
+        final column = tester.getRect(here);
+        expect(tester.getRect(label).left, greaterThanOrEqualTo(column.left));
+        expect(tester.getRect(label).right, lessThanOrEqualTo(column.right));
+        final action = tester.getRect(find.byType(DMobileDockAction));
+        expect(fromStart(action), closeTo(328, .01));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('a long place name stays on one line inside its column', (
     tester,
   ) async {

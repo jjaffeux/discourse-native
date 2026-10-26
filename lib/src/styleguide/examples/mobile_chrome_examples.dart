@@ -32,7 +32,8 @@ final mobileDockExamples = ComponentExamples(
         ],
         code:
             'DMobileDock(geometry: geometry, places: items, more: overflow, '
-            'action: action, collapsed: hidden, collapsedDestination: reveal)',
+            'current: current, action: action, collapsed: hidden, '
+            'collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,
           height: 560,

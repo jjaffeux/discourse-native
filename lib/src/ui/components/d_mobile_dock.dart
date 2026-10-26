@@ -4,16 +4,48 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';
 
+/// Where the page a person is on stands among a bar's places.
+sealed class DMobileDockCurrent {
+  const DMobileDockCurrent();
+
+  /// No place is the current page.
+  const factory DMobileDockCurrent.none() = DMobileDockNowhere;
+
+  /// The current page is the place at [index], within the bar's columns.
+  const factory DMobileDockCurrent.place(int index) = DMobileDockAtPlace;
+
+  /// The current page is one the bar has no column for. It stands where the
+  /// ⋮ would be, as [page], and pressing it opens the rest as the ⋮ does.
+  const factory DMobileDockCurrent.overflowed(Widget page) =
+      DMobileDockOverflowed;
+}
+
+final class DMobileDockNowhere extends DMobileDockCurrent {
+  const DMobileDockNowhere();
+}
+
+final class DMobileDockAtPlace extends DMobileDockCurrent {
+  const DMobileDockAtPlace(this.index)
+    : assert(index >= 0 && index < DMobileDockGeometry.placeColumns);
+  final int index;
+}
+
+final class DMobileDockOverflowed extends DMobileDockCurrent {
+  const DMobileDockOverflowed(this.page);
+  final Widget page;
+}
+
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
 /// column each of the row's four; the fourth holds the ⋮ for the places past
-/// them, and the action at the row's end. Folded, it is a circle in the
-/// screen's bottom-start corner.
+/// them, or the current page when it is one of those, and the action at the
+/// row's end. Folded, it is a circle in the screen's bottom-start corner.
 class DMobileDock extends StatelessWidget {
   const DMobileDock({
     super.key,
     required this.geometry,
     required this.places,
     required this.more,
+    required this.current,
     required this.collapsedDestination,
     this.action,
     this.collapsed = false,
@@ -26,6 +58,7 @@ class DMobileDock extends StatelessWidget {
   /// [DMobileDockGeometry.placeColumns] and the ⋮ holds the rest.
   final List<Widget> places;
   final Widget more;
+  final DMobileDockCurrent current;
   final Widget collapsedDestination;
   final Widget? action;
   final bool collapsed;
@@ -54,12 +87,20 @@ class DMobileDock extends StatelessWidget {
 
       final well = tokens.wellFill;
       final shown = places.take(DMobileDockGeometry.placeColumns).toList();
+      final (tail, fourth) = places.length <= DMobileDockGeometry.placeColumns
+          ? (DMobileDockTail.none, null)
+          : switch (current) {
+              DMobileDockOverflowed(:final page) => (
+                DMobileDockTail.page,
+                page,
+              ),
+              DMobileDockNowhere() ||
+              DMobileDockAtPlace() => (DMobileDockTail.more, more),
+            };
       final slots = geometry.rowSlots(
         constraints.maxWidth,
         places: shown.length,
-        tail: places.length > DMobileDockGeometry.placeColumns
-            ? DMobileDockTail.more
-            : DMobileDockTail.none,
+        tail: tail,
         action: action != null,
       );
       // Each item keeps its own height, centred on the row; larger text
@@ -84,7 +125,7 @@ class DMobileDock extends StatelessWidget {
             children: [
               for (final (index, place) in shown.indexed)
                 at(slots.places[index], _destination(place)),
-              if (slots.tail case final slot?) at(slot, _destination(more)),
+              if (slots.tail case final slot?) at(slot, _destination(fourth!)),
               if (slots.action case final slot?) at(slot, action!),
             ],
           ),

@@ -94,6 +94,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   child: DMobileDock(
                     geometry: geometry,
                     collapsed: hidden || _initialFold,
+                    current: DMobileDockCurrent.place(_selected),
                     places: [
                       for (final (index, name) in [
                         'Start',

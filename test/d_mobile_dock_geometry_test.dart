@@ -104,6 +104,26 @@ void main() {
     expect(few.action, (start: 328.0, width: 50.0));
   });
 
+  test('an overflowed page shares the three places\' and the ⋮\'s room', () {
+    final slots = const DMobileDockGeometry(
+      foot: 34,
+    ).rowSlots(390, places: 3, tail: DMobileDockTail.page, action: true);
+    // (3 * 91.5 + 40) / 4, with the three gaps kept.
+    expect(slots.places, [
+      (start: 0.0, width: 78.625),
+      (start: 82.625, width: 78.625),
+      (start: 165.25, width: 78.625),
+    ]);
+    expect(slots.tail, (start: 247.875, width: 78.625));
+    expect(slots.action, (start: 328.0, width: 50.0));
+    final capsule = const DMobileDockGeometry(
+      foot: 0,
+    ).rowSlots(378, places: 3, tail: DMobileDockTail.page, action: true);
+    expect(capsule.places.map((slot) => slot.width), [76.0, 76.0, 76.0]);
+    expect(capsule.tail, (start: 240.0, width: 76.0));
+    expect(capsule.action, (start: 316.0, width: 50.0));
+  });
+
   test('equal inputs make equal geometries', () {
     expect(
       const DMobileDockGeometry(foot: 34, growth: 2),

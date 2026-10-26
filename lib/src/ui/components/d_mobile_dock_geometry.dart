@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 /// What the bar's row holds past its places: nothing, when every place has a
-/// column, or the ⋮ that opens the rest.
-enum DMobileDockTail { none, more }
+/// column; the ⋮ that opens the rest; or the page a person is on when it is
+/// one of the rest, standing where the ⋮ would be.
+enum DMobileDockTail { none, more, page }
 
 /// Where one item of the row sits, from the row's start.
 typedef DMobileDockSlot = ({double start, double width});
@@ -125,6 +126,8 @@ class DMobileDockGeometry {
   /// Lays the open row out across a bar [barWidth] wide. The ⋮ and the
   /// action share the fourth column; on a bar too narrow for both side by
   /// side, that column grows to hold them and the places share what is left.
+  /// A page standing where the ⋮ would be shares the room the three places
+  /// and the ⋮ had equally with them, its name cut short like theirs.
   DMobileDockRowSlots rowSlots(
     double barWidth, {
     required int places,
@@ -132,19 +135,27 @@ class DMobileDockGeometry {
     required bool action,
   }) {
     assert(places <= placeColumns);
+    assert(tail == DMobileDockTail.none || places == placeColumns);
     final inner = barWidth - padding.horizontal;
     final actionWidth = action ? rowHeight : 0.0;
     const gaps = (columns - 1) * columnGap;
     var column = (inner - gaps) / columns;
-    final fourth = tail == DMobileDockTail.more && action
+    final fourth = tail != DMobileDockTail.none && action
         ? math.max(column, moreWidth + actionWidth)
         : column;
     if (fourth > column) column = (inner - gaps - fourth) / placeColumns;
+    if (tail == DMobileDockTail.page) {
+      column = (placeColumns * column + moreWidth) / columns;
+    }
     DMobileDockSlot at(int index, double width) =>
         (start: index * (column + columnGap), width: width);
     return (
       places: [for (var index = 0; index < places; index++) at(index, column)],
-      tail: tail == DMobileDockTail.more ? at(placeColumns, moreWidth) : null,
+      tail: switch (tail) {
+        DMobileDockTail.none => null,
+        DMobileDockTail.more => at(placeColumns, moreWidth),
+        DMobileDockTail.page => at(placeColumns, column),
+      },
       action: action ? (start: inner - actionWidth, width: actionWidth) : null,
     );
   }
