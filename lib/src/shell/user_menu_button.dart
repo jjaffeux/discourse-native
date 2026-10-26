@@ -40,13 +40,11 @@ class UserMenuButton extends StatefulWidget {
     this.compact = false,
     this.leadingActions,
     this.presentation = UserMenuPresentation.combined,
-    this.onBeforeProfileOpen,
   }) : drawerBuilder = null;
 
   const UserMenuButton.drawer({
     super.key,
     required Widget Function(BuildContext, Widget?) builder,
-    required this.onBeforeProfileOpen,
   }) : drawerBuilder = builder,
        presentation = UserMenuPresentation.profileCard,
        ringColor = null,
@@ -60,7 +58,6 @@ class UserMenuButton extends StatefulWidget {
   /// Header shortcuts share the notification group's inner spacing.
   final List<Widget>? leadingActions;
   final UserMenuPresentation presentation;
-  final VoidCallback? onBeforeProfileOpen;
   final Widget Function(BuildContext, Widget?)? drawerBuilder;
 
   static double footerExtent(BuildContext context) {
@@ -289,10 +286,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               presentation: widget.presentation,
               isCurrent: isCurrentMenu,
               controller: _profile,
-              onOpen: () {
-                _notifications.close();
-                widget.onBeforeProfileOpen?.call();
-              },
+              onOpen: _notifications.close,
               connecting: connecting,
               tooltip: context.l10n.profile,
               semanticLabel:
@@ -386,10 +380,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       siteUrl: siteUrl,
                       iconOnly: !context.isTouch,
                       side: DPopoverSide.top,
-                      onBeforeOpen: () {
-                        _profile.close();
-                        widget.onBeforeProfileOpen?.call();
-                      },
+                      onBeforeOpen: _profile.close,
                     ),
             );
           }

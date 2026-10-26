@@ -671,6 +671,9 @@ class UserProfileMenuItems extends StatelessWidget {
         }
         return () {
           onDismiss();
+          // Revisiting the current page is not a navigation, so it would not
+          // close the mobile sidebar this menu stacks over.
+          controller.closeMobileSidebar();
           if (row.isSummary) controller.openUserSummary(siteUrl);
           if (row.isActivity) controller.openUserActivity(siteUrl);
           if (row.isDrafts) controller.openDrafts(siteUrl);

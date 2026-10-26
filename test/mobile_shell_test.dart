@@ -3370,6 +3370,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(profileSheet, findsNothing);
+      expect(find.byType(InstanceRail), findsOneWidget);
+      await tester.tap(find.byTooltip('Close navigation'));
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceRail), findsNothing);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
       expect(find.text('Remove forum'), findsNothing);

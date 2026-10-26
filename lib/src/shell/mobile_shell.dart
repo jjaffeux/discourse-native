@@ -63,10 +63,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   @override
   Widget build(BuildContext context) => MobileFooterActionScope(
     controller: _footerAction,
-    child: UserMenuButton.drawer(
-      onBeforeProfileOpen: ShellScope.read(context).closeMobileSidebar,
-      builder: _buildWithProfileFooter,
-    ),
+    child: UserMenuButton.drawer(builder: _buildWithProfileFooter),
   );
 
   Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) {
