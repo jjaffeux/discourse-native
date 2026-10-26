@@ -124,6 +124,24 @@ void main() {
       );
     });
 
+    test('reads the original message excerpt as the text core escaped', () {
+      // Core builds `excerpt` with PrettyText.excerpt, which HTML-escapes the
+      // message, and an untitled thread is listed under that excerpt.
+      final thread = ChatThread.fromJson({
+        ...threadJson(),
+        'original_message': {
+          ...threadJson()['original_message'] as Map<String, dynamic>,
+          'excerpt':
+              'I&#39;m stuck &amp; need &quot;help&quot; &lt;now&gt;&hellip;',
+        },
+      }, site);
+
+      expect(
+        thread.originalMessage?.excerpt,
+        'I\'m stuck & need "help" <now>…',
+      );
+    });
+
     test('unknown thread notification levels safely read as normal', () {
       expect(
         ChatThreadNotificationLevel.fromJson(99),
