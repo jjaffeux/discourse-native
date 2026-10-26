@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show DIcons, skeletonFill;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -187,7 +188,7 @@ class _BoardsPageState extends State<BoardsPage> {
     Widget page(
       String title, {
       List<Widget> badges = const [],
-      required Widget action,
+      Widget? action,
       required Widget body,
       int columns = 0,
     }) => DPageSurface(
@@ -237,14 +238,16 @@ class _BoardsPageState extends State<BoardsPage> {
     if (board == null) {
       return page(
         l10n.boardsTitle,
-        action: DButton(
-          size: DButtonSize.filter,
-          variant: DButtonVariant.outline,
-          label: Text(l10n.refresh),
-          onPressed: handle.reading ? null : handle.refresh,
-        ),
+        action: handle.reading
+            ? null
+            : DButton(
+                size: DButtonSize.filter,
+                variant: DButtonVariant.outline,
+                label: Text(l10n.refresh),
+                onPressed: handle.refresh,
+              ),
         body: handle.reading
-            ? const Center(child: DSpinner())
+            ? const _BoardLoadingSkeleton()
             : Center(
                 child: DEmpty(
                   children: [Text(handle.error ?? l10n.boardsNoBoards)],
@@ -986,6 +989,87 @@ class _BoardsPageState extends State<BoardsPage> {
   }
 }
 
+class _BoardLoadingSkeleton extends StatelessWidget {
+  const _BoardLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = (constraints.maxWidth - 24).clamp(240.0, 300.0);
+      final scaler = MediaQuery.textScalerOf(context);
+      return DSkeletonRegion(
+        semanticsLabel: context.l10n.loading,
+        color: skeletonFill(context),
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: AlignmentDirectional.topStart.resolve(
+              Directionality.of(context),
+            ),
+            maxWidth: double.infinity,
+            maxHeight: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 12,
+                children: [
+                  for (var column = 0; column < 3; column++)
+                    SizedBox(
+                      width: width,
+                      child: DCard(
+                        size: DCardSize.small,
+                        spacing: 8,
+                        children: [
+                          DCardContent(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: DSkeleton(
+                                width: 112,
+                                height: scaler.scale(16),
+                              ),
+                            ),
+                          ),
+                          DCardContent(
+                            child: Column(
+                              spacing: 8,
+                              children: [
+                                for (var card = 0; card < 3 - column; card++)
+                                  DItem(
+                                    shape: DItemShape.card,
+                                    variant: DItemVariant.outline,
+                                    children: [
+                                      DItemContent(
+                                        children: [
+                                          DSkeleton(height: scaler.scale(14)),
+                                          FractionallySizedBox(
+                                            widthFactor: .65,
+                                            alignment: AlignmentDirectional
+                                                .centerStart,
+                                            child: DSkeleton(
+                                              height: scaler.scale(12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 /// The topic reader's heading. In the mobile page sheet, whose dismissal goes
 /// back, the badges and [action] follow the title on its line and wrap below
 /// it when they do not fit. Elsewhere a back link leads to the directory and
@@ -1000,7 +1084,7 @@ class _BoardHeader extends StatelessWidget {
   });
   final String title;
   final List<Widget> badges;
-  final Widget action;
+  final Widget? action;
   final bool sheet;
   final VoidCallback onBack;
 
@@ -1020,7 +1104,7 @@ class _BoardHeader extends StatelessWidget {
     if (sheet) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: DControlWrap(children: [heading, ...badges, action]),
+        child: DControlWrap(children: [heading, ...badges, ?action]),
       );
     }
     return Padding(
@@ -1040,8 +1124,10 @@ class _BoardHeader extends StatelessWidget {
             ),
           ),
           heading,
-          const SizedBox(height: 16),
-          DControlWrap(children: [...badges, action]),
+          if (badges.isNotEmpty || action != null) ...[
+            const SizedBox(height: 16),
+            DControlWrap(children: [...badges, ?action]),
+          ],
         ],
       ),
     );

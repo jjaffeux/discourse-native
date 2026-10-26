@@ -133,9 +133,14 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                 sliver: SliverMainAxisGroup(
                   slivers: [
                     if (loading)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(child: DSpinner()),
+                      DPlaceCardGrid(
+                        itemCount: 6,
+                        itemBuilder: (context, index) => DSkeletonRegion(
+                          semanticsLabel: l10n.loading,
+                          liveRegion: index == 0,
+                          color: skeletonFill(context),
+                          child: const DPlaceCardSkeleton(),
+                        ),
                       )
                     else if (widget.error case final error? when !widget.loaded)
                       SliverFillRemaining(
