@@ -30,6 +30,7 @@ const _categoryA = TopicCategory(id: 21, name: 'Design', color: '9464B8');
 const _categoryB = TopicCategory(id: 22, name: 'Support', color: '0088CC');
 const _tag = TopicTag(id: 1, name: 'community');
 const _renamed = 'A clearer topic title';
+const _translation = 'Un titre plus clair';
 const _row = Topic(
   id: 1,
   title: 'Original title',
@@ -179,7 +180,87 @@ void main() {
         TargetPlatform.macOS,
       }),
     );
+
+    testWidgets(
+      'the $inbox header shows a localized title and edits the original one',
+      (tester) async {
+        final server = _TopicServer(translation: _translation);
+        final shell = await _fixture(
+          server,
+          api: _RefreshTopicApi(server),
+          inbox: inbox,
+        );
+        await _pumpReader(tester, shell);
+        final shown = find.descendant(
+          of: find.byType(InlineTopicTitleEditor),
+          matching: find.byType(TopicTitle),
+        );
+        final field = find.byKey(const ValueKey('topic-header-title-field'));
+        expect(tester.widget<TopicTitle>(shown).title, _translation);
+
+        await tester.tap(field);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DInput>(field).controller!.text, _row.title);
+        await tester.enterText(field, _renamed);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(jsonDecode(server.requests.single.body), {
+          'title': _renamed,
+          'original_title': _row.title,
+        });
+        expect(server.topic['title'], _renamed);
+        expect(shell.currentTopic?.title, _renamed);
+        expect(tester.widget<TopicTitle>(shown).title, _translation);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
   }
+
+  test('a localized topic is titled by its translation and every topic write '
+      'carries its original title', () async {
+    final server = _TopicServer(translation: _translation);
+    final shell = await _fixture(server, api: _RefreshTopicApi(server));
+    await shell.loadTopic(_row.id, _row.slug, force: true);
+    expect(shell.currentContent?.title, _translation);
+
+    shell.openEdit(_editable(shell));
+    final composer = shell.visibleComposer!;
+    expect(
+      (composer.title.text, composer.originalTitle),
+      (_row.title, _row.title),
+    );
+    composer.setCategory(_categoryB.id);
+    await shell.submitComposer();
+    expect(shell.visibleComposer, isNull);
+    expect(
+      await shell.saveTopicCategory(
+        siteUrl: _siteUrl,
+        topicId: _row.id,
+        categoryId: _categoryA.id,
+      ),
+      isNull,
+    );
+
+    expect(
+      [
+        for (final request in server.requests)
+          (
+            jsonDecode(request.body)['title'],
+            jsonDecode(request.body)['original_title'],
+          ),
+      ],
+      [(_row.title, _row.title), (_row.title, _row.title)],
+    );
+    expect(server.topic['title'], _row.title);
+    expect(server.topic['category_id'], _categoryA.id);
+    expect(shell.currentContent?.title, _translation);
+  });
 
   test('title-only save sends only title and its conflict baseline', () async {
     final server = _TopicServer();
@@ -750,13 +831,22 @@ final class _TopicApi extends FakeDiscourseApi {
 }
 
 final class _TopicServer {
-  _TopicServer({this.renameGate, this.categoryResponseGate, this.cleanTitle});
+  _TopicServer({
+    this.renameGate,
+    this.categoryResponseGate,
+    this.cleanTitle,
+    this.translation,
+  });
 
   final Completer<void>? renameGate;
   final Completer<void>? categoryResponseGate;
 
   /// `TextCleaner.clean_title`, which the site applies as it stores a title.
   final String Function(String title)? cleanTitle;
+
+  /// The viewer's `TopicLocalization`. `LocalizedFancyTopicTitleMixin` then
+  /// serves it as `fancy_title` and leaves `title` as the topic stores it.
+  final String? translation;
   final requests = <http.Request>[];
   final topic = <String, dynamic>{
     'title': _row.title,
@@ -771,6 +861,7 @@ final class _TopicServer {
         jsonEncode({
           'id': _row.id,
           'title': topic['title'],
+          ..._fancyTitle,
           'slug': _row.slug,
           'category_id': topic['category_id'],
           'tags': topic['tags'],
@@ -826,7 +917,7 @@ final class _TopicServer {
         'basic_topic': {
           'id': _row.id,
           'title': topic['title'],
-          'fancy_title': topic['title'],
+          ..._fancyTitle,
           'slug': _row.slug,
           'posts_count': 1,
         },
@@ -839,6 +930,11 @@ final class _TopicServer {
     if (body.containsKey('category_id')) await categoryResponseGate?.future;
     return response;
   }
+
+  Map<String, Object?> get _fancyTitle => {
+    'fancy_title': translation ?? topic['title'],
+    if (translation != null) 'fancy_title_localized': true,
+  };
 
   List<int> _tagIds(Object? value) => [
     for (final tag in (value as List<dynamic>?) ?? const [])
