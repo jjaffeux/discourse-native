@@ -59,6 +59,21 @@ When the header leaves less room than a column needs for its heading, a card
 and its footer (200 points, scaled with the text size), as on a landscape phone
 or with large text, the page scrolls as a whole instead of squeezing columns.
 
+A card drags with a mouse at once and on touch after a hold, as on the web
+client. The card leaves its column for the whole drag and a placeholder of its
+height stands at the slot under the pointer: before the first card whose
+midpoint is below the pointer in a priority column, and at the top of a recency
+column, since a move stamps the card's column change and recency columns sort
+newest first. Over nothing it can land on, such as the recency column it already
+sits in, the placeholder shows at the card's own slot and a release does
+nothing; a release over its own slot writes nothing. After a release the card
+stays hidden and the placeholder stays at the drop slot through the constraint
+check, a review dialog, the write and its refresh, so the board never shows the
+card in its old place between the drop and the server's answer.
+`board_card_drag.dart` owns one drag session and resolves slots from the
+registered column and card geometry; `boardDropPlacement` in `boards_data.dart`
+turns a slot into the placement the server receives.
+
 Column title, icon, sorting, ordering, clear, and delete controls are native.
 The column editor preserves existing tag and move rules. Board-level
 configuration remains available through the browser link. Inline assignment

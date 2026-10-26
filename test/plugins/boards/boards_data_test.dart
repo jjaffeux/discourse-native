@@ -163,6 +163,52 @@ void main() {
     expect(const BoardRepair().json, isEmpty);
   });
 
+  test('a drop places a card by its slot and leaves it alone on its own', () {
+    Map<String, Object?> floater(int id, int column) => {
+      'id': id,
+      'column_id': column,
+      'card_type': 'floater',
+    };
+    final board = BoardSnapshot.decode({
+      'id': 1,
+      'columns': [
+        {
+          'id': 10,
+          'cards': [floater(1, 10), floater(2, 10), floater(3, 10)],
+        },
+        {'id': 11, 'cards': <Object?>[]},
+        {
+          'id': 12,
+          'default_sort': 'recency',
+          'cards': [floater(4, 12)],
+        },
+        {'id': 13, 'default_sort': 'alphabetical', 'cards': <Object?>[]},
+      ],
+    })!;
+    final priority = board.column(10)!;
+    final empty = board.column(11)!;
+    final recency = board.column(12)!;
+    final middle = board.card(2)!;
+    Matcher after(int cardId) => isA<PlaceAfter>().having(
+      (placement) => placement.cardId,
+      'cardId',
+      cardId,
+    );
+    expect(boardDropPlacement(middle, priority, 1), isNull);
+    expect(boardDropPlacement(middle, priority, 0), isA<PlaceFirst>());
+    expect(boardDropPlacement(middle, priority, 2), after(3));
+    expect(boardDropPlacement(middle, priority, 9), after(3));
+    final first = board.card(1)!;
+    expect(boardDropPlacement(first, priority, 0), isNull);
+    expect(boardDropPlacement(first, priority, 1), after(2));
+    final top = boardDropPlacement(middle, empty, 0)!;
+    expect(top, isA<PlaceFirst>());
+    expect(boardPlacement(board, middle, empty, top), {'after_card_id': null});
+    expect(boardDropPlacement(middle, recency, 0), isA<PlaceLast>());
+    expect(boardDropPlacement(board.card(4)!, recency, 0), isNull);
+    expect(boardDropPlacement(middle, board.column(13)!, 0), isNull);
+  });
+
   test('memberships prefer the unicode board and column titles', () {
     final membership = BoardMemberships.decode([
       {

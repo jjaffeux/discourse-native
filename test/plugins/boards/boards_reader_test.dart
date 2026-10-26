@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart' show TopicCategory;
@@ -8,6 +10,7 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -410,6 +413,176 @@ void boardsReaderTests({
     expect(find.text('Write release notes'), findsOneWidget);
     expect(find.text('Old work'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  final placeholder = find.byKey(const ValueKey('board-drop-placeholder'));
+  final releaseNotes = find.byKey(const ValueKey('board-card-102'));
+  final inProgress = find.byKey(const ValueKey('board-column-11'));
+
+  Future<TestGesture> lift(WidgetTester tester, Finder card) async {
+    final gesture = await tester.startGesture(
+      tester.getCenter(card),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(0, 4));
+    await tester.pump();
+    return gesture;
+  }
+
+  testWidgets('a dragged card leaves a placeholder that follows the pointer', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final home = tester.getRect(releaseNotes);
+    final gesture = await lift(tester, releaseNotes);
+    expect(releaseNotes, findsNothing);
+    expect(tester.getRect(placeholder).top, home.top);
+    expect(tester.getSize(placeholder).height, home.height);
+    final noCards = find.descendant(
+      of: inProgress,
+      matching: find.text('No cards in this column.'),
+    );
+    expect(noCards, findsOneWidget);
+    await gesture.moveTo(tester.getCenter(inProgress));
+    await tester.pump();
+    expect(find.descendant(of: inProgress, matching: placeholder), findsOne);
+    expect(noCards, findsNothing);
+    final improve = find.byKey(const ValueKey('board-card-101'));
+    await gesture.moveTo(
+      tester.getRect(improve).topCenter + const Offset(0, 4),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(placeholder).bottom,
+      lessThanOrEqualTo(tester.getRect(improve).top),
+    );
+    expect(noCards, findsOneWidget);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(fixture.transport.writes.single.body['card'], {
+      'column_id': 10,
+      'after_card_id': null,
+    });
+    expect(placeholder, findsNothing);
+    expect(releaseNotes, findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('releasing a card over its own slot writes nothing', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final gesture = await lift(tester, releaseNotes);
+    expect(placeholder, findsOneWidget);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(fixture.transport.writes, isEmpty);
+    expect(placeholder, findsNothing);
+    expect(releaseNotes, findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a recency column takes a dragged card at its top', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final json = boardFixtureJson();
+    ((json['columns'] as List)[2] as Map)['cards'] = [
+      {
+        'id': 301,
+        'column_id': 12,
+        'card_type': 'floater',
+        'title': 'Recent work',
+        'recency_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    ];
+    final fixture = BoardsFixture(json: json);
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final recent = find.byKey(const ValueKey('board-card-301'));
+    final gesture = await lift(tester, releaseNotes);
+    await gesture.moveTo(
+      tester.getRect(recent).bottomCenter - const Offset(0, 4),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(placeholder).bottom,
+      lessThanOrEqualTo(tester.getRect(recent).top),
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(fixture.transport.writes.single.body['card'], {'column_id': 12});
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a move awaiting review keeps the card hidden at its slot', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final json = boardFixtureJson();
+    (json['board'] as Map)['require_confirmation'] = true;
+    final fixture = BoardsFixture(json: json);
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final gesture = await lift(tester, releaseNotes);
+    await gesture.moveTo(tester.getCenter(inProgress));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('Review move'), findsOneWidget);
+    expect(find.descendant(of: inProgress, matching: placeholder), findsOne);
+    expect(releaseNotes, findsNothing);
+    expect(fixture.transport.writes, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Review move'), findsNothing);
+    expect(placeholder, findsNothing);
+    expect(releaseNotes, findsOneWidget);
+    expect(fixture.transport.writes, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a board closed while a dropped card is saving settles quietly', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    const route = 'PUT /boards/api/boards/1/cards/102';
+    final save = fixture.transport.responders[route]!;
+    final answer = Completer<void>();
+    fixture.transport.responders[route] = (request) async {
+      await answer.future;
+      return save(request);
+    };
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final gesture = await lift(tester, releaseNotes);
+    await gesture.moveTo(tester.getCenter(inProgress));
+    await tester.pump();
+    await gesture.up();
+    // The header's busy spinner animates until the write answers.
+    await tester.pump();
+    await tester.pump();
+    expect(
+      fixture.transport.writes.map((write) => write.path),
+      contains('/boards/api/boards/1/cards/102'),
+    );
+    expect(find.descendant(of: inProgress, matching: placeholder), findsOne);
+    await tester.pumpWidget(const SizedBox.shrink());
+    answer.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('column menus preserve management permissions and edge actions', (

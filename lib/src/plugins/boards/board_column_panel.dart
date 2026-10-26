@@ -30,15 +30,22 @@ class BoardColumnPanel extends StatefulWidget {
     super.key,
     required this.column,
     required this.cardBuilder,
-    required this.emptyState,
     this.linkedCardId,
+    this.hiddenCardId,
+    this.placeholder,
     this.menu,
     this.footer,
   });
   final BoardColumn column;
   final Widget Function(BuildContext, BoardCard) cardBuilder;
-  final Widget emptyState;
   final int? linkedCardId;
+
+  /// A card in the air or settling after a drop. It leaves the list entirely.
+  final int? hiddenCardId;
+
+  /// Where a dragged card would land, as an index among the column's cards
+  /// with the hidden card left out, and the height it takes there.
+  final ({int index, double height})? placeholder;
   final Widget? menu, footer;
 
   @override
@@ -58,6 +65,22 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
     super.dispose();
   }
 
+  /// The list index the placeholder takes: before its anchor card when that
+  /// card is shown, otherwise after the last shown card.
+  int? _placeholderIndex(List<BoardCard> shown) {
+    final placeholder = widget.placeholder;
+    if (placeholder == null) return null;
+    final others = [
+      for (final card in widget.column.cards)
+        if (card.id != widget.hiddenCardId) card,
+    ];
+    final anchor = placeholder.index < others.length
+        ? others[placeholder.index].id
+        : null;
+    final index = shown.indexWhere((card) => card.id == anchor);
+    return index < 0 ? shown.length : index;
+  }
+
   @override
   Widget build(BuildContext context) {
     final column = widget.column;
@@ -69,12 +92,20 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
       showOlder: _showOlder,
       linkedCardIds: _linked,
     );
-    final linkedIndex = visible.cards.indexWhere((card) => card.id == linkedId);
+    final shown = [
+      for (final card in visible.cards)
+        if (card.id != widget.hiddenCardId) card,
+    ];
+    final placeholder = _placeholderIndex(shown);
+    int item(int cardIndex) => placeholder != null && cardIndex >= placeholder
+        ? cardIndex + 1
+        : cardIndex;
+    final linkedIndex = shown.indexWhere((card) => card.id == linkedId);
     if (linkedId != null && linkedId != _positioned && linkedIndex >= 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_list.isAttached || !_scroll.hasClients) return;
         _list.jumpToItem(
-          index: linkedIndex,
+          index: item(linkedIndex),
           scrollController: _scroll,
           alignment: .3,
         );
@@ -125,12 +156,19 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
         ),
         if (column.order == BoardColumnOrder.unsupported)
           DCardContent(child: Text(context.l10n.boardsUnsupported)),
-        if (column.cards.isEmpty)
+        if (shown.isEmpty && visible.hiddenCount == 0 && placeholder == null)
           // Large text can outgrow a short column, so the empty state yields
           // to the footer and scrolls, as the card list does.
           Flexible(
             fit: FlexFit.loose,
-            child: DCardContent(child: DScrollArea(child: widget.emptyState)),
+            child: DCardContent(
+              child: DScrollArea(
+                child: DEmpty(
+                  padding: const EdgeInsets.all(12),
+                  children: [Text(context.l10n.boardsNoCards)],
+                ),
+              ),
+            ),
           )
         else
           Flexible(
@@ -145,25 +183,36 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   itemCount:
-                      visible.cards.length + (visible.hiddenCount > 0 ? 1 : 0),
-                  itemBuilder: (context, index) => index < visible.cards.length
-                      ? Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: widget.cardBuilder(
-                            context,
-                            visible.cards[index],
-                          ),
-                        )
-                      : Align(
-                          alignment: Alignment.center,
-                          child: DButton(
-                            variant: DButtonVariant.link,
-                            label: Text(
-                              context.l10n.boardsShowOlder(visible.hiddenCount),
-                            ),
-                            onPressed: () => setState(() => _showOlder = true),
-                          ),
+                      shown.length +
+                      (placeholder == null ? 0 : 1) +
+                      (visible.hiddenCount > 0 ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == placeholder) {
+                      return _Placeholder(
+                        height: widget.placeholder!.height,
+                        color: color ?? DTokens.of(context).primary,
+                      );
+                    }
+                    final cardIndex = placeholder != null && index > placeholder
+                        ? index - 1
+                        : index;
+                    if (cardIndex < shown.length) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: widget.cardBuilder(context, shown[cardIndex]),
+                      );
+                    }
+                    return Align(
+                      alignment: Alignment.center,
+                      child: DButton(
+                        variant: DButtonVariant.link,
+                        label: Text(
+                          context.l10n.boardsShowOlder(visible.hiddenCount),
                         ),
+                        onPressed: () => setState(() => _showOlder = true),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -172,4 +221,32 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
       ],
     );
   }
+}
+
+/// The slot a dragged card would fill, drawn as the web client draws it: the
+/// card's own height, outlined and tinted in the column colour.
+class _Placeholder extends StatelessWidget {
+  const _Placeholder({required this.height, required this.color});
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: IgnorePointer(
+      child: ExcludeSemantics(
+        child: SizedBox(
+          key: const ValueKey('board-drop-placeholder'),
+          height: height,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .25),
+              border: Border.all(color: color),
+              borderRadius: BorderRadius.circular(DTokens.of(context).radius),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

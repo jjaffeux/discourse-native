@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'board_card_drag.dart';
 import 'board_card_editor.dart';
 import 'board_column_dialog.dart';
 import 'board_column_panel.dart';
@@ -69,10 +70,7 @@ class _BoardsPageState extends State<BoardsPage> {
   Object? _directoryToken;
   final _horizontal = ScrollController();
   (int, int, double, int)? _horizontalTarget;
-  int? _dropCard;
-  void _setDrop(int? id) {
-    if (mounted && _dropCard != id) setState(() => _dropCard = id);
-  }
+  late final _drag = BoardCardDrag(board: () => _handle?.snapshot);
 
   @override
   void initState() {
@@ -94,6 +92,7 @@ class _BoardsPageState extends State<BoardsPage> {
   void _changed() {
     if (!mounted) return;
     _reconcile();
+    _drag.boardChanged();
     setState(() {});
   }
 
@@ -113,6 +112,7 @@ class _BoardsPageState extends State<BoardsPage> {
     _handle = null;
     previous?.release();
     _horizontalTarget = null;
+    _drag.cancel();
     _directoryToken = null;
     _directoryError = null;
     if (!identity.enabled) return;
@@ -142,6 +142,7 @@ class _BoardsPageState extends State<BoardsPage> {
     widget.controller.removeListener(_changed);
     _handle?.release();
     _horizontal.dispose();
+    _drag.dispose();
     super.dispose();
   }
 
@@ -323,153 +324,139 @@ class _BoardsPageState extends State<BoardsPage> {
           Expanded(
             child: board.columns.isEmpty
                 ? Center(child: DEmpty(children: [Text(l10n.boardsNoCards)]))
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final single = _singleColumn(constraints.maxWidth);
-                      final dots = _columnDots(
-                        constraints.maxWidth,
-                        board.columns.length,
-                      );
-                      final width = single
-                          ? (_singleColumnStride(constraints.maxWidth) - 12)
-                                .clamp(0.0, double.infinity)
-                          : (constraints.maxWidth - 24).clamp(240.0, 300.0);
-                      final stride = width + 12;
-                      if (linkedCard != null) {
-                        final target = (
-                          linkedCard.id,
-                          linkedCard.columnId,
-                          stride,
-                          widget.controller.accountRevision(widget.site),
-                        );
-                        if (_horizontalTarget != target) {
-                          _horizontalTarget = target;
-                          final identity = _identity;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted ||
-                                _identity != identity ||
-                                _horizontalTarget != target ||
-                                !_horizontal.hasClients) {
-                              return;
-                            }
-                            final index = board.columns.indexWhere(
-                              (column) => column.id == linkedCard.columnId,
-                            );
-                            _horizontal.jumpTo(
-                              (single
-                                      ? _singleColumnOffset(index, stride)
-                                      : index * stride)
-                                  .clamp(
-                                    0,
-                                    _horizontal.position.maxScrollExtent,
-                                  ),
-                            );
-                          });
-                        }
-                      }
-                      final scroller = DScrollArea(
-                        key: PageStorageKey((
-                          'board-reader',
-                          _identity,
-                          widget.controller.accountRevision(widget.site),
-                        )),
-                        axes: DScrollAxes.horizontal,
-                        controller: _horizontal,
-                        showScrollbar:
-                            !widget.navigation.mobileNavigationEnabled,
-                        physics: single ? const _ColumnSnapPhysics() : null,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            spacing: 12,
-                            children: [
-                              for (final column in board.columns)
-                                SizedBox(
-                                  key: PageStorageKey((
-                                    _identity,
-                                    widget.controller.accountRevision(
-                                      widget.site,
-                                    ),
-                                    column.id,
-                                  )),
-                                  width: width,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxHeight:
-                                          (constraints.maxHeight -
-                                                  24 -
-                                                  (dots
-                                                      ? _columnDotsExtent
-                                                      : 0))
-                                              .clamp(0, double.infinity),
-                                    ),
-                                    child: _columnDropTarget(
-                                      column,
-                                      BoardColumnPanel(
-                                        column: column,
-                                        linkedCardId: widget.route.cardId,
-                                        menu: board.canManage
-                                            ? _columnMenu(board, column)
-                                            : null,
-                                        footer:
-                                            handle.canWrite &&
-                                                column.order !=
-                                                    BoardColumnOrder.unsupported
-                                            ? _addMenu(column)
-                                            : null,
-                                        emptyState: DDragRegion<_BoardDrag>(
-                                          accepts: _accepts,
-                                          onMove: (_, _) {},
-                                          onLeave: () {},
-                                          onDrop: (drag, _) => _move(
-                                            drag.cardId,
-                                            column.id,
-                                            const PlaceFirst(),
-                                          ),
-                                          child: DEmpty(
-                                            padding: const EdgeInsets.all(12),
-                                            children: [
-                                              Text(l10n.boardsNoCards),
-                                            ],
-                                          ),
-                                        ),
-                                        cardBuilder: (_, card) => _card(
-                                          board,
-                                          column,
-                                          card,
-                                          showCategories,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                      // One shape with and without dots: rotating a phone
-                      // crosses the one-column width, and a reshaped tree
-                      // would rebuild every column and lose its state.
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: scroller),
-                          if (dots)
-                            _ColumnDots(
-                              controller: _horizontal,
-                              count: board.columns.length,
-                              stride: stride,
-                            ),
-                        ],
-                      );
-                    },
+                // Slot changes redraw the columns, never the header above.
+                : ListenableBuilder(
+                    listenable: _drag,
+                    builder: (context, _) => DDragRegion<_BoardDrag>(
+                      accepts: _accepts,
+                      onMove: (_, pointer) => _drag.move(pointer),
+                      onLeave: _drag.leave,
+                      onDrop: (_, _) => unawaited(_drop()),
+                      child: _columns(board, linkedCard, showCategories),
+                    ),
                   ),
           ),
         ],
       ),
     );
   }
+
+  Widget _columns(
+    BoardSnapshot board,
+    BoardCard? linkedCard,
+    bool showCategories,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      final single = _singleColumn(constraints.maxWidth);
+      final dots = _columnDots(constraints.maxWidth, board.columns.length);
+      final width = single
+          ? (_singleColumnStride(constraints.maxWidth) - 12).clamp(
+              0.0,
+              double.infinity,
+            )
+          : (constraints.maxWidth - 24).clamp(240.0, 300.0);
+      final stride = width + 12;
+      if (linkedCard != null) {
+        final target = (
+          linkedCard.id,
+          linkedCard.columnId,
+          stride,
+          widget.controller.accountRevision(widget.site),
+        );
+        if (_horizontalTarget != target) {
+          _horizontalTarget = target;
+          final identity = _identity;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted ||
+                _identity != identity ||
+                _horizontalTarget != target ||
+                !_horizontal.hasClients) {
+              return;
+            }
+            final index = board.columns.indexWhere(
+              (column) => column.id == linkedCard.columnId,
+            );
+            _horizontal.jumpTo(
+              (single ? _singleColumnOffset(index, stride) : index * stride)
+                  .clamp(0, _horizontal.position.maxScrollExtent),
+            );
+          });
+        }
+      }
+      final scroller = DScrollArea(
+        key: PageStorageKey((
+          'board-reader',
+          _identity,
+          widget.controller.accountRevision(widget.site),
+        )),
+        axes: DScrollAxes.horizontal,
+        controller: _horizontal,
+        showScrollbar: !widget.navigation.mobileNavigationEnabled,
+        physics: single ? const _ColumnSnapPhysics() : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 12,
+            children: [
+              for (final column in board.columns)
+                SizedBox(
+                  key: PageStorageKey((
+                    _identity,
+                    widget.controller.accountRevision(widget.site),
+                    column.id,
+                  )),
+                  width: width,
+                  child: _drag.column(
+                    column.id,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight:
+                            (constraints.maxHeight -
+                                    24 -
+                                    (dots ? _columnDotsExtent : 0))
+                                .clamp(0, double.infinity),
+                      ),
+                      child: BoardColumnPanel(
+                        column: column,
+                        linkedCardId: widget.route.cardId,
+                        hiddenCardId: _drag.hiddenCardId,
+                        placeholder: _drag.placeholderIn(column.id),
+                        menu: board.canManage
+                            ? _columnMenu(board, column)
+                            : null,
+                        footer:
+                            _handle!.canWrite &&
+                                column.order != BoardColumnOrder.unsupported
+                            ? _addMenu(column)
+                            : null,
+                        cardBuilder: (_, card) =>
+                            _card(board, column, card, showCategories),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+      // One shape with and without dots: rotating a phone crosses the
+      // one-column width, and a reshaped tree would rebuild every column and
+      // lose its state.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: scroller),
+          if (dots)
+            _ColumnDots(
+              controller: _horizontal,
+              count: board.columns.length,
+              stride: stride,
+            ),
+        ],
+      );
+    },
+  );
 
   Widget _categoryBadge(String name, int color) {
     final surface = DTokens.of(context).categoryControlSurface(Color(color));
@@ -658,22 +645,21 @@ class _BoardsPageState extends State<BoardsPage> {
     }
   }
 
-  Widget _columnDropTarget(BoardColumn column, Widget child) =>
-      DDragRegion<_BoardDrag>(
-        accepts: (drag) =>
-            _accepts(drag) &&
-            (column.order == BoardColumnOrder.priority ||
-                _handle?.snapshot?.card(drag.cardId)?.columnId != column.id),
-        onMove: (_, _) {},
-        onLeave: () {},
-        onDrop: (drag, _) => _move(drag.cardId, column.id, const PlaceLast()),
-        child: child,
-      );
-
   bool _accepts(_BoardDrag drag) =>
       _handle?.canWrite == true &&
       drag.site == widget.site &&
       drag.boardId == _handle?.id;
+
+  /// The card stays hidden at its drop slot through the constraint check, a
+  /// review dialog, the write and the refresh that follows it.
+  Future<void> _drop() async {
+    final drop = _drag.drop();
+    if (drop == null) return;
+    await _move(drop.card.id, drop.slot.columnId, drop.placement);
+    // The board can close while the move is still in flight.
+    if (mounted) _drag.settle(drop.token);
+  }
+
   Widget _card(
     BoardSnapshot board,
     BoardColumn column,
@@ -705,31 +691,12 @@ class _BoardsPageState extends State<BoardsPage> {
     if (!_handle!.canWrite ||
         card.kind == BoardCardKind.unsupported ||
         column.order == BoardColumnOrder.unsupported) {
-      return item;
+      return _drag.card(card.id, item);
     }
-    final drag = _BoardDrag(widget.site, board.id, card.id);
-    return DDragRegion<_BoardDrag>(
-      accepts: (data) =>
-          _accepts(data) &&
-          data.cardId != card.id &&
-          (column.order == BoardColumnOrder.priority ||
-              board.card(data.cardId)?.columnId != column.id),
-      onMove: (_, _) => _setDrop(card.id),
-      onLeave: () => _setDrop(null),
-      onDrop: (data, _) {
-        _setDrop(null);
-        unawaited(
-          _move(
-            data.cardId,
-            column.id,
-            column.order == BoardColumnOrder.recency
-                ? const PlaceLast()
-                : PlaceAfter(card.id),
-          ),
-        );
-      },
-      child: DContentDrag(
-        data: drag,
+    return _drag.card(
+      card.id,
+      DContentDrag(
+        data: _BoardDrag(widget.site, board.id, card.id),
         feedback: SizedBox(
           width: 290,
           child: DCard(
@@ -739,19 +706,9 @@ class _BoardsPageState extends State<BoardsPage> {
             ),
           ),
         ),
-        onDragEnd: () => _setDrop(null),
-        child: Stack(
-          children: [
-            item,
-            if (_dropCard == card.id)
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: DDropIndicator(),
-              ),
-          ],
-        ),
+        onDragStarted: () => _drag.start(card),
+        onDragEnd: _drag.end,
+        child: item,
       ),
     );
   }
