@@ -9108,6 +9108,47 @@ void main() {
         });
       }
 
+      for (final waiting in ['the warning', 'the join request']) {
+        for (final unmuteAfter in [false, true]) {
+          final pressed = unmuteAfter ? 'muted then unmuted' : 'muted';
+          test('a system call $pressed while waiting for $waiting joins '
+              '${unmuteAfter ? 'unmuted' : 'muted'}', () async {
+            final throughWarning = waiting == 'the warning';
+            meshPrivacyWarning = throughWarning;
+            callTransport.heldPluginWritePaths.add('/voice/rooms/9/join.json');
+            await answerFromSystem(expectedTransport: 'mesh');
+            Future<void> press() {
+              systemCall.send(VoiceSystemCallAction.mute);
+              if (unmuteAfter) systemCall.send(VoiceSystemCallAction.unmute);
+              return pumpEventQueue();
+            }
+
+            Future<void>? joining;
+            if (throughWarning) {
+              await press();
+              joining = controller.join(
+                siteUrl: firstSite,
+                siteName: 'One',
+                room: controller.answeredCallAwaitingConfirmation!.room,
+              );
+            }
+            await callTransport.waitForPendingPluginWrites(1);
+            if (!throughWarning) await press();
+            callTransport.pendingPluginWrites.single.response.complete({
+              ...fixture('join_mesh'),
+              'room': callRoom(),
+            });
+            await joining;
+            await pumpEventQueue();
+
+            expect(controller.call?.status, VoiceCallStatus.connected);
+            expect(controller.call?.muted, !unmuteAfter);
+            expect(mediaFactory.sessions.single.muted, !unmuteAfter);
+            expect(systemCall.systemMuted, unmuteAfter ? isNull : isTrue);
+          });
+        }
+      }
+
       for (final hangUp in ['the system', 'the app']) {
         test('hanging up from $hangUp while waiting joins nothing', () async {
           meshPrivacyWarning = true;
