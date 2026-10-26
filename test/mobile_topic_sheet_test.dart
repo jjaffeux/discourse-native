@@ -362,13 +362,8 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
       final shell = await pumpMobileShellFixture(tester);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-      await tester.pumpAndSettle();
       await tester.tap(
-        find.descendant(
-          of: find.byType(DDropdownMenuItem),
-          matching: find.text('Bookmarks'),
-        ),
+        find.byKey(const ValueKey('mobile-mode-destination/user-bookmarks')),
       );
       await tester.pumpAndSettle();
       final origin = shell.currentContent;

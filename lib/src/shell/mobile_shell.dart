@@ -52,7 +52,6 @@ class MobileForumRoot extends StatefulWidget {
 
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _navigationPageKey = GlobalKey();
-  int _shownDockCount = 3;
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
@@ -490,17 +489,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         .where((item) => item.tab == selected)
         .firstOrNull;
     final activeOverflow =
-        active == null || destinations.indexOf(active) >= _shownDockCount;
+        active == null ||
+        destinations.indexOf(active) >= DMobileDockGeometry.placeColumns;
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
       geometry: geometry,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
-      onOverflowChanged: (shown) {
-        if (mounted && _shownDockCount != shown) {
-          setState(() => _shownDockCount = shown);
-        }
-      },
       collapsedDestination: DMobileDockItem(
         key: const ValueKey('mobile-dock-reveal'),
         collapsed: true,
@@ -509,7 +504,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             '${activeOverflow ? context.l10n.more : active.label}, ${context.l10n.openNavigation}',
         onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
       ),
-      destinations: [
+      places: [
         for (final item in destinations)
           DMobileDockItem(
             key: ValueKey('mobile-mode-${item.tab.name}'),
@@ -528,7 +523,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           side: DPopoverSide.top,
           align: DPopoverAlign.end,
           children: [
-            for (final item in destinations.skip(_shownDockCount))
+            for (final item in destinations.skip(
+              DMobileDockGeometry.placeColumns,
+            ))
               DDropdownMenuItem(
                 leading: DIcon(item.icon),
                 onPressed: item.onPressed,

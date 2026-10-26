@@ -60,6 +60,50 @@ void main() {
     expect(const DMobileDockGeometry(foot: 34, lift: 60).cornerAt(48), 6);
   });
 
+  test('the row is four columns, the ⋮ and action sharing the fourth', () {
+    final slots = const DMobileDockGeometry(
+      foot: 34,
+    ).rowSlots(390, places: 3, tail: DMobileDockTail.more, action: true);
+    expect(slots.places, [
+      (start: 0.0, width: 91.5),
+      (start: 95.5, width: 91.5),
+      (start: 191.0, width: 91.5),
+    ]);
+    expect(slots.tail, (start: 286.5, width: 40.0));
+    expect(slots.action, (start: 328.0, width: 50.0));
+  });
+
+  test('a narrow bar widens the fourth column so the ⋮ and action fit', () {
+    final capsule = const DMobileDockGeometry(
+      foot: 0,
+    ).rowSlots(378, places: 3, tail: DMobileDockTail.more, action: true);
+    expect(capsule.places.map((slot) => slot.width), [88.0, 88.0, 88.0]);
+    expect(capsule.tail, (start: 276.0, width: 40.0));
+    expect(capsule.action, (start: 316.0, width: 50.0));
+    final largeText = const DMobileDockGeometry(
+      foot: 34,
+      growth: 11,
+    ).rowSlots(320, places: 3, tail: DMobileDockTail.more, action: true);
+    expect(largeText.places.map((slot) => slot.width), [65.0, 65.0, 65.0]);
+    expect(largeText.tail, (start: 207.0, width: 40.0));
+    expect(largeText.action, (start: 247.0, width: 61.0));
+  });
+
+  test('without an action or a ⋮ the columns stay the grid\'s', () {
+    final noAction = const DMobileDockGeometry(
+      foot: 0,
+    ).rowSlots(378, places: 3, tail: DMobileDockTail.more, action: false);
+    expect(noAction.places.map((slot) => slot.width), [88.5, 88.5, 88.5]);
+    expect(noAction.tail, (start: 277.5, width: 40.0));
+    expect(noAction.action, isNull);
+    final few = const DMobileDockGeometry(
+      foot: 34,
+    ).rowSlots(390, places: 2, tail: DMobileDockTail.none, action: true);
+    expect(few.places, [(start: 0.0, width: 91.5), (start: 95.5, width: 91.5)]);
+    expect(few.tail, isNull);
+    expect(few.action, (start: 328.0, width: 50.0));
+  });
+
   test('equal inputs make equal geometries', () {
     expect(
       const DMobileDockGeometry(foot: 34, growth: 2),

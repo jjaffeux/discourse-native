@@ -103,29 +103,28 @@ class DMobileDockItem extends StatelessWidget {
                 const SizedBox(height: 2),
                 SizedBox(
                   height: labelHeight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: CustomMultiChildLayout(
+                    delegate: _LabelAndCount(
+                      textDirection: Directionality.of(context),
+                      height: labelHeight,
+                      labelWidth: labelWidth,
+                    ),
                     children: [
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minWidth: labelWidth),
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                            ),
+                      LayoutId(
+                        id: _LabelAndCount.label,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: selected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                           ),
                         ),
                       ),
-                      if (badge case final count?) ...[
-                        const SizedBox(width: 4),
-                        count,
-                      ],
+                      if (badge case final count?)
+                        LayoutId(id: _LabelAndCount.count, child: count),
                     ],
                   ),
                 ),
@@ -136,4 +135,73 @@ class DMobileDockItem extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The label and its count side by side, centred in the column. The label
+/// gives way first, cut to one line, and the count keeps its own width until
+/// the column cannot hold even that, so neither can push past the column.
+class _LabelAndCount extends MultiChildLayoutDelegate {
+  _LabelAndCount({
+    required this.textDirection,
+    required this.height,
+    required this.labelWidth,
+  });
+
+  static const label = 'label';
+  static const count = 'count';
+  static const gap = 4.0;
+
+  final TextDirection textDirection;
+  final double height;
+
+  /// The label's natural width, which stands in for the column's where
+  /// nothing bounds it.
+  final double labelWidth;
+
+  @override
+  Size getSize(BoxConstraints constraints) => Size(
+    constraints.hasBoundedWidth ? constraints.maxWidth : labelWidth,
+    height,
+  );
+
+  @override
+  void performLayout(Size size) {
+    var countSize = Size.zero;
+    var spacing = 0.0;
+    if (hasChild(count)) {
+      countSize = layoutChild(count, BoxConstraints.loose(size));
+      spacing = gap;
+    }
+    final labelSize = layoutChild(
+      label,
+      BoxConstraints(
+        maxWidth: math.max(0, size.width - countSize.width - spacing),
+        maxHeight: size.height,
+      ),
+    );
+    final total = labelSize.width + spacing + countSize.width;
+    final start = (size.width - total) / 2;
+    final ltr = textDirection == TextDirection.ltr;
+    double left(double fromStart, double width) =>
+        ltr ? start + fromStart : size.width - start - fromStart - width;
+    positionChild(
+      label,
+      Offset(left(0, labelSize.width), (size.height - labelSize.height) / 2),
+    );
+    if (hasChild(count)) {
+      positionChild(
+        count,
+        Offset(
+          left(labelSize.width + spacing, countSize.width),
+          (size.height - countSize.height) / 2,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRelayout(_LabelAndCount oldDelegate) =>
+      textDirection != oldDelegate.textDirection ||
+      height != oldDelegate.height ||
+      labelWidth != oldDelegate.labelWidth;
 }

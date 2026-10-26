@@ -204,6 +204,12 @@ Future<void> _tapDockTab(
   bool settle = true,
 }) async {
   final button = find.byKey(ValueKey('mobile-mode-$tab'));
+  // A More sheet from the previous choice may still be closing over the bar.
+  if (button.evaluate().isNotEmpty &&
+      button.hitTestable().evaluate().isEmpty &&
+      find.byType(DSheetContent).evaluate().isNotEmpty) {
+    await tester.pumpAndSettle();
+  }
   if (button.hitTestable().evaluate().isNotEmpty) {
     await tester.tap(button);
   } else {
@@ -2606,42 +2612,44 @@ void main() {
     },
   );
 
-  _mobileTest(
-    'wide dock reveals creation labels when their action slot has room',
-    (tester) async {
-      await pumpMobileShellFixture(tester, size: const Size(800, 1000));
-      final topic = find.byKey(const ValueKey('mobile-new-topic'));
-      expect(
-        find.descendant(of: topic, matching: find.text('New topic')),
-        findsOneWidget,
-      );
-      expect(tester.widget<DButton>(topic).tooltip, 'New topic');
-      await _tapDockTab(tester, 'messages', settle: false);
-      await tester.pump();
-      final message = find.byKey(const ValueKey('new-message-button'));
-      expect(
-        find.descendant(of: message, matching: find.text('New message')),
-        findsOneWidget,
-      );
-      expect(tester.widget<DButton>(message).tooltip, 'New message');
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(topic, findsNothing);
-      expect(
-        tester
-            .widget<ScaleTransition>(
-              find
-                  .ancestor(of: message, matching: find.byType(ScaleTransition))
-                  .first,
-            )
-            .scale
-            .value,
-        1,
-      );
-      await tester.pumpAndSettle();
-      expect(topic, findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  _mobileTest('the dock action is an icon-only circle even on a wide phone', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, size: const Size(800, 1000));
+    final topic = find.byKey(const ValueKey('mobile-new-topic'));
+    expect(
+      find.descendant(of: topic, matching: find.text('New topic')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(topic).tooltip, 'New topic');
+    expect(tester.getSize(topic).width, tester.getSize(topic).height);
+    expect(tester.getRect(topic).right, tester.getRect(_bar).right - 6);
+    await _tapDockTab(tester, 'messages', settle: false);
+    await tester.pump();
+    final message = find.byKey(const ValueKey('new-message-button'));
+    expect(
+      find.descendant(of: message, matching: find.text('New message')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(message).tooltip, 'New message');
+    expect(tester.getSize(message).width, tester.getSize(message).height);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(topic, findsNothing);
+    expect(
+      tester
+          .widget<ScaleTransition>(
+            find
+                .ancestor(of: message, matching: find.byType(ScaleTransition))
+                .first,
+          )
+          .scale
+          .value,
+      1,
+    );
+    await tester.pumpAndSettle();
+    expect(topic, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
     'fallback creation stays reachable on Bookmarks and dock slots stay put',
@@ -2895,11 +2903,11 @@ void main() {
           expect(tester.takeException(), isNull);
         }
         // At narrow widths More retains the spilled destinations and creation
-        // stays pinned on the right.
+        // stays pinned on the right, the two touching on the narrowest bar.
         final more = find.byKey(const ValueKey('mobile-mode-more'));
         expect(
           tester.getRect(more).right,
-          lessThan(tester.getRect(action).left),
+          lessThanOrEqualTo(tester.getRect(action).left + .01),
         );
         expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
         tester.view.physicalSize = phone;
@@ -3035,13 +3043,7 @@ void main() {
       expect(tester.widget<DMobileDockItem>(more).expanded, isTrue);
       expect(shell.currentContent, same(content));
       expect(shell.mobileNavigation.tab, tab);
-      for (final label in [
-        'Messages',
-        'Users',
-        'Groups',
-        'Badges',
-        'Bookmarks',
-      ]) {
+      for (final label in ['Messages', 'Users', 'Groups', 'Badges']) {
         expect(
           find.descendant(of: sheet, matching: find.text(label)).hitTestable(),
           findsOneWidget,
@@ -3070,29 +3072,38 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
+    // Bookmarks is the bar's third place, so More does not list it.
     for (final (label, id) in [
       ('Groups', 'groups'),
       ('Badges', 'badges'),
       ('Bookmarks', 'user-bookmarks'),
     ]) {
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-      await tester.pumpAndSettle();
-      for (final item in ['Groups', 'Badges', 'Bookmarks']) {
-        expect(
+      if (label == 'Bookmarks') {
+        await _tapDockTab(tester, 'destination/user-bookmarks');
+      } else {
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+        await tester.pumpAndSettle();
+        for (final (item, listed) in [
+          ('Groups', true),
+          ('Badges', true),
+          ('Bookmarks', false),
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byType(DDropdownMenuItem),
+              matching: find.text(item),
+            ),
+            listed ? findsOneWidget : findsNothing,
+          );
+        }
+        await tester.tap(
           find.descendant(
             of: find.byType(DDropdownMenuItem),
-            matching: find.text(item),
+            matching: find.text(label),
           ),
-          findsOneWidget,
         );
+        await tester.pumpAndSettle();
       }
-      await tester.tap(
-        find.descendant(
-          of: find.byType(DDropdownMenuItem),
-          matching: find.text(label),
-        ),
-      );
-      await tester.pumpAndSettle();
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(shell.currentContent?.id, id);
       expect(shell.mobileNavigation.tab, MobileTab.destination(id));
@@ -3286,7 +3297,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('More owns spilled destinations until the dock has room', (
+  _mobileTest('More owns the places past the third at every width', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester, events: true);
@@ -3321,47 +3332,50 @@ void main() {
 
     tester.view.physicalSize = const Size(800, 844);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('mobile-mode-users')), findsOneWidget);
-    expect(
-      tester
-          .widget<DMobileDockItem>(
-            find.byKey(const ValueKey('mobile-mode-users')),
-          )
-          .selected,
-      isTrue,
-    );
+    expect(find.byKey(const ValueKey('mobile-mode-users')), findsNothing);
     expect(
       tester
           .widget<DMobileDockItem>(
             find.byKey(const ValueKey('mobile-mode-more')),
           )
           .selected,
-      isFalse,
+      isTrue,
     );
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('large labels spill into More without clipping the action', (
-    tester,
-  ) async {
+  _mobileTest('large text keeps three places, the ⋮ and the action on a '
+      'narrow bar', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await pumpMobileShellFixture(tester, size: const Size(320, 720));
     final more = find.byKey(const ValueKey('mobile-mode-more'));
     final action = find.byKey(const ValueKey('mobile-new-topic'));
     expect(more, findsOneWidget);
-    expect(tester.getRect(more).right, lessThan(tester.getRect(action).left));
+    for (final tab in ['topics', 'panel/chat', 'destination/user-bookmarks']) {
+      expect(
+        find.byKey(ValueKey('mobile-mode-$tab')).hitTestable(),
+        findsOneWidget,
+      );
+    }
+    // On a bar this narrow the ⋮ and the action touch, and neither overlaps.
+    expect(
+      tester.getRect(more).right,
+      lessThanOrEqualTo(tester.getRect(action).left + .01),
+    );
     expect(tester.getSize(action).width, greaterThanOrEqualTo(44));
     expect(tester.getSize(action).width, tester.getSize(action).height);
     await tester.tap(more);
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byType(DDropdownMenuItem),
-        matching: find.text('Chat'),
-      ),
-      findsOneWidget,
-    );
+    for (final (label, listed) in [('Chat', false), ('Messages', true)]) {
+      expect(
+        find.descendant(
+          of: find.byType(DDropdownMenuItem),
+          matching: find.text(label),
+        ),
+        listed ? findsOneWidget : findsNothing,
+      );
+    }
     expect(tester.takeException(), isNull);
   });
 
@@ -3496,9 +3510,11 @@ void main() {
       final header = tester.getRect(_header);
       final bar = tester.getRect(_bar);
       final panel = find.byKey(const ValueKey('mobile-content-panel'));
+      // Each move ends on a place the bar shows: a place chosen from More
+      // moves only once its sheet has closed, after the frames read here.
       for (final (from, to, direction) in [
         ('messages', 'panel/chat', -1),
-        ('messages', 'users', 1),
+        ('panel/chat', 'destination/user-bookmarks', 1),
         ('destination/events-upcoming', 'topics', -1),
         ('destination/summary', 'topics', -1),
         ('destination/activity', 'destination/user-bookmarks', -1),

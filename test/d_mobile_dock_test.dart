@@ -10,8 +10,15 @@ Widget fixture({
   bool withAction = true,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
-  ValueChanged<int>? onOverflow,
   VoidCallback? onReveal,
+  List<String> labels = const [
+    'Start',
+    'Topics',
+    'Chat',
+    'Inbox',
+    'Users',
+    'A very long destination',
+  ],
   bool hidden = false,
   ThemeData? theme,
   Color backdrop = Colors.white,
@@ -47,16 +54,8 @@ Widget fixture({
                       geometry: geometry,
                       collapsed: collapsed,
                       destinationsHidden: hidden,
-                      onOverflowChanged: onOverflow ?? (_) {},
-                      destinations: [
-                        for (final name in [
-                          'Start',
-                          'Topics',
-                          'Chat',
-                          'Inbox',
-                          'Users',
-                          'A very long destination',
-                        ])
+                      places: [
+                        for (final name in labels)
                           DMobileDockItem(
                             key: ValueKey(name),
                             icon: const Icon(Icons.forum),
@@ -130,7 +129,7 @@ Widget sendButtonFixture(ThemeData theme) => MaterialApp(
 void main() {
   for (final direction in TextDirection.values) {
     testWidgets(
-      'actionless dock fills the capsule with navigation ($direction)',
+      'an actionless dock keeps the ⋮ at the fourth column\'s start ($direction)',
       (tester) async {
         for (final scale in [1.0, 2.0]) {
           await tester.pumpWidget(
@@ -138,14 +137,14 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.byType(DMobileDockAction), findsNothing);
-          final surface = tester.getRect(
-            find.byKey(const ValueKey('mobile-dock-surface')),
-          );
+          final surface = tester.getRect(_surface);
           final more = tester.getRect(find.byKey(const ValueKey('more')));
+          // The capsule is 378 wide: 366 inside, columns of 88.5 and 4 gaps.
+          expect(more.width, 40);
           if (direction == TextDirection.ltr) {
-            expect(more.right, closeTo(surface.right - 6, .01));
+            expect(more.left, closeTo(surface.left + 6 + 277.5, .01));
           } else {
-            expect(more.left, closeTo(surface.left + 6, .01));
+            expect(more.right, closeTo(surface.right - 6 - 277.5, .01));
           }
           expect(tester.takeException(), isNull);
         }
@@ -254,26 +253,37 @@ void main() {
 
   for (final direction in TextDirection.values) {
     testWidgets(
-      'measures labels and badges, keeps overflow and action visible ($direction)',
+      'three places take one column each, the ⋮ and action the fourth ($direction)',
       (tester) async {
-        var shown = 0;
-        await tester.pumpWidget(
-          fixture(direction: direction, onOverflow: (n) => shown = n),
-        );
+        await tester.pumpWidget(fixture(foot: 34, direction: direction));
         await tester.pumpAndSettle();
-        expect(shown, 3);
-        final surface = tester.getRect(
-          find.byKey(const ValueKey('mobile-dock-surface')),
-        );
-        for (final key in ['Start', 'Topics', 'Chat', 'more']) {
+        final surface = tester.getRect(_surface);
+        // 390 wide at the foot: 378 inside, columns of 91.5 and 4 gaps.
+        double fromStart(Rect rect) => direction == TextDirection.ltr
+            ? rect.left - surface.left - 6
+            : surface.right - 6 - rect.right;
+        for (final (index, key) in ['Start', 'Topics', 'Chat'].indexed) {
           final item = find.byKey(ValueKey(key));
           expect(item.hitTestable(), findsOneWidget);
           final rect = tester.getRect(item);
-          expect(rect.left, greaterThanOrEqualTo(surface.left));
-          expect(rect.right, lessThanOrEqualTo(surface.right));
+          expect(fromStart(rect), closeTo(index * 95.5, .01), reason: key);
+          expect(rect.width, closeTo(91.5, .01), reason: key);
+          expect(rect.height, 50);
         }
+        final more = tester.getRect(find.byKey(const ValueKey('more')));
+        expect(fromStart(more), closeTo(286.5, .01));
+        expect(more.width, 40);
+        final action = tester.getRect(find.byType(DMobileDockAction));
+        expect(fromStart(action), closeTo(328, .01));
+        expect(action.size, const Size(50, 50));
         expect(find.byKey(const ValueKey('Inbox')).hitTestable(), findsNothing);
+        expect(find.byKey(const ValueKey('Inbox')), findsNothing);
         expect(find.text('More'), findsNothing);
+        expect(find.text('New topic'), findsNothing);
+        expect(
+          tester.widget<DButton>(find.byType(DButton).last).tooltip,
+          'New topic',
+        );
         final semantics = tester.ensureSemantics();
         expect(
           tester
@@ -358,18 +368,47 @@ void main() {
       });
     }
   }
+  testWidgets('a long place name stays on one line inside its column', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        labels: const ['Topics', 'A very long destination', 'Chat', 'Inbox'],
+      ),
+    );
+    await tester.pumpAndSettle();
+    final label = find.text('A very long destination');
+    expect(label, findsOneWidget);
+    final column = tester.getRect(
+      find.byKey(const ValueKey('A very long destination')),
+    );
+    expect(column.width, closeTo(91.5, .01));
+    expect(tester.getRect(label).left, greaterThanOrEqualTo(column.left));
+    expect(tester.getRect(label).right, lessThanOrEqualTo(column.right));
+    expect(tester.getSize(label).height, lessThan(30));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
-    'large text spills destinations without clipping action or More',
+    'the ⋮ and the action stay reachable side by side at every width',
     (tester) async {
       for (final width in [320.0, 430.0, 700.0]) {
-        await tester.pumpWidget(fixture(width: width, scale: 2));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const ValueKey('more')).hitTestable(),
-          findsOneWidget,
-        );
-        expect(find.byType(DMobileDockAction).hitTestable(), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        for (final scale in [1.0, 2.0]) {
+          await tester.pumpWidget(fixture(width: width, scale: scale));
+          await tester.pumpAndSettle();
+          final more = find.byKey(const ValueKey('more'));
+          final action = find.byType(DMobileDockAction);
+          expect(more.hitTestable(), findsOneWidget);
+          expect(action.hitTestable(), findsOneWidget);
+          expect(tester.getRect(more).width, 40);
+          expect(
+            tester.getRect(more).right,
+            lessThanOrEqualTo(tester.getRect(action).left + .01),
+          );
+          expect(tester.getSize(action).width, tester.getSize(action).height);
+          expect(tester.takeException(), isNull);
+        }
       }
     },
   );

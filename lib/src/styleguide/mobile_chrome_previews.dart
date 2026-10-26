@@ -94,8 +94,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   child: DMobileDock(
                     geometry: geometry,
                     collapsed: hidden || _initialFold,
-                    onOverflowChanged: (_) {},
-                    destinations: [
+                    places: [
                       for (final (index, name) in [
                         'Start',
                         'Topics',

@@ -2,6 +2,21 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+/// What the bar's row holds past its places: nothing, when every place has a
+/// column, or the ⋮ that opens the rest.
+enum DMobileDockTail { none, more }
+
+/// Where one item of the row sits, from the row's start.
+typedef DMobileDockSlot = ({double start, double width});
+
+/// The open row from its start: each shown place's column, the fourth
+/// column's ⋮, and the action at the row's end.
+typedef DMobileDockRowSlots = ({
+  List<DMobileDockSlot> places,
+  DMobileDockSlot? tail,
+  DMobileDockSlot? action,
+});
+
 /// Where a phone's bar sits and how it is cut, from the screen's foot and the
 /// dock's text scale. The dock, the shell's footer, the chat composer and the
 /// topic timeline read this one value, so none of them restates an edge.
@@ -54,6 +69,14 @@ class DMobileDockGeometry {
   /// and larger text does not push the row down into the foot.
   static const capsuleRadius = 31.0;
 
+  /// The row is a grid of four columns with [columnGap] between them. The
+  /// places take one column each, so at most [placeColumns] show; the fourth
+  /// holds the ⋮, [moreWidth] wide at its start, and the action at its end.
+  static const columns = 4;
+  static const placeColumns = 3;
+  static const columnGap = 4.0;
+  static const moreWidth = 40.0;
+
   double get rowHeight => 50 + growth;
 
   /// The folded bar.
@@ -98,6 +121,33 @@ class DMobileDockGeometry {
   /// The footer the shell measures and pages keep their last row clear of:
   /// the bar and its margins.
   double get footerExtent => margin.vertical + barHeight;
+
+  /// Lays the open row out across a bar [barWidth] wide. The ⋮ and the
+  /// action share the fourth column; on a bar too narrow for both side by
+  /// side, that column grows to hold them and the places share what is left.
+  DMobileDockRowSlots rowSlots(
+    double barWidth, {
+    required int places,
+    required DMobileDockTail tail,
+    required bool action,
+  }) {
+    assert(places <= placeColumns);
+    final inner = barWidth - padding.horizontal;
+    final actionWidth = action ? rowHeight : 0.0;
+    const gaps = (columns - 1) * columnGap;
+    var column = (inner - gaps) / columns;
+    final fourth = tail == DMobileDockTail.more && action
+        ? math.max(column, moreWidth + actionWidth)
+        : column;
+    if (fourth > column) column = (inner - gaps - fourth) / placeColumns;
+    DMobileDockSlot at(int index, double width) =>
+        (start: index * (column + columnGap), width: width);
+    return (
+      places: [for (var index = 0; index < places; index++) at(index, column)],
+      tail: tail == DMobileDockTail.more ? at(placeColumns, moreWidth) : null,
+      action: action ? (start: inner - actionWidth, width: actionWidth) : null,
+    );
+  }
 
   /// How far from the screen's start and bottom edges something [extent]
   /// across sits in its corner: on the corner's diagonal, as far in from the
