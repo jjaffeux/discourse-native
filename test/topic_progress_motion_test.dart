@@ -104,6 +104,10 @@ void main() {
         final initial = tester.getRect(_progress);
         final inset = DScrollChrome.bottomInsetOf(tester.element(_progress));
         expect(inset, greaterThan(0));
+        expect(
+          initial.bottom,
+          closeTo(viewport.bottom - DSpacing.sm - inset, .5),
+        );
         final captureName = 'flat-${reduced ? 'reduced' : 'animated'}';
         await _capture(tester, '$captureName-expanded');
 
@@ -133,7 +137,11 @@ void main() {
           tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
           isTrue,
         );
-        expect(lowered.bottom, closeTo(initial.bottom + inset, .5));
+        final reveal = tester.getRect(
+          find.byKey(const ValueKey('mobile-dock-reveal')),
+        );
+        expect(lowered.center.dy, closeTo(reveal.center.dy, .5));
+        expect(lowered.bottom, greaterThan(initial.bottom));
         expect(lowered.size, initial.size);
         expect(lowered.right, initial.right);
         await _capture(tester, '$captureName-collapsed');

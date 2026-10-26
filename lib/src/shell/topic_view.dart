@@ -1927,45 +1927,54 @@ class _TopicViewState extends State<TopicView>
                   ? DScrollChrome.maybeOf(context) ??
                         const AlwaysStoppedAnimation<double>(0)
                   : const AlwaysStoppedAnimation<double>(0),
-              builder: (context, hiddenFraction, child) =>
-                  AnimatedPositionedDirectional(
-                    start: DSpacing.sm,
-                    end: DSpacing.sm,
-                    // Content keeps the open dock's clearance; the floating
-                    // progress control follows its expanded/compact state.
-                    bottom:
-                        DSpacing.sm +
-                        (controller.mobileNavigationEnabled &&
-                                hiddenFraction < .5
-                            ? DScrollChrome.bottomInsetOf(context)
-                            : 0),
-                    duration: DMotion.duration(
-                      context,
-                      const Duration(milliseconds: 420),
-                    ),
-                    curve: const Cubic(.32, .72, 0, 1),
-                    child: child!,
+              builder: (context, hiddenFraction, child) {
+                final dock = controller.mobileNavigationEnabled
+                    ? DScrollChrome.bottomInsetOf(context)
+                    : 0.0;
+                final folded = dock > 0 && hiddenFraction >= .5;
+                final slot = DMobileDock.expandedExtentOf(context);
+                final duration = DMotion.duration(
+                  context,
+                  const Duration(milliseconds: 420),
+                );
+                const curve = Cubic(.32, .72, 0, 1);
+                // Content keeps the open dock's clearance. The folded dock
+                // stays centred in its slot, under the shell's 6px upper
+                // inset, so the control centres on its start button there.
+                return AnimatedPositionedDirectional(
+                  start: DSpacing.sm,
+                  end: DSpacing.sm,
+                  bottom: folded ? dock - 6 - slot : DSpacing.sm + dock,
+                  height: slot,
+                  duration: duration,
+                  curve: curve,
+                  child: AnimatedAlign(
+                    alignment: folded
+                        ? AlignmentDirectional.centerEnd
+                        : AlignmentDirectional.bottomEnd,
+                    duration: duration,
+                    curve: curve,
+                    child: child,
                   ),
-              child: Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: TopicChromeVisibility(
-                  covered: _moreTopicsCovered,
-                  child: RepaintBoundary(
-                    child: ListenableBuilder(
-                      listenable: _viewportState.progressPositionListenable,
-                      builder: (context, _) {
-                        final position = _progressPosition;
-                        if (position == null || snapshot.progressTotal <= 1) {
-                          return const SizedBox.shrink();
-                        }
-                        return TopicProgressPopover(
-                          controller: controller,
-                          position: position,
-                          total: snapshot.progressTotal,
-                          floating: true,
-                        );
-                      },
-                    ),
+                );
+              },
+              child: TopicChromeVisibility(
+                covered: _moreTopicsCovered,
+                child: RepaintBoundary(
+                  child: ListenableBuilder(
+                    listenable: _viewportState.progressPositionListenable,
+                    builder: (context, _) {
+                      final position = _progressPosition;
+                      if (position == null || snapshot.progressTotal <= 1) {
+                        return const SizedBox.shrink();
+                      }
+                      return TopicProgressPopover(
+                        controller: controller,
+                        position: position,
+                        total: snapshot.progressTotal,
+                        floating: true,
+                      );
+                    },
                   ),
                 ),
               ),
