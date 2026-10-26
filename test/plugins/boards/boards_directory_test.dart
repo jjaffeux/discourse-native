@@ -287,30 +287,72 @@ void boardsDirectoryWidgetTests({
     },
   );
 
+  Future<void> pull(WidgetTester tester) async {
+    await tester.drag(find.byType(DPullToRefresh), const Offset(0, 500));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
   testWidgets(
-    'directory refresh retains filters and displays refreshed cards',
+    'pulling the directory keeps its cards and filters while it refreshes',
     (tester) async {
       final fixture = BoardsFixture();
       addTearDown(fixture.dispose);
       respond(fixture, [directoryBoard(1, 'Team roadmap')]);
       await tester.pumpWidget(page(fixture));
       await tester.pumpAndSettle();
+      expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
       await tester.enterText(find.byType(DInput), 'team');
       await tester.pumpAndSettle();
-      respond(fixture, [
-        directoryBoard(2, 'Team release'),
-        directoryBoard(3, 'Other'),
-      ]);
-      await tester.tap(find.widgetWithText(DButton, 'Refresh'));
+      final pending = Completer<Map<String, dynamic>>();
+      fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+          pending.future;
+      await pull(tester);
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.text('Team roadmap'), findsOneWidget);
+      pending.complete({
+        'boards': [
+          directoryBoard(2, 'Team release'),
+          directoryBoard(3, 'Other'),
+        ],
+      });
       await tester.pumpAndSettle();
       expect(find.text('Team release'), findsOneWidget);
       expect(find.text('Other'), findsNothing);
       expect(find.text('Team roadmap'), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
       expect(fixture.transport.reads, hasLength(2));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('a failed directory pull keeps its cards and can retry', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+        pending.future;
+    await pull(tester);
+    pending.completeError(StateError('Directory unavailable'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Directory unavailable'), findsOneWidget);
+    expect(find.text('Team roadmap'), findsOneWidget);
+    respond(fixture, [directoryBoard(2, 'Team release')]);
+    await tester.tap(find.widgetWithText(DButton, 'Retry'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Directory unavailable'), findsNothing);
+    expect(find.text('Team release'), findsOneWidget);
+    expect(fixture.transport.reads, hasLength(3));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'directory loading failure can retry and distinguish an empty directory',
@@ -325,12 +367,9 @@ void boardsDirectoryWidgetTests({
       await tester.pumpWidget(page(fixture));
       await tester.pump();
       expect(find.byType(DSpinner), findsOneWidget);
-      expect(
-        tester
-            .widget<DButton>(find.widgetWithText(DButton, 'Refresh'))
-            .onPressed,
-        isNull,
-      );
+      await pull(tester);
+      expect(find.byType(DSpinner), findsOneWidget);
+      expect(fixture.transport.reads, hasLength(1));
       pending.completeError(StateError('Directory unavailable'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Directory unavailable'), findsOneWidget);

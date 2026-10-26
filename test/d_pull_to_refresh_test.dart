@@ -241,6 +241,52 @@ void main() {
     expect(find.byType(DSpinner), findsNothing);
   });
 
+  testWidgets('the indicator appears below a floating page header', (
+    tester,
+  ) async {
+    final response = Completer<void>();
+    late DPageHeaderGeometry geometry;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: DPageSurface.headed(
+            title: const Text('Page title'),
+            controls: const Text('Page controls'),
+            bodyBuilder: (context, header) {
+              geometry = header;
+              return DPullToRefresh(
+                onRefresh: () => response.future,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [header.spacer, const Text('Row')],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await _pull(tester);
+    expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+    final page = tester.getRect(find.byType(DPageSurface));
+    final indicator = tester.getRect(
+      find
+          .ancestor(
+            of: find.byType(DSpinner),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    expect(geometry.visibleExtent, greaterThan(0));
+    expect(
+      indicator.top,
+      greaterThanOrEqualTo(page.top + geometry.visibleExtent),
+    );
+    response.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('an active indicator follows live theme changes', (tester) async {
     final response = Completer<void>();
     Future<void> refresh() => response.future;

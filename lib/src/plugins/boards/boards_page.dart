@@ -57,7 +57,7 @@ class _BoardsPageState extends State<BoardsPage> {
   })?
   _identity;
   String? _directoryError;
-  bool _directoryLoading = false;
+  bool _directoryLoaded = false;
   Object? _directoryToken;
   final _horizontal = ScrollController();
   (int, int, double, int)? _horizontalTarget;
@@ -106,7 +106,7 @@ class _BoardsPageState extends State<BoardsPage> {
     previous?.release();
     _horizontalTarget = null;
     _directoryToken = null;
-    _directoryLoading = false;
+    _directoryLoaded = false;
     _directoryError = null;
     if (!identity.enabled) return;
     if (identity.boardId case final id?) {
@@ -117,23 +117,19 @@ class _BoardsPageState extends State<BoardsPage> {
   }
 
   Future<void> _directory() async {
-    if (_directoryLoading) return;
     final token = Object();
     final site = widget.site;
     _directoryToken = token;
-    setState(() {
-      _directoryLoading = true;
-      _directoryError = null;
-    });
+    setState(() => _directoryError = null);
     try {
       await widget.controller.loadDirectory(site);
+      if (mounted && identical(token, _directoryToken)) {
+        setState(() => _directoryLoaded = true);
+      }
     } catch (error) {
       if (mounted && identical(token, _directoryToken)) {
-        _directoryError = error.toString();
+        setState(() => _directoryError = error.toString());
       }
-    }
-    if (mounted && identical(token, _directoryToken)) {
-      setState(() => _directoryLoading = false);
     }
   }
 
@@ -164,7 +160,7 @@ class _BoardsPageState extends State<BoardsPage> {
                   ?.call(widget.site, id)
                   ?.name,
         },
-        loading: _directoryLoading,
+        loaded: _directoryLoaded,
         error: _directoryError,
         onRefresh: _directory,
         onOpen: (board) => widget.navigation.open(board: board),

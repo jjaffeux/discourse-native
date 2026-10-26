@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -12,7 +14,7 @@ class BoardsDirectory extends StatefulWidget {
     required this.site,
     required this.boards,
     required this.categories,
-    required this.loading,
+    required this.loaded,
     required this.error,
     required this.onRefresh,
     required this.onOpen,
@@ -21,9 +23,12 @@ class BoardsDirectory extends StatefulWidget {
   final String site;
   final List<BoardSnapshot> boards;
   final Map<int, String> categories;
-  final bool loading;
+
+  /// Whether a read has finished for this account. Later reads keep the
+  /// boards in place and report a failure above them.
+  final bool loaded;
   final String? error;
-  final VoidCallback onRefresh;
+  final Future<void> Function() onRefresh;
   final ValueChanged<BoardSnapshot> onOpen;
 
   @override
@@ -45,6 +50,7 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final loading = !widget.loaded && widget.error == null;
     final words = _query
         .toLowerCase()
         .split(RegExp(r'\s+'))
@@ -103,82 +109,103 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
                   if (value != null) setState(() => _status = value);
                 },
               ),
-              DButton(
-                size: DButtonSize.filter,
-                variant: DButtonVariant.quiet,
-                label: Text(l10n.refresh),
-                onPressed: widget.loading ? null : widget.onRefresh,
-              ),
             ],
           );
         },
       ),
-      bodyBuilder: (context, header) => ContentReadingLane(
-        builder: (context, lane) => CustomScrollView(
-          key: const PageStorageKey('boards-directory'),
-          slivers: [
-            SliverToBoxAdapter(child: header.spacer),
-            SliverPadding(
-              padding: lane.padding.add(
-                EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  16 + DScrollChrome.bottomInsetOf(context),
+      bodyBuilder: (context, header) => DPullToRefresh(
+        onRefresh: loading ? null : widget.onRefresh,
+        child: ContentReadingLane(
+          builder: (context, lane) => CustomScrollView(
+            key: const PageStorageKey('boards-directory'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: header.spacer),
+              SliverPadding(
+                padding: lane.padding.add(
+                  EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    16 + DScrollChrome.bottomInsetOf(context),
+                  ),
+                ),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    if (loading)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: DSpinner()),
+                      )
+                    else if (widget.error case final error? when !widget.loaded)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: DEmpty(
+                            children: [
+                              Text(error),
+                              DButton(
+                                label: Text(l10n.retry),
+                                onPressed: () => unawaited(widget.onRefresh()),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else ...[
+                      if (widget.error case final error?)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: DAlert(
+                              variant: DAlertVariant.destructive,
+                              icon: const DIcon(DIcons.triangleExclamation),
+                              description: DAlertDescription(
+                                child: Text(error),
+                              ),
+                              action: DAlertAction(
+                                child: DButton(
+                                  label: Text(l10n.retry),
+                                  variant: DButtonVariant.link,
+                                  onPressed: () =>
+                                      unawaited(widget.onRefresh()),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (boards.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: DEmpty(
+                              children: [
+                                Text(
+                                  widget.boards.isEmpty
+                                      ? l10n.boardsNoBoards
+                                      : l10n.boardsNoMatches,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        DPlaceCardGrid(
+                          itemCount: boards.length,
+                          itemBuilder: (context, index) => _BoardDirectoryCard(
+                            key: ValueKey(boards[index].id),
+                            site: widget.site,
+                            board: boards[index],
+                            categories: widget.categories,
+                            onPressed: () => widget.onOpen(boards[index]),
+                          ),
+                        ),
+                    ],
+                  ],
                 ),
               ),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  if (widget.loading)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: DSpinner()),
-                    )
-                  else if (widget.error case final error?)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: DEmpty(
-                          children: [
-                            Text(error),
-                            DButton(
-                              label: Text(l10n.retry),
-                              onPressed: widget.onRefresh,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (boards.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: DEmpty(
-                          children: [
-                            Text(
-                              widget.boards.isEmpty
-                                  ? l10n.boardsNoBoards
-                                  : l10n.boardsNoMatches,
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    DPlaceCardGrid(
-                      itemCount: boards.length,
-                      itemBuilder: (context, index) => _BoardDirectoryCard(
-                        key: ValueKey(boards[index].id),
-                        site: widget.site,
-                        board: boards[index],
-                        categories: widget.categories,
-                        onPressed: () => widget.onOpen(boards[index]),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

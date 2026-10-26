@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../foundation/tokens.dart';
+import 'd_page_surface.dart';
 import 'd_spinner.dart';
 
 /// Pull down from the top of a vertical scrollable to refresh its contents.
@@ -12,6 +13,7 @@ import 'd_spinner.dart';
 /// The child owns its scroll controller and must use
 /// [AlwaysScrollableScrollPhysics] to support short or empty content. Nested
 /// scrollables and horizontal/reversed lists do not trigger a refresh. The
+/// indicator appears below a floating [DPageSurface] header. The
 /// returned future keeps the indicator visible and prevents duplicate gestures.
 /// Callers handle errors and present them alongside their retained content.
 ///
@@ -93,6 +95,30 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
         : _status == RefreshIndicatorStatus.armed
         ? widget.releaseLabel
         : widget.pullLabel;
+    final indicator = IgnorePointer(
+      child: Center(
+        child: AnimatedOpacity(
+          opacity: _status == RefreshIndicatorStatus.drag ? 0.5 : 1,
+          duration: DMotion.duration(context, DMotion.change),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: tokens.background,
+              shape: BoxShape.circle,
+              border: Border.all(color: tokens.border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(DSpacing.md),
+              child: DSpinner(
+                color: tokens.foreground,
+                animating: busy,
+                semanticLabel: label,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final header = DPageSurface.headerGeometryOf(context);
 
     return Semantics(
       customSemanticsActions: widget.onRefresh == null
@@ -125,29 +151,7 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
               top: DSpacing.sm,
               left: 0,
               right: 0,
-              child: IgnorePointer(
-                child: Center(
-                  child: AnimatedOpacity(
-                    opacity: _status == RefreshIndicatorStatus.drag ? 0.5 : 1,
-                    duration: DMotion.duration(context, DMotion.change),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: tokens.background,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: tokens.border),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(DSpacing.md),
-                        child: DSpinner(
-                          color: tokens.foreground,
-                          animating: busy,
-                          semanticLabel: label,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              child: header?.inset(indicator) ?? indicator,
             ),
         ],
       ),
