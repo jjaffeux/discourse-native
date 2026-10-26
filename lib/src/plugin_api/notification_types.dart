@@ -526,7 +526,9 @@ String? _corePath(String siteUrl, DiscourseNotification notification) {
   final username = jsonText(data['username']);
   final group = jsonText(data['group_name']);
   final displayUsername = jsonText(data['display_username']);
+  final reviewableId = jsonIntOrNull(data['reviewable_id']);
   final ownPath = switch (type) {
+    1 when reviewableId != null && reviewableId > 0 => '/review/$reviewableId',
     12 => _badgePath(data),
     16 when username != null && group != null =>
       '/u/$username/messages/group/$group',
