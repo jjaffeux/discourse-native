@@ -126,7 +126,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             row.siteUrl,
             '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
           ),
-          title: topic.title,
+          title: topic.displayTitle,
           siteUrl: row.siteUrl,
           contextMenuItems: [
             if (!context.isTouch &&

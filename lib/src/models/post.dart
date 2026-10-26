@@ -594,6 +594,7 @@ class TopicDetail with Storable<TopicDetail> {
   const TopicDetail({
     required this.id,
     required this.title,
+    this.localizedTitle,
     required this.stream,
     this.messageBusLastId,
     this.createdAt,
@@ -676,6 +677,10 @@ class TopicDetail with Storable<TopicDetail> {
       detail: TopicDetail(
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
+        localizedTitle: jsonLocalizedTitle(
+          json['fancy_title'],
+          json['fancy_title_localized'],
+        ),
         messageBusLastId: jsonIntOrNull(json['message_bus_last_id']),
         createdAt: jsonDate(json['created_at']),
         lastPostedAt: jsonDate(json['last_posted_at']),
@@ -782,7 +787,18 @@ class TopicDetail with Storable<TopicDetail> {
   }
 
   final int id;
+
+  /// The title as the topic stores it: what an edit starts from, and what
+  /// every write's `original_title` is checked against.
   final String title;
+
+  /// The viewer's translation of [title], when content localization has one.
+  /// An edit to [title] leaves it as it is, as the site does.
+  final String? localizedTitle;
+
+  /// What a reader sees, as upstream's topic-title-token chooses it.
+  String get displayTitle => localizedTitle ?? title;
+
   final int? messageBusLastId;
   final DateTime? createdAt;
   final DateTime? lastPostedAt;
@@ -1144,6 +1160,7 @@ class TopicDetail with Storable<TopicDetail> {
   TopicDetail withPlugins(PluginData next) => TopicDetail(
     id: id,
     title: title,
+    localizedTitle: localizedTitle,
     messageBusLastId: messageBusLastId,
     createdAt: createdAt,
     lastPostedAt: lastPostedAt,
@@ -1295,6 +1312,7 @@ class TopicDetail with Storable<TopicDetail> {
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
+    localizedTitle: localizedTitle,
     messageBusLastId: messageBusLastId,
     createdAt: createdAt,
     lastPostedAt: lastPostedAt,
@@ -1363,6 +1381,7 @@ class TopicDetail with Storable<TopicDetail> {
       other is TopicDetail &&
           other.id == id &&
           other.title == title &&
+          other.localizedTitle == localizedTitle &&
           other.messageBusLastId == messageBusLastId &&
           other.createdAt == createdAt &&
           other.lastPostedAt == lastPostedAt &&
@@ -1422,6 +1441,7 @@ class TopicDetail with Storable<TopicDetail> {
   int get hashCode => Object.hashAll([
     id,
     title,
+    localizedTitle,
     messageBusLastId,
     createdAt,
     lastPostedAt,

@@ -13,7 +13,7 @@ class _TopicListTitle extends StatelessWidget {
     return DItemTitle(
       maxLines: null,
       child: TopicTitle(
-        topic.title,
+        topic.displayTitle,
         siteUrl: row.siteUrl,
         keepTrailingWithLastWord: topic.showUnreadCount,
         style:

@@ -38,7 +38,7 @@ final class AssignShellService implements PluginLinkHandler {
       ContentRoute.topic(
         topicId: topic.id,
         slug: topic.slug,
-        title: topic.title,
+        title: topic.displayTitle,
         postNumber: topic.lastUnreadPostNumber,
       ),
     );

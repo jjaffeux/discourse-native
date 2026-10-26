@@ -570,7 +570,7 @@ class _TopicHeaderTitle extends StatelessWidget {
       );
     } else if (compact) {
       title = Text(
-        known ?? topic?.title ?? '',
+        known ?? topic?.displayTitle ?? '',
         key: const ValueKey('topic-header-compact-title'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -579,7 +579,8 @@ class _TopicHeaderTitle extends StatelessWidget {
     } else if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(
         key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
-        title: known ?? topic.title,
+        title: topic.title,
+        localizedTitle: topic.localizedTitle,
         siteUrl: siteUrl,
         style: style,
         maxLines: 3,

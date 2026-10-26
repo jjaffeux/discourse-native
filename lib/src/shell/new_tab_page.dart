@@ -357,7 +357,10 @@ class NewTabPage extends StatelessWidget {
       id: 'closed-${tab.id}',
       route: route,
       title:
-          topic?.title ?? category?.name ?? destination?.label ?? route.title,
+          topic?.displayTitle ??
+          category?.name ??
+          destination?.label ??
+          route.title,
       icon:
           destination?.icon ??
           pluginIconNamed(context, category?.icon) ??

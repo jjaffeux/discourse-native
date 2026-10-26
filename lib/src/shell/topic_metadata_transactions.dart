@@ -107,7 +107,11 @@ extension _TopicMetadataTransactions on ShellController {
           _topicData
               .forLease(siteUrl, lease)
               ?.projectAcceptedMetadata(topicId, title: stored);
-          _retitle(siteUrl, topicId, stored);
+          _retitle(
+            siteUrl,
+            topicId,
+            _shownTopicTitle(siteUrl, topicId) ?? stored,
+          );
         case _TopicCategoryCommand(:final title, :final categoryId):
           _topicData
               .forLease(siteUrl, lease)

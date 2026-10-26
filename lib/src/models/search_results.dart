@@ -27,7 +27,11 @@ class SearchResults {
       if (id == null || id <= 0) continue;
       topics[id] = _SearchTopic(
         id: id,
-        title: jsonTitle(value['title'], value['fancy_title']),
+        title: jsonTitle(
+          value['title'],
+          value['fancy_title'],
+          localized: value['fancy_title_localized'],
+        ),
         slug: jsonString(value['slug']),
         categoryId: jsonIntOrNull(value['category_id']),
         tags: List.unmodifiable([

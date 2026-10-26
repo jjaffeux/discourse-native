@@ -115,7 +115,11 @@ class Bookmark {
         json['post_number'] ?? json['linked_post_number'],
       ),
       categoryId: jsonIntOrNull(json['category_id']),
-      title: jsonTitle(json['title'], json['fancy_title']),
+      title: jsonTitle(
+        json['title'],
+        json['fancy_title'],
+        localized: json['fancy_title_localized'],
+      ),
       name: jsonText(json['name']),
       author: jsonText(user['username']),
       path: _path(json['bookmarkable_url']),

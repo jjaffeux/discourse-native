@@ -99,14 +99,33 @@ DateTime? jsonDate(Object? value) => switch (value) {
 /// [plain] is preferred: it is the same text as unicode, which is what a
 /// native Text widget wants. [fancy] is HTML — smart quotes as entities,
 /// ampersands escaped — and only means anything once unescaped, which is why
-/// it is the fallback and never the first choice.
-String jsonTitle(Object? plain, Object? fancy) {
+/// it is the fallback, unless [localized] says it is a translation (see
+/// [jsonLocalizedTitle]).
+String jsonTitle(Object? plain, Object? fancy, {Object? localized}) {
+  if (jsonLocalizedTitle(fancy, localized) case final translation?) {
+    return translation;
+  }
   if (plain case final String title when title.isNotEmpty) return title;
+  return _fancyTitleText(fancy) ?? '';
+}
+
+/// With content localization on, core translates only `fancy_title` into the
+/// viewer's language and flags it with `fancy_title_localized`; `title` stays
+/// in the language the topic was written in. Upstream's topic-title-token
+/// shows the translation then, but editing and every write's `original_title`
+/// work on `title`, which is why a record that is written back keeps both.
+String? jsonLocalizedTitle(Object? fancy, Object? localized) {
+  if (localized != true) return null;
+  final text = _fancyTitleText(fancy);
+  return text == null || text.trim().isEmpty ? null : text;
+}
+
+String? _fancyTitleText(Object? fancy) {
   if (fancy case final String fancy when fancy.isNotEmpty) {
     final source = _boundedFancyTitleSource(fancy);
     return html.parseFragment(source).text ?? source;
   }
-  return '';
+  return null;
 }
 
 String _boundedFancyTitleSource(String source) {
