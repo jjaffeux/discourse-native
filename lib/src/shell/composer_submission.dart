@@ -389,41 +389,38 @@ final class _ComposerSubmissionOwner {
           );
           if (!_accountCurrent(attempt)) return _unresolved(attempt);
           // A created topic advances this sequence, including when a later
-          // draft recreates the key, and a queued one leaves it alone (only
-          // PostCreator advances it). Equality proves no topic was created, so
-          // only the review queue can still hold this send.
+          // draft recreates the key. Core's enqueue leaves it alone, and so
+          // does a moderator's later approval, which creates the topic from a
+          // payload that names no draft. Equality rules out only a direct
+          // create, which settles a private message: core never queues one.
           final untouched =
               retained.draft != null && retained.sequence == sent.draftSequence;
-          if (!untouched) {
-            final username = attempt.username;
-            if (username == null) return _unresolved(attempt);
-            final match = await data.findCreatedTopic(
-              username: username,
-              title: sent.title,
-              raw: sent.raw,
-              privateMessage: target.isPrivateMessage,
-              credential: credential.request!,
-            );
-            if (match != null) {
-              _settleDraft(attempt);
-              return _SubmissionAccepted(
-                attempt,
-                _SubmissionTopic(match.topicId, match.slug, match.title),
-              );
-            }
+          if (untouched && target.isPrivateMessage) {
+            return _refuse(attempt, failure, checked: true);
           }
           final queued = await _findQueued(sent, credential.request!);
           if (!_accountCurrent(attempt)) return _unresolved(attempt);
-          return switch (queued) {
-            _QueueLookup.queued => _enqueued(attempt),
-            _QueueLookup.absent when untouched => _refuse(
+          if (queued == _QueueLookup.queued) return _enqueued(attempt);
+          final username = attempt.username;
+          if (username == null) return _unresolved(attempt);
+          final match = await data.findCreatedTopic(
+            username: username,
+            title: sent.title,
+            raw: sent.raw,
+            privateMessage: target.isPrivateMessage,
+            credential: credential.request!,
+          );
+          if (!_accountCurrent(attempt)) return _unresolved(attempt);
+          if (match != null) {
+            _settleDraft(attempt);
+            return _SubmissionAccepted(
               attempt,
-              failure,
-              checked: true,
-            ),
-            _QueueLookup.absent ||
-            _QueueLookup.indeterminate => _unresolved(attempt),
-          };
+              _SubmissionTopic(match.topicId, match.slug, match.title),
+            );
+          }
+          return untouched && queued == _QueueLookup.absent
+              ? _refuse(attempt, failure, checked: true)
+              : _unresolved(attempt);
         case ReplyComposerTarget():
           final landed = await data.findReply(
             topicId: target.topicId,
