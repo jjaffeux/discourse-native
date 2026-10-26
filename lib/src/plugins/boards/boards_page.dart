@@ -16,8 +16,8 @@ import 'boards_data.dart';
 import 'boards_directory.dart';
 import 'boards_navigation.dart';
 
-/// How much of the next column a phone shows beside a full-width column.
-const _nextColumnPeek = 10.0;
+/// How much of each neighbouring column a phone shows beside a full-width one.
+const _columnPeek = 10.0;
 
 /// Narrower boards show one column at a time. Tablets also use mobile
 /// navigation but keep several fixed-width columns in view.
@@ -25,7 +25,13 @@ const _singleColumnWidth = 600.0;
 
 /// The distance between neighbouring columns when a board shows one at a time.
 /// Column widths and snapping both derive from it so they cannot disagree.
-double _singleColumnStride(double viewport) => viewport - 12 - _nextColumnPeek;
+double _singleColumnStride(double viewport) => viewport - 12 - 2 * _columnPeek;
+
+/// Where a one-column board rests to show column [index] between slivers of
+/// both neighbours. The first and last columns clamp against the padding, so
+/// they show their one neighbour's sliver twice over.
+double _singleColumnOffset(int index, double stride) =>
+    index * stride - _columnPeek;
 
 /// Room for a column's heading, a card and its footer at unscaled text.
 const _minimumColumnHeight = 200.0;
@@ -350,10 +356,13 @@ class _BoardsPageState extends State<BoardsPage> {
                               (column) => column.id == linkedCard.columnId,
                             );
                             _horizontal.jumpTo(
-                              (index * stride).clamp(
-                                0,
-                                _horizontal.position.maxScrollExtent,
-                              ),
+                              (single
+                                      ? _singleColumnOffset(index, stride)
+                                      : index * stride)
+                                  .clamp(
+                                    0,
+                                    _horizontal.position.maxScrollExtent,
+                                  ),
                             );
                           });
                         }
@@ -1081,10 +1090,10 @@ class _ColumnDots extends StatelessWidget {
 
   void _show(BuildContext context, int index) {
     if (!controller.hasClients) return;
-    final target = (index * stride).clamp(
-      0.0,
-      controller.position.maxScrollExtent,
-    );
+    final target = _singleColumnOffset(
+      index,
+      stride,
+    ).clamp(0.0, controller.position.maxScrollExtent);
     final duration = DMotion.duration(
       context,
       const Duration(milliseconds: 300),
@@ -1111,7 +1120,10 @@ class _ColumnDots extends StatelessWidget {
             // A column area rebuilt under a new key attaches before the one
             // it replaces detaches, so read the newest position.
             final offset = controller.positions.lastOrNull?.pixels ?? 0;
-            final current = (offset / stride).round().clamp(0, count - 1);
+            final current = ((offset + _columnPeek) / stride).round().clamp(
+              0,
+              count - 1,
+            );
             return Row(
               spacing: DSpacing.sm,
               children: [
@@ -1155,16 +1167,16 @@ class _ColumnSnapPhysics extends ScrollPhysics {
     }
     final stride = _singleColumnStride(position.viewportDimension);
     final tolerance = toleranceFor(position);
-    var column = position.pixels / stride;
+    var column = (position.pixels + _columnPeek) / stride;
     if (velocity < -tolerance.velocity) {
       column -= .5;
     } else if (velocity > tolerance.velocity) {
       column += .5;
     }
-    final target = (column.round() * stride).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
+    final target = _singleColumnOffset(
+      column.round(),
+      stride,
+    ).clamp(position.minScrollExtent, position.maxScrollExtent);
     if ((target - position.pixels).abs() < tolerance.distance) return null;
     return ScrollSpringSimulation(
       spring,

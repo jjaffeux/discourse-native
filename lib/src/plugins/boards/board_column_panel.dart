@@ -126,7 +126,12 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
         if (column.order == BoardColumnOrder.unsupported)
           DCardContent(child: Text(context.l10n.boardsUnsupported)),
         if (column.cards.isEmpty)
-          DCardContent(child: widget.emptyState)
+          // Large text can outgrow a short column, so the empty state yields
+          // to the footer and scrolls, as the card list does.
+          Flexible(
+            fit: FlexFit.loose,
+            child: DCardContent(child: DScrollArea(child: widget.emptyState)),
+          )
         else
           Flexible(
             fit: FlexFit.loose,

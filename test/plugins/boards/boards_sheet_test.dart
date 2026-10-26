@@ -200,7 +200,8 @@ void main() {
     final next = tester.getRect(find.byKey(const ValueKey('board-column-11')));
     expect(first.left - sheet.left, 12);
     expect(next.left - first.right, 12);
-    expect(sheet.right - next.left, 10);
+    // The first column has one neighbour, so it shows both slivers of it.
+    expect(sheet.right - next.left, 20);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -209,16 +210,19 @@ void main() {
     final sheet = tester.getRect(_sheet);
     Finder column(int id) => find.byKey(ValueKey('board-column-$id'));
     double left(int id) => tester.getRect(column(id)).left - sheet.left;
+    double right(int id) => sheet.right - tester.getRect(column(id)).right;
     await tester.fling(column(10), const Offset(-120, 0), 1000);
     await tester.pumpAndSettle();
-    expect(left(11), 12);
+    // A middle column shows 10 points of each neighbour beyond the padding.
+    expect(left(11), 12 + 10);
+    expect(tester.getRect(column(10)).right - sheet.left, 10);
+    expect(sheet.right - tester.getRect(column(12)).left, 10);
     // The last column rests against the trailing padding, showing the same
     // sliver of its predecessor that the first column shows of its successor.
-    double right(int id) => sheet.right - tester.getRect(column(id)).right;
     await tester.fling(column(11), const Offset(-200, 0), 8000);
     await tester.pumpAndSettle();
     expect(right(12), 12);
-    expect(left(12), 12 + 10);
+    expect(left(12), 12 + 20);
     final hold = await tester.startGesture(tester.getCenter(column(12)));
     for (var step = 0; step < 10; step++) {
       await hold.moveBy(const Offset(10, 0));
@@ -230,7 +234,7 @@ void main() {
     expect(right(12), 12);
     await tester.fling(column(12), const Offset(120, 0), 1000);
     await tester.pumpAndSettle();
-    expect(left(11), 12);
+    expect(left(11), 12 + 10);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -333,6 +337,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getRect(_column(10)).left - sheet.left, 12);
     expect(selected(), [true, false, false]);
+    await tester.tap(_dot(1));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_column(11)).left - sheet.left, 12 + 10);
+    expect(selected(), [false, true, false]);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
