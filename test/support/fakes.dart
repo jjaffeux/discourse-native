@@ -27,6 +27,7 @@ import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/pending_post.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_checklist.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
@@ -4090,6 +4091,14 @@ class FakeDiscourseApi
     if (draftRestoreFailure != null) throw draftRestoreFailure!;
     return draftToRestore;
   }
+
+  @override
+  Future<List<PendingPost>> pendingPosts({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => const [];
 
   @override
   Future<UserDraftPage> userDrafts({

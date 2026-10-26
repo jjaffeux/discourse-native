@@ -389,6 +389,24 @@ final class DiscourseComposerApi {
     );
   }
 
+  Future<List<PendingPost>> pendingPosts({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    final body = await _getObject(
+      Uri.parse('$siteUrl/posts/${Uri.encodeComponent(username)}/pending.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return [
+      for (final row in jsonObjects(body['pending_posts']))
+        ?PendingPost.fromJson(row),
+    ];
+  }
+
   Future<Map<String, dynamic>> _write(
     Uri url, {
     required String siteUrl,

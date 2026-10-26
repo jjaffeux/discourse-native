@@ -18,6 +18,7 @@ import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
+import 'package:discourse_native/src/models/pending_post.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
@@ -616,6 +617,11 @@ void main() {
         'ComposerDraft.decode',
         () => ComposerDraft.decode(gate(jsonEncode({'title': loose}))),
         (draft) => draft != null,
+      );
+      probe(
+        'PendingPost',
+        () => PendingPost.fromJson(withFields({'id': gate(1)})),
+        (post) => post != null,
       );
       probe(
         'FoundGroup',

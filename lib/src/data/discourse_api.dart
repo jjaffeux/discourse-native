@@ -20,6 +20,7 @@ import '../models/found_user.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
+import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
@@ -1583,6 +1584,19 @@ class DiscourseApi
     siteUrl: siteUrl,
     apiKey: apiKey,
     draftKey: draftKey,
+    clientId: clientId,
+  );
+
+  @override
+  Future<List<PendingPost>> pendingPosts({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async => _composer.pendingPosts(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    username: username,
     clientId: clientId,
   );
 
