@@ -725,6 +725,16 @@ void main() {
         (fixture.transport.writes.last.body['card'] as Map)['after_card_id'],
         102,
       );
+      await handle.move(
+        101,
+        10,
+        const PlaceLast(),
+        review: (_, _, _) async => const BoardRepair(),
+      );
+      expect(
+        (fixture.transport.writes.last.body['card'] as Map)['after_card_id'],
+        102,
+      );
       ((fixture.data['columns'] as List)[0] as Map)['default_sort'] = 'recency';
       await handle.refresh();
       final before = fixture.transport.writes.length;
@@ -842,7 +852,7 @@ void main() {
     },
   );
   test(
-    'invalidation during read schedules a trailing authoritative read',
+    'invalidation during read discards the superseded answer and rereads',
     () async {
       final fixture = BoardsFixture();
       addTearDown(fixture.dispose);
@@ -851,20 +861,475 @@ void main() {
       await handle.refresh();
       final pending = Completer<Map<String, dynamic>>();
       var count = 0;
-      fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
-          ++count == 1 ? pending.future : boardFixtureJson(canWrite: false);
+      String? heldDuringReread;
+      fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+        if (++count == 1) return pending.future;
+        heldDuringReread = handle.snapshot?.name;
+        return boardFixtureJson(canWrite: false);
+      };
       final reading = handle.refresh();
       await Future<void>.delayed(Duration.zero);
       fixture.live.deliver('/boards/1', {
         'type': 'board_updated',
         'client_id': 'test-client',
       });
-      pending.complete(boardFixtureJson());
+      final superseded = boardFixtureJson();
+      (superseded['board'] as Map)['name'] = 'Superseded';
+      pending.complete(superseded);
       await reading;
       expect(count, 2);
+      expect(heldDuringReread, 'Product roadmap');
       expect(handle.snapshot!.canWrite, isFalse);
     },
   );
+  test(
+    'same-account refresh fences a directory read and shares its successor',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final replies = <Completer<Map<String, dynamic>>>[];
+      fixture.transport.responders['GET /boards/api/boards.json'] = (_) {
+        replies.add(Completer());
+        return replies.last.future;
+      };
+      Map<String, dynamic> named(String name) => {
+        'boards': [
+          {...boardObject(fixture.data['board']), 'name': name},
+        ],
+      };
+      final stale = fixture.controller.loadDirectory(boardsSite);
+      await Future<void>.delayed(Duration.zero);
+      expect(replies, hasLength(1));
+      fixture.controller.pluginCurrentUserRefreshed(boardsSite);
+      final current = fixture.controller.loadDirectory(boardsSite);
+      await Future<void>.delayed(Duration.zero);
+      expect(replies, hasLength(2));
+      replies.first.complete(named('Before refresh'));
+      expect(await stale, isEmpty);
+      expect(fixture.controller.directory(boardsSite), isEmpty);
+      final joined = fixture.controller.loadDirectory(boardsSite);
+      await Future<void>.delayed(Duration.zero);
+      expect(replies, hasLength(2));
+      replies[1].complete(named('After refresh'));
+      expect((await current).single.name, 'After refresh');
+      expect((await joined).single.name, 'After refresh');
+      expect(
+        fixture.controller.directory(boardsSite).single.name,
+        'After refresh',
+      );
+    },
+  );
+  test('topic-scoped board choices never replace the directory', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.responders['GET /boards/api/boards/available.json'
+        '?allowed_permissions=edit,manage&topic_id=500'] = (_) => {
+      'boards': [
+        {...boardObject(fixture.data['board']), 'id': 2, 'name': 'Support'},
+      ],
+    };
+    await fixture.controller.loadDirectory(boardsSite);
+    final choices = await fixture.controller.loadDirectory(
+      boardsSite,
+      topicId: 500,
+    );
+    expect(choices.single.name, 'Support');
+    expect(
+      fixture.controller.directory(boardsSite).single.name,
+      'Product roadmap',
+    );
+  });
+  test('malformed board replies surface as read errors', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) => {
+      'boards': 'none',
+    };
+    await expectLater(
+      fixture.controller.loadDirectory(boardsSite),
+      throwsFormatException,
+    );
+    final replies = [
+      {
+        ...fixture.data,
+        'board': boardObject(fixture.data['board'])..['id'] = 2,
+      },
+      {'board': fixture.data['board']},
+    ];
+    var reply = replies.first;
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        reply;
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    for (final next in replies) {
+      reply = next;
+      await handle.refresh();
+      expect(handle.snapshot, isNull);
+      expect(handle.error, contains('Invalid board response'));
+    }
+  });
+  test(
+    'setting disable cycle retires composer slots and attachment receipts',
+    () async {
+      late BoardsFixture fixture;
+      OpenNewTopicComposerRequest? request;
+      final composer = PluginComposerHost(
+        buildComposer: (_) => null,
+        openNewTopic: (value) async {
+          request = value;
+          return OpenComposerResult.opened;
+        },
+        isActive: (_) => true,
+        siteConfigFor: (_) => fixture.config,
+        siteConfigListenableFor: (_) => fixture.settings,
+      );
+      fixture = BoardsFixture(composer: composer);
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.transport.failures['PUT /boards/api/boards/1/cards/102'] =
+          const WriteException(WriteFailure.forbidden);
+      await handle.createTopic('boards/1', 10, cardId: 102);
+      request!.onCompleted!(
+        const PluginTopicCreated(
+          topicId: 777,
+          slug: 'release',
+          title: 'Release',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.createdTopic(10, cardId: 102), 777);
+      await handle.refresh();
+      await handle.createTopic('boards/1', 10);
+      final retired = request!;
+      expect(handle.composing(10), isTrue);
+      fixture.config = _boardsConfig(enabled: false);
+      fixture.config = _boardsConfig(enabled: true);
+      await handle.refresh();
+      expect(handle.createdTopic(10, cardId: 102), isNull);
+      expect(handle.composing(10), isFalse);
+      expect(
+        await handle.createTopic('boards/1', 10),
+        OpenComposerResult.opened,
+      );
+      retired.onCompleted!(const PluginTopicCreationCancelled());
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.composing(10), isTrue);
+    },
+  );
+  test('only standalone cards that still exist can be promoted', () async {
+    late BoardsFixture fixture;
+    OpenNewTopicComposerRequest? request;
+    final composer = PluginComposerHost(
+      buildComposer: (_) => null,
+      openNewTopic: (value) async {
+        request = value;
+        return OpenComposerResult.opened;
+      },
+      isActive: (_) => true,
+      siteConfigFor: (_) => fixture.config,
+      siteConfigListenableFor: (_) => fixture.settings,
+    );
+    fixture = BoardsFixture(composer: composer);
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    expect(
+      await handle.createTopic('boards/1', 10, cardId: 101),
+      OpenComposerResult.unavailable,
+    );
+    expect(request, isNull);
+    await handle.createTopic('boards/1', 10, cardId: 102);
+    expect(request!.sourceStillCurrent!(), isTrue);
+    (fixture.columns.first['cards'] as List).removeWhere(
+      (raw) => boardObject(raw)['id'] == 102,
+    );
+    await handle.refresh();
+    expect(request!.sourceStillCurrent!(), isFalse);
+  });
+  test('receipt retry waits for an in-flight board read', () async {
+    late BoardsFixture fixture;
+    OpenNewTopicComposerRequest? request;
+    final composer = PluginComposerHost(
+      buildComposer: (_) => null,
+      openNewTopic: (value) async {
+        request = value;
+        return OpenComposerResult.opened;
+      },
+      isActive: (_) => true,
+      siteConfigFor: (_) => fixture.config,
+      siteConfigListenableFor: (_) => fixture.settings,
+    );
+    fixture = BoardsFixture(composer: composer);
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    fixture.transport.failures['POST /boards/api/boards/1/cards'] =
+        const WriteException(WriteFailure.forbidden);
+    await handle.createTopic('boards/1', 10);
+    request!.onCompleted!(
+      const PluginTopicCreated(topicId: 777, slug: 'release', title: 'Release'),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(handle.createdTopic(10), 777);
+    await handle.refresh();
+    final reply = Completer<Map<String, dynamic>>();
+    var held = true;
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+      if (!held) return fixture.data;
+      held = false;
+      return reply.future;
+    };
+    final read = handle.refresh();
+    expect(handle.reading, isTrue);
+    final retry = handle.attachCreatedTopic(10);
+    reply.complete(fixture.data);
+    await read;
+    expect((await retry).saved, isTrue);
+    expect(handle.snapshot!.card(900)!.topicId, 777);
+  });
+  test(
+    'board read failure withdraws a revoked board and retains it otherwise',
+    () async {
+      for (final (failure, revoked) in <(Object, bool)>[
+        (
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            boardsSite,
+            statusCode: 404,
+          ),
+          true,
+        ),
+        (const WriteException(WriteFailure.forbidden), true),
+        (
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            boardsSite,
+            statusCode: 500,
+          ),
+          false,
+        ),
+      ]) {
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        await fixture.controller.loadDirectory(boardsSite);
+        final handle = fixture.controller.acquire(boardsSite, 1);
+        addTearDown(handle.release);
+        await handle.refresh();
+        fixture.transport.failures['GET /boards/api/boards/1.json'] = failure;
+        await handle.refresh();
+        expect(handle.error, isNotNull);
+        expect(handle.snapshot == null, revoked);
+        expect(fixture.live.subscriberCount('/boards/1'), revoked ? 0 : 1);
+        expect(
+          fixture.controller.directory(boardsSite).map((board) => board.id),
+          revoked ? isEmpty : [1],
+        );
+      }
+    },
+  );
+  test(
+    'background suspends live updates and foreground reconciles the board',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      fixture.controller.setForeground(false);
+      expect(fixture.live.channels, isEmpty);
+      await handle.refresh();
+      expect(fixture.live.channels, isEmpty);
+      (fixture.data['board'] as Map)['name'] = 'Changed while away';
+      fixture.controller.setForeground(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(handle.snapshot!.name, 'Changed while away');
+      expect(fixture.live.subscriberCount('/boards/1'), 1);
+    },
+  );
+  test('unrelated site setting changes keep the mounted board', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    final snapshot = handle.snapshot;
+    final reads = fixture.transport.reads.length;
+    fixture.config = SiteConfig(
+      emojiEnabled: false,
+      plugins: fixture.config.plugins,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(handle.snapshot, same(snapshot));
+    expect(fixture.transport.reads, hasLength(reads));
+  });
+  test('unsent create failure is refused rather than uncertain', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.failures['POST /boards/api/boards/1/cards'] =
+        const WriteException(WriteFailure.unreachable, notSent: true);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    expect(
+      (await handle.saveStandalone(10, 'Task', '')).state,
+      BoardWriteState.refused,
+    );
+    expect(
+      (await handle.saveStandalone(10, '  ', '')).state,
+      BoardWriteState.refused,
+    );
+    expect(fixture.transport.writes, hasLength(1));
+  });
+  test('failed topic repair after a saved move asks for refresh', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    fixture.topicReloadFailure = StateError('topic offline');
+    final result = await handle.move(
+      101,
+      11,
+      const PlaceFirst(),
+      review: (_, _, _) async => const BoardRepair(),
+    );
+    expect(result.state, BoardWriteState.refreshNeeded);
+    expect(result.saved, isTrue);
+    expect(handle.snapshot!.card(101)!.columnId, 11);
+  });
+  test('removing a topic card repairs its canonical topic', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.responders['DELETE /boards/api/boards/1/cards/101'] =
+        (_) {
+          (fixture.columns.first['cards'] as List).removeWhere(
+            (raw) => boardObject(raw)['id'] == 101,
+          );
+          return <String, dynamic>{};
+        };
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    expect((await handle.removeCard(101)).saved, isTrue);
+    expect(handle.snapshot!.card(101), isNull);
+    expect(fixture.refreshedTopics, [500]);
+  });
+  test('placement anchors must be another card in the target column', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    for (final (column, anchor) in [(10, 101), (11, 102)]) {
+      expect(
+        (await handle.move(
+          101,
+          column,
+          PlaceAfter(anchor),
+          review: (_, _, _) async => const BoardRepair(),
+        )).state,
+        BoardWriteState.refused,
+      );
+    }
+    expect(fixture.transport.writes, isEmpty);
+  });
+  test(
+    'same-column reorder skips constraint checks and confirmation',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      (fixture.data['board'] as Map)['require_confirmation'] = true;
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      var reviews = 0;
+      final result = await handle.move(
+        101,
+        10,
+        const PlaceFirst(),
+        review: (_, _, _) async {
+          reviews++;
+          return null;
+        },
+      );
+      expect(result.saved, isTrue);
+      expect(reviews, 0);
+      expect(
+        fixture.transport.writes.single.path,
+        '/boards/api/boards/1/cards/101',
+      );
+    },
+  );
+  test(
+    'cross-column moves send the reviewed repair and server-side placement',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      fixture
+              .transport
+              .responders['PUT /boards/api/boards/1/check-constraint-mismatches'] =
+          (_) => {
+            'categories_needed': <int>[],
+            'tags_needed': ['doing'],
+          };
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      await handle.move(
+        101,
+        11,
+        const PlaceLast(),
+        review: (_, _, check) async {
+          expect(check.tagNames, ['doing']);
+          return const BoardRepair(tagNames: ['doing']);
+        },
+      );
+      expect(fixture.transport.writes.first.body, {
+        'topic_id': 500,
+        'target_column_id': 11,
+      });
+      expect(fixture.transport.writes.last.body, {
+        'card': {'column_id': 11},
+        'constraint_fix': {
+          'tag_names': ['doing'],
+        },
+      });
+      fixture
+              .transport
+              .responders['PUT /boards/api/boards/1/check-constraint-mismatches'] =
+          (_) => {'categories_needed': <int>[], 'tags_needed': <String>[]};
+      await handle.move(
+        101,
+        12,
+        const PlaceFirst(),
+        review: (_, _, _) async => const BoardRepair(),
+      );
+      expect(fixture.transport.writes.last.body, {
+        'card': {'column_id': 12},
+      });
+    },
+  );
+  test('confirmation boards review every topic addition', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    (fixture.data['board'] as Map)['require_confirmation'] = true;
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    expect(
+      (await handle.addTopic(700, 11, review: (_, _, _) async => null)).state,
+      BoardWriteState.cancelled,
+    );
+    expect(fixture.transport.writes.map((request) => request.path), [
+      '/boards/api/boards/1/check-constraint-mismatches',
+    ]);
+  });
 }
 
 SiteConfig _boardsConfig({required bool enabled}) => SiteConfig(

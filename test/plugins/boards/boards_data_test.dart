@@ -114,6 +114,74 @@ void main() {
     },
   );
 
+  test('Boards settings decode fails closed without an explicit true', () {
+    const codec = BoardsSettingsCodec();
+    for (final value in [
+      null,
+      'enabled',
+      <String, Object?>{},
+      {'enabled': 1},
+    ]) {
+      expect(codec.decode(value).enabled, isFalse);
+    }
+  });
+
+  test('cards decode only with positive identity in their own column', () {
+    final column = BoardColumn.decode({
+      'id': 2,
+      'cards': [
+        {'id': 1, 'column_id': 2, 'card_type': 'floater'},
+        {'id': 0, 'column_id': 2, 'card_type': 'floater'},
+        {'id': 3, 'column_id': 9, 'card_type': 'floater'},
+        {
+          'id': 4,
+          'column_id': 2,
+          'card_type': 'topic',
+          'topic_id': 5,
+          'topic': {'id': 6, 'title': 'Other topic'},
+        },
+      ],
+    })!;
+    expect(column.cards.map((card) => card.id), [1]);
+  });
+
+  test('archived boards are neither writable nor manageable', () {
+    final board = BoardSnapshot.decode({
+      'id': 1,
+      'can_write': true,
+      'can_manage': true,
+      'archived': true,
+    })!;
+    expect(board.canWrite, isFalse);
+    expect(board.canManage, isFalse);
+  });
+
+  test('constraint repairs send only the fields they fix', () {
+    expect(const BoardConstraintCheck().needsRepair, isFalse);
+    expect(const BoardConstraintCheck(categoryIds: [5]).needsRepair, isTrue);
+    expect(const BoardRepair(categoryId: 5).json, {'category_id': 5});
+    expect(const BoardRepair().json, isEmpty);
+  });
+
+  test('memberships prefer the unicode board and column titles', () {
+    final membership = BoardMemberships.decode([
+      {
+        'board_id': 1,
+        'board_name': 'Roadmap',
+        'unicode_board_name': 'Roadmap 🚀',
+        'cards': [
+          {
+            'card_id': 10,
+            'column_title': 'Done',
+            'unicode_column_title': 'Done ✅',
+          },
+        ],
+      },
+    ]).values.single;
+    expect(membership.name, 'Roadmap 🚀');
+    expect(membership.columnTitle, 'Done ✅');
+  });
+
   test(
     'recency projection preserves server order and the seven-day boundary',
     () {
