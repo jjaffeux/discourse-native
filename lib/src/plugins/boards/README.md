@@ -20,6 +20,11 @@ invalidate that snapshot. Local writes use one lane and always refresh afterward
 There is no optimistic rollback or automatic retry of uncertain creates. Cards
 use card IDs because the same topic can occupy several columns.
 
+The directory is read once per account. Returning to it shows the boards
+already read; pulling it down or a shell refresh reads it again. Board and
+directory reads share one server serializer, so each board read replaces that
+board's directory entry and a change made on a board is on its card on return.
+
 Topic moves and additions call Boards' server endpoints. Core topic data is
 refreshed through a generic lease-bearing host API after successful changes.
 Partial topic projections from board JSON never enter the core topic store.
