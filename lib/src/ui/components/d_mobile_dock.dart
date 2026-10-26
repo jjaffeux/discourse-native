@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
@@ -722,6 +723,26 @@ class _DMobileDockState extends State<DMobileDock>
     }
   }
 
+  /// How a screen reader, which cannot press and hold, moves the place at
+  /// [index]: a slot earlier or later, told at once. Nothing while the bar
+  /// is a bar, as a hold lifts nothing then either.
+  Map<CustomSemanticsAction, VoidCallback>? _moveActions(
+    BuildContext context,
+    int index,
+  ) {
+    final onMoved = widget.onMoved;
+    if (!_out || onMoved == null) return null;
+    final l10n = context.l10n;
+    return {
+      if (index > 0)
+        CustomSemanticsAction(label: l10n.moveEarlier): () =>
+            onMoved(index, index - 1),
+      if (index < widget.places.length - 1)
+        CustomSemanticsAction(label: l10n.moveLater): () =>
+            onMoved(index, index + 1),
+    };
+  }
+
   /// A move ends with nothing told when the panel goes under it or its
   /// places change: the place is back where it was. Called where a build
   /// follows.
@@ -830,6 +851,10 @@ class _DMobileDockState extends State<DMobileDock>
               label: place.label,
               badge: place.badge,
               selected: place.selected,
+              customSemanticsActions: _moveActions(
+                context,
+                DMobileDockGeometry.placeColumns + index,
+              ),
               onPressed: () {
                 _grow(false);
                 place.onPressed();
@@ -1203,13 +1228,14 @@ class _DMobileDockState extends State<DMobileDock>
           child: Opacity(opacity: hidden ? 0 : 1, child: child),
         ),
       );
-      Widget place(DMobileDockPlace place) => DMobileDockItem(
+      Widget place(int index, DMobileDockPlace place) => DMobileDockItem(
         key: place.key,
         growth: out ? grown : 0,
         icon: place.icon,
         label: place.label,
         badge: place.badge,
         selected: place.selected,
+        customSemanticsActions: _moveActions(context, index),
         onPressed: () {
           if (_out) _grow(false);
           place.onPressed();
@@ -1275,7 +1301,10 @@ class _DMobileDockState extends State<DMobileDock>
             clipBehavior: Clip.none,
             children: [
               for (final (index, entry) in shown.indexed)
-                at(placeSlots[index], destination(_whileStill(place(entry)))),
+                at(
+                  placeSlots[index],
+                  destination(_whileStill(place(index, entry))),
+                ),
               // Grown, the ⋮ is out of the keyboard's round, not out of
               // reach: it takes the focus back as the panel closes.
               if (tailSlot case final slot?)

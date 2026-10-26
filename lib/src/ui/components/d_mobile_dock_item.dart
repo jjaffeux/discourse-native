@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
@@ -34,6 +35,7 @@ class DMobileDockItem extends StatelessWidget {
     this.autofocus = false,
     this.expanded = false,
     this.hasPopup = false,
+    this.customSemanticsActions,
   }) : assert(growth >= 0);
 
   final Widget icon;
@@ -52,6 +54,10 @@ class DMobileDockItem extends StatelessWidget {
   final bool autofocus;
   final bool expanded;
   final bool hasPopup;
+
+  /// What assistive technology can do with the item besides pressing it,
+  /// as moving it among its places.
+  final Map<CustomSemanticsAction, VoidCallback>? customSemanticsActions;
 
   /// A tile's hover and pressed fill: the mockup's `--state-hover`.
   static Color hoverFill(DTokens tokens) =>
@@ -105,6 +111,7 @@ class DMobileDockItem extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         selected: selected,
+        customSemanticsActions: customSemanticsActions,
         child: DButton(
           density: tile
               ? DButtonDensity.mobileDockTile

@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1548,6 +1549,106 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a screen reader moves a place a slot earlier or later while '
+      'the panel is out', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final moves = <(int, int)>[];
+    var labels = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Last'];
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => fixture(
+          foot: 34,
+          labels: labels,
+          you: you(),
+          onMoved: (from, to) {
+            moves.add((from, to));
+            setState(() => labels = DMobileDockReorder.moved(labels, from, to));
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    const earlier = CustomSemanticsAction(label: 'Move earlier');
+    const later = CustomSemanticsAction(label: 'Move later');
+    Matcher place(
+      String label, {
+      bool selected = false,
+      bool focused = false,
+      List<CustomSemanticsAction> actions = const [],
+    }) => matchesSemantics(
+      label: label,
+      isButton: true,
+      hasSelectedState: true,
+      isSelected: selected,
+      hasEnabledState: true,
+      isEnabled: true,
+      isFocusable: true,
+      isFocused: focused,
+      hasTapAction: true,
+      hasFocusAction: true,
+      customActions: actions,
+    );
+    // As a bar, its places go nowhere but where they lead.
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('Topics'))),
+      place('Topics', selected: true),
+    );
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    // Out, every place but the first and the last can go either way; you
+    // and the action are not places.
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('Start'))),
+      place('Start', actions: [later]),
+    );
+    expect(
+      tester.getSemantics(find.byKey(const ValueKey('Topics'))),
+      place('Topics', selected: true, actions: [earlier, later]),
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      place('Users', actions: [earlier, later]),
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Last'))),
+      ),
+      place('Last', actions: [earlier]),
+    );
+    expect(
+      tester.getSemantics(find.byKey(DMobileDock.youKey)),
+      place('Your account, online'),
+    );
+    expect(
+      tester.getSemantics(find.byType(DMobileDockAction)),
+      isNot(matchesSemantics(customActions: [earlier])),
+    );
+    // Asked of a place as a screen reader asks it.
+    void move(Finder finder, CustomSemanticsAction action) {
+      final node = tester.getSemantics(finder);
+      node.owner!.performAction(
+        node.id,
+        SemanticsAction.customAction,
+        CustomSemanticsAction.getIdentifier(action),
+      );
+    }
+
+    move(find.byKey(DMobileDock.tileKey(const ValueKey('Users'))), earlier);
+    await tester.pumpAndSettle();
+    expect(moves, [(4, 3)]);
+    expect(_tileLabels(tester), ['Users', 'Inbox', 'Last', 'Jo']);
+    expect(_panel, findsOneWidget);
+    move(find.byKey(const ValueKey('Chat')), later);
+    await tester.pumpAndSettle();
+    expect(moves, [(4, 3), (2, 3)]);
+    expect(_barLabels(tester), ['Start', 'Topics', 'Users']);
+    expect(_tileLabels(tester), ['Chat', 'Inbox', 'Last', 'Jo']);
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('a hold that moves before it lifts drags the panel instead', (
     tester,
