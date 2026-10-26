@@ -472,6 +472,28 @@ void boardsReaderTests({
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('a mouse drag holds the card preview by its corner', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    final gesture = await lift(tester, releaseNotes);
+    final pointer = tester.getCenter(inProgress);
+    await gesture.moveTo(pointer);
+    await tester.pump();
+    final preview = find.ancestor(
+      of: find.text('Write release notes'),
+      matching: find.byType(DCard),
+    );
+    expect(tester.getRect(preview).topLeft, pointer);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('releasing a card over its own slot writes nothing', (
     tester,
   ) async {
