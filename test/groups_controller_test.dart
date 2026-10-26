@@ -2014,6 +2014,55 @@ void main() {
     expect(state.loadingMore, isFalse);
   });
 
+  test('leaving drops the reader from loaded members before paging', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'Sam'},
+            {'id': 2, 'username': 'lee'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 3, 'limit': 2, 'offset': 0},
+        }),
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 2},
+        }),
+        _completed({
+          'members': [
+            {'id': 3, 'username': 'kim'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 2, 'limit': 2, 'offset': 1},
+        }),
+      ])
+      ..onWrite = (_) => <String, dynamic>{};
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(
+      id: 7,
+      name: 'support',
+      isGroupUser: true,
+      publicExit: true,
+    );
+
+    await controller.loadMembers(_connectedInstance, group.name);
+    final left = await controller.leave(_connectedInstance, group);
+    expect(left.canApplyLocally, isTrue);
+    expect(
+      controller.membersState(_site, group.name).members.map((m) => m.id),
+      [2],
+    );
+
+    await controller.loadMembers(_connectedInstance, group.name, more: true);
+
+    expect(transport.gets.last.path, contains('offset=1'));
+    final state = controller.membersState(_site, group.name);
+    expect(state.members.map((member) => member.id), [2, 3]);
+    expect(state.total, 2);
+  });
+
   test(
     'members added while the next page loads are shown by the refresh',
     () async {
