@@ -119,7 +119,9 @@ class _DComposerDockState extends State<DComposerDock> {
           6,
           keyboard
               ? 6
-              : compact || _focus.hasFocus
+              : compact
+              ? safeBottom + 6 + DMobileDock.foldedInset
+              : _focus.hasFocus
               ? safeBottom + 6
               // The shell's measured footer includes its 6px upper inset.
               // The visible capsule and composer are separated by 8px.

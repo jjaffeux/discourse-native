@@ -558,7 +558,10 @@ void main() {
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
       );
-      expect(tester.getRect(composer).bottom, closeTo(safeEdge - 6, .01));
+      final folded = tester.getRect(dock);
+      expect(folded.bottom, closeTo(safeEdge - 6 - 7, .01));
+      expect(tester.getRect(composer).top, closeTo(folded.top, .01));
+      expect(tester.getRect(composer).bottom, closeTo(folded.bottom, .01));
       expect(
         find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
         findsOneWidget,
