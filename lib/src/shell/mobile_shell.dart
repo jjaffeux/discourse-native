@@ -376,6 +376,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             panelAction: panelAction,
                             showNewTopic: showNewTopic,
                             shell: shell,
+                            placeOrder: placeOrder,
                             hideDestinations: hidden,
                           ),
                         ),
@@ -462,6 +463,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
+    required MobilePlaceOrderController? placeOrder,
     required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
@@ -551,6 +553,19 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         ),
         you: _you(context, shell: shell, instance: instance),
         onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
+        // The order written is the one shown, the moved place in its new
+        // slot, so what the person has not placed stays as it was.
+        onMoved: placeOrder == null
+            ? null
+            : (from, to) => unawaited(
+                placeOrder.set(
+                  DMobileDockReorder.moved(
+                    [for (final item in destinations) item.tab.name],
+                    from,
+                    to,
+                  ),
+                ),
+              ),
         action: primaryAction == null
             ? null
             : DActionTransition(

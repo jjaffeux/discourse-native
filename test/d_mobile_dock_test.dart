@@ -17,6 +17,7 @@ Widget fixture({
   VoidCallback? onReveal,
   VoidCallback? onAction,
   ValueChanged<String>? onPlace,
+  void Function(int from, int to)? onMoved,
   List<String> labels = const [
     'Start',
     'Topics',
@@ -89,6 +90,7 @@ Widget fixture({
                           ),
                           you: you,
                           onPanelChanged: onPanelChanged,
+                          onMoved: onMoved,
                           collapsedDestination: DMobileDockItem(
                             key: const ValueKey('reveal'),
                             collapsed: true,
@@ -142,6 +144,20 @@ List<String> _tileLabels(WidgetTester tester) => [
   ))
     item.label,
 ];
+
+/// The names on the bar's places, in the order a person reads them.
+List<String> _barLabels(WidgetTester tester) => [
+  for (final item in tester.widgetList<DMobileDockItem>(
+    find.descendant(of: _surface, matching: find.byType(DMobileDockItem)),
+  ))
+    if (item.key != DMobileDock.moreKey) item.label,
+];
+
+/// The place called [name] as it is drawn while a place is being moved.
+Finder _moving(String name) => find.descendant(
+  of: find.byKey(DMobileDock.movingKey(ValueKey(name))),
+  matching: find.byType(DMobileDockItem),
+);
 
 /// The key of the place, the tile or the action holding the focus.
 Key? _focusedKey() {
@@ -1362,6 +1378,374 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsOneWidget);
     expectPulled(104);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('a place held still lifts and follows the finger, the places '
+        'it crosses make room, and let go it settles where it was put '
+        '($direction)', (tester) async {
+      final moves = <(int, int)>[];
+      final pressed = <String>[];
+      var labels = [
+        'Start',
+        'Topics',
+        'Chat',
+        'Inbox',
+        'Users',
+        'A very long destination',
+      ];
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) => fixture(
+            foot: 34,
+            direction: direction,
+            labels: labels,
+            you: you(),
+            onPlace: pressed.add,
+            onMoved: (from, to) {
+              moves.add((from, to));
+              setState(
+                () => labels = DMobileDockReorder.moved(labels, from, to),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(_more);
+      await tester.pumpAndSettle();
+      final panel = tester.getRect(_panel);
+      final ltr = direction == TextDirection.ltr;
+      double fromStart(Rect rect) =>
+          ltr ? rect.left - panel.left : panel.right - rect.right;
+      // The centre of the slot [start] in from the panel's start edge and
+      // [top] below its top edge: the head's tiles at 19, the grid's at 92.
+      Offset slotCentre(double start, double top) => Offset(
+        ltr ? panel.left + start + 91.5 / 2 : panel.right - start - 91.5 / 2,
+        panel.top + top + 28,
+      );
+      final users = find.byKey(DMobileDock.tileKey(const ValueKey('Users')));
+      final grabbed = tester.getCenter(users);
+      expect(grabbed, within(distance: .01, from: slotCentre(101.5, 92)));
+      final gesture = await tester.createGesture();
+      await gesture.down(grabbed, timeStamp: Duration.zero);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // Held still, but not yet for the whole hold.
+      expect(_moving('Users'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 20));
+      // Lifted: a tile of its own under the finger, grown to 1.06, raised and
+      // shadowed, and the bar's mark stays hidden.
+      expect(_moving('Users'), findsOneWidget);
+      var lifted = tester.getRect(_moving('Users'));
+      expect(lifted.center, within(distance: .01, from: grabbed));
+      expect(lifted.width, closeTo(91.5 * 1.06, .01));
+      expect(lifted.height, closeTo(56 * 1.06, .01));
+      final raised =
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .ancestor(
+                          of: _moving('Users'),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(raised.borderRadius, BorderRadius.circular(16));
+      expect(raised.boxShadow, [
+        const BoxShadow(
+          color: Color(0x59000000),
+          offset: Offset(0, 8),
+          blurRadius: 24,
+        ),
+      ]);
+      expect(
+        tester
+            .widget<AnimatedOpacity>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('mobile-dock-mark-1')),
+                    matching: find.byType(AnimatedOpacity),
+                  )
+                  .first,
+            )
+            .opacity,
+        0,
+      );
+      // Brought over Start's slot, off its centre: the tile keeps the offset
+      // it was grabbed at, and every place from Start to Inbox makes room,
+      // sliding over 220 ms to the slot after its own.
+      final start = slotCentre(6, 19) + const Offset(10, 5);
+      await gesture.moveTo(start, timeStamp: const Duration(milliseconds: 340));
+      await tester.pump();
+      lifted = tester.getRect(_moving('Users'));
+      expect(lifted.center, within(distance: .01, from: start));
+      await tester.pump(const Duration(milliseconds: 110));
+      final halfway = fromStart(tester.getRect(_moving('Start')));
+      expect(halfway, greaterThan(6));
+      expect(halfway, lessThan(101.5));
+      await tester.pump(const Duration(milliseconds: 110));
+      for (final (name, slot, top) in [
+        ('Start', 101.5, 19.0),
+        ('Topics', 197.0, 19.0),
+        ('Chat', 6.0, 92.0),
+        ('Inbox', 101.5, 92.0),
+        ('A very long destination', 197.0, 92.0),
+      ]) {
+        final rect = tester.getRect(_moving(name));
+        expect(fromStart(rect), closeTo(slot, .01), reason: name);
+        expect(rect.top, closeTo(panel.top + top, .01), reason: name);
+        expect(rect.width, closeTo(91.5, .01), reason: name);
+      }
+      expect(moves, isEmpty);
+      // A second finger on the panel meanwhile moves nothing: the lifted
+      // place has the panel's drag suspended.
+      final second = await tester.createGesture(pointer: 2);
+      await second.down(
+        Offset(panel.center.dx, panel.top + 8),
+        timeStamp: const Duration(milliseconds: 580),
+      );
+      await tester.pump();
+      await second.moveBy(
+        const Offset(0, 40),
+        timeStamp: const Duration(milliseconds: 596),
+      );
+      await tester.pump();
+      expect(tester.getRect(_surface).top, closeTo(panel.top + 16, .01));
+      await second.up(timeStamp: const Duration(milliseconds: 612));
+      await tester.pump();
+      // Let go, it settles into Start's slot over 200 ms, shrinking back,
+      // and the move is told once; then the bar and the panel show the new
+      // order, the panel still open and nothing pressed.
+      await gesture.up(timeStamp: const Duration(milliseconds: 700));
+      await tester.pump();
+      expect(moves, [(4, 0)]);
+      await tester.pump(const Duration(milliseconds: 100));
+      lifted = tester.getRect(_moving('Users'));
+      expect(lifted.width, lessThan(91.5 * 1.06));
+      expect(lifted.width, greaterThan(91.5));
+      final left = (lifted.center - slotCentre(6, 19)).distance;
+      expect(left, greaterThan(0));
+      expect(left, lessThan(const Offset(10, 5).distance));
+      await tester.pumpAndSettle();
+      expect(_moving('Users'), findsNothing);
+      expect(_barLabels(tester), ['Users', 'Start', 'Topics']);
+      expect(_tileLabels(tester), [
+        'Chat',
+        'Inbox',
+        'A very long destination',
+        'Jo',
+      ]);
+      expect(
+        fromStart(tester.getRect(find.byKey(const ValueKey('Users')))),
+        closeTo(6, .01),
+      );
+      expect(pressed, isEmpty);
+      expect(_panel, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('a hold that moves before it lifts drags the panel instead', (
+    tester,
+  ) async {
+    final moves = <(int, int)>[];
+    final pressed = <String>[];
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        you: you(),
+        onPlace: pressed.add,
+        onMoved: (from, to) => moves.add((from, to)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final panel = tester.getRect(_panel);
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, 10),
+      timeStamp: const Duration(milliseconds: 100),
+    );
+    await tester.pump();
+    // Four tiles: 104 of the panel stands above the bar's top, and the bar
+    // has come down that share of its 88 rise.
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(panel.top + 16 + 88 * 10 / 104, .01),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(_moving('Users'), findsNothing);
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 500),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 516));
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(tester.getRect(_surface).top, closeTo(panel.top + 16, .01));
+    expect(moves, isEmpty);
+    expect(pressed, isEmpty);
+    // Moved as far sideways, which is no drag of the panel, the hold is
+    // given up all the same, and the release is the tap it always was.
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: const Duration(seconds: 1),
+    );
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(10, 0),
+      timeStamp: const Duration(milliseconds: 1100),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(_moving('Users'), findsNothing);
+    expect(tester.getRect(_surface).top, closeTo(panel.top + 16, .01));
+    await gesture.up(timeStamp: const Duration(milliseconds: 1500));
+    await tester.pumpAndSettle();
+    expect(moves, isEmpty);
+    expect(pressed, ['Users']);
+    expect(_panel, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a place lifted and let go where it was is not pressed', (
+    tester,
+  ) async {
+    final moves = <(int, int)>[];
+    final pressed = <String>[];
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        you: you(),
+        onPlace: pressed.add,
+        onMoved: (from, to) => moves.add((from, to)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(_moving('Users'), findsOneWidget);
+    await gesture.up(timeStamp: const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(_moving('Users'), findsNothing);
+    expect(pressed, isEmpty);
+    expect(moves, isEmpty);
+    expect(_panel, findsOneWidget);
+    expect(_tileLabels(tester), [
+      'Inbox',
+      'Users',
+      'A very long destination',
+      'Jo',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('under reduced motion a moved place and the places it displaces '
+      'are in their slots at once', (tester) async {
+    var labels = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Last'];
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => fixture(
+          foot: 34,
+          reducedMotion: true,
+          labels: labels,
+          you: you(),
+          onMoved: (from, to) => setState(
+            () => labels = DMobileDockReorder.moved(labels, from, to),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final panel = tester.getRect(_panel);
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    await gesture.moveTo(
+      Offset(panel.left + 6 + 91.5 / 2, panel.top + 19 + 28),
+      timeStamp: const Duration(milliseconds: 340),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(_moving('Start')).left,
+      closeTo(panel.left + 101.5, .01),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(_moving('Users'), findsNothing);
+    expect(_barLabels(tester), ['Users', 'Start', 'Topics']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the panel closing under a lifted place sets it down unmoved', (
+    tester,
+  ) async {
+    final moves = <(int, int)>[];
+    await tester.pumpWidget(
+      fixture(
+        foot: 34,
+        you: you(),
+        onMoved: (from, to) => moves.add((from, to)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(_moving('Users'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(_moving('Users'), findsNothing);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    await gesture.moveBy(
+      const Offset(0, -30),
+      timeStamp: const Duration(milliseconds: 500),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 516));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(moves, isEmpty);
+    expect(_barLabels(tester), ['Start', 'Topics', 'Chat']);
     expect(tester.takeException(), isNull);
   });
 

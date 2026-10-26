@@ -14,7 +14,10 @@ Summary, Activity, the sections plugins contribute to Start (Chat's Channels
 and Threads), and Drafts, which appears only while a draft can be resumed.
 `_mobilePlaces` in `mobile_shell.dart` holds this one list. The dock, its
 panel, the history gestures' tab order and the fallback for a selection that
-is no longer offered all read it.
+is no longer offered all read it. A person may put the places in their own
+order by holding one in the panel (see Moving a place below);
+`MobilePlaceOrderController` keeps that order per forum account and
+`_mobilePlaces` applies it before anything reads the list.
 
 ## Geometry
 
@@ -75,9 +78,33 @@ on closing it goes back to what had it, or to the ⋮ when nothing in
 particular did. The keyboard goes round the head's places, the action, the
 grid and you, with the ⋮ out of the round while the panel is out.
 
+### Moving a place
+
+A place in the open panel, in its grid or in its head, is moved by holding
+it: `navHold`, `navPlaced` and the `[data-lifted]` and `[data-reordering]`
+rules in the mockup, with `growDrag` yielding to a lifted place.
+`DMobileDockReorder` holds the values and the slot arithmetic,
+`DMobileDockPanelGeometry.placeRects` the slots, and `DMobileDock` owns the
+move as one of still, lifted and dropped, drawn in the panel's own box over
+the bar while the places' own tiles keep their room, keys and focus unseen.
+`MobilePlaceOrderController` keeps the order.
+
+| Part | Value |
+| --- | --- |
+| Hold | Still for 320 ms. Moved past the bar's slop of 8 before then, in any direction, the hold is given up; a vertical move is the panel's drag as before. Only while the panel is open, and only a place: the ⋮, the action and you are not slots. A light haptic marks the lift. |
+| Lifted | The tile follows the finger at the offset it was grabbed, scaled 1.06 over everything else in the panel, on `raisedBackground` with radius 16 and a `0 8 24` shadow of black at 35%. The panel's drag and a trackpad's swipe are suspended until release. The bar's mark is hidden, as it is whenever the panel is open. |
+| Slots | Taken once, at the lift, from the geometry rather than from the sliding tiles: the head's three columns, then the grid's cells. A slot is hit only inside its inner 70%. Hitting slot *i* puts the place at *i* in the full order and the rest close up, each sliding from its old slot to its new one over 220 ms on `Cubic(.32, .72, 0, 1)`. |
+| Let go | The place settles from where it is into its slot over 200 ms on the same curve, shrinking back, and the release presses nothing. The panel closing under a lifted place sets it down unmoved. Nothing animates under reduced motion. |
+| Order | `onMoved(from, to)` is told once per move, and the shell writes the whole shown order as a list of `MobileTab.name`s, per forum account, through the serial preference queue. Placed names come first in their saved sequence, the unplaced follow in their default order, a name the forum no longer offers is dropped, and a place offered anew takes its default position among the unplaced. |
+
+A lift, a frame of the follow and a slot change repaint the dock alone;
+only the move told as the place is let go rebuilds the shell's chrome,
+through the place list.
+
 ## Validation
 
 `test/d_mobile_dock_geometry_test.dart`, `test/d_mobile_dock_growth_test.dart`,
+`test/d_mobile_dock_reorder_test.dart`, `test/mobile_place_order_test.dart`,
 `test/d_mobile_dock_test.dart`, `test/d_mobile_dock_item_test.dart`,
 `test/d_composer_dock_test.dart`, `test/oklab_test.dart`,
 `test/topic_progress_motion_test.dart`, `test/mobile_shell_test.dart`,
