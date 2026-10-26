@@ -1850,6 +1850,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the same places come in another order under a lifted place, '
+      'and it is set down with nothing moved', (tester) async {
+    final moves = <(int, int)>[];
+    final pressed = <String>[];
+    var labels = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Last'];
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) {
+          rebuild = setState;
+          return fixture(
+            foot: 34,
+            labels: labels,
+            you: you(),
+            onPlace: pressed.add,
+            onMoved: (from, to) {
+              moves.add((from, to));
+              setState(
+                () => labels = DMobileDockReorder.moved(labels, from, to),
+              );
+            },
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final panel = tester.getRect(_panel);
+    final gesture = await tester.createGesture();
+    await gesture.down(
+      tester.getCenter(
+        find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+      ),
+      timeStamp: Duration.zero,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(_moving('Users'), findsOneWidget);
+    // A stored order read late, or a screen reader's move, brings the same
+    // places in another order: the lifted place is of an order no longer
+    // shown, and carrying it to Start's slot and letting go moves nothing.
+    rebuild(
+      () => labels = ['Last', 'Start', 'Topics', 'Chat', 'Inbox', 'Users'],
+    );
+    await tester.pump();
+    await gesture.moveTo(
+      Offset(panel.left + 6 + 91.5 / 2, panel.top + 19 + 28),
+      timeStamp: const Duration(milliseconds: 340),
+    );
+    await tester.pump();
+    await gesture.up(timeStamp: const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(moves, isEmpty);
+    expect(pressed, isEmpty);
+    expect(_barLabels(tester), ['Last', 'Start', 'Topics']);
+    expect(_tileLabels(tester), ['Chat', 'Inbox', 'Users', 'Jo']);
+    expect(_moving('Users'), findsNothing);
+    expect(_panel, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Escape closes the panel and gives the ⋮ its focus back', (
     tester,
   ) async {

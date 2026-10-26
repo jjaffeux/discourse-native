@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
@@ -384,13 +384,18 @@ class _DMobileDockState extends State<DMobileDock>
   void didUpdateWidget(DMobileDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_out && !_grows) _putAway();
-    // The places as they stood at the lift, in any order, are what a move
-    // is of; a place come or gone meanwhile ends it.
-    if (_reorder case final _Moving moving
-        when !setEquals(moving.keys.toSet(), {
-          for (final place in widget.places) place.key,
-        })) {
-      _cancelMove();
+    // A move is of the places as they stood at the lift, and a place let go
+    // lands among them in their new order. Any other order under it, a
+    // place come or gone or the same places put otherwise, as a stored
+    // order read late or a screen reader's move brings them, is not the one
+    // the person took hold of: the move ends with nothing told.
+    if (_reorder case final _Moving moving) {
+      final keys = [for (final place in widget.places) place.key];
+      final stands = switch (moving) {
+        _Lifted() => [moving.keys],
+        _Dropped() => [moving.keys, moving.order],
+      };
+      if (!stands.any((order) => listEquals(order, keys))) _cancelMove();
     }
   }
 
