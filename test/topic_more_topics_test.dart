@@ -11,7 +11,6 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_more_topics_panel.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -64,7 +63,6 @@ void main() {
           tester.widget<DCard>(_panel).borderRadius,
           BorderRadius.circular(14),
         );
-        expect(find.byKey(const ValueKey('topic-end-reply')), findsNothing);
 
         scroll.jumpTo(panelOffset - extent * .75);
         await tester.pumpAndSettle();
@@ -110,10 +108,6 @@ void main() {
       lessThan(scroll.position.viewportDimension),
     );
     await _render(tester, 'short-topic');
-    await tester.tap(find.byKey(const ValueKey('topic-more-topics-jump')));
-    await tester.pumpAndSettle();
-    expect(scroll.offset, greaterThan(0));
-    expect(tester.getBottomLeft(_panel).dy, lessThanOrEqualTo(800));
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -162,7 +156,6 @@ void main() {
   testWidgets('no panel before the real final post window', (tester) async {
     await _pump(tester, hasMore: true);
     expect(_panel, findsNothing);
-    expect(find.byType(TopicEndActions), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

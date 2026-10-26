@@ -21843,12 +21843,6 @@ abstract class AppLocalizations {
   /// **'Hatch'**
   String get hatchTexture;
 
-  /// End of the post stream before More topics
-  ///
-  /// In en, this message translates to:
-  /// **'You have reached the end of this topic'**
-  String get topicEndReached;
-
   /// Post status and solution action label.
   ///
   /// In en, this message translates to:

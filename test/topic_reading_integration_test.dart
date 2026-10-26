@@ -4899,7 +4899,7 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
 
         expect(
-          find.byKey(const ValueKey('topic-more-topics-jump')),
+          find.byKey(const ValueKey('topic-end-more-topics-panel')),
           findsOneWidget,
         );
         expect(find.text('Suggested'), findsNothing);

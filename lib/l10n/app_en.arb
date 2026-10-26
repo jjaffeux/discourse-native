@@ -18431,8 +18431,6 @@
   "@searchFilterMatch": {"description": "Label for how selected search tags are combined."},
   "hatchTexture": "Hatch",
   "@hatchTexture": {"description": "Appearance material and texture setting."},
-  "topicEndReached": "You have reached the end of this topic",
-  "@topicEndReached": {"description": "End of the post stream before More topics"},
   "postHiddenAfterFlags": "Hidden after flags from the community",
   "@postHiddenAfterFlags": {
     "description": "Post status and solution action label."

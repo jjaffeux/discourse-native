@@ -647,14 +647,11 @@ class _TopicViewState extends State<TopicView>
         bounds.top < scroll.position.viewportDimension * .5;
   }
 
-  void _showMoreTopics({bool alignTop = false}) {
+  void _showMoreTopics() {
     final bounds = _morePanelBounds();
     final scroll = _scroll;
     if (bounds == null || scroll == null || !scroll.hasClients) return;
-    final room = alignTop
-        ? 0.0
-        : math.max(0.0, scroll.position.viewportDimension - bounds.height - 8);
-    final target = (scroll.offset + bounds.top - room)
+    final target = (scroll.offset + bounds.top)
         .clamp(scroll.position.minScrollExtent, scroll.position.maxScrollExtent)
         .toDouble();
     if (MediaQuery.disableAnimationsOf(context)) {
@@ -1779,15 +1776,6 @@ class _TopicViewState extends State<TopicView>
         if (showEndPanel) ...[
           SliverToBoxAdapter(
             child: Padding(
-              padding: readingLane.padding,
-              child: TopicEndActions(
-                onMoreTopics: _showMoreTopics,
-                onReply: widget.canReply ? controller.openReply : null,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
               padding: EdgeInsets.fromLTRB(
                 math.max(8, readingLane.padding.left),
                 16,
@@ -1809,7 +1797,7 @@ class _TopicViewState extends State<TopicView>
                     final identity = _topicIdentity;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted && identity == _topicIdentity) {
-                        _showMoreTopics(alignTop: true);
+                        _showMoreTopics();
                       }
                     });
                   },
