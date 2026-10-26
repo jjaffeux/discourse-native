@@ -42,6 +42,12 @@ final class BoardsController extends FrameSafeNotifier
   final _createdTopics =
       <(String, int, int), ({int topicId, PluginSiteLease lease})>{};
   final _entries = <(String, int), BoardHandle>{};
+
+  /// Boards no view holds, least recently released first. They keep their
+  /// snapshot without live updates, so a board shown again draws at once
+  /// and refreshes what it missed.
+  final _released = <BoardHandle>{};
+  static const _releasedLimit = 8;
   final _directory = <String, List<BoardSnapshot>>{};
   final _directoryReads = <String, Future<List<BoardSnapshot>>>{};
   final _revisions = <String, int>{};
@@ -123,19 +129,25 @@ final class BoardsController extends FrameSafeNotifier
       site,
       id,
     ), () => BoardHandle._(this, site, id));
-    handle._references++;
+    _released.remove(handle);
+    final firstView = handle._references++ == 0;
     handle._subscribe();
-    if (handle.snapshot == null) unawaited(handle.refresh());
+    if (firstView || handle.snapshot == null) unawaited(handle.refresh());
     return handle;
   }
 
   void _release(BoardHandle entry) {
     if (entry._references <= 0) return;
     if (--entry._references > 0) return;
-    if (identical(_entries[(entry.site, entry.id)], entry)) {
-      _entries.remove((entry.site, entry.id));
-    }
-    entry._retire();
+    entry._subscription?.cancel();
+    entry._subscription = null;
+    if (entry._disposed) return;
+    _released.add(entry);
+    if (_released.length <= _releasedLimit) return;
+    final oldest = _released.first;
+    _released.remove(oldest);
+    _entries.remove((oldest.site, oldest.id));
+    oldest._retire();
   }
 
   void forget(String site) => _resetSite(site, retire: true);
@@ -238,6 +250,7 @@ final class BoardsController extends FrameSafeNotifier
       entry._retire();
     }
     _entries.clear();
+    _released.clear();
     super.dispose();
   }
 }
@@ -271,7 +284,12 @@ final class BoardHandle extends ChangeNotifier {
   }
 
   void _subscribe() {
-    if (!enabled || !owner._foreground || _subscription != null) return;
+    if (!enabled ||
+        !owner._foreground ||
+        _references <= 0 ||
+        _subscription != null) {
+      return;
+    }
     _subscription = (owner._trackers[site] ?? owner.trackers(site))?.subscribe(
       '/boards/$id',
       (_, _) => unawaited(refresh()),
@@ -316,6 +334,7 @@ final class BoardHandle extends ChangeNotifier {
       snapshot = null;
       return Future.value();
     }
+    if (_references <= 0) return Future.value();
     _subscribe();
     if (writing) {
       _dirty = true;
