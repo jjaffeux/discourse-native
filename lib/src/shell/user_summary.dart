@@ -1384,7 +1384,15 @@ class _CategoryRows extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => _SummaryTable(
+  Widget build(BuildContext context) {
+    final search = ShellScope.read(context).search;
+    return ListenableBuilder(
+      listenable: search,
+      builder: (context, _) => _table(context, search.canSearch),
+    );
+  }
+
+  Widget _table(BuildContext context, bool canSearch) => _SummaryTable(
     semanticLabel: context.l10n.topCategories,
     name: context.l10n.category,
     columns: [
@@ -1402,6 +1410,12 @@ class _CategoryRows extends StatelessWidget {
             for (final topics in [true, false])
               (topics ? category.topicCount : category.postCount) <= 0
                   ? const Text('\u2014')
+                  : !canSearch
+                  ? Text(
+                      _number(
+                        topics ? category.topicCount : category.postCount,
+                      ),
+                    )
                   : DButton(
                       variant: DButtonVariant.inline,
                       semanticLabel: context.l10n.searchByIn(
