@@ -141,6 +141,49 @@ void main() {
     expect(events, findsNothing);
   });
 
+  testWidgets('phone Start page links to Boards when the site enables them', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    SiteConfig config({required bool boards}) => installedPlugins.models
+        .siteConfig({'boards_enabled': boards}, 'https://forum.example');
+    final sites = [
+      instance('boards.example').copyWith(config: config(boards: true)),
+      instance('plain.example').copyWith(config: config(boards: false)),
+    ];
+    await pumpShell(
+      tester,
+      phone,
+      instances: sites,
+      api: FakeDiscourseApi(
+        siteConfigs: {for (final site in sites) site.url: site.config},
+      ),
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    final boards = find.descendant(
+      of: startPageItem(const ValueKey('start-page-shortcuts')),
+      matching: find.widgetWithText(DButton, 'Boards'),
+    );
+
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(boards, findsOneWidget);
+    await Scrollable.ensureVisible(tester.element(boards), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(boards);
+    await tester.pumpAndSettle();
+    expect(shell.destinationId, 'boards');
+
+    shell.selectInstance(1);
+    await tester.pumpAndSettle();
+    shell.pushContent(ContentRoute.newTab());
+    await tester.pumpAndSettle();
+    expect(boards, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('Start page uses chrome search and Cmd+F focuses it', (
     tester,
   ) async {
