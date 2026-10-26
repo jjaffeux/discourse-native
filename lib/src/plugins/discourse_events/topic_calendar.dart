@@ -121,10 +121,11 @@ final class _TopicCalendarState extends State<TopicCalendar> {
 
   tz.Location get _location => widget.zones.location(_timezone)!;
 
-  DateTime _now() => widget.now ?? DateTime.now();
+  /// Kalender reads the wall-clock fields of `nowCallback` as calendar time.
+  DateTime _now() =>
+      tz.TZDateTime.from(widget.now ?? DateTime.now(), _location);
 
-  DateTime get _today =>
-      topicCalendarDay(tz.TZDateTime.from(_now(), _location));
+  DateTime get _today => topicCalendarDay(_now());
 
   DateTime _inCalendar(DateTime day) =>
       tz.TZDateTime(_location, day.year, day.month, day.day);
