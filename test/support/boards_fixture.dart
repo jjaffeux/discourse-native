@@ -176,6 +176,7 @@ final class BoardsFixture {
       topics: PluginTopicRefreshHost(
         reloadTopic: (_, id) async {
           refreshedTopics.add(id);
+          if (topicReloadFailure case final failure?) throw failure;
         },
       ),
       composer: composer,
@@ -194,6 +195,7 @@ final class BoardsFixture {
   late BoardsNavigation navigation;
   final live = RecordingPluginLiveChannels();
   final refreshedTopics = <int>[];
+  Object? topicReloadFailure;
   List<Map<String, dynamic>> get columns =>
       (data['columns'] as List).cast<Map<String, dynamic>>();
   Map<String, dynamic> _move(PluginTransportRequest request) {

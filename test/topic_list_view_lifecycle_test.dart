@@ -688,10 +688,6 @@ void main() {
           expect(surface.color, theme.colorScheme.primary);
           expect(surface.borderColor.a, 0);
 
-          expect(
-            find.descendant(of: button, matching: find.byType(BackdropFilter)),
-            findsNothing,
-          );
           final label = find.text('See 1 new or updated topic');
           expect(label, findsOneWidget);
           expect(

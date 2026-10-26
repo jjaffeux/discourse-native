@@ -11,84 +11,77 @@ import 'support/button_surface.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    {
-      testWidgets('tab tint follows the backdrop ($dark, flat)', (
+    testWidgets('tab tint follows the backdrop ($dark, flat)', (tester) async {
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      for (final backdrop in [
+        const Color(0xff333333),
+        const Color(0xffaaaaaa),
+      ]) {
+        await _pump(tester, theme: theme, backdrop: backdrop);
+        final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
+        final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
+        await _expectPixel(tester, const Offset(120, 25), raised);
+
+        final surface = tester.widget<Container>(
+          find.byKey(const ValueKey('surface')),
+        );
+        final decoration = surface.decoration! as ShapeDecoration;
+        expect(
+          (decoration.shape as OutlinedBorder).side.color,
+          Color.lerp(tokens.background, tokens.foreground, .22),
+        );
+        final tab = tester.getRect(find.byType(DDocumentTab));
+        final close = tester.getRect(find.byKey(const ValueKey('close')));
+        expect(tab.right - close.right, 11);
+        expect(close.size, const Size.square(18));
+        expect(tester.takeException(), isNull);
+      }
+    });
+
+    testWidgets('inactive hover and close keep reference paint ($dark, flat)', (
+      tester,
+    ) async {
+      const backdrop = Color(0xff555555);
+      await _pump(
         tester,
-      ) async {
-        final theme = dark ? AppTheme.dark : AppTheme.light;
-        for (final backdrop in [
-          const Color(0xff333333),
-          const Color(0xffaaaaaa),
-        ]) {
-          await _pump(tester, theme: theme, backdrop: backdrop);
-          final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
-          final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
-          await _expectPixel(tester, const Offset(120, 25), raised);
-
-          final surface = tester.widget<Container>(
-            find.byKey(const ValueKey('surface')),
-          );
-          final decoration = surface.decoration! as ShapeDecoration;
-          expect(
-            (decoration.shape as OutlinedBorder).side.color,
-            Color.lerp(tokens.background, tokens.foreground, .22),
-          );
-          final tab = tester.getRect(find.byType(DDocumentTab));
-          final close = tester.getRect(find.byKey(const ValueKey('close')));
-          expect(tab.right - close.right, 11);
-          expect(close.size, const Size.square(18));
-          expect(tester.takeException(), isNull);
-        }
-      });
-
-      testWidgets(
-        'inactive hover and close keep reference paint ($dark, flat)',
-        (tester) async {
-          const backdrop = Color(0xff555555);
-          await _pump(
-            tester,
-            theme: dark ? AppTheme.dark : AppTheme.light,
-            backdrop: backdrop,
-            selected: false,
-          );
-          await _expectPixel(tester, const Offset(120, 25), backdrop);
-          final tab = find.byType(DDocumentTab);
-          final rect = tester.getRect(tab);
-          final tokens = DTokens.of(tester.element(tab));
-          final pointer = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await pointer.addPointer(location: Offset.zero);
-          addTearDown(pointer.removePointer);
-          await pointer.moveTo(tester.getCenter(tab));
-          await tester.pumpAndSettle();
-
-          await _expectPixel(tester, const Offset(120, 25), backdrop);
-          final surface = tester.widget<Container>(
-            find.byKey(const ValueKey('surface')),
-          );
-          expect(
-            ((surface.decoration! as ShapeDecoration).shape as OutlinedBorder)
-                .side
-                .color,
-            Colors.transparent,
-          );
-
-          expect(tester.getRect(tab), rect);
-          final close = find.byKey(const ValueKey('close'));
-          await pointer.moveTo(tester.getCenter(close));
-          await tester.pumpAndSettle();
-          expect(buttonSurface(tester, of: close).color, Colors.transparent);
-          expect(
-            tester.widget<DButton>(close).foregroundColor,
-            Color.lerp(tokens.background, tokens.foreground, .5),
-          );
-          await pointer.moveTo(Offset.zero);
-          await tester.pumpAndSettle();
-          await _expectPixel(tester, const Offset(120, 25), backdrop);
-        },
+        theme: dark ? AppTheme.dark : AppTheme.light,
+        backdrop: backdrop,
+        selected: false,
       );
-    }
+      await _expectPixel(tester, const Offset(120, 25), backdrop);
+      final tab = find.byType(DDocumentTab);
+      final rect = tester.getRect(tab);
+      final tokens = DTokens.of(tester.element(tab));
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(tab));
+      await tester.pumpAndSettle();
+
+      await _expectPixel(tester, const Offset(120, 25), backdrop);
+      final surface = tester.widget<Container>(
+        find.byKey(const ValueKey('surface')),
+      );
+      expect(
+        ((surface.decoration! as ShapeDecoration).shape as OutlinedBorder)
+            .side
+            .color,
+        Colors.transparent,
+      );
+
+      expect(tester.getRect(tab), rect);
+      final close = find.byKey(const ValueKey('close'));
+      await pointer.moveTo(tester.getCenter(close));
+      await tester.pumpAndSettle();
+      expect(buttonSurface(tester, of: close).color, Colors.transparent);
+      expect(
+        tester.widget<DButton>(close).foregroundColor,
+        Color.lerp(tokens.background, tokens.foreground, .5),
+      );
+      await pointer.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      await _expectPixel(tester, const Offset(120, 25), backdrop);
+    });
   }
 
   testWidgets('high contrast uses the opaque standard selection', (

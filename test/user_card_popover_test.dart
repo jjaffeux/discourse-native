@@ -42,80 +42,78 @@ final _target = find.byType(UserCardTarget);
 /// Also run on the native renderer, where the glass lens samples the backdrop.
 void userCardBackdropTests({bool slowAnimations = false}) {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    {
-      for (final dark in [false, true]) {
-        testWidgets(
-          'cached ${platform.name} card preserves its material while opening and closing (flat, dark: $dark)',
-          (tester) async {
-            final previousTimeDilation = timeDilation;
-            if (slowAnimations) timeDilation = 5;
-            try {
-              if (ui.ImageFilter.isShaderFilterSupported) {}
-              final api = await _pumpTarget(
-                tester,
-                platform: platform,
-                size: const Size(390, 844),
-                dark: dark,
-              );
-              ShellScope.read(
-                tester.element(_target),
-              ).store.put(_siteUrl, _profile);
+    for (final dark in [false, true]) {
+      testWidgets(
+        'cached ${platform.name} card preserves its material while opening and closing (flat, dark: $dark)',
+        (tester) async {
+          final previousTimeDilation = timeDilation;
+          if (slowAnimations) timeDilation = 5;
+          try {
+            if (ui.ImageFilter.isShaderFilterSupported) {}
+            final api = await _pumpTarget(
+              tester,
+              platform: platform,
+              size: const Size(390, 844),
+              dark: dark,
+            );
+            ShellScope.read(
+              tester.element(_target),
+            ).store.put(_siteUrl, _profile);
 
-              void checkMaterial() {
-                expect(_surface, findsOneWidget);
-                expect(find.text('Sam Example'), findsOneWidget);
-                expect(find.byType(DSkeletonRegion), findsNothing);
-                expect(api.requests, isEmpty);
-                final fades = find.ancestor(
-                  of: _surface,
-                  matching: find.byType(FadeTransition),
+            void checkMaterial() {
+              expect(_surface, findsOneWidget);
+              expect(find.text('Sam Example'), findsOneWidget);
+              expect(find.byType(DSkeletonRegion), findsNothing);
+              expect(api.requests, isEmpty);
+              final fades = find.ancestor(
+                of: _surface,
+                matching: find.byType(FadeTransition),
+              );
+              {
+                expect(fades, findsOneWidget);
+                expect(
+                  tester.widget<FadeTransition>(fades).opacity.value,
+                  inExclusiveRange(0, 1),
                 );
-                {
-                  expect(fades, findsOneWidget);
-                  expect(
-                    tester.widget<FadeTransition>(fades).opacity.value,
-                    inExclusiveRange(0, 1),
-                  );
-                }
-                expect(tester.takeException(), isNull);
               }
-
-              await tester.tap(_target);
-              await tester.pump();
-
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 16));
-              checkMaterial();
-              final entering = tester.getRect(_surface);
-              await tester.pump(const Duration(milliseconds: 16));
-              checkMaterial();
-              expect(tester.getRect(_surface).top, lessThan(entering.top));
-              await _captureCard(
-                tester,
-                'transition-${platform.name}-flat-$dark-enter',
-              );
-              await tester.pumpAndSettle();
-              final resting = tester.getRect(_surface);
-              expect(resting.top, lessThan(entering.top));
-
-              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-              await tester.pump();
-              await tester.pump(const Duration(milliseconds: 16));
-              checkMaterial();
-              expect(tester.getRect(_surface).top, greaterThan(resting.top));
-              await _captureCard(
-                tester,
-                'transition-${platform.name}-flat-$dark-exit',
-              );
-              await tester.pumpAndSettle();
-              expect(_surface, findsNothing);
               expect(tester.takeException(), isNull);
-            } finally {
-              timeDilation = previousTimeDilation;
             }
-          },
-        );
-      }
+
+            await tester.tap(_target);
+            await tester.pump();
+
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 16));
+            checkMaterial();
+            final entering = tester.getRect(_surface);
+            await tester.pump(const Duration(milliseconds: 16));
+            checkMaterial();
+            expect(tester.getRect(_surface).top, lessThan(entering.top));
+            await _captureCard(
+              tester,
+              'transition-${platform.name}-flat-$dark-enter',
+            );
+            await tester.pumpAndSettle();
+            final resting = tester.getRect(_surface);
+            expect(resting.top, lessThan(entering.top));
+
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 16));
+            checkMaterial();
+            expect(tester.getRect(_surface).top, greaterThan(resting.top));
+            await _captureCard(
+              tester,
+              'transition-${platform.name}-flat-$dark-exit',
+            );
+            await tester.pumpAndSettle();
+            expect(_surface, findsNothing);
+            expect(tester.takeException(), isNull);
+          } finally {
+            timeDilation = previousTimeDilation;
+          }
+        },
+      );
     }
   }
 }

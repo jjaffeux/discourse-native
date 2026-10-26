@@ -18,57 +18,55 @@ void main() {
     tester,
   ) async {
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      {
-        for (final scale in [1.0, 2.0]) {
-          for (final density in [
-            DButtonDensity.floatingCall,
-            DButtonDensity.topicProgress,
-            DButtonDensity.timelineEnd,
-          ]) {
-            await tester.pumpWidget(
-              MaterialApp(
-                theme: AppTheme.light.copyWith(platform: platform),
-                home: MediaQuery(
-                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                  child: Scaffold(
-                    body: Center(
-                      child: DButton.iconOnly(
-                        size: DControlSize.toolbar,
-                        density: density,
-                        variant: DButtonVariant.ghost,
-                        shape: DButtonShape.pill,
-                        icon: const DIcon(DIcons.chevronDown),
-                        tooltip: 'Jump to latest messages',
-                        onPressed: () {},
-                      ),
+      for (final scale in [1.0, 2.0]) {
+        for (final density in [
+          DButtonDensity.floatingCall,
+          DButtonDensity.topicProgress,
+          DButtonDensity.timelineEnd,
+        ]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                child: Scaffold(
+                  body: Center(
+                    child: DButton.iconOnly(
+                      size: DControlSize.toolbar,
+                      density: density,
+                      variant: DButtonVariant.ghost,
+                      shape: DButtonShape.pill,
+                      icon: const DIcon(DIcons.chevronDown),
+                      tooltip: 'Jump to latest messages',
+                      onPressed: () {},
                     ),
                   ),
                 ),
               ),
-            );
-            await tester.pumpAndSettle();
-            final button = find.byType(DButton);
-            final icon = find.byType(DIcon);
-            expect(
-              tester.getSize(icon),
-              Size.square(density == DButtonDensity.timelineEnd ? 11 : 14),
-            );
-            expect(tester.getCenter(icon), tester.getCenter(button));
-            expect(
-              tester.getRect(button),
-              tester.getRect(
-                find.descendant(
-                  of: button,
-                  matching: find.byWidgetPredicate(
-                    (widget) =>
-                        widget is AnimatedContainer &&
-                        widget.decoration is DButtonDecoration,
-                  ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final button = find.byType(DButton);
+          final icon = find.byType(DIcon);
+          expect(
+            tester.getSize(icon),
+            Size.square(density == DButtonDensity.timelineEnd ? 11 : 14),
+          );
+          expect(tester.getCenter(icon), tester.getCenter(button));
+          expect(
+            tester.getRect(button),
+            tester.getRect(
+              find.descendant(
+                of: button,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnimatedContainer &&
+                      widget.decoration is DButtonDecoration,
                 ),
               ),
-            );
-            expect(tester.takeException(), isNull);
-          }
+            ),
+          );
+          expect(tester.takeException(), isNull);
         }
       }
     }
@@ -81,96 +79,86 @@ void main() {
     addTearDown(focus.dispose);
     var presses = 0;
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-      {
-        for (final dark in [false, true]) {
-          for (final scale in [1.0, 2.0]) {
-            for (final density in [
-              DButtonDensity.floatingCall,
-              DButtonDensity.topicProgress,
-              DButtonDensity.timelineEnd,
-            ]) {
-              final floating = density == DButtonDensity.floatingCall;
-              final footer = density == DButtonDensity.topicProgress;
-              await tester.pumpWidget(
-                MaterialApp(
-                  theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                    platform: platform,
-                  ),
-                  home: MediaQuery(
-                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                    child: Scaffold(
-                      body: Center(
-                        child: DButton(
-                          density: density,
-                          variant: DButtonVariant.ghost,
-                          focusNode: focus,
-                          label: const Text('25 / 120'),
-                          onPressed: () => presses++,
-                        ),
+      for (final dark in [false, true]) {
+        for (final scale in [1.0, 2.0]) {
+          for (final density in [
+            DButtonDensity.floatingCall,
+            DButtonDensity.topicProgress,
+            DButtonDensity.timelineEnd,
+          ]) {
+            final floating = density == DButtonDensity.floatingCall;
+            final footer = density == DButtonDensity.topicProgress;
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                  platform: platform,
+                ),
+                home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    body: Center(
+                      child: DButton(
+                        density: density,
+                        variant: DButtonVariant.ghost,
+                        focusNode: focus,
+                        label: const Text('25 / 120'),
+                        onPressed: () => presses++,
                       ),
                     ),
                   ),
                 ),
-              );
-              await tester.pumpAndSettle();
-              final button = find.byType(DButton);
-              final rect = tester.getRect(button);
-              final fontSize = floating ? 11.5 : 12.5;
-              expect(
-                rect.height,
-                closeTo(
-                  (floating
-                          ? 26
-                          : footer
-                          ? 30
-                          : 34) +
-                      fontSize * (scale - 1) * 1.5,
-                  .01,
-                ),
-              );
-              final surface = buttonSurface(tester);
+              ),
+            );
+            await tester.pumpAndSettle();
+            final button = find.byType(DButton);
+            final rect = tester.getRect(button);
+            final fontSize = floating ? 11.5 : 12.5;
+            expect(
+              rect.height,
+              closeTo(
+                (floating
+                        ? 26
+                        : footer
+                        ? 30
+                        : 34) +
+                    fontSize * (scale - 1) * 1.5,
+                .01,
+              ),
+            );
+            final surface = buttonSurface(tester);
 
-              expect(
-                surface.color.a,
-                floating
-                    ? closeTo(.4, .001)
-                    : footer || floating
-                    ? 0
-                    : 1,
-              );
-              expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
+            expect(
+              surface.color.a,
+              floating
+                  ? closeTo(.4, .001)
+                  : footer || floating
+                  ? 0
+                  : 1,
+            );
+            expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
 
-              expect(surface.borderRadius.topLeft.x, 999);
-              expect(
-                find.descendant(
-                  of: button,
-                  matching: find.byType(BackdropFilter),
-                ),
-                findsNothing,
-              );
-              final artwork = find.descendant(
-                of: button,
-                matching: find.byWidgetPredicate(
-                  (w) =>
-                      w is AnimatedContainer &&
-                      w.decoration is DButtonDecoration,
-                ),
-              );
-              expect(rect, tester.getRect(artwork));
-              final before = presses;
-              await tester.tapAt(Offset(rect.left - 1, rect.center.dy));
-              await tester.pump();
-              expect(presses, before);
-              await tester.tap(button);
-              await tester.pump();
-              expect(presses, before + 1);
-              focus.requestFocus();
-              await tester.pump();
-              await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-              await tester.pump();
-              expect(presses, before + 2);
-              expect(tester.takeException(), isNull);
-            }
+            expect(surface.borderRadius.topLeft.x, 999);
+            final artwork = find.descendant(
+              of: button,
+              matching: find.byWidgetPredicate(
+                (w) =>
+                    w is AnimatedContainer && w.decoration is DButtonDecoration,
+              ),
+            );
+            expect(rect, tester.getRect(artwork));
+            final before = presses;
+            await tester.tapAt(Offset(rect.left - 1, rect.center.dy));
+            await tester.pump();
+            expect(presses, before);
+            await tester.tap(button);
+            await tester.pump();
+            expect(presses, before + 1);
+            focus.requestFocus();
+            await tester.pump();
+            await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            await tester.pump();
+            expect(presses, before + 2);
+            expect(tester.takeException(), isNull);
           }
         }
       }

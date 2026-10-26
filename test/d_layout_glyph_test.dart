@@ -11,150 +11,140 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    for (final glass in [false, true]) {
-      testWidgets(
-        'split view shows a circular hover surface (dark: $dark, glass: $glass)',
-        (tester) async {
-          final strategy = FocusManager.instance.highlightStrategy;
-          FocusManager.instance.highlightStrategy =
-              FocusHighlightStrategy.alwaysTouch;
-          addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
-          final focus = FocusNode();
-          addTearDown(focus.dispose);
-          var activations = 0;
-          final theme = dark ? AppTheme.dark : AppTheme.light;
-          const boundaryKey = ValueKey('split-hover-pixels');
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: theme,
-              home: Scaffold(
-                body: Center(
-                  child: RepaintBoundary(
-                    key: boundaryKey,
-                    child: DToggle.iconOnly(
-                      density: DToggleDensity.splitView,
-                      semanticLabel: 'Hide split view',
-                      pressed: true,
-                      focusNode: focus,
-                      onPressedChanged: (_) => activations++,
-                      icon: const DLayoutGlyph(
-                        mainVisible: true,
-                        secondaryVisible: true,
-                        changingPanel: 0,
-                      ),
-                      interactiveIcon: const DLayoutGlyph(
-                        mainVisible: false,
-                        secondaryVisible: true,
-                        changingPanel: 0,
-                      ),
-                    ),
+    testWidgets('split view shows a circular hover surface (dark: $dark)', (
+      tester,
+    ) async {
+      final strategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTouch;
+      addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      var activations = 0;
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      const boundaryKey = ValueKey('split-hover-pixels');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: Center(
+              child: RepaintBoundary(
+                key: boundaryKey,
+                child: DToggle.iconOnly(
+                  density: DToggleDensity.splitView,
+                  semanticLabel: 'Hide split view',
+                  pressed: true,
+                  focusNode: focus,
+                  onPressedChanged: (_) => activations++,
+                  icon: const DLayoutGlyph(
+                    mainVisible: true,
+                    secondaryVisible: true,
+                    changingPanel: 0,
+                  ),
+                  interactiveIcon: const DLayoutGlyph(
+                    mainVisible: false,
+                    secondaryVisible: true,
+                    changingPanel: 0,
                   ),
                 ),
               ),
             ),
-          );
-          final toggle = find.byType(DToggle);
-          final bounds = tester.getRect(toggle);
-          final art = find.descendant(
-            of: toggle,
-            matching: find.byType(AnimatedContainer),
-          );
-          BoxDecoration decoration() =>
-              tester.widget<AnimatedContainer>(art).decoration!
-                  as BoxDecoration;
-          final tokens = DTokens.of(tester.element(toggle));
-          final neutral = Color.lerp(
-            tokens.colors.surface,
-            tokens.foreground,
-            .62,
-          );
-          Color? ink() =>
-              IconTheme.of(tester.element(find.byType(DLayoutGlyph))).color;
-          final tint = Color.lerp(
-            tokens.colors.surface,
-            tokens.foreground,
-            .10,
-          )!.withValues(alpha: .28);
-
-          expect(bounds.size, const Size.square(36));
-          expect(tester.getSize(find.byType(DLayoutGlyph)), const Size(20, 15));
-          expect(ink(), neutral);
-          {
-            expect(decoration().gradient, isNull);
-          }
-          expect(decoration().borderRadius, BorderRadius.circular(999));
-          Future<List<int>> pixels() async => (await tester.runAsync(() async {
-            final boundary = tester.renderObject<RenderRepaintBoundary>(
-              find.byKey(boundaryKey),
-            );
-            final image = await boundary.toImage();
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.rawRgba,
-            );
-            image.dispose();
-            return bytes!.buffer.asUint8List();
-          }))!;
-          // Outside the glyph, the control is bare until hovered. Its
-          // painted circular surface must also survive standard appearance.
-          final restingPixels = await pixels();
-          const sideAlpha = (18 * 36 + 3) * 4 + 3;
-          const cornerAlpha = (1 * 36 + 1) * 4 + 3;
-          expect(restingPixels[sideAlpha], 0);
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          addTearDown(mouse.removePointer);
-          await mouse.moveTo(bounds.center);
-          await tester.pumpAndSettle();
-          final hoverPixels = await pixels();
-          expect(hoverPixels[sideAlpha], greaterThan(0));
-          expect(hoverPixels[cornerAlpha], 0);
-          expect(ink(), neutral);
-          {
-            // The top catches light, while the lower fill remains a thin
-            // tint. A uniform white overlay or shader opacity multiplication
-            // fails these checks even when the circular button is still
-            // visible.
-            const topAlpha = (4 * 36 + 18) * 4 + 3;
-            const bottomAlpha = (31 * 36 + 18) * 4 + 3;
-            expect(hoverPixels[topAlpha], hoverPixels[bottomAlpha]);
-            expect(hoverPixels[bottomAlpha], closeTo(.28 * 255, 1));
-            expect(decoration().color, tint);
-            expect(decoration().gradient, isNull);
-          }
-          expect(tester.getRect(toggle), bounds);
-          expect(
-            tester.widget<DLayoutGlyph>(find.byType(DLayoutGlyph)).mainVisible,
-            isFalse,
-          );
-          await mouse.down(bounds.center);
-          await tester.pumpAndSettle();
-          final hit = find.descendant(
-            of: toggle,
-            matching: find.byType(GestureDetector),
-          );
-          expect(tester.getRect(hit).width, moreOrLessEquals(36 * .92));
-          expect(tester.getRect(hit), tester.getRect(art));
-          await mouse.up();
-          await mouse.moveTo(Offset.zero);
-          await tester.pumpAndSettle();
-          expect(activations, 1);
-          {
-            expect(decoration().gradient, isNull);
-          }
-          expect(ink(), neutral);
-          expect(
-            tester.widget<DLayoutGlyph>(find.byType(DLayoutGlyph)).mainVisible,
-            isTrue,
-          );
-          await tester.tapAt(bounds.topLeft - const Offset(1, 1));
-          await tester.pumpAndSettle();
-          expect(activations, 1);
-          expect(tester.takeException(), isNull);
-        },
+          ),
+        ),
       );
-    }
+      final toggle = find.byType(DToggle);
+      final bounds = tester.getRect(toggle);
+      final art = find.descendant(
+        of: toggle,
+        matching: find.byType(AnimatedContainer),
+      );
+      BoxDecoration decoration() =>
+          tester.widget<AnimatedContainer>(art).decoration! as BoxDecoration;
+      final tokens = DTokens.of(tester.element(toggle));
+      final neutral = Color.lerp(tokens.colors.surface, tokens.foreground, .62);
+      Color? ink() =>
+          IconTheme.of(tester.element(find.byType(DLayoutGlyph))).color;
+      final tint = Color.lerp(
+        tokens.colors.surface,
+        tokens.foreground,
+        .10,
+      )!.withValues(alpha: .28);
+
+      expect(bounds.size, const Size.square(36));
+      expect(tester.getSize(find.byType(DLayoutGlyph)), const Size(20, 15));
+      expect(ink(), neutral);
+      {
+        expect(decoration().gradient, isNull);
+      }
+      expect(decoration().borderRadius, BorderRadius.circular(999));
+      Future<List<int>> pixels() async => (await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(boundaryKey),
+        );
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        return bytes!.buffer.asUint8List();
+      }))!;
+      // Outside the glyph, the control is bare until hovered. Its
+      // painted circular surface must also survive standard appearance.
+      final restingPixels = await pixels();
+      const sideAlpha = (18 * 36 + 3) * 4 + 3;
+      const cornerAlpha = (1 * 36 + 1) * 4 + 3;
+      expect(restingPixels[sideAlpha], 0);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(bounds.center);
+      await tester.pumpAndSettle();
+      final hoverPixels = await pixels();
+      expect(hoverPixels[sideAlpha], greaterThan(0));
+      expect(hoverPixels[cornerAlpha], 0);
+      expect(ink(), neutral);
+      {
+        // The top catches light, while the lower fill remains a thin
+        // tint. A uniform white overlay or shader opacity multiplication
+        // fails these checks even when the circular button is still
+        // visible.
+        const topAlpha = (4 * 36 + 18) * 4 + 3;
+        const bottomAlpha = (31 * 36 + 18) * 4 + 3;
+        expect(hoverPixels[topAlpha], hoverPixels[bottomAlpha]);
+        expect(hoverPixels[bottomAlpha], closeTo(.28 * 255, 1));
+        expect(decoration().color, tint);
+        expect(decoration().gradient, isNull);
+      }
+      expect(tester.getRect(toggle), bounds);
+      expect(
+        tester.widget<DLayoutGlyph>(find.byType(DLayoutGlyph)).mainVisible,
+        isFalse,
+      );
+      await mouse.down(bounds.center);
+      await tester.pumpAndSettle();
+      final hit = find.descendant(
+        of: toggle,
+        matching: find.byType(GestureDetector),
+      );
+      expect(tester.getRect(hit).width, moreOrLessEquals(36 * .92));
+      expect(tester.getRect(hit), tester.getRect(art));
+      await mouse.up();
+      await mouse.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(activations, 1);
+      {
+        expect(decoration().gradient, isNull);
+      }
+      expect(ink(), neutral);
+      expect(
+        tester.widget<DLayoutGlyph>(find.byType(DLayoutGlyph)).mainVisible,
+        isTrue,
+      );
+      await tester.tapAt(bounds.topLeft - const Offset(1, 1));
+      await tester.pumpAndSettle();
+      expect(activations, 1);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   for (final reduced in [false, true]) {

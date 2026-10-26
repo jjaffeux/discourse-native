@@ -56,6 +56,10 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(_dialog, findsOneWidget);
+      await tester.binding.handlePopRoute();
+      // Past the close transition, so a granted dismissal would have finished.
+      await tester.pump(const Duration(seconds: 1));
+      expect(_dialog, findsOneWidget);
       expect(
         tester
             .widget<DButton>(find.widgetWithText(DButton, 'Cancel'))

@@ -203,7 +203,7 @@ final class _Fixture {
     bookmarks = BookmarkTransactions(
       api: this.api,
       store: store,
-      credentials: FakeAuthenticator()..keys[_site] = 'key',
+      credentials: credentials,
       lifecycle: lifecycle,
       instanceAt: (_) => instance('meta.example', user: user),
       siteContextFor: (_) =>
@@ -244,6 +244,7 @@ final class _Fixture {
   final lifecycle = SiteLifecycle();
   final changes = ChangeNotifier();
   final data = _TopicData();
+  final credentials = FakeAuthenticator()..keys[_site] = 'key';
   final void Function()? onMenu;
   final void Function()? onChanged;
   DiscourseUser? user = const DiscourseUser(username: 'reader');
@@ -645,6 +646,7 @@ void main() {
     () async {
       final f = _Fixture();
       f.account.acceptBookmark(7, _bookmark, isPost: true);
+      final dispatchedEpoch = f.account.epoch;
       final result = await f.account.deleteBookmark(
         topicId: 7,
         bookmark: _bookmark,
@@ -654,6 +656,11 @@ void main() {
       expect(f.store.read<Post>(_site, 12)?.bookmark, isNull);
       expect(f.store.read<TopicDetail>(_site, 7)?.bookmarks, isEmpty);
       expect(f.store.read<Topic>(_site, 7)?.bookmarked, isTrue);
+      const staleRow = Topic(id: 7, title: 'Topic', slug: 'topic');
+      expect(
+        f.account.prepareRow(staleRow, dispatchedEpoch).bookmarked,
+        isTrue,
+      );
     },
   );
 
@@ -822,7 +829,7 @@ void main() {
   });
 
   test(
-    'saved reminders are UTC instants and a nameless update clears the note',
+    'saved reminders are UTC instants and an update clears an omitted note',
     () async {
       final f = _Fixture();
       final local = DateTime(2030, 1, 2, 9, 30);
@@ -846,6 +853,100 @@ void main() {
       expect(updated.bookmark!.reminderAt, local.toUtc());
       expect(updated.bookmark!.name, isNull);
       expect(f.store.read<Post>(_site, 12)?.bookmark?.name, isNull);
+      final cleared = await f.account.clearBookmarkReminder(
+        topicId: 7,
+        bookmark: updated.bookmark!,
+      );
+      expect(cleared.bookmark!.reminderAt, isNull);
+      expect(f.store.read<Post>(_site, 12)?.bookmark?.reminderAt, isNull);
     },
   );
+
+  test('a lease only resolves the account session it was captured for', () {
+    final f = _Fixture();
+    final account = f.account;
+    expect(f.bookmarks.forLease(_site, f.lifecycle.capture(_site)), account);
+    expect(
+      f.bookmarks.forLease(_site, f.lifecycle.capture('https://other.example')),
+      isNull,
+    );
+  });
+
+  test(
+    'a forgotten account publishes nothing from an in-flight write',
+    () async {
+      final strategy = _Strategy();
+      final api = _PendingWriteApi();
+      final f = _Fixture(api: api, strategies: () => [strategy]);
+      final account = f.account;
+      final post = f.create();
+      final plugin = f.bookmarks
+          .pluginTarget(_pluginTarget)
+          .createBookmark(siteUrl: _site, targetId: 12);
+      await pumpEventQueue();
+      f.bookmarks.forget(_site);
+      expect(account.isCurrent, isFalse);
+      api.ready.complete();
+      for (final result in [await post, await plugin]) {
+        expect(result.reconciled, isTrue);
+        expect(result.message, 'The bookmark was saved on the forum.');
+      }
+      expect(api.createdBookmarks, hasLength(2));
+      expect(strategy.puts, isEmpty);
+      expect(strategy.repairs, isEmpty);
+      expect(f.store.read<Post>(_site, 12)?.bookmark, isNull);
+      expect(f.data.reads, isEmpty);
+      expect(f.data.holds, 0);
+      expect(f.bookmarks.forSite(_site), isNot(same(account)));
+    },
+  );
+
+  test('a forum without a stored key refuses a create as forbidden', () async {
+    final f = _Fixture();
+    f.credentials.keys.remove(_site);
+    final result = await f.create();
+    expect(result.reconciled, isFalse);
+    expect(
+      result.message,
+      const WriteException(WriteFailure.forbidden).message,
+    );
+    expect(f.api.createdBookmarks, isEmpty);
+    expect(f.data.reads, isEmpty);
+    expect(f.data.holds, 0);
+  });
+
+  test('plugin bookmark admission names why a target is refused', () async {
+    final strategy = _Strategy();
+    var strategies = <PluginBookmarkTargetStrategy>[strategy];
+    final f = _Fixture(strategies: () => strategies);
+    final scoped = await f.account.createBookmark(
+      topicId: 7,
+      targetType: _pluginTarget,
+      targetId: 12,
+    );
+    expect(scoped.message, 'This bookmark target requires its owning context.');
+    strategies = [];
+    final missing = await f.bookmarks
+        .pluginTarget(_pluginTarget)
+        .createBookmark(siteUrl: _site, targetId: 12);
+    expect(missing.reconciled, isFalse);
+    expect(
+      missing.message,
+      'This bookmark target is not available in this build.',
+    );
+    expect(f.api.createdBookmarks, isEmpty);
+    expect(strategy.puts, isEmpty);
+  });
+
+  test('a topic clear retired before its credential sends nothing', () async {
+    late final _Fixture f;
+    f = _Fixture(onChanged: () => f.lifecycle.invalidate(_site));
+    final result = await f.account.deleteAllTopicBookmarks(topicId: 7);
+    expect(result.reconciled, isTrue);
+    expect(
+      result.message,
+      'The forum changed before the bookmarks were deleted.',
+    );
+    expect(f.data.reads, isEmpty);
+  });
 }

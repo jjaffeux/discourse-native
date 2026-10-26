@@ -65,7 +65,6 @@ void main() {
           bool selected = false,
           bool enabled = true,
           double scale = 1,
-          bool glass = false,
         }) => tester.pumpWidget(
           MaterialApp(
             theme: theme,
@@ -162,9 +161,6 @@ void main() {
         await tester.tap(toggle);
         await tester.pump();
         expect(taps, 1);
-        await mount(glass: true);
-        expect(decoration().color, tokens.foreground.withValues(alpha: .05));
-
         await mount(scale: 2);
         expect(tester.getSize(toggle).height, greaterThan(30));
         expect(tester.takeException(), isNull);

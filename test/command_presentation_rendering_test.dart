@@ -24,117 +24,115 @@ void commandPresentationRenderingTests({bool native = false}) {
     if (ui.ImageFilter.isShaderFilterSupported) {}
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    {
-      for (final dark in [false, true]) {
-        final name = '${platform.name}-flat-${dark ? 'dark' : 'light'}';
-        testWidgets('command presentations share one surface: $name', (
-          tester,
-        ) async {
-          if (!native) {
-            tester.view.physicalSize = Size(
-              platform == TargetPlatform.iOS ? 390 : 1000,
-              844,
-            );
-            tester.view.devicePixelRatio = 1;
-            addTearDown(tester.view.reset);
-          }
-          final controller = DDialogController<String>();
-          addTearDown(controller.dispose);
-          await tester.pumpWidget(
-            MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-                platform: platform,
-              ),
-              builder: (context, child) =>
-                  RepaintBoundary(key: _capture, child: child!),
-              home: Scaffold(
-                body: Center(
-                  child: DCommandDialog<String>(
-                    controller: controller,
-                    trigger: DDialogTrigger(
-                      builder: (context, open) => DButton(
-                        label: const Text('Open command'),
-                        onPressed: open,
-                      ),
+    for (final dark in [false, true]) {
+      final name = '${platform.name}-flat-${dark ? 'dark' : 'light'}';
+      testWidgets('command presentations share one surface: $name', (
+        tester,
+      ) async {
+        if (!native) {
+          tester.view.physicalSize = Size(
+            platform == TargetPlatform.iOS ? 390 : 1000,
+            844,
+          );
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+        }
+        final controller = DDialogController<String>();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+              platform: platform,
+            ),
+            builder: (context, child) =>
+                RepaintBoundary(key: _capture, child: child!),
+            home: Scaffold(
+              body: Center(
+                child: DCommandDialog<String>(
+                  controller: controller,
+                  trigger: DDialogTrigger(
+                    builder: (context, open) => DButton(
+                      label: const Text('Open command'),
+                      onPressed: open,
                     ),
-                    command: DCommand<String>(
-                      onSelected: controller.close,
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          DCommandInput<String>(),
-                          DCommandList<String>(
-                            children: [
-                              DCommandItem(
-                                value: 'Chat',
-                                child: Text('Start chatting'),
-                              ),
-                              DCommandItem(
-                                value: 'Search',
-                                child: Text('Search topics'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  ),
+                  command: DCommand<String>(
+                    onSelected: controller.close,
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DCommandInput<String>(),
+                        DCommandList<String>(
+                          children: [
+                            DCommandItem(
+                              value: 'Chat',
+                              child: Text('Start chatting'),
+                            ),
+                            DCommandItem(
+                              value: 'Search',
+                              child: Text('Search topics'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
+          ),
+        );
+        await tester.tap(find.text('Open command'));
+        await tester.pumpAndSettle();
+        _expectPresentation(tester, platform);
+        _expectTransparentCommand(tester);
+        await _captureFrame(tester, 'palette-$name');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DCommand<String>), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+
+        SharedPreferences.setMockInitialValues({});
+        final shell = await startChattingShell(
+          StartChattingApi(),
+          maximumMembers: 3,
+        );
+        try {
+          await tester.pumpWidget(
+            RepaintBoundary(
+              key: _capture,
+              child: StartChattingFixture(shell: shell, platform: platform),
+            ),
           );
-          await tester.tap(find.text('Open command'));
+          if (dark) {
+            await tester.tap(find.text('Dark appearance'));
+            await tester.pumpAndSettle();
+          }
+          await tester.tap(find.byKey(const ValueKey('open-start-chatting')));
           await tester.pumpAndSettle();
           _expectPresentation(tester, platform);
           _expectTransparentCommand(tester);
-          await _captureFrame(tester, 'palette-$name');
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-          expect(find.byType(DCommand<String>), findsNothing);
-          await tester.pumpWidget(const SizedBox.shrink());
 
-          SharedPreferences.setMockInitialValues({});
-          final shell = await startChattingShell(
-            StartChattingApi(),
-            maximumMembers: 3,
+          await _captureFrame(tester, 'chat-$name');
+          await tester.enterText(
+            find.byKey(const ValueKey('chat-new-direct-message-search')),
+            'maya',
           );
-          try {
-            await tester.pumpWidget(
-              RepaintBoundary(
-                key: _capture,
-                child: StartChattingFixture(shell: shell, platform: platform),
-              ),
-            );
-            if (dark) {
-              await tester.tap(find.text('Dark appearance'));
-              await tester.pumpAndSettle();
-            }
-            await tester.tap(find.byKey(const ValueKey('open-start-chatting')));
-            await tester.pumpAndSettle();
-            _expectPresentation(tester, platform);
-            _expectTransparentCommand(tester);
-
-            await _captureFrame(tester, 'chat-$name');
-            await tester.enterText(
-              find.byKey(const ValueKey('chat-new-direct-message-search')),
-              'maya',
-            );
-            await tester.pump(const Duration(milliseconds: 350));
-            await tester.pumpAndSettle();
-            expect(
-              find.byKey(const ValueKey('chat-new-direct-message-user-maya')),
-              findsOneWidget,
-            );
-            await _captureFrame(tester, 'chat-search-$name');
-            expect(tester.takeException(), isNull);
-          } finally {
-            await tester.pumpWidget(const SizedBox.shrink());
-            shell.dispose();
-            await shell.pluginTeardown;
-          }
-        });
-      }
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('chat-new-direct-message-user-maya')),
+            findsOneWidget,
+          );
+          await _captureFrame(tester, 'chat-search-$name');
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          shell.dispose();
+          await shell.pluginTeardown;
+        }
+      });
     }
   }
 }

@@ -406,7 +406,7 @@ void _registerChatShellTests() {
               ]) {
                 final offset =
                     (point.dy.round() * image.width + point.dx.round()) * 4;
-                // The workspace includes palette pools beneath glass panels.
+                // The workspace includes palette pools beneath the panels.
                 // Compare with the neighboring gutter at the same height.
                 final gutterX = point.dx < bounds.center.dx
                     ? bounds.left - 2

@@ -103,8 +103,8 @@ void main() {
         },
         'lib/src/shell/composer/components/image.dart': {'foregroundColor': 1},
         // The chat composer's add and emoji tools use the same muted tool
-        // foreground; its Send action pins the primary palette so the glass
-        // scope around it cannot restyle the one solid control in the dock.
+        // foreground; its Send action pins the primary palette so the dock's
+        // style scope cannot restyle its one solid control.
         'lib/src/plugins/chat/chat_composer.dart': {
           'foregroundColor': 4,
           'backgroundColor': 2,
@@ -162,8 +162,7 @@ void main() {
         'lib/src/shell/topic_taxonomy_fields.dart': {'shape': 1},
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Shared category paths and list filters supply their quiet selection fill.
-        // The incoming-topics pill stays flat (quiet) in every material yet
-        // keeps the primary fill, so glass cannot turn it into a lens.
+        // The incoming-topics pill stays quiet yet keeps the primary fill.
         'lib/src/shell/topic_list_view.dart': {
           'backgroundColor': 1,
           'foregroundColor': 1,

@@ -510,22 +510,6 @@ void main() {
     },
   );
 
-  testWidgets('channel join buttons keep flat fills', (tester) async {
-    await _pump(tester);
-    await _tab(tester, ChatBrowsePage.channels);
-    final joined = find.byKey(const ValueKey('chat-unfollow-1'));
-    expect(_glassIn(joined), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-button-1')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
-    await tester.pumpAndSettle();
-    final join = find.byKey(const ValueKey('chat-join-1'));
-    expect(_glassIn(join), findsNothing);
-
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('leaving from the channel menu keeps the browse page open', (
     tester,
   ) async {
@@ -835,11 +819,6 @@ Rect _rowContentBounds(WidgetTester tester, Finder row) {
       .map((element) => tester.getRect(find.byWidget(element.widget)))
       .reduce((a, b) => a.expandToInclude(b));
 }
-
-Finder _glassIn(Finder control) => find.descendant(
-  of: control,
-  matching: find.byWidgetPredicate((widget) => widget is BackdropFilter),
-);
 
 Future<void> _tab(WidgetTester tester, ChatBrowsePage page) async {
   final target = find.byKey(ValueKey(('toggle-group-item', page)));

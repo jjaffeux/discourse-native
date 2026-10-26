@@ -136,7 +136,6 @@ void main() {
           ShellScope(
             controller: controller,
             child: MaterialApp(
-              // iOS always selects the glass material.
               theme: AppTheme.forBrightness(
                 brightness,
               ).copyWith(platform: TargetPlatform.iOS),

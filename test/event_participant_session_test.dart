@@ -136,6 +136,17 @@ void main() {
     expect(session.error, isNull);
   });
 
+  testWidgets('choosing all statuses drops the type filter', (tester) async {
+    final session = EventParticipantSession(handle, type: 'going');
+    addTearDown(session.dispose);
+    await tester.pump();
+    ports.transport.responders[roster] = (_) => {'invitees': <Object>[]};
+    session.selectType('all');
+    await tester.pump();
+    expect(session.type, isNull);
+    expect(session.rows, isEmpty);
+  });
+
   testWidgets('failed reads can retry and clear the error', (tester) async {
     ports.transport.responders[roster] = (_) => throw const WriteException(
       WriteFailure.validation,

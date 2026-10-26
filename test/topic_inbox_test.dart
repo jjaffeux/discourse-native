@@ -328,8 +328,6 @@ void main() {
       );
       expect(radius, const Radius.circular(DRadius.control));
       for (final button in buttons) {
-        // Without a material, no glass lens, raised edge or shadow is drawn.
-        expect(false, isFalse);
         expect(corners(buttonSurface(tester, of: button).borderRadius), {
           radius,
         }, reason: '$button');
@@ -1848,14 +1846,12 @@ void main() {
           tester.getRect(tags).top,
           greaterThan(tester.getRect(title).bottom),
         );
-        for (final key in ['topic-status-button']) {
-          expect(
-            tester
-                .getRect(find.byKey(ValueKey(key)))
-                .overlaps(tester.getRect(tags)),
-            isFalse,
-          );
-        }
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('topic-status-button')))
+              .overlaps(tester.getRect(tags)),
+          isFalse,
+        );
         expect(
           tester.getRect(tags).top,
           greaterThanOrEqualTo(tester.getRect(header).bottom),

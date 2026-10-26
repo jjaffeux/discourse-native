@@ -1962,6 +1962,32 @@ void main() {
       },
     );
 
+    test('forgetting the site clears room-list join loading while the retired '
+        'join is still in flight', () async {
+      final gate = Completer<void>();
+      requests = _GatedRequestHost(credentialsGate: gate);
+      useTransport(_ControlledVoiceTransport());
+      final loading = <bool>[];
+      controller.roomListenable.addListener(
+        () => loading.add(controller.isJoining(firstSite, 7)),
+      );
+
+      final retired = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+      await pumpEventQueue();
+      expect(loading, [true]);
+
+      controller.forget(firstSite);
+      expect(loading, [true, false]);
+
+      gate.complete();
+      await retired;
+      expect(loading, [true, false]);
+    });
+
     test(
       'a rejoin after the site is forgotten does not wait on the retired join',
       () async {

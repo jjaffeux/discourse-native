@@ -51,100 +51,92 @@ void main() {
 
   group('editor layout and controls', () {
     for (final dark in [false, true]) {
-      {
-        testWidgets(
-          'desktop toolbar paints button shadows outside their targets: $dark flat',
-          (tester) async {
-            final shadowsDisabled = debugDisableShadows;
-            debugDisableShadows = false;
-            try {
-              final composer = ComposerController(_newTopicTarget);
-              final shell = await _shell();
-              addTearDown(composer.dispose);
-              addTearDown(shell.dispose);
-              final mouse = await tester.createGesture(
-                kind: PointerDeviceKind.mouse,
+      testWidgets(
+        'desktop toolbar paints button shadows outside their targets: $dark flat',
+        (tester) async {
+          final shadowsDisabled = debugDisableShadows;
+          debugDisableShadows = false;
+          try {
+            final composer = ComposerController(_newTopicTarget);
+            final shell = await _shell();
+            addTearDown(composer.dispose);
+            addTearDown(shell.dispose);
+            final mouse = await tester.createGesture(
+              kind: PointerDeviceKind.mouse,
+            );
+            addTearDown(mouse.removePointer);
+            await mouse.addPointer(location: Offset.zero);
+            for (final width in [900.0, 340.0]) {
+              await _pumpPanel(
+                tester,
+                shell,
+                composer,
+                size: Size(width, 650),
+                theme: dark ? AppTheme.dark : AppTheme.light,
               );
-              addTearDown(mouse.removePointer);
-              await mouse.addPointer(location: Offset.zero);
-              for (final width in [900.0, 340.0]) {
-                await _pumpPanel(
-                  tester,
-                  shell,
-                  composer,
-                  size: Size(width, 650),
-                  theme: dark ? AppTheme.dark : AppTheme.light,
-                );
-                final toolbar = find.byKey(
-                  const ValueKey('composer-toolbar-scroll'),
-                );
-                final position = tester
-                    .state<ScrollableState>(
-                      find.descendant(
-                        of: toolbar,
-                        matching: find.byType(Scrollable),
-                      ),
-                    )
-                    .position;
-                for (final key in ['composer-mention', 'composer-insert']) {
-                  position.jumpTo(
-                    key == 'composer-mention' ? 0 : position.maxScrollExtent,
-                  );
-                  await mouse.moveTo(Offset.zero);
-                  await tester.pumpAndSettle();
-                  final button = find.byKey(ValueKey(key));
-                  final bounds = tester.getRect(button);
-                  final before = await _toolbarPixels(tester);
-                  await mouse.moveTo(bounds.center);
-                  await tester.pumpAndSettle();
-                  final after = await _toolbarPixels(
-                    tester,
-                    name: '${dark ? 'dark' : 'light'}-flat-$width-$key',
-                  );
-                  // Glass surfaces draw no outer shadow; their lens lightens
-                  // the target to its edges instead.
-
-                  const edge = 2.0;
-                  for (final point in [
-                    bounds.topCenter - const Offset(0, edge),
-                    bounds.bottomCenter + const Offset(0, edge + (1)),
-                    Offset(
-                      key == 'composer-mention'
-                          ? bounds.left - edge
-                          : bounds.right + edge,
-                      bounds.center.dy,
+              final toolbar = find.byKey(
+                const ValueKey('composer-toolbar-scroll'),
+              );
+              final position = tester
+                  .state<ScrollableState>(
+                    find.descendant(
+                      of: toolbar,
+                      matching: find.byType(Scrollable),
                     ),
-                  ]) {
-                    final offset =
-                        (point.dy.floor() * width.toInt() + point.dx.floor()) *
-                        4;
-                    final darkened = [
-                      for (var c = 0; c < 3; c++)
-                        before.getUint8(offset + c) -
-                            after.getUint8(offset + c),
-                    ].reduce((a, b) => a + b);
-                    expect(
-                      darkened,
-                      0,
-                      reason:
-                          'Flat hover fills stay inside the button at $point',
-                    );
-                  }
-                  final source = composer.raw;
-                  await tester.tapAt(bounds.bottomCenter + const Offset(0, 3));
-                  await tester.pumpAndSettle();
-                  expect(composer.raw, source);
-                  expect(find.byType(DDropdownMenuContent), findsNothing);
-                  expect(tester.getRect(button), bounds);
+                  )
+                  .position;
+              for (final key in ['composer-mention', 'composer-insert']) {
+                position.jumpTo(
+                  key == 'composer-mention' ? 0 : position.maxScrollExtent,
+                );
+                await mouse.moveTo(Offset.zero);
+                await tester.pumpAndSettle();
+                final button = find.byKey(ValueKey(key));
+                final bounds = tester.getRect(button);
+                final before = await _toolbarPixels(tester);
+                await mouse.moveTo(bounds.center);
+                await tester.pumpAndSettle();
+                final after = await _toolbarPixels(
+                  tester,
+                  name: '${dark ? 'dark' : 'light'}-flat-$width-$key',
+                );
+                const edge = 2.0;
+                for (final point in [
+                  bounds.topCenter - const Offset(0, edge),
+                  bounds.bottomCenter + const Offset(0, edge + (1)),
+                  Offset(
+                    key == 'composer-mention'
+                        ? bounds.left - edge
+                        : bounds.right + edge,
+                    bounds.center.dy,
+                  ),
+                ]) {
+                  final offset =
+                      (point.dy.floor() * width.toInt() + point.dx.floor()) * 4;
+                  final darkened = [
+                    for (var c = 0; c < 3; c++)
+                      before.getUint8(offset + c) - after.getUint8(offset + c),
+                  ].reduce((a, b) => a + b);
+                  expect(
+                    darkened,
+                    0,
+                    reason: 'Flat hover fills stay inside the button at $point',
+                  );
                 }
-                expect(tester.takeException(), isNull);
+                final source = composer.raw;
+                await tester.tapAt(bounds.bottomCenter + const Offset(0, 3));
+                await tester.pumpAndSettle();
+                expect(composer.raw, source);
+                expect(find.byType(DDropdownMenuContent), findsNothing);
+                expect(tester.getRect(button), bounds);
               }
-            } finally {
-              debugDisableShadows = shadowsDisabled;
+              expect(tester.takeException(), isNull);
             }
-          },
-        );
-      }
+          } finally {
+            debugDisableShadows = shadowsDisabled;
+          }
+        },
+      );
     }
 
     for (final dark in [false, true]) {

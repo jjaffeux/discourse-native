@@ -517,6 +517,20 @@ void main() {
     });
   });
 
+  test('a remote assignee search sends the trimmed term', () async {
+    await controller.search(
+      _site,
+      _topic,
+      AssignmentSuggestions(assignAllowedOnGroups: const ['staff']),
+      '  sam  ',
+    );
+
+    expect(
+      Uri.parse(transport.gets.single.path).queryParameters['term'],
+      'sam',
+    );
+  });
+
   group('assignment writes', () {
     test(
       'reloads the owning topic after a successful post assignment',
@@ -807,6 +821,51 @@ void main() {
       expect(result.permit, isNull);
     });
 
+    test('a lease retired during reload alone grants no undo permit', () async {
+      reloadGate = Completer<void>();
+      final pending = controller.unassignForUndo(
+        _site,
+        _topic,
+        const Assignment(assignee: AssignmentUser(username: 'sam')),
+      );
+      await reloadStarted.future;
+      requests.invalidate();
+      reloadGate!.complete();
+      final result = await pending;
+      expect(result.outcome.kind, AssignmentWriteKind.acceptedRetired);
+      expect(result.permit, isNull);
+    });
+
+    test('a non-transport failure after dispatch is uncertain', () async {
+      transport.onWrite = () => throw StateError('response lost');
+
+      final result = await controller.unassign(_site, _topic);
+
+      expect(result.kind, AssignmentWriteKind.uncertain);
+      expect(result.accepted, isFalse);
+      expect(transport.writes, hasLength(1));
+      expect(reloads, isEmpty);
+    });
+
+    test('a disposed controller answers inactive, not a refusal', () async {
+      final disposed = AssignmentController(
+        api: AssignApi(transport),
+        requests: requests,
+        canAssign: (_, _) => false,
+        reloadTopic: (_, _) async {},
+      )..dispose();
+
+      expect(
+        (await disposed.assign(
+          _site,
+          _topic,
+          const AssignmentUser(username: 'sam'),
+        )).kind,
+        AssignmentWriteKind.inactive,
+      );
+      expect(transport.writes, isEmpty);
+    });
+
     for (final notSent in [false, true]) {
       test('lost write response distinguishes notSent=$notSent', () async {
         transport.writeFailure = WriteException(
@@ -854,6 +913,47 @@ void main() {
   });
 
   group('404 reconciliation', () {
+    test('a write 404 for a retired account does not reconcile', () async {
+      final gate = Completer<void>();
+      transport
+        ..writeGate = gate
+        ..writeFailure = const WriteException(
+          WriteFailure.unreachable,
+          statusCode: 404,
+        );
+      final pending = controller.unassign(_site, _topic);
+      await transport.writeStarted.future;
+      requests.invalidate();
+      gate.complete();
+
+      expect((await pending).kind, AssignmentWriteKind.targetUnavailable);
+      expect(reloads, isEmpty);
+      expect(invalidatedFallbacks, isEmpty);
+    });
+
+    test('a lookup 404 for a retired account does not reconcile', () async {
+      const failure = SiteLookupException(
+        SiteLookupFailure.unreachable,
+        _site,
+        statusCode: 404,
+      );
+      transport.getFailure = failure;
+      requests.executor = <T>(Future<T> Function() request) async {
+        try {
+          return await request();
+        } finally {
+          requests.invalidate();
+        }
+      };
+
+      await expectLater(
+        controller.suggestions(_site, _topic),
+        throwsA(same(failure)),
+      );
+      expect(reloads, isEmpty);
+      expect(invalidatedFallbacks, isEmpty);
+    });
+
     test(
       'returns target-unavailable and reloads after a failed write',
       () async {
@@ -1084,6 +1184,26 @@ void main() {
   });
 
   group('stale async work', () {
+    test('a lookup answered after its lease retires is withheld', () async {
+      requests.executor = <T>(Future<T> Function() request) async {
+        final result = await request();
+        requests.invalidate();
+        return result;
+      };
+
+      await expectLater(
+        controller.suggestions(_site, _topic),
+        throwsA(
+          isA<WriteException>().having(
+            (error) => error.failure,
+            'failure',
+            WriteFailure.forbidden,
+          ),
+        ),
+      );
+      expect(transport.gets, hasLength(1));
+    });
+
     test(
       'disposal during credential lookup suppresses write and reload',
       () async {

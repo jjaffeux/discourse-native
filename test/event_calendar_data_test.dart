@@ -300,6 +300,49 @@ void main() {
     },
   );
 
+  test('a midnight start with a timed end stays a timed event', () {
+    final event = entry({
+      'starts_at': '2026-09-08T00:00:00+02:00',
+      'ends_at': '2026-09-08T09:30:00+02:00',
+    })!;
+    expect(event.isAllDay, isFalse);
+    expect((event.localEnd.day, event.localEnd.hour), (8, 9));
+  });
+
+  test('tag color rules match tags sent as plain names', () {
+    final settings = EventSettings.decode(const {
+      'map_events_to_color': '[{"type":"tag","slug":"launch","color":"#d25"}]',
+    });
+    expect(
+      entry({
+        'post': {
+          'id': 42,
+          'topic': {
+            'id': 700,
+            'tags': ['launch'],
+          },
+        },
+      }, settings: settings)!.color,
+      const Color(0xffdd2255),
+    );
+  });
+
+  test('directory pages open day and week links on their month', () {
+    final date = DateTime.utc(2026, 9, 8);
+    for (final view in [EventCalendarView.day, EventCalendarView.week]) {
+      expect(
+        EventCalendarPage(view, date).directoryPage,
+        EventCalendarPage(EventCalendarView.month, date),
+      );
+    }
+    for (final view in [EventCalendarView.month, EventCalendarView.schedule]) {
+      expect(
+        EventCalendarPage(view, date).directoryPage,
+        EventCalendarPage(view, date),
+      );
+    }
+  });
+
   test('tag overrides precede category overrides and category fallback', () {
     final settings = EventSettings.decode(const {
       'calendar_upcoming_events_default_view': 'agendaWeek',

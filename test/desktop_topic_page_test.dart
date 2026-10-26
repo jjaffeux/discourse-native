@@ -667,8 +667,7 @@ void main() {
       _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       expect(_reader, findsOneWidget);
-      // Writing capsules in the window chrome use a backdrop. The reading
-      // surface itself must remain free of a full-document blur.
+      // The reading surface must remain free of a full-document blur.
       expect(
         find.descendant(of: _reader, matching: find.byType(BackdropFilter)),
         findsNothing,

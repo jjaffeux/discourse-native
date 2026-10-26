@@ -124,67 +124,61 @@ void main() {
     });
   }
   for (final dark in [false, true]) {
-    {
-      testWidgets('composer wells render in $dark flat', (tester) async {
-        await tester.binding.setSurfaceSize(const Size(800, 700));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-        final composer = ComposerController(
-          const ReplyComposerTarget(
-            privateMessageTopic: false,
-            siteUrl: 'https://example.test',
-            topicId: 1,
-            slug: 'topic',
-            topicTitle: 'Topic',
+    testWidgets('composer wells render in $dark flat', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final composer = ComposerController(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
+          siteUrl: 'https://example.test',
+          topicId: 1,
+          slug: 'topic',
+          topicTitle: 'Topic',
+        ),
+      );
+      addTearDown(composer.dispose);
+      const source =
+          'A code example and its results.\n\n'
+          '```dart\nfinal knots = [12, 16, 20];\nprint(knots.reduce((a, b) => a + b));\n```\n\n'
+          '| Wind | Speed |\n| :--- | ---: |\n| Moderate | 12 |\n| Fresh | 20 |\n\n'
+          'Ready to post.';
+      composer.text.value = const TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+      const capture = ValueKey('composer-wells-capture');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.forBrightness(
+            dark ? Brightness.dark : Brightness.light,
+            fontFamily: 'Lato',
           ),
-        );
-        addTearDown(composer.dispose);
-        const source =
-            'A code example and its results.\n\n'
-            '```dart\nfinal knots = [12, 16, 20];\nprint(knots.reduce((a, b) => a + b));\n```\n\n'
-            '| Wind | Speed |\n| :--- | ---: |\n| Moderate | 12 |\n| Fresh | 20 |\n\n'
-            'Ready to post.';
-        composer.text.value = const TextEditingValue(
-          text: source,
-          selection: TextSelection.collapsed(offset: source.length),
-        );
-        const capture = ValueKey('composer-wells-capture');
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.forBrightness(
-              dark ? Brightness.dark : Brightness.light,
-              fontFamily: 'Lato',
-            ),
-            home: RepaintBoundary(
-              key: capture,
-              child: Scaffold(
-                body: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: ComposerEditor(
-                    composer: composer,
-                    hintText: 'Write a reply',
-                    textStyle: const TextStyle(fontSize: 16, height: 1.5),
-                    hintStyle: null,
-                  ),
+          home: RepaintBoundary(
+            key: capture,
+            child: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(32),
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: 'Write a reply',
+                  textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                  hintStyle: null,
                 ),
               ),
             ),
           ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.byWidgetPredicate(
-            (widget) => widget is DCard && widget.variant == DCardVariant.well,
-          ),
-          findsNWidgets(2),
-        );
-        expect(tester.takeException(), isNull);
-        await _capture(
-          tester,
-          capture,
-          'wells-${dark ? 'dark' : 'light'}-flat',
-        );
-      });
-    }
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is DCard && widget.variant == DCardVariant.well,
+        ),
+        findsNWidgets(2),
+      );
+      expect(tester.takeException(), isNull);
+      await _capture(tester, capture, 'wells-${dark ? 'dark' : 'light'}-flat');
+    });
     testWidgets('thread writing renders and switches labels in $dark', (
       tester,
     ) async {

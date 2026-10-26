@@ -51,241 +51,222 @@ void main() {
     TargetPlatform.android,
   ]) {
     for (final dark in [false, true]) {
-      for (final glass in [false, true]) {
-        for (final direction in TextDirection.values) {
-          for (final scale in [1.0, 2.0]) {
-            testWidgets(
-              'profile mockup: ${platform.name}, dark $dark, glass $glass, ${direction.name}, ${scale}x',
-              (tester) async {
-                final shadows = debugDisableShadows;
-                debugDisableShadows = false;
-                try {
-                  final controller = await _pump(
-                    tester,
-                    platform: platform,
-                    dark: dark,
-                    glass: glass,
-                    direction: direction,
-                    scale: scale,
-                  );
-                  final avatar = find.byKey(UserMenuButton.avatarKey);
-                  final anchor = tester.getRect(avatar);
-                  await tester.tap(avatar);
-                  await tester.pumpAndSettle();
+      for (final direction in TextDirection.values) {
+        for (final scale in [1.0, 2.0]) {
+          testWidgets(
+            'profile mockup: ${platform.name}, dark $dark, ${direction.name}, ${scale}x',
+            (tester) async {
+              final shadows = debugDisableShadows;
+              debugDisableShadows = false;
+              try {
+                final controller = await _pump(
+                  tester,
+                  platform: platform,
+                  dark: dark,
+                  direction: direction,
+                  scale: scale,
+                );
+                final avatar = find.byKey(UserMenuButton.avatarKey);
+                final anchor = tester.getRect(avatar);
+                await tester.tap(avatar);
+                await tester.pumpAndSettle();
 
-                  final menu = find.byType(DDropdownMenuContent);
-                  expect(menu, findsOneWidget);
-                  expect(find.byTooltip('Close'), findsNothing);
-                  var bounds = tester.getRect(menu);
-                  final screen = tester.view.physicalSize;
-                  final mobile = platform != TargetPlatform.macOS;
-                  final sheet = find.ancestor(
-                    of: menu,
-                    matching: find.byType(DSheetContent),
-                  );
-                  if (mobile) {
-                    expect(sheet, findsOneWidget);
-                    final content = tester.widget<DSheetContent>(sheet);
-                    expect(content.side, DSheetSide.bottom);
-                    expect(content.variant, DSheetVariant.adaptiveMenu);
-                    expect(content.semanticLabel, 'Profile');
-                    expect(content.showCloseButton, isFalse);
-                    expect(find.byType(DSheetHeader), findsNothing);
-                    final sheetBounds = tester.getRect(sheet);
-                    if (scale == 1) {
-                      expect(sheetBounds.left, 6);
-                      expect(sheetBounds.right, screen.width - 6);
-                      expect(sheetBounds.bottom, screen.height - 40);
-                    }
-                    expect(bounds.width, greaterThan(216));
-                    expect(
-                      find.byKey(const ValueKey('sheet-drag-handle')),
-                      findsOneWidget,
-                    );
-                    if (scale == 2) {
-                      await tester.drag(
-                        find.byKey(const ValueKey('sheet-drag-handle')),
-                        const Offset(0, -500),
-                      );
-                      await tester.pumpAndSettle();
-                      bounds = tester.getRect(menu);
-                    }
-                  } else {
-                    expect(sheet, findsNothing);
-                    expect(bounds.width, 216);
-                    final popup = tester.widget<DPopoverContent>(
-                      find.byType(DPopoverContent),
-                    );
-                    expect(popup.variant, DPopoverVariant.timeline);
-                  }
-                  expect(bounds.left, greaterThanOrEqualTo(mobile ? 0 : 5));
-                  expect(
-                    bounds.right,
-                    lessThanOrEqualTo(screen.width - (mobile ? 0 : 5)),
-                  );
-                  expect(bounds.top, greaterThanOrEqualTo(59));
-                  if (!mobile || scale == 1) {
-                    expect(
-                      bounds.bottom,
-                      lessThanOrEqualTo(screen.height - 34),
-                    );
-                  }
-                  if (!mobile && scale == 1) {
-                    expect(bounds.top, closeTo(anchor.bottom + 8, .01));
-                    expect(
-                      direction == TextDirection.ltr
-                          ? bounds.right
-                          : bounds.left,
-                      direction == TextDirection.ltr
-                          ? anchor.right
-                          : anchor.left,
-                    );
-                  }
-                  final tokens = DTokens.of(
-                    tester.element(
-                      find.byKey(const ValueKey('user-menu-own-card')),
-                    ),
-                  );
-                  final outerTokens = DTokens.of(tester.element(avatar));
-                  expect(
-                    tokens.mutedForeground,
-                    Color.lerp(
-                      outerTokens.background,
-                      outerTokens.foreground,
-                      .50,
-                    ),
-                  );
-                  expect(
-                    tokens.success,
-                    Color.lerp(
-                      outerTokens.foreground,
-                      outerTokens.success,
-                      .50,
-                    ),
-                  );
-                  expect(
-                    tokens.destructive,
-                    Color.lerp(
-                      outerTokens.foreground,
-                      outerTokens.destructive,
-                      .50,
-                    ),
-                  );
-                  final ownCard = find.byKey(
-                    const ValueKey('user-menu-own-card'),
-                  );
-                  final accountAvatar = find.descendant(
-                    of: ownCard,
-                    matching: find.byType(DAvatar),
-                  );
-                  expect(
-                    tester.getSize(accountAvatar),
-                    Size.square(32 * scale),
-                  );
-                  final name = tester.widget<Text>(find.text('Ty'));
-                  final handle = tester.widget<Text>(find.text('@tynaut'));
-                  expect(name.style!.fontSize, 13.5);
-                  expect(name.style!.fontWeight, FontWeight.w600);
-                  expect(handle.style!.fontSize, 12);
-                  final separators = find.descendant(
-                    of: menu,
-                    matching: find.byType(DDropdownMenuSeparator),
-                  );
-                  expect(separators, findsNWidgets(3));
-                  for (final separator in separators.evaluate()) {
-                    final line = find.descendant(
-                      of: find.byWidget(separator.widget),
-                      matching: find.byType(ColoredBox),
-                    );
-                    final lineRect = tester.getRect(line);
-                    expect(lineRect.left - bounds.left, 15);
-                    expect(bounds.right - lineRect.right, 15);
-                    expect(lineRect.height, 1);
-                  }
+                final menu = find.byType(DDropdownMenuContent);
+                expect(menu, findsOneWidget);
+                expect(find.byTooltip('Close'), findsNothing);
+                var bounds = tester.getRect(menu);
+                final screen = tester.view.physicalSize;
+                final mobile = platform != TargetPlatform.macOS;
+                final sheet = find.ancestor(
+                  of: menu,
+                  matching: find.byType(DSheetContent),
+                );
+                if (mobile) {
+                  expect(sheet, findsOneWidget);
+                  final content = tester.widget<DSheetContent>(sheet);
+                  expect(content.side, DSheetSide.bottom);
+                  expect(content.variant, DSheetVariant.adaptiveMenu);
+                  expect(content.semanticLabel, 'Profile');
+                  expect(content.showCloseButton, isFalse);
+                  expect(find.byType(DSheetHeader), findsNothing);
+                  final sheetBounds = tester.getRect(sheet);
                   if (scale == 1) {
-                    final positions = [
-                      tester.getRect(ownCard),
-                      ...separators.evaluate().map(
-                        (element) =>
-                            tester.getRect(find.byWidget(element.widget)),
-                      ),
-                    ];
-                    expect(positions[1].top, positions[0].bottom);
-                    expect(
-                      positions[2].top,
-                      tester
-                          .getRect(
-                            find.byKey(
-                              const ValueKey('pause-notifications-row'),
-                            ),
-                          )
-                          .bottom,
-                    );
-                    expect(
-                      positions[3].top,
-                      tester
-                          .getRect(
-                            find.byKey(
-                              const ValueKey('user-menu-row-preferences'),
-                            ),
-                          )
-                          .bottom,
-                    );
+                    expect(sheetBounds.left, 6);
+                    expect(sheetBounds.right, screen.width - 6);
+                    expect(sheetBounds.bottom, screen.height - 40);
                   }
-
-                  double start(Rect rect) =>
-                      direction == TextDirection.ltr ? rect.left : rect.right;
-                  double? labelStart;
-                  for (final (label, key) in _rows) {
-                    final row = find.byKey(ValueKey(key));
-                    await tester.ensureVisible(row);
-                    await tester.pumpAndSettle();
-                    expect(row.hitTestable(), findsOneWidget);
-                    final textRect = tester.getRect(find.text(label));
-                    labelStart ??= start(textRect);
-                    expect(start(textRect), labelStart, reason: label);
-                    if (scale == 1) {
-                      expect(tester.getRect(row).height, closeTo(33.5, .01));
-                    }
-                    if (label == 'Drafts') {
-                      final count = tester.getRect(find.text('2'));
-                      expect(count.center.dy, closeTo(textRect.center.dy, 1));
-                    }
-                  }
-                  if (!mobile) expect(tester.getRect(menu), bounds);
-                  expect(tester.takeException(), isNull);
-
-                  if (scale == 1 && direction == TextDirection.ltr) {
-                    await _capture(
-                      tester,
-                      '${platform.name}-${dark ? 'dark' : 'light'}-${'standard'}',
-                    );
-                  }
-                  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-                  await tester.pumpAndSettle();
-                  expect(menu, findsNothing);
-                  final focus = tester.widget<DButton>(avatar).focusNode!;
-                  if (!mobile) expect(focus.hasFocus, isTrue);
-                  expect(tester.widget<DButton>(avatar).expanded, isFalse);
-                  await tester.tap(avatar);
-                  await tester.pumpAndSettle();
-                  await tester.tapAt(
-                    Offset(
-                      20,
-                      mobile
-                          ? tester.getRect(sheet).top - 20
-                          : screen.height - 50,
-                    ),
+                  expect(bounds.width, greaterThan(216));
+                  expect(
+                    find.byKey(const ValueKey('sheet-drag-handle')),
+                    findsOneWidget,
                   );
-                  await tester.pumpAndSettle();
-                  expect(menu, findsNothing);
-                  expect(controller.currentInstance!.user!.username, 'tynaut');
-                } finally {
-                  debugDisableShadows = shadows;
+                  if (scale == 2) {
+                    await tester.drag(
+                      find.byKey(const ValueKey('sheet-drag-handle')),
+                      const Offset(0, -500),
+                    );
+                    await tester.pumpAndSettle();
+                    bounds = tester.getRect(menu);
+                  }
+                } else {
+                  expect(sheet, findsNothing);
+                  expect(bounds.width, 216);
+                  final popup = tester.widget<DPopoverContent>(
+                    find.byType(DPopoverContent),
+                  );
+                  expect(popup.variant, DPopoverVariant.timeline);
                 }
-              },
-            );
-          }
+                expect(bounds.left, greaterThanOrEqualTo(mobile ? 0 : 5));
+                expect(
+                  bounds.right,
+                  lessThanOrEqualTo(screen.width - (mobile ? 0 : 5)),
+                );
+                expect(bounds.top, greaterThanOrEqualTo(59));
+                if (!mobile || scale == 1) {
+                  expect(bounds.bottom, lessThanOrEqualTo(screen.height - 34));
+                }
+                if (!mobile && scale == 1) {
+                  expect(bounds.top, closeTo(anchor.bottom + 8, .01));
+                  expect(
+                    direction == TextDirection.ltr ? bounds.right : bounds.left,
+                    direction == TextDirection.ltr ? anchor.right : anchor.left,
+                  );
+                }
+                final tokens = DTokens.of(
+                  tester.element(
+                    find.byKey(const ValueKey('user-menu-own-card')),
+                  ),
+                );
+                final outerTokens = DTokens.of(tester.element(avatar));
+                expect(
+                  tokens.mutedForeground,
+                  Color.lerp(
+                    outerTokens.background,
+                    outerTokens.foreground,
+                    .50,
+                  ),
+                );
+                expect(
+                  tokens.success,
+                  Color.lerp(outerTokens.foreground, outerTokens.success, .50),
+                );
+                expect(
+                  tokens.destructive,
+                  Color.lerp(
+                    outerTokens.foreground,
+                    outerTokens.destructive,
+                    .50,
+                  ),
+                );
+                final ownCard = find.byKey(
+                  const ValueKey('user-menu-own-card'),
+                );
+                final accountAvatar = find.descendant(
+                  of: ownCard,
+                  matching: find.byType(DAvatar),
+                );
+                expect(tester.getSize(accountAvatar), Size.square(32 * scale));
+                final name = tester.widget<Text>(find.text('Ty'));
+                final handle = tester.widget<Text>(find.text('@tynaut'));
+                expect(name.style!.fontSize, 13.5);
+                expect(name.style!.fontWeight, FontWeight.w600);
+                expect(handle.style!.fontSize, 12);
+                final separators = find.descendant(
+                  of: menu,
+                  matching: find.byType(DDropdownMenuSeparator),
+                );
+                expect(separators, findsNWidgets(3));
+                for (final separator in separators.evaluate()) {
+                  final line = find.descendant(
+                    of: find.byWidget(separator.widget),
+                    matching: find.byType(ColoredBox),
+                  );
+                  final lineRect = tester.getRect(line);
+                  expect(lineRect.left - bounds.left, 15);
+                  expect(bounds.right - lineRect.right, 15);
+                  expect(lineRect.height, 1);
+                }
+                if (scale == 1) {
+                  final positions = [
+                    tester.getRect(ownCard),
+                    ...separators.evaluate().map(
+                      (element) =>
+                          tester.getRect(find.byWidget(element.widget)),
+                    ),
+                  ];
+                  expect(positions[1].top, positions[0].bottom);
+                  expect(
+                    positions[2].top,
+                    tester
+                        .getRect(
+                          find.byKey(const ValueKey('pause-notifications-row')),
+                        )
+                        .bottom,
+                  );
+                  expect(
+                    positions[3].top,
+                    tester
+                        .getRect(
+                          find.byKey(
+                            const ValueKey('user-menu-row-preferences'),
+                          ),
+                        )
+                        .bottom,
+                  );
+                }
+
+                double start(Rect rect) =>
+                    direction == TextDirection.ltr ? rect.left : rect.right;
+                double? labelStart;
+                for (final (label, key) in _rows) {
+                  final row = find.byKey(ValueKey(key));
+                  await tester.ensureVisible(row);
+                  await tester.pumpAndSettle();
+                  expect(row.hitTestable(), findsOneWidget);
+                  final textRect = tester.getRect(find.text(label));
+                  labelStart ??= start(textRect);
+                  expect(start(textRect), labelStart, reason: label);
+                  if (scale == 1) {
+                    expect(tester.getRect(row).height, closeTo(33.5, .01));
+                  }
+                  if (label == 'Drafts') {
+                    final count = tester.getRect(find.text('2'));
+                    expect(count.center.dy, closeTo(textRect.center.dy, 1));
+                  }
+                }
+                if (!mobile) expect(tester.getRect(menu), bounds);
+                expect(tester.takeException(), isNull);
+
+                if (scale == 1 && direction == TextDirection.ltr) {
+                  await _capture(
+                    tester,
+                    '${platform.name}-${dark ? 'dark' : 'light'}-${'standard'}',
+                  );
+                }
+                await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+                await tester.pumpAndSettle();
+                expect(menu, findsNothing);
+                final focus = tester.widget<DButton>(avatar).focusNode!;
+                if (!mobile) expect(focus.hasFocus, isTrue);
+                expect(tester.widget<DButton>(avatar).expanded, isFalse);
+                await tester.tap(avatar);
+                await tester.pumpAndSettle();
+                await tester.tapAt(
+                  Offset(
+                    20,
+                    mobile
+                        ? tester.getRect(sheet).top - 20
+                        : screen.height - 50,
+                  ),
+                );
+                await tester.pumpAndSettle();
+                expect(menu, findsNothing);
+                expect(controller.currentInstance!.user!.username, 'tynaut');
+              } finally {
+                debugDisableShadows = shadows;
+              }
+            },
+          );
         }
       }
     }
@@ -451,7 +432,6 @@ Future<ShellController> _pump(
   WidgetTester tester, {
   TargetPlatform platform = TargetPlatform.macOS,
   bool dark = true,
-  bool glass = false,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   bool reducedMotion = false,

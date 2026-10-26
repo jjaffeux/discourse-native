@@ -142,31 +142,29 @@ void main() {
   }
 
   for (final brightness in Brightness.values) {
-    {
-      testWidgets(
-        'capsule surrounds controls with its stock material ($brightness, flat)',
-        (tester) async {
-          final theme = brightness == Brightness.dark
-              ? AppTheme.dark
-              : AppTheme.light;
-          await tester.pumpWidget(fixture(theme: theme));
-          await tester.pumpAndSettle();
-          final capsule = find.byKey(const ValueKey('mobile-dock-surface'));
-          final surface = tester.getRect(capsule);
-          final destination = tester.getRect(
-            find.byKey(const ValueKey('Topics')),
-          );
-          final action = tester.getRect(find.byType(DMobileDockAction));
-          expect(surface.height, 62);
-          expect(destination.height, 50);
-          expect(destination.top - surface.top, 6);
-          expect(surface.bottom - destination.bottom, 6);
-          expect(surface.right - action.right, 6);
+    testWidgets(
+      'capsule surrounds controls with its stock material ($brightness, flat)',
+      (tester) async {
+        final theme = brightness == Brightness.dark
+            ? AppTheme.dark
+            : AppTheme.light;
+        await tester.pumpWidget(fixture(theme: theme));
+        await tester.pumpAndSettle();
+        final capsule = find.byKey(const ValueKey('mobile-dock-surface'));
+        final surface = tester.getRect(capsule);
+        final destination = tester.getRect(
+          find.byKey(const ValueKey('Topics')),
+        );
+        final action = tester.getRect(find.byType(DMobileDockAction));
+        expect(surface.height, 62);
+        expect(destination.height, 50);
+        expect(destination.top - surface.top, 6);
+        expect(surface.bottom - destination.bottom, 6);
+        expect(surface.right - action.right, 6);
 
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('dock content follows the theme foreground colors', (

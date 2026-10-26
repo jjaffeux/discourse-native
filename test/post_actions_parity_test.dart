@@ -273,162 +273,158 @@ void main() {
   }
 
   for (final dark in [false, true]) {
-    {
-      for (final touch in [false, true]) {
-        testWidgets(
-          'opening post follows topic bookmark in ${dark ? 'dark' : 'light'} '
-          'flat on ${touch ? 'mobile' : 'desktop'}',
-          (tester) async {
-            tester.view.devicePixelRatio = 1;
-            addTearDown(tester.view.resetDevicePixelRatio);
-            await tester.binding.setSurfaceSize(Size(touch ? 390 : 1000, 1000));
-            addTearDown(() => tester.binding.setSurfaceSize(null));
-            const site = 'https://meta.example';
-            const posts = [
-              Post(
-                id: 11,
-                postNumber: 1,
-                username: 'sam',
-                cooked: '<p>The opening post has no special treatment.</p>',
+    for (final touch in [false, true]) {
+      testWidgets(
+        'opening post follows topic bookmark in ${dark ? 'dark' : 'light'} '
+        'flat on ${touch ? 'mobile' : 'desktop'}',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.binding.setSurfaceSize(Size(touch ? 390 : 1000, 1000));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          const site = 'https://meta.example';
+          const posts = [
+            Post(
+              id: 11,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>The opening post has no special treatment.</p>',
+            ),
+            Post(
+              id: 12,
+              postNumber: 2,
+              username: 'alex',
+              cooked: '<p>A reply can be saved independently.</p>',
+            ),
+          ];
+          const topicBookmark = Bookmark(
+            id: 90,
+            bookmarkableId: 7,
+            bookmarkableType: 'Topic',
+            name: 'Saved topic',
+          );
+          const replyBookmark = Bookmark(
+            id: 91,
+            bookmarkableId: 12,
+            bookmarkableType: 'Post',
+            name: 'Saved reply',
+          );
+          final api = FakeDiscourseApi(
+            topics: {
+              7: topicPayload(id: 7, title: 'Topic bookmarks', posts: posts),
+            },
+          );
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore([instance('meta.example')]),
+            api: api,
+            authenticator: FakeAuthenticator()..keys[site] = 'key',
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+            updateStore: FakeUpdateStore(),
+          );
+          addTearDown(controller.dispose);
+          await controller.load();
+          controller.pushContent(
+            ContentRoute.topic(
+              topicId: 7,
+              slug: 'bookmarks',
+              title: 'Topic bookmarks',
+            ),
+          );
+          await controller.loadTopic(7, 'bookmarks');
+          await tester.pumpWidget(
+            ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme:
+                    AppTheme.forBrightness(
+                      dark ? Brightness.dark : Brightness.light,
+                      fontFamily: 'Lato',
+                      readingFontFamily: 'Lato',
+                    ).copyWith(
+                      platform: touch
+                          ? TargetPlatform.iOS
+                          : TargetPlatform.macOS,
+                    ),
+                home: const Scaffold(body: TopicView()),
               ),
-              Post(
-                id: 12,
-                postNumber: 2,
-                username: 'alex',
-                cooked: '<p>A reply can be saved independently.</p>',
-              ),
-            ];
-            const topicBookmark = Bookmark(
-              id: 90,
-              bookmarkableId: 7,
-              bookmarkableType: 'Topic',
-              name: 'Saved topic',
+            ),
+          );
+          await tester.pumpAndSettle();
+          final opening = find.byKey(const ValueKey('post-news-card-11'));
+          final reply = find.byKey(const ValueKey('post-news-card-12'));
+          expect(opening, findsNothing);
+          expect(reply, findsNothing);
+          await _capture(
+            tester,
+            'ordinary-${dark ? 'dark' : 'light'}-flat-$touch',
+          );
+
+          Future<void> refresh({required bool savedTopic}) async {
+            api.topics[7] = topicPayload(
+              id: 7,
+              title: 'Topic bookmarks',
+              posts: [posts.first, posts.last.withBookmark(replyBookmark)],
+              bookmarks: [if (savedTopic) topicBookmark, replyBookmark],
             );
-            const replyBookmark = Bookmark(
-              id: 91,
-              bookmarkableId: 12,
-              bookmarkableType: 'Post',
-              name: 'Saved reply',
-            );
-            final api = FakeDiscourseApi(
-              topics: {
-                7: topicPayload(id: 7, title: 'Topic bookmarks', posts: posts),
-              },
-            );
-            final controller = ShellController(
-              instanceStore: FakeInstanceStore([instance('meta.example')]),
-              api: api,
-              authenticator: FakeAuthenticator()..keys[site] = 'key',
-              drafts: FakeDraftStore(),
-              trackers: FakeSiteTracker.reset(),
-              updateStore: FakeUpdateStore(),
-            );
-            addTearDown(controller.dispose);
-            await controller.load();
-            controller.pushContent(
-              ContentRoute.topic(
-                topicId: 7,
-                slug: 'bookmarks',
-                title: 'Topic bookmarks',
-              ),
-            );
-            await controller.loadTopic(7, 'bookmarks');
-            await tester.pumpWidget(
-              ShellScope(
-                controller: controller,
-                child: MaterialApp(
-                  theme:
-                      AppTheme.forBrightness(
-                        dark ? Brightness.dark : Brightness.light,
-                        fontFamily: 'Lato',
-                        readingFontFamily: 'Lato',
-                      ).copyWith(
-                        platform: touch
-                            ? TargetPlatform.iOS
-                            : TargetPlatform.macOS,
-                      ),
-                  home: const Scaffold(body: TopicView()),
-                ),
-              ),
-            );
+            await controller.loadTopic(7, 'bookmarks', force: true);
             await tester.pumpAndSettle();
-            final opening = find.byKey(const ValueKey('post-news-card-11'));
-            final reply = find.byKey(const ValueKey('post-news-card-12'));
-            expect(opening, findsNothing);
-            expect(reply, findsNothing);
-            await _capture(
-              tester,
-              'ordinary-${dark ? 'dark' : 'light'}-flat-$touch',
-            );
+          }
 
-            Future<void> refresh({required bool savedTopic}) async {
-              api.topics[7] = topicPayload(
-                id: 7,
-                title: 'Topic bookmarks',
-                posts: [posts.first, posts.last.withBookmark(replyBookmark)],
-                bookmarks: [if (savedTopic) topicBookmark, replyBookmark],
-              );
-              await controller.loadTopic(7, 'bookmarks', force: true);
-              await tester.pumpAndSettle();
-            }
+          // Saving a reply must not decorate the opening post.
+          await refresh(savedTopic: false);
+          expect(opening, findsNothing);
+          expect(reply, findsOneWidget);
 
-            // Saving a reply must not decorate the opening post.
-            await refresh(savedTopic: false);
-            expect(opening, findsNothing);
-            expect(reply, findsOneWidget);
+          await refresh(savedTopic: true);
+          expect(opening, findsOneWidget);
+          expect(reply, findsOneWidget);
+          expect(
+            find.text('You bookmarked this topic · Saved topic'),
+            findsOneWidget,
+          );
+          expect(
+            find.text('You bookmarked this post · Saved reply'),
+            findsOneWidget,
+          );
+          final topicBounds = tester.getRect(find.byType(DPageSurface));
+          for (final card in [opening, reply]) {
+            final bounds = tester.getRect(card);
+            // Both 1px strokes are inside their bounds, leaving 1px clear.
+            expect(bounds.left - topicBounds.left, 2);
+            expect(topicBounds.right - bounds.right, 2);
+          }
+          final openingCard = tester.widget<DCard>(opening);
+          final primary = Theme.of(tester.element(opening)).colorScheme.primary;
+          expect(openingCard.backgroundColor, primary.withValues(alpha: .08));
+          expect(openingCard.borderColor, primary.withValues(alpha: .26));
+          expect(tester.takeException(), isNull);
+          await _capture(
+            tester,
+            'bookmarked-${dark ? 'dark' : 'light'}-flat-$touch',
+          );
 
-            await refresh(savedTopic: true);
-            expect(opening, findsOneWidget);
-            expect(reply, findsOneWidget);
-            expect(
-              find.text('You bookmarked this topic · Saved topic'),
-              findsOneWidget,
-            );
-            expect(
-              find.text('You bookmarked this post · Saved reply'),
-              findsOneWidget,
-            );
-            final topicBounds = tester.getRect(find.byType(DPageSurface));
-            for (final card in [opening, reply]) {
-              final bounds = tester.getRect(card);
-              // Both 1px strokes are inside their bounds, leaving 1px clear.
-              expect(bounds.left - topicBounds.left, 2);
-              expect(topicBounds.right - bounds.right, 2);
-            }
-            final openingCard = tester.widget<DCard>(opening);
-            final primary = Theme.of(
-              tester.element(opening),
-            ).colorScheme.primary;
-            expect(openingCard.backgroundColor, primary.withValues(alpha: .08));
-            expect(openingCard.borderColor, primary.withValues(alpha: .26));
-            expect(tester.takeException(), isNull);
-            await _capture(
-              tester,
-              'bookmarked-${dark ? 'dark' : 'light'}-flat-$touch',
-            );
+          await tester.tap(
+            find.descendant(
+              of: opening,
+              matching: find.widgetWithText(DButton, 'Edit bookmark'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Saved topic'), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
 
-            await tester.tap(
-              find.descendant(
-                of: opening,
-                matching: find.widgetWithText(DButton, 'Edit bookmark'),
-              ),
-            );
-            await tester.pumpAndSettle();
-            expect(find.text('Saved topic'), findsOneWidget);
-            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-            await tester.pumpAndSettle();
-
-            await refresh(savedTopic: false);
-            expect(opening, findsNothing);
-            expect(reply, findsOneWidget);
-            expect(
-              find.textContaining('You bookmarked this topic'),
-              findsNothing,
-            );
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
+          await refresh(savedTopic: false);
+          expect(opening, findsNothing);
+          expect(reply, findsOneWidget);
+          expect(
+            find.textContaining('You bookmarked this topic'),
+            findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 }

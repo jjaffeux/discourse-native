@@ -793,4 +793,122 @@ void main() {
       next.dispose();
     },
   );
+
+  test('a refresh during a read discards the read already in flight', () async {
+    final first = Completer<Map<String, dynamic>>();
+    final second = Completer<Map<String, dynamic>>();
+    final reads = [first, second];
+    ports.transport.responders[read] = (_) => reads.removeAt(0).future;
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await pumpEventQueue();
+    final reread = handle.refresh();
+    first.complete({
+      'event': eventJson(overrides: {'name': 'Stale'}),
+    });
+    await pumpEventQueue();
+    expect(handle.event!.title, 'Engineering Managers Call');
+    expect(handle.authoritative, isFalse);
+    second.complete({
+      'event': eventJson(overrides: {'name': 'Fresh'}),
+    });
+    await reread;
+    expect(handle.event!.title, 'Fresh');
+    expect(handle.authoritative, isTrue);
+  });
+
+  test(
+    'an account refresh withholds the previous account record until reread',
+    () async {
+      final handle = ports.controller.acquire(
+        eventSite,
+        PostEvent.decode(current)!,
+      );
+      addTearDown(handle.dispose);
+      await handle.refresh();
+      final reread = Completer<Map<String, dynamic>>();
+      ports.transport.responders[read] = (_) => reread.future;
+      ports.controller.pluginCurrentUserRefreshed(eventSite);
+      expect(handle.event, isNull);
+      reread.complete({'event': current});
+      await handle.refresh();
+      expect(handle.event!.id, 42);
+    },
+  );
+
+  test('a card acquired in the background subscribes on return', () async {
+    ports.controller.setForeground(false);
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    expect(ports.channels.subscriberCount('/discourse-post-event/700'), 0);
+    ports.controller.setForeground(true);
+    expect(ports.channels.subscriberCount('/discourse-post-event/700'), 1);
+  });
+
+  test('a live message for another event in the topic sends no read', () async {
+    var reads = 0;
+    ports.transport.responders[read] = (_) {
+      reads++;
+      return {'event': current};
+    };
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    final settled = reads;
+    ports.channels.deliver('/discourse-post-event/700', {'id': 43});
+    await pumpEventQueue();
+    expect(reads, settled);
+    ports.channels.deliver('/discourse-post-event/700', {'id': 42});
+    await pumpEventQueue();
+    expect(reads, settled + 1);
+  });
+
+  test('withdrawal without a known invitee ID is not admitted', () async {
+    current = eventJson(
+      overrides: {
+        'is_public': true,
+        'is_private': false,
+        'watching_invitee': {
+          'status': 'going',
+          'user': {'id': 2, 'username': 'lee'},
+        },
+      },
+    );
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    await handle.withdraw();
+    expect(ports.transport.writes, isEmpty);
+    expect(handle.error, isNull);
+    expect(ports.refreshedTopics, isEmpty);
+  });
+
+  test('only a going response asks to cover the whole series', () async {
+    final handle = ports.controller.acquire(
+      eventSite,
+      PostEvent.decode(current)!,
+    );
+    addTearDown(handle.dispose);
+    await handle.refresh();
+    ports.transport.responders[create] = (_) => {
+      'invitee': watching(status: 'interested'),
+    };
+    await handle.respond('interested', recurring: true);
+    expect(ports.transport.writes.single.body, {
+      'invitee': {'status': 'interested', 'recurring': false},
+    });
+  });
 }

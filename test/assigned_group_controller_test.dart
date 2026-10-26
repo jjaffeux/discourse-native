@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -1419,12 +1420,14 @@ void main() {
       expect(controller.membersStateFor(_site, 'support').members.single.id, 2);
     },
   );
-  test('dispose drops in-flight responses', () async {
+  test('dispose drops in-flight responses and later loads', () async {
     final result = Completer<TopicList>();
     final api = _ControlledAssignedGroupApi()..topicResults.add(result);
+    final store = Store();
     final controller = AssignedGroupController(
       api: api,
       requests: _requests(SiteLifecycle()),
+      topics: store,
     );
     const filter = AssignedGroupFilter.everyone();
 
@@ -1437,7 +1440,179 @@ void main() {
     controller.dispose();
     result.complete(_topics(1));
     await load;
+    await controller.loadTopics(
+      siteUrl: _site,
+      groupName: 'other',
+      filter: filter,
+    );
 
-    expect(controller.topicsFor(_site, 'support', filter), isEmpty);
+    expect(store.read<Topic>(_site, 1), isNull);
+    expect(api.topicCalls.map((call) => call.groupName), ['support']);
+  });
+
+  test('a failed member load retries on the next plain load', () async {
+    final failed = Completer<AssignedGroupMembersPage>();
+    final api = _ControlledAssignedGroupApi()
+      ..memberResults.addAll([failed, _completed(_members(1))]);
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+
+    final load = controller.loadMembers(siteUrl: _site, groupName: 'support');
+    await pumpEventQueue();
+    failed.completeError(StateError('offline'));
+    await load;
+    expect(controller.membersStateFor(_site, 'support').error, isNotNull);
+
+    await controller.loadMembers(siteUrl: _site, groupName: 'support');
+
+    final state = controller.membersStateFor(_site, 'support');
+    expect(api.memberCalls, hasLength(2));
+    expect(state.error, isNull);
+    expect(state.members.single.id, 1);
+  });
+
+  test(
+    'a lease retired during credentials dispatches no member or topic request',
+    () async {
+      final memberKey = Completer<String?>();
+      final topicKey = Completer<String?>();
+      final credentials = _DelayedCredentialReader()
+        ..keysRead.addAll([memberKey, topicKey]);
+      final api = _ControlledAssignedGroupApi();
+      final lifecycle = SiteLifecycle();
+      final controller = AssignedGroupController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      final members = controller.loadMembers(
+        siteUrl: _site,
+        groupName: 'support',
+      );
+      final topics = controller.loadTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: const AssignedGroupFilter.everyone(),
+      );
+      await pumpEventQueue();
+      lifecycle.invalidate(_site);
+      memberKey.complete('old-key');
+      topicKey.complete('old-key');
+      await members;
+      await topics;
+
+      expect(api.memberCalls, isEmpty);
+      expect(api.topicCalls, isEmpty);
+    },
+  );
+
+  test('an exhausted topic feed requests no further page', () async {
+    final api = _ControlledAssignedGroupApi()
+      ..topicResults.add(_completed(_topics(11)));
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+    const filter = AssignedGroupFilter.everyone();
+
+    await controller.loadTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+    await controller.loadMoreTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+
+    expect(api.pageCalls, isEmpty);
+    expect(controller.topicsFor(_site, 'support', filter).single.id, 11);
+  });
+
+  test('a failed topic page keeps its rows and can be retried', () async {
+    const more = '/topics/group-topics-assigned/support?page=1';
+    final failed = Completer<TopicList>();
+    final api = _ControlledAssignedGroupApi()
+      ..topicResults.add(_completed(_topics(11, more: more)))
+      ..pageResults.addAll([failed, _completed(_topics(12))]);
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+    const filter = AssignedGroupFilter.everyone();
+    Future<void> loadMore() => controller.loadMoreTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+
+    await controller.loadTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+    final page = loadMore();
+    await pumpEventQueue();
+    failed.completeError(StateError('offline'));
+    await page;
+
+    final feed = controller.topicFeedFor(_site, 'support', filter);
+    expect(feed.error, isNotNull);
+    expect(feed.pageError, isTrue);
+    expect(controller.topicsFor(_site, 'support', filter).single.id, 11);
+
+    await loadMore();
+
+    expect(api.pageCalls, hasLength(2));
+    expect(api.pageCalls.toSet(), hasLength(1));
+    expect(controller.topicsFor(_site, 'support', filter).map((t) => t.id), [
+      11,
+      12,
+    ]);
+  });
+
+  test('a page that loses its key asks to reconnect for more', () async {
+    const more = '/topics/group-topics-assigned/support?page=1';
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'key';
+    final api = _ControlledAssignedGroupApi()
+      ..memberResults.add(_completed(_members(1, hasMore: true)))
+      ..topicResults.add(_completed(_topics(11, more: more)));
+    final controller = AssignedGroupController(
+      api: api,
+      requests: FakePluginRequestHost(credentials: credentials),
+    );
+    addTearDown(controller.dispose);
+    const filter = AssignedGroupFilter.everyone();
+
+    await controller.loadMembers(siteUrl: _site, groupName: 'support');
+    await controller.loadTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+    credentials.keys.remove(_site);
+    await controller.loadMoreMembers(siteUrl: _site, groupName: 'support');
+    await controller.loadMoreTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+
+    final members = controller.membersStateFor(_site, 'support');
+    expect(members.error, appL10n.reconnectToLoadMoreAssignedMembers);
+    expect(members.pageError, isTrue);
+    final feed = controller.topicFeedFor(_site, 'support', filter);
+    expect(feed.error, appL10n.reconnectToLoadMoreAssignments);
+    expect(feed.pageError, isTrue);
   });
 }

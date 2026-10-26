@@ -30,154 +30,142 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final brightness in Brightness.values) {
-    {
-      for (final scale in [1.0, 2.0]) {
-        testWidgets('writing capsule in $brightness / flat / ${scale}x', (
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('writing capsule in $brightness / flat / ${scale}x', (
+        tester,
+      ) async {
+        final shell = await _pump(tester, brightness, scale);
+        final create = find.byKey(TopicCreateButton.buttonKey);
+        final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
+        final capsule = find.ancestor(
+          of: create,
+          matching: find.byWidgetPredicate(
+            (w) => w is DCard && w.variant == DCardVariant.primaryCapsule,
+          ),
+        );
+        final tokens = DTokens.of(tester.element(create));
+        expect(capsule, findsOneWidget);
+        if (scale == 1) {
+          expect(tester.getSize(capsule), const Size(81, 36));
+          expect(tester.getSize(create), const Size(36, 28));
+          expect(tester.getSize(drafts), const Size(32, 28));
+        } else {
+          expect(tester.getSize(capsule).height, greaterThan(36));
+        }
+        final pen = find.descendant(of: create, matching: find.byType(DIcon));
+        final chevron = find.descendant(
+          of: drafts,
+          matching: find.byType(DIcon),
+        );
+        expect(tester.widget<DIcon>(pen).icon, DIcons.penToSquare);
+        expect(
+          IconTheme.of(tester.element(pen)).color,
+          tokens.buttonTheme.primary.foreground,
+        );
+        expect(
+          IconTheme.of(tester.element(chevron)).color,
+          tokens.buttonTheme.primary.foreground,
+        );
+        expect(
+          tester.getCenter(chevron).dx,
+          closeTo(tester.getCenter(drafts).dx - 1.5, .01),
+        );
+        final separator = find.descendant(
+          of: capsule,
+          matching: find.byType(DSeparator),
+        );
+        expect(tester.getSize(separator), const Size(1, 16));
+        expect(
+          tester.widget<DSeparator>(separator).color,
+          tokens.background.withValues(alpha: .3),
+        );
+        // The well's empty border and divider stay passive.
+        await tester.tapAt(tester.getCenter(separator));
+        await tester.pumpAndSettle();
+        expect(shell.visibleComposer, isNull);
+        expect(find.text('All drafts'), findsNothing);
+        await _captureChrome(
           tester,
-        ) async {
-          final shell = await _pump(tester, brightness, scale);
-          final create = find.byKey(TopicCreateButton.buttonKey);
-          final drafts = find.byKey(TopicCreateButton.draftsButtonKey);
-          final capsule = find.ancestor(
-            of: create,
-            matching: find.byWidgetPredicate(
-              (w) => w is DCard && w.variant == DCardVariant.primaryCapsule,
-            ),
-          );
-          final tokens = DTokens.of(tester.element(create));
-          expect(capsule, findsOneWidget);
-          if (scale == 1) {
-            expect(tester.getSize(capsule), const Size(81, 36));
-            expect(tester.getSize(create), const Size(36, 28));
-            expect(tester.getSize(drafts), const Size(32, 28));
-          } else {
-            expect(tester.getSize(capsule).height, greaterThan(36));
-          }
-          final pen = find.descendant(of: create, matching: find.byType(DIcon));
-          final chevron = find.descendant(
-            of: drafts,
-            matching: find.byType(DIcon),
-          );
-          expect(tester.widget<DIcon>(pen).icon, DIcons.penToSquare);
-          expect(
-            IconTheme.of(tester.element(pen)).color,
-            tokens.buttonTheme.primary.foreground,
-          );
-          expect(
-            IconTheme.of(tester.element(chevron)).color,
-            tokens.buttonTheme.primary.foreground,
-          );
-          expect(
-            tester.getCenter(chevron).dx,
-            closeTo(tester.getCenter(drafts).dx - 1.5, .01),
-          );
-          final separator = find.descendant(
-            of: capsule,
-            matching: find.byType(DSeparator),
-          );
-          expect(tester.getSize(separator), const Size(1, 16));
-          expect(
-            tester.widget<DSeparator>(separator).color,
-            tokens.background.withValues(alpha: .3),
-          );
-          // The well's empty border and divider stay passive.
-          await tester.tapAt(tester.getCenter(separator));
-          await tester.pumpAndSettle();
-          expect(shell.visibleComposer, isNull);
-          expect(find.text('All drafts'), findsNothing);
-          await _captureChrome(
-            tester,
-            '${brightness.name}-flat-${scale}x-new-topic',
-          );
+          '${brightness.name}-flat-${scale}x-new-topic',
+        );
 
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
-          );
-          await mouse.addPointer(location: Offset.zero);
-          await mouse.moveTo(tester.getCenter(create));
-          await tester.pumpAndSettle();
-          expect(
-            buttonSurface(tester, of: create).color,
-            Colors.white.withValues(alpha: .16),
-          );
-          expect(buttonSurface(tester, of: drafts).color, Colors.transparent);
-          await _captureChrome(
-            tester,
-            '${brightness.name}-flat-${scale}x-hover',
-          );
-          await mouse.removePointer();
-          await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(create));
+        await tester.pumpAndSettle();
+        expect(
+          buttonSurface(tester, of: create).color,
+          Colors.white.withValues(alpha: .16),
+        );
+        expect(buttonSurface(tester, of: drafts).color, Colors.transparent);
+        await _captureChrome(tester, '${brightness.name}-flat-${scale}x-hover');
+        await mouse.removePointer();
+        await tester.pumpAndSettle();
 
-          // A native test window may start behind the user's foreground app.
-          // Keep lifecycle state controlled while testing popup interaction;
-          // actual background dismissal has its own popover tests.
-          tester.binding.handleAppLifecycleStateChanged(
-            AppLifecycleState.resumed,
-          );
-          await tester.pump();
-          await tester.tap(drafts);
-          await tester.pumpAndSettle();
-          expect(find.text('All drafts'), findsOneWidget);
-          expect(tester.widget<DButton>(drafts).expanded, isTrue);
+        // A native test window may start behind the user's foreground app.
+        // Keep lifecycle state controlled while testing popup interaction;
+        // actual background dismissal has its own popover tests.
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        await tester.tap(drafts);
+        await tester.pumpAndSettle();
+        expect(find.text('All drafts'), findsOneWidget);
+        expect(tester.widget<DButton>(drafts).expanded, isTrue);
 
-          await _captureChrome(
-            tester,
-            '${brightness.name}-flat-${scale}x-drafts-open',
-          );
-          tester.binding.handleAppLifecycleStateChanged(
-            AppLifecycleState.resumed,
-          );
-          await tester.pump();
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-          expect(find.text('All drafts'), findsNothing);
-          expect(tester.widget<DButton>(drafts).expanded, isFalse);
-          expect(
-            tester.widget<DButton>(drafts).focusNode!.hasPrimaryFocus,
-            isTrue,
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-          tester.widget<DButton>(drafts).focusNode!.requestFocus();
-          await tester.pumpAndSettle();
-          expect(buttonSurface(tester, of: drafts).ringWidth, greaterThan(0));
-          await tester.tap(create);
-          await tester.pumpAndSettle();
-          expect(shell.visibleComposer?.isNewTopic, isTrue);
-          expect(tester.takeException(), isNull);
-        }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
-      }
-      testWidgets(
-        'reply capsule opens the current topic in $brightness / flat',
-        (tester) async {
-          final shell = await _pump(tester, brightness, 1);
-          shell.openTopic(_topic);
-          await tester.pumpAndSettle();
-          final reply = find.byKey(const ValueKey('title-bar-reply'));
-          expect(reply, findsOneWidget);
-          expect(find.byKey(TopicCreateButton.draftsButtonKey), findsNothing);
-          final capsule = find.ancestor(
-            of: reply,
-            matching: find.byType(DCard),
-          );
-          expect(tester.getSize(capsule), const Size(44, 36));
-          final icon = find.descendant(of: reply, matching: find.byType(DIcon));
-          expect(
-            IconTheme.of(tester.element(icon)).color,
-            DTokens.of(tester.element(reply)).buttonTheme.primary.foreground,
-          );
-          await _captureChrome(tester, '${brightness.name}-flat-reply');
-          await tester.tap(reply);
-          await tester.pumpAndSettle();
-          expect(
-            (shell.visibleComposer?.target as ExistingTopicComposerTarget?)
-                ?.topicId,
-            _topic.id,
-          );
-          expect(tester.takeException(), isNull);
-        },
-        variant: TargetPlatformVariant.only(TargetPlatform.macOS),
-      );
+        await _captureChrome(
+          tester,
+          '${brightness.name}-flat-${scale}x-drafts-open',
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('All drafts'), findsNothing);
+        expect(tester.widget<DButton>(drafts).expanded, isFalse);
+        expect(
+          tester.widget<DButton>(drafts).focusNode!.hasPrimaryFocus,
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        tester.widget<DButton>(drafts).focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        expect(buttonSurface(tester, of: drafts).ringWidth, greaterThan(0));
+        await tester.tap(create);
+        await tester.pumpAndSettle();
+        expect(shell.visibleComposer?.isNewTopic, isTrue);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
     }
+    testWidgets('reply capsule opens the current topic in $brightness / flat', (
+      tester,
+    ) async {
+      final shell = await _pump(tester, brightness, 1);
+      shell.openTopic(_topic);
+      await tester.pumpAndSettle();
+      final reply = find.byKey(const ValueKey('title-bar-reply'));
+      expect(reply, findsOneWidget);
+      expect(find.byKey(TopicCreateButton.draftsButtonKey), findsNothing);
+      final capsule = find.ancestor(of: reply, matching: find.byType(DCard));
+      expect(tester.getSize(capsule), const Size(44, 36));
+      final icon = find.descendant(of: reply, matching: find.byType(DIcon));
+      expect(
+        IconTheme.of(tester.element(icon)).color,
+        DTokens.of(tester.element(reply)).buttonTheme.primary.foreground,
+      );
+      await _captureChrome(tester, '${brightness.name}-flat-reply');
+      await tester.tap(reply);
+      await tester.pumpAndSettle();
+      expect(
+        (shell.visibleComposer?.target as ExistingTopicComposerTarget?)
+            ?.topicId,
+        _topic.id,
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
   testWidgets(
@@ -291,8 +279,6 @@ void main() {
           final expected = [reference.r, reference.g, reference.b];
           for (var channel = 0; channel < 3; channel++) {
             expect(center[channel], closeTo(expected[channel] * 255, 2));
-            // Stock glass owns its specular rim; only the artwork paints one.
-
             expect(rgb(28, 5)[channel], closeTo(center[channel], 2));
             expect(rgb(40, 0)[channel], closeTo(center[channel], 2));
           }
