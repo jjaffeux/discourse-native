@@ -15,6 +15,7 @@ Widget fixture({
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   VoidCallback? onReveal,
+  VoidCallback? onAction,
   ValueChanged<String>? onPlace,
   List<String> labels = const [
     'Start',
@@ -91,7 +92,7 @@ Widget fixture({
                           ? DMobileDockAction(
                               icon: const Icon(Icons.add),
                               label: 'New topic',
-                              onPressed: () {},
+                              onPressed: onAction ?? () {},
                             )
                           : null,
                     ),
@@ -713,6 +714,27 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('Chat')));
     await tester.pumpAndSettle();
     expect(pressed, ['Users', 'Topics', 'you', 'Chat']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the action in the panel\'s head closes it, then does what it '
+      'does', (tester) async {
+    var acted = 0;
+    await tester.pumpWidget(fixture(foot: 34, onAction: () => acted++));
+    await tester.pumpAndSettle();
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    await tester.tap(find.byType(DMobileDockAction));
+    await tester.pumpAndSettle();
+    expect(acted, 1);
+    expect(_panel, findsNothing);
+    expect(tester.widget<DMobileDockItem>(_more).expanded, isFalse);
+    // Closed, the action does what it does without a panel to close.
+    await tester.tap(find.byType(DMobileDockAction));
+    await tester.pumpAndSettle();
+    expect(acted, 2);
+    expect(_panel, findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -97,25 +97,28 @@ final class DMobileDockOverflowed extends DMobileDockCurrent {
 }
 
 /// How far the bar around a [DMobileDockAction] has grown into its panel,
-/// so the action can become one of the places it then stands among.
+/// so the action can become one of the places it then stands among, and
+/// how the panel closes, so the action pressed puts it away first as the
+/// places beside it do.
 class DMobileDockGrowthScope extends InheritedWidget {
   const DMobileDockGrowthScope({
     super.key,
     required this.growth,
+    required this.closePanel,
     required super.child,
   });
 
   final double growth;
 
-  static double of(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<DMobileDockGrowthScope>()
-          ?.growth ??
-      0;
+  /// Nothing to close while the bar is a bar.
+  final VoidCallback closePanel;
+
+  static DMobileDockGrowthScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DMobileDockGrowthScope>();
 
   @override
   bool updateShouldNotify(DMobileDockGrowthScope oldWidget) =>
-      growth != oldWidget.growth;
+      growth != oldWidget.growth || closePanel != oldWidget.closePanel;
 }
 
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
@@ -462,6 +465,8 @@ class _DMobileDockState extends State<DMobileDock>
           _settled(opening);
         });
   }
+
+  void _close() => _grow(false);
 
   void _settled(bool opening) {
     if (opening) {
@@ -907,6 +912,7 @@ class _DMobileDockState extends State<DMobileDock>
                     child: Center(
                       child: DMobileDockGrowthScope(
                         growth: out ? grown : 0,
+                        closePanel: _close,
                         child: widget.action!,
                       ),
                     ),
@@ -1163,7 +1169,8 @@ class _ActionTileState extends State<_ActionTile> {
 /// As the bar around it grows into its panel, it becomes one of the places
 /// it then stands among, kept in the accent: its circle fades as far as the
 /// bar has grown, its icon rises to where the places' are and its name comes
-/// in under it, where theirs are.
+/// in under it, where theirs are. Pressed there, it closes the panel as the
+/// places do, then does what it does.
 class DMobileDockAction extends StatelessWidget {
   const DMobileDockAction({
     super.key,
@@ -1188,7 +1195,9 @@ class DMobileDockAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final colors = tokens.buttonTheme.primary;
-    final growth = DMobileDockGrowthScope.of(context).clamp(0.0, 1.0);
+    final scope = DMobileDockGrowthScope.maybeOf(context);
+    final growth = (scope?.growth ?? 0).clamp(0.0, 1.0);
+    final pressed = onPressed;
     final button = DButton.iconOnly(
       key: buttonKey,
       icon: growth == 0
@@ -1208,7 +1217,12 @@ class DMobileDockAction extends StatelessWidget {
       interactiveBackgroundColor: colors.hover.withValues(
         alpha: colors.hover.a * (1 - growth),
       ),
-      onPressed: onPressed,
+      onPressed: pressed == null
+          ? null
+          : () {
+              scope?.closePanel();
+              pressed();
+            },
     );
     if (growth == 0) return button;
     return Stack(
