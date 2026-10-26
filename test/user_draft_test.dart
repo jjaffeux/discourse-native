@@ -37,6 +37,23 @@ void main() {
     expect(draft.excerpt, same(excerpt));
   });
 
+  test('a Live transcript draft from a current site is labeled', () {
+    final draft = UserDraft.fromJson(const {
+      'draft_key': 'new_topic_live_7_1792500000000',
+      'sequence': 1,
+      'data': {
+        'reply': 'Transcript in progress',
+        'action': 'createTopic',
+        'title': 'Call transcript: Lounge',
+      },
+    });
+
+    expect(
+      const VoicePlugin().draftPresentation(draft)?.label,
+      'Call transcript draft',
+    );
+  });
+
   test('a Voice transcript draft is labeled and resumable', () {
     final draft = UserDraft.fromJson(const {
       'draft_key': 'new_topic_voice_7_1788170000000',

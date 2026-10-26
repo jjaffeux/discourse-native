@@ -43,6 +43,20 @@ void main() {
       );
       expect(
         VoiceAgentPermission.read({
+          'live_livekit_agent_bot_id': -2,
+        }).allows(room),
+        isTrue,
+        reason: 'current sites name the field after Live',
+      );
+      expect(
+        VoiceAgentPermission.read({
+          'live_livekit_agent_bot_id': null,
+        }).allows(room),
+        isFalse,
+        reason: 'a current site withholds the bot from this viewer',
+      );
+      expect(
+        VoiceAgentPermission.read({
           'admin': true,
           'voice_livekit_agent_enabled': true,
         }).allows(room),

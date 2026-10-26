@@ -3,8 +3,11 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
+import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
+import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -18,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/finders.dart';
 
 const _voiceManifest = PluginManifest([chatModule, voiceModule]);
+const _voiceRegistry = PluginRegistry([VoicePlugin()]);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -183,6 +187,50 @@ void main() {
 
     expect(host.currentContent?.id, 'voice-room-7');
     expect(host.currentContent?.title, 'Watercooler');
+  });
+
+  testWidgets('a current site serves its rooms and links under Live', (
+    tester,
+  ) async {
+    const siteUrl = 'https://voice.example';
+    final site = PluginHostSite(
+      url: siteUrl,
+      apiKey: 'key',
+      user: const PluginHostUser(id: 1, username: 'reader'),
+      config: SiteConfig.fromSettings(const {
+        'live_enabled': true,
+      }, extensions: _voiceRegistry),
+    );
+    final transport = RecordingPluginTransport(
+      responses: {
+        'GET /live/rooms.json': {
+          'rooms': [_room],
+          'can_create_room': false,
+        },
+      },
+    );
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      manifest: _voiceManifest,
+      sites: [site],
+    );
+    addTearDown(host.close);
+
+    final voice = host.require(voiceShellService);
+    // Room hashtags and invitations on a current site link under /live/r/.
+    expect(await voice.openPluginUrl('/live/r/watercooler'), isTrue);
+    expect(host.currentContent?.id, 'voice-room-7');
+    expect(
+      await voice.openPluginUrl('/live/r/watercooler/invited-by/Inviter'),
+      isTrue,
+    );
+    expect(transport.reads.map((request) => request.path), [
+      '/live/rooms.json',
+    ]);
+    expect(
+      voice.inviteLinkFor(siteUrl, VoiceRoom.fromJson(_room)),
+      'https://voice.example/live/r/watercooler/invited-by/reader',
+    );
   });
 
   testWidgets('a cooked room without Voice falls back to its safe link', (

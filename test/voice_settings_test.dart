@@ -7,7 +7,42 @@ import 'package:flutter_test/flutter_test.dart';
 const _registry = PluginRegistry([VoicePlugin()]);
 
 void main() {
-  test('installed plugin decodes Voice site-settings wire keys', () {
+  test('a current site sends its Voice settings under the Live name', () {
+    final config = SiteConfig.fromSettings(const {
+      'live_enabled': true,
+      'live_video_max_publishers': 12,
+      'live_livekit_recording_enabled': true,
+      'live_max_voice_quality': 'high',
+      'live_max_camera_quality': 'standard',
+      'live_max_screen_share_quality': 'maximum',
+      'live_idle_threshold_minutes': 7,
+      'live_afk_auto_mute_threshold_minutes': 17,
+      'live_afk_disconnect_threshold_minutes': 37,
+      'live_auto_status_enabled': false,
+      'live_chat_enabled': false,
+      'live_mesh_privacy_warning_enabled': false,
+    }, extensions: _registry);
+
+    expect(
+      config.voiceSettings,
+      const VoiceClientConfig(
+        enabled: true,
+        videoMaxPublishers: 12,
+        recordingEnabled: true,
+        maxVoiceQuality: 'high',
+        maxCameraQuality: 'standard',
+        maxScreenShareQuality: 'maximum',
+        idleThresholdMinutes: 7,
+        afkAutoMuteThresholdMinutes: 17,
+        afkDisconnectThresholdMinutes: 37,
+        autoStatusEnabled: false,
+        chatEnabled: false,
+        meshPrivacyWarningEnabled: false,
+      ),
+    );
+  });
+
+  test('a site from before the Live rename sends Voice settings', () {
     final config = SiteConfig.fromSettings(const {
       'voice_enabled': true,
       'voice_video_enabled': true,
@@ -143,11 +178,18 @@ void main() {
 
   test('site-feature compatibility dispatch uses typed Voice settings', () {
     final enabled = SiteConfig.fromSettings(const {
+      'live_enabled': true,
+    }, extensions: _registry);
+    final enabledBeforeRename = SiteConfig.fromSettings(const {
       'voice_enabled': true,
     }, extensions: _registry);
     final disabled = SiteConfig.fromSettings(const {}, extensions: _registry);
 
     expect(_registry.siteFeatureEnabled('voice', enabled.plugins), isTrue);
+    expect(
+      _registry.siteFeatureEnabled('voice', enabledBeforeRename.plugins),
+      isTrue,
+    );
     expect(_registry.siteFeatureEnabled('voice', disabled.plugins), isFalse);
     expect(
       PluginRegistry.empty.siteFeatureEnabled('voice', enabled.plugins),

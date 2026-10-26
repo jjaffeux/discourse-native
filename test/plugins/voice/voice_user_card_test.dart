@@ -26,6 +26,23 @@ const registry = PluginRegistry([VoicePlugin()]);
 const site = 'https://voice.example';
 
 void main() {
+  test("Voice reads a current site's Live call permission", () {
+    expect(
+      registry
+          .readUserCard(const {'live_can_call': true}, site)
+          .get(voiceUserCardKey)
+          ?.canCall,
+      isTrue,
+    );
+    expect(
+      registry
+          .readUserCard(const {'live_can_call': false}, site)
+          .get(voiceUserCardKey)
+          ?.canCall,
+      isFalse,
+    );
+  });
+
   test("Voice reads the site's call permission off the user card", () {
     expect(
       registry

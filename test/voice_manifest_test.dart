@@ -25,8 +25,11 @@ void main() {
   test('module declares its routing, media, and live contracts', () {
     final descriptor = installed.descriptors.last;
 
-    expect(descriptor.routeNamespaces, {'voice'});
+    expect(descriptor.routeNamespaces, {'live', 'voice'});
     expect(descriptor.exclusiveClaims, {'app-global-media-session'});
-    expect(descriptor.liveChannelScopes.map((scope) => scope.path), ['/voice']);
+    expect(descriptor.liveChannelScopes.map((scope) => scope.path).toSet(), {
+      '/live',
+      '/voice',
+    });
   });
 }
