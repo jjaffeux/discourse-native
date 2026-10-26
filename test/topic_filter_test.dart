@@ -612,6 +612,47 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
+  testWidgets(
+    'a category-scoped filter asks core for the category by its slug path',
+    (tester) async {
+      // Core's TopicsFilter resolves `category:` through slugs only, and its
+      // Slug.for blanks an all-digit value, so `category:2` matches nothing.
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': [], '/filter.json': []},
+        categoryList: const [
+          TopicCategory(
+            id: 1,
+            name: 'Product',
+            slug: 'product',
+            color: 'FF0000',
+          ),
+          TopicCategory(
+            id: 2,
+            name: 'Bugs',
+            slug: 'bugs',
+            color: '00FF00',
+            parentCategoryId: 1,
+          ),
+        ],
+      );
+      await _pump(tester, api);
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      await shell.loadCategories(_siteUrl);
+
+      await shell.applyTopicListFilterQuery(
+        'category:product:bugs status:open',
+      );
+      await tester.pumpAndSettle();
+
+      expect(shell.topicListContent!.categoryId, 2);
+      expect(
+        Uri.parse(api.feedPaths.last).queryParameters['q'],
+        'status:open category:product:bugs',
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
   testWidgets('editor and request retain their quoted tag representations', (
     tester,
   ) async {
