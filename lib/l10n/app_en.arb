@@ -19075,6 +19075,18 @@
   "@boardsColumnControls": {
     "description": "Native Boards reader interface."
   },
+  "boardsGoToColumn": "Go to column {number} of {total}",
+  "@boardsGoToColumn": {
+    "description": "Native Boards reader interface. Label of a position dot below a board that shows one column at a time.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
   "boardsColumnIcon": "Icon name",
   "@boardsColumnIcon": {
     "description": "Native Boards reader interface."

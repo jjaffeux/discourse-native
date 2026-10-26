@@ -22,6 +22,7 @@ final class BoardsPlugin
         ContentPlugin,
         ContentChromePlugin,
         ContentMobilePageSheetPlugin,
+        ContentMobileDockPlugin,
         TopicPropertiesPlugin,
         TopicListMetadataPlugin,
         TopicMapActionPlugin {
@@ -73,6 +74,9 @@ final class BoardsPlugin
       BoardsRoute.parse(route.id) != null;
   @override
   bool usesMobilePageSheet(BuildContext context, ContentRoute route) =>
+      BoardsRoute.parse(route.id)?.boardId != null;
+  @override
+  bool hidesMobileDock(BuildContext context, ContentRoute route) =>
       BoardsRoute.parse(route.id)?.boardId != null;
   @override
   Widget? content(BuildContext context, ContentRoute route) {

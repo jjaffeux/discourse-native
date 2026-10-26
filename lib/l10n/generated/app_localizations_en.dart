@@ -14470,6 +14470,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsColumnControls => 'Column controls';
 
   @override
+  String boardsGoToColumn(String number, String total) {
+    return 'Go to column $number of $total';
+  }
+
+  @override
   String get boardsColumnIcon => 'Icon name';
 
   @override

@@ -278,10 +278,12 @@ class _DScrollChromeState extends State<DScrollChrome>
   void _measureDock() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.floatingFooter) return;
-      final height = _footerContentKey.currentContext?.size?.height ?? 0;
-      if (widget.visible &&
+      // An empty footer is measured too: a page without a dock must not keep
+      // the room of the dock it replaced.
+      final height = _footerContentKey.currentContext?.size?.height;
+      if (height != null &&
+          widget.visible &&
           (!_hidden || height > _dockRoom.value) &&
-          height > 0 &&
           (_dockRoom.value - height).abs() > .5) {
         _dockRoom.value = height;
       }

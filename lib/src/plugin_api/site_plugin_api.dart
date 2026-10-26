@@ -867,8 +867,9 @@ abstract interface class ContentMobilePageSheetPlugin {
 }
 
 abstract interface class ContentMobileDockPlugin {
-  /// Keeps the full mobile dock visible while this route scrolls.
-  bool keepsMobileDockVisible(BuildContext context, ContentRoute route);
+  /// Removes the mobile dock while this route is shown. The page still keeps
+  /// clear of the home indicator and a minimized composer.
+  bool hidesMobileDock(BuildContext context, ContentRoute route);
 }
 
 /// Content that supplies its own heading while retaining shell navigation.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
@@ -11,6 +13,9 @@ import '../../support/boards_fixture.dart';
 final _sheet = find.byType(DSheetContent);
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _title = find.byKey(const ValueKey('board-title'));
+final _dots = find.byType(DCarouselDot);
+Finder _dot(int index) => find.byKey(ValueKey('board-column-dot-$index'));
+Finder _column(int id) => find.byKey(ValueKey('board-column-$id'));
 final _columnScrollbar = find.ancestor(
   of: find.byKey(const ValueKey('board-column-10')),
   matching: find.byWidgetPredicate(
@@ -25,13 +30,16 @@ Future<ShellController> _openBoard(
   Size size = const Size(390, 844),
   int extraCards = 30,
   bool fromDirectory = true,
+  double homeIndicator = 34,
+  List<Map<String, Object?>> doneCards = const [],
 }) async {
-  tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
-  tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+  tester.view.padding = FakeViewPadding(top: 44, bottom: homeIndicator);
+  tester.view.viewPadding = FakeViewPadding(top: 44, bottom: homeIndicator);
   final board = boardFixtureJson(extraCards: extraCards);
   (board['board'] as Map)
     ..['name'] = name
     ..['tag_names'] = tags;
+  ((board['columns'] as List).last as Map)['cards'] = doneCards;
   final shell = await pumpMobileShellFixture(tester, size: size, board: board);
   if (!fromDirectory) {
     shell.pushContent(
@@ -243,6 +251,7 @@ void main() {
     tester,
   ) async {
     await _openBoard(tester, size: const Size(820, 1180));
+    expect(_dots, findsNothing);
     final column = find.byKey(const ValueKey('board-column-10'));
     final first = tester.getRect(column);
     final next = tester.getRect(find.byKey(const ValueKey('board-column-11')));
@@ -261,13 +270,138 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('board columns scroll to their last card above the dock', (
+  testWidgets('a board hides the dock that the directory shows', (
+    tester,
+  ) async {
+    final shell = await _openBoard(tester);
+    expect(_dock, findsNothing);
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    expect(_dock, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  for (final homeIndicator in [34.0, 0.0]) {
+    testWidgets(
+      'column dots rest ${homeIndicator.round()} points above the bottom '
+      'under short and long columns',
+      (tester) async {
+        for (final extraCards in [0, 30]) {
+          await _openBoard(
+            tester,
+            extraCards: extraCards,
+            homeIndicator: homeIndicator,
+          );
+          final dots = tester.getRect(_dots.first);
+          expect(_dots, findsNWidgets(3));
+          expect(
+            dots.bottom,
+            tester.getRect(_sheet).bottom - homeIndicator - DSpacing.sm,
+          );
+          expect(
+            tester.getRect(_column(10)).bottom,
+            extraCards == 0
+                ? lessThan(dots.top - DSpacing.md)
+                : dots.top - DSpacing.md,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: platforms,
+    );
+  }
+
+  testWidgets('column dots follow swipes and scroll to a tapped column', (
     tester,
   ) async {
     await _openBoard(tester);
-    final dock = tester.getRect(_dock);
+    final sheet = tester.getRect(_sheet);
+    List<bool> selected() => [
+      for (var index = 0; index < 3; index++)
+        tester.widget<DCarouselDot>(_dot(index)).selected,
+    ];
+    expect(selected(), [true, false, false]);
+    await tester.fling(_column(10), const Offset(-120, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(selected(), [false, true, false]);
+    await tester.tap(_dot(2));
+    await tester.pumpAndSettle();
+    expect(sheet.right - tester.getRect(_column(12)).right, 12);
+    expect(selected(), [false, false, true]);
+    await tester.tap(_dot(0));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_column(10)).left - sheet.left, 12);
+    expect(selected(), [true, false, false]);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('rotating a phone keeps the older cards a column shows', (
+    tester,
+  ) async {
+    await _openBoard(
+      tester,
+      doneCards: [
+        {
+          'id': 300,
+          'column_id': 12,
+          'card_type': 'floater',
+          'title': 'Shipped last year',
+          'recency_at': '2025-01-01T00:00:00Z',
+        },
+      ],
+    );
+    final older = find.text('Shipped last year');
+    await tester.tap(_dot(2));
+    await tester.pumpAndSettle();
+    expect(older, findsNothing);
+    await tester.tap(find.text('Show 1 older card'));
+    await tester.pumpAndSettle();
+    expect(older, findsOneWidget);
+    for (final size in [const Size(844, 390), const Size(390, 844)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      expect(_dots, size.width < 600 ? findsNWidgets(3) : findsNothing);
+      await tester.ensureVisible(_column(12));
+      await tester.pumpAndSettle();
+      expect(older, findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('column dots stay above a minimized composer', (tester) async {
+    final shell = await _openBoard(tester);
+    unawaited(shell.openNewTopicFromSidebar());
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-topic-title')),
+      'Draft from a board',
+    );
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle')).last),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards/1');
+    final restore = tester.getRect(
+      find.byKey(const ValueKey('composer-restore')),
+    );
+    expect(tester.getRect(_dots.first).bottom, lessThan(restore.top));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('board-add-10'))).bottom,
+      lessThan(restore.top),
+    );
+    expect(_dot(1).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('board columns scroll to their last card above the dots', (
+    tester,
+  ) async {
+    await _openBoard(tester);
+    final dots = tester.getRect(_dots.first);
     final add = find.byKey(const ValueKey('board-add-10'));
-    expect(tester.getRect(add).bottom, lessThanOrEqualTo(dock.top));
+    expect(tester.getRect(add).bottom, lessThanOrEqualTo(dots.top));
     final gesture = await tester.startGesture(
       tester.getCenter(
         find.byKey(const PageStorageKey('board-column-list-10')),
@@ -283,9 +417,9 @@ void main() {
       of: find.text('Task 30'),
       matching: find.byType(DItem),
     );
-    expect(tester.getRect(_dock), dock);
-    expect(tester.getRect(last).bottom, lessThanOrEqualTo(dock.top));
-    expect(tester.getRect(add).bottom, lessThanOrEqualTo(dock.top));
+    expect(tester.getRect(_dots.first), dots);
+    expect(tester.getRect(last).bottom, lessThanOrEqualTo(dots.top));
+    expect(tester.getRect(add).bottom, lessThanOrEqualTo(dots.top));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -322,9 +456,6 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         final sheet = tester.getRect(_sheet);
-        final dock = tester.getRect(_dock);
-        // The title's top stays clear of the dock even where the sheet is
-        // short; its centre can sit under the dock on a landscape phone.
         await tester.dragFrom(
           tester.getTopLeft(_title) + const Offset(20, 10),
           const Offset(0, -2000),
@@ -336,7 +467,13 @@ void main() {
           await tester.pumpAndSettle();
           final bounds = tester.getRect(add);
           expect(bounds.top, greaterThanOrEqualTo(sheet.top));
-          expect(bounds.bottom, lessThanOrEqualTo(dock.top));
+          expect(bounds.bottom, lessThanOrEqualTo(sheet.bottom - 34));
+          if (_dots.evaluate().isNotEmpty) {
+            expect(
+              tester.getRect(_dots.first).bottom,
+              lessThanOrEqualTo(sheet.bottom - 34),
+            );
+          }
         }
         expect(tester.takeException(), isNull);
       },

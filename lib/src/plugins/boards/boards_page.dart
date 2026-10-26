@@ -30,6 +30,9 @@ double _singleColumnStride(double viewport) => viewport - 12 - _nextColumnPeek;
 /// Room for a column's heading, a card and its footer at unscaled text.
 const _minimumColumnHeight = 200.0;
 
+/// The position dots under a one-column board and their gap above the bottom.
+const _columnDotsExtent = DCarouselDot.diameter + DSpacing.sm;
+
 class BoardsPage extends StatefulWidget {
   const BoardsPage({
     super.key,
@@ -136,6 +139,12 @@ class _BoardsPageState extends State<BoardsPage> {
     super.dispose();
   }
 
+  bool _singleColumn(double width) =>
+      widget.navigation.mobileNavigationEnabled && width < _singleColumnWidth;
+
+  bool _columnDots(double width, int columns) =>
+      columns > 1 && _singleColumn(width);
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -163,8 +172,9 @@ class _BoardsPageState extends State<BoardsPage> {
       );
     }
     final board = handle.snapshot;
-    // The floating mobile dock covers the bottom of the page. Columns scroll
-    // individually, so the board stops above the dock rather than under it.
+    // The home indicator and a minimized composer cover the bottom of the
+    // page. Columns scroll individually, so the board stops above them rather
+    // than under them.
     // When the header leaves the board less than a column needs, as on a
     // landscape phone or with large text, the page scrolls as a whole instead.
     Widget page(
@@ -172,6 +182,7 @@ class _BoardsPageState extends State<BoardsPage> {
       List<Widget> badges = const [],
       required Widget action,
       required Widget body,
+      int columns = 0,
     }) => DPageSurface(
       framed: false,
       border: false,
@@ -190,6 +201,9 @@ class _BoardsPageState extends State<BoardsPage> {
           SliverLayoutBuilder(
             builder: (context, constraints) {
               final dock = DScrollChrome.bottomInsetOf(context);
+              final dots = _columnDots(constraints.crossAxisExtent, columns)
+                  ? _columnDotsExtent
+                  : 0.0;
               return SliverToBoxAdapter(
                 child: SizedBox(
                   height: math.max(
@@ -199,6 +213,7 @@ class _BoardsPageState extends State<BoardsPage> {
                         MediaQuery.textScalerOf(
                           context,
                         ).scale(_minimumColumnHeight) +
+                        dots +
                         dock,
                   ),
                   child: Padding(
@@ -239,6 +254,7 @@ class _BoardsPageState extends State<BoardsPage> {
         1;
     return page(
       board.name,
+      columns: board.columns.length,
       badges: [
         for (final id in board.categoryIds)
           if (widget.controller.siteState.categoryFor?.call(widget.site, id)
@@ -303,9 +319,11 @@ class _BoardsPageState extends State<BoardsPage> {
                 ? Center(child: DEmpty(children: [Text(l10n.boardsNoCards)]))
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final single =
-                          widget.navigation.mobileNavigationEnabled &&
-                          constraints.maxWidth < _singleColumnWidth;
+                      final single = _singleColumn(constraints.maxWidth);
+                      final dots = _columnDots(
+                        constraints.maxWidth,
+                        board.columns.length,
+                      );
                       final width = single
                           ? (_singleColumnStride(constraints.maxWidth) - 12)
                                 .clamp(0.0, double.infinity)
@@ -340,7 +358,7 @@ class _BoardsPageState extends State<BoardsPage> {
                           });
                         }
                       }
-                      return DScrollArea(
+                      final scroller = DScrollArea(
                         key: PageStorageKey((
                           'board-reader',
                           _identity,
@@ -369,8 +387,13 @@ class _BoardsPageState extends State<BoardsPage> {
                                   width: width,
                                   child: ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxHeight: (constraints.maxHeight - 24)
-                                          .clamp(0, double.infinity),
+                                      maxHeight:
+                                          (constraints.maxHeight -
+                                                  24 -
+                                                  (dots
+                                                      ? _columnDotsExtent
+                                                      : 0))
+                                              .clamp(0, double.infinity),
                                     ),
                                     child: _columnDropTarget(
                                       column,
@@ -415,6 +438,21 @@ class _BoardsPageState extends State<BoardsPage> {
                             ],
                           ),
                         ),
+                      );
+                      // One shape with and without dots: rotating a phone
+                      // crosses the one-column width, and a reshaped tree
+                      // would rebuild every column and lose its state.
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: scroller),
+                          if (dots)
+                            _ColumnDots(
+                              controller: _horizontal,
+                              count: board.columns.length,
+                              stride: stride,
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -1026,6 +1064,74 @@ class _BoardHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Marks the column a one-column board shows. The dots sit below the column
+/// area rather than under its content, so they stay at the bottom however
+/// short the column is. Only they rebuild while the columns scroll.
+class _ColumnDots extends StatelessWidget {
+  const _ColumnDots({
+    required this.controller,
+    required this.count,
+    required this.stride,
+  });
+  final ScrollController controller;
+  final int count;
+  final double stride;
+
+  void _show(BuildContext context, int index) {
+    if (!controller.hasClients) return;
+    final target = (index * stride).clamp(
+      0.0,
+      controller.position.maxScrollExtent,
+    );
+    final duration = DMotion.duration(
+      context,
+      const Duration(milliseconds: 300),
+    );
+    if (duration == Duration.zero) {
+      controller.jumpTo(target);
+    } else {
+      unawaited(
+        controller.animateTo(target, duration: duration, curve: Curves.easeOut),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: DSpacing.sm),
+    child: SizedBox(
+      height: DCarouselDot.diameter,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) {
+            // A column area rebuilt under a new key attaches before the one
+            // it replaces detaches, so read the newest position.
+            final offset = controller.positions.lastOrNull?.pixels ?? 0;
+            final current = (offset / stride).round().clamp(0, count - 1);
+            return Row(
+              spacing: DSpacing.sm,
+              children: [
+                for (var index = 0; index < count; index++)
+                  DCarouselDot(
+                    key: ValueKey('board-column-dot-$index'),
+                    selected: index == current,
+                    semanticLabel: context.l10n.boardsGoToColumn(
+                      '${index + 1}',
+                      '$count',
+                    ),
+                    onPressed: () => _show(context, index),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
 }
 
 /// Settles a one-column board on a column after each swipe. The stride is read
