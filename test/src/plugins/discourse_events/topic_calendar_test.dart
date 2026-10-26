@@ -521,6 +521,32 @@ void main() {
     expect(february, march);
   });
 
+  testWidgets('today is highlighted on the calendar timezone date', (
+    tester,
+  ) async {
+    // 20:00 UTC on 7 September is already 05:00 on 8 September in Tokyo.
+    await tester.pumpWidget(
+      calendar(
+        options:
+            'data-calendar-full-day="true" '
+            'data-calendar-default-timezone="Asia/Tokyo"',
+        now: DateTime.utc(2026, 9, 7, 20),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('September 2026'), findsOneWidget);
+    final highlight = Theme.of(
+      tester.element(find.byType(kalender.KalenderView)),
+    ).colorScheme.primaryContainer.withValues(alpha: 0.35);
+    final today = find.byWidgetPredicate(
+      (widget) => widget is ColoredBox && widget.color == highlight,
+    );
+    expect(today, findsOneWidget);
+    final cell = tester.getRect(today);
+    expect(cell.contains(tester.getCenter(find.text('8'))), isTrue);
+    expect(cell.contains(tester.getCenter(find.text('7'))), isFalse);
+  });
+
   testWidgets('timezone changes preserve the browsed month and all-day dates', (
     tester,
   ) async {

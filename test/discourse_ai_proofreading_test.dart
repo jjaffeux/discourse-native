@@ -502,7 +502,11 @@ void main() {
         );
         final helperBody =
             jsonDecode(api.requests.first.body) as Map<String, dynamic>;
-        expect(helperBody, {'text': scenario.source, 'mode': 'proofread'});
+        expect(helperBody, {
+          'text': scenario.source,
+          'mode': 'proofread',
+          'force_default_locale': true,
+        });
         final postBody =
             jsonDecode(api.requests.last.body) as Map<String, dynamic>;
         // The existing post serializer trims the document's trailing whitespace.
@@ -1040,9 +1044,12 @@ void main() {
       expect(result.notice, isNull);
       expect(composer.raw, 'A polished reply.');
       expect(api.pluginWrites.single.path, aiProofreadingPath);
+      // As the web composer does: the reader's interface locale must not
+      // turn a proofread into a translation.
       expect(api.pluginWrites.single.body, {
         'text': 'a reply with typo',
         'mode': 'proofread',
+        'force_default_locale': true,
       });
     },
   );

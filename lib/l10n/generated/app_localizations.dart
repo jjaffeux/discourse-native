@@ -20320,6 +20320,18 @@ abstract class AppLocalizations {
   /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
+  /// **'{username}, {username2}'**
+  String likedByTwoUsers(String username, String username2);
+
+  /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{username} and {count} other} other{{username} and {count} others}}'**
+  String likedByMultipleUsers(int count, String username);
+
+  /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
   /// **'linked {postsCount}'**
   String linked(String postsCount);
 

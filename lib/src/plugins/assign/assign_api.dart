@@ -25,6 +25,7 @@ final class AssignApi {
       clientId: clientId,
     ),
     siteUrl,
+    target: target,
   );
 
   /// Search results cannot broaden the suggestion response's target-scoped
@@ -44,8 +45,11 @@ final class AssignApi {
     };
     final normalizedTerm = term.trim().toLowerCase();
 
-    // Omitting an empty `groups[]` makes core UserSearch unrestricted.
-    if (suggestions.assignAllowedOnGroups.isEmpty) {
+    // Omitting an empty `groups[]` makes core UserSearch unrestricted, and
+    // `/assign/search` rejects a blank term.
+    if (suggestions.searchesTarget
+        ? normalizedTerm.isEmpty
+        : suggestions.assignAllowedOnGroups.isEmpty) {
       return List.unmodifiable([
         for (final user in suggestions.users)
           if (normalizedTerm.isEmpty ||
@@ -58,18 +62,30 @@ final class AssignApi {
       ]);
     }
 
+    final target = suggestions.target;
     final body = await _transport.pluginGetJson(
       siteUrl: siteUrl,
-      path: Uri(
-        path: '/u/search/users.json',
-        queryParameters: <String, dynamic>{
-          'term': term,
-          'include_groups': 'true',
-          'assignable_groups': 'true',
-          'groups[]': suggestions.assignAllowedOnGroups,
-          'limit': '$boundedLimit',
-        },
-      ).toString(),
+      path: suggestions.searchesTarget
+          ? Uri(
+              path: '/assign/search.json',
+              queryParameters: {
+                'term': term,
+                if (target != null) ...{
+                  'target_id': '${target.id}',
+                  'target_type': target.type.wireName,
+                },
+              },
+            ).toString()
+          : Uri(
+              path: '/u/search/users.json',
+              queryParameters: <String, dynamic>{
+                'term': term,
+                'include_groups': 'true',
+                'assignable_groups': 'true',
+                'groups[]': suggestions.assignAllowedOnGroups,
+                'limit': '$boundedLimit',
+              },
+            ).toString(),
       apiKey: apiKey,
       clientId: clientId,
     );

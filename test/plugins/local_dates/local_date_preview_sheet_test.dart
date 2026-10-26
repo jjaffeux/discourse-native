@@ -42,6 +42,7 @@ void main() {
   Future<GlobalKey> open(
     WidgetTester tester, {
     LocalDateSpec spec = _spec,
+    LocalDateSpec? from,
     LocalDateSpec? end,
     double width = 390,
     double scale = 17 / 14,
@@ -83,6 +84,7 @@ void main() {
                 padding: const EdgeInsets.all(20),
                 child: LocalDateInline(
                   spec: spec,
+                  from: from,
                   to: end,
                   formatter: formatter,
                   now: () => DateTime.utc(2026, 9, 1),
@@ -240,6 +242,28 @@ void main() {
     expect(sheetText('→'), findsNWidgets(4));
   });
 
+  testWidgets('a range previews whole from its ending date too', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      spec: const LocalDateSpec(
+        date: '2026-09-14',
+        time: '01:30:00',
+        timezone: 'America/New_York',
+        range: 'to',
+        fallbackText: '',
+      ),
+      from: _spec,
+      hour24: true,
+    );
+    expect(sheetText('06:00'), findsOneWidget);
+    expect(sheetText('07:30'), findsOneWidget);
+    expect(sheetText('00:00'), findsOneWidget);
+    expect(sheetText('01:30'), findsOneWidget);
+    expect(sheetText('→'), findsNWidgets(4));
+  });
+
   testWidgets('cross-day ranges retain their ending date', (tester) async {
     await open(
       tester,
@@ -273,6 +297,30 @@ void main() {
     expect(sheetText('Paris'), findsOneWidget);
     expect(find.textContaining('AM', findRichText: true), findsNothing);
   });
+
+  testWidgets(
+    'a date-only entry read in another zone spans that zone’s hours',
+    (tester) async {
+      environment.setDeviceTimezone('America/New_York');
+      await open(
+        tester,
+        spec: const LocalDateSpec(
+          date: '2026-09-14',
+          timezone: 'Europe/Paris',
+          fallbackText: '',
+        ),
+      );
+
+      // Paris's September 14 runs from 6 PM on the 13th to 6 PM on the 14th in
+      // New York; the 13th alone would name a day the post never mentions.
+      expect(sheetText('Sunday, September 13, 2026'), findsOneWidget);
+      expect(sheetText('End'), findsOneWidget);
+      expect(sheetText('Monday, September 14, 2026'), findsOneWidget);
+      expect(sheetText('6:00 PM'), findsNWidgets(2));
+      expect(sheetText('Mon, Sep 14'), findsOneWidget);
+      expect(find.textContaining('AM', findRichText: true), findsNothing);
+    },
+  );
 
   testWidgets('day changes use calendar dates across DST and year boundaries', (
     tester,

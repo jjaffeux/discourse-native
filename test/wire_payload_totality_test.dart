@@ -2013,6 +2013,10 @@ void main() {
               withFields({'username': 'u'}),
             ]),
             'assign_allowed_on_groups': gate([loose, 'g']),
+            'groups': gate([
+              loose,
+              withFields({'name': 'g'}),
+            ]),
           }),
           site,
         ),

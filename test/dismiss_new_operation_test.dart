@@ -137,6 +137,48 @@ void main() {
     },
   );
 
+  test('a searched list dismisses only the topics it matched', () async {
+    final (shell, api) = await _fixture(
+      route: () => ContentRoute.filteredTopicList(
+        TopicListMode.newActivity,
+        categoryId: 21,
+        query: const {
+          'search': ['matching words'],
+        },
+      ),
+    );
+    final source = shell.topicListContent!;
+
+    expect(await shell.dismissNewTopics(), isNull);
+
+    final call = api.dismissNewCalls.single;
+    expect(call.categoryId, 21);
+    expect(call.topicIds, [1, 2]);
+    expect(api.reads, [
+      (_site, source.feedPath!),
+      (_site, '/page-2.json'),
+      (_site, source.feedPath!),
+    ]);
+  });
+
+  test(
+    'a searched list with no category or tag offers no forum-wide dismiss',
+    () async {
+      final (shell, api) = await _fixture(
+        route: () => ContentRoute.filteredTopicList(
+          TopicListMode.newActivity,
+          query: const {
+            'search': ['matching words'],
+          },
+        ),
+        dismissible: false,
+      );
+
+      expect(await shell.dismissNewTopics(), isNull);
+      expect(api.dismissNewCalls, isEmpty);
+    },
+  );
+
   test('late write publishes and reloads only its original account', () async {
     final (shell, api) = await _fixture();
     final source = shell.topicListContent!;
@@ -178,9 +220,12 @@ void main() {
   );
 }
 
-Future<(ShellController, _Api)> _fixture() async {
-  final route = _route();
-  final api = _Api(route.feedPath!);
+Future<(ShellController, _Api)> _fixture({
+  ContentRoute Function() route = _route,
+  bool dismissible = true,
+}) async {
+  final source = route();
+  final api = _Api(source.feedPath!);
   final sites = [
     instance('meta.discourse.org').copyWith(user: _reader),
     instance('other.discourse.org').copyWith(user: _reader),
@@ -201,10 +246,10 @@ Future<(ShellController, _Api)> _fixture() async {
   );
   addTearDown(shell.dispose);
   await shell.load();
-  shell.pushContent(route);
-  await shell.loadFeed(route.id);
+  shell.pushContent(source);
+  await shell.loadFeed(source.id);
   await pumpEventQueue();
-  expect(shell.canDismissNewTopics, isTrue);
+  expect(shell.canDismissNewTopics, dismissible);
   api.reads.clear();
   return (shell, api);
 }

@@ -765,13 +765,23 @@ class _SliderThumb extends StatefulWidget {
 }
 
 class _SliderThumbState extends State<_SliderThumb> {
+  bool _hover = false;
   @override
   Widget build(BuildContext context) {
     final ring = DTokens.of(context).focusRing;
     return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: ListenableBuilder(
         listenable: widget.node,
         builder: (context, _) {
+          final highlighted =
+              widget.enabled &&
+              (_hover ||
+                  widget.active ||
+                  (widget.node.hasFocus &&
+                      FocusManager.instance.highlightMode ==
+                          FocusHighlightMode.traditional));
           final width = widget.ramp
               ? 18.0
               : widget.timeline
@@ -812,7 +822,13 @@ class _SliderThumbState extends State<_SliderThumb> {
                           ? 2
                           : 1,
                     ),
-                    boxShadow: const [],
+                    boxShadow: [
+                      if (highlighted)
+                        BoxShadow(
+                          color: ring.withValues(alpha: 0.5),
+                          spreadRadius: 3,
+                        ),
+                    ],
                   ),
                 ),
               ),

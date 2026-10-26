@@ -327,29 +327,50 @@ class AssignmentSuggestions {
     List<AssignmentUser> users = const [],
     List<String> assignAllowedOnGroups = const [],
     List<String> assignAllowedForGroups = const [],
+    this.target,
+    this.searchesTarget = false,
   }) : users = List.unmodifiable(users),
        assignAllowedOnGroups = List.unmodifiable(assignAllowedOnGroups),
        assignAllowedForGroups = List.unmodifiable(assignAllowedForGroups);
 
+  /// A `groups` list marks the server that also answers `/assign/search`;
+  /// older servers name the assignable groups in the allow-list keys instead.
   factory AssignmentSuggestions.fromJson(
     Map<String, dynamic> json,
-    String siteUrl,
-  ) => AssignmentSuggestions(
-    users: [
-      for (final value in jsonArray(
-        json['suggestions'],
-      ).take(maximumSuggestedUsers))
-        if (value is Map<String, dynamic>) ?_parseUser(value, siteUrl),
-    ],
-    assignAllowedOnGroups: _uniqueNames(json['assign_allowed_on_groups']),
-    assignAllowedForGroups: _uniqueNames(json['assign_allowed_for_groups']),
-  );
+    String siteUrl, {
+    AssignmentTarget? target,
+  }) {
+    final groups = json['groups'];
+    return AssignmentSuggestions(
+      users: [
+        for (final value in jsonArray(
+          json['suggestions'],
+        ).take(maximumSuggestedUsers))
+          if (value is Map<String, dynamic>) ?_parseUser(value, siteUrl),
+      ],
+      assignAllowedOnGroups: _uniqueNames(json['assign_allowed_on_groups']),
+      assignAllowedForGroups: groups is List
+          ? _uniqueNames([
+              for (final group in jsonObjects(groups)) group['name'],
+            ])
+          : _uniqueNames(json['assign_allowed_for_groups']),
+      target: target,
+      searchesTarget: groups is List,
+    );
+  }
 
   final List<AssignmentUser> users;
 
   final List<String> assignAllowedOnGroups;
 
   final List<String> assignAllowedForGroups;
+
+  /// The target these suggestions were scoped to, if any.
+  final AssignmentTarget? target;
+
+  /// Whether search goes to `/assign/search` for [target] rather than to
+  /// core user search restricted to [assignAllowedOnGroups].
+  final bool searchesTarget;
 
   Iterable<AssignmentAssignee> get initialAssignees => [
     ...users,
@@ -362,13 +383,17 @@ class AssignmentSuggestions {
       other is AssignmentSuggestions &&
           listEquals(other.users, users) &&
           listEquals(other.assignAllowedOnGroups, assignAllowedOnGroups) &&
-          listEquals(other.assignAllowedForGroups, assignAllowedForGroups);
+          listEquals(other.assignAllowedForGroups, assignAllowedForGroups) &&
+          other.target == target &&
+          other.searchesTarget == searchesTarget;
 
   @override
   int get hashCode => Object.hash(
     Object.hashAll(users),
     Object.hashAll(assignAllowedOnGroups),
     Object.hashAll(assignAllowedForGroups),
+    target,
+    searchesTarget,
   );
 }
 

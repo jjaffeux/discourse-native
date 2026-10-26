@@ -2014,6 +2014,218 @@ void main() {
     expect(state.loadingMore, isFalse);
   });
 
+  test('leaving drops the reader from loaded members before paging', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'members': [
+            {'id': 1, 'username': 'Sam'},
+            {'id': 2, 'username': 'lee'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 3, 'limit': 2, 'offset': 0},
+        }),
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 2},
+        }),
+        _completed({
+          'members': [
+            {'id': 3, 'username': 'kim'},
+          ],
+          'owners': <Object?>[],
+          'meta': {'total': 2, 'limit': 2, 'offset': 1},
+        }),
+      ])
+      ..onWrite = (_) => <String, dynamic>{};
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(
+      id: 7,
+      name: 'support',
+      isGroupUser: true,
+      publicExit: true,
+    );
+
+    await controller.loadMembers(_connectedInstance, group.name);
+    final left = await controller.leave(_connectedInstance, group);
+    expect(left.canApplyLocally, isTrue);
+    expect(
+      controller.membersState(_site, group.name).members.map((m) => m.id),
+      [2],
+    );
+
+    await controller.loadMembers(_connectedInstance, group.name, more: true);
+
+    expect(transport.gets.last.path, contains('offset=1'));
+    final state = controller.membersState(_site, group.name);
+    expect(state.members.map((member) => member.id), [2, 3]);
+    expect(state.total, 2);
+  });
+
+  const supportGroup = Group(id: 7, name: 'support', publicAdmission: true);
+  for (final (name, write, refreshesDetail)
+      in <
+        (
+          String,
+          Future<GroupWriteOutcome<Object?>> Function(GroupsController),
+          bool,
+        )
+      >[
+        (
+          'joining',
+          (controller) => controller.join(_connectedInstance, supportGroup),
+          true,
+        ),
+        (
+          'accepting a membership request',
+          (controller) => controller.handleRequest(
+            _connectedInstance,
+            supportGroup,
+            const GroupRequester(id: 1, username: 'sam'),
+            accept: true,
+          ),
+          true,
+        ),
+        (
+          'adding a member',
+          (controller) => controller.addMembers(
+            _connectedInstance,
+            supportGroup,
+            GroupAddMembersCommand(usernames: const ['sam']),
+          ),
+          true,
+        ),
+      ]) {
+    test('$name lists the new member in every loaded member list', () async {
+      Map<String, dynamic> page(List<String> usernames) => {
+        'members': [
+          for (final username in usernames)
+            {'id': username == 'sam' ? 1 : 2, 'username': username},
+        ],
+        'owners': <Object?>[],
+        'meta': {'total': usernames.length, 'limit': 50, 'offset': 0},
+      };
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed(page(['lee'])),
+          _completed(page(['lee'])),
+          if (refreshesDetail)
+            _completed({
+              'group': {'id': 7, 'name': 'support', 'user_count': 2},
+            }),
+          _completed(page(['sam', 'lee'])),
+          _completed(page(['sam', 'lee'])),
+        ]);
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const sorts = [
+        (order: null, ascending: true),
+        (order: 'added_at', ascending: false),
+      ];
+
+      for (final sort in sorts) {
+        await controller.loadMembers(
+          _connectedInstance,
+          supportGroup.name,
+          order: sort.order,
+          ascending: sort.ascending,
+        );
+      }
+      final written = await write(controller);
+      expect(written.canApplyLocally, isTrue);
+
+      for (final sort in sorts) {
+        final state = controller.membersState(
+          _site,
+          supportGroup.name,
+          order: sort.order,
+          ascending: sort.ascending,
+        );
+        expect(state.members.map((member) => member.username), [
+          'sam',
+          'lee',
+        ], reason: 'sorted by ${sort.order}');
+        expect(state.total, 2, reason: 'sorted by ${sort.order}');
+      }
+    });
+  }
+
+  Map<String, dynamic> supportJson({bool member = false, String? fullName}) => {
+    'id': 7,
+    'name': 'support',
+    'full_name': ?fullName,
+    'user_count': member ? 2 : 1,
+    'is_group_user': member,
+    'public_admission': true,
+    'public_exit': true,
+  };
+  for (final (name, before, after, write)
+      in <
+        (
+          String,
+          Map<String, dynamic>,
+          Map<String, dynamic>,
+          Future<GroupWriteOutcome<Object?>> Function(GroupsController, Group),
+        )
+      >[
+        (
+          'joining',
+          supportJson(),
+          supportJson(member: true),
+          (controller, group) => controller.join(_connectedInstance, group),
+        ),
+        (
+          'leaving',
+          supportJson(member: true),
+          supportJson(),
+          (controller, group) => controller.leave(_connectedInstance, group),
+        ),
+        (
+          'saving the full name',
+          supportJson(member: true),
+          supportJson(member: true, fullName: 'Support team'),
+          (controller, group) => controller.updateGroup(
+            _connectedInstance,
+            group,
+            GroupUpdateCommand(const {'full_name': 'Support team'}),
+          ),
+        ),
+      ]) {
+    test('$name updates the group in the directory', () async {
+      final transport = _ControlledGroupTransport()
+        ..objects.addAll([
+          _completed({
+            'groups': [
+              before,
+              {'id': 8, 'name': 'design', 'user_count': 3},
+            ],
+            'total_rows_groups': 2,
+          }),
+          _completed({'group': after}),
+        ])
+        ..onWrite = (_) => {'group': after};
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+      final controller = _controller(transport, credentials: credentials);
+      addTearDown(controller.dispose);
+      const query = GroupDirectoryQuery();
+
+      await controller.loadDirectory(_connectedInstance, query);
+      final written = await write(
+        controller,
+        controller.directoryState(_site, query).groups.first,
+      );
+      expect(written.canApplyLocally, isTrue);
+
+      final groups = controller.directoryState(_site, query).groups;
+      expect(groups.map((group) => group.name), ['support', 'design']);
+      expect(groups.first.isGroupUser, after['is_group_user']);
+      expect(groups.first.userCount, after['user_count']);
+      expect(groups.first.fullName, after['full_name']);
+    });
+  }
+
   test(
     'members added while the next page loads are shown by the refresh',
     () async {
@@ -2308,6 +2520,36 @@ void main() {
     },
   );
 
+  test('accepting a membership request counts the new member', () async {
+    final transport = _ControlledGroupTransport()
+      ..objects.addAll([
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 1},
+        }),
+        _completed({
+          'group': {'id': 7, 'name': 'support', 'user_count': 2},
+        }),
+      ]);
+    final credentials = FakeApiCredentialReader()..keys[_site] = 'secret';
+    final controller = _controller(transport, credentials: credentials);
+    addTearDown(controller.dispose);
+    const group = Group(id: 7, name: 'support');
+
+    await controller.loadDetail(_connectedInstance, group.name);
+    final accepted = await controller.handleRequest(
+      _connectedInstance,
+      group,
+      const GroupRequester(id: 1, username: 'sam'),
+      accept: true,
+    );
+
+    expect(accepted.canApplyLocally, isTrue);
+    expect(
+      controller.detailState(_site, group.name).detail?.group.userCount,
+      2,
+    );
+  });
+
   test('a request handled while the next page loads stays handled', () async {
     final nextPage = Completer<Map<String, dynamic>>();
     final transport = _ControlledGroupTransport()
@@ -2320,6 +2562,9 @@ void main() {
           'meta': {'total': 3, 'limit': 2, 'offset': 0},
         }),
         nextPage,
+        _completed({
+          'group': {'id': 7, 'name': 'support'},
+        }),
         _completed({
           'members': [
             {'id': 3, 'username': 'kim'},

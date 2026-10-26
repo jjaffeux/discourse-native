@@ -244,6 +244,17 @@ final class ShellTabContext {
     return shell._topicData.forSite(instance.url).streamFor(detail);
   }
 
+  /// The current topic's last read post, including reads this session has
+  /// credited since its detail was fetched.
+  int? get currentTopicLastReadPostNumber {
+    final instance = _instance;
+    final detail = currentTopic;
+    if (instance == null || detail == null) return null;
+    return detail.lastReadAfter(
+      shell._topicReads.lastReadPostNumberFor(instance.url, detail.id),
+    );
+  }
+
   bool get currentTopicSummary {
     final instance = _instance;
     final topicId = currentContent?.topicId;
@@ -558,12 +569,14 @@ final class ShellTabContext {
       }
       if (tagName == null) return null;
     }
-    return DismissNewTopicsCommand(
+    final command = DismissNewTopicsCommand(
       instance: instance,
       route: route,
       mode: mode,
       tagName: tagName,
     );
+    if (command.listsTopicIds && command.widensToForum) return null;
+    return command;
   }
 
   TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) {

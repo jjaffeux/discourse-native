@@ -328,6 +328,74 @@ void main() {
     expect(pixel(16, 10), [49, 49, 49, 255]);
   });
 
+  testWidgets(
+    'submenu guide in a transparent panel stays visible on a matching border',
+    (tester) async {
+      const background = Color(0xff313131);
+      final key = GlobalKey();
+      final theme = ThemeData.dark();
+      final tokens = DTokens.fromTheme(theme).copyWith(
+        background: background,
+        surface: background,
+        muted: background,
+        border: background,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme.copyWith(extensions: [tokens]),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: RepaintBoundary(
+                key: key,
+                child: const ColoredBox(
+                  color: background,
+                  child: SizedBox(
+                    width: 200,
+                    height: 40,
+                    child: DSidebarProvider(
+                      mobileBreakpoint: 0,
+                      child: DSidebar(
+                        width: 200,
+                        backgroundColor: Colors.transparent,
+                        collapsible: DSidebarCollapsible.none,
+                        child: DSidebarMenuSub(
+                          children: [SizedBox(height: 28)],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final guide = tester.getRect(find.byType(DSeparator));
+      final bytes = await tester.runAsync(() async {
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage();
+        try {
+          final data = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          return data!.buffer.asUint8List();
+        } finally {
+          image.dispose();
+        }
+      });
+      List<int> pixel(int x, int y) =>
+          bytes!.sublist((y * 200 + x) * 4, (y * 200 + x) * 4 + 4);
+
+      final x = guide.left.floor();
+      final y = guide.center.dy.floor();
+      expect(pixel(x - 1, y), [49, 49, 49, 255]);
+      expect(pixel(x, y), isNot([49, 49, 49, 255]));
+    },
+  );
+
   testWidgets('collapsed icon buttons retain the child accessibility name', (
     tester,
   ) async {

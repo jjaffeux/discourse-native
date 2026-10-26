@@ -114,6 +114,8 @@ class LocalDatesPlugin
         element.attributes.map((key, value) => MapEntry('$key', value)),
         fallbackText: element.text,
       );
+      // A date without a time names a day, not a moment to be reminded at.
+      if (!spec.hasTime) continue;
       final resolved = formatter.resolve(
         spec,
         locale: locale,

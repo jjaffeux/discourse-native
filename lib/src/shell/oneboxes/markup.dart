@@ -3,12 +3,16 @@ library;
 import 'package:flutter/painting.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../models/json.dart';
+
+/// The templates write a category color verbatim after `#`, and core stores
+/// one as six or three hex digits.
 Color? hexColorIn(String? style) {
   if (style == null) return null;
   final match = _hexPattern.firstMatch(style);
   if (match == null) return null;
-  final value = int.tryParse(match.group(1)!, radix: 16);
-  return value == null ? null : Color(0xFF000000 | value);
+  final value = categoryColorValueOrNull(match.group(1)!);
+  return value == null ? null : Color(value);
 }
 
 Color? hexColorOf(dom.Element? element) =>
@@ -28,6 +32,9 @@ extension NullIfEmptyString on String {
   String? get nullIfEmpty => isEmpty ? null : this;
 }
 
-final RegExp _hexPattern = RegExp(r'#([0-9a-fA-F]{6})');
+// CSS's four- and eight-digit forms carry alpha, which no category color has.
+final RegExp _hexPattern = RegExp(
+  r'#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])',
+);
 final RegExp _whitespacePattern = RegExp(r'\s+');
 final RegExp _nonDigitPattern = RegExp(r'[^\d]');

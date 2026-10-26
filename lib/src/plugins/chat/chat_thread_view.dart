@@ -633,10 +633,11 @@ class _ThreadHeader extends StatelessWidget {
         final channel = chat.channel(siteUrl, target.channelId);
         final title = thread?.title?.trim();
         final root = thread?.originalMessage;
+        // The original message's excerpt is decoded when parsed, so it is
+        // plain text here and must not be read as markup a second time.
         final original = chatMessageSummary(
-          excerpt: root?.excerpt,
-          cooked: root?.cooked,
-          raw: root?.message?.split('\n').first,
+          cooked: root?.excerpt == null ? root?.cooked : null,
+          raw: root?.excerpt ?? root?.message?.split('\n').first,
           deleted: root?.deletedAt != null,
         );
         return ChatConversationHeader(

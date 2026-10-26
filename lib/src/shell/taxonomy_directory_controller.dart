@@ -832,6 +832,9 @@ final class _TaxonomyDirectoryController
           site.anonymousDefaultTags = tags;
           site.tagSidebarCache = null;
         }
+        if (result.anonymousSearchAllowed case final allowed?) {
+          _shell.search.allowAnonymousSearch(instance.url, allowed);
+        }
         if (!result.complete) site.categorised = false;
         _shell._notify();
       });

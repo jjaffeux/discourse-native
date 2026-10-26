@@ -851,6 +851,186 @@ void main() {
         expect(controller.store.read<Topic>(site.url, 1)!.hasUnread, isFalse);
       });
 
+      testWidgets('reading the end before ignored replies marks them read', (
+        tester,
+      ) async {
+        final site = instance('meta.example').copyWith(user: _reader);
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        // TopicView leaves an ignored user's posts out of the stream and
+        // reports them as a gap after the last post the reader can see.
+        controller.store
+          ..put(
+            site.url,
+            const TopicDetail(
+              id: 1,
+              title: 'Ignored ending',
+              stream: [100, 101],
+              gapsAfter: {
+                101: [102, 103],
+              },
+              postsCount: 4,
+              highestPostNumber: 2,
+            ),
+          )
+          ..putAll(site.url, const [
+            Post(
+              id: 100,
+              postNumber: 1,
+              username: 'sam',
+              cooked: '<p>The question</p>',
+            ),
+            Post(
+              id: 101,
+              postNumber: 2,
+              username: 'alex',
+              cooked: '<p>The last visible reply</p>',
+            ),
+          ])
+          ..put(
+            site.url,
+            const Topic(
+              id: 1,
+              title: 'Ignored ending',
+              slug: 'ignored-ending',
+              unreadPosts: 3,
+              lastReadPostNumber: 1,
+              highestPostNumber: 4,
+            ),
+          );
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 1,
+            slug: 'ignored-ending',
+            title: 'Ignored ending',
+          ),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              )
+              .first,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        expect(
+          api.topicReadsRecorded,
+          containsAll([
+            (topicId: 1, postNumber: 2),
+            (topicId: 1, postNumber: 4),
+          ]),
+        );
+        final row = controller.store.read<Topic>(site.url, 1)!;
+        expect(row.lastReadPostNumber, 4);
+        expect(row.hasUnread, isFalse);
+      });
+
+      testWidgets('a summary ending before ignored replies credits only it', (
+        tester,
+      ) async {
+        final site = instance('meta.example').copyWith(user: _reader);
+        const detail = TopicDetail(
+          id: 1,
+          title: 'Summarized ending',
+          stream: [100, 101],
+          gapsAfter: {
+            101: [102, 103],
+          },
+          postsCount: 4,
+          highestPostNumber: 2,
+          hasSummary: true,
+        );
+        const posts = [
+          Post(
+            id: 100,
+            postNumber: 1,
+            username: 'sam',
+            cooked: '<p>The question</p>',
+          ),
+          Post(
+            id: 101,
+            postNumber: 2,
+            username: 'alex',
+            cooked: '<p>The last summarized reply</p>',
+          ),
+        ];
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          summaryTopics: {1: (detail: detail, posts: posts)},
+        );
+        final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([site]),
+          api: api,
+          authenticator: authenticator,
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        controller.store
+          ..put(site.url, detail)
+          ..putAll(site.url, posts)
+          ..put(
+            site.url,
+            const Topic(
+              id: 1,
+              title: 'Summarized ending',
+              slug: 'summarized-ending',
+              unreadPosts: 3,
+              lastReadPostNumber: 1,
+              highestPostNumber: 4,
+            ),
+          );
+        controller.pushContent(
+          ContentRoute.topic(
+            topicId: 1,
+            slug: 'summarized-ending',
+            title: 'Summarized ending',
+          ),
+        );
+
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
+        expect(await controller.toggleTopicSummary(), isNull);
+        await tester.pumpAndSettle();
+        expect(controller.focusedTabContext.currentTopicSummary, isTrue);
+        await tester.drag(
+          find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              )
+              .first,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 2)]);
+        final row = controller.store.read<Topic>(site.url, 1)!;
+        expect(row.lastReadPostNumber, 2);
+        expect(row.hasUnread, isTrue);
+      });
+
       testWidgets('restores the position inside a long final post on reopen', (
         tester,
       ) async {

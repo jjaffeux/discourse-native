@@ -3227,7 +3227,11 @@ class ShellController extends FrameSafeNotifier
                   .replace(queryParameters: {'search': route.topicListSearch})
                   .toString();
       }
-      if (route.isAdvancedTopicFilter) return route.topicFilterRequestPath;
+      if (route.isAdvancedTopicFilter) {
+        return route.topicFilterRequestPath(
+          (id) => categoryFor(id, siteUrl: instance.url),
+        );
+      }
       if (route.feedPath != null) return route.feedPath;
       if (route.destination case FeedDestination(mode: final mode?)) {
         return mode.feedPath ?? '/latest.json';
@@ -5272,6 +5276,8 @@ class ShellController extends FrameSafeNotifier
             context.isCurrent &&
             context.currentContent?.topicId == topicId &&
             topicScrollPostNumber(topicId, tabId: context.tabId) == null,
+        sessionRead: () =>
+            _topicReads.lastReadPostNumberFor(instance.url, topicId),
         resume: (number) {
           final target = _targetCurrentTopicPost(
             number,

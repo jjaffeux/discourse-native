@@ -426,19 +426,51 @@ class ContentRoute {
   String _topicFilterScopedQuery(
     List<String> tags, {
     required bool forRequest,
+    String? category,
   }) => [
     topicFilterQuery,
     if (forRequest && topicListSearch.isNotEmpty) topicListSearch,
-    if (categoryId != null) 'category:$categoryId',
+    if (categoryId != null) 'category:${category ?? categoryId}',
     if (tags.isNotEmpty)
       'tag:${forRequest ? tags.map(topicFilterScopeValue).join('+') : topicFilterScopeValue(tags.join('+'))}',
   ].where((part) => part.isNotEmpty).join(' ');
 
   /// Only q/page are understood by /filter.json. Compile taxonomy into q.
-  String get topicFilterRequestPath => Uri(
-    path: '/filter.json',
-    queryParameters: {'q': _topicFilterScopedQuery(tagNames, forRequest: true)},
-  ).toString();
+  String topicFilterRequestPath(TopicCategory? Function(int id) categoryById) =>
+      Uri(
+        path: '/filter.json',
+        queryParameters: {
+          'q': _topicFilterScopedQuery(
+            tagNames,
+            forRequest: true,
+            category: _categorySlugPath(categoryById),
+          ),
+        },
+      ).toString();
+
+  /// Core resolves `category:` by slug path alone and blanks an all-digit
+  /// value, so an id there matches no category. A multi-segment path must
+  /// start at a top-level category, while a lone slug matches under any
+  /// parent, so an ancestor that cannot be named leaves the category's own.
+  String? _categorySlugPath(TopicCategory? Function(int id) categoryById) {
+    final category = switch (categoryId) {
+      final id? => categoryById(id),
+      null => null,
+    };
+    if (category == null || category.slug.isEmpty) return null;
+    final slugs = [category.slug];
+    final visited = {category.id};
+    var parentId = category.parentCategoryId;
+    while (parentId != null) {
+      final parent = categoryById(parentId);
+      if (parent == null || parent.slug.isEmpty || !visited.add(parent.id)) {
+        return category.slug;
+      }
+      slugs.insert(0, parent.slug);
+      parentId = parent.parentCategoryId;
+    }
+    return slugs.join(':');
+  }
 
   factory ContentRoute.homepage(
     SiteConfig config, {

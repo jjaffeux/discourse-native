@@ -481,11 +481,15 @@ final class ComposerDraftCoordinator {
     }
   }
 
+  /// [keptOnServer] marks a post core queued for review: only a created post
+  /// advances the draft sequence, which is what deletes its server draft.
   void settleAfterSubmission(
     ComposerController composer,
     SiteLease lease, {
     int? sequence,
+    bool keptOnServer = false,
   }) {
+    final submittedSequence = composer.draftSequence;
     forgetKnownServerDraft(composer);
     final session = _sessions[composer];
     if (session != null) {
@@ -517,6 +521,33 @@ final class ComposerDraftCoordinator {
       composer.draftSequence = sequence;
       session?._baseSequence = sequence;
     }
+    if (keptOnServer && session != null) {
+      unawaited(_clearKeptServerDraft(session, target, submittedSequence));
+    }
+  }
+
+  Future<void> _clearKeptServerDraft(
+    ComposerDraftSession session,
+    ComposerTarget target,
+    int submittedSequence,
+  ) async {
+    final lease = session._lease;
+    bool current() => !_isDisposed() && lease.isCurrent;
+    try {
+      await _serialize<void>(session._keyFor(target), () async {
+        if (!current()) return;
+        final credential = await _readCredential(target.siteUrl, lease);
+        if (!current() || credential.failure != null) return;
+        await credential.request!.run(
+          () => _draftsApi.deleteUserDraft(
+            siteUrl: target.siteUrl,
+            apiKey: credential.request!.apiKey!,
+            draftKey: target.draftKey,
+            sequence: _writeSequence(session, target, submittedSequence),
+          ),
+        );
+      });
+    } catch (_) {}
   }
 
   void forgetKnownServerDraft(ComposerController composer) {

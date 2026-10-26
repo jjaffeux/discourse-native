@@ -40,7 +40,12 @@ double _contrastRatio(Color first, Color second) {
 
 Color _sidebarGuideColor(BuildContext context) {
   final tokens = DTokens.of(context);
-  final background = _PanelScope.backgroundOf(context) ?? tokens.surface;
+  // A translucent panel shows the page beneath it, so measure the guide
+  // against that page rather than against the panel's missing fill.
+  final background = Color.alphaBlend(
+    _PanelScope.backgroundOf(context) ?? tokens.surface,
+    tokens.background,
+  );
   final paintedBorder = Color.alphaBlend(tokens.border, background);
   if (_contrastRatio(paintedBorder, background) >=
       _minimumSidebarGuideContrast) {

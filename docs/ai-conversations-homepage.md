@@ -11,9 +11,13 @@ The client settings `discourse_ai_enabled` and `ai_bot_enabled` gate the feature
 For a connected account, `ai_enabled_chat_bots` supplies group-enabled LLM bot
 users. Entries with `is_agent: true` are insufficient: the server includes agents
 that cannot receive PMs there. `ai_enabled_agents` supplies allowed agents and
-`allow_personal_messages` with `username` identifies a PM agent. This also covers
-agents allowed outside `ai_bot_allowed_groups`. Startup waits for the fresh
-current-user snapshot before committing this registered homepage.
+`allow_personal_messages` with `username` identifies a PM agent. Servers before
+discourse-ai commit `b8d8fea87e0` allowed such agents outside
+`ai_bot_allowed_groups`. Later servers add the agent's bot `user_id` to each
+entry and answer PMs only for group members, the only users sent
+`ai_enabled_chat_bots`, so an entry with `user_id` also needs that key. Startup
+waits for the fresh current-user snapshot before committing this registered
+homepage.
 
 The server can serve an anonymous HTML preview when
 `EntryPoint.anonymous_preview_allowed?` permits it, but its JSON list requires

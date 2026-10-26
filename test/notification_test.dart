@@ -152,6 +152,23 @@ void main() {
       );
     });
 
+    test('a mention in a review queue note opens the reviewable', () {
+      final notification = parse(
+        CoreNotificationTypes.mentioned,
+        data: const {
+          'reviewable_id': 31,
+          'reviewable_note_id': 5,
+          'topic_title': 'Flagged post in "Welcome"',
+          'display_username': 'moderator',
+        },
+      );
+
+      expect(
+        resolveCoreNotification(_siteUrl, notification).path,
+        '/review/31',
+      );
+    });
+
     test('upcoming change notifications open the filtered admin page', () {
       for (final type in [
         CoreNotificationTypes.upcomingChangeAvailable,

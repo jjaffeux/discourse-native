@@ -653,8 +653,11 @@ final class ChatLiveSyncCoordinator {
           {
             'id': threadId,
             'reply_count': jsonInt(preview['reply_count']),
-            // Incremental events omit title; retain it until detail refreshes.
+            // Incremental events omit title and force; retain them until
+            // detail refreshes.
             'title': heldThread?.title ?? current?.thread?.title,
+            'force':
+                heldThread?.force == true || current?.thread?.force == true,
             'preview': preview,
           },
           siteUrl,

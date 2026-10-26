@@ -22,6 +22,15 @@ final class DismissNewTopicsCommand {
   final TopicListMode mode;
   final String? tagName;
 
+  /// Core's reset-new takes one tag and never reads the list's search, so a
+  /// list narrowed further is dismissed by the topic ids it lists.
+  bool get listsTopicIds =>
+      route.tagNames.length > 1 || route.topicListSearch.isNotEmpty;
+
+  /// Without a category or tag, reset-new also moves `new_since`, clearing
+  /// New forum-wide whatever topic ids it is given.
+  bool get widensToForum => route.categoryId == null && tagName == null;
+
   bool get dismissTopics => mode != TopicListMode.newReplies;
   bool get dismissPosts =>
       instance.user?.unifiedNewEnabled == true &&
@@ -111,10 +120,8 @@ final class NewTopicDismissals {
       if (credential.apiKey == null) {
         return DismissNewTopicsFailure.reconnect;
       }
-      // Core accepts one tag. Resolve the full intersection before a bulk
-      // write when this app's list has multiple tags.
       List<int>? topicIds;
-      if (route.tagNames.length > 1) {
+      if (scope.listsTopicIds) {
         topicIds = [];
         String? path = route.feedPath;
         final visited = <String>{};

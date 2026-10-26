@@ -3337,6 +3337,32 @@ void main() {
       expect(composer.text.text, isEmpty);
     });
 
+    test('alt and scale edits keep the image suffixes core renders', () {
+      // `|thumbnail` picks the topic thumbnail and `|key=value` becomes a
+      // data attribute; the web composer keeps both through these edits.
+      for (final (source, alt, scaled) in const [
+        (
+          '![cover|640x480|thumbnail](upload://photo)',
+          '![new|640x480|thumbnail](upload://photo)',
+          '![new|640x480, 50%|thumbnail](upload://photo)',
+        ),
+        (
+          '![cover|640x480, 75%|focus=top|thumbnail](upload://photo)',
+          '![new|640x480, 75%|focus=top|thumbnail](upload://photo)',
+          '![new|640x480, 50%|focus=top|thumbnail](upload://photo)',
+        ),
+      ]) {
+        final composer = ComposerController(_target);
+        addTearDown(composer.dispose);
+        composer.text.text = source;
+
+        composer.setImageAlt(composer.text.imageBlocks.single, 'new');
+        expect(composer.text.text, alt);
+        composer.setImageScale(composer.text.imageBlocks.single, 50);
+        expect(composer.text.text, scaled);
+      }
+    });
+
     test(
       'edits gallery membership, mode, and wrapper without deleting images',
       () {

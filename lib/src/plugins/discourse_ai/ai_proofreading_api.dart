@@ -20,7 +20,9 @@ final class AiProofreadingApi {
       siteUrl: siteUrl,
       path: aiProofreadingPath,
       apiKey: apiKey,
-      body: {'text': text, 'mode': 'proofread'},
+      // Without it the server tells the model to answer in the reader's
+      // interface locale, which can translate the reply instead of fixing it.
+      body: {'text': text, 'mode': 'proofread', 'force_default_locale': true},
     );
     for (final suggestion in jsonArray(body['suggestions'])) {
       if (suggestion is String && suggestion.trim().isNotEmpty) {

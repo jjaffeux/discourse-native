@@ -138,7 +138,8 @@ final class BookmarkLinkResolver {
         }
         return null;
       }
-      if (targetBookmark != null && targetBookmark.coreTargetType == null) {
+      if (targetBookmark?.bookmarkableType != null &&
+          targetBookmark!.coreTargetType == null) {
         return null;
       }
       final bookmarkCurrent = account.guard(link.topicId);
@@ -161,15 +162,24 @@ final class BookmarkLinkResolver {
           !bookmarkCurrent()) {
         return null;
       }
+      // Core's user menu serializes neither the target type nor its id; the
+      // topic's own bookmark list names which target holds this bookmark.
+      final target =
+          targetBookmark == null || targetBookmark.bookmarkableType != null
+          ? targetBookmark
+          : payload.detail.bookmarks
+                .where((bookmark) => bookmark.id == targetBookmark.id)
+                .firstOrNull;
+      if (targetBookmark != null && target == null) return null;
       final topicTarget =
-          targetBookmark?.coreTargetType == BookmarkTargetType.topic ||
-          (targetBookmark == null && link.postNumber == null);
+          target?.coreTargetType == BookmarkTargetType.topic ||
+          (target == null && link.postNumber == null);
       final post = topicTarget
           ? null
           : payload.posts
                 .where(
-                  (post) => targetBookmark?.bookmarkableId != null
-                      ? post.id == targetBookmark!.bookmarkableId
+                  (post) => target?.bookmarkableId != null
+                      ? post.id == target!.bookmarkableId
                       : post.postNumber == link.postNumber,
                 )
                 .firstOrNull;
@@ -177,8 +187,8 @@ final class BookmarkLinkResolver {
         return null;
       }
       if (topicTarget &&
-          targetBookmark?.bookmarkableId != null &&
-          targetBookmark!.bookmarkableId != link.topicId) {
+          target?.bookmarkableId != null &&
+          target!.bookmarkableId != link.topicId) {
         return null;
       }
       final type = topicTarget

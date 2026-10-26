@@ -160,7 +160,7 @@ final class ChatThreadOriginalMessage {
       author: ChatMessageAuthor.fromJson(value['user'], siteUrl),
       message: jsonText(value['message']),
       cooked: jsonText(value['cooked']),
-      excerpt: jsonText(value['excerpt']),
+      excerpt: jsonHtmlText(value['excerpt']),
       createdAt: jsonDate(value['created_at']),
       deletedAt: jsonDate(value['deleted_at']),
     );

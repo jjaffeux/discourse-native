@@ -186,6 +186,7 @@ final class CategoryLoadResult {
     SitePostActionCatalog? postActionCatalog,
     Iterable<SidebarTag>? siteTopTags,
     Iterable<SidebarTag>? anonymousDefaultTags,
+    bool? anonymousSearchAllowed,
   }) {
     final immutableCategories = List<TopicCategory>.unmodifiable(categories);
     return CategoryLoadResult._(
@@ -203,6 +204,7 @@ final class CategoryLoadResult {
       anonymousDefaultTags == null
           ? null
           : List<SidebarTag>.unmodifiable(anonymousDefaultTags),
+      anonymousSearchAllowed,
     );
   }
 
@@ -214,6 +216,7 @@ final class CategoryLoadResult {
     this.postActionCatalog,
     this.siteTopTags,
     this.anonymousDefaultTags,
+    this.anonymousSearchAllowed,
   );
 
   final List<TopicCategory> categories;
@@ -236,6 +239,11 @@ final class CategoryLoadResult {
   /// Authenticated post-action metadata from the page-one `/site.json` read.
   /// Null means that metadata was not requested or did not arrive.
   final SitePostActionCatalog? postActionCatalog;
+
+  /// Core's `allow_anonymous_search`, as the anonymous page-one `/site.json`
+  /// read reports it through `can_search`. Null means that read was
+  /// authenticated, failed, or was not made.
+  final bool? anonymousSearchAllowed;
 }
 
 /// Compile-time aggregate accepted only at the shell composition boundary.

@@ -29,7 +29,7 @@ final class AssignGlobalSearch extends GlobalSearchContribution {
     ),
     GlobalSearchFilter(
       id: "assignee",
-      lookup: GlobalSearchLookup.groups,
+      lookup: GlobalSearchLookup.contributed,
       singleIdentifier: true,
       rejectQuotes: true,
       label: appL10n.assignedToAssignmenttopiclist,
@@ -52,4 +52,40 @@ final class AssignGlobalSearch extends GlobalSearchContribution {
       settings['assign_enabled'] == true &&
       authenticated &&
       user['can_assign_globally'] == true;
+
+  /// `assigned:` matches a username before a group name, so suggest both, as
+  /// the web's advanced search does.
+  @override
+  Future<List<GlobalSearchFilterChoice>> lookup(
+    GlobalSearchReadContext context,
+    GlobalSearchFilter filter,
+    String term,
+  ) async {
+    if (!context.authenticated || filter.id != 'assignee') return const [];
+    final body = await context.get(
+      Uri(
+        path: '/u/search/users.json',
+        queryParameters: {
+          'term': term,
+          'include_groups': 'true',
+          'assignable_groups': 'true',
+          'limit': '20',
+        },
+      ).toString(),
+    );
+    return [
+      for (final row in jsonObjects(body['users']))
+        if (jsonText(row['username']) case final username?)
+          GlobalSearchFilterChoice(
+            value: username,
+            label: jsonText(row['name']) ?? username,
+          ),
+      for (final row in jsonObjects(body['groups']))
+        if (jsonText(row['name']) case final name?)
+          GlobalSearchFilterChoice(
+            value: name,
+            label: jsonText(row['full_name']) ?? name,
+          ),
+    ].take(30).toList(growable: false);
+  }
 }

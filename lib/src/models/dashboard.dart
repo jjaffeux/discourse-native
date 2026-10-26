@@ -298,9 +298,11 @@ final class DashboardReportResult {
     return key == null ? null : jsonText(jsonObject(properties)[key]);
   }
 
+  /// Report rows are database text (titles, raw, edit reasons) that the web
+  /// escapes cell by cell, so markup in them is content, not formatting.
   static String _reportCell(Object? value) => switch (value) {
     null => '—',
-    String() => jsonHtmlText(value) ?? '',
+    String() => jsonText(value) ?? '',
     num() => value.toString(),
     bool() => value.toString(),
     _ => '—',

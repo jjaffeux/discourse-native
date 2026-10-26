@@ -34,11 +34,13 @@ class QuoteData {
 
   static QuoteData from(dom.Element element) {
     final isAside = element.localName == 'aside';
+    // Core writes the title row and body as the aside's own children; a
+    // quote nested in the body carries its own, which never describe this one.
     final titleEl = isAside
-        ? descendantWhere(element, (e) => e.classes.contains('title'))
+        ? childWhere(element, (e) => e.classes.contains('title'))
         : null;
     final blockquote = isAside
-        ? descendantWhere(element, (e) => e.localName == 'blockquote')
+        ? childWhere(element, (e) => e.localName == 'blockquote')
         : element;
 
     final avatar = titleEl == null

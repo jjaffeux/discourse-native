@@ -649,6 +649,8 @@ final class GroupsController extends FrameSafeNotifier {
         if (pendingUpdate != null) {
           _unreconciledUpdates.remove(key);
           _projectUpdatedGroup(instance.url, pendingUpdate, detail.group);
+        } else {
+          _projectDirectoryGroup(instance.url, detail.group);
         }
         final detailKey = pendingUpdate == null
             ? key
@@ -1118,32 +1120,45 @@ final class GroupsController extends FrameSafeNotifier {
   Future<GroupWriteOutcome<void>> join(
     DiscourseInstance instance,
     Group group,
-  ) => _mutate(
-    instance,
-    group,
-
-    (apiKey, clientId) => api.join(
-      siteUrl: instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupId: group.id,
-    ),
-  );
+  ) async {
+    final joined = await _mutate(
+      instance,
+      group,
+      (apiKey, clientId) => api.join(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+      ),
+    );
+    if (joined.canApplyLocally) await _refreshMemberLists(instance, group);
+    return joined;
+  }
 
   Future<GroupWriteOutcome<void>> leave(
     DiscourseInstance instance,
     Group group,
-  ) => _mutate(
-    instance,
-    group,
+  ) {
+    final reader = instance.user?.username.toLowerCase();
+    return _mutate(
+      instance,
+      group,
 
-    (apiKey, clientId) => api.leave(
-      siteUrl: instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupId: group.id,
-    ),
-  );
+      (apiKey, clientId) => api.leave(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+      ),
+      removeCachedRows: reader == null
+          ? null
+          : () => _removeCachedMembers(
+              instance.url,
+              group,
+              (member) => member.username.toLowerCase() == reader,
+            ),
+    );
+  }
 
   Future<GroupWriteOutcome<String?>> requestMembership(
     DiscourseInstance instance,
@@ -1167,46 +1182,51 @@ final class GroupsController extends FrameSafeNotifier {
     Group group,
     GroupRequester requester, {
     required bool accept,
-  }) => _mutate(
-    instance,
-    group,
-
-    (apiKey, clientId) => api.handleMembershipRequest(
-      siteUrl: instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupId: group.id,
-      userId: requester.id,
-      accept: accept,
-    ),
-    refreshDetail: false,
-    removeCachedRows: () {
-      final keys = _requesters.keys.where(
-        (key) =>
-            key.siteUrl == instance.url &&
-            key.groupName == _normalize(group.name),
-      );
-      for (final key in keys.toList()) {
-        final held = _requesters[key]!;
-        final rows = held.requesters
-            .where((item) => item.id != requester.id)
-            .toList(growable: false);
-        final removed = held.requesters.length - rows.length;
-        if (removed == 0) continue;
-        _requesters[key] = GroupRequestersState(
-          requesters: rows,
-          total: _subtractRemovedRows(held.total, removed),
-          nextOffset: _subtractRemovedRows(held.nextOffset, removed),
-          hasMore: held.hasMore,
-          loading: held.loading,
-          loadingMore: held.loadingMore,
-          loaded: held.loaded,
-          error: held.error,
-          pageError: held.pageError,
+  }) async {
+    final handled = await _mutate(
+      instance,
+      group,
+      (apiKey, clientId) => api.handleMembershipRequest(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+        userId: requester.id,
+        accept: accept,
+      ),
+      refreshDetail: accept,
+      removeCachedRows: () {
+        final keys = _requesters.keys.where(
+          (key) =>
+              key.siteUrl == instance.url &&
+              key.groupName == _normalize(group.name),
         );
-      }
-    },
-  );
+        for (final key in keys.toList()) {
+          final held = _requesters[key]!;
+          final rows = held.requesters
+              .where((item) => item.id != requester.id)
+              .toList(growable: false);
+          final removed = held.requesters.length - rows.length;
+          if (removed == 0) continue;
+          _requesters[key] = GroupRequestersState(
+            requesters: rows,
+            total: _subtractRemovedRows(held.total, removed),
+            nextOffset: _subtractRemovedRows(held.nextOffset, removed),
+            hasMore: held.hasMore,
+            loading: held.loading,
+            loadingMore: held.loadingMore,
+            loaded: held.loaded,
+            error: held.error,
+            pageError: held.pageError,
+          );
+        }
+      },
+    );
+    if (accept && handled.canApplyLocally) {
+      await _refreshMemberLists(instance, group);
+    }
+    return handled;
+  }
 
   Future<GroupWriteOutcome<GroupMembershipMutationResult>> addMembers(
     DiscourseInstance instance,
@@ -1229,13 +1249,10 @@ final class GroupsController extends FrameSafeNotifier {
       ),
     );
     if (!result.canApplyLocally) return result;
-    final membersRefreshed = await loadMembers(
+    final membersRefreshed = await _refreshMemberLists(
       instance,
-      group.name,
-      filter: filter,
-      order: order,
-      ascending: ascending,
-      refresh: true,
+      group,
+      shown: _memberListKey(instance.url, group.name, filter, order, ascending),
     );
     final accepted =
         result as GroupWriteAccepted<GroupMembershipMutationResult>;
@@ -1288,31 +1305,69 @@ final class GroupsController extends FrameSafeNotifier {
       groupId: group.id,
       userIds: [member.id],
     ),
-    removeCachedRows: () {
-      _members.updateAll((key, held) {
-        if (key.siteUrl != instance.url ||
-            key.groupName != _normalize(group.name)) {
-          return held;
-        }
-        final rows = held.members
-            .where((item) => item.id != member.id)
-            .toList(growable: false);
-        final removed = held.members.length - rows.length;
-        if (removed == 0) return held;
-        return GroupMembersState(
-          members: rows,
-          total: _subtractRemovedRows(held.total, removed),
-          nextOffset: _subtractRemovedRows(held.nextOffset, removed),
-          hasMore: held.hasMore,
-          loading: held.loading,
-          loadingMore: held.loadingMore,
-          loaded: held.loaded,
-          error: held.error,
-          pageError: held.pageError,
-        );
-      });
-    },
+    removeCachedRows: () => _removeCachedMembers(
+      instance.url,
+      group,
+      (item) => item.id == member.id,
+    ),
   );
+
+  /// Refreshes [shown] and every other cached member list of [group] after a
+  /// write that adds members. A page shows a list it loaded earlier from the
+  /// cache when it returns to it, so a list left alone would lack the members.
+  Future<bool> _refreshMemberLists(
+    DiscourseInstance instance,
+    Group group, {
+    _MemberListKey? shown,
+  }) async {
+    final groupName = _normalize(group.name);
+    final keys = {
+      ?shown,
+      ..._members.keys.where(
+        (key) => key.siteUrl == instance.url && key.groupName == groupName,
+      ),
+    };
+    final refreshed = await Future.wait([
+      for (final key in keys)
+        loadMembers(
+          instance,
+          group.name,
+          filter: key.filter,
+          order: key.order,
+          ascending: key.ascending,
+          refresh: true,
+        ),
+    ]);
+    return refreshed.every((ok) => ok);
+  }
+
+  void _removeCachedMembers(
+    String siteUrl,
+    Group group,
+    bool Function(GroupMember member) removes,
+  ) {
+    _members.updateAll((key, held) {
+      if (key.siteUrl != siteUrl || key.groupName != _normalize(group.name)) {
+        return held;
+      }
+      final rows = held.members
+          .where((item) => !removes(item))
+          .toList(growable: false);
+      final removed = held.members.length - rows.length;
+      if (removed == 0) return held;
+      return GroupMembersState(
+        members: rows,
+        total: _subtractRemovedRows(held.total, removed),
+        nextOffset: _subtractRemovedRows(held.nextOffset, removed),
+        hasMore: held.hasMore,
+        loading: held.loading,
+        loadingMore: held.loadingMore,
+        loaded: held.loaded,
+        error: held.error,
+        pageError: held.pageError,
+      );
+    });
+  }
 
   Future<GroupWriteOutcome<void>> setMemberOwner(
     DiscourseInstance instance,
@@ -1655,34 +1710,8 @@ final class GroupsController extends FrameSafeNotifier {
       _logs.removeWhere(
         (key, _) => key.siteUrl == siteUrl && names.contains(key.groupName),
       );
-      for (final request in _requests.values) {
-        if (request.siteUrl == siteUrl && request.key is _DirectoryKey) {
-          request.directoryReplacements[updated.id] = updated;
-        }
-      }
-      for (final entry in _directories.entries) {
-        final state = entry.value;
-        if (entry.key.siteUrl != siteUrl ||
-            !state.groups.any((group) => group.id == updated.id)) {
-          continue;
-        }
-        _directories[entry.key] = GroupDirectoryState._(
-          groups: List.unmodifiable([
-            for (final group in state.groups)
-              group.id == updated.id ? updated : group,
-          ]),
-          typeFilters: state.typeFilters,
-          totalRows: state.totalRows,
-          nextPage: state.nextPage,
-          hasMore: state.hasMore,
-          loading: state.loading,
-          loadingMore: state.loadingMore,
-          loaded: state.loaded,
-          error: state.error,
-          pageError: state.pageError,
-        );
-      }
     }
+    _projectDirectoryGroup(siteUrl, updated);
     _details[newKey] = GroupDetailState(
       detail: GroupDetail(
         group: updated,
@@ -1690,6 +1719,39 @@ final class GroupsController extends FrameSafeNotifier {
       ),
       loaded: true,
     );
+  }
+
+  /// Replaces [updated]'s row in every cached directory list of [siteUrl],
+  /// and in directory pages still loading, with this newer server copy. The
+  /// directory is shown from its cache when the page returns to it.
+  void _projectDirectoryGroup(String siteUrl, Group updated) {
+    for (final request in _requests.values) {
+      if (request.siteUrl == siteUrl && request.key is _DirectoryKey) {
+        request.directoryReplacements[updated.id] = updated;
+      }
+    }
+    for (final entry in _directories.entries) {
+      final state = entry.value;
+      if (entry.key.siteUrl != siteUrl ||
+          !state.groups.any((group) => group.id == updated.id)) {
+        continue;
+      }
+      _directories[entry.key] = GroupDirectoryState._(
+        groups: List.unmodifiable([
+          for (final group in state.groups)
+            group.id == updated.id ? updated : group,
+        ]),
+        typeFilters: state.typeFilters,
+        totalRows: state.totalRows,
+        nextPage: state.nextPage,
+        hasMore: state.hasMore,
+        loading: state.loading,
+        loadingMore: state.loadingMore,
+        loaded: state.loaded,
+        error: state.error,
+        pageError: state.pageError,
+      );
+    }
   }
 
   Future<GroupWriteOutcome<T>> _mutate<T>(

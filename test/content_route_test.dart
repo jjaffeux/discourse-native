@@ -392,6 +392,53 @@ void main() {
     });
   });
 
+  test('a filter names its category by the rooted slug path core resolves', () {
+    const product = TopicCategory(
+      id: 1,
+      name: 'Product',
+      slug: 'product',
+      color: 'FF0000',
+    );
+    const mid = TopicCategory(
+      id: 2,
+      name: 'Mid',
+      slug: 'mid',
+      color: 'FF0000',
+      parentCategoryId: 1,
+    );
+    const bugs = TopicCategory(
+      id: 3,
+      name: 'Bugs',
+      slug: 'bugs',
+      color: 'FF0000',
+      parentCategoryId: 2,
+    );
+    String? query(Map<int, TopicCategory> loaded) => Uri.parse(
+      ContentRoute.topicFilter(
+        'status:open',
+        categoryId: 3,
+      ).topicFilterRequestPath((id) => loaded[id]),
+    ).queryParameters['q'];
+
+    expect(
+      query({1: product, 2: mid, 3: bugs}),
+      'status:open category:product:mid:bugs',
+    );
+    // Core roots a multi-segment path at a top-level category, so `mid:bugs`
+    // would match nothing; a lone slug matches under any parent.
+    expect(query({2: mid, 3: bugs}), 'status:open category:bugs');
+    expect(query({3: bugs}), 'status:open category:bugs');
+    expect(
+      query({
+        1: const TopicCategory(id: 1, name: '产品', color: 'FF0000'),
+        2: mid,
+        3: bugs,
+      }),
+      'status:open category:bugs',
+    );
+    expect(query(const {}), 'status:open category:3');
+  });
+
   test(
     'advanced filters round trip with taxonomy and compile one API query',
     () {
@@ -406,9 +453,10 @@ void main() {
       expect(restored.topicFilterQuery, 'status:open');
       expect(restored.categoryId, 42);
       expect(restored.tagNames, ['ux', 'bug']);
-      expect(Uri.parse(restored.topicFilterRequestPath).queryParameters, {
-        'q': 'status:open category:42 tag:ux+bug',
-      });
+      expect(
+        Uri.parse(restored.topicFilterRequestPath((_) => null)).queryParameters,
+        {'q': 'status:open category:42 tag:ux+bug'},
+      );
       expect(
         ContentRoute.fromJson({
           ...route.toJson(),

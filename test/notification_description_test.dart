@@ -156,6 +156,29 @@ void main() {
       );
     });
 
+    test('a like several people gave names who else liked it', () {
+      final two = describe(
+        CoreNotificationTypes.liked,
+        count: 2,
+        data: const {'username2': 'alex'},
+      );
+      expect(two.actor, 'sam, alex');
+      expect(line(two), 'sam, alex liked your post in Better image handling');
+      expect(
+        describe(
+          CoreNotificationTypes.liked,
+          count: 3,
+          data: const {'username2': 'alex'},
+        ).actor,
+        'sam and 2 others',
+      );
+      expect(
+        describe(CoreNotificationTypes.liked, count: 1).actor,
+        'sam',
+        reason: 'a single like names only its liker',
+      );
+    });
+
     test('core notifications without actors stand on their own', () {
       final badge = describe(
         CoreNotificationTypes.grantedBadge,
@@ -227,6 +250,25 @@ void main() {
           ),
         ),
         "'Experimental sidebar' and 3 more changes are available for preview",
+      );
+    });
+
+    test('a renamed topic is named by its current title', () {
+      const sentTitle = {'topic_title': 'Image handling draft'};
+
+      final reply = describe(CoreNotificationTypes.replied, data: sentTitle);
+      expect(reply.subject, 'Better image handling');
+      expect(line(reply), 'sam replied to Better image handling');
+      expect(
+        line(describe(CoreNotificationTypes.bookmarkReminder, data: sentTitle)),
+        'Reminder: Better image handling',
+      );
+      expect(
+        line(
+          describe(CoreNotificationTypes.replied, title: '', data: sentTitle),
+        ),
+        'sam replied to Image handling draft',
+        reason: 'without a topic on the envelope the sent title remains',
       );
     });
 

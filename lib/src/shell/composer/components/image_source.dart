@@ -19,6 +19,7 @@ class ComposerImageBlock {
     this.height,
     this.scale,
     this.markdownDestination,
+    this.suffix = '',
   });
 
   final int start;
@@ -31,6 +32,10 @@ class ComposerImageBlock {
   final int? scale;
   final String? markdownDestination;
 
+  /// The `|` segments after the size that core renders as attributes of the
+  /// image, written back after any edit to the alt or size.
+  final String suffix;
+
   bool get hasDimensions => width != null && height != null;
 
   String toMarkdown({String? alt, int? width, int? height, int? scale}) {
@@ -40,7 +45,7 @@ class ComposerImageBlock {
     final dimensions = nextWidth != null && nextHeight != null
         ? '|${nextWidth}x$nextHeight${nextScale == null ? '' : ', $nextScale%'}'
         : '';
-    return '![${composerImageAlt(alt ?? this.alt)}$dimensions]'
+    return '![${composerImageAlt(alt ?? this.alt)}$dimensions$suffix]'
         '(${markdownDestination ?? url})';
   }
 }
@@ -65,7 +70,7 @@ final class ComposerVideoBlock {
 // The ", N%" scale is only syntax after "|WxH", mirroring Discourse's own
 // image-scale pattern; without dimensions the suffix is the author's alt text.
 final RegExp _labelPattern = RegExp(
-  r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(?:\|.*)?$',
+  r'^(.*?)(?:\|(\d{1,4})x(\d{1,4})(?:,\s*(\d{1,3})%)?)?(\|.*)?$',
 );
 
 // Core's `IMG_SIZE_REGEX`, restated so that no run of digits can be divided
@@ -97,6 +102,22 @@ final RegExp _dataAttributeSuffixPattern = RegExp(r'[\w\-:.]*=');
     title: unescapeImageAlt(segments.take(first).join('|')),
     media: segments[first],
   );
+}
+
+// `|thumbnail` marks the image core picks as the topic thumbnail and
+// `|key=value` becomes a data attribute; the web composer keeps both through
+// alt and scale edits. A further size would override the edited one, and any
+// other text is part of core's alt, so neither is carried.
+String _attributeSuffix(String? rest) {
+  if (rest == null) return '';
+  final segments = rest.substring(1).split('|');
+  return segments.every(
+        (segment) =>
+            _isKnownImageSuffix(segment) &&
+            _imageSizeSuffixPattern.matchAsPrefix(segment) == null,
+      )
+      ? rest
+      : '';
 }
 
 bool _isKnownImageSuffix(String segment) =>
@@ -132,6 +153,7 @@ List<ComposerImageBlock> parseComposerImages(
         width: hasValidDimensions ? width : null,
         height: hasValidDimensions ? height : null,
         scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
+        suffix: _attributeSuffix(label.group(5)),
       ),
     );
   }

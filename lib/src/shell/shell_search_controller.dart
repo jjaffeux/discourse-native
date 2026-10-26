@@ -13,6 +13,8 @@ class ShellSearchController extends ChangeNotifier {
   final RecentSearchHistory history;
 
   String? _siteUrl;
+  bool _authenticated = true;
+  final Set<String> _anonymousSearchDenied = {};
   bool _panelOpen = false;
   ValueChanged<SearchFocusMode>? _focusField;
   Object? _focusRegistration;
@@ -72,6 +74,12 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   String? get siteUrl => _siteUrl;
+
+  /// Core's `Guardian#can_search?`: a signed-in reader can always search, an
+  /// anonymous one only where the site allows anonymous search.
+  bool get canSearch =>
+      _siteUrl != null &&
+      (_authenticated || !_anonymousSearchDenied.contains(_siteUrl));
   bool get panelOpen => _panelOpen;
   List<String> get recentSearches => history.terms;
 
@@ -114,17 +122,33 @@ class ShellSearchController extends ChangeNotifier {
       authenticated: authenticated,
       logSearchQueries: logSearchQueries,
     );
+    final wasSearchable = canSearch;
+    _authenticated = authenticated;
     if (_siteUrl != siteUrl) {
       _siteUrl = siteUrl;
       clear();
-    } else if (changed) {
+    } else if (!canSearch) {
+      if (wasSearchable) clear();
+    } else if (changed || !wasSearchable) {
       _notify();
       if (_panelOpen) unawaited(history.load());
     }
   }
 
+  void allowAnonymousSearch(String siteUrl, bool allowed) {
+    if (_disposed) return;
+    final wasSearchable = canSearch;
+    if (allowed) {
+      _anonymousSearchDenied.remove(siteUrl);
+    } else {
+      _anonymousSearchDenied.add(siteUrl);
+    }
+    if (canSearch == wasSearchable) return;
+    canSearch ? _notify() : clear();
+  }
+
   void openPanel() {
-    if (_siteUrl == null) return;
+    if (!canSearch) return;
     if (!_panelOpen) {
       _panelOpen = true;
       _notify();
@@ -139,6 +163,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void forget(String siteUrl) {
+    _anonymousSearchDenied.remove(siteUrl);
     _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);
     _usersQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
     _startPageQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -171,6 +196,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void activateField(Object field) {
+    if (!canSearch) return;
     if (!identical(_activeField, field)) {
       _activeField = field;
       _panelOpen = true;
@@ -182,7 +208,7 @@ class ShellSearchController extends ChangeNotifier {
   }
 
   void requestFocus({SearchFocusMode mode = SearchFocusMode.global}) {
-    if (_siteUrl == null) return;
+    if (!canSearch) return;
     _focusField?.call(mode);
     openPanel();
   }

@@ -1453,6 +1453,36 @@ void main() {
     }
   }
 
+  testWidgets('an untitled thread header reads its excerpt once, as served', (
+    tester,
+  ) async {
+    final thread = ChatThread.fromJson(const {
+      'id': _threadId,
+      'channel_id': _channelId,
+      'status': 'open',
+      'reply_count': 5,
+      'title': null,
+      'current_user_membership': {
+        'thread_id': _threadId,
+        'notification_level': 2,
+      },
+      'original_message': {
+        'id': 10,
+        'chat_channel_id': _channelId,
+        'user': {'id': 7, 'username': 'reader'},
+        'message': 'Wrap it in <details> please',
+        'cooked': '<p>Wrap it in &lt;details&gt; please</p>',
+        'excerpt': 'Wrap it in &lt;details&gt; please',
+      },
+    }, _siteUrl);
+    final fixture = await _fixture(thread: thread);
+    addTearDown(fixture.shell.dispose);
+
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+
+    expect(find.text('Wrap it in <details> please'), findsOneWidget);
+  });
+
   testWidgets('original author can edit the thread title', (tester) async {
     final fixture = await _fixture(editableThread: true);
     addTearDown(fixture.shell.dispose);

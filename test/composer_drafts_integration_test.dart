@@ -3446,6 +3446,40 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved.single['data'], contains('Half a thought'));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('a queued reply clears the draft core keeps for it', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draftSequence: 4)},
+        creation: const PostCreation(
+          outcome: PostOutcome.enqueued,
+          message: 'Your post is in the queue.',
+        ),
+      );
+
+      await openComposer(tester, api);
+      await tester.enterText(_composerField, 'Held for review');
+      await settleDraft(tester);
+      expect(api.draftsSaved.single['sequence'], 4);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byKey(const ValueKey('composer-submit')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your post is in the queue.'), findsOneWidget);
+      expect(api.userDraftsDeleted, [
+        (
+          siteUrl: 'https://meta.discourse.org',
+          draftKey: 'topic_7',
+          sequence: 5,
+        ),
+      ]);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('a new draft after a queued reply uses its returned sequence', (
       tester,
     ) async {

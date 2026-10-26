@@ -122,6 +122,58 @@ void main() {
   );
 
   test(
+    'a site with the assign search endpoint searches the target there',
+    () async {
+      final transport = _RecordingPluginTransport()
+        ..getResponse = {
+          'suggestions': [
+            {'id': 1, 'username': 'sam'},
+          ],
+          'groups': [
+            {'name': 'triage', 'full_name': 'Triage Team'},
+          ],
+        };
+      final api = AssignApi(transport);
+      final scope = await api.suggestions(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        target: const AssignmentTarget.post(71, topicId: 42),
+      );
+      transport.getResponse = {
+        'users': [
+          {'id': 9, 'username': 'trinity'},
+        ],
+        'groups': [
+          {'name': 'triage', 'full_name': 'Triage Team'},
+        ],
+      };
+
+      final result = await api.searchAssignees(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        term: 'tri',
+        suggestions: scope,
+      );
+
+      expect(scope.initialAssignees, const [
+        AssignmentUser(id: 1, username: 'sam'),
+        AssignmentGroup(name: 'triage'),
+      ]);
+      final uri = Uri.parse(transport.getPaths.last);
+      expect(uri.path, '/assign/search.json');
+      expect(uri.queryParameters, {
+        'term': 'tri',
+        'target_id': '71',
+        'target_type': 'Post',
+      });
+      expect(result, const [
+        AssignmentUser(id: 9, username: 'trinity'),
+        AssignmentGroup(name: 'triage', fullName: 'Triage Team'),
+      ]);
+    },
+  );
+
+  test(
     'an empty user-group scope never broadens search beyond direct groups',
     () async {
       final transport = _RecordingPluginTransport();

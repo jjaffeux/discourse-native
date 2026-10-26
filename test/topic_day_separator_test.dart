@@ -188,6 +188,61 @@ void main() {
     });
   }
 
+  testWidgets('last visit marker follows posts read on an earlier visit', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(800, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final site = instance('meta.example');
+    final controller = _controller(site);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        const TopicDetail(
+          id: 1,
+          title: 'A conversation',
+          stream: [1, 2, 3, 4],
+          postsCount: 4,
+          lastReadPostNumber: 1,
+        ),
+      )
+      ..putAll(site.url, [
+        for (var number = 1; number <= 4; number++)
+          Post(
+            id: number,
+            postNumber: number,
+            username: 'sam',
+            cooked: '<p>Post $number</p>',
+          ),
+      ]);
+    // An earlier visit this session read through post 3. The held detail
+    // still carries the last read it was fetched with.
+    await controller.markTopicRead(
+      site.url,
+      1,
+      3,
+      caughtUp: false,
+      readPostNumbers: const [2],
+    );
+    controller.pushContent(
+      ContentRoute.topic(
+        topicId: 1,
+        slug: 'conversation',
+        title: 'A conversation',
+      ),
+    );
+
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('topic-last-visit-4')), findsOneWidget);
+    expect(find.text('New since your last visit'), findsOneWidget);
+  });
+
   for (final loaded in [
     const [1, 3],
     const [3],

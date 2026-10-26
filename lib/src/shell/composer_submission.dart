@@ -445,7 +445,11 @@ final class _ComposerSubmissionOwner {
         data?.acceptNewTopicPost(creation.post!);
       }
     }
-    _settleDraft(attempt, sequence: creation.draftSequence);
+    _settleDraft(
+      attempt,
+      sequence: creation.draftSequence,
+      keptOnServer: creation.isEnqueued,
+    );
     if (creation.isEnqueued) {
       if (_editorCurrent(attempt)) attempt.editor.enqueued(creation.message);
       return _SubmissionAccepted(attempt, const _SubmissionEnqueued());
@@ -468,7 +472,11 @@ final class _ComposerSubmissionOwner {
     );
   }
 
-  void _settleDraft(_ComposerAttempt attempt, {int? sequence}) {
+  void _settleDraft(
+    _ComposerAttempt attempt, {
+    int? sequence,
+    bool keptOnServer = false,
+  }) {
     if (!_accountCurrent(attempt)) return;
     final editor = attempt.editor;
     final settlesOriginalDraft =
@@ -478,6 +486,7 @@ final class _ComposerSubmissionOwner {
       editor,
       attempt.lease,
       sequence: sequence,
+      keptOnServer: keptOnServer,
     );
     if (!_accountCurrent(attempt)) return;
     final target = attempt.target;

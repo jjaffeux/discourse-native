@@ -494,6 +494,10 @@ final class DiscourseSiteApi {
       anonymousDefaultTags: siteResult?.body == null
           ? null
           : _navigationTags(site['anonymous_default_navigation_menu_tags']),
+      // Servers older than the setting omit `can_search`; they allow search.
+      anonymousSearchAllowed: apiKey != null || siteResult?.body == null
+          ? null
+          : site['can_search'] != false,
     );
   }
 

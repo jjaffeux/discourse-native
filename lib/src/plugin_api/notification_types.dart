@@ -367,7 +367,7 @@ ResolvedNotification? _decodeCoreNotification(
     42 => false,
     _ => true,
   };
-  final actor = namesActor
+  final actingName = namesActor
       ? notification.actingUserName ??
             jsonText(
               data['display_username'] ??
@@ -376,6 +376,18 @@ ResolvedNotification? _decodeCoreNotification(
             ) ??
             appL10n.someone
       : null;
+  // One `liked` row stands for every recent like on the post: `count` people,
+  // the newest as the actor and the one before as `username2`.
+  final secondLiker = jsonText(data['name2'] ?? data['username2']);
+  final actor = switch (actingName) {
+    final name? when type == 5 && count == 2 && secondLiker != null =>
+      appL10n.likedByTwoUsers(name, secondLiker),
+    final name? when type == 5 && count >= 2 => appL10n.likedByMultipleUsers(
+      count - 1,
+      name,
+    ),
+    _ => actingName,
+  };
   final phrase = switch (type) {
     1 || 15 => appL10n.mentionedYouInNotificationtypes((title).toString()),
     2 => appL10n.repliedTo((title).toString()),
@@ -526,7 +538,9 @@ String? _corePath(String siteUrl, DiscourseNotification notification) {
   final username = jsonText(data['username']);
   final group = jsonText(data['group_name']);
   final displayUsername = jsonText(data['display_username']);
+  final reviewableId = jsonIntOrNull(data['reviewable_id']);
   final ownPath = switch (type) {
+    1 when reviewableId != null && reviewableId > 0 => '/review/$reviewableId',
     12 => _badgePath(data),
     16 when username != null && group != null =>
       '/u/$username/messages/group/$group',
@@ -558,10 +572,13 @@ String? _corePath(String siteUrl, DiscourseNotification notification) {
   return null;
 }
 
+/// The envelope's title is the topic's current one, so it wins over the
+/// payload's `topic_title`, which was the title when the row was written.
 String _coreTopicTitle(DiscourseNotification notification) {
+  if (notification.title.isNotEmpty) return notification.title;
   final payloadTitle = notification.data['topic_title'];
   if (payloadTitle is String && payloadTitle.isNotEmpty) return payloadTitle;
-  return notification.title.isEmpty ? appL10n.aTopic : notification.title;
+  return appL10n.aTopic;
 }
 
 /// A reminder names what was bookmarked. A post or topic bookmark carries
@@ -571,9 +588,9 @@ String _coreTopicTitle(DiscourseNotification notification) {
 /// back to.
 String _reminderTitle(DiscourseNotification notification) {
   final data = notification.data;
+  if (notification.title.isNotEmpty) return notification.title;
   final topicTitle = data['topic_title'];
   if (topicTitle is String && topicTitle.isNotEmpty) return topicTitle;
-  if (notification.title.isNotEmpty) return notification.title;
   final title = data['title'];
   if (title is String && title.isNotEmpty) return title;
   return appL10n.aTopic;

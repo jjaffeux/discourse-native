@@ -79,6 +79,10 @@ final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
   VoiceIncomingCallAcceptance? parked;
   Timer? confirmationDeadline;
 
+  /// The Mute the user set on the answered system call while no call could
+  /// take its controls yet.
+  bool systemMuted = false;
+
   void unpark() {
     confirmationDeadline?.cancel();
     confirmationDeadline = null;
@@ -166,6 +170,19 @@ final class VoiceIncomingCalls {
         _VoiceIncomingAnswer(:final parked?) when parked.isCurrent => parked,
         _ => null,
       };
+
+  /// Whether the user muted the answered system call before a call took it
+  /// over. The system keeps showing Mute on, so that call joins muted.
+  bool get answeredCallMuted => switch (_incomingAdmission) {
+    _VoiceIncomingAnswer(:final systemMuted) => systemMuted,
+    _ => false,
+  };
+
+  void answeredCallMuteChanged(bool muted) {
+    if (_incomingAdmission case final _VoiceIncomingAnswer answer) {
+      answer.systemMuted = muted;
+    }
+  }
 
   bool attach(String siteUrl, int? userId, PluginLiveChannelHandle tracker) {
     if (_closed || userId == null || _ringSubscriptions.containsKey(siteUrl)) {
