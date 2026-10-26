@@ -230,6 +230,25 @@ void main() {
       );
     });
 
+    test('a renamed topic is named by its current title', () {
+      const sentTitle = {'topic_title': 'Image handling draft'};
+
+      final reply = describe(CoreNotificationTypes.replied, data: sentTitle);
+      expect(reply.subject, 'Better image handling');
+      expect(line(reply), 'sam replied to Better image handling');
+      expect(
+        line(describe(CoreNotificationTypes.bookmarkReminder, data: sentTitle)),
+        'Reminder: Better image handling',
+      );
+      expect(
+        line(
+          describe(CoreNotificationTypes.replied, title: '', data: sentTitle),
+        ),
+        'sam replied to Image handling draft',
+        reason: 'without a topic on the envelope the sent title remains',
+      );
+    });
+
     test('a missing actor uses a safe subject', () {
       expect(
         line(describe(CoreNotificationTypes.replied, actor: null)),
