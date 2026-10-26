@@ -189,49 +189,54 @@ void main() {
     expect(host.currentContent?.title, 'Watercooler');
   });
 
-  testWidgets('a current site serves its rooms and links under Live', (
-    tester,
-  ) async {
-    const siteUrl = 'https://voice.example';
-    final site = PluginHostSite(
-      url: siteUrl,
-      apiKey: 'key',
-      user: const PluginHostUser(id: 1, username: 'reader'),
-      config: SiteConfig.fromSettings(const {
-        'live_enabled': true,
-      }, extensions: _voiceRegistry),
-    );
-    final transport = RecordingPluginTransport(
-      responses: {
-        'GET /live/rooms.json': {
-          'rooms': [_room],
-          'can_create_room': false,
-        },
+  for (final (settings, root) in const [
+    ({'live_enabled': true}, '/live'),
+    ({'voice_enabled': true}, '/voice'),
+  ]) {
+    testWidgets(
+      'a site sending ${settings.keys.single} serves rooms and links under '
+      '$root',
+      (tester) async {
+        const siteUrl = 'https://voice.example';
+        final site = PluginHostSite(
+          url: siteUrl,
+          apiKey: 'key',
+          user: const PluginHostUser(id: 1, username: 'reader'),
+          config: SiteConfig.fromSettings(settings, extensions: _voiceRegistry),
+        );
+        final transport = RecordingPluginTransport(
+          responses: {
+            'GET $root/rooms.json': {
+              'rooms': [_room],
+              'can_create_room': false,
+            },
+          },
+        );
+        final host = await PluginHostHarness.open(
+          transport: transport,
+          manifest: _voiceManifest,
+          sites: [site],
+        );
+        addTearDown(host.close);
+
+        final voice = host.require(voiceShellService);
+        // Room hashtags and invitations link under the site's own namespace.
+        expect(await voice.openPluginUrl('$root/r/watercooler'), isTrue);
+        expect(host.currentContent?.id, 'voice-room-7');
+        expect(
+          await voice.openPluginUrl('$root/r/watercooler/invited-by/Inviter'),
+          isTrue,
+        );
+        expect(transport.reads.map((request) => request.path), [
+          '$root/rooms.json',
+        ]);
+        expect(
+          voice.inviteLinkFor(siteUrl, VoiceRoom.fromJson(_room)),
+          'https://voice.example$root/r/watercooler/invited-by/reader',
+        );
       },
     );
-    final host = await PluginHostHarness.open(
-      transport: transport,
-      manifest: _voiceManifest,
-      sites: [site],
-    );
-    addTearDown(host.close);
-
-    final voice = host.require(voiceShellService);
-    // Room hashtags and invitations on a current site link under /live/r/.
-    expect(await voice.openPluginUrl('/live/r/watercooler'), isTrue);
-    expect(host.currentContent?.id, 'voice-room-7');
-    expect(
-      await voice.openPluginUrl('/live/r/watercooler/invited-by/Inviter'),
-      isTrue,
-    );
-    expect(transport.reads.map((request) => request.path), [
-      '/live/rooms.json',
-    ]);
-    expect(
-      voice.inviteLinkFor(siteUrl, VoiceRoom.fromJson(_room)),
-      'https://voice.example/live/r/watercooler/invited-by/reader',
-    );
-  });
+  }
 
   testWidgets('a cooked room without Voice falls back to its safe link', (
     tester,

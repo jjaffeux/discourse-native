@@ -89,13 +89,16 @@ final class VoiceClientConfig {
     );
   }
 
-  /// A config stored without its namespace was read from `voice_*` settings,
-  /// so any site it found Voice enabled on predates the rename.
+  /// A config stored without its namespace was read from `voice_*` settings
+  /// alone: a site it found Voice enabled on predates the rename, and one it
+  /// found disabled has most likely renamed the plugin already.
   factory VoiceClientConfig.fromJson(Map<String, dynamic> json) =>
       VoiceClientConfig(
         namespace:
             VoiceNamespace.values.asNameMap()[json['namespace']] ??
-            VoiceNamespace.voice,
+            (json['enabled'] == true
+                ? VoiceNamespace.voice
+                : VoiceNamespace.live),
         enabled: json['enabled'] == true,
         videoEnabled: json['videoEnabled'] == true,
         videoMaxPublishers: _boundedInt(
