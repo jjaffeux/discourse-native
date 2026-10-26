@@ -60,6 +60,7 @@ final class BoardsPlugin
             SidebarDestination(
               id: 'boards',
               label: context.l10n.boardsTitle,
+              mobileNavigationLabel: context.l10n.boardsTitle,
               icon: boardsIcon,
             ),
           ]
