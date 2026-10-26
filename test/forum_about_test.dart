@@ -2,6 +2,17 @@ import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('reads the Live participant stat a current site reports', () {
+    final about = ForumAbout.fromJson({
+      'about': {
+        'stats': {'live_users_7_days': 9},
+      },
+    });
+
+    expect(about.voiceParticipants(voiceEnabled: true), 9);
+    expect(about.voiceParticipants(voiceEnabled: false), isNull);
+  });
+
   test('reads flat About stats and server identity', () {
     final about = ForumAbout.fromJson({
       'about': {

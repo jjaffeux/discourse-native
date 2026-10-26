@@ -36,9 +36,11 @@ final class VoicePlugin
         SitePreferencesPlugin {
   const VoicePlugin();
 
+  /// Drafts saved before the Live rename keep their `new_topic_voice_` key.
   @override
   PluginDraftPresentation? draftPresentation(UserDraft draft) =>
-      draft.key.startsWith('new_topic_voice_')
+      draft.key.startsWith('new_topic_live_') ||
+          draft.key.startsWith('new_topic_voice_')
       ? PluginDraftPresentation(
           label: appL10n.callTranscriptDraft,
           icon: DIcons.closedCaptioning,
@@ -83,14 +85,18 @@ final class VoicePlugin
   @override
   PluginDataKey<VoiceUserCardData> get record => voiceUserCardKey;
 
-  /// Serializer presence is the gate: the site only writes `voice_can_call`
-  /// for viewers allowed to start calls, and it already folds in whether
-  /// this particular user may be rung.
+  /// Serializer presence is the gate: the site only writes `live_can_call`
+  /// (`voice_can_call` before the Live rename) for viewers allowed to start
+  /// calls, and it already folds in whether this particular user may be rung.
   @override
-  VoiceUserCardData? readUserCard(Map<String, dynamic> json, String siteUrl) =>
-      json.containsKey('voice_can_call')
-      ? VoiceUserCardData(canCall: json['voice_can_call'] == true)
-      : null;
+  VoiceUserCardData? readUserCard(Map<String, dynamic> json, String siteUrl) {
+    for (final field in const ['live_can_call', 'voice_can_call']) {
+      if (json.containsKey(field)) {
+        return VoiceUserCardData(canCall: json[field] == true);
+      }
+    }
+    return null;
+  }
 
   @override
   List<Widget> userCardActions(

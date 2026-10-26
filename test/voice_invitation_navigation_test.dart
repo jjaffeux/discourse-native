@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -310,7 +311,7 @@ final class _HeldResponse {
 final class _Harness {
   _Harness() {
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       chatConversations: FakeChatConversationCapability(),
       requests: requests,
       trackerFor: (_) => null,

@@ -615,7 +615,12 @@ final class VoiceController extends ChangeNotifier {
     String siteUrl,
     PluginLiveChannelHandle tracker,
   ) {
-    final changed = _incoming.attach(siteUrl, _userIdFor(siteUrl), tracker);
+    final changed = _incoming.attach(
+      siteUrl,
+      _userIdFor(siteUrl),
+      tracker,
+      namespace: api.namespaceFor(siteUrl),
+    );
     for (final entry in _chats.entries) {
       if (entry.key.$1 == siteUrl) entry.value.syncTracker();
     }

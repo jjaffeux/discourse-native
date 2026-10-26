@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_user_card.dart';
 import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
@@ -26,6 +27,23 @@ const registry = PluginRegistry([VoicePlugin()]);
 const site = 'https://voice.example';
 
 void main() {
+  test("Voice reads a current site's Live call permission", () {
+    expect(
+      registry
+          .readUserCard(const {'live_can_call': true}, site)
+          .get(voiceUserCardKey)
+          ?.canCall,
+      isTrue,
+    );
+    expect(
+      registry
+          .readUserCard(const {'live_can_call': false}, site)
+          .get(voiceUserCardKey)
+          ?.canCall,
+      isFalse,
+    );
+  });
+
   test("Voice reads the site's call permission off the user card", () {
     expect(
       registry
@@ -201,7 +219,7 @@ final class _CallHarness {
       },
     );
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       chatConversations: FakeChatConversationCapability(),
       requests: PluginTestRequestHost(apiKeys: const {site: 'key'}),
       trackerFor: (_) => null,

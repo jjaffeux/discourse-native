@@ -5,6 +5,12 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import 'voice_callkit.dart';
 import 'voice_models.dart';
+import 'voice_settings.dart';
+
+typedef _VoiceRingSubscription = ({
+  String channel,
+  PluginLiveChannelSubscription subscription,
+});
 
 /// How long a call answered from the system's UI waits for the user to
 /// confirm the peer-to-peer warning in the app: long enough to unlock the
@@ -149,7 +155,7 @@ final class VoiceIncomingCalls {
   final void Function() onChanged;
   final DateTime Function() clock;
   final Timer Function(Duration, void Function()) timerFactory;
-  final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
+  final Map<String, _VoiceRingSubscription> _rings = {};
   final Set<String> _handledRings = {};
   _VoiceIncomingAdmission? _incomingAdmission;
   bool _closed = false;
@@ -184,19 +190,30 @@ final class VoiceIncomingCalls {
     }
   }
 
-  bool attach(String siteUrl, int? userId, PluginLiveChannelHandle tracker) {
-    if (_closed || userId == null || _ringSubscriptions.containsKey(siteUrl)) {
-      return false;
-    }
-    _ringSubscriptions[siteUrl] = tracker.subscribe(
-      '/voice/call-ring/$userId',
-      (data, _) => _onRingEvent(siteUrl, data),
+  bool attach(
+    String siteUrl,
+    int? userId,
+    PluginLiveChannelHandle tracker, {
+    required VoiceNamespace namespace,
+  }) {
+    if (_closed || userId == null) return false;
+    // A site's tracker can attach before its settings name the namespace, so
+    // a later sync moves the ring to the channel the settings settle on.
+    final channel = '${namespace.root}/call-ring/$userId';
+    if (_rings[siteUrl]?.channel == channel) return false;
+    _rings.remove(siteUrl)?.subscription.cancel();
+    _rings[siteUrl] = (
+      channel: channel,
+      subscription: tracker.subscribe(
+        channel,
+        (data, _) => _onRingEvent(siteUrl, data),
+      ),
     );
     return true;
   }
 
   void detach(String siteUrl) {
-    _ringSubscriptions.remove(siteUrl)?.cancel();
+    _rings.remove(siteUrl)?.subscription.cancel();
     if (_ringingCall?.siteUrl == siteUrl) {
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     }
@@ -454,8 +471,8 @@ final class VoiceIncomingCalls {
     final completion = Completer<void>();
     _closeOperation = completion.future;
     _closed = true;
-    final subscriptions = _ringSubscriptions.values.toList();
-    _ringSubscriptions.clear();
+    final subscriptions = [for (final ring in _rings.values) ring.subscription];
+    _rings.clear();
     retireAnswer();
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     unawaited(

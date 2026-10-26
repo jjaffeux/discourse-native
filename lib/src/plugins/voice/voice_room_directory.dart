@@ -383,11 +383,12 @@ final class _VoiceRoomDirectory {
     }
     final tracker = controller._trackerFor(siteUrl);
     if (tracker == null) return;
+    final root = controller.api.namespaceFor(siteUrl).root;
     final run = _subscriptionRun;
     bool ownsSubscription() => isCurrent && identical(run, _subscriptionRun);
     var changed = false;
     if (directory != null && _directorySubscription == null) {
-      _directorySubscription = tracker.subscribe('/voice/rooms/index', (
+      _directorySubscription = tracker.subscribe('$root/rooms/index', (
         data,
         messageId,
       ) {
@@ -411,7 +412,7 @@ final class _VoiceRoomDirectory {
       );
       if (_roomSubscriptions.containsKey(room.id)) continue;
       late final PluginLiveChannelSubscription subscription;
-      subscription = tracker.subscribe('/voice/rooms/${room.id}', (
+      subscription = tracker.subscribe('$root/rooms/${room.id}', (
         data,
         messageId,
       ) {

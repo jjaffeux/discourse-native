@@ -8,12 +8,24 @@ const PluginDataKey<VoiceClientConfig> voiceSettingsDataKey = PluginDataKey(
 
 const voiceSettingsPersistenceCodec = VoiceSettingsPersistenceCodec();
 
+/// The name a site's server plugin routes, publishes and configures under.
+/// Discourse renamed the plugin from Voice to Live (discourse 8560d4ac0e9);
+/// sites from before the rename still answer under `voice`.
+enum VoiceNamespace {
+  live,
+  voice;
+
+  /// The site-relative root of the plugin's routes and message-bus channels.
+  String get root => '/$name';
+}
+
 /// Voice's client-marked site settings. These shape native controls but do
 /// not claim the plugin is available; successful directory discovery remains
 /// the capability signal.
 @immutable
 final class VoiceClientConfig {
   const VoiceClientConfig({
+    this.namespace = VoiceNamespace.live,
     this.enabled = false,
     this.videoEnabled = false,
     this.videoMaxPublishers = 8,
@@ -29,46 +41,64 @@ final class VoiceClientConfig {
     this.meshPrivacyWarningEnabled = true,
   });
 
-  factory VoiceClientConfig.fromSettings(Map<String, dynamic> json) =>
-      VoiceClientConfig(
-        enabled: json['voice_enabled'] == true,
-        videoEnabled: json['voice_video_enabled'] == true,
-        videoMaxPublishers: _boundedInt(
-          json['voice_video_max_publishers'],
-          fallback: 8,
-          minimum: 2,
-          maximum: 16,
-        ),
-        recordingEnabled: json['voice_livekit_recording_enabled'] == true,
-        maxVoiceQuality: _quality(json['voice_max_voice_quality']),
-        maxCameraQuality: _quality(json['voice_max_camera_quality']),
-        maxScreenShareQuality: _quality(json['voice_max_screen_share_quality']),
-        idleThresholdMinutes: _boundedInt(
-          json['voice_idle_threshold_minutes'],
-          fallback: 5,
-          minimum: 0,
-          maximum: 60,
-        ),
-        afkAutoMuteThresholdMinutes: _boundedInt(
-          json['voice_afk_auto_mute_threshold_minutes'],
-          fallback: 15,
-          minimum: 0,
-          maximum: 120,
-        ),
-        afkDisconnectThresholdMinutes: _boundedInt(
-          json['voice_afk_disconnect_threshold_minutes'],
-          fallback: 30,
-          minimum: 0,
-          maximum: 240,
-        ),
-        autoStatusEnabled: json['voice_auto_status_enabled'] != false,
-        chatEnabled: json['voice_chat_enabled'] != false,
-        meshPrivacyWarningEnabled:
-            json['voice_mesh_privacy_warning_enabled'] != false,
-      );
+  /// Every client setting carries the server plugin's name, so the one that
+  /// enables it tells which name the site answers under. A site without the
+  /// plugin sends neither and is treated as current.
+  factory VoiceClientConfig.fromSettings(Map<String, dynamic> json) {
+    final namespace =
+        json.containsKey('voice_enabled') && !json.containsKey('live_enabled')
+        ? VoiceNamespace.voice
+        : VoiceNamespace.live;
+    Object? setting(String suffix) => json['${namespace.name}_$suffix'];
+    return VoiceClientConfig(
+      namespace: namespace,
+      enabled: setting('enabled') == true,
+      videoEnabled: setting('video_enabled') == true,
+      videoMaxPublishers: _boundedInt(
+        setting('video_max_publishers'),
+        fallback: 8,
+        minimum: 2,
+        maximum: 16,
+      ),
+      recordingEnabled: setting('livekit_recording_enabled') == true,
+      maxVoiceQuality: _quality(setting('max_voice_quality')),
+      maxCameraQuality: _quality(setting('max_camera_quality')),
+      maxScreenShareQuality: _quality(setting('max_screen_share_quality')),
+      idleThresholdMinutes: _boundedInt(
+        setting('idle_threshold_minutes'),
+        fallback: 5,
+        minimum: 0,
+        maximum: 60,
+      ),
+      afkAutoMuteThresholdMinutes: _boundedInt(
+        setting('afk_auto_mute_threshold_minutes'),
+        fallback: 15,
+        minimum: 0,
+        maximum: 120,
+      ),
+      afkDisconnectThresholdMinutes: _boundedInt(
+        setting('afk_disconnect_threshold_minutes'),
+        fallback: 30,
+        minimum: 0,
+        maximum: 240,
+      ),
+      autoStatusEnabled: setting('auto_status_enabled') != false,
+      chatEnabled: setting('chat_enabled') != false,
+      meshPrivacyWarningEnabled:
+          setting('mesh_privacy_warning_enabled') != false,
+    );
+  }
 
+  /// A config stored without its namespace was read from `voice_*` settings
+  /// alone: a site it found Voice enabled on predates the rename, and one it
+  /// found disabled has most likely renamed the plugin already.
   factory VoiceClientConfig.fromJson(Map<String, dynamic> json) =>
       VoiceClientConfig(
+        namespace:
+            VoiceNamespace.values.asNameMap()[json['namespace']] ??
+            (json['enabled'] == true
+                ? VoiceNamespace.voice
+                : VoiceNamespace.live),
         enabled: json['enabled'] == true,
         videoEnabled: json['videoEnabled'] == true,
         videoMaxPublishers: _boundedInt(
@@ -104,6 +134,7 @@ final class VoiceClientConfig {
         meshPrivacyWarningEnabled: json['meshPrivacyWarningEnabled'] != false,
       );
 
+  final VoiceNamespace namespace;
   final bool enabled;
   final bool videoEnabled;
   final int videoMaxPublishers;
@@ -122,6 +153,7 @@ final class VoiceClientConfig {
   final bool meshPrivacyWarningEnabled;
 
   Map<String, Object?> toJson() => {
+    'namespace': namespace.name,
     'enabled': enabled,
     'videoEnabled': videoEnabled,
     'videoMaxPublishers': videoMaxPublishers,
@@ -140,6 +172,7 @@ final class VoiceClientConfig {
   @override
   bool operator ==(Object other) =>
       other is VoiceClientConfig &&
+      other.namespace == namespace &&
       other.enabled == enabled &&
       other.videoEnabled == videoEnabled &&
       other.videoMaxPublishers == videoMaxPublishers &&
@@ -156,6 +189,7 @@ final class VoiceClientConfig {
 
   @override
   int get hashCode => Object.hash(
+    namespace,
     enabled,
     videoEnabled,
     videoMaxPublishers,

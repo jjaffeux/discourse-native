@@ -51,6 +51,7 @@ import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_video_adapter.dart';
 import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
@@ -6088,7 +6089,7 @@ final class _Harness {
            ),
        media = _MediaFactory(speakingIds) {
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       chatConversations: this.chatConversations,
       requests:
           requests ?? PluginTestRequestHost(apiKeys: const {_siteUrl: 'key'}),

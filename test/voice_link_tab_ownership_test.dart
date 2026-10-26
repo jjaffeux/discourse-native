@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -168,7 +169,7 @@ final class _VoiceLinkModule implements PluginModule {
   void register(PluginRegistrar registrar) {
     registrar.addSession((bindings, _) {
       controller = VoiceController(
-        api: VoiceApi(transport),
+        api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
         requests: bindings.require(corePluginRequestPort),
         chatConversations: FakeChatConversationCapability(),
         trackerFor: (_) => null,

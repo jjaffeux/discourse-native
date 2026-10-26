@@ -84,7 +84,8 @@ final class VoiceShellService
   String? inviteLinkFor(String siteUrl, VoiceRoom room) {
     final username = _currentUsername(siteUrl);
     if (username == null || username.isEmpty) return null;
-    return '$siteUrl/voice/r/${Uri.encodeComponent(room.slug)}/invited-by/'
+    final root = controller.api.namespaceFor(siteUrl).root;
+    return '$siteUrl$root/r/${Uri.encodeComponent(room.slug)}/invited-by/'
         '${Uri.encodeComponent(username.toLowerCase())}';
   }
 
@@ -214,8 +215,10 @@ final class VoiceShellService
     if (!instance.isConnected) return false;
     final path = instance.pathWithin(uri);
     if (path == null) return false;
+    // Current sites link rooms under /live/r/ and still answer the /voice/r/
+    // links written before the rename.
     final match = RegExp(
-      r'^/voice/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
+      r'^/(?:live|voice)/r/([^/]+)(?:/invited-by/([^/]+))?/?$',
     ).firstMatch(path);
     if (match == null) return false;
     final navigation = Object();

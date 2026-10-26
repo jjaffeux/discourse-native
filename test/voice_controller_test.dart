@@ -20,6 +20,7 @@ import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart'
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
+import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/foundation.dart';
@@ -36,6 +37,8 @@ Map<String, dynamic> fixture(String name) =>
         as Map<String, dynamic>;
 
 RecordingPluginLiveChannels tracker(String _) => RecordingPluginLiveChannels();
+
+VoiceNamespace _beforeLiveRename(String _) => VoiceNamespace.voice;
 
 Map<String, dynamic> renamedRoomEvent({
   String type = 'updated',
@@ -912,6 +915,7 @@ void main() {
     FakeChatConversationCapability? conversations,
     Duration heartbeatInterval = const Duration(days: 1),
     FakeVoiceSystemCall? system,
+    VoiceNamespace Function(String siteUrl) namespaceFor = _beforeLiveRename,
   }) {
     controller.dispose();
     transport = value;
@@ -919,7 +923,7 @@ void main() {
     mediaFactory = FakeVoiceMediaFactory();
     systemCall = system ?? FakeVoiceSystemCall();
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: namespaceFor),
       chatConversations: chatConversations,
       requests: requests,
       trackerFor:
@@ -964,7 +968,7 @@ void main() {
     secondTracker = tracker(secondSite);
     chatConversations = seededChatConversations();
     controller = VoiceController(
-      api: VoiceApi(transport),
+      api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
       chatConversations: chatConversations,
       requests: requests,
       trackerFor: (siteUrl) => siteUrl == firstSite
@@ -7611,7 +7615,7 @@ void main() {
         'join_mesh',
       );
       controller = VoiceController(
-        api: VoiceApi(transport),
+        api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
         chatConversations: chatConversations,
         requests: requests,
         trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
@@ -8327,7 +8331,7 @@ void main() {
       transport.responses['DELETE /voice/rooms/9/leave.json'] = {};
       transport.responses['POST /voice/rooms/9/state.json'] = {};
       controller = VoiceController(
-        api: VoiceApi(transport),
+        api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
         chatConversations: chatConversations,
         requests: requests,
         trackerFor: (siteUrl) => siteUrl == firstSite ? firstTracker : null,
@@ -9491,6 +9495,63 @@ void main() {
   });
 
   group('room Chat live session', () {
+    test('a current site is followed on its Live channels', () async {
+      useTransport(
+        RecordingPluginTransport(
+          responses: {
+            'GET /live/rooms.json': fixture('directory'),
+            'GET /live/rooms/7/chat_session.json': fixture('chat'),
+          },
+        ),
+        namespaceFor: (_) => VoiceNamespace.live,
+      );
+      await controller.ensureLoaded(firstSite);
+      await controller.openChat(firstSite, 7);
+
+      expect(
+        firstTracker.channels,
+        unorderedEquals([
+          '/live/rooms/index',
+          '/live/call-ring/1',
+          '/live/rooms/7',
+          '/live/rooms/7/chat',
+        ]),
+      );
+
+      transport.responses['GET /live/rooms/7/chat_session.json'] = {
+        'channel_id': 42,
+        'thread_id': 100,
+      };
+      firstTracker.deliver('/live/rooms/7/chat', {'type': 'updated'});
+      await pumpEventQueue();
+
+      expect(controller.chat(firstSite, 7)?.session.threadId, 100);
+      expect(
+        transport.reads.map((read) => read.path),
+        everyElement(startsWith('/live/')),
+      );
+    });
+
+    test('the call ring moves to the namespace the site settles on', () async {
+      var namespace = VoiceNamespace.voice;
+      useTransport(
+        RecordingPluginTransport(
+          responses: {'GET /live/rooms.json': fixture('directory')},
+        ),
+        namespaceFor: (_) => namespace,
+      );
+      // The shell attaches a site's tracker before it fetches the site's
+      // settings, so the stored config names the namespace at first.
+      controller.attachTracker(firstSite, firstTracker);
+      expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+
+      namespace = VoiceNamespace.live;
+      await controller.ensureLoaded(firstSite);
+
+      expect(firstTracker.subscriberCount('/voice/call-ring/1'), 0);
+      expect(firstTracker.subscriberCount('/live/call-ring/1'), 1);
+    });
+
     test('follows the thread the server rolls the session over to', () async {
       await controller.ensureLoaded(firstSite);
       await controller.openChat(firstSite, 7);
