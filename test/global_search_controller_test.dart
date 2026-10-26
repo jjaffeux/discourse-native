@@ -1532,6 +1532,37 @@ void main() {
     );
   });
 
+  test('assignee suggestions offer people as well as groups', () async {
+    final transport = _Transport()
+      ..responses = {
+        '/u/search/users.json': {
+          'users': [
+            {'username': 'sam', 'name': 'Sam Lee'},
+          ],
+          'groups': [
+            {'name': 'support', 'full_name': 'Support Team'},
+          ],
+        },
+      };
+    final choices = await GlobalSearchApi(transport: transport).lookupChoices(
+      siteUrl: _site,
+      apiKey: 'key',
+      filter: globalSearchFilter('assignee', _caps)!,
+      term: 's',
+      capabilities: _caps,
+    );
+    expect(choices.map((c) => (c.value, c.label)), [
+      ('sam', 'Sam Lee'),
+      ('support', 'Support Team'),
+    ]);
+    expect(transport.paths.single.queryParameters, {
+      'term': 's',
+      'include_groups': 'true',
+      'assignable_groups': 'true',
+      'limit': '20',
+    });
+  });
+
   test(
     'tag choices serialize the canonical name rather than a differing slug',
     () async {
