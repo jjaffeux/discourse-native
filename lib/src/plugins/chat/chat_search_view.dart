@@ -12,8 +12,6 @@ import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
-final RegExp _htmlTags = RegExp(r'<[^>]*>');
-
 class ChatSearchView extends StatefulWidget {
   const ChatSearchView({super.key, required this.siteUrl});
 
@@ -473,7 +471,7 @@ class _ChatSearchResult extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final threadTitle = hit.threadTitle;
-    final preview = (hit.excerpt ?? '').replaceAll(_htmlTags, ' ').trim();
+    final preview = SearchExcerpt.fromHtml(hit.excerpt ?? '').plainText.trim();
     final label = [
       '${hit.message.author.displayName}:',
       if (preview.isNotEmpty) preview,
