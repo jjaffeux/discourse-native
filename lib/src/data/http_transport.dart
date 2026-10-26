@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../foundation/loopback_host.dart';
 import '../foundation/redacted_uri.dart';
+import 'http_basic_auth.dart';
 
 final class UnsafeHttpTransportException implements Exception {
   UnsafeHttpTransportException(Uri url) : url = Uri.parse(redactUri(url));
@@ -61,18 +62,49 @@ Uri resolveSafeHttpRedirect(Uri source, String location) {
 
 /// Rechecks transport safety at the final boundary and refuses redirects.
 final class SafeHttpClient extends http.BaseClient {
-  SafeHttpClient.owned(this._client) : _closeClient = true;
+  SafeHttpClient.owned(this._client, {HttpBasicAuthStore? basicAuth})
+    : basicAuth = _authenticationFor(_client, basicAuth),
+      _closeClient = true;
 
-  SafeHttpClient.borrowed(this._client) : _closeClient = false;
+  SafeHttpClient.borrowed(this._client, {HttpBasicAuthStore? basicAuth})
+    : basicAuth = _authenticationFor(_client, basicAuth),
+      _closeClient = false;
 
-  factory SafeHttpClient.create() => SafeHttpClient.owned(http.Client());
+  factory SafeHttpClient.create({HttpBasicAuthStore? basicAuth}) =>
+      SafeHttpClient.owned(http.Client(), basicAuth: basicAuth);
+
+  static HttpBasicAuthStore _authenticationFor(
+    http.Client client,
+    HttpBasicAuthStore? authentication,
+  ) {
+    if (client is SafeHttpClient) {
+      if (authentication != null &&
+          !identical(authentication, client.basicAuth)) {
+        throw ArgumentError(
+          'Wrapped HTTP clients must share server authentication.',
+        );
+      }
+      return client.basicAuth;
+    }
+    return authentication ?? HttpBasicAuthStore.instance;
+  }
+
+  final HttpBasicAuthStore basicAuth;
+
+  void authenticate(http.BaseRequest request) {
+    requireSafeHttpUrl(request.url);
+    final authorization = basicAuth.authorizationFor(request.url);
+    if (authorization != null) {
+      request.headers.putIfAbsent('Authorization', () => authorization);
+    }
+  }
 
   final http.Client _client;
   final bool _closeClient;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    requireSafeHttpUrl(request.url);
+    authenticate(request);
     request.followRedirects = false;
     return _client.send(request);
   }

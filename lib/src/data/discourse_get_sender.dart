@@ -26,11 +26,22 @@ final class DiscourseGetSender {
     RequestIntent? intent,
   }) {
     assert(request.method == 'GET');
+    final safe = _client is SafeHttpClient ? _client : null;
+    safe?.authenticate(request);
+    final authentication = safe?.basicAuth.identityFor(request.url);
+    void requireAuthentication() {
+      if (safe != null &&
+          !identical(authentication, safe.basicAuth.identityFor(request.url))) {
+        throw DiscourseQueuedRequestCancelledException(request.url);
+      }
+    }
+
     final effectiveTimeout = timeout ?? _timeout;
     assert(effectiveTimeout > Duration.zero);
     return _coordinator.runGet(
       request.url,
       (sharedAbort) {
+        requireAuthentication();
         if (scope != null && !scope.isCurrent) {
           throw DiscourseQueuedRequestCancelledException(request.url);
         }
@@ -45,7 +56,10 @@ final class DiscourseGetSender {
           outgoing,
           timeout: effectiveTimeout,
           maxBodyBytes: _maxResponseBytes,
-        );
+        ).then((response) {
+          requireAuthentication();
+          return response;
+        });
       },
       abortTrigger: cancellation,
       coalesce: DiscourseGetRequestKey(
@@ -54,6 +68,7 @@ final class DiscourseGetSender {
         timeout: effectiveTimeout,
         maxResponseBytes: _maxResponseBytes,
         session: scope?.session,
+        authentication: authentication,
       ),
       intent: intent,
     );

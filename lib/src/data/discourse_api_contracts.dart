@@ -35,6 +35,7 @@ import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import 'http_basic_auth.dart';
 import 'plugin_transport.dart';
 import 'site_message_bus_bootstrap.dart';
 
@@ -292,7 +293,10 @@ abstract interface class DiscourseApiConfiguration {
 }
 
 abstract interface class SiteLookupApi {
-  Future<DiscourseInstance> lookup(String term);
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  });
 
   Future<SiteBasicInfo> basicInfo(String siteUrl);
 }

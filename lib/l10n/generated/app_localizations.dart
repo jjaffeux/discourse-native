@@ -22832,6 +22832,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type \"{title}\" to confirm'**
   String boardsTypeColumnName(String title);
+
+  /// Explains the HTTP Basic Auth prompt for the exact challenged server origin.
+  ///
+  /// In en, this message translates to:
+  /// **'{origin} requires a server username and password.'**
+  String httpBasicAuthenticationRequired(String origin);
+
+  /// Label for the HTTP Basic Auth username, distinct from the Discourse account.
+  ///
+  /// In en, this message translates to:
+  /// **'Server username'**
+  String get httpBasicAuthenticationUsername;
+
+  /// Label for the obscured HTTP Basic Auth password.
+  ///
+  /// In en, this message translates to:
+  /// **'Server password'**
+  String get httpBasicAuthenticationPassword;
+
+  /// Shown when an HTTP Basic Auth discovery retry receives another Basic challenge.
+  ///
+  /// In en, this message translates to:
+  /// **'The server did not accept that username and password. Try again.'**
+  String get httpBasicAuthenticationRejected;
+
+  /// Validation error for an HTTP Basic Auth username or password, without echoing either value.
+  ///
+  /// In en, this message translates to:
+  /// **'The server username cannot contain a colon. Neither field can contain control characters.'**
+  String get httpBasicAuthenticationInvalid;
 }
 
 class _AppLocalizationsDelegate

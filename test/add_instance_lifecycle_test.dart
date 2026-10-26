@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -351,7 +352,10 @@ final class _GatedLookupApi extends FakeDiscourseApi {
   final started = Completer<void>();
 
   @override
-  Future<DiscourseInstance> lookup(String term) async {
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     lookups.add(term);
     started.complete();
     await lookupGate.future;
@@ -366,7 +370,10 @@ final class _RacingLookupApi extends FakeDiscourseApi {
   final newGate = Completer<void>();
 
   @override
-  Future<DiscourseInstance> lookup(String term) async {
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     lookups.add(term);
     if (term == 'old.example') {
       oldStarted.complete();

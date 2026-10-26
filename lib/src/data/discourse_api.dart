@@ -46,6 +46,7 @@ import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
+import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
 import 'plugin_transport.dart';
@@ -72,6 +73,7 @@ class DiscourseApi
         PluginTextTransport {
   DiscourseApi({
     http.Client? client,
+    HttpBasicAuthStore? basicAuth,
     DiscourseTransport? transport,
     this.models = const DiscourseModelCodec.core(),
     this.timeout = const Duration(seconds: 10),
@@ -88,6 +90,7 @@ class DiscourseApi
            transport ??
            DiscourseTransport.create(
              client: client,
+             basicAuth: basicAuth,
              timeout: timeout,
              maxResponseBytes: maxResponseBytes,
            );
@@ -138,7 +141,10 @@ class DiscourseApi
   static Uri normalize(String term) => DiscourseSiteApi.normalize(term);
 
   @override
-  Future<DiscourseInstance> lookup(String term) async => _site.lookup(term);
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async => _site.lookup(term, authentication: authentication);
 
   @override
   Future<SiteBasicInfo> basicInfo(String siteUrl) => _site.basicInfo(siteUrl);

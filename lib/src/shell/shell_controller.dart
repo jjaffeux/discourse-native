@@ -35,6 +35,7 @@ import '../data/emoji_picker_store.dart';
 import '../data/forum_settings_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
+import '../data/http_basic_auth.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
 import '../data/recent_destinations_store.dart';
@@ -53,7 +54,6 @@ import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
-
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/timezone_environment.dart';
@@ -324,6 +324,7 @@ class ShellController extends FrameSafeNotifier
     required ShellApiCapabilities api,
     required this.authenticator,
     required this.drafts,
+    HttpBasicAuthStore? basicAuth,
     EmojiPickerStore? emojiPickerStore,
     AppSettingsStore? appSettingsStore,
     ForumSettingsStore? forumSettingsStore,
@@ -351,7 +352,8 @@ class ShellController extends FrameSafeNotifier
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
     CookingServicePort? cookingService,
-  }) : api = ShellApiPorts.fromCapabilities(api),
+  }) : basicAuth = basicAuth ?? HttpBasicAuthStore.instance,
+       api = ShellApiPorts.fromCapabilities(api),
        forumTabs = forumTabs ?? ForumTabStore.memory(),
        recentDestinations =
            recentDestinations ?? RecentDestinationsStore.memory(),
@@ -430,6 +432,7 @@ class ShellController extends FrameSafeNotifier
     cachedMetadata: cachedMetadata,
   );
 
+  final HttpBasicAuthStore basicAuth;
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
   final RecentDestinationsStore recentDestinations;
@@ -2208,6 +2211,20 @@ class ShellController extends FrameSafeNotifier
         _notify();
       },
       forgetDurableRemoval: () {
+        final origin = Uri.parse(held.url).origin;
+        if (basicAuth.protects(Uri.parse(origin)) &&
+            !_instances.any((site) => Uri.parse(site.url).origin == origin)) {
+          unawaited(
+            basicAuth
+                .forgetOrigin(
+                  Uri.parse(origin),
+                  whenUnused: () => !_instances.any(
+                    (site) => Uri.parse(site.url).origin == origin,
+                  ),
+                )
+                .catchError((Object error, StackTrace stack) {}),
+          );
+        }
         // Start page visits name private messages and direct chats, and stored
         // preferences name the forum, its usernames and what was used there, so
         // both leave with the forum for every account. Only a durable removal

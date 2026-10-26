@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/forum_tab_store.dart';
+import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -1503,7 +1504,10 @@ class FakeDiscourseApi
   Duration get timeout => const Duration(seconds: 10);
 
   @override
-  Future<DiscourseInstance> lookup(String term) async {
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     lookups.add(term);
     final result = results[term];
     if (result != null) return result;

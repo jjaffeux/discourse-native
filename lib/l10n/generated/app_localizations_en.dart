@@ -14511,4 +14511,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String boardsTypeColumnName(String title) {
     return 'Type \"$title\" to confirm';
   }
+
+  @override
+  String httpBasicAuthenticationRequired(String origin) {
+    return '$origin requires a server username and password.';
+  }
+
+  @override
+  String get httpBasicAuthenticationUsername => 'Server username';
+
+  @override
+  String get httpBasicAuthenticationPassword => 'Server password';
+
+  @override
+  String get httpBasicAuthenticationRejected =>
+      'The server did not accept that username and password. Try again.';
+
+  @override
+  String get httpBasicAuthenticationInvalid =>
+      'The server username cannot contain a colon. Neither field can contain control characters.';
 }

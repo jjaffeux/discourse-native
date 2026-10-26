@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discover_sites.dart';
+import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/shell/add_instance_sheet.dart';
 import 'package:discourse_native/src/shell/discover_site_suggestions.dart';
@@ -302,7 +303,10 @@ class _GatedLookupApi extends FakeDiscourseApi {
   final lookupGate = Completer<void>();
 
   @override
-  Future<DiscourseInstance> lookup(String term) async {
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     lookups.add(term);
     await lookupGate.future;
     return instance('community1.example');

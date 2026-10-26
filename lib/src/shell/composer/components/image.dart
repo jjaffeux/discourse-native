@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/d_icons.dart';
 import '../../image_decode.dart';
+import '../../server_image.dart';
 import '../../shell_scope.dart';
 import '../../site_image.dart';
 import '../../skeleton_fill.dart';
@@ -183,7 +184,7 @@ ImageProvider<Object> composerPreviewImageProvider(
   required Size logicalSize,
   required bool measureNaturalSize,
 }) {
-  final provider = NetworkImage(url);
+  final provider = serverImageProvider(url);
   if (measureNaturalSize ||
       !logicalSize.width.isFinite ||
       !logicalSize.height.isFinite ||

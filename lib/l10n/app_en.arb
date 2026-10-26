@@ -19144,5 +19144,30 @@
         "type": "String"
       }
     }
+  },
+  "httpBasicAuthenticationRequired": "{origin} requires a server username and password.",
+  "@httpBasicAuthenticationRequired": {
+    "description": "Explains the HTTP Basic Auth prompt for the exact challenged server origin.",
+    "placeholders": {
+      "origin": {
+        "type": "String"
+      }
+    }
+  },
+  "httpBasicAuthenticationUsername": "Server username",
+  "@httpBasicAuthenticationUsername": {
+    "description": "Label for the HTTP Basic Auth username, distinct from the Discourse account."
+  },
+  "httpBasicAuthenticationPassword": "Server password",
+  "@httpBasicAuthenticationPassword": {
+    "description": "Label for the obscured HTTP Basic Auth password."
+  },
+  "httpBasicAuthenticationRejected": "The server did not accept that username and password. Try again.",
+  "@httpBasicAuthenticationRejected": {
+    "description": "Shown when an HTTP Basic Auth discovery retry receives another Basic challenge."
+  },
+  "httpBasicAuthenticationInvalid": "The server username cannot contain a colon. Neither field can contain control characters.",
+  "@httpBasicAuthenticationInvalid": {
+    "description": "Validation error for an HTTP Basic Auth username or password, without echoing either value."
   }
 }

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
 import '../data/discover_sites.dart';
-
+import '../data/http_basic_auth.dart';
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -78,6 +78,12 @@ class _AddInstanceForm extends StatefulWidget {
 
 class _AddInstanceFormState extends State<_AddInstanceForm> {
   final TextEditingController _field = TextEditingController();
+  final TextEditingController _username = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  Uri? _authenticationOrigin;
+  HttpBasicAuthentication? _authentication;
+  HttpBasicAuthentication? _validatedAuthentication;
+  HttpBasicAuthentication? _pendingAuthentication;
   Timer? _lookupTimer;
   int _lookupGeneration = 0;
   _SiteCheckState _siteCheck = _SiteCheckState.idle;
@@ -89,11 +95,14 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   Future<_SiteCheckResult>? _pendingLookup;
   bool _connecting = false;
   String? _error;
+  String? _credentialError;
 
   @override
   void dispose() {
     _lookupTimer?.cancel();
     _field.dispose();
+    _username.dispose();
+    _password.dispose();
     widget.focusNode.dispose();
     super.dispose();
   }
@@ -113,6 +122,11 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       _validatedInstance = null;
       _validatedController = null;
       _error = null;
+      _credentialError = null;
+      _authenticationOrigin = null;
+      _authentication = null;
+      _username.clear();
+      _password.clear();
     });
 
     if (!canLookup) return;
@@ -145,6 +159,10 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
     }
 
     setState(() {
+      if (result.error case final HttpBasicAuthenticationRequired challenge) {
+        _showAuthentication(challenge);
+        return;
+      }
       final instance = result.instance;
       if (instance == null) {
         _siteCheck = _SiteCheckState.invalid;
@@ -156,6 +174,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
         _validatedTerm = term;
         _validatedInstance = instance;
         _validatedController = controller;
+        _validatedAuthentication = _authentication;
       }
     });
   }
@@ -164,12 +183,14 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
     final pending = _pendingLookup;
     if (pending != null &&
         _pendingTerm == term &&
+        identical(_pendingAuthentication, _authentication) &&
         identical(_pendingController, controller)) {
       return pending;
     }
 
-    final lookup = _performLookup(term, controller);
+    final lookup = _performLookup(term, controller, _authentication);
     _pendingTerm = term;
+    _pendingAuthentication = _authentication;
     _pendingController = controller;
     _pendingLookup = lookup;
     unawaited(
@@ -187,96 +208,171 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   Future<_SiteCheckResult> _performLookup(
     String term,
     ShellController controller,
+    HttpBasicAuthentication? authentication,
   ) async {
     try {
       return _SiteCheckResult.success(
-        await controller.api.siteLookup.lookup(term),
+        await controller.api.siteLookup.lookup(
+          term,
+          authentication: authentication,
+        ),
       );
     } catch (error) {
       return _SiteCheckResult.failure(error);
     }
   }
 
+  void _credentialsChanged(String _) {
+    _lookupTimer?.cancel();
+    ++_lookupGeneration;
+    setState(() {
+      _authentication = null;
+      _validatedInstance = null;
+      _validatedTerm = null;
+      _validatedAuthentication = null;
+      _error = null;
+      _credentialError = null;
+      _siteCheck = _SiteCheckState.authentication;
+    });
+  }
+
+  void _showAuthentication(HttpBasicAuthenticationRequired challenge) {
+    final retried = _authentication?.origin == challenge.origin;
+    if (_authenticationOrigin != challenge.origin) {
+      _username.clear();
+      _password.clear();
+      _authentication = null;
+    }
+    _authenticationOrigin = challenge.origin;
+    _validatedInstance = null;
+    _validatedTerm = null;
+    _siteCheck = _SiteCheckState.authentication;
+    _credentialError = retried ? appL10n.httpBasicAuthenticationRejected : null;
+  }
+
   Future<void> _connect() async {
     final term = _field.text.trim();
     if (term.isEmpty || _connecting) return;
+    if (_authenticationOrigin case final origin?) {
+      try {
+        _authentication ??= HttpBasicAuthentication(
+          origin: origin,
+          username: _username.text,
+          password: _password.text,
+        );
+      } on FormatException {
+        setState(
+          () => _credentialError = appL10n.httpBasicAuthenticationInvalid,
+        );
+        return;
+      }
+    }
 
     _lookupTimer?.cancel();
     _lookupTimer = null;
-    ++_lookupGeneration;
-
+    final generation = ++_lookupGeneration;
     setState(() {
       _connecting = true;
       _siteCheck = _SiteCheckState.checking;
       _error = null;
+      _credentialError = null;
     });
 
     final controller = ShellScope.read(context);
-    String failure;
+    bool current() =>
+        mounted &&
+        generation == _lookupGeneration &&
+        identical(ShellScope.read(context), controller);
+    bool currentRoute() =>
+        current() && ModalRoute.of(context)?.isCurrent == true;
     final cached =
-        _validatedTerm == term && identical(_validatedController, controller)
+        _validatedTerm == term &&
+            identical(_validatedController, controller) &&
+            identical(_validatedAuthentication, _authentication)
         ? _validatedInstance
         : null;
     final result = cached == null
         ? await _lookup(term, controller)
         : _SiteCheckResult.success(cached);
-
-    if (!mounted) return;
-    if (!identical(ShellScope.read(context), controller)) {
+    if (!current()) {
+      if (mounted) {
+        setState(() {
+          _connecting = false;
+          _siteCheck = _SiteCheckState.idle;
+        });
+      }
+      return;
+    }
+    if (result.error case final HttpBasicAuthenticationRequired challenge) {
+      if (!currentRoute()) return;
       setState(() {
         _connecting = false;
-        _siteCheck = _SiteCheckState.idle;
+        _showAuthentication(challenge);
       });
       return;
     }
 
     final instance = result.instance;
+    String failure;
     if (instance != null) {
-      setState(() {
-        _siteCheck = _SiteCheckState.valid;
-        _validatedTerm = term;
-        _validatedInstance = instance;
-        _validatedController = controller;
-      });
-
-      if (!controller.contains(instance.url)) {
-        final added = await controller.addInstance(instance);
-        if (!mounted) return;
-        if (!identical(ShellScope.read(context), controller)) {
-          setState(() => _connecting = false);
-          return;
-        }
-        if (added) {
-          // The barrier and Escape stay live while connecting, and a dismissed
-          // route keeps this State mounted for its exit animation. A success
-          // landing in that window must not pop whatever route is on top now.
-          if (ModalRoute.of(context)?.isCurrent == true) {
-            Navigator.of(context).pop();
+      final renewing =
+          controller.contains(instance.url) &&
+          _authentication?.origin.origin == Uri.parse(instance.url).origin;
+      if (controller.contains(instance.url) && !renewing) {
+        failure = appL10n.isAlreadyInYourList(instance.title);
+      } else {
+        HttpBasicAuthChange? savedAuthentication;
+        try {
+          final authentication = _authentication;
+          if (authentication != null &&
+              authentication.origin.origin == Uri.parse(instance.url).origin) {
+            if (!currentRoute()) return;
+            savedAuthentication = await controller.basicAuth.remember(
+              authentication,
+            );
           }
-          return;
+          if (!current() || (savedAuthentication != null && !currentRoute())) {
+            await savedAuthentication?.rollback();
+            return;
+          }
+          if (renewing) {
+            if (controller.currentInstance?.url == instance.url) {
+              unawaited(controller.refreshCurrentTab());
+            }
+            if (mounted && currentRoute()) Navigator.of(context).pop();
+            return;
+          }
+          final added = await controller.addInstance(instance);
+          if (added) {
+            if (mounted && currentRoute()) Navigator.of(context).pop();
+            return;
+          }
+          await savedAuthentication?.rollback();
+        } catch (_) {
+          try {
+            await savedAuthentication?.rollback();
+          } catch (_) {}
         }
         failure = appL10n.couldnTSaveThisSiteTryAgain;
-      } else {
-        failure = appL10n.isAlreadyInYourList((instance.title).toString());
       }
     } else {
       final error = result.error!;
-
       failure = error is SiteLookupException
           ? error.message
-          : appL10n.couldnTReachAddinstancesheet((term).toString());
+          : appL10n.couldnTReachAddinstancesheet(term);
     }
-
-    if (!mounted) return;
+    if (!current()) return;
     setState(() {
       _connecting = false;
-      if (instance == null) _siteCheck = _SiteCheckState.invalid;
+      _siteCheck = instance == null
+          ? _SiteCheckState.invalid
+          : _SiteCheckState.valid;
       _error = failure;
     });
   }
 
   Widget? _siteCheckIcon(ThemeData theme) => switch (_siteCheck) {
-    _SiteCheckState.idle => null,
+    _SiteCheckState.idle || _SiteCheckState.authentication => null,
     _SiteCheckState.checking => const Center(
       child: SizedBox.square(
         key: ValueKey('add-site-checking'),
@@ -335,6 +431,35 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
           suffix: _connecting ? null : _siteCheckIcon(theme),
           errorText: _error,
         ),
+        if (_authenticationOrigin case final origin?) ...[
+          const SizedBox(height: DSpacing.lg),
+          Text(context.l10n.httpBasicAuthenticationRequired(origin.origin)),
+          const SizedBox(height: DSpacing.md),
+          DInput(
+            controller: _username,
+            labelText: context.l10n.httpBasicAuthenticationUsername,
+            semanticLabel: context.l10n.httpBasicAuthenticationUsername,
+            enabled: !_connecting,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            onChanged: _credentialsChanged,
+          ),
+          const SizedBox(height: DSpacing.md),
+          DInput(
+            controller: _password,
+            labelText: context.l10n.httpBasicAuthenticationPassword,
+            semanticLabel: context.l10n.httpBasicAuthenticationPassword,
+            enabled: !_connecting,
+            obscureText: true,
+            errorText: _credentialError,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.go,
+            onChanged: _credentialsChanged,
+            onSubmitted: (_) => _connect(),
+          ),
+        ],
         const SizedBox(height: 16),
         DButton(
           label: Text(context.l10n.connect),
@@ -360,7 +485,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
   }
 }
 
-enum _SiteCheckState { idle, checking, valid, invalid }
+enum _SiteCheckState { idle, checking, valid, invalid, authentication }
 
 final class _SiteCheckResult {
   const _SiteCheckResult.success(DiscourseInstance this.instance)

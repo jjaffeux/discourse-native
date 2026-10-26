@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'byte_cache_store.dart';
 import 'discourse_api.dart';
+import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'media_request_coordinator.dart';
 import 'serial_operation_queue.dart';
@@ -28,6 +29,7 @@ abstract class ByteCache<T extends Object> {
 
   ByteCache({
     http.Client? client,
+    HttpBasicAuthStore? basicAuth,
     this.maxConcurrent,
     this.maxEntries = 2000,
     this.maxResponseBytes = 4 * 1024 * 1024,
@@ -54,10 +56,22 @@ abstract class ByteCache<T extends Object> {
                    defaultRateLimitCooldown: retryAfter,
                  )),
        _ownsCoordinator = coordinator == null && maxConcurrent != null,
+       _basicAuth =
+           basicAuth ??
+           (client is SafeHttpClient
+               ? client.basicAuth
+               : HttpBasicAuthStore.instance),
        _client = client == null
-           ? SafeHttpClient.create()
-           : SafeHttpClient.borrowed(client);
+           ? SafeHttpClient.create(basicAuth: basicAuth)
+           : SafeHttpClient.borrowed(
+               client,
+               basicAuth:
+                   basicAuth ??
+                   (client is SafeHttpClient ? client.basicAuth : null),
+             );
 
+  final HttpBasicAuthStore _basicAuth;
+  Object? _authenticationGeneration;
   final http.Client _client;
   final MediaRequestCoordinator? _coordinator;
   final bool _ownsCoordinator;
@@ -96,7 +110,22 @@ abstract class ByteCache<T extends Object> {
   @protected
   Map<String, String> requestHeaders(Uri url, Uri original) => const {};
 
-  bool isCached(String url) => _cache.containsKey(url) && !_cooledDown(url);
+  void _syncAuthentication() {
+    final generation = _basicAuth.generation;
+    if (identical(_authenticationGeneration, generation)) return;
+    if (_authenticationGeneration != null) {
+      for (final transfer in _transfers.toList(growable: false)) {
+        _retire(transfer);
+      }
+      clear();
+    }
+    _authenticationGeneration = generation;
+  }
+
+  bool isCached(String url) {
+    _syncAuthentication();
+    return _cache.containsKey(url) && !_cooledDown(url);
+  }
 
   /// Response bytes currently retained for decoded entries.
   int get cachedBytes => _cachedBytes;
@@ -114,6 +143,7 @@ abstract class ByteCache<T extends Object> {
   }
 
   T? cached(String url) {
+    _syncAuthentication();
     final entry = _cache[url];
     if (entry != null) _touch(url);
     return entry?.value;
@@ -204,6 +234,7 @@ abstract class ByteCache<T extends Object> {
   }
 
   ByteCacheRequest<T> _request(String url, MediaRequestPriority priority) {
+    _syncAuthentication();
     final owner = ByteCacheRequest<T>._(priority);
     if (_closed) return owner.._complete(null);
     try {
@@ -270,10 +301,12 @@ abstract class ByteCache<T extends Object> {
     transfer.owners.clear();
   }
 
-  bool _canPublish(_ByteCacheTransfer<T> transfer) =>
-      !transfer.cancelled &&
-      identical(_generation, transfer.generation) &&
-      identical(_inFlight[transfer.url], transfer);
+  bool _canPublish(_ByteCacheTransfer<T> transfer) {
+    _syncAuthentication();
+    return !transfer.cancelled &&
+        identical(_generation, transfer.generation) &&
+        identical(_inFlight[transfer.url], transfer);
+  }
 
   void _put(String url, T? value, {required int byteSize}) {
     final replaced = _cache.remove(url);
@@ -316,7 +349,7 @@ abstract class ByteCache<T extends Object> {
     if (!await _acquire(transfer)) return null;
     try {
       final persistent = store;
-      if (persistent != null) {
+      if (persistent != null && !_basicAuth.protects(Uri.parse(url))) {
         try {
           final bytes = await _storeOperations.read<Uint8List?>(
             owner: persistent,
@@ -345,7 +378,10 @@ abstract class ByteCache<T extends Object> {
       if (!identical(_generation, generation)) return null;
 
       final downloaded = await switch (requestPool) {
-        final pool? => pool.run(url, () => _download(transfer)),
+        final pool? => pool.run((
+          url,
+          _authenticationGeneration,
+        ), () => _download(transfer)),
         null => _download(transfer),
       };
       final response = downloaded.response;
@@ -445,7 +481,9 @@ abstract class ByteCache<T extends Object> {
         // resolves that URL participates in its storage policy. In particular,
         // a public CDN target must not override a private/no-store redirect.
         persistable =
-            persistable && responseAllowsPersistentByteCache(streamed.headers);
+            persistable &&
+            !sent.authenticated &&
+            responseAllowsPersistentByteCache(streamed.headers);
         final location = streamed.headers['location'];
         if (_isRedirect(streamed.statusCode) && location != null) {
           _cancel(streamed.stream);
@@ -507,6 +545,7 @@ abstract class ByteCache<T extends Object> {
       http.StreamedResponse response,
       Completer<void> timeoutAbort,
       MediaRequestLease? lease,
+      bool authenticated,
     })
   >
   _send(
@@ -553,6 +592,8 @@ abstract class ByteCache<T extends Object> {
             ..headers['User-Agent'] = DiscourseApi.userAgent
             ..followRedirects = false;
       request.headers.addAll(requestHeaders(url, original));
+      _syncAuthentication();
+      transfer.checkDemand();
       response = _client.send(request);
       final streamed = await Future.any<http.StreamedResponse>([
         response,
@@ -566,7 +607,12 @@ abstract class ByteCache<T extends Object> {
         // URLs would all continue producing redirects into the blocked CDN.
         lease.rateLimited(streamed.headers);
       }
-      return (response: streamed, timeoutAbort: timeoutAbort, lease: lease);
+      return (
+        response: streamed,
+        timeoutAbort: timeoutAbort,
+        lease: lease,
+        authenticated: request.headers.containsKey('Authorization'),
+      );
     } catch (error) {
       if (error is TimeoutException || transfer.cancelled) _abort(timeoutAbort);
       response
@@ -753,11 +799,11 @@ typedef ByteCacheDownload = ({
 /// owner closes the whole pool together, so one cache cannot cancel a transfer
 /// which a longer-lived peer still expects to complete.
 final class ByteCacheRequestPool {
-  final Map<String, Future<ByteCacheDownload>> _inFlight = {};
+  final Map<Object, Future<ByteCacheDownload>> _inFlight = {};
   bool _closed = false;
 
   Future<ByteCacheDownload> run(
-    String url,
+    Object url,
     Future<ByteCacheDownload> Function() download,
   ) {
     if (_closed) {

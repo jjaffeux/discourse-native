@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/user_card.dart';
 import '../theme/app_theme.dart';
 import 'avatar_image.dart';
+import 'site_image.dart';
 import 'user_status.dart';
 
 /// Identity shared by the profile card and its status editor preview.
@@ -145,8 +146,9 @@ class UserCardHeader extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    card.cardBackgroundUrl!,
+                  SiteImage(
+                    url: card.cardBackgroundUrl!,
+                    siteUrl: siteUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),

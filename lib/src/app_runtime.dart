@@ -8,6 +8,7 @@ import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/forum_settings_store.dart';
 import 'data/forum_tab_store.dart';
+import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
 import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
@@ -82,7 +83,12 @@ final class AppRuntime {
         dependencies.plugins ??
         PluginInstaller.install(dependencies.pluginManifest);
     _ownsPlugins = dependencies.plugins == null;
-    _store = dependencies.store ?? InstanceStore(models: _plugins.models);
+    _store =
+        dependencies.store ??
+        InstanceStore(
+          models: _plugins.models,
+          basicAuth: HttpBasicAuthStore.instance,
+        );
     _api = dependencies.api ?? DiscourseApi(models: _plugins.models);
     _authenticator = dependencies.authenticator ?? Authenticator();
     _appSettingsStore = dependencies.appSettingsStore ?? AppSettingsStore();
@@ -170,7 +176,12 @@ final class AppRuntime {
     }
     if (!identical(_dependencies.store, previous.store) ||
         (pluginsChanged && _dependencies.store == null)) {
-      _store = _dependencies.store ?? InstanceStore(models: _plugins.models);
+      _store =
+          _dependencies.store ??
+          InstanceStore(
+            models: _plugins.models,
+            basicAuth: HttpBasicAuthStore.instance,
+          );
     }
     if (!identical(_dependencies.api, previous.api) ||
         (pluginsChanged && _dependencies.api == null)) {

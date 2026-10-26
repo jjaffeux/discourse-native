@@ -11,6 +11,7 @@ import 'account_request_session.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
+import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
 import 'request_intent.dart';
@@ -27,10 +28,13 @@ final class DiscourseHeadResponse {
 final class DiscourseTransport {
   factory DiscourseTransport.create({
     http.Client? client,
+    HttpBasicAuthStore? basicAuth,
     Duration timeout = const Duration(seconds: 10),
     int maxResponseBytes = 16 * 1024 * 1024,
   }) => DiscourseTransport(
-    client == null ? SafeHttpClient.create() : SafeHttpClient.owned(client),
+    client == null
+        ? SafeHttpClient.create(basicAuth: basicAuth)
+        : SafeHttpClient.owned(client, basicAuth: basicAuth),
     timeout,
     maxResponseBytes,
   );
@@ -81,8 +85,16 @@ final class DiscourseTransport {
   static const _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxGetRedirects = 5;
 
-  Future<http.Response> request(String method, Uri url) =>
-      send(http.Request(method, url));
+  Future<http.Response> request(
+    String method,
+    Uri url, {
+    HttpBasicAuthentication? authentication,
+  }) {
+    final request = http.Request(method, url);
+    final authorization = authentication?.authorizationFor(url);
+    if (authorization != null) request.headers['Authorization'] = authorization;
+    return send(request);
+  }
 
   Future<http.Response> requestAuthenticated(
     String method,
@@ -102,11 +114,19 @@ final class DiscourseTransport {
     );
   }
 
-  Future<DiscourseHeadResponse> head(Uri url, {int maxRedirects = 5}) async {
+  Future<DiscourseHeadResponse> head(
+    Uri url, {
+    int maxRedirects = 5,
+    HttpBasicAuthentication? authentication,
+  }) async {
     var current = url;
 
     for (var hop = 0; hop <= maxRedirects; hop++) {
-      final response = await request('HEAD', current);
+      final response = await request(
+        'HEAD',
+        current,
+        authentication: authentication,
+      );
       final location = response.headers['location'];
       final isRedirect = _redirectStatusCodes.contains(response.statusCode);
 

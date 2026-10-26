@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/discourse_instance.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
+import 'http_basic_auth.dart';
 import 'preference_storage_scope.dart';
-
 import 'stored_forum_base.dart';
 
 abstract interface class InstancePersistence {
@@ -39,11 +39,15 @@ final class SharedPreferencesInstancePersistence
 }
 
 class InstanceStore {
-  InstanceStore({InstancePersistence? persistence, DiscourseModelCodec? models})
-    : _persistence =
-          persistence ?? const SharedPreferencesInstancePersistence(),
-      _models = models ?? const DiscourseModelCodec.core();
+  InstanceStore({
+    InstancePersistence? persistence,
+    DiscourseModelCodec? models,
+    this._basicAuth,
+  }) : _persistence =
+           persistence ?? const SharedPreferencesInstancePersistence(),
+       _models = models ?? const DiscourseModelCodec.core();
 
+  final HttpBasicAuthStore? _basicAuth;
   final InstancePersistence _persistence;
   final DiscourseModelCodec _models;
   Map<DiscourseInstance, String> _encodedInstances = Map.identity();
@@ -55,6 +59,7 @@ class InstanceStore {
       );
 
   Future<List<DiscourseInstance>> load() async {
+    await _basicAuth?.load();
     final raw = await _snapshots.read(_persistence.read);
     if (raw == null || raw.isEmpty) return const [];
 
@@ -83,6 +88,7 @@ class InstanceStore {
         // A stale or damaged entry must not erase the other connected sites.
       }
     }
+    await _basicAuth?.retainOrigins(instances.map((site) => site.url));
     return instances;
   }
 

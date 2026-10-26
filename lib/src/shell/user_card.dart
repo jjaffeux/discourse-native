@@ -22,6 +22,7 @@ import 'cooked_html.dart';
 import 'external_link.dart';
 import 'platform.dart';
 import 'relative_time.dart';
+import 'server_image.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
@@ -314,7 +315,7 @@ Future<void> showUserCard({
                   topBottomMaxHeightFactor: .9,
                   headerImage: card?.cardBackgroundUrl == null
                       ? null
-                      : NetworkImage(card!.cardBackgroundUrl!),
+                      : serverImageProvider(card!.cardBackgroundUrl!),
                   children: [
                     _ControllerUserCardPopup(
                       key: ValueKey(owner),

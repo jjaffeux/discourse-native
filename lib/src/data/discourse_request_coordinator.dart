@@ -26,6 +26,7 @@ final class DiscourseGetRequestKey {
     required this.timeout,
     required this.maxResponseBytes,
     this.session,
+    this.authentication,
   }) : _headers = Map.unmodifiable({
          for (final entry in headers.entries)
            entry.key.toLowerCase(): entry.value,
@@ -33,6 +34,7 @@ final class DiscourseGetRequestKey {
 
   final Uri url;
   final Object? session;
+  final Object? authentication;
   final Map<String, String> _headers;
   final Duration timeout;
   final int maxResponseBytes;
@@ -42,6 +44,7 @@ final class DiscourseGetRequestKey {
       other is DiscourseGetRequestKey &&
       other.url == url &&
       identical(other.session, session) &&
+      identical(other.authentication, authentication) &&
       other.timeout == timeout &&
       other.maxResponseBytes == maxResponseBytes &&
       other._headers.length == _headers.length &&
@@ -53,6 +56,7 @@ final class DiscourseGetRequestKey {
   int get hashCode => Object.hash(
     url,
     session,
+    authentication,
     timeout,
     maxResponseBytes,
     Object.hashAllUnordered(

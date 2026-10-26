@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 
 import 'api_credentials.dart';
+import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'site_asset_account.dart';
 import 'site_lifecycle.dart';
@@ -39,14 +40,21 @@ final class SiteVideoSourceResolver {
     required this.credentials,
     required this.lifecycle,
     http.Client? client,
+    HttpBasicAuthStore? basicAuth,
     this.maximumRedirects = 5,
     this.requestTimeout = const Duration(seconds: 15),
   }) : assert(maximumRedirects >= 0),
        assert(requestTimeout > Duration.zero),
+       _basicAuth =
+           basicAuth ??
+           (client is SafeHttpClient
+               ? client.basicAuth
+               : HttpBasicAuthStore.instance),
        _client = client == null
-           ? SafeHttpClient.create()
-           : SafeHttpClient.borrowed(client);
+           ? SafeHttpClient.create(basicAuth: basicAuth)
+           : SafeHttpClient.borrowed(client, basicAuth: basicAuth);
 
+  final HttpBasicAuthStore _basicAuth;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final int maximumRedirects;
@@ -65,6 +73,9 @@ final class SiteVideoSourceResolver {
 
     final site = requireSafeHttpUrl(Uri.parse(siteUrl));
     var current = requireSafeHttpUrl(url);
+    if (_basicAuth.protects(current)) {
+      throw const SiteVideoSourceRequiresAuthenticationException();
+    }
     if (current.origin != site.origin || !_isSecureUpload(current)) {
       return SiteVideoSource(current);
     }
@@ -95,6 +106,9 @@ final class SiteVideoSourceResolver {
       if (!_redirectStatuses.contains(response.statusCode) ||
           location == null) {
         if (onForum) {
+          throw const SiteVideoSourceRequiresAuthenticationException();
+        }
+        if (_basicAuth.protects(current)) {
           throw const SiteVideoSourceRequiresAuthenticationException();
         }
         return SiteVideoSource(current);

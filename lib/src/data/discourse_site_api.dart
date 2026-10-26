@@ -56,7 +56,10 @@ final class DiscourseSiteApi {
     }
   }
 
-  Future<DiscourseInstance> lookup(String term) async {
+  Future<DiscourseInstance> lookup(
+    String term, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     const authPath = '/user-api-key/new';
     final address = normalize(term);
     // Append to the encoded path so subfolders survive and page extras never
@@ -68,7 +71,7 @@ final class DiscourseSiteApi {
 
     final DiscourseHeadResponse head;
     try {
-      head = await _transport.head(probe);
+      head = await _transport.head(probe, authentication: authentication);
     } on SiteLookupException {
       rethrow;
     } catch (error, stackTrace) {
@@ -78,6 +81,10 @@ final class DiscourseSiteApi {
         cause: error,
         causeStackTrace: stackTrace,
       );
+    }
+
+    if (hasHttpBasicChallenge(head.statusCode, head.headers)) {
+      throw HttpBasicAuthenticationRequired(head.url);
     }
 
     // A Discourse always has this route; a 404 means we are talking to
@@ -115,7 +122,7 @@ final class DiscourseSiteApi {
           .substring(0, landedPath.length - authPath.length)
           .replaceFirst(RegExp(r'/+$'), ''),
     );
-    final info = await _basicInfo(base, term);
+    final info = await _basicInfo(base, term, authentication: authentication);
 
     return DiscourseInstance(
       url: base.toString(),
@@ -136,13 +143,21 @@ final class DiscourseSiteApi {
 
   /// Lookup and refresh read the same fields the same way, so a forum added
   /// today and one refreshed on launch cannot disagree about it.
-  Future<SiteBasicInfo> _basicInfo(Uri base, String subject) async {
+  Future<SiteBasicInfo> _basicInfo(
+    Uri base,
+    String subject, {
+    HttpBasicAuthentication? authentication,
+  }) async {
     final Map<String, dynamic> info;
     try {
       final response = await _transport.request(
         'GET',
         base.replace(path: '${base.path}/site/basic-info.json'),
+        authentication: authentication,
       );
+      if (hasHttpBasicChallenge(response.statusCode, response.headers)) {
+        throw HttpBasicAuthenticationRequired(base);
+      }
       if (response.statusCode != 200) {
         throw SiteLookupException(
           SiteLookupFailure.unreachable,

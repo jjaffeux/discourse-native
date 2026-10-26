@@ -11,6 +11,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/http_basic_auth.dart';
 import '../data/site_image_repository.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -18,6 +19,7 @@ import '../theme/d_icons.dart';
 import 'image_decode.dart';
 import 'open_link.dart';
 import 'progressive_html_mode.dart';
+import 'server_image.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 
@@ -118,6 +120,23 @@ class _SiteImageState extends State<SiteImage> {
     }
   }
 
+  Future<void> _loadServerImage(String url, int generation) async {
+    final bytes = await loadServerImageBytes(url);
+    if (!mounted || generation != _generation) return;
+    setState(() {
+      _resolved = true;
+      if (bytes == null) {
+        _error = SiteImageUnavailableException(url);
+      } else {
+        _bytes = SiteImageBytes(
+          bytes,
+          mediaType: _isSvgUrl(url) ? SiteImageMediaType.svg : null,
+        );
+        _listenToBytes();
+      }
+    });
+  }
+
   void _resolve() {
     _configured = true;
     ++_generation;
@@ -137,9 +156,17 @@ class _SiteImageState extends State<SiteImage> {
     }
 
     if (repository == null || siteUrl == null) {
+      final destination = Uri.tryParse(url);
+      if (destination != null &&
+          destination.hasAuthority &&
+          HttpBasicAuthStore.instance.protects(destination)) {
+        _resolved = false;
+        unawaited(_loadServerImage(url, _generation));
+        return;
+      }
       _resolved = true;
       if (widget.onNaturalSize != null && !_isSvgUrl(url)) {
-        _listen(NetworkImage(url));
+        _listen(serverImageProvider(url));
       }
       return;
     }
@@ -416,7 +443,7 @@ class _SiteImageState extends State<SiteImage> {
             const SizedBox.shrink(),
       );
     }
-    ImageProvider<Object> provider = NetworkImage(_url);
+    ImageProvider<Object> provider = serverImageProvider(_url);
     if (widget.coverDecodeSize case final size?) {
       provider = imageForCover(context, provider, logicalSize: size);
     } else {
