@@ -65,9 +65,15 @@ so a drag repaints the dock and the panel alone. At width 390, a foot of
 
 The panel is an `OverlayPortal` from the dock, so it paints above the
 header and the page and below the sheets opened after it. Escape, the
-system back, a press on the dim, a place in the head and a tile close it;
-it is put away with the bar, at once, when a composer's sheet covers the
-shell, the scroll chrome hides the footer or the sidebar takes the bar.
+system back, a press on the dim, a place in the head, the action and a
+tile close it; it is put away with the bar, at once, when a composer's
+sheet covers the shell, the scroll chrome hides the footer or the sidebar
+takes the bar, and a dock taken out of the tree while out tells the shell
+the panel is in. The focus moves to the first tile once the panel is meant
+to be open, pressed open or let go to settle open, and not under a finger;
+on closing it goes back to what had it, or to the ⋮ when nothing in
+particular did. The keyboard goes round the head's places, the action, the
+grid and you, with the ⋮ out of the round while the panel is out.
 
 ## Validation
 
