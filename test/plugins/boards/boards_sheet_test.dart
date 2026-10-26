@@ -126,14 +126,55 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('a phone swipe settles on one column at a time', (tester) async {
+    await _openBoard(tester);
+    final sheet = tester.getRect(_sheet);
+    Finder column(int id) => find.byKey(ValueKey('board-column-$id'));
+    double left(int id) => tester.getRect(column(id)).left - sheet.left;
+    await tester.fling(column(10), const Offset(-120, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(left(11), 12);
+    // The last column rests against the trailing padding, showing the same
+    // sliver of its predecessor that the first column shows of its successor.
+    double right(int id) => sheet.right - tester.getRect(column(id)).right;
+    await tester.fling(column(11), const Offset(-200, 0), 8000);
+    await tester.pumpAndSettle();
+    expect(right(12), 12);
+    expect(left(12), 12 + 5);
+    final hold = await tester.startGesture(tester.getCenter(column(12)));
+    for (var step = 0; step < 10; step++) {
+      await hold.moveBy(const Offset(10, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await hold.up();
+    await tester.pumpAndSettle();
+    expect(right(12), 12);
+    await tester.fling(column(12), const Offset(120, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(left(11), 12);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('a tablet sheet keeps several fixed-width columns in view', (
     tester,
   ) async {
     await _openBoard(tester, size: const Size(820, 1180));
-    final first = tester.getRect(find.byKey(const ValueKey('board-column-10')));
+    final column = find.byKey(const ValueKey('board-column-10'));
+    final first = tester.getRect(column);
     final next = tester.getRect(find.byKey(const ValueKey('board-column-11')));
     expect(first.width, 300);
     expect(next.right, lessThan(tester.getRect(_sheet).right));
+    await tester.timedDrag(
+      column,
+      const Offset(-100, 0),
+      const Duration(seconds: 1),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(column).left,
+      inExclusiveRange(first.left - 312 + 20, first.left - 20),
+    );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 

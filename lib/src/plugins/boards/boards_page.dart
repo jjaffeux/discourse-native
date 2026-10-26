@@ -23,6 +23,10 @@ const _nextColumnPeek = 5.0;
 /// navigation but keep several fixed-width columns in view.
 const _singleColumnWidth = 600.0;
 
+/// The distance between neighbouring columns when a board shows one at a time.
+/// Column widths and snapping both derive from it so they cannot disagree.
+double _singleColumnStride(double viewport) => viewport - 12 - _nextColumnPeek;
+
 /// Room for a column's heading, a card and its footer at unscaled text.
 const _minimumColumnHeight = 200.0;
 
@@ -307,13 +311,12 @@ class _BoardsPageState extends State<BoardsPage> {
                 ? Center(child: DEmpty(children: [Text(l10n.boardsNoCards)]))
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final width =
+                      final single =
                           widget.navigation.mobileNavigationEnabled &&
-                              constraints.maxWidth < _singleColumnWidth
-                          ? (constraints.maxWidth - 24 - _nextColumnPeek).clamp(
-                              0.0,
-                              double.infinity,
-                            )
+                          constraints.maxWidth < _singleColumnWidth;
+                      final width = single
+                          ? (_singleColumnStride(constraints.maxWidth) - 12)
+                                .clamp(0.0, double.infinity)
                           : (constraints.maxWidth - 24).clamp(240.0, 300.0);
                       final stride = width + 12;
                       if (linkedCard != null) {
@@ -353,6 +356,7 @@ class _BoardsPageState extends State<BoardsPage> {
                         )),
                         axes: DScrollAxes.horizontal,
                         controller: _horizontal,
+                        physics: single ? const _ColumnSnapPhysics() : null,
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Row(
@@ -1026,6 +1030,48 @@ class _BoardHeader extends StatelessWidget {
           DControlWrap(children: [...badges, action]),
         ],
       ),
+    );
+  }
+}
+
+/// Settles a one-column board on a column after each swipe. The stride is read
+/// from the viewport on every fling: Scrollable keeps physics of an unchanged
+/// type, so a stored stride would go stale after rotation or resizing.
+class _ColumnSnapPhysics extends ScrollPhysics {
+  const _ColumnSnapPhysics({super.parent});
+
+  @override
+  _ColumnSnapPhysics applyTo(ScrollPhysics? ancestor) =>
+      _ColumnSnapPhysics(parent: buildParent(ancestor));
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    if ((velocity <= 0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+    final stride = _singleColumnStride(position.viewportDimension);
+    final tolerance = toleranceFor(position);
+    var column = position.pixels / stride;
+    if (velocity < -tolerance.velocity) {
+      column -= .5;
+    } else if (velocity > tolerance.velocity) {
+      column += .5;
+    }
+    final target = (column.round() * stride).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < tolerance.distance) return null;
+    return ScrollSpringSimulation(
+      spring,
+      position.pixels,
+      target,
+      velocity,
+      tolerance: tolerance,
     );
   }
 }
