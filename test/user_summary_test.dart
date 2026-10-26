@@ -438,6 +438,30 @@ void main() {
         );
       }
     }
+
+    testWidgets(
+      'category counts are plain numbers for a reader who cannot search',
+      (tester) async {
+        final fixture = await _pump(tester);
+        await _openSummaryFromMenu(tester);
+        await _selectSummaryTab(tester, 'Reading');
+        final link = find.bySemanticsLabel(
+          'Search 2 topics by @reader in Support',
+        );
+        expect(link, findsOneWidget);
+
+        // Core's `can_search` for an anonymous reader on a site with
+        // `allow_anonymous_search` disabled.
+        fixture.controller.search
+          ..selectSite(_siteUrl, authenticated: false)
+          ..allowAnonymousSearch(_siteUrl, false);
+        await tester.pumpAndSettle();
+
+        expect(link, findsNothing);
+        expect(find.text('2'), findsWidgets);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
   });
 
   group('content states', () {
