@@ -37,6 +37,14 @@ final class BoardsNavigation implements PluginLinkHandler {
   const BoardsNavigation({required this.host, required this.controller});
   final PluginRouteNavigationHost host;
   final BoardsController controller;
+
+  /// Boards then open in the shared page sheet, which owns the way back.
+  bool get mobileNavigationEnabled => switch (host) {
+    final PluginRoutePresentationHost presentation =>
+      presentation.mobileNavigationEnabled,
+    _ => false,
+  };
+
   void open({BoardSnapshot? board, int? cardId}) {
     final site = host.currentSite;
     if (site == null || !controller.enabled(site.url)) return;

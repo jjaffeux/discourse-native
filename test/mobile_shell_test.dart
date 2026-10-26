@@ -17,6 +17,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
@@ -171,6 +172,7 @@ Future<ShellController> pumpMobileShellFixture(
   Completer<void>? moreTopicsGate,
   List<ChatMessage>? chatMessages,
   ChatThread? chatThread,
+  Map<String, dynamic>? board,
 }) async {
   final config = SiteConfig(
     userStatusEnabled: true,
@@ -184,7 +186,8 @@ Future<ShellController> pumpMobileShellFixture(
           ),
         )
         .withValue(voiceSettingsDataKey, VoiceClientConfig(enabled: voice))
-        .withValue(eventSettingsKey, EventSettings(enabled: events)),
+        .withValue(eventSettingsKey, EventSettings(enabled: events))
+        .withValue(boardsSettingsKey, BoardsSettings(enabled: board != null)),
   );
   await pumpShell(
     tester,
@@ -225,6 +228,12 @@ Future<ShellController> pumpMobileShellFixture(
       siteConfigs: {_site: config},
       pluginResponses: {
         'GET /badges.json?only_listable=true': badgeCatalogWire,
+        if (board != null) ...{
+          'GET /boards/api/boards.json': {
+            'boards': [board['board']],
+          },
+          'GET /boards/api/boards/${(board['board'] as Map)['id']}.json': board,
+        },
         if (voice)
           'GET /voice/rooms.json': {
             'rooms': [

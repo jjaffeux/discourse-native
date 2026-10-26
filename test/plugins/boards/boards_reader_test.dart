@@ -234,8 +234,8 @@ void boardsReaderTests({
         isTrue,
       );
       expect(
-        tester.getSize(find.byType(DControlWrap)).width,
-        greaterThan(DPageReadingLane.maxWidth),
+        tester.getTopLeft(find.byKey(const ValueKey('board-title'))).dx,
+        lessThan((viewport.width - DPageReadingLane.maxWidth) / 2),
       );
       final long = tester.getRect(
         find.byKey(const ValueKey('board-column-10')),
