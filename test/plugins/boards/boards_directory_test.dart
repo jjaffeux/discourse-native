@@ -56,6 +56,7 @@ void boardsDirectoryWidgetTests({
     String site = boardsSite,
     bool dark = false,
     double scale = 1,
+    bool disableAnimations = false,
     AppSettingsController? settings,
   }) {
     Widget body = BoardsPage(
@@ -79,9 +80,10 @@ void boardsDirectoryWidgetTests({
       builder: (context, child) => nativeUiEvidenceBuilder(
         context,
         MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            disableAnimations: disableAnimations,
+          ),
           child: child!,
         ),
       ),
@@ -97,6 +99,56 @@ void boardsDirectoryWidgetTests({
       'boards': boards,
     };
   }
+
+  testWidgets('pending directory uses card skeletons until boards arrive', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+        pending.future;
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(page(fixture, disableAnimations: true));
+    await tester.pumpAndSettle();
+    await captureNativeUi(tester, 'boards-directory-loading');
+    await onCapture?.call(tester, 'boards-directory-loading');
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsWidgets);
+    expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+    expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
+    expect(fixture.transport.reads, hasLength(1));
+    pending.complete({
+      'boards': [directoryBoard(1, 'Team roadmap')],
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('Team roadmap'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pending directory skeleton fits narrow large text', (
+    tester,
+  ) async {
+    resize(tester, const Size(320, 740));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+        pending.future;
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(page(fixture, scale: 2, disableAnimations: true));
+    await tester.pumpAndSettle();
+    expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(tester.takeException(), isNull);
+    await captureNativeUi(tester, 'boards-directory-loading-narrow');
+    await onCapture?.call(tester, 'boards-directory-loading-narrow');
+    await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete({'boards': <Object?>[]});
+    await tester.pumpAndSettle();
+  });
 
   for (final limited in [false, true]) {
     testWidgets(
@@ -390,9 +442,11 @@ void boardsDirectoryWidgetTests({
       };
       await tester.pumpWidget(page(fixture));
       await tester.pump();
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+      expect(find.byType(DSpinner), findsNothing);
       await pull(tester);
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DPlaceCardSkeleton), findsWidgets);
+      expect(find.byType(DSpinner), findsNothing);
       expect(fixture.transport.reads, hasLength(1));
       pending.completeError(StateError('Directory unavailable'));
       await tester.pumpAndSettle();

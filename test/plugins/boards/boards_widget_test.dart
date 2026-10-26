@@ -43,6 +43,141 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     );
   }
 
+  testWidgets('pending board uses skeletons without a refresh button', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        builder: (context, child) => nativeUiEvidenceBuilder(
+          context,
+          MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!,
+          ),
+        ),
+        home: RepaintBoundary(
+          key: const ValueKey('boards-native-capture'),
+          child: Scaffold(
+            body: BoardsPage(
+              site: boardsSite,
+              route: const BoardsRoute(boardId: 1),
+              controller: fixture.controller,
+              navigation: fixture.navigation,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await captureNativeUi(tester, 'board-loading');
+    await onCapture?.call(tester, 'board-loading');
+    expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
+    expect(fixture.transport.reads, hasLength(1));
+    pending.complete(boardFixtureJson());
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('Improve search'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pending board retry hides refresh until the new read finishes', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    var pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pump();
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
+    pending.completeError(StateError('Board unavailable'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Board unavailable'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.widgetWithText(DButton, 'Refresh'), findsOneWidget);
+    pending = Completer<Map<String, dynamic>>();
+    await tester.tap(find.widgetWithText(DButton, 'Refresh'));
+    await tester.pump();
+    expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(fixture.transport.reads, hasLength(2));
+    pending.complete(boardFixtureJson());
+    await tester.pumpAndSettle();
+    expect(find.text('Improve search'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pending board skeleton fits narrow large text and RTL', (
+    tester,
+  ) async {
+    if (!nativeView) {
+      tester.view.physicalSize = const Size(320, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => nativeUiEvidenceBuilder(
+          context,
+          MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations: true,
+              textScaler: const TextScaler.linear(2),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
+          ),
+        ),
+        home: RepaintBoundary(
+          key: const ValueKey('boards-native-capture'),
+          child: Scaffold(
+            body: BoardsPage(
+              site: boardsSite,
+              route: const BoardsRoute(boardId: 1),
+              controller: fixture.controller,
+              navigation: fixture.navigation,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.widgetWithText(DButton, 'Refresh'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await captureNativeUi(tester, 'board-loading-narrow-rtl');
+    await onCapture?.call(tester, 'board-loading-narrow-rtl');
+    await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete(boardFixtureJson());
+    await tester.pumpAndSettle();
+  });
+
   for (final initiallyEnabled in [true, false]) {
     testWidgets(
       'retained detail activates with initially enabled $initiallyEnabled',
