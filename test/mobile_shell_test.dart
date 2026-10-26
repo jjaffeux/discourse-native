@@ -173,6 +173,8 @@ Future<ShellController> pumpMobileShellFixture(
   List<ChatMessage>? chatMessages,
   ChatThread? chatThread,
   Map<String, dynamic>? board,
+  Map<String, Map<String, dynamic>> pluginResponses = const {},
+  void Function(FakeDiscourseApi api)? onApi,
 }) async {
   final config = SiteConfig(
     userStatusEnabled: true,
@@ -189,6 +191,117 @@ Future<ShellController> pumpMobileShellFixture(
         .withValue(eventSettingsKey, EventSettings(enabled: events))
         .withValue(boardsSettingsKey, BoardsSettings(enabled: board != null)),
   );
+  final api = FakeDiscourseApi(
+    user: _user,
+    doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
+    customSidebarSectionsBySite: const {
+      _site: [
+        SidebarSection(
+          id: 'custom-1',
+          title: 'Team links',
+          destinations: [
+            SidebarDestination(
+              id: 'custom-1-link',
+              label: 'Handbook',
+              icon: DIcons.link,
+              url: '/t/shared/7',
+            ),
+          ],
+        ),
+      ],
+    },
+    totals: chatNotificationTotals(available: true),
+    siteConfigs: {_site: config},
+    pluginResponses: {
+      'GET /badges.json?only_listable=true': badgeCatalogWire,
+      if (board != null) ...{
+        'GET /boards/api/boards.json': {
+          'boards': [board['board']],
+        },
+        'GET /boards/api/boards/${(board['board'] as Map)['id']}.json': board,
+      },
+      if (voice)
+        'GET /live/rooms.json': {
+          'rooms': [
+            {
+              'id': 7,
+              'name': 'Watercooler',
+              'slug': 'watercooler',
+              'room_type': 'conference',
+              'active_participants': <Object>[],
+            },
+          ],
+          'can_create_room': true,
+        },
+      ...pluginResponses,
+    },
+    feeds: {
+      '/latest.json':
+          topics ??
+          const [Topic(id: 7, title: 'Shared topic card', slug: 'shared')],
+      '/new.json': const [
+        Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+      ],
+      '/c/support/42.json': const [
+        Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+      ],
+      if (moreTopics.isNotEmpty) '/latest.json?page=1': moreTopics,
+    },
+    nextPages: {
+      if (moreTopics.isNotEmpty) '/latest.json': '/latest.json?page=1',
+    },
+    feedGates: {'/latest.json?page=1': ?moreTopicsGate},
+    topics: {7: topic ?? topicPayload(id: 7, title: 'Shared topic card')},
+    composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
+    topicTagSearches: const {
+      '': TopicTagSearch(tags: [TopicTag(id: 1, name: 'show-and-tell')]),
+    },
+    chatMessagesByKey: {
+      FakeDiscourseApi.chatMessagesKey(10): (
+        messages: chatMessages ?? const [],
+        canLoadMorePast: false,
+        canLoadMoreFuture: false,
+        targetMessageId: null,
+      ),
+      if (chatThread != null)
+        'thread-10-${chatThread.id}': (
+          messages: chatMessages ?? const [],
+          canLoadMorePast: false,
+          canLoadMoreFuture: false,
+          targetMessageId: null,
+        ),
+    },
+    chatThreadsByKey: {
+      for (final thread in [?chatThread])
+        FakeDiscourseApi.chatThreadKey(10, thread.id): thread,
+    },
+    chatChannelsBySite: {
+      _site:
+          conversations ??
+          ChatChannels(
+            hasThreads: true,
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'General',
+                kind: ChatChannelKind.category,
+                membership: const ChatMembership(following: true),
+                tracking: ChatTracking(unreadCount: chatUnreadCount),
+              ),
+            ],
+            direct: const [
+              ChatChannel(
+                id: 10,
+                title: 'sam',
+                kind: ChatChannelKind.directMessage,
+                users: [ChatUser(id: 2, username: 'sam')],
+                membership: ChatMembership(following: true),
+              ),
+            ],
+          ),
+    },
+  );
+  onApi?.call(api);
   await pumpShell(
     tester,
     size,
@@ -205,115 +318,7 @@ Future<ShellController> pumpMobileShellFixture(
       ).copyWith(user: _user, config: config),
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
-    api: FakeDiscourseApi(
-      user: _user,
-      doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
-      customSidebarSectionsBySite: const {
-        _site: [
-          SidebarSection(
-            id: 'custom-1',
-            title: 'Team links',
-            destinations: [
-              SidebarDestination(
-                id: 'custom-1-link',
-                label: 'Handbook',
-                icon: DIcons.link,
-                url: '/t/shared/7',
-              ),
-            ],
-          ),
-        ],
-      },
-      totals: chatNotificationTotals(available: true),
-      siteConfigs: {_site: config},
-      pluginResponses: {
-        'GET /badges.json?only_listable=true': badgeCatalogWire,
-        if (board != null) ...{
-          'GET /boards/api/boards.json': {
-            'boards': [board['board']],
-          },
-          'GET /boards/api/boards/${(board['board'] as Map)['id']}.json': board,
-        },
-        if (voice)
-          'GET /live/rooms.json': {
-            'rooms': [
-              {
-                'id': 7,
-                'name': 'Watercooler',
-                'slug': 'watercooler',
-                'room_type': 'conference',
-                'active_participants': <Object>[],
-              },
-            ],
-            'can_create_room': true,
-          },
-      },
-      feeds: {
-        '/latest.json':
-            topics ??
-            const [Topic(id: 7, title: 'Shared topic card', slug: 'shared')],
-        '/new.json': const [
-          Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
-        ],
-        '/c/support/42.json': const [
-          Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
-        ],
-        if (moreTopics.isNotEmpty) '/latest.json?page=1': moreTopics,
-      },
-      nextPages: {
-        if (moreTopics.isNotEmpty) '/latest.json': '/latest.json?page=1',
-      },
-      feedGates: {'/latest.json?page=1': ?moreTopicsGate},
-      topics: {7: topic ?? topicPayload(id: 7, title: 'Shared topic card')},
-      composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
-      topicTagSearches: const {
-        '': TopicTagSearch(tags: [TopicTag(id: 1, name: 'show-and-tell')]),
-      },
-      chatMessagesByKey: {
-        FakeDiscourseApi.chatMessagesKey(10): (
-          messages: chatMessages ?? const [],
-          canLoadMorePast: false,
-          canLoadMoreFuture: false,
-          targetMessageId: null,
-        ),
-        if (chatThread != null)
-          'thread-10-${chatThread.id}': (
-            messages: chatMessages ?? const [],
-            canLoadMorePast: false,
-            canLoadMoreFuture: false,
-            targetMessageId: null,
-          ),
-      },
-      chatThreadsByKey: {
-        for (final thread in [?chatThread])
-          FakeDiscourseApi.chatThreadKey(10, thread.id): thread,
-      },
-      chatChannelsBySite: {
-        _site:
-            conversations ??
-            ChatChannels(
-              hasThreads: true,
-              public: [
-                ChatChannel(
-                  id: 9,
-                  title: 'General',
-                  kind: ChatChannelKind.category,
-                  membership: const ChatMembership(following: true),
-                  tracking: ChatTracking(unreadCount: chatUnreadCount),
-                ),
-              ],
-              direct: const [
-                ChatChannel(
-                  id: 10,
-                  title: 'sam',
-                  kind: ChatChannelKind.directMessage,
-                  users: [ChatUser(id: 2, username: 'sam')],
-                  membership: ChatMembership(following: true),
-                ),
-              ],
-            ),
-      },
-    ),
+    api: api,
   );
   final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
   if (voice) {

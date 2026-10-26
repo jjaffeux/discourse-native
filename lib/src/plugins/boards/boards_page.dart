@@ -327,13 +327,20 @@ class _BoardsPageState extends State<BoardsPage> {
                 // Slot changes redraw the columns, never the header above.
                 : ListenableBuilder(
                     listenable: _drag,
-                    builder: (context, _) => DDragRegion<_BoardDrag>(
-                      accepts: _accepts,
-                      onMove: (_, pointer) => _drag.move(pointer),
-                      onLeave: _drag.leave,
-                      onDrop: (_, _) => unawaited(_drop()),
-                      child: _columns(board, linkedCard, showCategories),
-                    ),
+                    builder: (context, _) =>
+                        NotificationListener<ScrollNotification>(
+                          onNotification: (_) {
+                            _drag.scrolled();
+                            return false;
+                          },
+                          child: DDragRegion<_BoardDrag>(
+                            accepts: _accepts,
+                            onMove: (_, pointer) => _drag.move(pointer),
+                            onLeave: _drag.leave,
+                            onDrop: (_, _) => unawaited(_drop()),
+                            child: _columns(board, linkedCard, showCategories),
+                          ),
+                        ),
                   ),
           ),
         ],

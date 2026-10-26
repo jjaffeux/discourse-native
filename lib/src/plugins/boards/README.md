@@ -69,7 +69,11 @@ sits in, the placeholder shows at the card's own slot and a release does
 nothing; a release over its own slot writes nothing. After a release the card
 stays hidden and the placeholder stays at the drop slot through the constraint
 check, a review dialog, the write and its refresh, so the board never shows the
-card in its old place between the drop and the server's answer.
+card in its old place between the drop and the server's answer. Holding the
+card within 40 points of the board's edge scrolls the board to further columns,
+and within 40 points of a column list's top or bottom scrolls that list, at up
+to 600 points a second; on a phone the board settles on a column once the
+pointer leaves the edge, and the placeholder follows each scroll.
 `board_card_drag.dart` owns one drag session and resolves slots from the
 registered column and card geometry; `boardDropPlacement` in `boards_data.dart`
 turns a slot into the placement the server receives.
