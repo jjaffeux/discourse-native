@@ -37,6 +37,9 @@ wrap below a long one. Below 600 points a column fills the sheet with 5 points
 of the next one showing. Elsewhere the header follows the topic reader: a back
 link above the title and the controls below it. Columns scroll individually, so
 the board stops above the floating mobile dock instead of continuing under it.
+When the header leaves less room than a column needs for its heading, a card
+and its footer (200 points, scaled with the text size), as on a landscape phone
+or with large text, the page scrolls as a whole instead of squeezing columns.
 
 Column title, icon, sorting, ordering, clear, and delete controls are native.
 The column editor preserves existing tag and move rules. Board-level

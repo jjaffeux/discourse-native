@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
@@ -21,6 +22,9 @@ const _nextColumnPeek = 5.0;
 /// Narrower boards show one column at a time. Tablets also use mobile
 /// navigation but keep several fixed-width columns in view.
 const _singleColumnWidth = 600.0;
+
+/// Room for a column's heading, a card and its footer at unscaled text.
+const _minimumColumnHeight = 200.0;
 
 class BoardsPage extends StatefulWidget {
   const BoardsPage({
@@ -165,6 +169,8 @@ class _BoardsPageState extends State<BoardsPage> {
     final board = handle.snapshot;
     // The floating mobile dock covers the bottom of the page. Columns scroll
     // individually, so the board stops above the dock rather than under it.
+    // When the header leaves the board less than a column needs, as on a
+    // landscape phone or with large text, the page scrolls as a whole instead.
     Widget page(
       String title, {
       List<Widget> badges = const [],
@@ -174,16 +180,40 @@ class _BoardsPageState extends State<BoardsPage> {
       framed: false,
       border: false,
       limitContentSize: false,
-      header: _BoardHeader(
-        title: title,
-        badges: badges,
-        action: action,
-        sheet: widget.navigation.mobileNavigationEnabled,
-        onBack: () => widget.navigation.open(),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-        child: body,
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: _BoardHeader(
+              title: title,
+              badges: badges,
+              action: action,
+              sheet: widget.navigation.mobileNavigationEnabled,
+              onBack: () => widget.navigation.open(),
+            ),
+          ),
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final dock = DScrollChrome.bottomInsetOf(context);
+              return SliverToBoxAdapter(
+                child: SizedBox(
+                  height: math.max(
+                    constraints.viewportMainAxisExtent -
+                        constraints.precedingScrollExtent,
+                    24 +
+                        MediaQuery.textScalerOf(
+                          context,
+                        ).scale(_minimumColumnHeight) +
+                        dock,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: dock),
+                    child: body,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
     if (board == null) {

@@ -17,14 +17,27 @@ Future<ShellController> _openBoard(
   String name = 'Product roadmap',
   List<String> tags = const ['roadmap'],
   Size size = const Size(390, 844),
+  int extraCards = 30,
+  bool fromDirectory = true,
 }) async {
   tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
   tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
-  final board = boardFixtureJson(extraCards: 30);
+  final board = boardFixtureJson(extraCards: extraCards);
   (board['board'] as Map)
     ..['name'] = name
     ..['tag_names'] = tags;
   final shell = await pumpMobileShellFixture(tester, size: size, board: board);
+  if (!fromDirectory) {
+    shell.pushContent(
+      ContentRoute(
+        destination: const ExtensionDestination('boards/1'),
+        title: name,
+        icon: boardsIcon,
+      ),
+    );
+    await tester.pumpAndSettle();
+    return shell;
+  }
   shell.pushContent(
     const ContentRoute(
       destination: ExtensionDestination('boards'),
@@ -36,6 +49,7 @@ Future<ShellController> _openBoard(
   expect(_sheet, findsNothing);
   await tester.tap(find.text(name));
   await tester.pumpAndSettle();
+  expect(shell.currentContent?.id, 'boards/1');
   return shell;
 }
 
@@ -150,4 +164,59 @@ void main() {
     expect(tester.getRect(add).bottom, lessThanOrEqualTo(dock.top));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
+
+  testWidgets('a board that fits keeps its header still', (tester) async {
+    await _openBoard(tester);
+    final title = tester.getRect(_title);
+    await tester.drag(_title, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_title), title);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  for (final (size, scale) in [
+    (const Size(320, 700), 1.0),
+    (const Size(320, 700), 2.0),
+    (const Size(390, 844), 1.5),
+    (const Size(390, 844), 2.0),
+    (const Size(844, 390), 1.0),
+    (const Size(844, 390), 2.0),
+  ]) {
+    testWidgets(
+      'a ${size.width.round()}x${size.height.round()} board at ${scale}x text '
+      'reaches every column footer',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _openBoard(
+          tester,
+          size: size,
+          name: 'Quarterly product roadmap for the native apps',
+          tags: ['roadmap', 'native', 'ios', 'android'],
+          extraCards: 3,
+          fromDirectory: false,
+        );
+        expect(tester.takeException(), isNull);
+        final sheet = tester.getRect(_sheet);
+        final dock = tester.getRect(_dock);
+        // The title's top stays clear of the dock even where the sheet is
+        // short; its centre can sit under the dock on a landscape phone.
+        await tester.dragFrom(
+          tester.getTopLeft(_title) + const Offset(20, 10),
+          const Offset(0, -2000),
+        );
+        await tester.pumpAndSettle();
+        for (final id in [10, 11]) {
+          final add = find.byKey(ValueKey('board-add-$id'));
+          await tester.ensureVisible(add);
+          await tester.pumpAndSettle();
+          final bounds = tester.getRect(add);
+          expect(bounds.top, greaterThanOrEqualTo(sheet.top));
+          expect(bounds.bottom, lessThanOrEqualTo(dock.top));
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
+  }
 }
