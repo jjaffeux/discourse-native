@@ -11535,6 +11535,63 @@ void main() {
         expect(updated.thread?.participantUsers, isEmpty);
       },
     );
+
+    test(
+      'a root preview update keeps a forced thread threaded in an unthreaded '
+      'channel',
+      () async {
+        // An AI bot answers a direct message in a forced thread, and every
+        // reply publishes `update_thread_original_message`, whose preview
+        // carries no `force`. The root's thread summary is drawn only while
+        // the channel threads or the thread is forced. The detail read the
+        // event schedules fails here, as it does offline, so the event alone
+        // decides what the root shows.
+        final root = threadRoot();
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page([
+              root.withThreadPreview(
+                const ChatThreadPreview(
+                  threadId: 3,
+                  replyCount: 1,
+                  force: true,
+                  participantCount: 4,
+                  participantUsers: threadParticipants,
+                ),
+              ),
+            ]),
+          },
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'update_thread_original_message',
+          'original_message_id': 1,
+          'thread_id': 3,
+          'channel_id': 9,
+          'preview': {
+            'reply_count': 2,
+            'last_reply_id': 18,
+            'last_reply_excerpt': 'answer',
+            'last_reply_created_at': '2026-05-05T12:00:00.000Z',
+            'last_reply_user': {'id': 4, 'username': 'lee'},
+          },
+        });
+        await pumpEventQueue();
+
+        expect(subject.api.chatThreadsRequested, [(channelId: 9, threadId: 3)]);
+        final updated = subject.store.read<ChatMessage>(site, 1)!;
+        expect(updated.thread?.replyCount, 2);
+        expect(updated.thread?.lastReplyId, 18);
+        expect(updated.thread?.force, isTrue);
+      },
+    );
   });
 
   group('ordering the stream', () {
