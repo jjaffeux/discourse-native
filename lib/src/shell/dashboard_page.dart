@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart' show Theme;
@@ -121,51 +119,48 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 if (widget.admin && snapshot?.configuration != null)
                   _configure(snapshot!.configuration!),
-                DButton.iconOnly(
-                  tooltip: l10n.refresh,
-                  icon: const DIcon(DIcons.arrowsRotate),
-                  loading: state.loading && snapshot != null,
-                  onPressed: state.loading
-                      ? null
-                      : () => unawaited(widget.onRefresh()),
-                ),
               ],
             ),
-      bodyBuilder: (context, header) => ListView(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 28),
-        children: [
-          header.spacer,
-          if (!widget.staff)
-            _empty(l10n.dashboardStaffOnly)
-          else ...[
-            if (state.error) _error(l10n.dashboardLoadError),
-            if (state.mutationError) _error(l10n.dashboardMutationError),
-            // The host's first refresh starts after the first frame, so an
-            // absent snapshot, not `loading`, is what marks the page as loading.
-            if (snapshot == null && !state.error) _skeleton(),
-            if (snapshot != null && !snapshot.supported) ...[
-              _empty(l10n.dashboardUnsupported),
-              _openDashboard(),
-            ],
-            if (snapshot?.supported == true) ...[
-              if (snapshot!.problems.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 24),
-                  child: _advice(snapshot.problems),
-                ),
-              if (snapshot.sections.isEmpty) _empty(l10n.dashboardNoSections),
-              for (final section in snapshot.sections)
-                _sectionFrame(
-                  Text(
-                    dashboardSectionLabel(section.id),
-                    style: Theme.of(context).textTheme.titleMedium,
+      bodyBuilder: (context, header) => DPullToRefresh(
+        onRefresh: widget.staff && !state.loading ? widget.onRefresh : null,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 28),
+          children: [
+            header.spacer,
+            if (!widget.staff)
+              _empty(l10n.dashboardStaffOnly)
+            else ...[
+              if (state.error) _error(l10n.dashboardLoadError),
+              if (state.mutationError) _error(l10n.dashboardMutationError),
+              // The host's first refresh starts after the first frame, so an
+              // absent snapshot, not `loading`, is what marks the page as
+              // loading.
+              if (snapshot == null && !state.error) _skeleton(),
+              if (snapshot != null && !snapshot.supported) ...[
+                _empty(l10n.dashboardUnsupported),
+                _openDashboard(),
+              ],
+              if (snapshot?.supported == true) ...[
+                if (snapshot!.problems.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 24),
+                    child: _advice(snapshot.problems),
                   ),
-                  _section(section),
-                  key: ValueKey('dashboard-section-${section.id}'),
-                ),
+                if (snapshot.sections.isEmpty) _empty(l10n.dashboardNoSections),
+                for (final section in snapshot.sections)
+                  _sectionFrame(
+                    Text(
+                      dashboardSectionLabel(section.id),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    _section(section),
+                    key: ValueKey('dashboard-section-${section.id}'),
+                  ),
+              ],
             ],
           ],
-        ],
+        ),
       ),
     );
   }

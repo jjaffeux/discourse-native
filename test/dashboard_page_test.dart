@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -28,7 +29,7 @@ Widget dashboard({
   bool admin = true,
   ValueChanged<DashboardPeriod>? onPeriod,
   ValueChanged<List<DashboardConfiguration>>? onConfigure,
-  VoidCallback? onRefresh,
+  Future<void> Function()? onRefresh,
   ValueChanged<DashboardLink>? onOpen,
   ValueChanged<DashboardProblem>? onDismiss,
 }) => MaterialApp(
@@ -43,9 +44,7 @@ Widget dashboard({
       state: state ?? DashboardState(snapshot: snapshot, reports: reports),
       staff: staff,
       admin: admin,
-      onRefresh: () async {
-        onRefresh?.call();
-      },
+      onRefresh: onRefresh ?? () async {},
       onPeriodChanged: onPeriod ?? (_) {},
       onConfigure: onConfigure ?? (_) {},
       onRefreshProblems: () {},
@@ -158,51 +157,73 @@ void main() {
       semantics.dispose();
     }
   });
-  testWidgets('refreshing keeps the held dashboard and marks refresh busy', (
-    tester,
-  ) async {
+  testWidgets('pulling refreshes behind the held dashboard', (tester) async {
     final semantics = tester.ensureSemantics();
     try {
       var refreshes = 0;
+      final pending = Completer<void>();
       await tester.pumpWidget(
         dashboard(
-          state: DashboardState(
-            snapshot: snapshot,
-            reports: reports,
-            loading: true,
-          ),
-          onRefresh: () => refreshes++,
+          onRefresh: () {
+            refreshes++;
+            return pending.future;
+          },
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Refresh'), findsNothing);
+      await pull(tester);
+      expect(refreshes, 1);
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
       expect(find.text('128'), findsOneWidget);
-      expect(find.bySemanticsLabel('Loading dashboard'), findsNothing);
-      expect(
-        find.byWidgetPredicate(
-          (widget) => widget is DProgress && widget.value == null,
-        ),
-        findsNothing,
-      );
-      final refresh = find.byWidgetPredicate(
-        (widget) => widget is DButton && widget.tooltip == 'Refresh',
-      );
-      expect(
-        tester.getSemantics(refresh),
-        isSemantics(value: 'Loading', isEnabled: false),
-      );
-      await tester.tap(refresh, warnIfMissed: false);
-      await tester.pump();
-      expect(refreshes, 0);
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+      expect(find.text('128'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     } finally {
       semantics.dispose();
     }
   });
+  testWidgets('a dashboard already refreshing ignores another pull', (
+    tester,
+  ) async {
+    var refreshes = 0;
+    await tester.pumpWidget(
+      dashboard(
+        state: DashboardState(
+          snapshot: snapshot,
+          reports: reports,
+          loading: true,
+        ),
+        onRefresh: () async => refreshes++,
+      ),
+    );
+    await tester.pump();
+    expect(find.text('128'), findsOneWidget);
+    expect(find.bySemanticsLabel('Loading dashboard'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is DProgress && widget.value == null,
+      ),
+      findsNothing,
+    );
+    await pull(tester);
+    await tester.pumpAndSettle();
+    expect(refreshes, 0);
+  });
   testWidgets('member page denies data and controls', (tester) async {
-    await tester.pumpWidget(dashboard(staff: false, admin: false));
+    var refreshes = 0;
+    await tester.pumpWidget(
+      dashboard(staff: false, admin: false, onRefresh: () async => refreshes++),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Only staff can see the dashboard.'), findsOneWidget);
     expect(find.text('128'), findsNothing);
     expect(find.byType(DSelect<DashboardPeriod>), findsNothing);
+    await pull(tester);
+    await tester.pumpAndSettle();
+    expect(refreshes, 0);
   });
   testWidgets(
     'moderator hides admin configuration, dismissal, rankings, backups',
@@ -229,17 +250,15 @@ void main() {
     },
   );
   testWidgets(
-    'presets, confirmed configuration, advice, and refresh call their owners',
+    'presets, confirmed configuration, and advice call their owners',
     (tester) async {
       DashboardPeriod? period;
       List<DashboardConfiguration>? configured;
-      var refreshes = 0;
       DashboardProblem? dismissed;
       await tester.pumpWidget(
         dashboard(
           onPeriod: (value) => period = value,
           onConfigure: (value) => configured = value,
-          onRefresh: () => refreshes++,
           onDismiss: (value) => dismissed = value,
         ),
       );
@@ -263,9 +282,6 @@ void main() {
       await tester.tap(find.text('Dismiss notice'));
       await tester.pumpAndSettle();
       expect(dismissed!.id, 1);
-      await tester.tap(find.byTooltip('Refresh'));
-      await tester.pumpAndSettle();
-      expect(refreshes, 1);
     },
   );
   testWidgets('legacy and partial failures provide truthful browser actions', (
@@ -326,6 +342,12 @@ void main() {
     expect(find.textContaining('free'), findsNothing);
     expect(find.byType(DProgress), findsNothing);
   });
+}
+
+Future<void> pull(WidgetTester tester) async {
+  await tester.drag(find.byType(DPullToRefresh), const Offset(0, 500));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 Future<void> capture(WidgetTester tester, GlobalKey key, String name) async {
