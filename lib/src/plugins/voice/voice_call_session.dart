@@ -323,10 +323,12 @@ final class _VoiceCallSession {
         controller.room(siteUrl, room.id) ?? room,
         response.room,
       );
-      // Push to talk speaks only while Space is held, so it joins muted even
-      // where the room would let the user speak.
+      // Push to talk speaks only while Space is held, and a Mute pressed on
+      // the answered system call stays on, so either joins muted even where
+      // the room would let the user speak.
       final initiallyMuted =
           controller._pushToTalkEnabled ||
+          controller._incoming.answeredCallMuted ||
           !VoiceController._canPublishAudio(
             joinedRoom,
             joinedRoom.participants,
@@ -429,6 +431,9 @@ final class _VoiceCallSession {
       }
       if (!isCurrent()) return;
 
+      // The answered system call fails with this join, and what was set on
+      // it must not carry over to the next one.
+      controller._incoming.retireAnswer();
       await controller._runHandled(controller.systemCall.failed);
 
       if (isCurrent()) {

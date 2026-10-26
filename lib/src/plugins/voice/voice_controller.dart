@@ -1295,17 +1295,27 @@ final class VoiceController extends ChangeNotifier {
     switch (action) {
       case VoiceSystemCallAction.mute:
         _userActed();
-        _observe(() => _setMuted(true, syncSystem: false));
+        _systemMuteChanged(true);
       case VoiceSystemCallAction.unmute:
         _calls.current?.acknowledgeUnmute();
         _userActed();
-        _observe(() => _setMuted(false, syncSystem: false));
+        _systemMuteChanged(false);
       case VoiceSystemCallAction.end:
         _observe(() => _leave(notifyServer: true));
       case VoiceSystemCallAction.answer:
         _observe(_incoming.answerFromSystem);
       case VoiceSystemCallAction.decline:
         declineIncomingCall(fromSystem: true);
+    }
+  }
+
+  /// An answered system call shows its Mute button before the join has a
+  /// call to apply it to; the call that takes it over joins as it was left.
+  void _systemMuteChanged(bool muted) {
+    if (_call == null) {
+      _incoming.answeredCallMuteChanged(muted);
+    } else {
+      _observe(() => _setMuted(muted, syncSystem: false));
     }
   }
 

@@ -9149,6 +9149,39 @@ void main() {
         }
       }
 
+      test('a system call muted before its join failed leaves the next join '
+          'unmuted', () async {
+        callTransport.heldPluginWritePaths.add('/voice/rooms/9/join.json');
+        await answerFromSystem(expectedTransport: 'mesh');
+        await callTransport.waitForPendingPluginWrites(1);
+        systemCall.send(VoiceSystemCallAction.mute);
+        await pumpEventQueue();
+        callTransport.pendingPluginWrites
+            .removeAt(0)
+            .response
+            .completeError(const WriteException(WriteFailure.forbidden));
+        await pumpEventQueue();
+        expect(controller.call, isNull);
+        expect(systemCall.failures, 1);
+
+        final room = await controller.resolveRoom(firstSite, 'call-1a2b');
+        final rejoining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: room!,
+        );
+        await callTransport.waitForPendingPluginWrites(1);
+        callTransport.pendingPluginWrites.single.response.complete({
+          ...fixture('join_mesh'),
+          'room': callRoom(),
+        });
+        await rejoining;
+
+        expect(controller.call?.status, VoiceCallStatus.connected);
+        expect(controller.call?.muted, isFalse);
+        expect(mediaFactory.sessions.last.muted, isFalse);
+      });
+
       for (final hangUp in ['the system', 'the app']) {
         test('hanging up from $hangUp while waiting joins nothing', () async {
           meshPrivacyWarning = true;
