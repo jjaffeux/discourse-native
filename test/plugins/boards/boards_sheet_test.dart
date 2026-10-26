@@ -163,6 +163,57 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('a board reappears as it was left when its card topic closes', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+    final board = boardFixtureJson();
+    final columns = (board['columns'] as List).cast<Map<String, dynamic>>();
+    final card = (columns.first['cards'] as List).removeAt(0) as Map;
+    card
+      ..['topic_id'] = 7
+      ..['column_id'] = 11;
+    (card['topic'] as Map)['id'] = 7;
+    (columns[1]['cards'] as List).add(card);
+    final shell = await pumpMobileShellFixture(tester, board: board);
+    shell.pushContent(
+      const ContentRoute(
+        destination: ExtensionDestination('boards/1'),
+        title: 'Product roadmap',
+        icon: boardsIcon,
+      ),
+    );
+    await tester.pumpAndSettle();
+    double left() =>
+        tester.getRect(_column(11)).left - tester.getRect(_sheet).left;
+    await tester.fling(_column(10), const Offset(-120, 0), 1000);
+    await tester.pumpAndSettle();
+    final leftBefore = left();
+    await tester.tap(find.byKey(const ValueKey('board-card-101')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isTrue);
+    final pull = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+    );
+    await pull.moveBy(const Offset(0, 20));
+    await pull.moveBy(const Offset(0, 220));
+    await pull.up();
+    // The sheet returns to the board inside an animation frame, so the frame
+    // that ends this loop is the first one that builds the board again.
+    for (var frame = 0; shell.currentContent?.isTopic ?? false; frame++) {
+      expect(frame, lessThan(120));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(shell.currentContent?.id, 'boards/1');
+    expect(tester.widget<Text>(_title).data, 'Product roadmap');
+    expect(find.byKey(const ValueKey('board-card-101')), findsOneWidget);
+    expect(left(), leftBefore);
+    await tester.pumpAndSettle();
+    expect(left(), leftBefore);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets(
     'pulling a board down after the app resumes shows the directory',
     (tester) async {
