@@ -161,6 +161,12 @@ void main() {
         expect(destination.top - surface.top, 6);
         expect(surface.bottom - destination.bottom, 6);
         expect(surface.right - action.right, 6);
+        final fill =
+            (tester.widget<AnimatedContainer>(capsule).decoration
+                    as BoxDecoration)
+                .color!;
+        expect(fill, DTokens.of(tester.element(capsule)).wellFill);
+        expect(fill.a, 1);
 
         expect(tester.takeException(), isNull);
       },

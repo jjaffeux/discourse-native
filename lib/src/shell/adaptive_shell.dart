@@ -512,6 +512,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     return _ShellScaffold(
       mobile: mobile,
       body: ForumWindowBackground(
+        mobile: mobile,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final layout = ShellLayout.forWidth(constraints.maxWidth);
@@ -600,6 +601,7 @@ class _ForumBoundaryShell extends StatelessWidget {
   Widget build(BuildContext context) {
     if (ShellScope.read(context).mobileNavigationEnabled) {
       return ForumWindowBackground(
+        mobile: true,
         child: SafeArea(
           bottom: false,
           child: MobileForumRoot(content: child, boundary: true),
@@ -848,6 +850,7 @@ class _MobileShell extends StatelessWidget {
       }
     },
     child: ForumWindowBackground(
+      mobile: true,
       child: SafeArea(
         bottom: false,
         child:

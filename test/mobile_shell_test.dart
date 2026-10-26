@@ -1408,6 +1408,31 @@ void main() {
     );
   }
 
+  _mobileTest('the phone ground is the bar\'s own fill', (tester) async {
+    final shell = await pumpMobileShellFixture(tester);
+    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      final canvas = find.byKey(const ValueKey('forum-window-canvas'));
+      final ground =
+          (tester.widget<DecoratedBox>(canvas).decoration as BoxDecoration)
+              .color!;
+      final bar = find.byKey(const ValueKey('mobile-dock-surface'));
+      final fill =
+          (tester.widget<AnimatedContainer>(bar).decoration as BoxDecoration)
+              .color!;
+      final tokens = DTokens.of(tester.element(canvas));
+      expect(ground, tokens.wellFill, reason: mode.name);
+      expect(fill, ground, reason: mode.name);
+      expect(ground.a, 1);
+      expect(
+        Oklab.of(ground).lightness,
+        closeTo(Oklab.of(tokens.background).lightness - .08, .005),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
     for (final scale in [1.0, 1.5]) {
       _mobileTest(

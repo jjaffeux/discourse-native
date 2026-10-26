@@ -80,11 +80,7 @@ class _DMobileDockState extends State<DMobileDock> {
       final radius = BorderRadius.circular(999);
       final tokens = DTokens.of(context);
 
-      final well = Color.lerp(
-        tokens.background,
-        tokens.foreground,
-        .12,
-      )!.withValues(alpha: .94);
+      final well = tokens.wellFill;
       final navigation = OverflowBox(
         alignment: AlignmentDirectional.centerStart,
         minWidth: constraints.maxWidth - 12,
