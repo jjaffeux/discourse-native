@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -876,6 +877,228 @@ void main() {
       ),
     );
     semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a drag up on the bar grows it under the finger, past the slop', (
+    tester,
+  ) async {
+    final pressed = <String>[];
+    await tester.pumpWidget(fixture(foot: 34, onPlace: pressed.add));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    // Three tiles: the panel is 190 tall, 104 of it above the bar's top.
+    final topics = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    final gesture = await tester.createGesture();
+    await gesture.down(topics, timeStamp: Duration.zero);
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, -8),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    await tester.pump();
+    expect(_panel, findsNothing);
+    expect(tester.getRect(_surface), rest);
+    await gesture.moveBy(
+      const Offset(0, -2),
+      timeStamp: const Duration(milliseconds: 32),
+    );
+    await tester.pump();
+    expect(_panel, findsOneWidget);
+    // Ten pixels of 104: the bar has risen that share of its 88 travel.
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 10 / 104, .01),
+    );
+    expect(
+      tester.widget<ColoredBox>(_dim).color.a,
+      closeTo(.32 * 10 / 104, .001),
+    );
+    await gesture.moveBy(
+      const Offset(0, -42),
+      timeStamp: const Duration(milliseconds: 48),
+    );
+    await tester.pump();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 44, .01));
+    expect(tester.widget<ColoredBox>(_dim).color.a, closeTo(.16, .001));
+    // Let go still, halfway: it settles open, and Topics was never pressed.
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 400),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 416));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getRect(_surface).top, lessThan(rest.top - 44));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    expect(pressed, isEmpty);
+    expect(tester.widget<DMobileDockItem>(_more).expanded, isTrue);
+
+    // From open, a short push down comes back; a longer one closes.
+    final head = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    await gesture.down(head, timeStamp: const Duration(seconds: 1));
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, 20),
+      timeStamp: const Duration(milliseconds: 1016),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * (1 - 20 / 104), .01),
+    );
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 1400),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 1416));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    expect(_panel, findsOneWidget);
+    await gesture.down(head, timeStamp: const Duration(seconds: 2));
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, 40),
+      timeStamp: const Duration(milliseconds: 2016),
+    );
+    await tester.pump();
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 2400),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 2416));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.getRect(_surface), rest);
+    expect(pressed, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a fling up from a tenth opens; a slow release at a fifth '
+      'closes', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    final topics = tester.getCenter(find.byKey(const ValueKey('Topics')));
+    final gesture = await tester.createGesture();
+    // 20 of 104 in 20 ms, a pixel a millisecond: a flick, short of a
+    // quarter of the way.
+    await gesture.down(topics, timeStamp: Duration.zero);
+    for (var step = 1; step <= 4; step++) {
+      await gesture.moveBy(
+        const Offset(0, -5),
+        timeStamp: Duration(milliseconds: 5 * step),
+      );
+    }
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * 20 / 104, .01),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 24));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    await tester.tap(find.byKey(const ValueKey('Topics')));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    // 20.8 of 104 over 300 ms, then still: not a flick, and short of a
+    // quarter.
+    await gesture.down(topics, timeStamp: const Duration(seconds: 1));
+    for (var step = 1; step <= 4; step++) {
+      await gesture.moveBy(
+        const Offset(0, -5.2),
+        timeStamp: Duration(milliseconds: 1000 + 75 * step),
+      );
+    }
+    await tester.pump();
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 17.6, .01));
+    await gesture.moveBy(
+      Offset.zero,
+      timeStamp: const Duration(milliseconds: 1500),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 1516));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.getRect(_surface), rest);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a touch starting in the home band is the system\'s, not the '
+      'bar\'s', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final frame = tester.getRect(_frame);
+    // Inside the bar's own bottom padding, 10 above the screen's edge.
+    final foot = Offset(frame.center.dx, frame.bottom - 10);
+    for (final (kind, grows) in [
+      (PointerDeviceKind.touch, false),
+      (PointerDeviceKind.mouse, true),
+    ]) {
+      final gesture = await tester.createGesture(kind: kind);
+      await gesture.down(foot, timeStamp: Duration.zero);
+      await tester.pump();
+      await gesture.moveBy(
+        const Offset(0, -60),
+        timeStamp: const Duration(milliseconds: 16),
+      );
+      await tester.pump();
+      expect(_panel, grows ? findsOneWidget : findsNothing, reason: '$kind');
+      await gesture.up(timeStamp: const Duration(milliseconds: 32));
+      await tester.pumpAndSettle();
+      if (grows) {
+        await tester.tap(find.byKey(const ValueKey('Topics')));
+        await tester.pumpAndSettle();
+      }
+      expect(_panel, findsNothing);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the panel itself is dragged closed, and a folded bar is not '
+      'dragged', (tester) async {
+    await tester.pumpWidget(fixture(foot: 34));
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    final tile = tester.getCenter(
+      find.byKey(DMobileDock.tileKey(const ValueKey('Users'))),
+    );
+    final gesture = await tester.createGesture();
+    await gesture.down(tile, timeStamp: Duration.zero);
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, 60),
+      timeStamp: const Duration(milliseconds: 16),
+    );
+    await tester.pump();
+    expect(
+      tester.getRect(_surface).top,
+      closeTo(rest.top - 88 * (1 - 60 / 104), .01),
+    );
+    await gesture.moveBy(
+      const Offset(0, 40),
+      timeStamp: const Duration(milliseconds: 32),
+    );
+    await gesture.up(timeStamp: const Duration(milliseconds: 40));
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(tester.getRect(_surface), rest);
+
+    await tester.pumpWidget(fixture(foot: 34, collapsed: true));
+    await tester.pumpAndSettle();
+    final circle = tester.getCenter(_surface);
+    await gesture.down(circle, timeStamp: const Duration(seconds: 1));
+    await tester.pump();
+    await gesture.moveBy(
+      const Offset(0, -60),
+      timeStamp: const Duration(milliseconds: 1016),
+    );
+    await tester.pump();
+    expect(_panel, findsNothing);
+    await gesture.up(timeStamp: const Duration(milliseconds: 1032));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 }

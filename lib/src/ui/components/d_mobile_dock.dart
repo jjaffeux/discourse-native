@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';
+import 'd_mobile_dock_growth.dart';
 import 'd_mobile_dock_item.dart';
 
 /// One of a phone's places, as the bar shows it in its row and as the panel
@@ -197,6 +200,14 @@ final class _Closed extends _Growth {
   const _Closed();
 }
 
+/// Under a finger, from where it was when the drag began, with where the
+/// finger has been lately.
+final class _Dragging extends _Growth {
+  _Dragging({required this.start});
+  final double start;
+  final trail = DMobileDockDragTrail();
+}
+
 /// Pressed or let go, on its spring to open or closed.
 final class _Settling extends _Growth {
   const _Settling({required this.opening});
@@ -249,6 +260,77 @@ class _DMobileDockState extends State<DMobileDock>
     _moreFocus.dispose();
     _panelFocus.dispose();
     super.dispose();
+  }
+
+  /// Where a drag began on the screen, so growth follows the finger from
+  /// where it was.
+  double _dragOrigin = 0;
+
+  void _dragStart(DragStartDetails details) {
+    if (!_grows) return;
+    _settle++;
+    _growth.stop();
+    _fade.stop();
+    final start = _growth.value.clamp(0.0, 1.0);
+    _dragOrigin = details.globalPosition.dy;
+    final wasOut = _out;
+    setState(() => _phase = _Dragging(start: start));
+    if (!wasOut) _portal.show();
+    _reportOut();
+  }
+
+  void _dragUpdate(DragUpdateDetails details) {
+    if (_phase case _Dragging(:final start, :final trail)) {
+      final panel = widget.geometry.panel(tiles: _tiles);
+      final travel = math.max(1.0, panel.reveal);
+      final pulled = _dragOrigin - details.globalPosition.dy;
+      final growth = (start + pulled / travel).clamp(0.0, 1.0);
+      _growth.value = growth;
+      _fade.value = growth;
+      trail.add(
+        details.globalPosition.dy,
+        details.sourceTimeStamp ?? Duration.zero,
+      );
+    }
+  }
+
+  void _dragEnd([DragEndDetails? _]) {
+    if (_phase case _Dragging(:final start, :final trail)) {
+      _grow(
+        DMobileDockDrag.settlesOpen(
+          start: start,
+          at: _growth.value,
+          velocity: trail.velocity,
+        ),
+      );
+    }
+  }
+
+  /// Takes a vertical drag on [child] while the bar is open, and none once
+  /// it is folded to its circle. The detector stays in the tree either way,
+  /// so folding does not rebuild what it wraps.
+  Widget _draggable(BuildContext context, Widget child) {
+    final view = View.of(context);
+    final screenBottom = view.physicalSize.height / view.devicePixelRatio;
+    return RawGestureDetector(
+      behavior: HitTestBehavior.translucent,
+      gestures: widget.collapsed
+          ? const {}
+          : {
+              _GrowDragRecognizer:
+                  GestureRecognizerFactoryWithHandlers<_GrowDragRecognizer>(
+                    _GrowDragRecognizer.new,
+                    (recognizer) => recognizer
+                      ..homeBandTop = screenBottom - DMobileDockDrag.homeBand
+                      ..dragStartBehavior = DragStartBehavior.down
+                      ..onStart = _dragStart
+                      ..onUpdate = _dragUpdate
+                      ..onEnd = _dragEnd
+                      ..onCancel = _dragEnd,
+                  ),
+            },
+      child: child,
+    );
   }
 
   void _grow(bool opening) {
@@ -490,7 +572,7 @@ class _DMobileDockState extends State<DMobileDock>
                             ): () =>
                                 _grow(false),
                           },
-                          child: body,
+                          child: _draggable(context, body),
                         ),
                       ),
                     ),
@@ -763,82 +845,108 @@ class _DMobileDockState extends State<DMobileDock>
       // The circle's corner is measured from the screen's edges; the bar's
       // own margin already keeps part of that distance.
       final corner = geometry.cornerAt(round) - geometry.reach;
-      return AnimatedPadding(
-        padding: collapsed
-            ? EdgeInsetsDirectional.only(start: corner, bottom: corner)
-            : EdgeInsetsDirectional.zero,
-        duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
-        curve: const Cubic(.32, .72, 0, 1),
-        child: AnimatedContainer(
-          key: const ValueKey('mobile-dock-surface'),
+      return _draggable(
+        context,
+        AnimatedPadding(
+          padding: collapsed
+              ? EdgeInsetsDirectional.only(start: corner, bottom: corner)
+              : EdgeInsetsDirectional.zero,
           duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
-          width: collapsed ? round : constraints.maxWidth,
-          height: collapsed ? round : geometry.barHeight,
-          decoration: BoxDecoration(
-            // The panel shows through the head so the grid can come up
-            // under its row.
-            color: out ? well.withValues(alpha: 0) : well,
-            borderRadius: collapsed
-                ? BorderRadius.circular(round / 2)
-                : geometry.borderRadius,
-          ),
-          child: Stack(
-            children: [
-              AnimatedPadding(
-                key: const ValueKey('mobile-dock-controls'),
-                padding: collapsed
-                    ? const EdgeInsets.all(DMobileDock.circlePadding)
-                    : rowPadding,
-                duration: reduced
-                    ? Duration.zero
-                    : const Duration(milliseconds: 420),
-                curve: const Cubic(.32, .72, 0, 1),
-                child: ClipRRect(
-                  borderRadius: radius,
-                  clipBehavior: out ? Clip.none : Clip.hardEdge,
-                  child: Stack(
-                    alignment: AlignmentDirectional.centerStart,
-                    children: [
-                      ExcludeSemantics(
-                        excluding: collapsed || navOpacity < 1,
-                        child: IgnorePointer(
-                          ignoring: collapsed || navOpacity < 1,
-                          child: AnimatedOpacity(
-                            opacity: navOpacity,
-                            duration: reduced
-                                ? Duration.zero
-                                : const Duration(milliseconds: 100),
-                            child: navigation,
-                          ),
-                        ),
-                      ),
-                      if (collapsed || revealOpacity > 0)
+          child: AnimatedContainer(
+            key: const ValueKey('mobile-dock-surface'),
+            duration: reduced
+                ? Duration.zero
+                : const Duration(milliseconds: 420),
+            curve: const Cubic(.32, .72, 0, 1),
+            width: collapsed ? round : constraints.maxWidth,
+            height: collapsed ? round : geometry.barHeight,
+            decoration: BoxDecoration(
+              // The panel shows through the head so the grid can come up
+              // under its row.
+              color: out ? well.withValues(alpha: 0) : well,
+              borderRadius: collapsed
+                  ? BorderRadius.circular(round / 2)
+                  : geometry.borderRadius,
+            ),
+            child: Stack(
+              children: [
+                AnimatedPadding(
+                  key: const ValueKey('mobile-dock-controls'),
+                  padding: collapsed
+                      ? const EdgeInsets.all(DMobileDock.circlePadding)
+                      : rowPadding,
+                  duration: reduced
+                      ? Duration.zero
+                      : const Duration(milliseconds: 420),
+                  curve: const Cubic(.32, .72, 0, 1),
+                  child: ClipRRect(
+                    borderRadius: radius,
+                    clipBehavior: out ? Clip.none : Clip.hardEdge,
+                    child: Stack(
+                      alignment: AlignmentDirectional.centerStart,
+                      children: [
                         ExcludeSemantics(
-                          excluding: !collapsed || revealOpacity < 1,
+                          excluding: collapsed || navOpacity < 1,
                           child: IgnorePointer(
-                            ignoring: !collapsed || revealOpacity < 1,
-                            child: Opacity(
-                              opacity: revealOpacity,
-                              child: SizedBox(
-                                width: round - 2 * DMobileDock.circlePadding,
-                                height: round - 2 * DMobileDock.circlePadding,
-                                child: widget.collapsedDestination,
-                              ),
+                            ignoring: collapsed || navOpacity < 1,
+                            child: AnimatedOpacity(
+                              opacity: navOpacity,
+                              duration: reduced
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 100),
+                              child: navigation,
                             ),
                           ),
                         ),
-                    ],
+                        if (collapsed || revealOpacity > 0)
+                          ExcludeSemantics(
+                            excluding: !collapsed || revealOpacity < 1,
+                            child: IgnorePointer(
+                              ignoring: !collapsed || revealOpacity < 1,
+                              child: Opacity(
+                                opacity: revealOpacity,
+                                child: SizedBox(
+                                  width: round - 2 * DMobileDock.circlePadding,
+                                  height: round - 2 * DMobileDock.circlePadding,
+                                  child: widget.collapsedDestination,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              marks,
-            ],
+                marks,
+              ],
+            ),
           ),
         ),
       );
     },
   );
+}
+
+/// A drag up or down the bar or its panel: accepted past the bar's own slop
+/// rather than the platform's, and never a touch that starts in the screen's
+/// home band, which is the system's.
+class _GrowDragRecognizer extends VerticalDragGestureRecognizer {
+  _GrowDragRecognizer();
+
+  double homeBandTop = double.infinity;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) =>
+      super.isPointerAllowed(event) &&
+      !(event.kind == PointerDeviceKind.touch &&
+          event.position.dy >= homeBandTop);
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) => globalDistanceMoved.abs() > DMobileDockDrag.slop;
 }
 
 /// Your face as the places' marks are, with your presence ringed round it as
