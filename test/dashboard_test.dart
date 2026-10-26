@@ -109,7 +109,7 @@ void main() {
           {'property': 'name', 'title': 'Member'},
         ],
         'data': [
-          {'name': '<b>Sam</b>'},
+          {'name': 'Sam'},
         ],
       },
       'error': false,
@@ -181,9 +181,9 @@ void main() {
           {
             'author_username': 'sam',
             'author_id': 7,
-            'topic_title': 'Sailing <b>together</b>',
+            'topic_title': 'Sailing together',
             'topic_id': 42,
-            'post_raw': 'A <b>post</b>',
+            'post_raw': 'A post',
             'post_number': 3,
             'file_url': '/uploads/manual.pdf',
             'file_name': 'Sailing manual.pdf',
@@ -196,6 +196,44 @@ void main() {
     expect(table.unsupported, isFalse);
     expect(table.rows, [
       ['sam', 'Sailing together', 'A post', 'Sailing manual.pdf', '0', '12'],
+    ]);
+  });
+  test('report cells are plain text, as the web escapes every one', () {
+    final table = DashboardReportResult.fromJson(const {
+      'data': {
+        'labels': [
+          {
+            'type': 'topic',
+            'properties': {'title': 'topic_title', 'id': 'topic_id'},
+            'title': 'Topic',
+          },
+          {
+            'type': 'post',
+            'properties': {
+              'truncated_raw': 'post_raw',
+              'number': 'post_number',
+            },
+            'title': 'Post',
+          },
+          {'property': 'edit_reason', 'title': 'Reason'},
+        ],
+        'data': [
+          {
+            'topic_title': 'Embedding <iframe> in a post',
+            'topic_id': 42,
+            'post_raw': 'Press <kbd>Ctrl</kbd>&nbsp;+ <kbd>C</kbd>',
+            'post_number': 3,
+            'edit_reason': 'Swap <br> for a blank line',
+          },
+        ],
+      },
+    });
+    expect(table.rows, [
+      [
+        'Embedding <iframe> in a post',
+        'Press <kbd>Ctrl</kbd>&nbsp;+ <kbd>C</kbd>',
+        'Swap <br> for a blank line',
+      ],
     ]);
   });
   test('unknown mapped report labels use the unsupported report fallback', () {
