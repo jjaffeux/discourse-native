@@ -84,6 +84,33 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets(
+    'pulling a board down after the app resumes shows the directory',
+    (tester) async {
+      final shell = await _openBoard(tester);
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      final pull = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      await pull.moveBy(const Offset(0, 20));
+      await pull.moveBy(const Offset(0, 220));
+      await tester.pump();
+      final directory = find.byKey(const PageStorageKey('boards-directory'));
+      expect(
+        tester.getRect(directory).top,
+        lessThan(tester.getRect(_sheet).top),
+      );
+      await pull.up();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'boards');
+      expect(tester.takeException(), isNull);
+    },
+    variant: platforms,
+  );
+
   testWidgets('the sheet header keeps tags and actions beside the title', (
     tester,
   ) async {

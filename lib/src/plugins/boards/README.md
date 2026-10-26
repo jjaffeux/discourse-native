@@ -31,7 +31,10 @@ for attachment retry during the current app session. That recovery receipt is
 cleared on account retirement and is not persisted across app restart.
 
 On phones and tablets a board opens in the shared mobile page sheet, as a topic
-does, and pulling it down returns to the previous page. The sheet drops the
+does, and pulling it down returns to the previous page. When that page is the
+boards directory, the shell draws it live behind the sheet rather than from a
+history snapshot, so it is still there after the app has been in the
+background. The sheet drops the
 directory back link; the board's categories, tags and menu follow its title and
 wrap below a long one. Below 600 points a column fills the sheet with 10 points
 of the next one showing, and each swipe settles on one column. The sheet hides

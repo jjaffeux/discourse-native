@@ -55,6 +55,10 @@ final class MobileNavigation {
   bool get canGoBack => _index > 0;
   bool get canGoForward => _index < _entries.length - 1;
 
+  /// Where Back lands, null when there is no earlier visit or it is the root.
+  ForumTabLocation? get previousLocation =>
+      canGoBack ? _entries[_index - 1].content : null;
+
   /// Opaque presentation identities, independent of hydrated route metadata.
   Object get historyId => _historyId;
   Object get entryId => _entries[_index].id;
