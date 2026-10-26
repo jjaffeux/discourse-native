@@ -1133,17 +1133,27 @@ final class GroupsController extends FrameSafeNotifier {
   Future<GroupWriteOutcome<void>> leave(
     DiscourseInstance instance,
     Group group,
-  ) => _mutate(
-    instance,
-    group,
+  ) {
+    final reader = instance.user?.username.toLowerCase();
+    return _mutate(
+      instance,
+      group,
 
-    (apiKey, clientId) => api.leave(
-      siteUrl: instance.url,
-      apiKey: apiKey,
-      clientId: clientId,
-      groupId: group.id,
-    ),
-  );
+      (apiKey, clientId) => api.leave(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        clientId: clientId,
+        groupId: group.id,
+      ),
+      removeCachedRows: reader == null
+          ? null
+          : () => _removeCachedMembers(
+              instance.url,
+              group,
+              (member) => member.username.toLowerCase() == reader,
+            ),
+    );
+  }
 
   Future<GroupWriteOutcome<String?>> requestMembership(
     DiscourseInstance instance,
@@ -1288,31 +1298,40 @@ final class GroupsController extends FrameSafeNotifier {
       groupId: group.id,
       userIds: [member.id],
     ),
-    removeCachedRows: () {
-      _members.updateAll((key, held) {
-        if (key.siteUrl != instance.url ||
-            key.groupName != _normalize(group.name)) {
-          return held;
-        }
-        final rows = held.members
-            .where((item) => item.id != member.id)
-            .toList(growable: false);
-        final removed = held.members.length - rows.length;
-        if (removed == 0) return held;
-        return GroupMembersState(
-          members: rows,
-          total: _subtractRemovedRows(held.total, removed),
-          nextOffset: _subtractRemovedRows(held.nextOffset, removed),
-          hasMore: held.hasMore,
-          loading: held.loading,
-          loadingMore: held.loadingMore,
-          loaded: held.loaded,
-          error: held.error,
-          pageError: held.pageError,
-        );
-      });
-    },
+    removeCachedRows: () => _removeCachedMembers(
+      instance.url,
+      group,
+      (item) => item.id == member.id,
+    ),
   );
+
+  void _removeCachedMembers(
+    String siteUrl,
+    Group group,
+    bool Function(GroupMember member) removes,
+  ) {
+    _members.updateAll((key, held) {
+      if (key.siteUrl != siteUrl || key.groupName != _normalize(group.name)) {
+        return held;
+      }
+      final rows = held.members
+          .where((item) => !removes(item))
+          .toList(growable: false);
+      final removed = held.members.length - rows.length;
+      if (removed == 0) return held;
+      return GroupMembersState(
+        members: rows,
+        total: _subtractRemovedRows(held.total, removed),
+        nextOffset: _subtractRemovedRows(held.nextOffset, removed),
+        hasMore: held.hasMore,
+        loading: held.loading,
+        loadingMore: held.loadingMore,
+        loaded: held.loaded,
+        error: held.error,
+        pageError: held.pageError,
+      );
+    });
+  }
 
   Future<GroupWriteOutcome<void>> setMemberOwner(
     DiscourseInstance instance,
