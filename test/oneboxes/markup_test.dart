@@ -21,11 +21,17 @@ void main() {
       expect(hexColorIn('#000000')!.a, 1.0);
     });
 
-    test('declines anything that is not six hex digits', () {
+    test('expands a category color stored as three hex digits', () {
+      expect(hexColorIn('box-shadow: -5px 0px #abc;'), const Color(0xFFAABBCC));
+      expect(hexColorIn('background-color: #F60'), const Color(0xFFFF6600));
+    });
+
+    test('declines anything that is not six or three hex digits', () {
       expect(hexColorIn(null), isNull);
       expect(hexColorIn(''), isNull);
       expect(hexColorIn('background-color: red'), isNull);
-      expect(hexColorIn('background-color: #abc'), isNull);
+      expect(hexColorIn('background-color: #abcd'), isNull);
+      expect(hexColorIn('background-color: #aabbccdd'), isNull);
     });
 
     test('reads an element\'s own style attribute', () {
