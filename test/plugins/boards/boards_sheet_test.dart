@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugins/boards/boards_directory.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/gestures.dart';
@@ -35,6 +36,7 @@ Future<ShellController> _openBoard(
   double homeIndicator = 34,
   List<Map<String, Object?>> doneCards = const [],
   void Function(FakeDiscourseApi api)? onApi,
+  FakeForumTabStore? forumTabs,
 }) async {
   tester.view.padding = FakeViewPadding(top: 44, bottom: homeIndicator);
   tester.view.viewPadding = FakeViewPadding(top: 44, bottom: homeIndicator);
@@ -53,6 +55,7 @@ Future<ShellController> _openBoard(
       },
     },
     onApi: onApi,
+    forumTabs: forumTabs,
   );
   if (!fromDirectory) {
     shell.pushContent(
@@ -115,6 +118,42 @@ void main() {
     expect(find.byType(DSpinner), findsNothing);
     expect(find.text('Product roadmap'), findsOneWidget);
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('a restored board reveals the directory while pulled down', (
+    tester,
+  ) async {
+    final forumTabs = FakeForumTabStore();
+    await _openBoard(tester, forumTabs: forumTabs);
+    final shell = await pumpMobileShellFixture(
+      tester,
+      board: boardFixtureJson(),
+      forumTabs: forumTabs,
+      key: UniqueKey(),
+    );
+    expect(shell.currentContent?.id, 'boards/1');
+    final pull = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+    );
+    await pull.moveBy(const Offset(0, 20));
+    await pull.moveBy(const Offset(0, 220));
+    await tester.pump();
+    final directory = find.byType(BoardsDirectory);
+    expect(directory, findsOneWidget);
+    expect(
+      find.descendant(of: directory, matching: find.text('Product roadmap')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(directory).dy,
+      lessThan(tester.getTopLeft(_sheet).dy),
+    );
+    await pull.up();
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    expect(_sheet, findsNothing);
+    expect(find.text('Product roadmap'), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 

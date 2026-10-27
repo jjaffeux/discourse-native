@@ -217,6 +217,35 @@ void main() {
     expect(navigation.atRoot, isTrue);
   });
 
+  test('a restored stack keeps its root and bounds its parent history', () {
+    final routes = [
+      for (var i = 0; i < ForumTab.maximumContentRoutes; i++)
+        page('$i').contentStack.single,
+    ];
+    final navigation = MobileNavigation();
+    navigation.synchronize(
+      owner: 'forum',
+      contentRoot: true,
+      location: ForumTabLocation(rootDestinationId: '0', contentStack: routes),
+    );
+    final currentId = navigation.entryId;
+    expect(navigation.location?.contentStack.last, routes.last);
+    expect(navigation.goBack(), isTrue);
+    expect(navigation.location?.contentStack.last, routes[routes.length - 2]);
+    expect(navigation.goForward(), isTrue);
+    expect(navigation.entryId, currentId);
+    var count = 0;
+    while (navigation.goBack()) {
+      count++;
+    }
+    expect(count, MobileNavigation.maximumPages);
+    expect(navigation.location?.contentStack, [routes.first]);
+    expect(navigation.canGoBack, isFalse);
+    navigation.synchronize(owner: 'another forum', location: page('private'));
+    expect(navigation.previousLocation, isNull);
+    expect(navigation.canGoForward, isFalse);
+  });
+
   test('a restored root names its place until a place is chosen', () {
     final navigation = MobileNavigation();
     expect(navigation.restoredPlace, isNull);

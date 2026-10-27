@@ -103,8 +103,20 @@ final class MobileNavigation {
     }
     final content = location;
     if (contentRoot && atRoot && _panelOwner == null && content != null) {
-      _entries = [(id: entryId, content: content)];
-      _index = 0;
+      _entries = [
+        for (var length = 1; length <= content.contentStack.length; length++)
+          (
+            id: length == 1 ? entryId : Object(),
+            content: ForumTabLocation(
+              rootDestinationId: content.rootDestinationId,
+              contentStack: content.contentStack.take(length).toList(),
+            ),
+          ),
+      ];
+      if (_entries.length > maximumPages + 1) {
+        _entries.removeRange(1, _entries.length - maximumPages);
+      }
+      _index = _entries.length - 1;
       return;
     }
     if (_sameDestination(content, _entries[_index].content)) {
