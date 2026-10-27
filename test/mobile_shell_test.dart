@@ -261,6 +261,8 @@ Future<ShellController> pumpMobileShellFixture(
   Completer<void>? moreTopicsGate,
   List<ChatMessage>? chatMessages,
   ChatThread? chatThread,
+  ChatChannelBrowsePage? chatBrowsePage,
+  Map<String, ChatThreadPage> channelThreadPages = const {},
   Map<String, dynamic>? board,
   Map<String, Map<String, dynamic>> pluginResponses = const {},
   FakeForumTabStore? forumTabs,
@@ -363,6 +365,10 @@ Future<ShellController> pumpMobileShellFixture(
           targetMessageId: null,
         ),
     },
+    chatBrowsePagesByKey: {
+      FakeDiscourseApi.chatBrowseKey(): ?chatBrowsePage,
+    },
+    chatChannelThreadPagesByKey: channelThreadPages,
     chatThreadsByKey: {
       for (final thread in [?chatThread])
         FakeDiscourseApi.chatThreadKey(10, thread.id): thread,

@@ -560,6 +560,13 @@ class _DScrollChromeState extends State<DScrollChrome>
     if (source == null) {
       return false;
     }
+    // Dismissing a footer panel restores its trigger's focus. A page drag
+    // returns control to the reader; keyboard and wheel input retain focus.
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null &&
+        _footerFocus.hasFocus) {
+      _footerFocus.unfocus();
+    }
     final intent = _intents[source] ??= _ScrollIntent();
     _releaseEndHold(source, notification.context, metrics);
     if (notification is ScrollStartNotification &&
