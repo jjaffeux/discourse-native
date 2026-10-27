@@ -55,7 +55,9 @@ void main() {
           expect(find.text('Jump'), findsNothing);
           expect(panel.width, 300);
           if (scale == 1) {
-            expect(panel.height, closeTo(168, 1));
+            // The 168 frame and one line of the post's words, 12.5 at 1.4
+            // with 2 above and below.
+            expect(panel.height, closeTo(168 + 12.5 * 1.4 + 4, 1));
             final first = tester.getRect(
               find.widgetWithText(DButton, 'First post'),
             );
