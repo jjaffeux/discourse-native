@@ -269,6 +269,7 @@ class _MainContentBody extends StatelessWidget {
         border: false,
         borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
         backgroundColor: ForumWindowBackground.panelColor(context),
+        depth: DSurfaceDepth.panel,
         framed: !context.isTouch && !panelScoped,
         limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
         tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
@@ -389,6 +390,7 @@ class _MainContentBody extends StatelessWidget {
           border: false,
           borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
           backgroundColor: ForumWindowBackground.panelColor(context),
+          depth: DSurfaceDepth.panel,
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
           framed: !context.isTouch && !panelScoped,
@@ -464,6 +466,7 @@ class _MainContentBody extends StatelessWidget {
                 border: false,
                 borderRadius: BorderRadius.zero,
                 backgroundColor: ForumWindowBackground.panelColor(context),
+                depth: DSurfaceDepth.panel,
                 child: _MainContentBody(
                   layout: layout,
                   state: state.revealPrevious(),
@@ -666,6 +669,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     !split || Directionality.of(context) == TextDirection.rtl,
               ),
               backgroundColor: ForumWindowBackground.panelColor(context),
+              depth: DSurfaceDepth.panel,
               framed:
                   !context.isTouch && ForumTabScope.panelOf(context) == null,
               limitContentSize: ContentSettingsScope.limitContentSizeOf(
@@ -734,6 +738,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                       !split || Directionality.of(context) == TextDirection.ltr,
                 ),
                 backgroundColor: ForumWindowBackground.panelColor(context),
+                depth: DSurfaceDepth.panel,
                 framed:
                     !context.isTouch && ForumTabScope.panelOf(context) == null,
                 limitContentSize: ContentSettingsScope.limitContentSizeOf(
@@ -769,6 +774,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
               border: false,
               borderRadius: BorderRadius.zero,
               backgroundColor: ForumWindowBackground.panelColor(context),
+              depth: DSurfaceDepth.panel,
               child: listPane,
             ),
             content: DSheetContent(

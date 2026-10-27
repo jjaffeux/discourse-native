@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
@@ -105,20 +106,57 @@ void main() {
                     bytes.getUint8(offset + channel),
                     closeTo(value * 255, 2),
                     reason:
-                        '$brightness flat $transparency '
+                        '$brightness $transparency '
                         'contrast=$highContrast sidebar=$sidebar ($x,$y)',
                   );
                 }
               }
 
-              final base = Color.alphaBlend(fill, backdrop);
-              pixel(120, 20, backdrop); // Header stays on the window ground.
-              pixel(120, 250, base); // Reading area owns a filled panel.
-              for (final x in [1, 238]) {
-                pixel(x, 49, backdrop);
-                pixel(x, 358, backdrop);
+              void shaded(int x, int y, {bool reached = true}) {
+                final offset = (y * image.width + x) * 4;
+                final channels = [backdrop.r, backdrop.g, backdrop.b];
+                for (final (channel, value) in channels.indexed) {
+                  expect(
+                    bytes.getUint8(offset + channel),
+                    lessThanOrEqualTo(value * 255 + .5),
+                    reason: '$brightness shadow at ($x,$y)',
+                  );
+                }
+                if (!reached) return;
+                expect(
+                  bytes.getUint8(offset + 2),
+                  lessThan(backdrop.b * 255 - 1),
+                  reason: '$brightness page shadow reaches ($x,$y)',
+                );
               }
-              pixel(0, 250, base);
+
+              final base = Color.alphaBlend(fill, backdrop);
+              final rim = DSurfaceEdges.of(
+                sidebar ? DSurfaceDepth.rim : DSurfaceDepth.panel,
+                brightness,
+              ).rim!;
+              // The window header stays on the ground; a page's shadow
+              // reaches up over it and out round its corners, the drawer
+              // sidebar's casts none.
+              for (final (x, y) in [
+                (120, 20),
+                (1, 49),
+                (238, 49),
+                (1, 358),
+                (238, 358),
+              ]) {
+                sidebar
+                    ? pixel(x, y, backdrop)
+                    // Light's shade is 9% black, too faint to pin at a
+                    // corner; dark's 24% shows there.
+                    : shaded(
+                        x,
+                        y,
+                        reached: y > 300 && brightness == Brightness.dark,
+                      );
+              }
+              pixel(120, 250, base); // Reading area owns a filled panel.
+              pixel(0, 250, Color.alphaBlend(rim, base));
               pixel(120, 68, base);
               if (!sidebar) {
                 pixel(20, 52, base);

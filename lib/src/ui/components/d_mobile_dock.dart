@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart';
 
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';
@@ -82,6 +83,10 @@ sealed class DMobileDockCurrent {
         : DMobileDockCurrent.overflowed(index);
   }
 }
+
+const _liftedTile = BorderRadius.all(
+  Radius.circular(DMobileDockPanelGeometry.tileRadius),
+);
 
 final class DMobileDockNowhere extends DMobileDockCurrent {
   const DMobileDockNowhere();
@@ -1127,15 +1132,17 @@ class _DMobileDockState extends State<DMobileDock>
                       child: Transform.scale(
                         scale: scale,
                         child: switch (moving) {
-                          _Lifted() => DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: tokens.raisedBackground,
-                              borderRadius: BorderRadius.circular(
-                                DMobileDockPanelGeometry.tileRadius,
+                          _Lifted() => CustomPaint(
+                            painter: const DSurfaceEdges(
+                              shadows: [DMobileDockReorder.shadow],
+                            ).castPainter(_liftedTile),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: tokens.raisedBackground,
+                                borderRadius: _liftedTile,
                               ),
-                              boxShadow: const [DMobileDockReorder.shadow],
+                              child: copy(lifted),
                             ),
-                            child: copy(lifted),
                           ),
                           _Dropped() => copy(lifted),
                         },

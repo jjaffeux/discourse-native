@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -1584,6 +1585,7 @@ class DSheetContent extends StatelessWidget {
           border: false,
           borderRadius: BorderRadius.circular(22),
           backgroundColor: pulled ? color.withValues(alpha: 1) : color,
+          depth: DSurfaceDepth.panel,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -1615,13 +1617,23 @@ class DSheetContent extends StatelessWidget {
       }
     }
 
+    // A sheet to write on runs to the screen's foot with no edge drawn round
+    // it; its round and the shadow it casts up are enough.
+    final writing = menu && extendBehindKeyboard;
     final edgeBorder = BorderSide(color: tokens.border);
-    final border = inset
+    final border = writing
+        ? null
+        : inset
         ? Border.all(color: tokens.border)
         : switch (resolved) {
             DSheetSide.center => Border.all(color: tokens.border),
             DSheetSide.top => Border(bottom: edgeBorder),
             DSheetSide.right => Border(left: edgeBorder),
+            DSheetSide.bottom when menu => Border(
+              top: edgeBorder,
+              left: edgeBorder,
+              right: edgeBorder,
+            ),
             DSheetSide.bottom => Border(top: edgeBorder),
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
@@ -1646,8 +1658,22 @@ class DSheetContent extends StatelessWidget {
             : fillAvailableHeight
             ? tokens.background.withValues(alpha: 1)
             : tokens.surface);
-    Widget surface = DecoratedBox(
-      decoration: BoxDecoration(borderRadius: radius, boxShadow: const []),
+    final edges = menu
+        ? DSurfaceEdges.resolve(
+            context,
+            writing ? DSurfaceDepth.fullSheet : DSurfaceDepth.menu,
+          )
+        : null;
+    Widget surface = CustomPaint(
+      painter: edges?.castPainter(radius),
+      // Over the content, as the border is: what is at a sheet's top edge is
+      // its handle, on the sheet's own fill. A banner would cover it.
+      foregroundPainter: overArtwork
+          ? null
+          : edges?.insetPainter(
+              radius,
+              border: border?.dimensions as EdgeInsets? ?? EdgeInsets.zero,
+            ),
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(border: border, borderRadius: radius),

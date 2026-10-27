@@ -126,4 +126,5 @@ export 'src/ui/foundation/header_motion.dart'
 export 'src/ui/foundation/native_webview_scroll.dart'
     show NativeWebViewScrollBridge;
 export 'src/ui/foundation/oklab.dart';
+export 'src/ui/foundation/surface_depth.dart';
 export 'src/ui/foundation/tokens.dart';

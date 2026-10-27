@@ -637,7 +637,9 @@ class _HeadlineStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DCard(
     variant: DCardVariant.well,
-    borderColor: DTokens.of(context).footerBorder,
+    // Its rim takes the border's place, inside where the border was.
+    borderColor: Colors.transparent,
+    depth: DSurfaceDepth.block,
     spacing: 0,
     child: LayoutBuilder(
       builder: (context, constraints) {
@@ -873,7 +875,8 @@ class _SummarySection extends StatelessWidget {
         Colors.black.withValues(alpha: .04),
         tokens.background,
       ),
-      borderColor: tokens.footerBorder,
+      borderColor: Colors.transparent,
+      depth: DSurfaceDepth.block,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),

@@ -13,6 +13,7 @@ import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -229,6 +230,7 @@ class DCommand<T> extends StatefulWidget {
     this._semanticLabel,
     this.outlined = false,
     this.backgroundColor,
+    this.depth,
   });
 
   final Widget child;
@@ -256,6 +258,9 @@ class DCommand<T> extends StatefulWidget {
   /// Defaults to transparent inside [DCommandDialog], where the overlay owns
   /// the surface, and [DTokens.surface] for an embedded command.
   final Color? backgroundColor;
+
+  /// How an embedded command floats over what is under it. Null lies flat.
+  final DSurfaceDepth? depth;
 
   @override
   State<DCommand<T>> createState() => _DCommandState<T>();
@@ -424,19 +429,28 @@ class _DCommandState<T> extends State<DCommand<T>> {
           container: true,
           explicitChildNodes: true,
           label: widget.semanticLabel,
-          child: Material(
-            animationDuration: Duration.zero,
-            color: backgroundColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: radius,
-              side: widget.outlined
-                  ? BorderSide(color: tokens.border)
-                  : BorderSide.none,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.all(DSpacing.xs),
-              child: widget.child,
+          child: CustomPaint(
+            painter: switch (widget.depth) {
+              final depth? => DSurfaceEdges.resolve(
+                context,
+                depth,
+              ).castPainter(radius),
+              null => null,
+            },
+            child: Material(
+              animationDuration: Duration.zero,
+              color: backgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: radius,
+                side: widget.outlined
+                    ? BorderSide(color: tokens.border)
+                    : BorderSide.none,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(DSpacing.xs),
+                child: widget.child,
+              ),
             ),
           ),
         ),

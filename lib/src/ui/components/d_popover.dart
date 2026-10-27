@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
 
@@ -1241,17 +1242,20 @@ class DPopoverContent extends StatelessWidget {
     final content = scrollable
         ? SingleChildScrollView(primary: false, padding: padding, child: child)
         : Padding(padding: padding, child: child);
+    final shape = BorderRadius.circular(radius);
+    final edges = DSurfaceEdges.resolve(context, DSurfaceDepth.menu);
     Widget decorate(Widget content) => CustomPaint(
+      painter: edges.castPainter(shape),
       foregroundPainter: _PopoverRingPainter(color: edge, radius: radius),
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          textStyle: style,
-          child: content,
+        decoration: BoxDecoration(color: fill, borderRadius: shape),
+        child: CustomPaint(
+          painter: edges.insetPainter(shape),
+          child: Material(
+            type: MaterialType.transparency,
+            textStyle: style,
+            child: content,
+          ),
         ),
       ),
     );

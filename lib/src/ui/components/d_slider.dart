@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
@@ -799,36 +800,45 @@ class _SliderThumbState extends State<_SliderThumb> {
                 top: widget.vertical
                     ? offset - height / 2
                     : (widget.crossExtent - height) / 2,
-                child: AnimatedContainer(
-                  duration: DMotion.duration(
-                    context,
-                    const Duration(milliseconds: 150),
-                  ),
-                  width: width,
-                  height: height,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    // base-nova explicitly uses bg-white in both color modes.
-                    color: widget.ramp ? Colors.transparent : Colors.white,
-                    border: Border.all(
-                      color: widget.timeline
-                          ? Colors.black.withValues(alpha: .12)
-                          : widget.ramp
-                          ? DTokens.of(context).foreground
-                          : ring,
-                      width: widget.timeline
-                          ? .5
-                          : widget.ramp
-                          ? 2
-                          : 1,
+                child: CustomPaint(
+                  // The timeline's thumb stands off its track.
+                  painter: widget.timeline
+                      ? DSurfaceEdges.resolve(
+                          context,
+                          DSurfaceDepth.thumb,
+                        ).castPainter(BorderRadius.circular(999))
+                      : null,
+                  child: AnimatedContainer(
+                    duration: DMotion.duration(
+                      context,
+                      const Duration(milliseconds: 150),
                     ),
-                    boxShadow: [
-                      if (highlighted)
-                        BoxShadow(
-                          color: ring.withValues(alpha: 0.5),
-                          spreadRadius: 3,
-                        ),
-                    ],
+                    width: width,
+                    height: height,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      // base-nova explicitly uses bg-white in both color modes.
+                      color: widget.ramp ? Colors.transparent : Colors.white,
+                      border: Border.all(
+                        color: widget.timeline
+                            ? Colors.black.withValues(alpha: .12)
+                            : widget.ramp
+                            ? DTokens.of(context).foreground
+                            : ring,
+                        width: widget.timeline
+                            ? .5
+                            : widget.ramp
+                            ? 2
+                            : 1,
+                      ),
+                      boxShadow: [
+                        if (highlighted)
+                          BoxShadow(
+                            color: ring.withValues(alpha: 0.5),
+                            spreadRadius: 3,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

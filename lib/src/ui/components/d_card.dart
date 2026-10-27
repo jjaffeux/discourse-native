@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_item.dart';
 
@@ -44,6 +45,7 @@ class DCard extends ImplicitlyAnimatedWidget {
     this.borderColor,
     this.dashedBorder = false,
     this.borderRadius,
+    this.depth,
     this.leading,
     this.trailing,
     this.footer,
@@ -79,6 +81,10 @@ class DCard extends ImplicitlyAnimatedWidget {
   /// Overrides the outline and clip together, for surfaces adjoining a window.
   /// Null uses the panel radius (or the capsule variant's rounded ends).
   final BorderRadiusGeometry? borderRadius;
+
+  /// Paints the surface's rim, catch of light and cast shadows. Null leaves
+  /// it flat.
+  final DSurfaceDepth? depth;
   final Widget? leading;
   final Widget? trailing;
   final DCardFooter? footer;
@@ -202,6 +208,10 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     final radius =
         borderRadius?.resolve(Directionality.of(context)) ??
         BorderRadius.circular(capsule ? DRadius.pill : DRadius.panel);
+    final edges = switch (widget.depth) {
+      final depth? => DSurfaceEdges.resolve(context, depth),
+      null => null,
+    };
     return _CardScope(
       spacing: inset,
       size: size,
@@ -209,6 +219,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
       child: Semantics(
         container: true,
         child: CustomPaint(
+          painter: edges?.castPainter(radius),
           foregroundPainter: border && dashedBorder
               ? _DashedCardOutline(radius, borderColor ?? tokens.border)
               : null,
@@ -234,38 +245,48 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                 letterSpacing: 0,
                 color: tokens.foreground,
               ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: compactCapsule
-                      ? DSpacing.xs + (border ? 1 : 0)
-                      : capsule
-                      ? DSpacing.sm
-                      : 0,
-                  right: compactCapsule
-                      ? DSpacing.xs + (border ? 1 : 0)
-                      : capsule
-                      ? DSpacing.sm
-                      : 0,
-                  top: leading == null ? inset : 0,
-                  bottom:
-                      footer == null &&
-                          !children.any((part) => part is DCardFooter) &&
-                          trailing == null
-                      ? inset
-                      : 0,
+              child: CustomPaint(
+                // CSS draws an inset shadow inside the border, even a
+                // transparent one.
+                painter: edges?.insetPainter(
+                  radius,
+                  border: border && !dashedBorder
+                      ? const EdgeInsets.all(1)
+                      : EdgeInsets.zero,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < parts.length; i++) ...[
-                      if (i > 0 &&
-                          !(parts[i - 1] is DCardContent &&
-                              (parts[i - 1] as DCardContent).joinNext))
-                        SizedBox(height: inset),
-                      parts[i],
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: compactCapsule
+                        ? DSpacing.xs + (border ? 1 : 0)
+                        : capsule
+                        ? DSpacing.sm
+                        : 0,
+                    right: compactCapsule
+                        ? DSpacing.xs + (border ? 1 : 0)
+                        : capsule
+                        ? DSpacing.sm
+                        : 0,
+                    top: leading == null ? inset : 0,
+                    bottom:
+                        footer == null &&
+                            !children.any((part) => part is DCardFooter) &&
+                            trailing == null
+                        ? inset
+                        : 0,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < parts.length; i++) ...[
+                        if (i > 0 &&
+                            !(parts[i - 1] is DCardContent &&
+                                (parts[i - 1] as DCardContent).joinNext))
+                          SizedBox(height: inset),
+                        parts[i],
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
