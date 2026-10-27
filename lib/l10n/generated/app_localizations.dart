@@ -22916,6 +22916,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load this report. Refresh to try again.'**
   String get reportLoadError;
+
+  /// Notification schedule sheet: Notification schedule
+  ///
+  /// In en, this message translates to:
+  /// **'Notification schedule'**
+  String get notificationSchedule;
+
+  /// Notification schedule sheet: Use a schedule
+  ///
+  /// In en, this message translates to:
+  /// **'Use a schedule'**
+  String get notificationScheduleUse;
+
+  /// Notification schedule sheet: Allow notifications on
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications on'**
+  String get notificationScheduleAllowOn;
+
+  /// Notification schedule sheet: Weekdays
+  ///
+  /// In en, this message translates to:
+  /// **'Weekdays'**
+  String get notificationScheduleWeekdays;
+
+  /// Notification schedule sheet: Custom days
+  ///
+  /// In en, this message translates to:
+  /// **'Custom days'**
+  String get notificationScheduleCustomDays;
+
+  /// Notification schedule sheet: From
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get notificationScheduleFrom;
+
+  /// Notification schedule sheet: Time zone
+  ///
+  /// In en, this message translates to:
+  /// **'Time zone'**
+  String get notificationScheduleTimeZone;
+
+  /// Notification schedule sheet: Save schedule
+  ///
+  /// In en, this message translates to:
+  /// **'Save schedule'**
+  String get notificationScheduleSave;
+
+  /// Notification schedule sheet: Not set
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get notificationScheduleNotSet;
+
+  /// Notification schedule sheet: Varies by day
+  ///
+  /// In en, this message translates to:
+  /// **'Varies by day'**
+  String get notificationScheduleVaries;
+
+  /// Notification schedule sheet: Midnight
+  ///
+  /// In en, this message translates to:
+  /// **'Midnight'**
+  String get notificationScheduleMidnight;
+
+  /// Notification schedule sheet: Choose at least one day.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one day.'**
+  String get notificationScheduleChooseDay;
+
+  /// Notification schedule sheet: End time must be after start time.
+  ///
+  /// In en, this message translates to:
+  /// **'End time must be after start time.'**
+  String get notificationScheduleEndAfterStart;
 }
 
 class _AppLocalizationsDelegate

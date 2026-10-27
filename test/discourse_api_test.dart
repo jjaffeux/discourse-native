@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/notification_schedule.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -71,6 +72,78 @@ MockClient discourseServing({
 
 void main() {
   group('user preferences', () {
+    test(
+      'saves the nested core notification schedule and reads server normalization',
+      () async {
+        final schedule = NotificationSchedule(
+          enabled: true,
+          days: [
+            for (var i = 0; i < 7; i++)
+              (start: i < 5 ? 540 : -1, end: i < 5 ? 1080 : -1),
+          ],
+        );
+        final sent = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            sent.add(request);
+            return http.Response(
+              jsonEncode({
+                'user': {
+                  'user_notification_schedule': {
+                    ...schedule.wireValues,
+                    'day_0_end_time': 1050,
+                  },
+                },
+              }),
+              200,
+            );
+          }),
+        );
+        addTearDown(api.close);
+        final fallback = UserPreferences(
+          username: 'Reader',
+          timezone: 'Europe/Paris',
+          canEdit: true,
+          notificationSchedule: schedule,
+        );
+        final result = await api.updateUserPreferences(
+          siteUrl: 'https://forum.example/community',
+          apiKey: 'key',
+          clientId: 'client',
+          username: 'Reader',
+          fallback: fallback,
+          values: fallback.payloadFor(PreferenceSection.notificationSchedule),
+        );
+        expect(sent.single.method, 'PUT');
+        expect(
+          sent.single.url.toString(),
+          'https://forum.example/community/u/reader.json',
+        );
+        expect(sent.single.headers['User-Api-Key'], 'key');
+        expect(sent.single.headers['User-Api-Client-Id'], 'client');
+        expect(jsonDecode(sent.single.body), {
+          'user_notification_schedule': {
+            'enabled': true,
+            'day_0_start_time': 540,
+            'day_0_end_time': 1080,
+            'day_1_start_time': 540,
+            'day_1_end_time': 1080,
+            'day_2_start_time': 540,
+            'day_2_end_time': 1080,
+            'day_3_start_time': 540,
+            'day_3_end_time': 1080,
+            'day_4_start_time': 540,
+            'day_4_end_time': 1080,
+            'day_5_start_time': -1,
+            'day_5_end_time': -1,
+            'day_6_start_time': -1,
+            'day_6_end_time': -1,
+          },
+        });
+        expect(result.notificationSchedule?.days[0].end, 1050);
+        expect(result.timezone, 'Europe/Paris');
+      },
+    );
     test(
       'sends each channel-list option alone through the existing user endpoint',
       () async {

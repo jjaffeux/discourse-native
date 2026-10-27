@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_schedule.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/preferences_controller.dart';
@@ -153,6 +154,43 @@ Future<void> _seed(PreferencesController controller) async {
 }
 
 void main() {
+  test(
+    'schedule saves use their own transaction without saving another section draft',
+    () async {
+      final api = _PreferencesApi();
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (current) => current.copyWith(notifyOnLinkedPosts: false),
+      );
+      final schedule = NotificationSchedule(
+        enabled: true,
+        days: List.filled(7, (start: 540, end: 1080)),
+      );
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notificationSchedule,
+        (current) => current.copyWith(notificationSchedule: schedule),
+      );
+      expect(
+        await controller.save(
+          _accountA,
+          PreferenceSection.notificationSchedule,
+        ),
+        isTrue,
+      );
+      expect(api.updates.single.values.keys, ['user_notification_schedule']);
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.confirmed!.notificationSchedule, schedule);
+      expect(state.confirmed!.notifyOnLinkedPosts, isTrue);
+      expect(state.draft!.notifyOnLinkedPosts, isFalse);
+      expect(state.dirty(PreferenceSection.notificationSchedule), isFalse);
+      expect(state.dirty(PreferenceSection.notifications), isTrue);
+    },
+  );
   test(
     'automatic saves join reentrantly and persist a reversed choice',
     () async {

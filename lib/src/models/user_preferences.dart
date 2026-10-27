@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'bookmark.dart';
 import 'json.dart';
+import 'notification_schedule.dart';
 
 /// Core sections have fixed identities; plugins declare their own namespace.
 @immutable
@@ -11,6 +12,9 @@ final class PreferenceSection {
 
   static const profile = PreferenceSection._core('profile');
   static const notifications = PreferenceSection._core('notifications');
+  static const notificationSchedule = PreferenceSection._core(
+    'notificationSchedule',
+  );
   static const tracking = PreferenceSection._core('tracking');
   static const interface = PreferenceSection._core('interface');
   static const values = [profile, notifications, tracking, interface];
@@ -42,6 +46,7 @@ final class UserPreferences {
     'auto_track_topics_after_msecs',
     'notification_level_when_replying',
     'bookmark_auto_delete_preference',
+    'user_notification_schedule',
   };
 
   /// Core response identities are reserved even when they are not editable.
@@ -58,6 +63,7 @@ final class UserPreferences {
     this.timezone = '',
     this.likeNotificationFrequency = 1,
     this.notifyOnLinkedPosts = true,
+    this.notificationSchedule,
     this.newTopicDurationMinutes = 2880,
     this.autoTrackTopicsAfterMsecs = 300000,
     this.notificationLevelWhenReplying = 2,
@@ -78,6 +84,9 @@ final class UserPreferences {
     return UserPreferences(
       username: _string(json, 'username', fallback.username),
       timezone: _string(options, 'timezone', fallback.timezone),
+      notificationSchedule:
+          NotificationSchedule.read(json['user_notification_schedule']) ??
+          fallback.notificationSchedule,
       likeNotificationFrequency: _allowedInt(
         options,
         'like_notification_frequency',
@@ -141,6 +150,7 @@ final class UserPreferences {
 
   final int likeNotificationFrequency;
   final bool notifyOnLinkedPosts;
+  final NotificationSchedule? notificationSchedule;
 
   final int newTopicDurationMinutes;
   final int autoTrackTopicsAfterMsecs;
@@ -159,6 +169,10 @@ final class UserPreferences {
           'like_notification_frequency': likeNotificationFrequency,
           'notify_on_linked_posts': notifyOnLinkedPosts,
         },
+        PreferenceSection.notificationSchedule => {
+          if (notificationSchedule case final schedule?)
+            'user_notification_schedule': schedule.wireValues,
+        },
         PreferenceSection.tracking => {
           'new_topic_duration_minutes': newTopicDurationMinutes,
           'auto_track_topics_after_msecs': autoTrackTopicsAfterMsecs,
@@ -175,6 +189,9 @@ final class UserPreferences {
     PreferenceSection section,
     UserPreferences confirmed,
   ) => switch (section) {
+    PreferenceSection.notificationSchedule => copyWith(
+      notificationSchedule: confirmed.notificationSchedule,
+    ),
     PreferenceSection.notifications => copyWith(
       likeNotificationFrequency: confirmed.likeNotificationFrequency,
       notifyOnLinkedPosts: confirmed.notifyOnLinkedPosts,
@@ -201,6 +218,7 @@ final class UserPreferences {
     String? timezone,
     int? likeNotificationFrequency,
     bool? notifyOnLinkedPosts,
+    Object? notificationSchedule = _unchanged,
     int? newTopicDurationMinutes,
     int? autoTrackTopicsAfterMsecs,
     int? notificationLevelWhenReplying,
@@ -214,6 +232,9 @@ final class UserPreferences {
     likeNotificationFrequency:
         likeNotificationFrequency ?? this.likeNotificationFrequency,
     notifyOnLinkedPosts: notifyOnLinkedPosts ?? this.notifyOnLinkedPosts,
+    notificationSchedule: identical(notificationSchedule, _unchanged)
+        ? this.notificationSchedule
+        : notificationSchedule as NotificationSchedule?,
     newTopicDurationMinutes:
         newTopicDurationMinutes ?? this.newTopicDurationMinutes,
     autoTrackTopicsAfterMsecs:
@@ -236,6 +257,7 @@ final class UserPreferences {
           other.timezone == timezone &&
           other.likeNotificationFrequency == likeNotificationFrequency &&
           other.notifyOnLinkedPosts == notifyOnLinkedPosts &&
+          other.notificationSchedule == notificationSchedule &&
           other.newTopicDurationMinutes == newTopicDurationMinutes &&
           other.autoTrackTopicsAfterMsecs == autoTrackTopicsAfterMsecs &&
           other.notificationLevelWhenReplying ==
@@ -251,6 +273,7 @@ final class UserPreferences {
     timezone,
     likeNotificationFrequency,
     notifyOnLinkedPosts,
+    notificationSchedule,
     newTopicDurationMinutes,
     autoTrackTopicsAfterMsecs,
     notificationLevelWhenReplying,
@@ -261,6 +284,8 @@ final class UserPreferences {
     canEdit,
     canChangeTrackingPreferences,
   );
+
+  static const _unchanged = Object();
 }
 
 String _string(Map<String, dynamic> json, String key, String fallback) =>

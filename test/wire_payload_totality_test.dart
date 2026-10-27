@@ -16,15 +16,16 @@ import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/models/invite.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/notification_schedule.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/pending_post.dart';
 import 'package:discourse_native/src/models/post.dart';
-import 'package:discourse_native/src/models/report.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
+import 'package:discourse_native/src/models/report.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
@@ -1069,6 +1070,19 @@ void main() {
         'UserPreferences',
         () => UserPreferences.fromJson(withFields({'username': loose})),
         (preferences) => preferences.username.isNotEmpty || preferences.canEdit,
+      );
+      probe(
+        'NotificationSchedule',
+        () => NotificationSchedule.read(
+          gate({
+            'enabled': gate(true),
+            for (var i = 0; i < 7; i++) ...{
+              'day_${i}_start_time': gate(540),
+              'day_${i}_end_time': gate(1080),
+            },
+          }),
+        ),
+        (schedule) => schedule != null,
       );
       probe(
         'UserStatus',

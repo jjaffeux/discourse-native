@@ -19198,5 +19198,57 @@
   "reportChart": "Chart",
   "@reportChart": {"description": "Native report viewer. Chart"},
   "reportLoadError": "Could not load this report. Refresh to try again.",
-  "@reportLoadError": {"description": "Native report viewer. Could not load this report. Refresh to try again."}
+  "@reportLoadError": {"description": "Native report viewer. Could not load this report. Refresh to try again."},
+  "notificationSchedule": "Notification schedule",
+  "@notificationSchedule": {
+    "description": "Notification schedule sheet: Notification schedule"
+  },
+  "notificationScheduleUse": "Use a schedule",
+  "@notificationScheduleUse": {
+    "description": "Notification schedule sheet: Use a schedule"
+  },
+  "notificationScheduleAllowOn": "Allow notifications on",
+  "@notificationScheduleAllowOn": {
+    "description": "Notification schedule sheet: Allow notifications on"
+  },
+  "notificationScheduleWeekdays": "Weekdays",
+  "@notificationScheduleWeekdays": {
+    "description": "Notification schedule sheet: Weekdays"
+  },
+  "notificationScheduleCustomDays": "Custom days",
+  "@notificationScheduleCustomDays": {
+    "description": "Notification schedule sheet: Custom days"
+  },
+  "notificationScheduleFrom": "From",
+  "@notificationScheduleFrom": {
+    "description": "Notification schedule sheet: From"
+  },
+  "notificationScheduleTimeZone": "Time zone",
+  "@notificationScheduleTimeZone": {
+    "description": "Notification schedule sheet: Time zone"
+  },
+  "notificationScheduleSave": "Save schedule",
+  "@notificationScheduleSave": {
+    "description": "Notification schedule sheet: Save schedule"
+  },
+  "notificationScheduleNotSet": "Not set",
+  "@notificationScheduleNotSet": {
+    "description": "Notification schedule sheet: Not set"
+  },
+  "notificationScheduleVaries": "Varies by day",
+  "@notificationScheduleVaries": {
+    "description": "Notification schedule sheet: Varies by day"
+  },
+  "notificationScheduleMidnight": "Midnight",
+  "@notificationScheduleMidnight": {
+    "description": "Notification schedule sheet: Midnight"
+  },
+  "notificationScheduleChooseDay": "Choose at least one day.",
+  "@notificationScheduleChooseDay": {
+    "description": "Notification schedule sheet: Choose at least one day."
+  },
+  "notificationScheduleEndAfterStart": "End time must be after start time.",
+  "@notificationScheduleEndAfterStart": {
+    "description": "Notification schedule sheet: End time must be after start time."
+  }
 }
