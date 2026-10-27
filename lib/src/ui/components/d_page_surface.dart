@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/header_motion.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
@@ -60,6 +61,7 @@ class DPageSurface extends StatefulWidget {
        border = false,
        backgroundColor = null,
        borderRadius = null,
+       depth = null,
        hideHeaderOnScroll = true,
        minimumScrollExtent = 120,
        revealHeaderAtEnd = false,
@@ -78,6 +80,7 @@ class DPageSurface extends StatefulWidget {
     this.border = true,
     this.backgroundColor,
     this.borderRadius,
+    this.depth,
     this.hideHeaderOnScroll = false,
     this.minimumScrollExtent,
     this.revealHeaderAtEnd = false,
@@ -109,6 +112,7 @@ class DPageSurface extends StatefulWidget {
     this.border = true,
     this.backgroundColor,
     this.borderRadius,
+    this.depth,
     this.hideHeaderOnScroll = false,
     this.minimumScrollExtent,
     this.revealHeaderAtEnd = false,
@@ -193,6 +197,9 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional outline and clip for the enclosing Card; ignored when unframed.
   final BorderRadiusGeometry? borderRadius;
+
+  /// How the enclosing Card stands off the ground; ignored when unframed.
+  final DSurfaceDepth? depth;
 
   /// Centers the header, scrolling content, and footer in an 825px-wide lane.
   /// Tabs, the outer surface, and the scroll viewport remain full width. Null
@@ -986,6 +993,7 @@ class _DPageSurfaceState extends State<DPageSurface>
               spacing: 0,
               backgroundColor: widget.backgroundColor,
               borderRadius: widget.borderRadius,
+              depth: widget.depth,
               child: Expanded(child: page),
             )
           : page,

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -736,6 +737,7 @@ class DDialogContent extends StatelessWidget {
                   MediaQuery.sizeOf(context).height)
               .clamp(0.0, maxHeight)
               .toDouble();
+    final edges = DSurfaceEdges.resolve(context, DSurfaceDepth.menu);
     final body = Material(
       animationDuration: Duration.zero,
       color: tokens.surface,
@@ -804,17 +806,22 @@ class DDialogContent extends StatelessWidget {
         ),
         child: SizedBox(
           width: double.infinity,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              boxShadow: [
-                BoxShadow(
-                  color: tokens.foreground.withValues(alpha: .1),
-                  spreadRadius: 1,
-                ),
-              ],
+          child: CustomPaint(
+            painter: edges.castPainter(radius),
+            // Over the content, whose top is the dialog's own padding.
+            foregroundPainter: edges.insetPainter(radius),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                boxShadow: [
+                  BoxShadow(
+                    color: tokens.foreground.withValues(alpha: .1),
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: body,
             ),
-            child: body,
           ),
         ),
       ),

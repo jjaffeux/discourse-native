@@ -398,6 +398,7 @@ class _Suggestions extends StatelessWidget {
             loop: true,
             outlined: true,
             backgroundColor: Theme.of(context).shell.floating,
+            depth: DSurfaceDepth.floating,
             loading: popup.isLoading && popup.suggestions.isEmpty,
             child: Column(
               mainAxisSize: MainAxisSize.min,

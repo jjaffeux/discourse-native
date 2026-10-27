@@ -5,11 +5,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
 import 'd_skeleton.dart';
 
-/// A destination card with a flat fill, shared by directories.
+/// A destination card standing off its panel, shared by directories.
 /// Slots contain passive content, except [trailing] and [action]. This
 /// component owns the card's target, keyboard activation, focus ring, hover
 /// lift and reduced motion.
@@ -56,6 +57,7 @@ class DPlaceCard extends StatefulWidget {
 
 class _DPlaceCardState extends State<DPlaceCard> {
   bool _focused = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +89,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
       ),
       child: widget.footer,
     );
-    Widget content = AnimatedContainer(
+    Widget surface(DSurfaceEdges? edges) => AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 200)),
       curve: Curves.ease,
       decoration: BoxDecoration(
@@ -100,7 +102,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
         border: Border.all(color: ring, width: _focused ? 2 : 1),
       ),
       child: CustomPaint(
-        foregroundPainter: null,
+        painter: edges?.insetPainter(radius),
         child: DefaultTextStyle.merge(
           style: TextStyle(color: text, letterSpacing: 0),
           child: _PlaceContents(
@@ -207,6 +209,32 @@ class _DPlaceCardState extends State<DPlaceCard> {
         ),
       ),
     );
+    // A chosen card is marked by its ring instead and lies on the panel.
+    final raised = _hovered && !widget.selected;
+    final rest = DSurfaceEdges.resolve(context, DSurfaceDepth.place);
+    final lifted = DSurfaceEdges.resolve(context, DSurfaceDepth.placeHovered);
+    Widget content = TweenAnimationBuilder<double>(
+      tween: Tween(end: raised ? 1 : 0),
+      duration: DMotion.duration(context, const Duration(milliseconds: 200)),
+      curve: Curves.ease,
+      builder: (context, t, _) {
+        final edges = widget.selected
+            ? null
+            : DSurfaceEdges.lerp(rest, lifted, t);
+        return CustomPaint(
+          painter: edges?.castPainter(radius),
+          child: surface(edges),
+        );
+      },
+    );
+    content = TweenAnimationBuilder<double>(
+      tween: Tween(end: raised ? -1 : 0),
+      duration: DMotion.duration(context, const Duration(milliseconds: 250)),
+      curve: const Cubic(.34, 1.56, .64, 1),
+      builder: (context, lift, child) =>
+          Transform.translate(offset: Offset(0, lift), child: child),
+      child: content,
+    );
     content = _PlaceHitShape(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -229,6 +257,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
         onShowFocusHighlight: (value) => setState(() => _focused = value),
+        onShowHoverHighlight: (value) => setState(() => _hovered = value),
         shortcuts: const {
           SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
           SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),

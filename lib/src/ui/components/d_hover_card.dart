@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
@@ -940,6 +941,8 @@ class DHoverCardContent extends StatelessWidget {
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
+    final shape = BorderRadius.circular(tokens.radius);
+    final edges = DSurfaceEdges.resolve(context, DSurfaceDepth.menu);
     return DefaultTextStyle(
       style: style,
       child: IconTheme.merge(
@@ -950,6 +953,7 @@ class DHoverCardContent extends StatelessWidget {
             maxWidth: width,
           ),
           child: CustomPaint(
+            painter: edges.castPainter(shape),
             foregroundPainter: _HoverCardRingPainter(
               color: tokens.foreground.withValues(
                 alpha: tokens.foreground.a * 0.10,
@@ -959,13 +963,15 @@ class DHoverCardContent extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: tokens.surface,
-                borderRadius: BorderRadius.circular(tokens.radius),
-                boxShadow: const [],
+                borderRadius: shape,
               ),
-              child: SingleChildScrollView(
-                primary: false,
-                padding: const EdgeInsets.all(10),
-                child: child,
+              child: CustomPaint(
+                painter: edges.insetPainter(shape),
+                child: SingleChildScrollView(
+                  primary: false,
+                  padding: const EdgeInsets.all(10),
+                  child: child,
+                ),
               ),
             ),
           ),

@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../foundation/surface_depth.dart';
+
 /// How a place in a phone's open panel is moved: held still it lifts, follows
 /// the finger over the panel's slots, each slot it is brought to making room
 /// for it, and is set down where it is let go.
@@ -11,11 +13,7 @@ abstract final class DMobileDockReorder {
   /// A lifted place is drawn this much larger, over everything else in the
   /// panel, on the raised surface with this shadow under it.
   static const scale = 1.06;
-  static const shadow = BoxShadow(
-    color: Color(0x59000000),
-    offset: Offset(0, 8),
-    blurRadius: 24,
-  );
+  static const shadow = DCastShadow(Offset(0, 8), 24, Color(0x59000000));
 
   /// The places a lifted one displaces slide to their new slots, and a place
   /// let go settles into its slot, on this curve.

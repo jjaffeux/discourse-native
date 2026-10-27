@@ -300,6 +300,13 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     backgroundColor: widget.coveredBySheet
         ? Colors.transparent
         : ForumWindowBackground.panelColor(context),
+    // A drawer's sidebar casts no shadow: the rail over its edge would cut it
+    // short. Under a page sheet, the sheet and its underlay carry the depth.
+    depth: widget._sidebar
+        ? DSurfaceDepth.rim
+        : widget.coveredBySheet
+        ? null
+        : DSurfaceDepth.panel,
     child: _MobileSurfaceScope(key: _content, child: widget.child),
   );
 }

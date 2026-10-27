@@ -1456,13 +1456,30 @@ void main() {
                   .decoration
               as BoxDecoration;
       expect(raised.borderRadius, BorderRadius.circular(16));
-      expect(raised.boxShadow, [
-        const BoxShadow(
-          color: Color(0x59000000),
-          offset: Offset(0, 8),
-          blurRadius: 24,
-        ),
-      ]);
+      expect(raised.boxShadow, isNull);
+      expect(
+        tester
+            .widget<CustomPaint>(
+              find
+                  .ancestor(
+                    of: find.byWidget(
+                      tester.widget<DecoratedBox>(
+                        find
+                            .ancestor(
+                              of: _moving('Users'),
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      ),
+                    ),
+                    matching: find.byType(CustomPaint),
+                  )
+                  .first,
+            )
+            .painter,
+        isNotNull,
+        reason: 'its shadow, DMobileDockReorder.shadow, is cast under it',
+      );
       expect(
         tester
             .widget<AnimatedOpacity>(

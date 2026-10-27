@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_spinner.dart';
@@ -638,6 +639,7 @@ class _DToastCardState extends State<_DToastCard> {
     final options = widget.entry.options;
     final textTheme = Theme.of(context).textTheme;
     final radius = BorderRadius.circular(tokens.radius * 1.8);
+    final edges = DSurfaceEdges.resolve(context, DSurfaceDepth.floating);
     final card = AnimatedContainer(
       duration: DMotion.duration(context, DMotion.change),
       curve: Curves.easeOutCubic,
@@ -645,7 +647,6 @@ class _DToastCardState extends State<_DToastCard> {
         color: tokens.surface,
         borderRadius: radius,
         border: Border.all(color: _focused ? tokens.focusRing : tokens.border),
-        boxShadow: const [],
       ),
       foregroundDecoration: _focused
           ? BoxDecoration(
@@ -784,7 +785,7 @@ class _DToastCardState extends State<_DToastCard> {
             widget.entry.id,
             reason: DToastCloseReason.swipe,
           ),
-          child: card,
+          child: CustomPaint(painter: edges.castPainter(radius), child: card),
         ),
       ),
     );
