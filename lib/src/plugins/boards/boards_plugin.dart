@@ -135,11 +135,14 @@ final class BoardsPlugin
     String siteUrl,
     TopicDetail topic,
   ) {
-    final values = _memberships(
-      context,
-      siteUrl,
-      topic.plugins.get(boardsMembershipKey),
-    );
+    final memberships = topic.plugins.get(boardsMembershipKey);
+    final entries = memberships?.values ?? const <BoardMembership>[];
+    final directMembership =
+        entries.map((entry) => entry.boardId).toSet().length == 1
+        ? entries.first
+        : null;
+    final navigation = PluginUiScope.require(context, boardsNavigationKey);
+    final values = _memberships(context, siteUrl, memberships);
     return values.isEmpty
         ? const []
         : [
@@ -148,11 +151,15 @@ final class BoardsPlugin
               values: values,
               compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
                 icon: const DIcon(boardsIcon),
-                tooltip: anchorContext.l10n.boardsTitle,
+                tooltip:
+                    directMembership?.name ?? anchorContext.l10n.boardsTitle,
                 size: DButtonSize.filter,
                 variant: DButtonVariant.ghost,
-                hasPopup: true,
-                onPressed: showDetails,
+                hasPopup: directMembership == null,
+                onPressed: directMembership == null
+                    ? showDetails
+                    : () =>
+                          navigation.openMembership(siteUrl, directMembership),
               ),
             ),
           ];

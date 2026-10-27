@@ -54,6 +54,89 @@ void main() {
       expect(installed.descriptors.single.routeNamespaces, {'boards'});
     },
   );
+  for (final (label, boardCount, cardCount, expectedRoute) in [
+    ('one board', 1, 1, 'boards/1/cards/101'),
+    ('multiple cards on one board', 1, 2, 'boards/1/cards/101'),
+    ('multiple boards', 2, 1, null),
+  ]) {
+    testWidgets('topic header navigation with $label needs no lookup', (
+      tester,
+    ) async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final host = await PluginHostHarness.open(
+        transport: fixture.transport,
+        manifest: const PluginManifest([boardsModule]),
+        sites: [
+          PluginHostSite(
+            url: boardsSite,
+            apiKey: 'key',
+            user: const PluginHostUser(id: 2, username: 'lee'),
+            config: fixture.config,
+          ),
+        ],
+      );
+      addTearDown(host.close);
+      final installed = PluginInstaller.install(
+        const PluginManifest([boardsModule]),
+      );
+      addTearDown(installed.close);
+      final topic = installed.models.topic({
+        'id': 500,
+        'title': 'Search',
+        'board_memberships': [
+          for (var board = 1; board <= boardCount; board++)
+            {
+              'board_id': board,
+              'board_name': 'Board $board',
+              'cards': [
+                for (var card = 1; card <= cardCount; card++)
+                  {'card_id': 100 + card, 'column_title': 'Column $card'},
+              ],
+            },
+        ],
+      }, boardsSite).detail;
+      var detailsOpened = 0;
+      await tester.pumpWidget(
+        host.scope(
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  final section = const BoardsPlugin()
+                      .topicProperties(
+                        PluginUiScope.contextFor(context, boardsPluginId),
+                        boardsSite,
+                        topic,
+                      )
+                      .single;
+                  return section.compactHeader!(context, () => detailsOpened++);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      final requestsBefore = fixture.transport.requests.length;
+      final routeBefore = host.currentContent;
+      final button = find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == boardsIcon,
+      );
+      expect(button, findsOneWidget);
+      await tester.tap(button);
+      await tester.pump();
+      if (expectedRoute != null) {
+        expect(host.currentContent?.id, expectedRoute);
+        expect(detailsOpened, 0);
+      } else {
+        expect(host.currentContent, routeBefore);
+        expect(detailsOpened, 1);
+      }
+      expect(fixture.transport.requests.length, requestsBefore);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
   testWidgets('a topic row marks each board pill with the Boards icon', (
     tester,
   ) async {
