@@ -195,7 +195,6 @@ final class _TaxonomyDirectoryController
       defaultCategoryIds: config.defaultNavigationMenuCategoryIds,
       fixedCategoryPositions: config.fixedCategoryPositions,
       allowUncategorizedTopics: config.allowUncategorizedTopics,
-      levelNavigation: true,
     );
     site.categorySidebarCache = (
       categories: categories,

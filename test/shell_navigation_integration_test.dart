@@ -1285,12 +1285,9 @@ void _registerShellNavigationTests() {
       find.widgetWithText(DSidebarGroupLabel, 'Categories'),
       findsOneWidget,
     );
-    expect(sidebarDestination('Child'), findsNothing);
-    expect(sidebarDestination('Parent'), findsOneWidget);
-    expect(sidebarDestination('Not selected'), findsOneWidget);
-    await tester.tap(sidebarDestination('Parent'));
-    await tester.pumpAndSettle();
     expect(sidebarDestination('Child'), findsOneWidget);
+    expect(sidebarDestination('Parent'), findsNothing);
+    expect(sidebarDestination('Not selected'), findsNothing);
     expect(sidebarDestination('All categories'), findsOneWidget);
     final childTile = find
         .ancestor(
@@ -1377,6 +1374,13 @@ void _registerShellNavigationTests() {
     expect(controller.topicListContent?.categoryId, 2);
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+    await tester.pumpAndSettle();
+    expect(controller.topicListContent?.categoryId, isNull);
+    expect(sidebarDestination('Child'), findsOneWidget);
+    expect(sidebarDestination('Parent'), findsNothing);
+    expect(sidebarDestination('Not selected'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('shows live unread counts beside category and tag rows', (
@@ -1738,31 +1742,29 @@ void _registerShellNavigationTests() {
     expect(api.categoryRequests.length, greaterThan(initialRequests));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets(
-    'level navigation lists all root categories despite preference defaults',
-    (tester) async {
-      final site = instance('meta.discourse.org', title: 'Discourse Meta');
-      final api = FakeDiscourseApi(
-        feeds: const {'/latest.json': []},
-        categoryList: const [
-          TopicCategory(id: 1, name: 'Alpha', color: '111111', position: 20),
-          TopicCategory(id: 2, name: 'Zulu', color: '222222', position: 10),
-        ],
-        siteConfigs: {
-          site.url: const SiteConfig(
-            fixedCategoryPositions: true,
-            defaultNavigationMenuCategoryIds: [2],
-          ),
-        },
-      );
+  testWidgets('anonymous sidebar respects configured default categories', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org', title: 'Discourse Meta');
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': []},
+      categoryList: const [
+        TopicCategory(id: 1, name: 'Alpha', color: '111111', position: 20),
+        TopicCategory(id: 2, name: 'Zulu', color: '222222', position: 10),
+      ],
+      siteConfigs: {
+        site.url: const SiteConfig(
+          fixedCategoryPositions: true,
+          defaultNavigationMenuCategoryIds: [2],
+        ),
+      },
+    );
 
-      await pumpShell(tester, desktop, instances: [site], api: api);
+    await pumpShell(tester, desktop, instances: [site], api: api);
 
-      expect(sidebarDestination('Zulu'), findsOneWidget);
-      expect(sidebarDestination('Alpha'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
+    expect(sidebarDestination('Zulu'), findsOneWidget);
+    expect(sidebarDestination('Alpha'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('draws a custom category emoji from its uploaded artwork', (
     tester,
