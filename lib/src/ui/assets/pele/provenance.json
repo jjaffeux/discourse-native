@@ -1,0 +1,8 @@
+{
+  "package": "pele",
+  "version": "1.10.0",
+  "tarball": "https://registry.npmjs.org/pele/-/pele-1.10.0.tgz",
+  "integrity": "sha512-hDMEM+GQ01pZin8tst3PRXGeB/xFATvXBreHHtjx2glSNAQ7nHFq7EbMuNJGTbqkYgueWPboLjyUBsAudsb1qQ==",
+  "bundleSha256": "dd70e44152f7d70d62fedc622f588db3f5855859b444f4d8cf274925c12f2651",
+  "discourseCompatibilityCommit": "8cd113d57122f00dfefb145344c02f78d9ba014c"
+}

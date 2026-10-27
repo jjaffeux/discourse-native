@@ -34,10 +34,10 @@ void main() {
   test(
     'ships the offline runtime, renderer and license as package assets',
     () async {
-      const assets = 'packages/discourse_native/src/ui/assets/mermaid';
+      const assets = 'packages/discourse_native/src/ui/assets/pele';
       expect(
-        await rootBundle.loadString('$assets/mermaid-11.17.2.min.js'),
-        contains('11.17.2'),
+        await rootBundle.loadString('$assets/pele-1.10.0.global.js'),
+        contains('Pele 1.10.0'),
       );
       expect(
         await rootBundle.loadString('$assets/render.js'),

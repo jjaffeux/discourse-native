@@ -1,9 +1,21 @@
-# Mermaid plugin
+# Mermaid and Pele compatibility
 
 `discourse-mermaid` is a bundled native plugin with cooked-element and composer
 toolbar capabilities. It has no server requests, session state, or dependencies
 on other plugins. Discourse distributes the web integration as a theme
 component; native installs this module through its plugin manifest.
+
+This module also supports [Discourse Pele](https://meta.discourse.org/t/discourse-pele/415914).
+Pele uses the same `mermaid` fences and server-cooked markup as Discourse
+Mermaid. Its [initializer at
+8cd113d57122f00dfefb145344c02f78d9ba014c](https://github.com/discourse/discourse-pele-theme-component/blob/8cd113d57122f00dfefb145344c02f78d9ba014c/javascripts/discourse/api-initializers/discourse-pele.js)
+decorates `pre[data-code-wrap=mermaid] > code` in posts and chat. The
+`pele-wrapper` is added by the web client and is not part of the server response.
+Native therefore needs no separate module, installation detection, or server API
+for Pele. Existing diagrams and the composer action work on either kind of site.
+The Native kit's `DMermaid` and `DMermaidEditor` use bundled Pele 1.10.0 for
+rendering on every site, including sites using the older Mermaid component.
+The component names and composer fences continue to describe the Mermaid syntax.
 
 The compatibility baseline is the [upstream initializer at
 b5d31a95e442d754df9300688afaa111e9e333dd](https://github.com/discourse/discourse-mermaid-theme-component/blob/b5d31a95e442d754df9300688afaa111e9e333dd/javascripts/discourse/api-initializers/discourse-mermaid-theme-component.js).
@@ -27,26 +39,31 @@ topic](https://meta.discourse.org/t/discourse-mermaid/218242).
 
 ## Renderer and limits
 
-`DMermaid` bundles Mermaid 11.17.2 and uses the existing `webview_all` platform
-support. A temporary 1-pixel local WebView renders into a 1200-pixel measurement
-container, exports a PNG, then unloads its document and removes the JavaScript
+`DMermaid` bundles Pele 1.10.0 and uses the existing `webview_all` platform
+support. A temporary 1-pixel local WebView renders with a 1200-pixel layout
+width, exports a PNG, then unloads its document and removes the JavaScript
 channel. Flutter owns the displayed image and interactions. No site URL, cookies,
 API key, or post text is sent to a rendering service.
 
-The document blocks network resources and navigation, enables strict Mermaid
-security, and prevents author overrides of security and resource limits. SVG
-labels replace HTML labels, and diagram links are inactive. Diagrams requiring
-remaining HTML labels or unavailable external assets may fail or omit those
-assets. Errors retain readable/copyable source. Diagram fonts scale with zoom;
+The document blocks network resources and navigation. Pele renders SVG labels
+with links and external images disabled and explicit resource limits. Light/dark
+CSS variables travel with the exported SVG. Diagrams requiring unavailable
+external assets may omit those assets. Errors retain readable/copyable source.
+Diagram fonts scale with zoom;
 the surrounding Native controls follow the app's text scale.
 
 Source is limited to 50,000 UTF-16 code units, flowcharts to 500 edges, rendering
 to 20 seconds, and output to 4096 pixels per axis and four million total pixels.
 The memory-only cache holds at most 12 diagrams and 16 MB of encoded images.
 Bundled source, license, integrity, and update notes live in
-[`ui/assets/mermaid`](../../ui/assets/mermaid/README.md).
+[`ui/assets/pele`](../../ui/assets/pele/README.md).
 
 ## Verification
+
+`pele_compatibility_test.dart` checks the cooked diagram captured from the Pele
+announcement and cooks its fenced sample through both post and chat profiles.
+It verifies the default bundled manifest renders both server and offline HTML
+through `DMermaid`, preserving the source without site or theme metadata.
 
 The plugin tests cover the actual cooked marker, decoded source, malformed
 input, bounded height, isolated installation/core fallback, and composer edits.
@@ -54,24 +71,9 @@ The widget tests cover bundled assets, document escaping, network/navigation
 policy, rendering callbacks, stale renders, cleanup, timeout, malformed output,
 source/copy actions, zoom/fit/keyboard panning, and narrow RTL/large-text layouts.
 
-`dart run tool/check_mermaid_renderer.dart` writes an offline browser fixture to
-`/tmp/mermaid-check/index.html`. Serve that directory on a loopback HTTP port and
-open it in a browser. It exercises the production document, runtime, and PNG
-renderer in a 1-pixel iframe, including the width-dependent Gantt layout. All
-46 cases passed (23 inputs in both palettes), including syntax errors and
-attempted frontmatter security overrides. Inputs are authored compatibility
-examples in `test/plugins/discourse_mermaid/fixtures/diagrams.json`.
-
-`tool/mermaid_review_main.dart` exercises the production cooked renderer and
-opens the actual component styleguide. macOS review covered flowcharts,
-sequences, markdown/Unicode labels, source actions, expansion/zoom/fit, and a
-320-pixel column with 200% text and RTL. The final Gantt container correction
-was verified in the 1-pixel browser fixture and a successful macOS build; the
-Mac locked before its final native visual recheck. iOS and Linux were not
-device-tested.
-
-The 183 focused renderer, plugin, manifest/boundary, packaging, and control
-tests passed, and `flutter analyze --no-pub` was clean. Five broader styleguide
-tests also fail with Mermaid registration removed: theme/viewport persistence,
-Accordion preview height, Direction persistence, Typography persistence, and
-Sidebar mobile selection. Those existing failures are outside this change.
+`dart run tool/check_pele_renderer.dart` writes an offline browser fixture to
+`/tmp/pele-check/index.html`. Open it for visual review, or run
+`swift tool/check_pele_renderer.swift` to verify the real runtime, production
+document, and PNG export in macOS WebKit with a 1-pixel viewport. It checks the
+authored diagram corpus in both palettes, including invalid syntax and attempted
+frontmatter security overrides. Mobile devices require separate validation.

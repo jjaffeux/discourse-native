@@ -1,0 +1,7 @@
+{
+  "topic": "https://meta.discourse.org/t/discourse-pele/415914",
+  "upstreamRevision": "8cd113d57122f00dfefb145344c02f78d9ba014c",
+  "raw": "```mermaid\nflowchart LR\n  A --> B\n```",
+  "source": "flowchart LR\n  A --> B\n",
+  "cooked": "<pre data-code-wrap=\"mermaid\"><code class=\"lang-mermaid\">flowchart LR\n  A --&gt; B\n</code></pre>"
+}

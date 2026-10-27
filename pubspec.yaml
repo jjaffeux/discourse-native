@@ -171,9 +171,9 @@ flutter:
     - packages/discourse_native/src/shell/shaders/forum_texture.frag
   assets:
     - packages/discourse_native/src/shell/shaders/simplex-noise.LICENSE
-    - packages/discourse_native/src/ui/assets/mermaid/mermaid-11.17.2.min.js
-    - packages/discourse_native/src/ui/assets/mermaid/render.js
-    - packages/discourse_native/src/ui/assets/mermaid/LICENSE
+    - packages/discourse_native/src/ui/assets/pele/pele-1.10.0.global.js
+    - packages/discourse_native/src/ui/assets/pele/render.js
+    - packages/discourse_native/src/ui/assets/pele/LICENSE
     - assets/logo_mark.svg
     - packages/discourse_native/src/styleguide/assets/item/badge-check.svg
     - packages/discourse_native/src/styleguide/assets/item/chevron-down.svg

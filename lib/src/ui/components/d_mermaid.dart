@@ -18,7 +18,7 @@ import 'd_dialog.dart';
 import 'd_scroll_area.dart';
 import 'd_skeleton.dart';
 
-const _assets = 'packages/discourse_native/src/ui/assets/mermaid';
+const _assets = 'packages/discourse_native/src/ui/assets/pele';
 
 final class _RenderKey {
   const _RenderKey(this.source, this.dark, this.bundle);
@@ -304,7 +304,7 @@ final class _MermaidRender {
       );
       if (!_current) return;
       final assets = await Future.wait([
-        key.bundle.loadString('$_assets/mermaid-11.17.2.min.js'),
+        key.bundle.loadString('$_assets/pele-1.10.0.global.js'),
         key.bundle.loadString('$_assets/render.js'),
       ]);
       if (!_current) return;
@@ -406,12 +406,12 @@ final class _MermaidRender {
 
 /// Offline Mermaid artwork with source access and an expanded zoom/pan view.
 ///
-/// A short-lived local WebView renders the bundled Mermaid runtime to a bounded
+/// A short-lived local WebView renders the bundled Pele runtime to a bounded
 /// image. The reader and expanded view use Flutter images, so diagrams do not
 /// intercept post scrolling or retain native browser surfaces. Author links and
 /// scripts are disabled. Syntax/platform errors leave the source accessible.
 /// [height] constrains only the inline artwork; null fits it up to 420 pixels.
-/// Mermaid owns diagram typography; use Expand to inspect small labels.
+/// Pele owns diagram typography; use Expand to inspect small labels.
 class DMermaid extends StatefulWidget {
   const DMermaid({
     super.key,
@@ -453,7 +453,7 @@ class _DMermaidState extends State<DMermaid> with WidgetsBindingObserver {
       _licenseRegistered = true;
       LicenseRegistry.addLicense(() async* {
         yield LicenseEntryWithLineBreaks([
-          'mermaid',
+          'pele',
         ], await rootBundle.loadString('$_assets/LICENSE'));
       });
     }
