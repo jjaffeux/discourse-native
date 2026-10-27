@@ -151,6 +151,56 @@ void main() {
     },
   );
 
+  for (final foot in [34.0, 0.0]) {
+    testWidgets(
+      'a menu at the foot stands off it as a sheet at its end ($foot)',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewPadding = FakeViewPadding(bottom: foot);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _host(
+            DSheet<void>(
+              trigger: DSheetTrigger(
+                builder: (_, open) =>
+                    DButton(label: const Text('Open'), onPressed: open),
+              ),
+              content: const DSheetContent(
+                variant: DSheetVariant.menu,
+                side: DSheetSide.bottom,
+                inset: true,
+                showCloseButton: false,
+                children: [SizedBox(height: 120, child: Text('Menu content'))],
+              ),
+            ),
+            size: const Size(390, 844),
+            theme: ThemeData(platform: TargetPlatform.iOS),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        // Across the screen's width, 6 past half the foot off its bottom edge,
+        // its foot following the screen's 55 corner from that far in.
+        expect(bounds.left, 0);
+        expect(bounds.right, 390);
+        expect(bounds.bottom, 844 - (6 + foot / 2));
+        final surface = tester.widget<Material>(
+          find.descendant(of: sheet, matching: find.byType(Material)).first,
+        );
+        expect(
+          surface.borderRadius,
+          BorderRadius.vertical(
+            top: const Radius.circular(22),
+            bottom: Radius.circular(foot > 0 ? 55 - (6 + foot / 2) : 24),
+          ),
+        );
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final reducedMotion in [false, true]) {
       for (final variant in [DSheetVariant.menu, DSheetVariant.standard]) {

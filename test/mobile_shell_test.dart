@@ -1777,8 +1777,9 @@ void main() {
       );
       final menuBounds = tester.getRect(menuSheet);
       final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-      expect(menuBounds.left, 6);
-      expect(menuBounds.right, screen.width - 6);
+      // A sheet at its end keeps to the screen's sides.
+      expect(menuBounds.left, 0);
+      expect(menuBounds.right, screen.width);
       expect(menuBounds.top, greaterThan(screen.height / 2));
       expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
       expect(

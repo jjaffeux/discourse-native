@@ -60,6 +60,19 @@ void main() {
     expect(const DMobileDockGeometry(foot: 34, lift: 60).cornerAt(48), 6);
   });
 
+  test('what ends at the foot stands off it, rounded with the screen', () {
+    const round = DMobileDockGeometry(foot: 34);
+    expect(round.endLift, 23);
+    expect(round.endRadius(24), 32);
+    expect(round.endRadius(14), 32);
+    const deep = DMobileDockGeometry(foot: 80);
+    expect(deep.endLift, 46);
+    expect(deep.endRadius(24), 24, reason: 'never tighter than its least');
+    const square = DMobileDockGeometry(foot: 0);
+    expect(square.endLift, 6);
+    expect(square.endRadius(24), 24, reason: 'no curve to follow');
+  });
+
   test('the row is four columns, the ⋮ and action sharing the fourth', () {
     final slots = const DMobileDockGeometry(
       foot: 34,

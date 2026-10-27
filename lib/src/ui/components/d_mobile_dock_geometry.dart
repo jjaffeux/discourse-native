@@ -189,6 +189,18 @@ class DMobileDockGeometry {
     ),
   );
 
+  /// How far what ends at the screen's foot stands off its bottom edge: a
+  /// sheet at its end, the phone's sidebar, a composer's foot. Past half the
+  /// foot's room, by the bar's [inset].
+  double get endLift => inset + foot / 2;
+
+  /// The radius of a foot corner [endLift] up from the screen's bottom edge:
+  /// the screen's own curve, as far in from it as it is lifted, since a
+  /// tighter one is cut off by the curve it sits in, and never under [least].
+  /// A square screen has no curve to follow.
+  double endRadius(double least) =>
+      foot > 0 ? math.max(least, screenRadius - endLift) : least;
+
   /// The panel this bar grows into, holding [tiles] places.
   DMobileDockPanelGeometry panel({required int tiles}) =>
       DMobileDockPanelGeometry._(bar: this, tiles: tiles);

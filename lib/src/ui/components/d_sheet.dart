@@ -441,7 +441,7 @@ class _DSheetSideScope extends InheritedWidget {
     required this.inset,
     required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
-    this.menuInsetProgress,
+    this.menuFootRadius,
     required super.child,
   });
 
@@ -449,7 +449,9 @@ class _DSheetSideScope extends InheritedWidget {
   final bool inset;
   final bool fillAvailableHeight;
   final bool extendBehindKeyboard;
-  final double? menuInsetProgress;
+
+  /// A menu's bottom corners, which round as it lifts off the foot.
+  final double? menuFootRadius;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -469,7 +471,7 @@ class _DSheetSideScope extends InheritedWidget {
   bool updateShouldNotify(_DSheetSideScope oldWidget) =>
       side != oldWidget.side ||
       inset != oldWidget.inset ||
-      menuInsetProgress != oldWidget.menuInsetProgress ||
+      menuFootRadius != oldWidget.menuFootRadius ||
       fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
@@ -701,7 +703,35 @@ Widget _sheetLayout(
     DSheetSide.left => const Offset(-40, 0),
     _ => throw StateError('Sheet side was not resolved.'),
   };
-  final content = inset && !extendBehindKeyboard
+  // A menu inset at the foot stands off it as a sheet at its end does,
+  // across the screen's width, keeping what of the foot's room the lift
+  // leaves inside it.
+  final endMenu =
+      inset &&
+      !extendBehindKeyboard &&
+      variant == DSheetVariant.menu &&
+      side == DSheetSide.bottom;
+  final view = View.of(context);
+  final end = DMobileDockGeometry(
+    foot: endMenu
+        ? math.max(
+            MediaQuery.viewPaddingOf(context).bottom,
+            view.viewPadding.bottom / view.devicePixelRatio,
+          )
+        : 0,
+  );
+  final content = endMenu
+      ? Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(
+                context,
+              ).copyWith(bottom: math.max(0, end.foot - end.endLift)),
+            ),
+            child: presentation.content,
+          ),
+        )
+      : inset && !extendBehindKeyboard
       ? Builder(
           builder: (context) => MediaQuery.removePadding(
             context: context,
@@ -713,6 +743,7 @@ Widget _sheetLayout(
   Widget popup = _DSheetSideScope(
     side: side,
     inset: inset,
+    menuFootRadius: endMenu ? end.endRadius(24) : null,
     fillAvailableHeight: fillAvailableHeight,
     extendBehindKeyboard: extendBehindKeyboard,
     child: extendBehindKeyboard
@@ -808,21 +839,24 @@ Widget _sheetLayout(
       if (page) {
         return Stack(fit: StackFit.expand, children: [backdrop, popup]);
       }
-      final margin = inset
+      final margin = endMenu
+          ? 0.0
+          : inset
           ? variant == DSheetVariant.menu
                 ? 6.0
                 : DSpacing.md
           : 0.0;
       // A trigger inside SafeArea can capture a MediaQuery with its top padding
       // consumed, even though the overlay route covers the whole screen.
-      final view = View.of(context);
       final safeTop = math.max(
         MediaQuery.paddingOf(context).top,
         view.viewPadding.top / view.devicePixelRatio,
       );
       // Inset surfaces float above the device's bottom corners. The opening
       // control may already have consumed this padding inside a SafeArea.
-      final safeBottom = inset && !extendBehindKeyboard
+      final safeBottom = endMenu
+          ? end.endLift
+          : inset && !extendBehindKeyboard
           ? math.max(
               MediaQuery.viewPaddingOf(context).bottom,
               view.viewPadding.bottom / view.devicePixelRatio,
@@ -1792,13 +1826,13 @@ class DSheetContent extends StatelessWidget {
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
           };
-    final menuInsetProgress = context
+    final menuFootRadius = context
         .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
-        ?.menuInsetProgress;
+        ?.menuFootRadius;
     final radius = menu
         ? BorderRadius.vertical(
             top: const Radius.circular(22),
-            bottom: Radius.circular(24 * (menuInsetProgress ?? 1)),
+            bottom: Radius.circular(menuFootRadius ?? 24),
           )
         : inset
         ? BorderRadius.circular(DRadius.panel)

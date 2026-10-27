@@ -310,7 +310,8 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await _mount(tester);
     final panel = tester.getRect(find.byType(UserMenuPanel));
-    expect(panel.left, greaterThanOrEqualTo(6));
+    expect(panel.left, greaterThanOrEqualTo(0));
+    expect(panel.right, lessThanOrEqualTo(390));
     expect(panel.bottom, lessThanOrEqualTo(844 - 300 - 6));
     expect(find.text('Mark all read').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);

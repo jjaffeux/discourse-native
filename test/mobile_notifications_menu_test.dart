@@ -142,8 +142,10 @@ void main() {
         final sheet = tester.getRect(find.byType(DSheetContent));
         final panel = tester.getRect(find.byType(UserMenuPanel));
         expect(sheet.top, closeTo(47 + 8, 1));
-        expect(sheet.bottom, closeTo(1000 - 34 - 6, 1));
-        expect(panel.bottom, closeTo(sheet.bottom, 1));
+        const dock = DMobileDockGeometry(foot: 34);
+        final inner = sheet.bottom - (34 - dock.endLift);
+        expect(sheet.bottom, closeTo(1000 - dock.endLift, 1));
+        expect(panel.bottom, closeTo(inner, 1));
         expect(panel.height, greaterThan(640));
         final feed = find.descendant(
           of: find.byType(UserMenuPanel),
@@ -151,7 +153,7 @@ void main() {
             (widget) => widget is Scrollable && widget.axis == Axis.vertical,
           ),
         );
-        expect(tester.getRect(feed).bottom, closeTo(sheet.bottom, 1));
+        expect(tester.getRect(feed).bottom, closeTo(inner, 1));
         final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
         final tabsRect = tester.getRect(tabs);
         await tester.drag(feed, const Offset(0, -180));
@@ -161,7 +163,7 @@ void main() {
         await tester.tap(_tab('replies'));
         await tester.pumpAndSettle();
         expect(tester.getRect(find.byType(UserMenuPanel)), panel);
-        expect(tester.getRect(feed).bottom, closeTo(sheet.bottom, 1));
+        expect(tester.getRect(feed).bottom, closeTo(inner, 1));
         expect(tester.takeException(), isNull);
       },
     );
@@ -199,7 +201,8 @@ void main() {
             reason: id,
           );
         }
-        expect(tester.getRect(sheet).left, 6);
+        expect(tester.getRect(sheet).left, 0);
+        expect(tester.getRect(sheet).right, 390);
         await tester.drag(
           find.byKey(const ValueKey('sheet-drag-handle')),
           const Offset(0, -400),

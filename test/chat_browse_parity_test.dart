@@ -912,9 +912,10 @@ void _expectMenuPresentation(WidgetTester tester, {required bool mobile}) {
   final media = MediaQuery.of(tester.element(sheet));
   final safeBottom =
       tester.view.viewPadding.bottom / tester.view.devicePixelRatio;
-  expect(bounds.left - viewport.left, closeTo(6, .01));
-  expect(viewport.right - bounds.right, closeTo(6, .01));
-  expect(viewport.bottom - bounds.bottom, closeTo(safeBottom + 6, .01));
+  final dock = DMobileDockGeometry(foot: safeBottom);
+  expect(bounds.left - viewport.left, 0);
+  expect(viewport.right - bounds.right, 0);
+  expect(viewport.bottom - bounds.bottom, closeTo(dock.endLift, .01));
   expect(bounds.top, greaterThanOrEqualTo(viewport.top + media.padding.top));
 }
 

@@ -111,9 +111,9 @@ void main() {
       consumeSafeArea: true,
     );
     final panel = tester.getRect(find.byType(DSheetContent));
-    expect(panel.left, 6);
-    expect(panel.right, 384);
-    expect(panel.bottom, 804);
+    expect(panel.left, 0);
+    expect(panel.right, 390);
+    expect(panel.bottom, 844 - const DMobileDockGeometry(foot: 34).endLift);
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
     expect(tester.getSize(handle), const Size(36, 5));
     final revision = shell.topicNavigationRevision;

@@ -26,6 +26,7 @@ const _mobile = TargetPlatformVariant({
   TargetPlatform.iOS,
   TargetPlatform.android,
 });
+const _foot = 34.0;
 final _compact = find.byKey(const ValueKey('topic-header-compact-layout'));
 final _more = find.byKey(const ValueKey('topic-more-actions'));
 final _menu = find.byType(DDropdownMenuContent);
@@ -95,8 +96,10 @@ void topicCompactActionsSheetTests({
         await tester.tap(find.text('More options'));
         await tester.pumpAndSettle();
         expect(find.text('Edit bookmark'), findsOneWidget);
-        await tester.tap(find.byTooltip('Close').last);
+        expect(find.byTooltip('Close'), findsNothing);
+        await tester.tapAt(const Offset(20, 100));
         await tester.pumpAndSettle();
+        expect(find.text('Edit bookmark'), findsNothing);
         expect(find.byType(DSheetContent), findsOneWidget);
 
         final bell = find.byKey(
@@ -242,9 +245,12 @@ void topicCompactActionsSheetTests({
             const EdgeInsets.fromLTRB(8, 0, 8, 8),
           );
           final bounds = tester.getRect(_menuSheet);
-          expect(bounds.left, 6);
-          expect(bounds.right, size.width - 6);
-          expect(bounds.bottom, size.height - 40);
+          expect(bounds.left, 0);
+          expect(bounds.right, size.width);
+          expect(
+            bounds.bottom,
+            size.height - const DMobileDockGeometry(foot: _foot).endLift,
+          );
           expect(
             find.descendant(
               of: _menuSheet,
@@ -450,8 +456,8 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
   );
-  tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
-  tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+  tester.view.padding = const FakeViewPadding(top: 44, bottom: _foot);
+  tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: _foot);
   final shell = ShellScope.read(
     tester.element(find.byKey(const ValueKey('topic-card-7'))),
   );

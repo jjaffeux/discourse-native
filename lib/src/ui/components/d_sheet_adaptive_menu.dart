@@ -970,20 +970,22 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       media.padding.top,
       view.viewPadding.top / view.devicePixelRatio,
     );
+    final screenFoot = math.max(
+      media.viewPadding.bottom,
+      view.viewPadding.bottom / view.devicePixelRatio,
+    );
     final safeBottom =
-        _exitSafeBottom ??
-        math.max(
-              media.viewPadding.bottom,
-              view.viewPadding.bottom / view.devicePixelRatio,
-            ) *
-            (1 - _keyboardPlacement.value);
+        _exitSafeBottom ?? screenFoot * (1 - _keyboardPlacement.value);
     _safeBottom = safeBottom;
-    final side = 6 * _inset.value;
     if (_previousInset != _inset.value) {
       _resizingInsets = true;
       _previousInset = _inset.value;
     }
-    _lift = (6 + safeBottom) * _inset.value;
+    final end = DMobileDockGeometry(foot: safeBottom);
+    _lift = end.endLift * _inset.value;
+    // Over the keyboard there is no screen corner to follow; the foot eases
+    // between the two rather than through the shrinking foot's room.
+    final cornerRadius = DMobileDockGeometry(foot: screenFoot).endRadius(24);
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
       menu: this,
@@ -992,14 +994,18 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: _inset.value > 0,
-        menuInsetProgress: _inset.value,
+        menuFootRadius:
+            (cornerRadius + (24 - cornerRadius) * _keyboardPlacement.value) *
+            _inset.value,
         fillAvailableHeight: false,
         extendBehindKeyboard: false,
         child: MediaQuery(
           data: media.copyWith(
-            // The viewport reaches the sheet's foot. Floating clearance is
-            // already applied outside the surface, above the home indicator.
-            padding: EdgeInsets.zero,
+            // The viewport reaches the sheet's foot. Lifted at its end, the
+            // sheet keeps inside it what of the foot's room the lift leaves.
+            padding: EdgeInsets.only(
+              bottom: math.max(0, safeBottom - end.endLift) * _inset.value,
+            ),
             viewInsets: EdgeInsets.zero,
           ),
           child: widget.presentation.content,
@@ -1062,8 +1068,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
               children: [
                 backdrop(curve * dim),
                 Positioned(
-                  left: side,
-                  right: side,
+                  left: 0,
+                  right: 0,
                   bottom: keyboard + _lift,
                   child: Transform.translate(
                     offset: Offset(
