@@ -559,6 +559,35 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(fixture.host.currentContent?.id, 'boards');
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  testWidgets('board header tags open their associated topic lists', (
+    tester,
+  ) async {
+    final json = boardFixtureJson();
+    (json['board'] as Map)['tag_names'] = [
+      'cs-completed',
+      'cs-handover',
+      'équipe & suivi',
+    ];
+    final fixture = BoardsFixture(json: json);
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+
+    for (final (label, path) in [
+      ('cs-completed', '/tag/cs-completed.json'),
+      ('cs-handover', '/tag/cs-handover.json'),
+      ('équipe & suivi', '/tag/%C3%A9quipe%20&%20suivi.json'),
+    ]) {
+      await tester.tap(find.text('# $label'));
+      await tester.pumpAndSettle();
+      final route = fixture.host.currentContent;
+      expect(route?.destination, isA<FeedDestination>());
+      expect(route?.feedPath, path);
+      expect(route?.title, label);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('board columns keep their scrollbar outside the sheet', (
     tester,
   ) async {

@@ -299,7 +299,8 @@ class _BoardsPageState extends State<BoardsPage> {
               case final category?)
             _categoryBadge(category.name, category.colorValue),
         for (final tag in board.tagNames)
-          DBadge(
+          DBadge.link(
+            onPressed: () => widget.navigation.openTag(widget.site, tag),
             variant: DBadgeVariant.secondary,
             size: DBadgeSize.control,
             child: Text('# $tag', maxLines: 1, overflow: TextOverflow.ellipsis),

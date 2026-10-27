@@ -182,7 +182,11 @@ final class BoardsFixture {
       composer: composer,
     );
     host = BoardsFixtureNavigation(connected: connected);
-    navigation = BoardsNavigation(host: host, controller: controller);
+    navigation = BoardsNavigation(
+      host: host,
+      topicLists: host,
+      controller: controller,
+    );
   }
   late final ValueNotifier<SiteConfig> settings;
   SiteConfig get config => settings.value;
@@ -238,7 +242,8 @@ final class BoardsFixture {
   void dispose() => controller.dispose();
 }
 
-final class BoardsFixtureNavigation implements PluginRouteNavigationHost {
+final class BoardsFixtureNavigation
+    implements PluginRouteNavigationHost, PluginTopicListNavigationHost {
   BoardsFixtureNavigation({required this.connected});
   final bool connected;
   int? openedTopic;
@@ -256,6 +261,8 @@ final class BoardsFixtureNavigation implements PluginRouteNavigationHost {
   void selectInstance(int index) {}
   @override
   void pushContent(ContentRoute route) => currentContent = route;
+  @override
+  void openTopicList(ContentRoute route) => currentContent = route;
   @override
   void replaceCurrentContent(ContentRoute route) => currentContent = route;
   @override

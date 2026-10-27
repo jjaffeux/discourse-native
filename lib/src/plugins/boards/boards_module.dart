@@ -35,6 +35,7 @@ final class BoardsModule implements PluginModule {
         );
         final navigation = BoardsNavigation(
           host: bindings.require(corePluginRouteNavigationPort),
+          topicLists: bindings.require(corePluginTopicListNavigationPort),
           controller: controller,
         );
         return PluginSessionContribution(
@@ -54,6 +55,7 @@ final class BoardsModule implements PluginModule {
         corePluginTopicRefreshPort,
         corePluginComposerPort,
         corePluginRouteNavigationPort,
+        corePluginTopicListNavigationPort,
       ],
     );
   }

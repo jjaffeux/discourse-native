@@ -34,8 +34,13 @@ final class BoardsRoute {
 }
 
 final class BoardsNavigation implements PluginLinkHandler {
-  const BoardsNavigation({required this.host, required this.controller});
+  const BoardsNavigation({
+    required this.host,
+    required this.topicLists,
+    required this.controller,
+  });
   final PluginRouteNavigationHost host;
+  final PluginTopicListNavigationHost topicLists;
   final BoardsController controller;
 
   /// Boards then open in the shared page sheet, which owns the way back.
@@ -78,6 +83,18 @@ final class BoardsNavigation implements PluginLinkHandler {
   void openTopic(String site, BoardCard card) {
     if (!controller.enabled(site) || card.topicId == null) return;
     host.openTopicPost(siteUrl: site, topicId: card.topicId!, postNumber: 1);
+  }
+
+  void openTag(String site, String tag) {
+    if (!controller.enabled(site) || host.currentSite?.url != site) return;
+    final path = Uri(pathSegments: ['', 'tag', '$tag.json']).toString();
+    topicLists.openTopicList(
+      ContentRoute(
+        destination: FeedDestination.fromPath(key: 'list-$path', path: path),
+        title: tag,
+        icon: DIcons.tag,
+      ),
+    );
   }
 
   Future<bool> configure(String site, BoardSnapshot board) => openExternalLink(
