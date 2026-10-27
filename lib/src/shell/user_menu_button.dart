@@ -277,7 +277,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               key: const ValueKey('user-profile-card'),
               border: false,
               spacing: 0,
-              backgroundColor: rail
+              backgroundColor: rail || widget.drawerBuilder != null
                   ? Colors.transparent
                   : tokens.primary.withValues(alpha: .10),
               child: Padding(
