@@ -1446,14 +1446,17 @@ class _DMobileDockState extends State<DMobileDock>
             curve: const Cubic(.32, .72, 0, 1),
             width: collapsed ? round : constraints.maxWidth,
             height: collapsed ? round : geometry.barHeight,
-            decoration: BoxDecoration(
-              // The panel shows through the head so the grid can come up
-              // under its row.
-              color: out ? well.withValues(alpha: 0) : well,
-              borderRadius: collapsed
-                  ? BorderRadius.circular(round / 2)
-                  : geometry.borderRadius,
-            ),
+            // The panel owns the head's fill while out. Remove the
+            // decoration so returning to the bar restores its fill
+            // immediately, without tweening from transparent.
+            decoration: out
+                ? null
+                : BoxDecoration(
+                    color: well,
+                    borderRadius: collapsed
+                        ? BorderRadius.circular(round / 2)
+                        : geometry.borderRadius,
+                  ),
             child: Stack(
               children: [
                 AnimatedPadding(
