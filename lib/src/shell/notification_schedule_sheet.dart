@@ -118,6 +118,7 @@ class _NotificationScheduleEditorState
   _Days _mode = _Days.weekdays;
   bool _loading = true;
   bool _saving = false;
+  bool _disabling = false;
   String? _error;
   bool get _canAct => mounted && widget.ownsAccount() && !_loading && !_saving;
 
@@ -186,7 +187,7 @@ class _NotificationScheduleEditorState
 
   String? get _validation {
     final draft = _draft;
-    if (draft == null || !draft.enabled) return null;
+    if (draft == null) return null;
     if (draft.activeDays.isEmpty) {
       return context.l10n.notificationScheduleChooseDay;
     }
@@ -196,15 +197,24 @@ class _NotificationScheduleEditorState
     return null;
   }
 
-  Future<void> _save() async {
-    if (!_canAct || _validation != null) return;
+  Future<void> _save({bool enabled = true}) async {
+    if (!_canAct || (enabled && _validation != null)) return;
     final instance = widget.controller.instanceFor(widget.siteUrl);
     if (instance == null) return;
     final preferences = widget.controller.preferences;
     if (preferences.stateFor(widget.siteUrl)?.confirmed?.canEdit != true) {
       return;
     }
-    final value = _draft!;
+    final confirmed = preferences
+        .stateFor(widget.siteUrl)
+        ?.confirmed
+        ?.notificationSchedule;
+    if (!enabled && confirmed?.enabled != true) return;
+    // Turning off changes only the saved schedule's activation, even when the
+    // editor contains unsaved changes to its days or hours.
+    final value = enabled
+        ? _draft!.copyWith(enabled: true)
+        : confirmed!.copyWith(enabled: false);
     if (value ==
         preferences.stateFor(widget.siteUrl)?.confirmed?.notificationSchedule) {
       DDialogClose.close<bool>(context, true);
@@ -212,6 +222,7 @@ class _NotificationScheduleEditorState
     }
     setState(() {
       _saving = true;
+      _disabling = !enabled;
       _error = null;
     });
     widget.onSaving(true);
@@ -319,7 +330,14 @@ class _NotificationScheduleEditorState
             ?.confirmed
             ?.canEdit ==
         true;
-    final editable = _canAct && draft.enabled && permitted;
+    final editable = _canAct && permitted;
+    final active =
+        widget.controller.preferences
+            .stateFor(widget.siteUrl)
+            ?.confirmed
+            ?.notificationSchedule
+            ?.enabled ==
+        true;
     final locale = context.l10n.localeName;
     final dayLabels = [
       for (var i = 0; i < 7; i++)
@@ -330,14 +348,6 @@ class _NotificationScheduleEditorState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DSwitchTile(
-            value: draft.enabled,
-            size: DSwitchSize.preference,
-            enabled: _canAct && permitted,
-            title: Text(context.l10n.notificationScheduleUse),
-            onChanged: (enabled) => _edit(draft.copyWith(enabled: enabled)),
-          ),
-          const SizedBox(height: 18),
           DField(
             children: [
               DFieldLabel(
@@ -458,7 +468,7 @@ class _NotificationScheduleEditorState
                   key: const ValueKey('notification-schedule-save'),
                   label: Text(context.l10n.notificationScheduleSave),
                   size: DButtonSize.action,
-                  loading: _saving,
+                  loading: _saving && !_disabling,
                   shape: DButtonShape.pill,
                   onPressed: _canAct && permitted && _validation == null
                       ? () => unawaited(_save())
@@ -467,6 +477,19 @@ class _NotificationScheduleEditorState
               ),
             ],
           ),
+          if (active) ...[
+            const SizedBox(height: DSpacing.controlGap),
+            DButton(
+              key: const ValueKey('notification-schedule-turn-off'),
+              label: Text(context.l10n.notificationScheduleTurnOff),
+              variant: DButtonVariant.ghost,
+              size: DButtonSize.action,
+              loading: _saving && _disabling,
+              onPressed: editable
+                  ? () => unawaited(_save(enabled: false))
+                  : null,
+            ),
+          ],
         ],
       ),
     );

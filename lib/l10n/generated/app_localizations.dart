@@ -22923,11 +22923,11 @@ abstract class AppLocalizations {
   /// **'Notification schedule'**
   String get notificationSchedule;
 
-  /// Notification schedule sheet: Use a schedule
+  /// Disable the notification schedule while preserving its saved days and hours.
   ///
   /// In en, this message translates to:
-  /// **'Use a schedule'**
-  String get notificationScheduleUse;
+  /// **'Turn off schedule'**
+  String get notificationScheduleTurnOff;
 
   /// Notification schedule sheet: Allow notifications on
   ///
