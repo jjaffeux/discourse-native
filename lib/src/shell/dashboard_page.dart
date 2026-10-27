@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../models/dashboard.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'dashboard_controller.dart';
 import 'skeleton_fill.dart';
 
@@ -181,7 +182,7 @@ class _DashboardPageState extends State<DashboardPage> {
       alignment: AlignmentDirectional.centerStart,
       child: DSkeleton(
         width: width,
-        height: scaler.scale(style?.fontSize ?? 14),
+        height: scaler.scale(style?.fontSize ?? DiscourseTypography.sm),
       ),
     );
     return DSkeletonRegion(

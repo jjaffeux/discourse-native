@@ -193,7 +193,7 @@ class _SheetBody extends StatelessWidget {
                   headingLevel: 1,
                   style: grabbed
                       ? TextStyle(
-                          fontSize: 15,
+                          fontSize: DiscourseTypography.sheetTitle,
                           color: DTokens.of(context).foreground,
                         )
                       : null,
