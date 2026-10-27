@@ -188,7 +188,6 @@ class _BoardsPageState extends State<BoardsPage> {
     Widget page(
       String title, {
       List<Widget> badges = const [],
-      Widget? action,
       required Widget body,
       int columns = 0,
     }) => DPageSurface(
@@ -210,7 +209,6 @@ class _BoardsPageState extends State<BoardsPage> {
               child: _BoardHeader(
                 title: title,
                 badges: badges,
-                action: action,
                 sheet: widget.navigation.mobileNavigationEnabled,
                 onBack: () => widget.navigation.open(),
               ),
@@ -288,35 +286,6 @@ class _BoardsPageState extends State<BoardsPage> {
         if (board.archived)
           DBadge(size: DBadgeSize.control, child: Text(l10n.boardsArchived)),
       ],
-      action: board.canManage
-          ? DDropdownMenu(
-              content: DDropdownMenuContent(
-                children: [
-                  DDropdownMenuItem(
-                    leading: const DIcon(DIcons.gear),
-                    onPressed: () =>
-                        widget.navigation.configure(widget.site, board),
-                    child: Text(l10n.openInBrowser),
-                  ),
-                ],
-              ),
-              child: DDropdownMenuTrigger(
-                builder: (context, state) => DButton.iconOnly(
-                  key: const ValueKey('board-controls'),
-                  size: DButtonSize.filter,
-                  variant: DButtonVariant.outline,
-                  icon: const DIcon(DIcons.ellipsis),
-                  tooltip: l10n.moreActions,
-                  // Busy state stays inside the button so the header never reflows.
-                  loading: handle.reading || handle.writing,
-                  onPressed: state.toggle,
-                  focusNode: state.focusNode,
-                  hasPopup: true,
-                  expanded: state.open,
-                ),
-              ),
-            )
-          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1074,20 +1043,18 @@ class _BoardLoadingSkeleton extends StatelessWidget {
 }
 
 /// The topic reader's heading. In the mobile page sheet, whose dismissal goes
-/// back, the badges and [action] follow the title on its line and wrap below
+/// back, the badges follow the title on its line and wrap below
 /// it when they do not fit. Elsewhere a back link leads to the directory and
-/// the controls follow the title on their own row.
+/// the badges follow the title on their own row.
 class _BoardHeader extends StatelessWidget {
   const _BoardHeader({
     required this.title,
     required this.badges,
-    required this.action,
     required this.sheet,
     required this.onBack,
   });
   final String title;
   final List<Widget> badges;
-  final Widget? action;
   final bool sheet;
   final VoidCallback onBack;
 
@@ -1107,7 +1074,7 @@ class _BoardHeader extends StatelessWidget {
     if (sheet) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: DControlWrap(children: [heading, ...badges, ?action]),
+        child: DControlWrap(children: [heading, ...badges]),
       );
     }
     return Padding(
@@ -1127,9 +1094,9 @@ class _BoardHeader extends StatelessWidget {
             ),
           ),
           heading,
-          if (badges.isNotEmpty || action != null) ...[
+          if (badges.isNotEmpty) ...[
             const SizedBox(height: 16),
-            DControlWrap(children: [...badges, ?action]),
+            DControlWrap(children: badges),
           ],
         ],
       ),

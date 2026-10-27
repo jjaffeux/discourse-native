@@ -142,7 +142,11 @@ void main() {
   testWidgets('reopening a board shows it at once and refreshes it', (
     tester,
   ) async {
-    final shell = await _openBoard(tester);
+    late FakeDiscourseApi api;
+    final shell = await _openBoard(tester, onApi: (value) => api = value);
+    final readsBefore = api.pluginReadPaths
+        .where((path) => path == '/boards/api/boards/1.json')
+        .length;
     expect(find.text('Improve search'), findsOneWidget);
     shell.handleBack();
     await tester.pumpAndSettle();
@@ -151,13 +155,14 @@ void main() {
     await tester.pump();
     expect(shell.currentContent?.id, 'boards/1');
     expect(find.text('Improve search'), findsOneWidget);
-    final refreshing = find.descendant(
-      of: find.byKey(const ValueKey('board-controls')),
-      matching: find.byType(DSpinner),
-    );
-    expect(refreshing, findsOneWidget);
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
     await tester.pumpAndSettle();
+    expect(
+      api.pluginReadPaths
+          .where((path) => path == '/boards/api/boards/1.json')
+          .length,
+      readsBefore + 1,
+    );
     expect(find.text('Improve search'), findsOneWidget);
     expect(find.byType(DSpinner), findsNothing);
     expect(tester.takeException(), isNull);
@@ -241,26 +246,17 @@ void main() {
     variant: platforms,
   );
 
-  testWidgets('the sheet header keeps tags and actions beside the title', (
-    tester,
-  ) async {
+  testWidgets('the sheet header keeps tags beside the title', (tester) async {
     await _openBoard(tester, name: 'Board');
     expect(find.byKey(const ValueKey('board-back')), findsNothing);
     final title = tester.getRect(_title);
-    for (final control in [
-      find.text('# roadmap'),
-      find.byKey(const ValueKey('board-controls')),
-    ]) {
-      final bounds = tester.getRect(control);
-      expect(bounds.left, greaterThan(title.right));
-      expect(bounds.center.dy, inInclusiveRange(title.top, title.bottom));
-    }
+    final tag = tester.getRect(find.text('# roadmap'));
+    expect(tag.left, greaterThan(title.right));
+    expect(tag.center.dy, inInclusiveRange(title.top, title.bottom));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('the sheet header wraps tags and actions below a long title', (
-    tester,
-  ) async {
+  testWidgets('the sheet header wraps tags below a long title', (tester) async {
     await _openBoard(
       tester,
       name: 'Quarterly product roadmap for the native apps',
@@ -269,10 +265,8 @@ void main() {
     final title = tester.getRect(_title);
     final roadmap = tester.getRect(find.text('# roadmap'));
     final native = tester.getRect(find.text('# native'));
-    final menu = tester.getRect(find.byKey(const ValueKey('board-controls')));
     expect(roadmap.top, greaterThanOrEqualTo(title.bottom));
     expect(native.center.dy, roadmap.center.dy);
-    expect(menu.center.dy, roadmap.center.dy);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 

@@ -124,19 +124,23 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('board pull refresh keeps cards and has no Refresh menu item', (
+  testWidgets('board pull refresh keeps cards without a header actions menu', (
     tester,
   ) async {
     final fixture = BoardsFixture();
     addTearDown(fixture.dispose);
     await tester.pumpWidget(retainedPage(fixture));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('board-controls')));
-    await tester.pumpAndSettle();
+    final header = find.ancestor(
+      of: find.byKey(const ValueKey('board-title')),
+      matching: find.byType(SliverToBoxAdapter),
+    );
+    expect(header, findsOneWidget);
+    expect(
+      find.descendant(of: header, matching: find.byType(DDropdownMenuTrigger)),
+      findsNothing,
+    );
     expect(find.text('Refresh'), findsNothing);
-    expect(find.text('Open in browser'), findsOneWidget);
-    await tester.tapAt(const Offset(700, 500));
-    await tester.pumpAndSettle();
     final pending = Completer<Map<String, dynamic>>();
     fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
         pending.future;
@@ -557,11 +561,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     final back = find.byKey(const ValueKey('board-back'));
     final title = tester.getRect(find.byKey(const ValueKey('board-title')));
     expect(tester.getRect(back).bottom, lessThanOrEqualTo(title.top));
-    for (final control in [
-      find.text('Support'),
-      find.text('# roadmap'),
-      find.byKey(const ValueKey('board-controls')),
-    ]) {
+    for (final control in [find.text('Support'), find.text('# roadmap')]) {
       expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
     }
     await tester.tap(back);
