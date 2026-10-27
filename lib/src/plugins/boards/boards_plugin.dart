@@ -146,6 +146,14 @@ final class BoardsPlugin
             TopicPropertySection(
               label: context.l10n.boardsTitle,
               values: values,
+              compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
+                icon: const DIcon(boardsIcon),
+                tooltip: anchorContext.l10n.boardsTitle,
+                size: DButtonSize.filter,
+                variant: DButtonVariant.ghost,
+                hasPopup: true,
+                onPressed: showDetails,
+              ),
             ),
           ];
   }
