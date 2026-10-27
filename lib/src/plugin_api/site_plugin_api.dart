@@ -896,6 +896,12 @@ abstract interface class ContentMobileDockPlugin {
   bool hidesMobileDock(BuildContext context, ContentRoute route);
 }
 
+abstract interface class ContentMobileComposerPlugin {
+  /// Whether this route docks its own composer over a phone's bar, where a
+  /// parked draft would otherwise wait.
+  bool ownsMobileComposer(BuildContext context, ContentRoute route);
+}
+
 /// Content that supplies its own heading while retaining shell navigation.
 abstract interface class ContentPageTitlePlugin {
   bool ownsContentPageTitle(BuildContext context, ContentRoute route);

@@ -64,6 +64,7 @@ class ChatPlugin
         ContentSearchPlugin,
         ContentChromePlugin,
         ContentMobilePageSheetPlugin,
+        ContentMobileComposerPlugin,
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
         ContentHeaderTitleTrailingPlugin,
@@ -718,6 +719,10 @@ class ChatPlugin
 
   @override
   bool usesMobilePageSheet(BuildContext context, ContentRoute route) =>
+      ChatRoute.parse(route.id)?.isInfo == false;
+
+  @override
+  bool ownsMobileComposer(BuildContext context, ContentRoute route) =>
       ChatRoute.parse(route.id)?.isInfo == false;
 
   @override

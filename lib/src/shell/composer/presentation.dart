@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../models/composer_placement.dart';
+import '../../models/content_route.dart';
+import '../../plugin_api/plugin_registry.dart';
+import '../../plugin_api/plugin_scope.dart';
 import '../../theme/app_theme.dart';
 import '../desktop_panels.dart';
 import '../forum_theme_surfaces.dart';
@@ -533,11 +536,12 @@ class ComposerDock extends StatefulWidget {
   final Widget child;
   final bool appWorkspace;
 
-  /// Space for mobile chrome above a minimized composer that overlays the page.
-  static double bottomOverlayInsetOf(BuildContext context) =>
+  /// The room a parked draft takes over a phone's bar, its gap included, so
+  /// the bar's footer keeps pages clear of it; 0 while none is shown.
+  static double parkedDraftRoomOf(BuildContext context) =>
       context
-          .dependOnInheritedWidgetOfExactType<_ComposerBottomOverlay>()
-          ?.inset ??
+          .dependOnInheritedWidgetOfExactType<_ComposerParkedDraft>()
+          ?.room ??
       0;
 
   /// The edge of the app workspace whose border is owned by the resize handle.
@@ -564,12 +568,12 @@ class _ComposerWorkspaceScope extends InheritedWidget {
       placement != oldWidget.placement;
 }
 
-class _ComposerBottomOverlay extends InheritedWidget {
-  const _ComposerBottomOverlay({required this.inset, required super.child});
-  final double inset;
+class _ComposerParkedDraft extends InheritedWidget {
+  const _ComposerParkedDraft({required this.room, required super.child});
+  final double room;
   @override
-  bool updateShouldNotify(_ComposerBottomOverlay oldWidget) =>
-      inset != oldWidget.inset;
+  bool updateShouldNotify(_ComposerParkedDraft oldWidget) =>
+      room != oldWidget.room;
 }
 
 class _ComposerDockState extends State<ComposerDock> {
@@ -723,29 +727,56 @@ class _ComposerDockState extends State<ComposerDock> {
               ? constraints.maxWidth - 12
               : math.min(constraints.maxWidth - 12, 460.0);
           if (mobile) {
-            final bottom = MediaQuery.viewPaddingOf(context).bottom;
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                _ComposerBottomOverlay(
-                  inset: height + 8,
-                  child: readerViewport(),
-                ),
-                PositionedDirectional(
-                  start: 6,
-                  end: 6,
-                  bottom: bottom,
-                  child: SizedBox(
-                    height: height,
-                    child: owner._surface(
-                      entry,
-                      placement: ComposerPlacement.fullScreen,
-                      mobile: true,
-                      size: Size(width, height),
-                    ),
+            final surface = owner._surface(
+              entry,
+              placement: ComposerPlacement.fullScreen,
+              mobile: true,
+              size: Size(width, height),
+            );
+            // A parked draft waits 8 over the bar of places, out of the way
+            // of a page's own composer and of the open sidebar. Hidden, it
+            // stays mounted so the retained editor keeps its state.
+            return ShellSelector<(ContentRoute?, bool)>(
+              select: (shell) =>
+                  (shell.currentContent, shell.mobileNavigation.sidebarOpen),
+              child: readerViewport(),
+              builder: (context, state, reader) {
+                final (route, sidebarOpen) = state;
+                final registry =
+                    PluginScope.maybeOf(context)?.registry ??
+                    PluginRegistry.empty;
+                final shown =
+                    !sidebarOpen &&
+                    !(route != null &&
+                        registry.ownsMobileComposer(context, route));
+                final bar = DMobileDockGeometry.of(context);
+                final noBar =
+                    route != null && registry.hidesMobileDock(context, route);
+                return _ComposerParkedDraft(
+                  room: shown ? height + 8 : 0,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      reader!,
+                      PositionedDirectional(
+                        start: 6,
+                        end: 6,
+                        bottom: noBar
+                            ? bar.foot
+                            : bar.margin.bottom + bar.barHeight + 8,
+                        height: height,
+                        child: Offstage(
+                          offstage: !shown,
+                          child: ExcludeFocus(
+                            excluding: !shown,
+                            child: surface,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                );
+              },
             );
           }
           final content = Column(

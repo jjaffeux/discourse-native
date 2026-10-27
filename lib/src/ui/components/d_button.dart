@@ -480,9 +480,10 @@ class DButton extends StatelessWidget {
         ),
         buttons.outline.foreground,
       ),
+      // A parked draft is a pill of the bar's own stock.
       DButtonVariant.resume => pair(
-        buttons.outline.background,
-        buttons.outline.background,
+        tokens.wellFill,
+        tokens.wellFill,
         tokens.foreground,
         border: Color.lerp(tokens.background, tokens.foreground, .12),
       ),

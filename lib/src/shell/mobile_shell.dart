@@ -365,21 +365,22 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
                   dockBuilder: (hidden) {
-                    final lift = ComposerDock.bottomOverlayInsetOf(context);
+                    // A parked draft waits over the bar, which keeps pages
+                    // clear of both.
+                    final parked = ComposerDock.parkedDraftRoomOf(context);
                     if (hideDock) {
                       return Padding(
                         padding: EdgeInsets.only(
-                          bottom: lift + MediaQuery.paddingOf(context).bottom,
+                          bottom: parked + MediaQuery.paddingOf(context).bottom,
                         ),
                       );
                     }
-                    final geometry = DMobileDockGeometry.of(
-                      context,
-                      lift: lift,
-                    );
+                    final geometry = DMobileDockGeometry.of(context);
                     return ForumSidebarTheme(
                       child: Padding(
-                        padding: geometry.margin,
+                        padding: geometry.margin.add(
+                          EdgeInsets.only(top: parked),
+                        ),
                         child: LayoutBuilder(
                           builder: (context, constraints) => _buildBottomBar(
                             context,
