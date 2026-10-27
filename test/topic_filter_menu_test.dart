@@ -237,7 +237,21 @@ void main() {
           ).queryParameters['q'],
           'posts-min:11 posts-max:11',
         );
-        expect(find.text('Filters · 1'), findsOneWidget);
+        final filters = find.byKey(const ValueKey('topic-list-filter'));
+        if (platform == TargetPlatform.iOS) {
+          // A phone's row is short of room, so the pill shows its count
+          // and keeps its full name for a screen reader.
+          expect(
+            find.descendant(of: filters, matching: find.text('1')),
+            findsOneWidget,
+          );
+          expect(tester.widget<DButton>(filters).semanticLabel, 'Filters · 1');
+        } else {
+          expect(
+            find.descendant(of: filters, matching: find.text('Filters · 1')),
+            findsOneWidget,
+          );
+        }
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
