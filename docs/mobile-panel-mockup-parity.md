@@ -1,4 +1,4 @@
-> Historical design and capture notes. The app now uses the [flat appearance](material-mockup-parity.md); earlier glass and depth measurements describe the retired rendering.
+> Historical design and capture notes. The rim, catch of light and shadow measured below were retired with Liquid Glass and are now drawn from the current mockup; see [surface depth parity](surface-depth-mockup-parity.md).
 
 # Phone container and header surface parity
 
