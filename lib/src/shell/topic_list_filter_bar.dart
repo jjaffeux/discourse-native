@@ -222,11 +222,11 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           },
         ),
     ];
+    // On one line, the Filters menu down to its glyph and count once they do
+    // not all fit, and wrapped at full length when even that is too wide.
     final controls = widget.wrap
-        ? Wrap(
-            spacing: DSpacing.sm,
+        ? DFitRow(
             runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
             children: [?widget.leading, ...controlChildren, ?widget.trailing],
           )
         : Row(

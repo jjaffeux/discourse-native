@@ -208,117 +208,132 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   }
 
   @override
-  Widget build(BuildContext context) => DPopover(
-    controller: _popover,
-    onEscape: _input.handleEscape,
-    sheetOnMobile: true,
-    mobileSheetVariant: DSheetVariant.adaptiveMenu,
-    mobileSheetSizeToContent: false,
-    // Tag rows can arrive after the filter vocabulary.
-    mobileSheetContentLoading: _options == null || !_suggestionsReady,
-    onOpenChange: (open, _) {
-      widget.onOpenChanged?.call(open);
-      if (open) {
-        setState(() => _suggestionsReady = false);
-        _retired = false;
-        _owner = _ownerOf(_shell!);
-        _boundary = _panelBoundary();
-        unawaited(_load());
-      }
-    },
-    content: DPopoverContent(
-      width: 320,
-      collisionBoundary: _boundary,
-      sideOffset: widget.filterKey == null ? DSpacing.controlGap : 6,
-      padding: EdgeInsets.all(widget.filterKey == null ? 10 : 4),
-      scrollable: widget.filterKey == null,
-      align: DPopoverAlign.start,
-      semanticLabel: context.l10n.filterTopics,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 12,
-        children: [
-          if (!_retired)
-            Flexible(
-              child: TopicFilterInput(
-                controller: _input,
-                onSuggestionsReady: () {
-                  if (mounted && !_retired && !_suggestionsReady) {
-                    setState(() => _suggestionsReady = true);
-                  }
-                },
-                siteUrl: widget.siteUrl,
-                initialQuery: _scopeQuery,
-                categoryParentId: widget.categoryParentId,
-                categoryContextId: parseTopicFilterScope(
-                  widget.query.replaceAll('=category:', 'category:'),
-                  ShellScope.read(context).filterCategoriesFor(widget.siteUrl),
-                ).categoryId,
-                options: _options ?? const [],
-                categories: ShellScope.read(
-                  context,
-                ).filterCategoriesFor(widget.siteUrl),
-                hintText: switch (widget.filterKey) {
-                  'category' => context.l10n.filterSearchCategories,
-                  'tag' => context.l10n.searchTags,
-                  _ => context.l10n.addAFilter,
-                },
-                tokenized: true,
-                embedded: true,
-                focusOnOpen: !const {
-                  TargetPlatform.iOS,
-                  TargetPlatform.android,
-                  TargetPlatform.fuchsia,
-                }.contains(Theme.of(context).platform),
-                onlyKey: widget.filterKey,
-                multiline: false,
-                padding: EdgeInsets.zero,
-                onScopeChanged: widget.filterKey == null
-                    ? null
-                    : (query) => unawaited(_apply(query, close: false)),
-                onSubmitted: _apply,
-                onDismiss: _popover.close,
+  Widget build(BuildContext context) {
+    final count = widget.filterKey != null || widget.query.isEmpty
+        ? null
+        : topicFilterMenuCount(widget.query);
+    final label =
+        '${widget.label ?? context.l10n.startPageFilters}${count == null ? '' : ' · $count'}';
+    // Short of room in its row, the Filters menu keeps its glyph and how many
+    // filters it holds; said aloud and under the pointer at full length.
+    final tight = widget.filterKey == null && DFitRow.tightOf(context);
+    return DPopover(
+      controller: _popover,
+      onEscape: _input.handleEscape,
+      sheetOnMobile: true,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
+      mobileSheetSizeToContent: false,
+      // Tag rows can arrive after the filter vocabulary.
+      mobileSheetContentLoading: _options == null || !_suggestionsReady,
+      onOpenChange: (open, _) {
+        widget.onOpenChanged?.call(open);
+        if (open) {
+          setState(() => _suggestionsReady = false);
+          _retired = false;
+          _owner = _ownerOf(_shell!);
+          _boundary = _panelBoundary();
+          unawaited(_load());
+        }
+      },
+      content: DPopoverContent(
+        width: 320,
+        collisionBoundary: _boundary,
+        sideOffset: widget.filterKey == null ? DSpacing.controlGap : 6,
+        padding: EdgeInsets.all(widget.filterKey == null ? 10 : 4),
+        scrollable: widget.filterKey == null,
+        align: DPopoverAlign.start,
+        semanticLabel: context.l10n.filterTopics,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 12,
+          children: [
+            if (!_retired)
+              Flexible(
+                child: TopicFilterInput(
+                  controller: _input,
+                  onSuggestionsReady: () {
+                    if (mounted && !_retired && !_suggestionsReady) {
+                      setState(() => _suggestionsReady = true);
+                    }
+                  },
+                  siteUrl: widget.siteUrl,
+                  initialQuery: _scopeQuery,
+                  categoryParentId: widget.categoryParentId,
+                  categoryContextId: parseTopicFilterScope(
+                    widget.query.replaceAll('=category:', 'category:'),
+                    ShellScope.read(
+                      context,
+                    ).filterCategoriesFor(widget.siteUrl),
+                  ).categoryId,
+                  options: _options ?? const [],
+                  categories: ShellScope.read(
+                    context,
+                  ).filterCategoriesFor(widget.siteUrl),
+                  hintText: switch (widget.filterKey) {
+                    'category' => context.l10n.filterSearchCategories,
+                    'tag' => context.l10n.searchTags,
+                    _ => context.l10n.addAFilter,
+                  },
+                  tokenized: true,
+                  embedded: true,
+                  focusOnOpen: !const {
+                    TargetPlatform.iOS,
+                    TargetPlatform.android,
+                    TargetPlatform.fuchsia,
+                  }.contains(Theme.of(context).platform),
+                  onlyKey: widget.filterKey,
+                  multiline: false,
+                  padding: EdgeInsets.zero,
+                  onScopeChanged: widget.filterKey == null
+                      ? null
+                      : (query) => unawaited(_apply(query, close: false)),
+                  onSubmitted: _apply,
+                  onDismiss: _popover.close,
+                ),
               ),
-            ),
-        ],
-      ),
-    ),
-    child: DPopoverTrigger(
-      builder: (context, trigger) => DButton(
-        key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
-        label: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: widget.filterKey == 'tag'
-                ? MediaQuery.textScalerOf(context).scale(88)
-                : double.infinity,
-          ),
-          child: Text(
-            '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${topicFilterMenuCount(widget.query)}'}',
-            style: widget.dimLabel
-                ? TextStyle(
-                    color: Color.lerp(
-                      DTokens.of(context).background,
-                      DTokens.of(context).foreground,
-                      .40,
-                    ),
-                  )
-                : null,
-          ),
+          ],
         ),
-        tooltip: widget.query.isEmpty
-            ? context.l10n.filterTopics
-            : context.l10n.editActiveFilter,
-        icon: widget.icon,
-        size: DButtonSize.filter,
-        variant: widget.filterKey == 'tag' && _scopeQuery.isNotEmpty
-            ? DButtonVariant.quietSelected
-            : DButtonVariant.quiet,
-        focusNode: trigger.focusNode,
-        expanded: trigger.open,
-        hasPopup: true,
-        onPressed: trigger.toggle,
       ),
-    ),
-  );
+      child: DPopoverTrigger(
+        builder: (context, trigger) => DButton(
+          key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
+          semanticLabel: tight ? label : null,
+          label: tight && count == null
+              ? widget.icon ?? const SizedBox.shrink()
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: widget.filterKey == 'tag'
+                        ? MediaQuery.textScalerOf(context).scale(88)
+                        : double.infinity,
+                  ),
+                  child: Text(
+                    tight ? '$count' : label,
+                    style: widget.dimLabel
+                        ? TextStyle(
+                            color: Color.lerp(
+                              DTokens.of(context).background,
+                              DTokens.of(context).foreground,
+                              .40,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+          tooltip: widget.query.isEmpty
+              ? context.l10n.filterTopics
+              : context.l10n.editActiveFilter,
+          icon: tight && count == null ? null : widget.icon,
+          size: DButtonSize.filter,
+          variant: widget.filterKey == 'tag' && _scopeQuery.isNotEmpty
+              ? DButtonVariant.quietSelected
+              : DButtonVariant.quiet,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
+          hasPopup: true,
+          onPressed: trigger.toggle,
+        ),
+      ),
+    );
+  }
 }

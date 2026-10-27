@@ -104,6 +104,12 @@ class RenderDControlWrap extends RenderWrap {
   final _surfaces = <RenderBox, Rect>{};
   Rect _surfaceOf(RenderBox child) => Offset.zero & child.size;
 
+  /// The length of one line holding every child at its own extent, with the
+  /// gaps between them, from the last layout. Wider than [size] when a line
+  /// that does not wrap overflows.
+  double get naturalMain => _naturalMain;
+  double _naturalMain = 0;
+
   bool get _horizontal => direction == Axis.horizontal;
   double _main(Size value) => _horizontal ? value.width : value.height;
   double _cross(Size value) => _horizontal ? value.height : value.width;
@@ -116,6 +122,7 @@ class RenderDControlWrap extends RenderWrap {
   void performLayout() {
     _surfaces.clear();
     if (firstChild == null) {
+      _naturalMain = 0;
       size = constraints.smallest;
       return;
     }
@@ -180,6 +187,12 @@ class RenderDControlWrap extends RenderWrap {
       run.children.add(child);
     }
     runs.add(run);
+    _naturalMain =
+        _surfaces.values.fold(
+          0.0,
+          (value, surface) => value + _main(surface.size),
+        ) +
+        spacing * (childCount - 1);
     final main = runs.fold(0.0, (value, run) => math.max(value, run.main));
     final cross =
         runs.fold(0.0, (value, run) => value + run.cross) +
