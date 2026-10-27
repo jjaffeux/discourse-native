@@ -1156,6 +1156,15 @@ void _registerChatShellTests() {
               isFalse,
             );
             expect(controller.text, draft);
+            // Against look A's bar, which holds the foot's room itself: 8
+            // over its top edge.
+            expect(
+              tester.getRect(composer).bottom,
+              tester
+                      .getRect(find.byKey(const ValueKey('mobile-bottom-bar')))
+                      .top -
+                  8,
+            );
             await capture('expanded');
             // Large text must keep the folded navigation and Send apart.
             await shell.appSettings.setTextScale(AppTextScale.percent200);
