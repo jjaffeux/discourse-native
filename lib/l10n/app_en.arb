@@ -19203,9 +19203,9 @@
   "@notificationSchedule": {
     "description": "Notification schedule sheet: Notification schedule"
   },
-  "notificationScheduleTurnOff": "Turn off schedule",
-  "@notificationScheduleTurnOff": {
-    "description": "Disable the notification schedule while preserving its saved days and hours."
+  "notificationScheduleCancel": "Cancel schedule",
+  "@notificationScheduleCancel": {
+    "description": "Cancel the active notification schedule and reset the open form to create a new schedule."
   },
   "notificationScheduleAllowOn": "Allow notifications on",
   "@notificationScheduleAllowOn": {
@@ -19234,10 +19234,6 @@
   "notificationScheduleNotSet": "Not set",
   "@notificationScheduleNotSet": {
     "description": "Notification schedule sheet: Not set"
-  },
-  "notificationScheduleVaries": "Varies by day",
-  "@notificationScheduleVaries": {
-    "description": "Notification schedule sheet: Varies by day"
   },
   "notificationScheduleMidnight": "Midnight",
   "@notificationScheduleMidnight": {

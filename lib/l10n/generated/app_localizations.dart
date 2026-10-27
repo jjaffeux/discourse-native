@@ -22923,11 +22923,11 @@ abstract class AppLocalizations {
   /// **'Notification schedule'**
   String get notificationSchedule;
 
-  /// Disable the notification schedule while preserving its saved days and hours.
+  /// Cancel the active notification schedule and reset the open form to create a new schedule.
   ///
   /// In en, this message translates to:
-  /// **'Turn off schedule'**
-  String get notificationScheduleTurnOff;
+  /// **'Cancel schedule'**
+  String get notificationScheduleCancel;
 
   /// Notification schedule sheet: Allow notifications on
   ///
@@ -22970,12 +22970,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not set'**
   String get notificationScheduleNotSet;
-
-  /// Notification schedule sheet: Varies by day
-  ///
-  /// In en, this message translates to:
-  /// **'Varies by day'**
-  String get notificationScheduleVaries;
 
   /// Notification schedule sheet: Midnight
   ///
