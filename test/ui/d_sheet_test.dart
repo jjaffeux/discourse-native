@@ -118,31 +118,38 @@ void main() {
       )
       .borderRadius;
 
-  testWidgets('page keeps 22px corners across display radii and safe insets', (
-    tester,
-  ) async {
-    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-      for (final bottom in [0.0, 34.0]) {
-        for (final radii in [
-          null,
-          BorderRadius.zero,
-          BorderRadius.circular(62),
-        ]) {
-          await pumpPage(
-            tester,
-            standardPage,
-            platform: platform,
-            media: MediaQueryData(
-              size: const Size(390, 844),
-              displayCornerRadii: radii,
-              viewPadding: EdgeInsets.only(bottom: bottom),
-            ),
-          );
-          expect(pageClip(tester), BorderRadius.circular(22));
+  testWidgets(
+    'page keeps its 31px top and 22px bottom corners across display radii and safe insets',
+    (tester) async {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+        for (final bottom in [0.0, 34.0]) {
+          for (final radii in [
+            null,
+            BorderRadius.zero,
+            BorderRadius.circular(62),
+          ]) {
+            await pumpPage(
+              tester,
+              standardPage,
+              platform: platform,
+              media: MediaQueryData(
+                size: const Size(390, 844),
+                displayCornerRadii: radii,
+                viewPadding: EdgeInsets.only(bottom: bottom),
+              ),
+            );
+            expect(
+              pageClip(tester),
+              const BorderRadius.vertical(
+                top: Radius.circular(31),
+                bottom: Radius.circular(22),
+              ),
+            );
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final reducedMotion in [false, true]) {
@@ -1660,5 +1667,93 @@ void main() {
     expect(reached.bottom, lessThanOrEqualTo(visible.bottom + 1));
     expect(reached.bottom, lessThanOrEqualTo(341));
     expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
+  });
+
+  group('a page sheet under a band', () {
+    late DSheetPageBand band;
+    Future<void> pump(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DSheetViewport(
+            content: DSheetContent(
+              side: DSheetSide.bottom,
+              variant: DSheetVariant.page,
+              showCloseButton: false,
+              children: [
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      band = DSheetPageBand.maybeOf(context)!;
+                      return const SizedBox.expand();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    BorderRadiusGeometry? corners(WidgetTester tester) => tester
+        .widget<DPageSurface>(
+          find
+              .descendant(
+                of: find.byType(DSheetContent),
+                matching: find.byType(DPageSurface),
+              )
+              .first,
+        )
+        .borderRadius;
+    const round = BorderRadius.vertical(
+      top: Radius.circular(31),
+      bottom: Radius.circular(22),
+    );
+    const squared = BorderRadius.vertical(bottom: Radius.circular(22));
+    final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
+
+    testWidgets('squares its top and hides its grabber while one rests', (
+      tester,
+    ) async {
+      await pump(tester);
+      expect(corners(tester), round);
+      final head = Object();
+      band.report(head, resting: true, coversGrabber: true);
+      await tester.pump();
+      expect(corners(tester), squared);
+      expect(grabber, findsNothing);
+      band.report(head, resting: false, coversGrabber: true);
+      await tester.pump();
+      expect(corners(tester), round);
+      expect(grabber, findsNothing);
+      band.report(head, resting: false, coversGrabber: false);
+      await tester.pump();
+      expect(grabber, findsOneWidget);
+    });
+
+    testWidgets('a withdrawn head is not heard from again', (tester) async {
+      await pump(tester);
+      final head = Object();
+      band.report(head, resting: true, coversGrabber: true);
+      await tester.pump();
+      band.withdraw(head);
+      band.report(head, resting: true, coversGrabber: true);
+      await tester.pump();
+      expect(corners(tester), round);
+      expect(grabber, findsOneWidget);
+    });
+
+    testWidgets('a head that is not the band does not lift another one', (
+      tester,
+    ) async {
+      await pump(tester);
+      final resting = Object();
+      band.report(resting, resting: true, coversGrabber: true);
+      await tester.pump();
+      band.withdraw(Object());
+      await tester.pump();
+      expect(corners(tester), squared);
+    });
   });
 }

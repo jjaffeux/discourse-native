@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_header_tags.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -334,6 +335,101 @@ void main() {
     await tester.tap(find.byKey(const Key('assign-topic-action')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('the page card and the topic sheet are 31 round at their top', (
+    tester,
+  ) async {
+    await _openTopic(tester);
+    final card = tester.widget<DPageSurface>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('mobile-content-panel')),
+            matching: find.byType(DPageSurface),
+          )
+          .first,
+    );
+    expect(
+      card.borderRadius,
+      const BorderRadius.vertical(
+        top: Radius.circular(31),
+        bottom: Radius.circular(22),
+      ),
+    );
+    final sheet = tester.widget<DPageSurface>(
+      find
+          .descendant(
+            of: find.byType(DSheetContent),
+            matching: find.byType(DPageSurface),
+          )
+          .first,
+    );
+    expect(
+      sheet.borderRadius,
+      const BorderRadius.vertical(
+        top: Radius.circular(31),
+        bottom: Radius.circular(22),
+      ),
+    );
+    expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('the condensed head is a band the card squares under', (
+    tester,
+  ) async {
+    await _openTopic(tester);
+    final sheet = find
+        .descendant(
+          of: find.byType(DSheetContent),
+          matching: find.byType(DPageSurface),
+        )
+        .first;
+    Future<void> wheel(double dy) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: const Offset(195, 600),
+          scrollDelta: Offset(0, dy),
+        ),
+      );
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+    }
+
+    await wheel(900);
+    await wheel(-120);
+    final band = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey('topic-header-band')),
+    );
+    expect(
+      band.decoration,
+      BoxDecoration(
+        color: DTokens.of(tester.element(sheet)).wellFill,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(31)),
+      ),
+    );
+    expect(
+      tester.widget<DPageSurface>(sheet).borderRadius,
+      const BorderRadius.vertical(
+        top: Radius.zero,
+        bottom: Radius.circular(22),
+      ),
+    );
+    expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
+
+    // Rounded again, and the grabber back, once the head has gone.
+    await wheel(400);
+    expect(
+      tester.widget<DPageSurface>(sheet).borderRadius,
+      const BorderRadius.vertical(
+        top: Radius.circular(31),
+        bottom: Radius.circular(22),
+      ),
+    );
+    expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 }

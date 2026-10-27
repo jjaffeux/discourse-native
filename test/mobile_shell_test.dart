@@ -95,8 +95,14 @@ final _moreTrigger = find.descendant(
   ),
 );
 
-void _expectPageRadius(BorderRadiusGeometry? geometry) =>
-    expect(geometry, BorderRadius.circular(22));
+/// Look A's page card: as round at its top as the bar, 22 at its foot.
+void _expectPageRadius(BorderRadiusGeometry? geometry) => expect(
+  geometry,
+  const BorderRadius.vertical(
+    top: Radius.circular(31),
+    bottom: Radius.circular(22),
+  ),
+);
 
 Future<void> _loadChromeCaptureFonts(WidgetTester tester) async {
   if (!const bool.fromEnvironment('captureMobileChrome')) return;

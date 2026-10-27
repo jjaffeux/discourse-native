@@ -134,7 +134,10 @@ void main() {
           .first;
       expect(
         tester.widget<DPageSurface>(surface).borderRadius,
-        BorderRadius.circular(22),
+        const BorderRadius.vertical(
+          top: Radius.circular(31),
+          bottom: Radius.circular(22),
+        ),
       );
       expect(find.byType(TopicListView), findsNothing);
       expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);

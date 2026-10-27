@@ -294,9 +294,14 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
   Widget build(BuildContext context) => DPageSurface(
     framed: true,
     border: false,
+    // The page's card is as round at its top as the bar of places it meets
+    // at the screen's foot.
     borderRadius: widget._sidebar
         ? BorderRadius.circular(DRadius.panel)
-        : BorderRadius.circular(22),
+        : const BorderRadius.vertical(
+            top: Radius.circular(DMobileDockGeometry.capsuleRadius),
+            bottom: Radius.circular(22),
+          ),
     backgroundColor: widget.coveredBySheet
         ? Colors.transparent
         : ForumWindowBackground.panelColor(context),
