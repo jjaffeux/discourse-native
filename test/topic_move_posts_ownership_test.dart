@@ -16,6 +16,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 const _siteA = 'https://meta.discourse.org';
@@ -92,6 +93,46 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
+
+  testWidgets('a phone moves posts from its sheet above the keyboard', (
+    tester,
+  ) async {
+    final api = _MoveApi();
+    await pumpShell(
+      tester,
+      phone,
+      api: api,
+      instances: [
+        instance('meta.discourse.org', title: 'Meta').copyWith(user: api.me),
+      ],
+      authenticator: _GatedAuthenticator()..keys[_siteA] = 'a-key',
+    );
+    await tester.tap(topicListTitle('Source topic'));
+    await tester.pumpAndSettle();
+    final shell = ShellScope.read(tester.element(primaryMainContent));
+    _select(shell, _siteA, 7, const [1]);
+    unawaited(
+      showTopicMovePosts(
+        context: tester.element(find.byType(AdaptiveShell)),
+        controller: shell,
+        siteUrl: _siteA,
+        topic: shell.currentTopic!,
+        selectedPosts: shell.selectedTopicPosts(_siteA, 7),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expectPhoneSheet(tester, title: 'Move posts');
+    expect(find.byKey(_dialog), findsNothing);
+
+    await raiseKeyboard(tester);
+    expect(tester.getRect(find.byKey(_title)).bottom, lessThanOrEqualTo(544));
+    expect(tester.getRect(find.byKey(_submit)).bottom, lessThanOrEqualTo(544));
+    await _prepare(tester, newTopic: true);
+    await _pressSubmit(tester);
+    await tester.pumpAndSettle();
+    expect(api.movedTopicPosts.single.title, 'A new topic');
+    expect(phoneSheet('Move posts'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('new topic move remains available during destination search', (
     tester,

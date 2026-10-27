@@ -1007,10 +1007,11 @@ class _ComposerBottom extends StatelessWidget {
                   ) /
                   2
         : 0.0;
-    final bottomInset = math.max(
-      MediaQuery.viewInsetsOf(context).bottom,
-      MediaQuery.paddingOf(context).bottom,
-    );
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final foot = MediaQuery.paddingOf(context).bottom;
+    // As far off the screen's foot as the bar of places stands, or off the
+    // keyboard by the bar's inset.
+    final lift = DMobileDockGeometry(foot: keyboard > 0 ? 0 : foot).endLift;
     return Stack(
       children: [
         Positioned.fill(
@@ -1018,11 +1019,11 @@ class _ComposerBottom extends StatelessWidget {
           child: DGradientBlur(
             key: const ValueKey('composer-footer-blur'),
             edge: DGradientBlurEdge.bottom,
-            fullStrengthExtent: bottomInset,
+            fullStrengthExtent: math.max(keyboard, foot),
           ),
         ),
         Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
+          padding: EdgeInsets.only(bottom: keyboard + lift),
           child: content,
         ),
       ],
@@ -4740,6 +4741,9 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
+    // On a phone the choice comes up from the foot as every other panel does.
+    sheetOnMobile: true,
+    mobileSheetVariant: DSheetVariant.adaptiveMenu,
     content: DDropdownMenuContent(
       semanticLabel: context.l10n.upload,
       side: DPopoverSide.top,
@@ -5086,7 +5090,7 @@ class _Footer extends StatelessWidget {
         context.isTouch ? DSpacing.lg : 14,
         context.isTouch ? 0 : 10,
         context.isTouch ? DSpacing.lg : 14,
-        10,
+        context.isTouch ? 0 : 10,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

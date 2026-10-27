@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/bundled_plugins.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 TopicPayload mobileTopicPayload({
@@ -176,7 +177,7 @@ void main() {
         await tester.tap(assignment);
         await tester.pumpAndSettle();
         expect(find.byType(DDropdownMenuContent), findsNothing);
-        expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
+        expectPhoneSheet(tester, title: 'Assign topic');
       }
       expect(tester.takeException(), isNull);
     }, variant: platforms);

@@ -31,16 +31,6 @@ void main() {
     expect(geometry.padding, const EdgeInsetsDirectional.fromSTEB(6, 6, 6, 10));
   });
 
-  test('a lifted bar floats as the capsule over the lift and the foot', () {
-    const geometry = DMobileDockGeometry(foot: 34, lift: 60);
-    expect(geometry.margin, const EdgeInsetsDirectional.fromSTEB(6, 6, 6, 100));
-    expect(geometry.padding, const EdgeInsetsDirectional.all(6));
-    expect(geometry.barHeight, 62);
-    expect(geometry.footerExtent, 168);
-    expect(geometry.borderRadius, BorderRadius.circular(31));
-    expect(geometry.ground, 94);
-  });
-
   test('larger text grows the row and keeps its room above the foot', () {
     const geometry = DMobileDockGeometry(foot: 34, growth: 11);
     expect(geometry.rowHeight, 61);
@@ -57,7 +47,19 @@ void main() {
     expect(round.cornerAt(34), closeTo(15.3728, .001));
     expect(const DMobileDockGeometry(foot: 10).cornerAt(48), 10);
     expect(const DMobileDockGeometry(foot: 0).cornerAt(48), 6);
-    expect(const DMobileDockGeometry(foot: 34, lift: 60).cornerAt(48), 6);
+  });
+
+  test('what ends at the foot stands off it, rounded with the screen', () {
+    const round = DMobileDockGeometry(foot: 34);
+    expect(round.endLift, 23);
+    expect(round.endRadius(24), 32);
+    expect(round.endRadius(14), 32);
+    const deep = DMobileDockGeometry(foot: 80);
+    expect(deep.endLift, 46);
+    expect(deep.endRadius(24), 24, reason: 'never tighter than its least');
+    const square = DMobileDockGeometry(foot: 0);
+    expect(square.endLift, 6);
+    expect(square.endRadius(24), 24, reason: 'no curve to follow');
   });
 
   test('the row is four columns, the ⋮ and action sharing the fourth', () {
@@ -181,20 +183,12 @@ void main() {
       expect(DMobileDockPanelGeometry.gridOpacity(1.2), 1);
     });
 
-    test('a capsule and a lifted bar have less of the panel above them', () {
+    test('a capsule has less of the panel above it', () {
       final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 5);
       expect(capsule.barTop, 68);
       expect(capsule.height, 226);
       expect(capsule.reveal, 158);
       expect(capsule.travel, 142);
-      final lifted = const DMobileDockGeometry(
-        foot: 34,
-        lift: 60,
-      ).panel(tiles: 5);
-      expect(lifted.barTop, 162);
-      expect(lifted.height, 260);
-      expect(lifted.reveal, 98);
-      expect(lifted.travel, 82);
     });
 
     test('larger text grows the tiles with the bar\'s row', () {

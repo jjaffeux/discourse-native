@@ -912,7 +912,7 @@ void main() {
   });
 
   testWidgets(
-    'iOS minimized composer clears the home indicator and restores its draft',
+    'iOS minimized composer waits over the bar and restores its draft',
     (tester) async {
       final bottom = 34.0 * tester.view.devicePixelRatio;
       tester.view.padding = FakeViewPadding(bottom: bottom);
@@ -934,14 +934,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       final restore = find.byKey(const ValueKey('composer-restore'));
-      expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
+      // 8 over the bar of places, which runs to the foot 86 tall.
+      expect(tester.getRect(restore).bottom, closeTo(800 - 86 - 8, .01));
       expect(tester.getRect(restore).left, 6);
       expect(tester.getRect(restore).right, 390 - 6);
       expect(restore.hitTestable(), findsOneWidget);
-      // During keyboard dismissal padding may vanish before viewPadding does.
+      // Without the foot the bar is a capsule 6 off the edge, 62 tall, and
+      // the draft keeps 8 over it.
       tester.view.padding = const FakeViewPadding();
       await tester.pumpAndSettle();
-      expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
+      expect(tester.getRect(restore).bottom, closeTo(800 - 6 - 62 - 8, .01));
       await tester.tap(restore);
       await tester.pumpAndSettle();
       expect(tester.state(find.byType(ComposerEditor)), same(editor));

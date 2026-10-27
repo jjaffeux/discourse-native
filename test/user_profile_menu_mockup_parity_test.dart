@@ -19,6 +19,7 @@ import 'support/fakes.dart';
 
 const _captureKey = ValueKey('profile-menu-capture');
 const _site = 'https://meta.example';
+const _foot = 34.0;
 const _user = DiscourseUser(
   id: 7,
   username: 'tynaut',
@@ -91,9 +92,13 @@ void main() {
                   expect(find.byType(DSheetHeader), findsNothing);
                   final sheetBounds = tester.getRect(sheet);
                   if (scale == 1) {
-                    expect(sheetBounds.left, 6);
-                    expect(sheetBounds.right, screen.width - 6);
-                    expect(sheetBounds.bottom, screen.height - 40);
+                    expect(sheetBounds.left, 0);
+                    expect(sheetBounds.right, screen.width);
+                    expect(
+                      sheetBounds.bottom,
+                      screen.height -
+                          const DMobileDockGeometry(foot: _foot).endLift,
+                    );
                   }
                   expect(bounds.width, greaterThan(216));
                   expect(
@@ -123,7 +128,10 @@ void main() {
                 );
                 expect(bounds.top, greaterThanOrEqualTo(59));
                 if (!mobile || scale == 1) {
-                  expect(bounds.bottom, lessThanOrEqualTo(screen.height - 34));
+                  expect(
+                    bounds.bottom,
+                    lessThanOrEqualTo(screen.height - _foot),
+                  );
                 }
                 if (!mobile && scale == 1) {
                   expect(bounds.top, closeTo(anchor.bottom + 8, .01));
@@ -446,8 +454,8 @@ Future<ShellController> _pump(
   );
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
-  tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
-  tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+  tester.view.padding = const FakeViewPadding(top: 59, bottom: _foot);
+  tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: _foot);
   addTearDown(tester.view.reset);
   const config = SiteConfig(userStatusEnabled: true);
   final controller = ShellController(

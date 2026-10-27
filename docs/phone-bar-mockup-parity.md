@@ -22,15 +22,15 @@ order by holding one in the panel (see Moving a place below);
 ## Geometry
 
 `DMobileDockGeometry` is one pure value computed from the screen's foot (the
-bottom safe inset, which is 0 while the keyboard is up), the text scale, and
-anything that lifts the bar. The dock, the shell's footer, `DComposerDock`
-and the topic timeline all read it. At width 390, a foot of 34 and the
+bottom safe inset, which is 0 while the keyboard is up) and the text scale.
+The dock, the shell's footer, `DComposerDock`, the topic timeline, the phone
+sheets, the sidebar and the composer's foot all read it. At width 390, a foot of 34 and the
 default scale:
 
 | Part | Value |
 | --- | --- |
 | Bar on a round screen | Full width, no side or bottom margin. Top corners 31, bottom corners square. Padding 6 at the top and sides and `6 + min(foot, 55 - 31)` = 30 at the bottom. 86 tall. |
-| Bar on a square screen, or lifted by a minimized composer | The floating capsule, 6 in from every edge. |
+| Bar on a square screen | The floating capsule, 6 in from every edge. A parked draft waits over the bar rather than lifting it ([feet and sheets](phone-feet-and-sheets-mockup-parity.md)). |
 | Footer pages clear | The bar plus its 6 top margin, 92. |
 | Columns | `(inner - 3 * 4) / 4` = 91.5. Three places, then the ⋮ (40) and the icon-only action (50) in the fourth column. |
 | Current page past the third place | Takes the ⋮'s slot. The four places share the room equally, and pressing the fourth grows the bar into its panel. |

@@ -61,6 +61,7 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 import 'support/native_drop.dart';
 import 'support/native_ui_evidence.dart';
+import 'support/phone_sheet.dart';
 
 const _site = 'https://chat.example';
 final _gifsConfig = SiteConfig(
@@ -1657,10 +1658,7 @@ void main() {
       await _pressCommandL(tester);
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('composer-link-dialog')),
-        findsOneWidget,
-      );
+      expect(phoneSheet('Insert link'), findsOneWidget);
       final anchor = tester.widget<DInput>(
         find.byKey(const ValueKey('composer-link-anchor')),
       );

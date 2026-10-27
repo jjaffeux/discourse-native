@@ -9,8 +9,10 @@ import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'platform.dart';
 import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
+import 'shell_sheet.dart';
 
 Future<void> showTopicChangeOwner({
   required BuildContext context,
@@ -27,19 +29,38 @@ Future<void> showTopicChangeOwner({
     postId: usesTopicSelection ? null : selectedPosts.single.id,
   );
   final dialogKey = GlobalKey<_TopicChangeOwnerDialogState>();
-  final outcome = await showDDialog<PostMutationOutcome>(
-    context: context,
-    dismissOnBarrier: false,
-    canDismiss: () => !(dialogKey.currentState?._saving ?? false),
-    builder: (context, dialog) => _TopicChangeOwnerDialog(
-      key: dialogKey,
-      controller: controller,
-      onClose: (outcome) => dialog.close(outcome),
-      target: target,
-      selectedPosts: selectedPosts,
-      usesTopicSelection: usesTopicSelection,
-    ),
+  bool canDismiss() => !(dialogKey.currentState?._saving ?? false);
+  Widget editor({Widget? sheet}) => _TopicChangeOwnerDialog(
+    key: dialogKey,
+    controller: controller,
+    target: target,
+    selectedPosts: selectedPosts,
+    usesTopicSelection: usesTopicSelection,
+    sheet: sheet,
   );
+  final outcome = context.isTouch
+      ? await showShellSheet<PostMutationOutcome>(
+          context: context,
+          title: appL10n.changePostOwner,
+          canDismiss: canDismiss,
+          scrollBody: false,
+          fillAvailableHeight: true,
+          surfaceBuilder: (_, sheet) => editor(sheet: sheet),
+          builder: (context) => ShellSheetForm.of<_TopicChangeOwnerDialogState>(
+            context,
+          )._body(context),
+          footerBuilder: (context) => ShellSheetActions(
+            children: ShellSheetForm.of<_TopicChangeOwnerDialogState>(
+              context,
+            )._actions(context),
+          ),
+        )
+      : await showDDialog<PostMutationOutcome>(
+          context: context,
+          dismissOnBarrier: false,
+          canDismiss: canDismiss,
+          builder: (_, _) => editor(),
+        );
   if (outcome != null && context.mounted) {
     showPostMutationFeedback(context, outcome, isCurrent: current);
   }
@@ -49,17 +70,19 @@ class _TopicChangeOwnerDialog extends StatefulWidget {
   const _TopicChangeOwnerDialog({
     super.key,
     required this.controller,
-    required this.onClose,
     required this.target,
     required this.selectedPosts,
     required this.usesTopicSelection,
+    this.sheet,
   });
 
   final ShellController controller;
-  final ValueChanged<PostMutationOutcome?> onClose;
   final TopicPostOwnerTarget target;
   final List<Post> selectedPosts;
   final bool usesTopicSelection;
+
+  /// The phone sheet's surface, whose body and actions read this form.
+  final Widget? sheet;
 
   @override
   State<_TopicChangeOwnerDialog> createState() =>
@@ -139,7 +162,7 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
             outcome.projection != PostProjectionFreshness.retired ||
         outcome is PostMutationNoChange) {
       _saving = false;
-      widget.onClose(outcome);
+      _close(outcome);
       return;
     }
     setState(() {
@@ -155,9 +178,131 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
     });
   }
 
+  void _close(PostMutationOutcome? outcome) =>
+      DDialogClose.close<PostMutationOutcome>(context, outcome);
+
+  String _description(BuildContext context) =>
+      context.l10n.assignByToAnotherAccount(
+        widget.selectedPosts.length,
+        (_oldUsername).toString(),
+      );
+
+  Widget _body(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (widget.sheet != null) ...[
+        DSheetDescription(child: Text(_description(context))),
+        const SizedBox(height: DSpacing.md),
+      ],
+      DInput(
+        key: const ValueKey('topic-change-owner-search'),
+        controller: _search,
+        autofocus: true,
+        enabled: !_saving,
+        onChanged: _scheduleSearch,
+
+        labelText: context.l10n.searchUsers,
+        prefix: const DIcon(DIcons.magnifyingGlass),
+      ),
+      const SizedBox(height: 8),
+      Expanded(
+        child: _searching
+            ? const SizedBox.shrink()
+            : _users.isEmpty
+            ? Center(
+                child: Text(
+                  _search.text.trim().isEmpty
+                      ? context.l10n.searchForTheNewOwner
+                      : context.l10n.noUsersFound,
+                ),
+              )
+            : DRadioGroup<FoundUser>.controlled(
+                groupValue: _selected,
+                enabled: !_saving,
+                onChanged: (value) {
+                  // A query edit and a tap can arrive before rebuilding
+                  // hides the old rows. Reject that retired choice now.
+                  if (_saving || _searching || !_users.contains(value)) {
+                    return;
+                  }
+                  setState(() => _selected = value);
+                },
+                child: ListView(
+                  key: const ValueKey('topic-change-owner-results'),
+                  children: [
+                    for (final user in _users)
+                      DRadioGroupItem<FoundUser>(
+                        key: ValueKey(
+                          'topic-change-owner-user-${user.username}',
+                        ),
+                        value: user,
+                        trailing: DAvatar(
+                          decorative: true,
+                          child: AvatarImage(
+                            url: user.avatarUrl,
+                            size: DAvatarSize.standard.dimension,
+                            fallback: DAvatarFallback(
+                              child: Text(
+                                user.username.characters.first.toUpperCase(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        label: Text(user.name ?? user.username),
+                        description: user.name == null
+                            ? null
+                            : Text('@${user.username}'),
+                      ),
+                  ],
+                ),
+              ),
+      ),
+      if (_error case final error?)
+        DAlert(
+          key: const ValueKey('topic-change-owner-error'),
+          variant: DAlertVariant.destructive,
+          description: DAlertDescription(child: Text(error)),
+        ),
+    ],
+  );
+
+  List<Widget> _actions(BuildContext context) => [
+    DButton(
+      label: Text(context.l10n.cancel),
+      onPressed: _saving ? null : () => _close(null),
+      variant: DButtonVariant.outline,
+    ),
+    if (_recovery case final recovery?)
+      PostMutationRecoveryButton(
+        recovery: recovery,
+        onRefreshed: (projection) => setState(
+          () => _error = postMutationRefreshMessage(
+            context,
+            projection,
+            retiredMessage:
+                context.l10n.yourConnectionChangedReopenChangeOwnerAndTryAgain,
+          ),
+        ),
+      ),
+    DButton(
+      key: const ValueKey('topic-change-owner-submit'),
+      label: Text(context.l10n.changeOwner),
+      onPressed: !_saving && !_uncertain && !_searching && _selected != null
+          ? () => unawaited(_changeOwner())
+          : null,
+      variant: DButtonVariant.primary,
+      loading: _saving,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final count = widget.selectedPosts.length;
+    if (widget.sheet case final sheet?) {
+      return ShellSheetForm<_TopicChangeOwnerDialogState>(
+        state: this,
+        child: sheet,
+      );
+    }
     return DDialogContent(
       key: const ValueKey('topic-change-owner-dialog'),
       semanticLabel: context.l10n.changePostOwner,
@@ -167,128 +312,11 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
         DDialogHeader(
           children: [
             DDialogTitle(child: Text(context.l10n.changePostOwner)),
-            DDialogDescription(
-              child: Text(
-                context.l10n.assignByToAnotherAccount(
-                  count,
-                  (_oldUsername).toString(),
-                ),
-              ),
-            ),
+            DDialogDescription(child: Text(_description(context))),
           ],
         ),
-        SizedBox(
-          height: 380,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DInput(
-                key: const ValueKey('topic-change-owner-search'),
-                controller: _search,
-                autofocus: true,
-                enabled: !_saving,
-                onChanged: _scheduleSearch,
-
-                labelText: context.l10n.searchUsers,
-                prefix: const DIcon(DIcons.magnifyingGlass),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: _searching
-                    ? const SizedBox.shrink()
-                    : _users.isEmpty
-                    ? Center(
-                        child: Text(
-                          _search.text.trim().isEmpty
-                              ? context.l10n.searchForTheNewOwner
-                              : context.l10n.noUsersFound,
-                        ),
-                      )
-                    : DRadioGroup<FoundUser>.controlled(
-                        groupValue: _selected,
-                        enabled: !_saving,
-                        onChanged: (value) {
-                          // A query edit and a tap can arrive before rebuilding
-                          // hides the old rows. Reject that retired choice now.
-                          if (_saving ||
-                              _searching ||
-                              !_users.contains(value)) {
-                            return;
-                          }
-                          setState(() => _selected = value);
-                        },
-                        child: ListView(
-                          key: const ValueKey('topic-change-owner-results'),
-                          children: [
-                            for (final user in _users)
-                              DRadioGroupItem<FoundUser>(
-                                key: ValueKey(
-                                  'topic-change-owner-user-${user.username}',
-                                ),
-                                value: user,
-                                trailing: DAvatar(
-                                  decorative: true,
-                                  child: AvatarImage(
-                                    url: user.avatarUrl,
-                                    size: DAvatarSize.standard.dimension,
-                                    fallback: DAvatarFallback(
-                                      child: Text(
-                                        user.username.characters.first
-                                            .toUpperCase(),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                label: Text(user.name ?? user.username),
-                                description: user.name == null
-                                    ? null
-                                    : Text('@${user.username}'),
-                              ),
-                          ],
-                        ),
-                      ),
-              ),
-              if (_error case final error?)
-                DAlert(
-                  key: const ValueKey('topic-change-owner-error'),
-                  variant: DAlertVariant.destructive,
-                  description: DAlertDescription(child: Text(error)),
-                ),
-            ],
-          ),
-        ),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: Text(context.l10n.cancel),
-              onPressed: _saving ? null : () => widget.onClose(null),
-              variant: DButtonVariant.outline,
-            ),
-            if (_recovery case final recovery?)
-              PostMutationRecoveryButton(
-                recovery: recovery,
-                onRefreshed: (projection) => setState(
-                  () => _error = postMutationRefreshMessage(
-                    context,
-                    projection,
-                    retiredMessage: context
-                        .l10n
-                        .yourConnectionChangedReopenChangeOwnerAndTryAgain,
-                  ),
-                ),
-              ),
-            DButton(
-              key: const ValueKey('topic-change-owner-submit'),
-              label: Text(context.l10n.changeOwner),
-              onPressed:
-                  !_saving && !_uncertain && !_searching && _selected != null
-                  ? () => unawaited(_changeOwner())
-                  : null,
-              variant: DButtonVariant.primary,
-              loading: _saving,
-            ),
-          ],
-        ),
+        SizedBox(height: 380, child: _body(context)),
+        DDialogFooter(children: _actions(context)),
       ],
     );
   }

@@ -1434,16 +1434,36 @@ Future<bool> _confirm(
   required String message,
   required String action,
 }) async =>
-    await showDiscourseAlertDialog<bool>(
-      context: context,
-      title: Text(title),
-      description: Text(message),
-      cancelLabel: Text(appL10n.cancel),
-      actionLabel: Text(action),
-      cancelResult: false,
-      actionResult: true,
-      actionVariant: DButtonVariant.destructive,
-    ) ??
+    await (context.isTouch
+        ? showShellSheet<bool>(
+            context: context,
+            title: title,
+            builder: (_) => DSheetDescription(child: Text(message)),
+            footerBuilder: (context) => ShellSheetActions(
+              children: [
+                DButton(
+                  label: Text(appL10n.cancel),
+                  variant: DButtonVariant.outline,
+                  onPressed: () => DDialogClose.close<bool>(context, false),
+                ),
+                DButton(
+                  label: Text(action),
+                  variant: DButtonVariant.destructive,
+                  onPressed: () => DDialogClose.close<bool>(context, true),
+                ),
+              ],
+            ),
+          )
+        : showDiscourseAlertDialog<bool>(
+            context: context,
+            title: Text(title),
+            description: Text(message),
+            cancelLabel: Text(appL10n.cancel),
+            actionLabel: Text(action),
+            cancelResult: false,
+            actionResult: true,
+            actionVariant: DButtonVariant.destructive,
+          )) ??
     false;
 
 void _showWriteMessage(BuildContext context, BookmarkWriteResult result) {

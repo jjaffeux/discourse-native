@@ -25,7 +25,6 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
-import 'composer/presentation.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'forum_theme_surfaces.dart';
@@ -1933,10 +1932,7 @@ class _TopicViewState extends State<TopicView>
                     ? DScrollChrome.bottomInsetOf(context)
                     : 0.0;
                 final folded = dock > 0 && hiddenFraction >= .5;
-                final geometry = DMobileDockGeometry.of(
-                  context,
-                  lift: ComposerDock.bottomOverlayInsetOf(context),
-                );
+                final geometry = DMobileDockGeometry.of(context);
                 final corner = geometry.cornerAt(
                   TopicProgressButton.floatingHeightOf(context),
                 );
@@ -1953,9 +1949,7 @@ class _TopicViewState extends State<TopicView>
                 return AnimatedPositionedDirectional(
                   start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
                   end: folded ? corner : DSpacing.sm,
-                  bottom: folded
-                      ? geometry.ground + corner
-                      : DSpacing.sm + dock,
+                  bottom: folded ? corner : DSpacing.sm + dock,
                   height: TopicProgressButton.floatingHeightOf(context),
                   duration: duration,
                   curve: curve,

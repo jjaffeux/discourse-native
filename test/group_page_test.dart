@@ -835,7 +835,10 @@ void main() {
       find.text('https://meta.discourse.org/invites/native'),
       findsOneWidget,
     );
-    await tester.tap(find.byTooltip('Close'));
+    await tester.drag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, 400),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('manage-member-sam')));

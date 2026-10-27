@@ -34,10 +34,15 @@ class InstanceRail extends StatelessWidget {
     this.onToggleSidebar,
     this.showSidebarToggle = false,
     this.sidebarExpanded = true,
+    this.footRoom = 0,
   });
 
   final VoidCallback? onToggleSidebar;
   final bool showSidebarToggle;
+
+  /// The least room kept under the rail's last control, where its fill runs
+  /// on to the screen's foot.
+  final double footRoom;
   final bool sidebarExpanded;
 
   @override
@@ -61,6 +66,7 @@ class InstanceRail extends StatelessWidget {
                   ),
             child: SafeArea(
               right: false,
+              minimum: EdgeInsets.only(bottom: footRoom),
               child: Column(
                 children: [
                   if (showSidebarToggle)

@@ -2568,7 +2568,7 @@ void _registerConnectionSessionTests() {
       expect(chatAction, findsOneWidget);
       expect(
         tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
-        phone.width - 12,
+        phone.width,
       );
       await tester.tap(chatAction);
       await tester.pumpAndSettle();

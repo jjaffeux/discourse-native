@@ -2320,6 +2320,13 @@ final class PluginRegistry
         (plugin) => plugin.hidesMobileDock(_uiContext(context, plugin), route),
       );
 
+  bool ownsMobileComposer(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
+      plugins.whereType<ContentMobileComposerPlugin>().any(
+        (plugin) =>
+            plugin.ownsMobileComposer(_uiContext(context, plugin), route),
+      );
+
   bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
       route.destination is ExtensionDestination &&
       plugins.whereType<ContentPageTitlePlugin>().any(

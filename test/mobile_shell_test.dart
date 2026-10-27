@@ -65,6 +65,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
+import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
@@ -1610,7 +1611,7 @@ void main() {
             ancestor: navigation,
           )
           .dy;
-      expect(navigation.size.height - panelBottom, 6);
+      expect(navigation.size.height - panelBottom, 6 + 34 / 2);
       expect(tester.getRect(find.byType(DScrollChrome)).bottom, 810);
       await _captureChrome(tester, 'navigation-preview');
       await gesture.cancel();
@@ -1777,8 +1778,9 @@ void main() {
       );
       final menuBounds = tester.getRect(menuSheet);
       final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-      expect(menuBounds.left, 6);
-      expect(menuBounds.right, screen.width - 6);
+      // A sheet at its end keeps to the screen's sides.
+      expect(menuBounds.left, 0);
+      expect(menuBounds.right, screen.width);
       expect(menuBounds.top, greaterThan(screen.height / 2));
       expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
       expect(
@@ -2059,8 +2061,10 @@ void main() {
           )
           .first;
       expect(
-        tester.widget<DPageSurface>(frame).borderRadius,
-        BorderRadius.circular(DRadius.panel),
+        (tester.widget<DPageSurface>(frame).borderRadius!
+                as BorderRadiusDirectional)
+            .topStart,
+        const Radius.circular(DRadius.panel),
       );
       expect(tester.widget<DPageSurface>(frame).border, isFalse);
       expect(tester.getRect(list).left, panel.left + 12);
@@ -2340,15 +2344,33 @@ void main() {
               matching: find.byType(DPageSurface),
             )
             .first;
+        // As low as a sheet at its end: 6 past half the foot, the outer
+        // foot corner following the screen's 55 curve, 32 at a foot of 34.
+        final lift = 6 + bottom / 2;
         expect(
           tester.widget<DPageSurface>(frame).borderRadius,
-          BorderRadius.circular(DRadius.panel),
+          BorderRadiusDirectional.only(
+            topStart: const Radius.circular(DRadius.panel),
+            topEnd: const Radius.circular(DRadius.panel),
+            bottomStart: const Radius.circular(DRadius.panel),
+            bottomEnd: Radius.circular(bottom > 0 ? 55 - lift : DRadius.panel),
+          ),
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
-        expect(page.bottom - panel.bottom, 6);
-        expect(page.bottom, phone.height - keyboard - bottom);
+        expect(page.bottom - panel.bottom, lift);
+        expect(page.bottom, phone.height - keyboard);
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
+        expect(rail.bottom, page.bottom, reason: 'the rail runs to the foot');
+        final railColumn = tester.getRect(
+          find
+              .descendant(
+                of: find.byType(InstanceRail),
+                matching: find.byType(Column),
+              )
+              .first,
+        );
+        expect(rail.bottom - railColumn.bottom, bottom / 2 + 10);
         expect(panel.left - rail.right, 6);
         expect(page.right - panel.right, 6);
         final menuBounds = tester.getRect(menu);
@@ -2534,19 +2556,29 @@ void main() {
     );
     await tester.pumpAndSettle();
     final restore = find.byKey(const ValueKey('composer-restore'));
-    expect(tester.getRect(restore).bottom, closeTo(phone.height - 34, .01));
     expect(restore.hitTestable(), findsOneWidget);
     final dock = tester.getRect(
       find.byKey(const ValueKey('mobile-dock-surface')),
     );
-    expect(tester.getRect(restore).left, closeTo(dock.left, .01));
-    expect(tester.getRect(restore).right, closeTo(dock.right, .01));
+    // The bar stays at the screen's foot, and the parked draft waits 8 over
+    // it, 6 in from the screen's sides, a pill of the bar's own stock.
+    expect(dock.bottom, closeTo(phone.height, .01));
+    expect(dock.left, 0);
+    expect(dock.right, phone.width);
+    expect(tester.getRect(restore).bottom, closeTo(dock.top - 8, .01));
+    expect(tester.getRect(restore).left, closeTo(6, .01));
+    expect(tester.getRect(restore).right, closeTo(phone.width - 6, .01));
+    final pill = tester.widget<DButton>(restore);
+    expect(pill.variant, DButtonVariant.resume);
+    expect(
+      buttonSurface(tester, of: restore).color,
+      DTokens.of(tester.element(restore)).wellFill,
+    );
     expect(
       tester.getRect(find.byType(TopicListView)).bottom,
       closeTo(phone.height, .01),
     );
     expect(tester.element(find.byType(TopicListView)), same(listElement));
-    expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     final list = find
         .descendant(
           of: find.byType(TopicListView),
@@ -2558,9 +2590,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.getRect(find.byKey(const ValueKey('topic-card-29'))).bottom,
-      lessThanOrEqualTo(
-        tester.getRect(find.byKey(const ValueKey('mobile-dock-surface'))).top,
-      ),
+      lessThanOrEqualTo(tester.getRect(restore).top),
     );
     expect(
       find.byKey(const ValueKey('topic-card-29')).hitTestable(),
@@ -2568,6 +2598,44 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  _mobileTest(
+    'a parked draft keeps out of a chat, whose composer stands there',
+    (tester) async {
+      await pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('composer-topic-title')),
+        'Parked while chatting',
+      );
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        const Offset(0, 400),
+      );
+      await tester.pumpAndSettle();
+      final restore = find.byKey(const ValueKey('composer-restore'));
+      expect(restore.hitTestable(), findsOneWidget);
+      await _tapDockTab(tester, 'panel/chat');
+      await _selectChatKind(tester, 'Direct messages');
+      expect(restore.hitTestable(), findsOneWidget);
+      await tester.tap(find.text('sam').first);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(restore.hitTestable(), findsNothing);
+      expect(
+        find.byKey(const ValueKey('composer-restore'), skipOffstage: false),
+        findsOneWidget,
+        reason: 'the parked editor is kept while it is out of the way',
+      );
+      await _tapDockTab(tester, 'topics');
+      expect(restore.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest('every dock action takes the send button colours', (
     tester,

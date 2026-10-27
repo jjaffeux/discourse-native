@@ -134,7 +134,15 @@ void main() {
           find.text('Enter the address of a Discourse forum.'),
           findsOneWidget,
         );
-        await tester.tap(find.byTooltip('Close').last);
+        // A phone's sheet is put away by its grabber; a desktop dialog closes.
+        if (platform == TargetPlatform.iOS) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, 400),
+          );
+        } else {
+          await tester.tap(find.byTooltip('Close').last);
+        }
         await tester.pumpAndSettle();
         expect(
           find.text('Enter the address of a Discourse forum.'),

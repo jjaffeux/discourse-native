@@ -4,9 +4,12 @@ import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
+
+import 'support/phone_sheet.dart';
 
 void main() {
   final cooking = OfflineCookingService();
@@ -53,7 +56,10 @@ void main() {
       selection: TextSelection(baseOffset: 0, extentOffset: source.length),
     );
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: SizedBox())),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: SizedBox()),
+      ),
     );
     unawaited(
       showComposerLinkDialog(
@@ -71,6 +77,29 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('composer-link-insert')));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('a phone inserts a link from its sheet above the keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final composer = await openDialog(tester, 'Holiday album');
+    expectPhoneSheet(tester, title: 'Insert link');
+    expect(find.byKey(const ValueKey('composer-link-dialog')), findsNothing);
+
+    await raiseKeyboard(tester);
+    final url = find.byKey(const ValueKey('composer-link-url'));
+    expect(tester.getRect(url).bottom, lessThanOrEqualTo(844 - 300));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('composer-link-insert'))).bottom,
+      lessThanOrEqualTo(844 - 300),
+    );
+    await tester.enterText(url, 'https://example.com');
+    await insert(tester);
+    expect(composer.raw, '[Holiday album](https://example.com)');
+    expect(phoneSheet('Insert link'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   for (final destination in const [
     (

@@ -106,17 +106,52 @@ void main() {
     );
   }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('desktop preference still opens a bottom sheet on $platform', (
-      tester,
-    ) async {
-      await _pumpSurface(tester, platform: platform, dialog: true);
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsOneWidget);
-      expect(find.byType(DDialogContent), findsNothing);
-      expect(tester.getRect(find.byType(DSheetContent)).bottom, 600);
-    }, variant: TargetPlatformVariant.only(platform));
+    testWidgets(
+      'desktop preference still opens the phone sheet from the foot on '
+      '$platform',
+      (tester) async {
+        await _pumpSurface(tester, platform: platform, dialog: true);
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(find.byType(DDialogContent), findsNothing);
+        expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
+        expect(find.byTooltip('Close'), findsNothing);
+        expect(
+          tester.getRect(find.byType(DSheetContent)).bottom,
+          600 - const DMobileDockGeometry(foot: 0).endLift,
+        );
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
   }
+
+  testWidgets('a phone sheet is put away by its grabber', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpSurface(tester, platform: TargetPlatform.iOS, dialog: true);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(_title), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('a wide touch sheet keeps the 640px width', (tester) async {
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpSurface(tester, dialog: false, platform: TargetPlatform.iOS);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    final surface = tester.getRect(find.byType(DSheetContent));
+    expect(surface.width, 640);
+    expect(surface.left, 180);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   for (final dialog in [false, true]) {
     testWidgets(
@@ -179,6 +214,9 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
         keyboard.value = 180;
+        await tester.pumpAndSettle();
+        // A phone sheet rises once the keyboard has settled.
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         final footer = find.byKey(const ValueKey('fixed-footer'));

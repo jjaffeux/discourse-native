@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/bundled_plugins.dart';
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 
 const _site = 'https://meta.discourse.org';
 const _sam = AssignmentUser(id: 7, username: 'sam', name: 'Sam Example');
@@ -71,21 +72,23 @@ void main() {
       expect(picker, findsNothing);
     });
 
-    testWidgets('uses a Native drawer without opening the keyboard on mobile', (
+    testWidgets('uses the phone sheet without opening the keyboard', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final controller = await _openAssignmentEditor(tester);
+      final controller = await _openAssignmentEditor(
+        tester,
+        platform: TargetPlatform.iOS,
+      );
       addTearDown(controller.dispose);
 
       expect(find.byType(Dialog), findsNothing);
       expect(find.byType(BottomSheet), findsNothing);
-      expect(find.byType(DDrawerContent), findsOneWidget);
-      expect(find.text('Assign topic'), findsOneWidget);
-      expect(find.byType(DDrawerSwipeHandle), findsOneWidget);
+      expectPhoneSheet(tester, title: 'Assign topic');
+      expect(find.text('Choose one person or group.'), findsOneWidget);
       expect(
         tester
             .widget<EditableText>(find.byType(EditableText).first)
@@ -93,7 +96,14 @@ void main() {
             .hasFocus,
         isFalse,
       );
-      await tester.drag(find.byType(DDrawerSwipeHandle), const Offset(0, 650));
+      expect(
+        tester.getRect(find.byKey(const Key('assignment-save'))).bottom,
+        lessThanOrEqualTo(844),
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, 650),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(AssignmentEditor), findsNothing);
     });

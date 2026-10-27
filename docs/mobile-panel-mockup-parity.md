@@ -27,7 +27,8 @@ now rests on the screen's foot and holds its row above the safe area itself
 position while the page scrolls beneath it. The measured footer obstruction includes
 that safe area, so the last row of every page scrolls clear of the dock and
 the home indicator, and chat composers clear the dock without adding another
-inset. The inset navigation page still stops above the safe area. Keyboard
+inset. The inset navigation panel stands off the foot as a sheet at its end
+does ([feet and sheets](phone-feet-and-sheets-mockup-parity.md)). Keyboard
 resizing uses the live safe padding.
 Existing palette tint, material selection, opacity and accessibility settings
 remain the source of its fill.

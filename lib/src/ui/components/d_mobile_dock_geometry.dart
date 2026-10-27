@@ -27,8 +27,7 @@ typedef DMobileDockRowSlots = ({
 /// of half the capsule's height, square bottom corners the screen's own
 /// corners round, and its row held above the foot by the bar's own bottom
 /// padding. On a square screen it floats as a capsule [inset] in from every
-/// edge. Something that lifts the bar off the foot, a minimized composer,
-/// leaves it that capsule over the room it takes and the foot.
+/// edge.
 ///
 /// Folded, the bar is a circle in the screen's bottom-start corner, on the
 /// corner's diagonal and as far in from its curve as the open bar is from
@@ -36,24 +35,15 @@ typedef DMobileDockRowSlots = ({
 /// its own height.
 @immutable
 class DMobileDockGeometry {
-  const DMobileDockGeometry({
-    required this.foot,
-    this.lift = 0,
-    this.growth = 0,
-  });
+  const DMobileDockGeometry({required this.foot, this.growth = 0});
 
-  factory DMobileDockGeometry.of(BuildContext context, {double lift = 0}) =>
-      DMobileDockGeometry(
-        foot: MediaQuery.paddingOf(context).bottom,
-        lift: lift,
-        growth: math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11),
-      );
+  factory DMobileDockGeometry.of(BuildContext context) => DMobileDockGeometry(
+    foot: MediaQuery.paddingOf(context).bottom,
+    growth: math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11),
+  );
 
   /// The screen's bottom safe inset, which is 0 while the keyboard is up.
   final double foot;
-
-  /// Room below the bar that keeps it off the foot.
-  final double lift;
 
   /// How much taller the dock's text scale makes its row than the default.
   final double growth;
@@ -100,21 +90,13 @@ class DMobileDockGeometry {
   /// The folded bar.
   double get circle => 48 + growth;
 
-  bool get grounded => lift == 0;
-
-  double get _foot => grounded ? foot : 0;
-
   /// How far the bar stays from the screen's sides and foot: [inset] on a
   /// square screen, nothing once the foot is at least that deep.
-  double get reach => inset - math.min(inset, _foot);
-
-  /// What the bar's edges are measured up from: the screen's bottom edge, or
-  /// the top of what lifts the bar off it.
-  double get ground => grounded ? 0 : lift + foot;
+  double get reach => inset - math.min(inset, foot);
 
   /// Around the bar, between it and the screen's edges or the page above it.
   EdgeInsetsDirectional get margin =>
-      EdgeInsetsDirectional.fromSTEB(reach, inset, reach, reach + ground);
+      EdgeInsetsDirectional.fromSTEB(reach, inset, reach, reach);
 
   /// Half the capsule's height, so its ends are round.
   double get topRadius => (rowHeight + 2 * inset) / 2;
@@ -126,12 +108,12 @@ class DMobileDockGeometry {
     inset,
     inset,
     inset,
-    inset + math.min(_foot, screenRadius - capsuleRadius),
+    inset + math.min(foot, screenRadius - capsuleRadius),
   );
 
   BorderRadius get borderRadius => BorderRadius.vertical(
     top: Radius.circular(topRadius),
-    bottom: Radius.circular(_foot > 0 ? 0 : topRadius),
+    bottom: Radius.circular(foot > 0 ? 0 : topRadius),
   );
 
   double get barHeight => padding.vertical + rowHeight;
@@ -180,14 +162,26 @@ class DMobileDockGeometry {
   /// How far from the screen's start and bottom edges something [extent]
   /// across sits in its corner: on the corner's diagonal, as far in from the
   /// curve as the bar is from the edges, and never deeper than the foot. On a
-  /// square screen it keeps the bar's [inset]. Measured up from [ground].
+  /// square screen it keeps the bar's [inset].
   double cornerAt(double extent) => math.max(
     inset,
     math.min(
       screenRadius - (screenRadius - inset - extent / 2) * 0.7071 - extent / 2,
-      _foot,
+      foot,
     ),
   );
+
+  /// How far what ends at the screen's foot stands off its bottom edge: a
+  /// sheet at its end, the phone's sidebar, a composer's foot. Past half the
+  /// foot's room, by the bar's [inset].
+  double get endLift => inset + foot / 2;
+
+  /// The radius of a foot corner [endLift] up from the screen's bottom edge:
+  /// the screen's own curve, as far in from it as it is lifted, since a
+  /// tighter one is cut off by the curve it sits in, and never under [least].
+  /// A square screen has no curve to follow.
+  double endRadius(double least) =>
+      foot > 0 ? math.max(least, screenRadius - endLift) : least;
 
   /// The panel this bar grows into, holding [tiles] places.
   DMobileDockPanelGeometry panel({required int tiles}) =>
@@ -197,11 +191,10 @@ class DMobileDockGeometry {
   bool operator ==(Object other) =>
       other is DMobileDockGeometry &&
       other.foot == foot &&
-      other.lift == lift &&
       other.growth == growth;
 
   @override
-  int get hashCode => Object.hash(foot, lift, growth);
+  int get hashCode => Object.hash(foot, growth);
 }
 
 /// The panel a bar grows into: the places it has no room for, as tiles on

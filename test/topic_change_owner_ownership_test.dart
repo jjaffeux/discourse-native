@@ -11,11 +11,13 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_change_owner.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 const _siteA = 'https://meta.discourse.org';
@@ -77,6 +79,37 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
+
+  for (final selected in [false, true]) {
+    testWidgets(
+      'a phone changes the ${selected ? 'selected posts\'' : 'post\'s'} '
+      'owner from its sheet above the keyboard',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final api = _OwnerApi();
+        await _openStandaloneDialog(
+          tester,
+          api,
+          FakeAuthenticator(),
+          selected: selected,
+        );
+        expectPhoneSheet(tester, title: 'Change post owner');
+        expect(_dialog, findsNothing);
+
+        await raiseKeyboard(tester);
+        final search = find.byKey(const ValueKey('topic-change-owner-search'));
+        final submit = find.byKey(const ValueKey('topic-change-owner-submit'));
+        expect(tester.getRect(search).bottom, lessThanOrEqualTo(844 - 300));
+        expect(tester.getRect(submit).bottom, lessThanOrEqualTo(844 - 300));
+        await _submit(tester);
+        expect(api.writes, hasLength(1));
+        expect(phoneSheet('Change post owner'), findsNothing);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
 
   for (final selected in [false, true]) {
     testWidgets(
@@ -380,6 +413,7 @@ void main() {
           expect(_dialog, findsOneWidget);
           expect(tester.takeException(), isNull);
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
     }
 
@@ -792,6 +826,7 @@ Future<ShellController> _openStandaloneDialog(
   if (selected) _selectPosts(controller);
   await tester.pumpWidget(
     MaterialApp(
+      theme: AppTheme.light,
       home: Builder(
         builder: (context) => TextButton(
           onPressed: () => unawaited(

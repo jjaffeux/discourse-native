@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/post_notice_editor.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 const _siteA = 'https://meta.discourse.org';
@@ -181,6 +183,64 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
+
+  testWidgets('a phone edits the notice in its sheet above the keyboard', (
+    tester,
+  ) async {
+    final api = _NoticeApi();
+    await pumpShell(
+      tester,
+      phone,
+      api: api,
+      instances: [
+        instance('meta.discourse.org', title: 'Meta').copyWith(user: _staff),
+      ],
+      authenticator: FakeAuthenticator()..keys[_siteA] = 'a-key',
+    );
+    await tester.tap(topicListTitle('A real topic'));
+    await tester.pumpAndSettle();
+    final context = tester.element(primaryMainContent);
+    unawaited(
+      showPostNoticeEditor(
+        context: context,
+        controller: ShellScope.read(context),
+        siteUrl: _siteA,
+        topicId: 7,
+        post: api.postFor(_siteA),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expectPhoneSheet(tester, title: 'Change post notice');
+    expect(
+      find.text('This staff notice will be shown above the post.'),
+      findsOneWidget,
+    );
+
+    await raiseKeyboard(tester);
+    final text = find.byKey(const ValueKey('post-notice-text'));
+    expect(_focusWithin(text), isTrue);
+    expect(tester.getRect(text).bottom, lessThanOrEqualTo(844 - 300));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('post-notice-save'))).bottom,
+      lessThanOrEqualTo(844 - 300),
+    );
+
+    await _submit(tester, delete: false);
+    expect(api.writes.single.notice, 'Updated notice');
+    expect(phoneSheet('Change post notice'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+}
+
+bool _focusWithin(Finder finder) {
+  final focused = FocusManager.instance.primaryFocus?.context;
+  return focused != null &&
+      find
+          .descendant(
+            of: finder,
+            matching: find.byElementPredicate((e) => identical(e, focused)),
+          )
+          .evaluate()
+          .isNotEmpty;
 }
 
 Future<ShellController> _openEditor(

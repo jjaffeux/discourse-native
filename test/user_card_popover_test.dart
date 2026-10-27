@@ -29,6 +29,7 @@ import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.example';
+const _foot = 34.0;
 const _profile = UserCard(
   username: 'sam',
   name: 'Sam Example',
@@ -183,7 +184,7 @@ void main() {
               dark: dark,
               scale: scale,
               currentUser: reader,
-              safeBottom: 34,
+              safeBottom: _foot,
               cardPlugins: cardPlugins,
             );
             await _open(tester);
@@ -235,7 +236,10 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            expect(tester.getRect(_surface).bottom, 804);
+            expect(
+              tester.getRect(_surface).bottom,
+              844 - const DMobileDockGeometry(foot: _foot).endLift,
+            );
             expect(find.text('Silas Vance'), findsOneWidget);
             expect(find.text('Message'), findsOneWidget);
             expect(find.text('Chat'), findsOneWidget);
@@ -368,8 +372,8 @@ void main() {
         expect(tester.widget(_surface), isA<DSheetContent>());
         expect(find.byType(DPopoverContent), findsNothing);
         final bounds = tester.getRect(_surface);
-        expect(bounds.left, 6);
-        expect(bounds.right, 384);
+        expect(bounds.left, 0);
+        expect(bounds.right, 390);
         expect(bounds.bottom, 838);
         final handle = find.byKey(const ValueKey('sheet-drag-handle'));
         await tester.drag(

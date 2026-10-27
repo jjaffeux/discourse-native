@@ -103,6 +103,13 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        // A phone sheet taller than its lower height opens there, as the
+        // mockup's does, and is pulled up to its full height for its footer.
+        final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
+        if (grabber.evaluate().isNotEmpty) {
+          await tester.drag(grabber, const Offset(0, -600));
+          await tester.pumpAndSettle();
+        }
         final bounds = tester.getRect(_footer);
         for (final action in ['First', 'Previous', 'Next', 'Latest']) {
           final button = _button(action);

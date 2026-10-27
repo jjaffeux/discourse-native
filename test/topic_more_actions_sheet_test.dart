@@ -26,6 +26,7 @@ const _mobile = TargetPlatformVariant({
   TargetPlatform.iOS,
   TargetPlatform.android,
 });
+const _foot = 34.0;
 final _more = find.byKey(const ValueKey('topic-more-actions'));
 final _menu = find.byType(DDropdownMenuContent);
 final _menuSheet = find.ancestor(
@@ -72,8 +73,8 @@ void main() {
       );
 
       final rect = tester.getRect(_menuSheet);
-      expect(rect.left, 6);
-      expect(rect.right, 384);
+      expect(rect.left, 0);
+      expect(rect.right, 390);
       expect(rect.bottom, 838);
       await _capture(
         tester,
@@ -97,7 +98,7 @@ void main() {
   testWidgets('topic More opens a compact floating menu over the reader', (
     tester,
   ) async {
-    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: _foot);
     final (shell, _) = await _openTopic(tester);
     final reader = shell.currentContent;
     await _openMore(tester);
@@ -115,9 +116,9 @@ void main() {
       findsNothing,
     );
     final bounds = tester.getRect(_menuSheet);
-    expect(bounds.left, 6);
-    expect(bounds.right, 384);
-    expect(bounds.bottom, 804);
+    expect(bounds.left, 0);
+    expect(bounds.right, 390);
+    expect(bounds.bottom, 844 - const DMobileDockGeometry(foot: _foot).endLift);
     expect(bounds.height, lessThan(200));
     final handle = find.descendant(
       of: _menuSheet,

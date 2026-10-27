@@ -230,7 +230,8 @@ export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/search_words.dart'
     show SearchWords, SearchText, searchSnippet;
 export 'src/shell/shell_metrics.dart' show shellHeaderHeight;
-export 'src/shell/shell_sheet.dart' show showShellSheet;
+export 'src/shell/shell_sheet.dart'
+    show ShellSheetActions, ShellSheetForm, showShellSheet;
 export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;
 export 'src/shell/site_emoji_text.dart' show SiteEmojiText;
 export 'src/shell/site_image.dart' show SiteImage;
