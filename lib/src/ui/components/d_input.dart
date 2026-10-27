@@ -12,6 +12,7 @@ import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_label.dart';
 
@@ -670,10 +671,13 @@ class _InputSurface extends StatelessWidget {
             ),
             curve: Curves.fastOutSlowIn,
             constraints: BoxConstraints(
-              minHeight: DControlStyle.scaledHeight(
-                size,
-                MediaQuery.textScalerOf(context),
-                context: context,
+              minHeight: math.max(
+                DControlStyle.scaledHeight(
+                  size,
+                  MediaQuery.textScalerOf(context),
+                  context: context,
+                ),
+                DTouchFields.minHeightOf(context),
               ),
             ),
             padding: EdgeInsets.symmetric(

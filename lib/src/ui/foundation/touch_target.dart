@@ -231,3 +231,20 @@ class _RenderTouchTarget extends RenderProxyBox {
     ).contains(local);
   }
 }
+
+/// A page's own controls under its title. On a phone the fields in it are
+/// drawn [kDTouchTargetExtent] tall, since a field's press cannot reach past
+/// what it draws the way a control's can.
+class DTouchFields extends InheritedWidget {
+  const DTouchFields({super.key, required super.child});
+
+  /// The least height a field under [context] is drawn at.
+  static double minHeightOf(BuildContext context) =>
+      DControlStyle.isTouch(context) &&
+          context.getInheritedWidgetOfExactType<DTouchFields>() != null
+      ? kDTouchTargetExtent
+      : 0;
+
+  @override
+  bool updateShouldNotify(DTouchFields oldWidget) => false;
+}

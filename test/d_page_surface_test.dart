@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/page_surface_examples.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,62 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets('a phone draws the fields under a page title 44 tall', (
+    tester,
+  ) async {
+    for (final (platform, height) in [
+      (TargetPlatform.iOS, kDTouchTargetExtent),
+      (TargetPlatform.android, kDTouchTargetExtent),
+      (TargetPlatform.macOS, 35.5),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          themeAnimationStyle: AnimationStyle.noAnimation,
+          home: Scaffold(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: DInput(
+                    key: const ValueKey('elsewhere'),
+                    size: DControlSize.field,
+                    hintText: 'Search',
+                  ),
+                ),
+                Expanded(
+                  child: DPageSurface.headed(
+                    title: const Text('Users'),
+                    controls: DInput(
+                      key: const ValueKey('page-field'),
+                      size: DControlSize.field,
+                      hintText: 'Filter users',
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byKey(const ValueKey('page-field'))).height,
+        height,
+        reason: '$platform',
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('elsewhere'))).height,
+        35.5,
+        reason: '$platform',
+      );
+    }
+  });
+
   for (final withHeader in [false, true]) {
     testWidgets('floating footer resizes over a stable full-height body '
         '(header: $withHeader)', (tester) async {
