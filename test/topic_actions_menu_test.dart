@@ -239,6 +239,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<DButton>(_trigger).expanded, isTrue);
     expect(find.byType(DDropdownMenuContent), findsOneWidget);
+    // Selecting posts leads, in a group of its own; arrows step over the
+    // rule into the topic's state.
+    expect(
+      Focus.of(tester.element(find.text('Select posts'))).hasFocus,
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
     expect(Focus.of(tester.element(find.text('Close topic'))).hasFocus, isTrue);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);

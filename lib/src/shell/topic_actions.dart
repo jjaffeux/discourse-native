@@ -9,6 +9,7 @@ import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';
+import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
@@ -65,6 +66,9 @@ class TopicBookmarkButton extends StatelessWidget {
             foreground: DTokens.of(context).primary,
           )
         : null;
+    // A tool shares its group's fill, so only its artwork takes the accent.
+    final selectedTool =
+        topic.topicBookmark != null && buttonVariant == DButtonVariant.tool;
     void open() => unawaited(
       showTopicBookmarkMenu(
         context: context,
@@ -83,7 +87,9 @@ class TopicBookmarkButton extends StatelessWidget {
       loading: busy,
       variant: buttonVariant,
       backgroundColor: selectedSurface?.background,
-      foregroundColor: selectedSurface?.foreground,
+      foregroundColor:
+          selectedSurface?.foreground ??
+          (selectedTool ? DTokens.of(context).primary : null),
       interactiveBackgroundColor: selectedSurface?.hover,
       hasPopup: true,
       size: size,
@@ -356,7 +362,9 @@ class TopicStatusButton extends StatefulWidget {
       controller.topicPinWriteInFlight(siteUrl, topic.id) ||
       controller.topicFlagWriteInFlight(siteUrl, topic.id);
 
-  List<Widget> _menuItems(BuildContext context) {
+  /// Staff's tools, a group each as the reference gathers them: picking
+  /// posts, the topic's state, then deleting it.
+  List<List<Widget>> _menuGroups(BuildContext context) {
     final controller = ShellScope.read(context);
     final lease = controller.lifecycle.capture(siteUrl);
     bool ownsController() =>
@@ -371,72 +379,154 @@ class TopicStatusButton extends StatefulWidget {
       _selectCommand(context, command);
     }
 
+    Widget menuIcon(DIconData icon) =>
+        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
     return [
-      if (topic.canCloseTopic)
-        DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.closed),
-          key: const ValueKey('topic-status-closed'),
-          leading: const DIcon(DIcons.lock),
-          child: Text(
-            topic.closed ? context.l10n.openTopic : context.l10n.closeTopic,
+      [
+        if (topic.canSelectPosts)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.selectPosts),
+            key: const ValueKey('topic-select-posts'),
+            leading: menuIcon(DIcons.list),
+            leadingGap: 9,
+            child: Text(context.l10n.selectPosts),
           ),
-        ),
-      if (topic.hasPinPreference)
-        DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.pinned),
-          key: const ValueKey('topic-pin-button'),
-          leading: const DIcon(DIcons.thumbtack),
-          child: Text(
-            topic.pinned ? context.l10n.unpinTopic : context.l10n.pinTopic,
+      ],
+      [
+        if (topic.canCloseTopic)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.closed),
+            key: const ValueKey('topic-status-closed'),
+            leading: menuIcon(DIcons.lock),
+            leadingGap: 9,
+            child: Text(
+              topic.closed ? context.l10n.openTopic : context.l10n.closeTopic,
+            ),
           ),
-        ),
-      if (topic.canChangeStatus(TopicStatusProperty.archived))
-        DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.archived),
-          key: const ValueKey('topic-status-archived'),
-          leading: DIcon(topic.archived ? DIcons.folderOpen : DIcons.folder),
-          child: Text(
-            topic.archived
-                ? context.l10n.unarchiveTopic
-                : context.l10n.archiveTopic,
+        if (topic.hasPinPreference)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.pinned),
+            key: const ValueKey('topic-pin-button'),
+            leading: menuIcon(DIcons.thumbtack),
+            leadingGap: 9,
+            child: Text(
+              topic.pinned ? context.l10n.unpinTopic : context.l10n.pinTopic,
+            ),
           ),
-        ),
-      if (topic.canToggleTopicVisibility)
-        DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.visible),
-          key: const ValueKey('topic-status-visible'),
-          leading: DIcon(topic.visible ? DIcons.farEyeSlash : DIcons.farEye),
-          child: Text(
-            topic.visible
-                ? context.l10n.makeTopicUnlisted
-                : context.l10n.makeTopicVisible,
+        if (topic.canChangeStatus(TopicStatusProperty.archived))
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.archived),
+            key: const ValueKey('topic-status-archived'),
+            leading: menuIcon(
+              topic.archived ? DIcons.folderOpen : DIcons.folder,
+            ),
+            leadingGap: 9,
+            child: Text(
+              topic.archived
+                  ? context.l10n.unarchiveTopic
+                  : context.l10n.archiveTopic,
+            ),
           ),
-        ),
-      if (topic.canSelectPosts)
+        if (topic.canToggleTopicVisibility)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.visible),
+            key: const ValueKey('topic-status-visible'),
+            leading: menuIcon(
+              topic.visible ? DIcons.farEyeSlash : DIcons.farEye,
+            ),
+            leadingGap: 9,
+            child: Text(
+              topic.visible
+                  ? context.l10n.makeTopicUnlisted
+                  : context.l10n.makeTopicVisible,
+            ),
+          ),
+      ],
+      [
+        if (topic.canDeleteTopic)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.delete),
+            key: const ValueKey('topic-status-delete'),
+            leading: const DIcon(DIcons.trashCan, size: 13),
+            leadingGap: 9,
+            variant: DDropdownMenuItemVariant.destructive,
+            child: Text(context.l10n.deleteTopicTopicactions),
+          ),
+        if (topic.canRecoverTopic)
+          DDropdownMenuItem(
+            onPressed: () => select(_TopicCommand.recover),
+            key: const ValueKey('topic-status-recover'),
+            leading: menuIcon(DIcons.arrowRotateLeft),
+            leadingGap: 9,
+            child: Text(context.l10n.recoverTopic),
+          ),
+      ],
+    ];
+  }
+
+  List<Widget> _menuItems(BuildContext context) =>
+      _ruledGroups(_menuGroups(context));
+
+  /// Share, flag and mark unread: what anyone can do to the topic itself.
+  /// [current] guards each against the account, tab or page having moved on.
+  List<Widget> _moreItems(BuildContext context, bool Function() current) {
+    final shell = ShellScope.read(context);
+    final lease = shell.lifecycle.capture(siteUrl);
+    final route = shell.currentContent;
+    Widget menuIcon(DIconData icon) =>
+        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
+    return [
+      DDropdownMenuItem(
+        key: const ValueKey('topic-share-action'),
+        leading: menuIcon(DNativeIcons.shareFromSquare),
+        leadingGap: 9,
+        onPressed: () {
+          if (!current()) return;
+          TopicShareButton(
+            siteUrl: siteUrl,
+            topic: topic,
+            route: route,
+          )._share(context);
+        },
+        child: Text(context.l10n.shareTopic),
+      ),
+      if (topicFlags.isNotEmpty)
         DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.selectPosts),
-          key: const ValueKey('topic-select-posts'),
-          leading: const DIcon(DIcons.list),
-          child: Text(context.l10n.selectPosts),
+          key: const ValueKey('topic-flag-button'),
+          leading: menuIcon(DIcons.flag),
+          leadingGap: 9,
+          onPressed: () {
+            if (current()) _flag(context);
+          },
+          child: Text(context.l10n.flagTopicTopicactions),
         ),
-      if (topic.canDeleteTopic)
+      if (shell.instanceFor(siteUrl)?.isConnected == true)
         DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.delete),
-          key: const ValueKey('topic-status-delete'),
-          leading: const DIcon(DIcons.trashCan),
-          variant: DDropdownMenuItemVariant.destructive,
-          child: Text(context.l10n.deleteTopicTopicactions),
-        ),
-      if (topic.canRecoverTopic)
-        DDropdownMenuItem(
-          onPressed: () => select(_TopicCommand.recover),
-          key: const ValueKey('topic-status-recover'),
-          leading: const DIcon(DIcons.arrowRotateLeft),
-          child: Text(context.l10n.recoverTopic),
+          key: const ValueKey('topic-mark-unread'),
+          leading: menuIcon(DNativeIcons.envelopeOpen),
+          leadingGap: 9,
+          onPressed: shell.topicUnreadWriteInFlight(siteUrl, topic.id)
+              ? null
+              : () async {
+                  if (!current()) return;
+                  final error = await shell.markTopicUnread(siteUrl, topic.id);
+                  if (context.mounted && lease.isCurrent && error != null) {
+                    DToast.show(context, error, type: DToastType.error);
+                  }
+                },
+          child: Text(context.l10n.markTopicUnread),
         ),
     ];
   }
 }
+
+/// The non-empty groups in order, a rule between each and the next.
+List<Widget> _ruledGroups(Iterable<List<Widget>> groups) => [
+  for (final (index, group) in groups.where((g) => g.isNotEmpty).indexed) ...[
+    if (index > 0) const DDropdownMenuSeparator(),
+    ...group,
+  ],
+];
 
 class _TopicStatusButtonState extends State<TopicStatusButton> {
   List<Widget> _openItems = const [];
@@ -513,63 +603,10 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final lease = shell.lifecycle.capture(status.siteUrl);
-    final tab = shell.activeTabId;
-    final route = shell.currentContent;
-    bool current() =>
-        context.mounted &&
-        lease.isCurrent &&
-        identical(ShellScope.maybeRead(context), shell) &&
-        shell.activeTabId == tab &&
-        identical(shell.currentContent, route);
-    Widget menuIcon(DIconData icon) =>
-        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
-    final items = [
-      DDropdownMenuItem(
-        leading: menuIcon(DNativeIcons.shareFromSquare),
-        leadingGap: 9,
-        onPressed: () {
-          if (!current()) return;
-          TopicShareButton(
-            siteUrl: status.siteUrl,
-            topic: status.topic,
-            route: route,
-          )._share(context);
-        },
-        child: Text(context.l10n.shareTopic),
-      ),
-      if (status.topicFlags.isNotEmpty)
-        DDropdownMenuItem(
-          key: const ValueKey('topic-flag-button'),
-          leading: menuIcon(DIcons.flag),
-          leadingGap: 9,
-          onPressed: () {
-            if (current()) status._flag(context);
-          },
-          child: Text(context.l10n.flagTopicTopicactions),
-        ),
-      if (shell.instanceFor(status.siteUrl)?.isConnected == true)
-        DDropdownMenuItem(
-          key: const ValueKey('topic-mark-unread'),
-          leading: menuIcon(DNativeIcons.envelopeOpen),
-          leadingGap: 9,
-          onPressed:
-              shell.topicUnreadWriteInFlight(status.siteUrl, status.topic.id)
-              ? null
-              : () async {
-                  if (!current()) return;
-                  final error = await shell.markTopicUnread(
-                    status.siteUrl,
-                    status.topic.id,
-                  );
-                  if (context.mounted && lease.isCurrent && error != null) {
-                    DToast.show(context, error, type: DToastType.error);
-                  }
-                },
-          child: Text(context.l10n.markTopicUnread),
-        ),
-    ];
+    final items = status._moreItems(
+      context,
+      _currentCheck(context, status.siteUrl),
+    );
     return DDropdownMenu(
       sheetOnMobile: true,
       mobileSheetVariant: DSheetVariant.adaptiveMenu,
@@ -596,6 +633,109 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
           density: status.density,
           tooltip: context.l10n.topicActionsMenu,
           icon: const DIcon(DIcons.ellipsis),
+        ),
+      ),
+    );
+  }
+}
+
+/// Whether a command chosen now still belongs to the account, tab and page
+/// [context] showed when its menu was built.
+bool Function() _currentCheck(BuildContext context, String siteUrl) {
+  final shell = ShellScope.read(context);
+  final lease = shell.lifecycle.capture(siteUrl);
+  final tab = shell.activeTabId;
+  final route = shell.currentContent;
+  return () =>
+      context.mounted &&
+      lease.isCurrent &&
+      identical(ShellScope.maybeRead(context), shell) &&
+      shell.activeTabId == tab &&
+      identical(shell.currentContent, route);
+}
+
+/// On a phone, where the head has no room for three buttons, one: what the
+/// topic's plugins offer (assigning it), what anyone can do to it, then
+/// staff's tools, a group each, in one sheet.
+class TopicActionsButton extends StatefulWidget {
+  const TopicActionsButton({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+    this.topicFlags = const [],
+    this.sectionActions = const [],
+  });
+
+  final String siteUrl;
+  final TopicDetail topic;
+  final List<PostFlagType> topicFlags;
+  final List<List<TopicPropertyAction>> sectionActions;
+
+  @override
+  State<TopicActionsButton> createState() => _TopicActionsButtonState();
+}
+
+class _TopicActionsButtonState extends State<TopicActionsButton> {
+  List<Widget>? _openItems;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = TopicStatusButton(
+      siteUrl: widget.siteUrl,
+      topic: widget.topic,
+      topicFlags: widget.topicFlags,
+    );
+    final current = _currentCheck(context, widget.siteUrl);
+    Widget menuIcon(DIconData icon) =>
+        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
+    final items = _ruledGroups([
+      for (final actions in widget.sectionActions)
+        [
+          for (final action in actions)
+            DDropdownMenuItem(
+              key: action.key,
+              leading: menuIcon(action.icon),
+              leadingGap: 9,
+              // The sheet closes as it is chosen; the button stays to anchor
+              // what the action opens.
+              onPressed: () {
+                if (current()) action.onSelected(this.context);
+              },
+              child: Text(action.label),
+            ),
+        ],
+      status._moreItems(context, current),
+      ...status._menuGroups(context),
+    ]);
+    return ShellSelector<bool>(
+      select: status._busy,
+      builder: (context, busy, _) => DDropdownMenu(
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
+        onOpenChange: (open, _) =>
+            setState(() => _openItems = open ? items : null),
+        content: DDropdownMenuContent(
+          width: 224,
+          semanticLabel: context.l10n.topicActionsMenu,
+          highlightInitialFocus: false,
+          padding: DControlStyle.isTouch(context)
+              ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
+              : DInsets.menu,
+          children: _openItems ?? items,
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            key: const ValueKey('topic-more-actions'),
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            loading: busy,
+            onPressed: busy ? null : state.toggle,
+            variant: DButtonVariant.tool,
+            size: DButtonSize.filter,
+            tooltip: context.l10n.topicActionsMenu,
+            icon: const DIcon(DIcons.ellipsis),
+          ),
         ),
       ),
     );

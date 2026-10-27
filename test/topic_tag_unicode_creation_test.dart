@@ -43,6 +43,12 @@ void main() {
         final api = _TagsApi();
         final shell = await _fixture(api);
         await _pumpReader(tester, shell);
+        // At a phone's width the tag waits behind the line's count.
+        final more = find.byKey(const ValueKey('topic-header-more-tags'));
+        if (more.evaluate().isNotEmpty) {
+          await tester.tap(more);
+          await tester.pumpAndSettle();
+        }
         await tester.longPress(
           find.byKey(const ValueKey(('topic-header-tag', 'community'))),
         );

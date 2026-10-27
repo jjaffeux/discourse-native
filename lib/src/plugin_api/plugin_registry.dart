@@ -1749,6 +1749,16 @@ final class PluginRegistry
           values: _ownedAll(plugin, section.values),
           layout: section.layout,
           showHeader: section.showHeader,
+          actions: [
+            for (final action in section.actions)
+              TopicPropertyAction(
+                key: action.key,
+                label: action.label,
+                icon: action.icon,
+                onSelected: (context) =>
+                    action.onSelected(_uiContext(context, plugin)),
+              ),
+          ],
         ),
   ];
 

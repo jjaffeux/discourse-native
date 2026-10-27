@@ -414,6 +414,54 @@ final class AssignPlugin
         layout: TopicPropertySectionLayout.standalone,
         showHeader: false,
         values: values,
+        // Posts' assignments are read in the section's details, which only
+        // its own button opens.
+        actions: !canAssign || postAssignments.isNotEmpty
+            ? const []
+            : direct == null
+            ? [
+                TopicPropertyAction(
+                  key: const Key('assign-topic-action'),
+                  label: appL10n.assignTopic,
+                  icon: DIcons.userPlus,
+                  onSelected: (anchorContext) => unawaited(
+                    showAssignmentEditor(
+                      context: anchorContext,
+                      siteUrl: siteUrl,
+                      target: target,
+                    ),
+                  ),
+                ),
+              ]
+            : [
+                TopicPropertyAction(
+                  key: const Key('assign-topic-reassign-action'),
+                  label: appL10n.reassignTopic,
+                  icon: DIcons.userPen,
+                  onSelected: (anchorContext) => unawaited(
+                    showAssignmentEditor(
+                      context: anchorContext,
+                      siteUrl: siteUrl,
+                      target: target,
+                      existing: direct,
+                    ),
+                  ),
+                ),
+                TopicPropertyAction(
+                  key: const Key('assign-topic-unassign-action'),
+                  label: appL10n.unassignFromTopic(direct.assignee.displayName),
+                  icon: DNativeIcons.userMinus,
+                  onSelected: (anchorContext) => unawaited(
+                    _removeAssignment(
+                      context: anchorContext,
+                      siteUrl: siteUrl,
+                      target: target,
+                      assignment: direct,
+                      targetLabel: appL10n.topic,
+                    ),
+                  ),
+                ),
+              ],
         compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
           key: const Key('assign-topic-header'),
           icon: direct == null
@@ -433,7 +481,7 @@ final class AssignPlugin
               ? appL10n.assignTopic
               : appL10n.manageAssignments,
           size: DButtonSize.filter,
-          variant: DButtonVariant.outline,
+          variant: DButtonVariant.tool,
           onPressed: direct != null || !canAssign
               ? showDetails
               : () => unawaited(

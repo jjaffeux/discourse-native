@@ -1,9 +1,7 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_header_tags.dart';
-import 'package:discourse_native/src/shell/topic_taxonomy_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,75 +10,81 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final textScale in [1.0, 2.0]) {
-      testWidgets('readonly tags mount nearby rows on $platform at $textScale', (
-        tester,
-      ) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final tags = List.generate(
-          220,
-          (index) => TopicTag(id: index + 1, name: 'tag-$index'),
-        );
-        final openings = <(TopicTag, bool)>[];
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: platform),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(textScale)),
-              child: child!,
-            ),
-            home: Scaffold(
-              body: TopicHeaderTags(
-                siteUrl: 'https://meta.example',
-                topic: TopicDetail(
-                  id: 1,
-                  title: 'Many tags',
-                  stream: const [],
-                  tags: tags,
+      testWidgets(
+        'opening every tag inline reaches the last on $platform at $textScale',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final tags = List.generate(
+            220,
+            (index) => TopicTag(id: index + 1, name: 'tag-$index'),
+          );
+          final openings = <(TopicTag, bool)>[];
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark.copyWith(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: TopicHeaderTags(
+                    siteUrl: 'https://meta.example',
+                    topic: TopicDetail(
+                      id: 1,
+                      title: 'Many tags',
+                      stream: const [],
+                      tags: tags,
+                    ),
+                    onTagNavigate: (tag, {newTab = false, panel}) =>
+                        openings.add((tag, newTab)),
+                  ),
                 ),
-                onTagNavigate: (tag, {newTab = false, panel}) =>
-                    openings.add((tag, newTab)),
               ),
             ),
-          ),
-        );
-        await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
-        await tester.pumpAndSettle();
-        final rows = find.descendant(
-          of: find.byType(TopicTaxonomyPickerContent),
-          matching: find.byType(DItem, skipOffstage: false),
-          skipOffstage: false,
-        );
-        final mounted = rows.evaluate().length;
-        debugPrint(
-          'LAZY_PICKER readonly platform=$platform scale=$textScale mounted=$mounted/220',
-        );
-        expect(mounted, greaterThan(0));
-        expect(mounted, lessThan(50));
-        final last = find.byKey(
-          const ValueKey(('topic-header-tag-option', 'tag-219')),
-        );
-        expect(last, findsNothing);
-        final scrollable = find
-            .descendant(
-              of: find.byType(TopicTaxonomyPickerContent),
-              matching: find.byType(Scrollable),
-            )
-            .last;
-        await tester.scrollUntilVisible(
-          last,
-          500,
-          scrollable: scrollable,
-          maxScrolls: 100,
-        );
-        await tester.tap(last);
-        await tester.pumpAndSettle();
-        expect(openings, [(tags.last, false)]);
-        expect(tester.takeException(), isNull);
-      });
+          );
+          final more = find.byKey(const ValueKey('topic-header-more-tags'));
+          final shownBefore = tags
+              .where(
+                (tag) => find
+                    .byKey(ValueKey(('topic-header-tag', tag.name)))
+                    .evaluate()
+                    .isNotEmpty,
+              )
+              .length;
+          expect(shownBefore, lessThan(tags.length));
+          expect(
+            find.descendant(
+              of: more,
+              matching: find.text('+${tags.length - shownBefore}'),
+            ),
+            findsOneWidget,
+          );
+          await tester.tap(more);
+          await tester.pumpAndSettle();
+          expect(more, findsNothing);
+          for (final tag in tags) {
+            expect(
+              find.byKey(ValueKey(('topic-header-tag', tag.name))),
+              findsOneWidget,
+              reason: tag.name,
+            );
+          }
+          final last = find.byKey(
+            const ValueKey(('topic-header-tag', 'tag-219')),
+          );
+          await tester.ensureVisible(last);
+          await tester.pumpAndSettle();
+          await tester.tap(last);
+          await tester.pumpAndSettle();
+          expect(openings, [(tags.last, false)]);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
@@ -222,14 +226,20 @@ void main() {
                     .isNotEmpty,
               )
               .toList();
-          expect(visible.length, lessThanOrEqualTo(3));
+          // The line keeps the first tags that fit beside the count.
+          expect(visible, tags.take(visible.length));
+          expect(
+            find.descendant(
+              of: overflow,
+              matching: find.text('+${tags.length - visible.length}'),
+            ),
+            findsOneWidget,
+          );
           for (final tag in visible) {
+            final chip = find.byKey(ValueKey(('topic-header-tag', tag.name)));
+            expect(tester.getRect(chip).right, lessThanOrEqualTo(width));
             expect(
-              tester
-                  .getCenter(
-                    find.byKey(ValueKey(('topic-header-tag', tag.name))),
-                  )
-                  .dy,
+              tester.getCenter(chip).dy,
               closeTo(tester.getCenter(overflow).dy, 1),
             );
           }

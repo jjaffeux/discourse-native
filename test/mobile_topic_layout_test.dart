@@ -98,16 +98,48 @@ void main() {
         matching: find.byType(DControlArtwork),
       ),
     );
-    final tag = surface(const ValueKey(('topic-header-tag', 'ui')));
-    final overflow = surface(const ValueKey('topic-header-more-tags'));
-    final bookmark = surface(const ValueKey('topic-header-bookmark-button'));
-    expect(overflow.left - tag.right, closeTo(8, .001));
-    expect(bookmark.top - tag.bottom, closeTo(8, .001));
-    await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
-    await tester.pumpAndSettle();
+    Rect category() => tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('topic-header-parent-category')),
+            matching: find.byType(DControlArtwork),
+          )
+          .first,
+    );
+    final line = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final more = find.byKey(const ValueKey('topic-header-more-tags'));
+    // Neither tag fits beside the tools, so the count stands for both.
     expect(
-      find.byKey(const ValueKey('topic-tag-picker-query')),
-      findsOneWidget,
+      find.byKey(const ValueKey(('topic-header-tag', 'ui'))),
+      findsNothing,
+    );
+    final overflow = surface(const ValueKey('topic-header-more-tags'));
+    var bookmark = surface(const ValueKey('topic-header-bookmark-button'));
+    expect(overflow.left - category().right, closeTo(8, .001));
+    expect(bookmark.left - overflow.right, greaterThanOrEqualTo(8));
+    expect(bookmark.top, overflow.top);
+    expect(
+      surface(const ValueKey('topic-more-actions')).right,
+      tester.getRect(line).right,
+    );
+
+    // The count opens every tag inline, wrapping onto rows of their own.
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(more, findsNothing);
+    expect(find.byKey(const ValueKey('topic-tag-picker-query')), findsNothing);
+    final tag = surface(const ValueKey(('topic-header-tag', 'ui')));
+    final wrapped = surface(
+      const ValueKey(('topic-header-tag', 'long-hidden-tag')),
+    );
+    bookmark = surface(const ValueKey('topic-header-bookmark-button'));
+    expect(tag.left - category().right, closeTo(8, .001));
+    expect(wrapped.top - tag.bottom, closeTo(8, .001));
+    expect(bookmark.top - wrapped.bottom, closeTo(8, .001));
+    // The tools stay at the end of the run's last line.
+    expect(
+      surface(const ValueKey('topic-more-actions')).right,
+      tester.getRect(line).right,
     );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
@@ -129,13 +161,21 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
-      final assignment = find.byKey(const Key('assign-topic-header'));
+      // A phone keeps assigning in the topic's actions sheet, not the head.
+      expect(find.byKey(const Key('assign-topic-header')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+      await tester.pumpAndSettle();
+      final assignment = find.byKey(const Key('assign-topic-action'));
       expect(assignment, enabled && allowed ? findsOneWidget : findsNothing);
       if (enabled && allowed) {
-        expect(tester.widget<DButton>(assignment).size, DButtonSize.filter);
+        expect(
+          find.descendant(of: assignment, matching: find.text('Assign topic')),
+          findsOneWidget,
+        );
         expect(assignment.hitTestable(), findsOneWidget);
         await tester.tap(assignment);
         await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
@@ -146,10 +186,6 @@ void main() {
     tester,
   ) async {
     await pumpMobileTopicFixture(tester);
-    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
-    final wrap = tester.widget<DControlWrap>(actions);
-    expect(wrap.spacing, 8);
-    expect(wrap.runSpacing, 8);
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
     final notifications = find.byKey(
       const ValueKey('topic-header-notification-button'),
@@ -170,12 +206,12 @@ void main() {
       matching: find.byType(DButton),
     );
     final categorySurface = tester.getRect(surface(category));
-    for (final control in [
-      bookmark,
-      notifications,
-      find.byKey(const ValueKey('topic-status-button')),
-    ]) {
+    final more = find.byKey(const ValueKey('topic-more-actions'));
+    // One actions button holds staff's tools on a phone.
+    expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
+    for (final control in [bookmark, notifications, more]) {
       expect(tester.widget<DButton>(control).size, DButtonSize.filter);
+      expect(tester.widget<DButton>(control).variant, DButtonVariant.tool);
       expect(
         tester.getRect(surface(control)).height,
         closeTo(categorySurface.height, .01),
@@ -185,6 +221,16 @@ void main() {
       tester.getRect(surface(bookmark)).right,
       tester.getRect(surface(notifications)).left,
     );
+    expect(
+      tester.getRect(surface(more)).left -
+          tester.getRect(surface(notifications)).right,
+      closeTo(8, .01),
+    );
+    final countSurface = tester.getRect(
+      surface(find.byKey(const ValueKey('topic-header-more-tags'))),
+    );
+    expect(countSurface.left - categorySurface.right, closeTo(8, .01));
+    expect(countSurface.top, categorySurface.top);
     final title = tester.getRect(
       find.byKey(const ValueKey('topic-header-compact-title')),
     );
@@ -198,15 +244,21 @@ void main() {
     tester.view.physicalSize = const Size(800, 1000);
     await tester.pumpAndSettle();
     final notificationSurface = tester.getRect(surface(notifications));
-    final statusSurface = tester.getRect(
-      surface(find.byKey(const ValueKey('topic-status-button'))),
-    );
-    expect(statusSurface.top, notificationSurface.top);
-    final moreSurface = tester.getRect(
-      surface(find.byKey(const ValueKey('topic-more-actions'))),
-    );
+    final moreSurface = tester.getRect(surface(more));
+    expect(moreSurface.top, notificationSurface.top);
     expect(moreSurface.left - notificationSurface.right, closeTo(8, .01));
-    expect(statusSurface.left - moreSurface.right, closeTo(6, .01));
+    expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
+    // With room for it, the tag joins the category on the tools' line.
+    final tagSurface = tester.getRect(
+      surface(
+        find.byKey(const ValueKey(('topic-header-tag', 'show-and-tell'))),
+      ),
+    );
+    expect(tagSurface.top, notificationSurface.top);
+    expect(
+      tagSurface.left - tester.getRect(surface(category)).right,
+      closeTo(8, .01),
+    );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
   testWidgets('mobile topic chrome fits and keeps the reader footer free', (
@@ -240,10 +292,11 @@ void main() {
         lessThanOrEqualTo(tester.getRect(bar).right),
       );
       expect(reply.hitTestable(), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
       for (final key in [
         'topic-header-bookmark-button',
         'topic-header-notification-button',
-        'topic-status-button',
+        'topic-more-actions',
       ]) {
         final button = find.byKey(ValueKey(key));
         expect(find.descendant(of: actions, matching: button), findsOneWidget);
@@ -301,10 +354,11 @@ void main() {
     final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
     final archive = find.byKey(const ValueKey('message-archive-button'));
-    final status = find.byKey(const ValueKey('topic-status-button'));
+    final more = find.byKey(const ValueKey('topic-more-actions'));
     expect(tag, findsOneWidget);
     expect(actions, findsOneWidget);
-    for (final action in [bookmark, archive, status]) {
+    expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
+    for (final action in [bookmark, archive, more]) {
       expect(tester.getRect(action).top, tester.getRect(tag).top);
       expect(tester.getSize(action), tester.getSize(bookmark));
     }
@@ -314,6 +368,7 @@ void main() {
     );
     expect(find.byTooltip('Archive from your inboxes'), findsOneWidget);
     expect(tester.getRect(actions).right, lessThanOrEqualTo(430));
+    expect(tester.getRect(more).right, tester.getRect(actions).right);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -321,6 +376,10 @@ void main() {
     'mobile topic actions edit, navigate posts, and reply to the current topic',
     (tester) async {
       final shell = await pumpMobileTopicFixture(tester);
+      // The tag waits behind its count on a phone; opening it shows the tag,
+      // and tapping the tag edits.
+      await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey(('topic-header-tag', 'show-and-tell'))),
       );
@@ -352,7 +411,7 @@ void main() {
         TopicNotificationLevel.watching,
       );
 
-      await tester.tap(find.byKey(const ValueKey('topic-status-button')));
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('topic-status-closed')), findsOneWidget);
       await tester.tapAt(const Offset(3, 3));
@@ -404,7 +463,15 @@ void main() {
         find.byKey(const ValueKey('topic-header-edit-tags')),
         findsNothing,
       );
+      expect(find.bySemanticsLabel('Open tag show-and-tell'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+      await tester.pumpAndSettle();
+      // Without editing, the opened tag navigates rather than edits.
       expect(find.bySemanticsLabel('Open tag show-and-tell'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-tag-picker-query')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('topic-progress-button')),
         findsOneWidget,

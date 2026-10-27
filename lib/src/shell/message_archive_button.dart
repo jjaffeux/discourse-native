@@ -96,7 +96,7 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
         icon: icon,
         tooltip: tooltip,
         loading: _busy,
-        variant: DButtonVariant.outline,
+        variant: DButtonVariant.tool,
         size: DButtonSize.filter,
       );
     }
