@@ -28,6 +28,7 @@ class DButtonGroup extends StatefulWidget {
     this.sharedOutline = false,
   }) : quiet = false,
        quietSelected = false,
+       split = false,
        spacedSize = null,
        assert(semanticLabel == null || semanticLabel != '');
 
@@ -44,6 +45,7 @@ class DButtonGroup extends StatefulWidget {
        sharedOutline = false,
        quiet = false,
        quietSelected = false,
+       split = false,
        spacedSize = size,
        assert(semanticLabel == null || semanticLabel != '');
 
@@ -55,6 +57,22 @@ class DButtonGroup extends StatefulWidget {
     bool selected = false,
   }) : quiet = true,
        quietSelected = selected,
+       split = false,
+       orientation = DButtonGroupOrientation.horizontal,
+       mainAxisSize = MainAxisSize.min,
+       sharedOutline = false,
+       spacedSize = null;
+
+  /// [DButtonVariant.tool] controls that read as one setting: one pill of
+  /// their shared fill, divided where two meet by a stronger step of it
+  /// rather than a border laid on it.
+  const DButtonGroup.tool({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+  }) : quiet = true,
+       quietSelected = false,
+       split = true,
        orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
        sharedOutline = false,
@@ -75,6 +93,7 @@ class DButtonGroup extends StatefulWidget {
   final bool sharedOutline;
   final bool quiet;
   final bool quietSelected;
+  final bool split;
 
   @override
   State<DButtonGroup> createState() => _DButtonGroupState();
@@ -141,7 +160,15 @@ class _DButtonGroupState extends State<DButtonGroup> {
         skipTraversal: true,
         includeSemantics: false,
         onFocusChange: (focused) => _focusChanged(index, focused),
-        child: child,
+        child: widget.split && index > 0
+            ? CustomPaint(
+                foregroundPainter: _ToolSplitPainter(
+                  color: DTokens.of(context).foreground.withValues(alpha: .12),
+                  direction: Directionality.of(context),
+                ),
+                child: child,
+              )
+            : child,
       ),
     );
     final scoped = <Widget>[
@@ -205,6 +232,28 @@ class _DButtonGroupState extends State<DButtonGroup> {
       child: content,
     );
   }
+}
+
+/// The 1px rule on a tool group child's leading edge, inset by the group's
+/// edge at top and bottom as the reference's transparent border insets it.
+class _ToolSplitPainter extends CustomPainter {
+  const _ToolSplitPainter({required this.color, required this.direction});
+
+  final Color color;
+  final TextDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = direction == TextDirection.ltr ? 0.0 : size.width - 1;
+    canvas.drawRect(
+      Rect.fromLTWH(x, 1, 1, size.height - 2),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ToolSplitPainter oldDelegate) =>
+      color != oldDelegate.color || direction != oldDelegate.direction;
 }
 
 /// Gives a direct group child the horizontal space left by fixed controls.

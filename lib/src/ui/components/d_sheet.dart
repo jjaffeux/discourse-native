@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
@@ -15,6 +16,7 @@ import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
+import 'd_mobile_dock_geometry.dart';
 import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
@@ -216,6 +218,169 @@ class DSheetViewport extends StatelessWidget {
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
         underlay: underlay,
         covering: covering,
+      ),
+    );
+  }
+}
+
+/// Where the content of a page sheet says what its condensed head is doing
+/// over the sheet's top edge. A head that is a band of its own fill across
+/// that edge is the sheet's top while it rests there.
+abstract interface class DSheetPageBand {
+  /// [owner] is the head reporting; a later report from it replaces this one.
+  /// [condensed]: the head is drawn in to its band, wherever it is. [resting]:
+  /// the band sits whole over the top edge. [coversGrabber]: enough of it is
+  /// still there to cover the grabber.
+  void report(
+    Object owner, {
+    required bool condensed,
+    required bool resting,
+    required bool coversGrabber,
+  });
+
+  /// [owner] no longer has a band over the sheet.
+  void withdraw(Object owner);
+
+  /// The page sheet [context] is in, if any.
+  static DSheetPageBand? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DSheetPageBandScope>()?.band;
+}
+
+class _DSheetPageBandScope extends InheritedWidget {
+  const _DSheetPageBandScope({required this.band, required super.child});
+
+  final DSheetPageBand band;
+
+  @override
+  bool updateShouldNotify(_DSheetPageBandScope oldWidget) =>
+      band != oldWidget.band;
+}
+
+/// A page sheet's card: round at its top as the phone's bar is, squared under
+/// a band resting there, whose antialiased edge would otherwise let a sliver
+/// of the card show along the curve the two share. The grabber is drawn under
+/// the band while the band covers it. While the head is a band at all, the
+/// card has no edge along its top: the band runs on up into the screen's
+/// head, so the card stands off nothing there.
+class _DSheetPageCard extends StatefulWidget {
+  const _DSheetPageCard({
+    required this.color,
+    required this.handle,
+    required this.children,
+  });
+
+  final Color color;
+  final Widget handle;
+  final List<Widget> children;
+
+  @override
+  State<_DSheetPageCard> createState() => _DSheetPageCardState();
+}
+
+class _DSheetPageCardState extends State<_DSheetPageCard>
+    implements DSheetPageBand {
+  Object? _owner;
+  bool _condensed = false;
+  bool _resting = false;
+  bool _coversGrabber = false;
+
+  // A head's reports can still be waiting for the frame when it withdraws.
+  final _withdrawn = Expando<bool>();
+
+  @override
+  void report(
+    Object owner, {
+    required bool condensed,
+    required bool resting,
+    required bool coversGrabber,
+  }) {
+    if (_withdrawn[owner] == true) return;
+    _apply(
+      owner,
+      condensed: condensed,
+      resting: resting,
+      coversGrabber: coversGrabber,
+    );
+  }
+
+  @override
+  void withdraw(Object owner) {
+    _withdrawn[owner] = true;
+    _apply(owner, condensed: false, resting: false, coversGrabber: false);
+  }
+
+  // Reports arrive from scroll ticks, layout and unmounting, so the change
+  // waits for the frame's build to be over.
+  void _apply(
+    Object owner, {
+    required bool condensed,
+    required bool resting,
+    required bool coversGrabber,
+  }) {
+    final withdrawing = _withdrawn[owner] == true;
+    void commit() {
+      if (!mounted) return;
+      if (withdrawing ? !identical(owner, _owner) : _withdrawn[owner] == true) {
+        return;
+      }
+      if (identical(owner, _owner) &&
+          condensed == _condensed &&
+          resting == _resting &&
+          coversGrabber == _coversGrabber) {
+        return;
+      }
+      setState(() {
+        _owner = owner;
+        _condensed = condensed;
+        _resting = resting;
+        _coversGrabber = coversGrabber;
+      });
+    }
+
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle ||
+        SchedulerBinding.instance.schedulerPhase ==
+            SchedulerPhase.transientCallbacks) {
+      commit();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => commit());
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = Radius.circular(
+      _resting ? 0 : DMobileDockGeometry.capsuleRadius,
+    );
+    return _DSheetPageBandScope(
+      band: this,
+      child: DPageSurface(
+        border: false,
+        borderRadius: BorderRadius.vertical(
+          top: top,
+          bottom: const Radius.circular(22),
+        ),
+        backgroundColor: widget.color,
+        depth: _condensed ? null : DSurfaceDepth.panel,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Visibility(
+                visible: !_coversGrabber,
+                maintainState: true,
+                child: widget.handle,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1581,21 +1746,10 @@ class DSheetContent extends StatelessWidget {
         explicitChildNodes: true,
         scopesRoute: true,
         label: semanticLabel,
-        child: DPageSurface(
-          border: false,
-          borderRadius: BorderRadius.circular(22),
-          backgroundColor: pulled ? color.withValues(alpha: 1) : color,
-          depth: DSurfaceDepth.panel,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
-              ),
-              Positioned(top: 0, left: 0, right: 0, child: handle),
-            ],
-          ),
+        child: _DSheetPageCard(
+          color: pulled ? color.withValues(alpha: 1) : color,
+          handle: handle,
+          children: children,
         ),
       );
     }

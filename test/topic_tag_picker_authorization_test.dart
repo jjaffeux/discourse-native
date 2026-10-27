@@ -141,6 +141,12 @@ void main() {
 }
 
 Future<void> _open(WidgetTester tester) async {
+  // At a phone's width the tag waits behind the line's count until opened.
+  final more = find.byKey(const ValueKey('topic-header-more-tags'));
+  if (more.evaluate().isNotEmpty) {
+    await tester.tap(more);
+    await _settle(tester);
+  }
   await tester.longPress(
     find.byKey(const ValueKey(('topic-header-tag', 'community'))),
   );

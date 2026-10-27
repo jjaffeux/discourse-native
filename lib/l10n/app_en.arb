@@ -4313,6 +4313,19 @@
   "@assignTopic": {
     "description": "English UI message used by plugins/assign/assignment_sheet.dart. Keep placeholders intact."
   },
+  "reassignTopic": "Reassign topic",
+  "@reassignTopic": {
+    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact."
+  },
+  "unassignFromTopic": "Unassign {name} from topic",
+  "@unassignFromTopic": {
+    "description": "English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "assignAssignmentsheet": "Assign",
   "@assignAssignmentsheet": {
     "description": "English UI message used by plugins/assign/assignment_sheet.dart. Keep placeholders intact."

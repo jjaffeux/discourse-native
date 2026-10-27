@@ -132,7 +132,9 @@ void main() {
     expect(_menu, findsNothing);
     expect(tester.widget<DButton>(_more).expanded, isFalse);
     expect(shell.currentContent, same(reader));
-    expect(find.byType(TopicStatusButton), findsOneWidget);
+    // A phone's head keeps one actions button; staff's tools join its sheet.
+    expect(find.byType(TopicActionsButton), findsOneWidget);
+    expect(find.byType(TopicStatusButton), findsNothing);
 
     await _openMore(tester);
     await tester.drag(

@@ -15,8 +15,10 @@ quote rendering, user cards, and search have separate owners.
   reminder menu for an existing bookmark. First-post deletion/recovery is named
   for the topic; solution and assignment actions exclude the opening post.
 - Topic sharing, flagging, and Mark unread use the ellipsis menu. The wrench
-  keeps close, pin, archive, visibility, selection, and deletion controls in
-  source order. Mark unread uses Discourse's `DELETE /t/{id}/timings.json?last=1`.
+  keeps selection, then close, pin, archive and visibility, then deletion, a
+  group each. On a phone one ellipsis sheet holds plugin actions such as
+  assigning, these, and the staff groups (see
+  [topic-head-mockup-parity.md](topic-head-mockup-parity.md)). Mark unread uses Discourse's `DELETE /t/{id}/timings.json?last=1`.
   It drains pending read receipts and suppresses new receipts during the reset.
 - Staff notices precede the author. Hidden, deleted, locked, bookmarked, assigned,
   and solved posts get a tinted Native card; whispers get the approved dashed

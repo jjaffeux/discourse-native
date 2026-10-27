@@ -413,6 +413,25 @@ abstract interface class CompactTopicListMetadataPlugin {
 
 enum TopicPropertySectionLayout { inline, standalone }
 
+/// A command a [TopicPropertySection] offers in a phone's topic actions sheet.
+@immutable
+final class TopicPropertyAction {
+  const TopicPropertyAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.key,
+  });
+
+  final Key? key;
+  final String label;
+  final DIconData icon;
+
+  /// Receives the context of the head's actions button, which outlives the
+  /// sheet the command was chosen from.
+  final void Function(BuildContext context) onSelected;
+}
+
 @immutable
 final class TopicPropertySection {
   const TopicPropertySection({
@@ -422,7 +441,12 @@ final class TopicPropertySection {
     this.showHeader = true,
     this.header,
     this.compactHeader,
+    this.actions = const [],
   });
+
+  /// On a phone, these join the topic's actions sheet as a group of their
+  /// own in place of [compactHeader]. A section with none keeps its button.
+  final List<TopicPropertyAction> actions;
 
   /// Compact presentation alongside the title. The host supplies a details
   /// action backed by the current topic and plugin state.

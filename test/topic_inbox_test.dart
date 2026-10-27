@@ -110,21 +110,36 @@ void main() {
           matching: find.byType(DButton),
         );
         final tokens = DTokens.of(tester.element(category));
-        expect(buttonSurface(tester, of: parent).color, Colors.transparent);
+        final wide = platform == TargetPlatform.macOS;
+        // The category the topic sits under is context: no fill, no edge,
+        // muted text. A phone's line keeps only the topic's own category.
+        expect(parent, wide ? findsWidgets : findsNothing);
+        if (wide) {
+          expect(buttonSurface(tester, of: parent).color, Colors.transparent);
+          expect(
+            buttonSurface(tester, of: parent).borderColor,
+            Colors.transparent,
+          );
+          expect(
+            tester.widget<DButton>(parent.first).foregroundColor,
+            tokens.mutedForeground,
+          );
+        }
+        // The topic's own category is a filled pill with no edge.
         expect(
           buttonSurface(tester, of: category).color,
           Color.lerp(tokens.background, Color(_child.colorValue), .25),
         );
         expect(
           buttonSurface(tester, of: category).borderColor,
-          Color.lerp(
-            tokens.buttonTheme.outline.border,
-            Color(_child.colorValue),
-            .40,
-          ),
+          Colors.transparent,
+        );
+        expect(
+          buttonSurface(tester, of: category).borderRadius,
+          BorderRadius.circular(DRadius.pill),
         );
         for (final action in [
-          parent,
+          if (wide) parent,
           category,
           find.byKey(const ValueKey('topic-header-bookmark-button')),
           find.byKey(const ValueKey('topic-header-notification-button')),
@@ -136,25 +151,50 @@ void main() {
         final badge = find.byKey(
           const ValueKey(('topic-header-tag', 'community')),
         );
-        final tagSurface =
-            tester
-                    .widget<AnimatedContainer>(
-                      find.descendant(
-                        of: badge,
-                        matching: find.byType(AnimatedContainer),
-                      ),
-                    )
-                    .decoration!
-                as BoxDecoration;
+        if (!wide) {
+          await tester.tap(
+            find.byKey(const ValueKey('topic-header-more-tags')),
+          );
+          await tester.pumpAndSettle();
+        }
+        // A tag is a tool: a faint pill with no edge and regular text, its
+        // hash muted where other tools keep an icon.
+        final tool = tokens.quietControlSurface();
         expect(tester.getSize(badge).height, 30);
-        expect(tagSurface.color, tokens.buttonTheme.outline.background);
-        expect(tagSurface.border!.top.color, tokens.buttonTheme.outline.border);
+        expect(tester.widget<DButton>(badge).variant, DButtonVariant.tool);
+        expect(buttonSurface(tester, of: badge).color, tool.background);
         expect(
-          DefaultTextStyle.of(
-            tester.element(find.text('# community')),
-          ).style.color,
-          tokens.buttonTheme.outline.foreground,
+          buttonSurface(tester, of: badge).color,
+          tokens.foreground.withValues(alpha: .05),
         );
+        expect(
+          buttonSurface(tester, of: badge).borderColor,
+          Colors.transparent,
+        );
+        expect(
+          buttonSurface(tester, of: badge).borderRadius,
+          BorderRadius.circular(DRadius.pill),
+        );
+        final label = tester.widget<RichText>(
+          find
+              .descendant(
+                of: badge,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is RichText &&
+                      widget.text.toPlainText().contains('community'),
+                ),
+              )
+              .first,
+        );
+        expect(label.text.style?.color, tool.foreground);
+        expect(label.text.style?.fontWeight, FontWeight.w400);
+        TextStyle? hash;
+        label.text.visitChildren((span) {
+          if (span is TextSpan && span.text == '#') hash = span.style;
+          return hash == null;
+        });
+        expect(hash?.color, tokens.mutedForeground);
         expect(tester.takeException(), isNull);
         final directory = Platform.environment['TOPIC_HEADER_CAPTURE_DIR'];
         if (directory != null) {
@@ -268,7 +308,7 @@ void main() {
         closeTo(tester.getRect(taxonomy).center.dy, 1),
       );
     }
-    expect(tester.widget<DButton>(assignment).variant, DButtonVariant.outline);
+    expect(tester.widget<DButton>(assignment).variant, DButtonVariant.tool);
     expect(
       find.descendant(
         of: header,
@@ -285,7 +325,7 @@ void main() {
   });
 
   {
-    testWidgets('topic header controls stay flat and share one corner radius in '
+    testWidgets('topic header controls stay flat and share one pill radius in '
         'flat', (tester) async {
       final setup = await _setup(
         tester,
@@ -303,15 +343,10 @@ void main() {
         category.first,
         find.byKey(const ValueKey('topic-header-bookmark-button')),
         find.byKey(const ValueKey('topic-header-notification-button')),
+        find.byKey(const ValueKey('topic-more-actions')),
         find.byKey(const ValueKey('topic-status-button')),
+        find.byKey(const ValueKey(('topic-header-tag', 'community'))),
       ];
-      final tag = find.descendant(
-        of: find.byKey(const ValueKey(('topic-header-tag', 'community'))),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is AnimatedContainer && widget.decoration is BoxDecoration,
-        ),
-      );
       // Joined groups square their inner corners; every rounded corner matches.
       Set<Radius> corners(BorderRadiusGeometry? radius) {
         final resolved = radius!.resolve(TextDirection.ltr);
@@ -323,22 +358,16 @@ void main() {
         }..remove(Radius.zero);
       }
 
-      final radius = Radius.circular(
-        DTokens.of(tester.element(category.first)).controlRadius,
-      );
-      expect(radius, const Radius.circular(DRadius.control));
+      // Every rounded corner is a full pill's: at least half the height.
       for (final button in buttons) {
-        expect(corners(buttonSurface(tester, of: button).borderRadius), {
-          radius,
-        }, reason: '$button');
+        final rounded = corners(buttonSurface(tester, of: button).borderRadius);
+        expect(rounded, isNotEmpty, reason: '$button');
+        final half = tester.getSize(button).height / 2;
+        for (final corner in rounded) {
+          expect(corner.x, greaterThanOrEqualTo(half), reason: '$button');
+          expect(corner.y, greaterThanOrEqualTo(half), reason: '$button');
+        }
       }
-      expect(
-        corners(
-          (tester.widget<AnimatedContainer>(tag).decoration! as BoxDecoration)
-              .borderRadius,
-        ),
-        {radius},
-      );
       expect(tester.takeException(), isNull);
     });
   }
@@ -1636,20 +1665,38 @@ void main() {
         shell.openTopicFromList(setup.rows.first);
         await tester.pumpAndSettle();
         expect(_compactHeader, findsOneWidget);
+        final last = find.byKey(
+          const ValueKey(('topic-header-tag', 'region-27')),
+        );
+        expect(last, findsNothing);
+        // The count opens every tag inline rather than a picker.
         await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byKey(
-            ValueKey(
-              canEditTags
-                  ? 'topic-tag-picker-query'
-                  : 'topic-header-tags-search',
-            ),
-          ),
-          'region-27',
+        expect(
+          find.byKey(const ValueKey('topic-header-more-tags')),
+          findsNothing,
         );
-        await tester.pumpAndSettle(const Duration(milliseconds: 300));
+        expect(
+          find.byKey(const ValueKey('topic-tag-picker-query')),
+          findsNothing,
+        );
+        for (final tag in tags) {
+          expect(
+            find.byKey(ValueKey(('topic-header-tag', tag.name))),
+            findsOneWidget,
+          );
+        }
+        final edit = find.byKey(const ValueKey('topic-header-edit-tags'));
         if (canEditTags) {
+          // Opened, the run ends in the pencil that edits them.
+          expect(edit.hitTestable(), findsOneWidget);
+          await tester.tap(edit);
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byKey(const ValueKey('topic-tag-picker-query')),
+            'region-27',
+          );
+          await tester.pumpAndSettle(const Duration(milliseconds: 300));
           await tester.tap(
             find.byKey(
               const ValueKey(('topic-tag-picker-option', 'region-27')),
@@ -1665,16 +1712,11 @@ void main() {
           );
           expect(_compactHeader, findsOneWidget);
         } else {
-          expect(
-            find.byKey(const ValueKey('topic-header-edit-tags')),
-            findsNothing,
-          );
+          expect(edit, findsNothing);
           expect(find.byType(DCheckbox), findsNothing);
-          await tester.tap(
-            find.byKey(
-              const ValueKey(('topic-header-tag-option', 'region-27')),
-            ),
-          );
+          await tester.ensureVisible(last);
+          await tester.pumpAndSettle();
+          await tester.tap(last);
           await tester.pumpAndSettle();
           expect(shell.currentContent?.feedPath, '/tag/region-27/27.json');
           expect(setup.api.topicTagsUpdated, isEmpty);
@@ -1799,61 +1841,68 @@ void main() {
         final header = find.byKey(const ValueKey('topic-content-header'));
         expect(tester.getSize(header).height, greaterThan(shellHeaderHeight));
         final title = _compactHeader;
+        final line = find.byKey(const ValueKey('topic-header-taxonomy'));
         final category = find.byKey(const ValueKey('topic-header-category'));
         final parent = find.byKey(
           const ValueKey('topic-header-parent-category'),
         );
+        final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+        final status = find.byKey(const ValueKey('topic-status-button'));
+        // The whole path stays only while it fits beside a count of every
+        // tag; otherwise the topic's own category leads the line alone.
+        final wholePath = parent.evaluate().isNotEmpty;
+        expect(wholePath, width >= 900, reason: 'width $width');
+        final lead = wholePath ? parent : category;
         expect(
-          tester.getRect(parent).left,
-          closeTo(
-            tester
-                .getRect(find.byKey(const ValueKey('topic-header-taxonomy')))
-                .left,
-            1,
-          ),
+          tester.getRect(lead).left,
+          closeTo(tester.getRect(line).left, 1),
         );
-        expect(
-          tester.getRect(parent).right,
-          lessThan(tester.getRect(category).left),
-        );
+        if (wholePath) {
+          expect(
+            tester.getRect(parent).right,
+            lessThan(tester.getRect(category).left),
+          );
+          expect(
+            find.byTooltip('Edit topic category').hitTestable(),
+            findsOneWidget,
+          );
+        }
         expect(
           find.byKey(const ValueKey('topic-header-browse-category-21')),
           findsNothing,
-        );
-        expect(
-          find.byTooltip('Edit topic category').hitTestable(),
-          findsOneWidget,
         );
         expect(
           find.byTooltip('Edit topic subcategory').hitTestable(),
           findsOneWidget,
         );
         expect(tester.getRect(title).right, lessThan(width));
-        final tags = find.byKey(const ValueKey('topic-header-tags'));
-        final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
         expect(overflow, findsOneWidget);
+        expect(overflow.hitTestable(), findsOneWidget);
         expect(tester.getSize(overflow).width, greaterThanOrEqualTo(28));
         expect(
-          tester.getRect(category).overlaps(tester.getRect(tags)),
+          tester.getRect(category).overlaps(tester.getRect(overflow)),
           isFalse,
         );
-        expect(tester.getRect(tags).right, lessThan(width));
+        expect(tester.getRect(overflow).right, lessThan(width));
+        expect(tester.getRect(line).right, lessThan(width));
         expect(
-          tester.getRect(tags).top,
+          tester.getRect(overflow).top,
           greaterThanOrEqualTo(tester.getRect(category).top),
         );
         expect(
-          tester.getRect(tags).top,
+          tester.getRect(line).top,
           greaterThan(tester.getRect(title).bottom),
         );
+        for (final chip in [category, overflow]) {
+          expect(
+            tester.getRect(status).overlaps(tester.getRect(chip)),
+            isFalse,
+          );
+        }
+        expect(status.hitTestable(), findsOneWidget);
+        expect(tester.getRect(status).right, lessThanOrEqualTo(width));
         expect(
-          tester
-              .getRect(find.byKey(const ValueKey('topic-status-button')))
-              .overlaps(tester.getRect(tags)),
-          isFalse,
-        );
-        expect(
-          tester.getRect(tags).top,
+          tester.getRect(line).top,
           greaterThanOrEqualTo(tester.getRect(header).bottom),
         );
         expect(tester.takeException(), isNull, reason: 'width $width');
@@ -1915,7 +1964,7 @@ void main() {
       tester.view.physicalSize = const Size(1400, 800);
 
       for (final compact in [false, true]) {
-        var wideTagCount = 0;
+        var previousTagCount = 0;
         for (final width in [1200.0, 780.0, 600.0, 390.0]) {
           await tester.pumpWidget(
             ShellScope(
@@ -1948,31 +1997,49 @@ void main() {
           );
           final category = compact
               ? find.byKey(const ValueKey('topic-header-category'))
+              : find.byTooltip('Edit topic subcategory');
+          final parent = compact
+              ? find.byKey(const ValueKey('topic-header-parent-category'))
               : find.byTooltip('Edit topic category');
           final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
           final status = find.byKey(const ValueKey('topic-status-button'));
+          final title = find.byKey(const ValueKey('topic-header-title-field'));
+          final visible = tags
+              .where(
+                (tag) => find
+                    .byKey(ValueKey(('topic-header-tag', tag.name)))
+                    .evaluate()
+                    .isNotEmpty,
+              )
+              .toList();
+          // Tags fit by width alone, the first ones first, and a count
+          // stands for the rest only when some are left out.
+          expect(visible, tags.take(visible.length));
           expect(
-            tester.getRect(category).overlaps(tester.getRect(overflow)),
+            overflow,
+            visible.length < tags.length ? findsOneWidget : findsNothing,
+          );
+          final end = visible.length < tags.length
+              ? overflow
+              : find.byKey(ValueKey(('topic-header-tag', visible.last.name)));
+          expect(
+            tester.getRect(category).overlaps(tester.getRect(end)),
             isFalse,
           );
           expect(
-            tester.getRect(overflow).top,
+            tester.getRect(end).top,
             greaterThanOrEqualTo(tester.getRect(category).top),
           );
-          final title = find.byKey(const ValueKey('topic-header-title-field'));
-          final parent = compact
-              ? find.byKey(const ValueKey('topic-header-parent-category'))
-              : category;
-          expect(
-            tester.getRect(overflow).overlaps(tester.getRect(status)),
-            isFalse,
-          );
+          expect(tester.getRect(end).overlaps(tester.getRect(status)), isFalse);
           expect(
             tester.getRect(category).top,
             greaterThan(tester.getRect(title).bottom),
           );
+          // The whole path leads the line while it fits; else the topic's
+          // own category does.
+          final lead = parent.evaluate().isNotEmpty ? parent : category;
           expect(
-            tester.getRect(parent).left,
+            tester.getRect(lead).left,
             closeTo(
               tester
                   .getRect(find.byKey(const ValueKey('topic-header-taxonomy')))
@@ -1980,14 +2047,17 @@ void main() {
               1,
             ),
           );
-          expect(
-            tester.getRect(status).overlaps(tester.getRect(overflow)),
-            isFalse,
-          );
+          if (parent.evaluate().isNotEmpty) {
+            expect(
+              tester.getRect(parent).right,
+              lessThan(tester.getRect(category).left),
+            );
+          }
           expect(
             tester.getRect(status).top,
             greaterThan(tester.getRect(title).bottom),
           );
+          expect(status.hitTestable(), findsOneWidget);
           expect(
             find.byKey(const ValueKey('topic-header-activity')),
             findsNothing,
@@ -1998,20 +2068,13 @@ void main() {
           );
           expect(find.byKey(const ValueKey('inbox-next-topic')), findsNothing);
           expect(find.byType(TopicShareButton), findsNothing);
-          final visibleTags = tags
-              .where(
-                (tag) => find
-                    .byKey(ValueKey(('topic-header-tag', tag.name)))
-                    .evaluate()
-                    .isNotEmpty,
-              )
-              .length;
           if (width == 1200) {
-            wideTagCount = visibleTags;
-            expect(wideTagCount, greaterThan(0));
-          } else if (width == 390) {
-            expect(visibleTags, lessThanOrEqualTo(wideTagCount));
+            expect(visible, tags);
+            expect(parent, findsOneWidget);
+          } else {
+            expect(visible.length, lessThanOrEqualTo(previousTagCount));
           }
+          previousTagCount = visible.length;
           expect(
             tester.takeException(),
             isNull,
@@ -2271,7 +2334,7 @@ void main() {
   );
 
   testWidgets(
-    'many tags stay beside categories and hidden tags can be removed on picker dismissal',
+    'many tags stay beside categories and hidden tags can be removed from a held tag',
     (tester) async {
       final tags = [
         for (var id = 1; id <= 27; id++) TopicTag(id: id, name: 'region-$id'),
@@ -2295,8 +2358,27 @@ void main() {
         closeTo(tester.getCenter(child).dy, 1),
       );
       expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
+      final shown = tags
+          .where(
+            (tag) => find
+                .byKey(ValueKey(('topic-header-tag', tag.name)))
+                .evaluate()
+                .isNotEmpty,
+          )
+          .length;
+      expect(shown, greaterThan(0));
+      expect(
+        find.descendant(
+          of: overflow,
+          matching: find.text('+${tags.length - shown}'),
+        ),
+        findsOneWidget,
+      );
 
-      await tester.tap(overflow);
+      // Holding any shown tag edits them all, the hidden ones included.
+      await tester.longPress(
+        find.byKey(const ValueKey(('topic-header-tag', 'region-1'))),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('topic-tag-picker-query')),
@@ -2315,6 +2397,13 @@ void main() {
         isNot(contains('region-27')),
       );
       expect(tester.getSize(taxonomy).height, height);
+      expect(
+        find.descendant(
+          of: overflow,
+          matching: find.text('+${tags.length - 1 - shown}'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Done'), findsNothing);
       expect(tester.takeException(), isNull);
     },
@@ -2393,22 +2482,19 @@ void main() {
           find.byKey(const ValueKey(('topic-header-tag', 'region-27'))),
           findsNothing,
         );
+        // The count shows every tag inline, where each navigates as any
+        // shown tag does.
         await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
         await tester.pumpAndSettle();
-        final query = find.byKey(
-          ValueKey(
-            canEditTags ? 'topic-tag-picker-query' : 'topic-header-tags-search',
-          ),
+        final query = find.byKey(const ValueKey('topic-tag-picker-query'));
+        expect(query, findsNothing);
+        final last = find.byKey(
+          const ValueKey(('topic-header-tag', 'region-27')),
         );
-        await tester.enterText(query, 'REGION-27');
-        await tester.pumpAndSettle(const Duration(milliseconds: 300));
+        await tester.ensureVisible(last);
+        await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(
-            ValueKey((
-              canEditTags ? 'topic-tag-picker-open' : 'topic-header-tag-option',
-              'region-27',
-            )),
-          ),
+          last,
           kind: PointerDeviceKind.mouse,
           buttons: newTab ? kMiddleMouseButton : kPrimaryMouseButton,
         );
@@ -2486,12 +2572,15 @@ void main() {
     expect(find.byKey(const ValueKey('topic-header-edit-tags')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('topic-header-tags-search')),
-      'REGION-27',
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('# region-27'), findsOneWidget);
+    for (final tag in tags) {
+      expect(
+        find.bySemanticsLabel('Open tag ${tag.name}'),
+        findsOneWidget,
+        reason: tag.name,
+      );
+    }
+    // Opened without edit permission, the run offers no pencil.
+    expect(find.byKey(const ValueKey('topic-header-edit-tags')), findsNothing);
     expect(find.byType(DCheckbox), findsNothing);
     expect(setup.api.topicTagsUpdated, isEmpty);
     expect(setup.controller.currentTopic!.tags, hasLength(27));
@@ -2554,8 +2643,15 @@ void main() {
           isNull,
           reason: 'reader width $width at text scale $textScale',
         );
+        // The topic's own category always shows; the one above it only
+        // while the whole path fits.
+        final wholePath = find
+            .byTooltip('Edit topic category')
+            .evaluate()
+            .isNotEmpty;
+        if (width == 900 && textScale == 1) expect(wholePath, isTrue);
         for (final tooltip in [
-          'Edit topic category',
+          if (wholePath) 'Edit topic category',
           'Edit topic subcategory',
         ]) {
           final category = find.byTooltip(tooltip);
@@ -2618,12 +2714,20 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: 'opening $width');
         final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
+        expect(overflow.hitTestable(), findsOneWidget);
+        // The topic's own category always shows; the one above it returns
+        // once the whole path fits beside the count.
+        final wholePath = find
+            .byTooltip('Edit topic category')
+            .evaluate()
+            .isNotEmpty;
+        expect(wholePath, width >= 900, reason: 'width $width');
         for (final tooltip in [
-          'Edit topic category',
+          if (wholePath) 'Edit topic category',
           'Edit topic subcategory',
         ]) {
           final category = find.byTooltip(tooltip);
-          expect(category, findsOneWidget);
+          expect(category.hitTestable(), findsOneWidget);
           expect(
             tester.getRect(category).overlaps(tester.getRect(overflow)),
             isFalse,
@@ -2847,7 +2951,7 @@ void main() {
 
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets(
-      'header bookmark retains its joined outline (${theme.brightness.name})',
+      'header bookmark and bell share one tool pill (${theme.brightness.name})',
       (tester) async {
         final setup = await _setup(tester, theme: theme);
         setup.controller.openTopicFromList(setup.rows.first);
@@ -2885,19 +2989,30 @@ void main() {
             await setup.controller.loadTopic(1, 'topic-1', force: true);
             await tester.pumpAndSettle();
             final tokens = DTokens.of(tester.element(bookmark));
-            final controls = tokens.buttonTheme;
-            final surface = buttonSurface(tester, of: bookmark);
-            expect(surface.borderColor, controls.outline.border);
-            expect(surface.color, controls.outline.background);
+            final tool = tokens.quietControlSurface();
+            // Bookmark and bell share one faint pill; each is clear on it.
+            final group = find
+                .ancestor(of: bookmark, matching: find.byType(DButtonGroup))
+                .first;
             expect(
-              surface.borderRadius,
-              BorderRadius.horizontal(
-                left: Radius.circular(tokens.buttonTheme.radius),
-              ),
+              find.descendant(of: group, matching: notifications),
+              findsOneWidget,
             );
+            final pill = tester.widget<DecoratedBox>(
+              find
+                  .descendant(of: group, matching: find.byType(DecoratedBox))
+                  .first,
+            );
+            final fill = pill.decoration as BoxDecoration;
+            expect(fill.color, tool.background);
+            expect(fill.color, tokens.foreground.withValues(alpha: .05));
+            expect(fill.borderRadius, BorderRadius.circular(DRadius.pill));
+            final surface = buttonSurface(tester, of: bookmark);
+            expect(surface.color, Colors.transparent);
+            expect(surface.borderColor, Colors.transparent);
             expect(
               buttonSurface(tester, of: notifications).color,
-              controls.outline.background,
+              Colors.transparent,
             );
             expect(tester.getSize(bookmark), unselectedSize);
             expect(
@@ -2908,6 +3023,25 @@ void main() {
               buttonSurface(tester, of: notifications).joinedAxis,
               Axis.horizontal,
             );
+            // Where they meet, a 1px rule of the foreground divides them.
+            final split = find
+                .ancestor(
+                  of: notifications,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is CustomPaint &&
+                        widget.foregroundPainter != null,
+                  ),
+                )
+                .first;
+            final splitHeight = tester.getSize(split).height;
+            expect(
+              tester.renderObject(split),
+              paints..rect(
+                rect: Rect.fromLTWH(0, 1, 1, splitHeight - 2),
+                color: tokens.foreground.withValues(alpha: .12),
+              ),
+            );
             expect(
               tester
                   .widget<DIcon>(
@@ -2916,17 +3050,19 @@ void main() {
                   .icon,
               saved ? DIcons.bookmark : DIcons.farBookmark,
             );
+            // Saved, only the artwork takes the accent; the pill is shared.
+            expect(
+              tester.widget<DButton>(bookmark).foregroundColor,
+              saved ? tokens.primary : isNull,
+            );
             expect(tester.widget<DButton>(bookmark).hasPopup, isTrue);
             if (saved) {
               await mouse.moveTo(tester.getCenter(bookmark));
               await tester.pumpAndSettle();
-              expect(
-                buttonSurface(tester, of: bookmark).color,
-                controls.outline.hover,
-              );
+              expect(buttonSurface(tester, of: bookmark).color, tool.hover);
               expect(
                 buttonSurface(tester, of: notifications).color,
-                controls.outline.background,
+                Colors.transparent,
               );
               await mouse.moveTo(Offset.zero);
               await tester.pumpAndSettle();

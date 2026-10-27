@@ -17,6 +17,7 @@ import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
 import 'd_scroll_chrome.dart';
+import 'd_sheet.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
 /// header. The width policy aligns the header, body content, and footer while
@@ -57,6 +58,7 @@ class DPageSurface extends StatefulWidget {
        compactHeader = null,
        initialCompactHeader = null,
        measureCompactHeader = false,
+       compactHeaderBand = false,
        tabs = null,
        framed = false,
        border = false,
@@ -93,6 +95,7 @@ class DPageSurface extends StatefulWidget {
   }) : assert(child != null),
        foldTitleAtTop = false,
        floatingFooter = false,
+       compactHeaderBand = false,
        adaptiveBodyBuilder = null,
        bodyBuilder = null;
 
@@ -120,6 +123,7 @@ class DPageSurface extends StatefulWidget {
     this.headerSuppressed,
     this.limitContentSize,
     this.identity,
+    this.compactHeaderBand = false,
     required this.bodyBuilder,
   }) : assert(bodyBuilder != null),
        foldTitleAtTop = false,
@@ -141,6 +145,11 @@ class DPageSurface extends StatefulWidget {
   /// loading until the user scrolls. Null follows scroll position immediately.
   /// Changes take effect when [identity] changes, not when content arrives.
   final bool? initialCompactHeader;
+
+  /// [compactHeader] is a band of its own fill across the top of the page
+  /// sheet this page is in, which squares its corners under the band while
+  /// it rests there and keeps its grabber beneath it. See [DSheetPageBand].
+  final bool compactHeaderBand;
 
   /// Measures an inert, offstage copy of [compactHeader] before its first use.
   /// This makes the switch follow its actual width and text scaling instead of
@@ -332,6 +341,14 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final band = widget.compactHeaderBand
+        ? DSheetPageBand.maybeOf(context)
+        : null;
+    if (!identical(band, _band)) {
+      _withdrawBand();
+      _band = band;
+      _reportBand();
+    }
     _motion.configure(
       DHeaderMotionSettings.of(context),
       disableAnimations: MediaQuery.disableAnimationsOf(context),
@@ -389,6 +406,10 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void didUpdateWidget(DPageSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.compactHeaderBand != widget.compactHeaderBand) {
+      _withdrawBand();
+      _band = widget.compactHeaderBand ? DSheetPageBand.maybeOf(context) : null;
+    }
     if (oldWidget.minimumScrollExtent != widget.minimumScrollExtent ||
         (oldWidget.header == null) != (widget.header == null)) {
       _registerHeader();
@@ -421,9 +442,41 @@ class _DPageSurfaceState extends State<DPageSurface>
       _titleFold.value = 0;
       _titleFoldTarget = 0;
     }
+    _reportBand();
+  }
+
+  DSheetPageBand? _band;
+
+  // A withdrawn owner is never heard from again, so each attachment of this
+  // head to a sheet reports as a new one.
+  Object _bandOwner = Object();
+
+  void _withdrawBand() {
+    _band?.withdraw(_bandOwner);
+    _bandOwner = Object();
+  }
+
+  /// The grabber's foot below a page sheet's top edge.
+  static const _grabberFoot = 12.0;
+
+  void _reportBand() {
+    final band = _band;
+    if (band == null) return;
+    final shown = 1 - math.max(_hiddenFraction, _suppression.value);
+    final box =
+        _headerKey.currentContext?.findRenderObject()
+            as _RenderScrollHeaderExtent?;
+    final height = box?.naturalHeight ?? _compactHeight;
+    band.report(
+      _bandOwner,
+      condensed: _compact,
+      resting: _compact && shown > .999,
+      coversGrabber: _compact && shown * height >= _grabberFoot,
+    );
   }
 
   void _updateHeader() {
+    _reportBand();
     // Only accessibility boundaries rebuild widgets. Motion goes straight to
     // the render objects, including the body mask and sticky-day geometry.
     final gone = _hiddenFraction == 1 || _suppression.value == 1;
@@ -626,9 +679,11 @@ class _DPageSurfaceState extends State<DPageSurface>
           SchedulerPhase.persistentCallbacks) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _compact = compact);
+          _reportBand();
         });
       } else {
         setState(() => _compact = compact);
+        _reportBand();
       }
     }
 
@@ -724,6 +779,7 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   @override
   void dispose() {
+    _withdrawBand();
     _scrollChrome?.removeListener(_updateHeader);
     _scrollChrome?.unregisterHeader(this);
     widget.headerSuppressed?.removeListener(_syncSuppression);

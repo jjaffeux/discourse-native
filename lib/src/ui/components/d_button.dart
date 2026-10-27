@@ -41,6 +41,10 @@ enum DButtonVariant {
 
   /// A chosen page picker with a stronger fill and foreground.
   quietSelected,
+
+  /// A topic's own control: a pill of faint fill with no edge and regular
+  /// text. Inside a [DButtonGroup.tool] it shares the group's one pill.
+  tool,
   ghost,
 
   /// Clear at rest, with a subdued foreground and a neutral interaction fill.
@@ -489,7 +493,7 @@ class DButton extends StatelessWidget {
         expanded: buttons.primary.hover,
       ),
       DButtonVariant.outline => outline,
-      DButtonVariant.secondary => pair(
+      DButtonVariant.secondary || DButtonVariant.tool => pair(
         tokens.quietControlSurface().background,
         tokens.quietControlSurface().hover,
         tokens.quietControlSurface().foreground,
@@ -744,6 +748,7 @@ class DButton extends StatelessWidget {
                     rail ||
                     shape == DButtonShape.pill ||
                     quiet ||
+                    variant == DButtonVariant.tool ||
                     variant == DButtonVariant.primary
               ? DRadius.pill
               : timelineEnd || menuAction
@@ -819,6 +824,20 @@ class DButton extends StatelessWidget {
           backgroundColor: interactive
               ? DControlStyle.rowHover(tokens)
               : Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
+      if (variant == DButtonVariant.tool && joined?.quiet == true) {
+        final interactive =
+            enabled &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed) ||
+                expanded);
+        final surface = tokens.quietControlSurface();
+        return DButtonStateStyle(
+          foregroundColor: surface.foreground,
+          iconColor: surface.foreground,
+          backgroundColor: interactive ? surface.hover : Colors.transparent,
           border: BorderSide.none,
         );
       }

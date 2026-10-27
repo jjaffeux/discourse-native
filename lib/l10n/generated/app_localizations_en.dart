@@ -3331,6 +3331,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get assignTopic => 'Assign topic';
 
   @override
+  String get reassignTopic => 'Reassign topic';
+
+  @override
+  String unassignFromTopic(String name) {
+    return 'Unassign $name from topic';
+  }
+
+  @override
   String get assignAssignmentsheet => 'Assign';
 
   @override

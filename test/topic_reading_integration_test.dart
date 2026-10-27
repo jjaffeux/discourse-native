@@ -3241,54 +3241,49 @@ void _registerTopicReadingTests() {
       expect(find.text('Flag topic'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets(
-      'outlined header bookmark opens the matching topic or post menu',
-      (tester) async {
-        const reader = DiscourseUser(id: 1, username: 'reader');
-        final authenticator = FakeAuthenticator()
-          ..keys['https://meta.discourse.org'] = 'meta-key';
+    testWidgets('tool header bookmark opens the matching topic or post menu', (
+      tester,
+    ) async {
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      final authenticator = FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'meta-key';
 
-        Future<void> openBookmark(Bookmark bookmark, String title) async {
-          final api = FakeDiscourseApi(
-            feeds: {'/latest.json': listed},
-            topics: {
-              7: detail(bookmarks: [bookmark]),
-            },
-          );
-          await pumpShell(
-            tester,
-            desktop,
-            instances: [instance('meta.discourse.org').copyWith(user: reader)],
-            api: api,
-            authenticator: authenticator,
-          );
-          await tester.tap(topicListTitle('A real topic'));
-          await tester.pumpAndSettle();
-          final action = find.byKey(
-            const ValueKey('topic-header-bookmark-button'),
-          );
-          expect(
-            tester.widget<DButton>(action).variant,
-            DButtonVariant.outline,
-          );
-          await tester.tap(action);
-          await tester.pumpAndSettle();
-          expect(find.text(title), findsOneWidget);
-          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          await tester.pumpAndSettle();
-        }
+      Future<void> openBookmark(Bookmark bookmark, String title) async {
+        final api = FakeDiscourseApi(
+          feeds: {'/latest.json': listed},
+          topics: {
+            7: detail(bookmarks: [bookmark]),
+          },
+        );
+        await pumpShell(
+          tester,
+          desktop,
+          instances: [instance('meta.discourse.org').copyWith(user: reader)],
+          api: api,
+          authenticator: authenticator,
+        );
+        await tester.tap(topicListTitle('A real topic'));
+        await tester.pumpAndSettle();
+        final action = find.byKey(
+          const ValueKey('topic-header-bookmark-button'),
+        );
+        expect(tester.widget<DButton>(action).variant, DButtonVariant.tool);
+        await tester.tap(action);
+        await tester.pumpAndSettle();
+        expect(find.text(title), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
 
-        await openBookmark(
-          const Bookmark(id: 1, bookmarkableType: 'Topic'),
-          'Topic bookmark',
-        );
-        await openBookmark(
-          const Bookmark(id: 2, bookmarkableType: 'Post'),
-          'Topic bookmarks',
-        );
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.linux),
-    );
+      await openBookmark(
+        const Bookmark(id: 1, bookmarkableType: 'Topic'),
+        'Topic bookmark',
+      );
+      await openBookmark(
+        const Bookmark(id: 2, bookmarkableType: 'Post'),
+        'Topic bookmarks',
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('topic header omits sharing for signed-in users', (
       tester,

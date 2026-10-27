@@ -5847,6 +5847,18 @@ abstract class AppLocalizations {
   /// **'Assign topic'**
   String get assignTopic;
 
+  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Reassign topic'**
+  String get reassignTopic;
+
+  /// English UI message used by plugins/assign/assign_plugin.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Unassign {name} from topic'**
+  String unassignFromTopic(String name);
+
   /// English UI message used by plugins/assign/assignment_sheet.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
