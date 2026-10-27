@@ -423,6 +423,13 @@ class DTabList<T> extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: well,
+                    border: Border.all(
+                      color: Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .12,
+                      )!,
+                    ),
                     borderRadius: BorderRadius.circular(DRadius.pill),
                   ),
                   child: Padding(
@@ -835,8 +842,12 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         : DRadius.panel;
     final accent = tokens.buttonTheme.primary;
     final outline = tokens.buttonTheme.outline;
+    // The chosen side of the sidebar's switch stands out of its well by a
+    // step of fill: toward the text in dark, the ground itself in light.
     final selectedBackground = expanding
-        ? Color.lerp(tokens.background, tokens.foreground, .03)!
+        ? dark
+              ? Color.lerp(tokens.background, tokens.foreground, .18)!
+              : tokens.background
         : outlinePill
         ? (_hovered ? accent.hover : accent.background)
         : pill

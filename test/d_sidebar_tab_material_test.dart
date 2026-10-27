@@ -7,6 +7,31 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('the chosen side and the well take the reference fills', (
+    tester,
+  ) async {
+    for (final dark in [false, true]) {
+      final backdrop = dark ? const Color(0xff49405f) : const Color(0xffe8e4ef);
+      await _mount(tester, dark: dark, backdrop: backdrop);
+      final tokens = DTokens.of(
+        tester.element(find.byKey(const ValueKey('forum'))),
+      );
+      await _pixel(
+        tester,
+        const Offset(250, 25),
+        dark
+            ? Color.lerp(tokens.background, tokens.foreground, .18)!
+            : tokens.background,
+      );
+      // The well's edge, one pixel in from the strip's top.
+      await _pixel(
+        tester,
+        const Offset(250, 0),
+        Color.lerp(tokens.background, tokens.foreground, .12)!,
+      );
+    }
+  });
+
   testWidgets('high contrast retains an opaque selected sidebar capsule', (
     tester,
   ) async {
@@ -22,7 +47,7 @@ void main() {
     await _pixel(
       tester,
       const Offset(250, 25),
-      Color.lerp(tokens.background, tokens.foreground, .03)!,
+      Color.lerp(tokens.background, tokens.foreground, .18)!,
     );
   });
 }
