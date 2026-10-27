@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' show ImageByteFormat, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -392,6 +393,15 @@ void _registerChatShellTests() {
           final bounds = tester
               .getRect(content)
               .shift(-boundary.localToGlobal(Offset.zero));
+          // The panel's shadow lies on the ground round its corners, at most
+          // the shade it is cast with; the panel's own fill is lighter than
+          // the ground in both brightnesses.
+          final shade = DSurfaceEdges.of(DSurfaceDepth.panel, brightness)
+              .shadows
+              .fold(
+                0.0,
+                (deepest, shadow) => math.max(deepest, shadow.color.a),
+              );
           await tester.runAsync(() async {
             final image = await boundary.toImage();
             try {
@@ -414,9 +424,13 @@ void _registerChatShellTests() {
                 final gutterOffset =
                     (point.dy.round() * image.width + gutterX.round()) * 4;
                 for (var channel = 0; channel < 3; channel++) {
+                  final ground = pixels.getUint8(gutterOffset + channel);
                   expect(
                     pixels.getUint8(offset + channel),
-                    closeTo(pixels.getUint8(gutterOffset + channel), 1),
+                    inInclusiveRange(
+                      (ground * (1 - shade)).floor(),
+                      ground + 1,
+                    ),
                     reason: 'Workspace background at $point',
                   );
                 }
