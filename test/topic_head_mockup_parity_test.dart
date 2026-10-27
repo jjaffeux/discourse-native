@@ -117,7 +117,11 @@ Future<ShellController> _openTopic(
       },
     ),
   );
-  await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+  // The title, clear of the row's category and tag links.
+  await tester.tapAt(
+    tester.getTopLeft(find.byKey(const ValueKey('topic-card-7'))) +
+        const Offset(24, 16),
+  );
   await tester.pumpAndSettle();
   return ShellScope.read(tester.element(find.byType(MobileForumRoot)));
 }
@@ -419,6 +423,7 @@ void main() {
       ),
     );
     expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
+    expect(tester.widget<DPageSurface>(sheet).depth, isNull);
 
     // Rounded again, and the grabber back, once the head has gone.
     await wheel(400);

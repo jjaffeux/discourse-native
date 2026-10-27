@@ -80,7 +80,11 @@ Future<void> _stage(String name, {int seconds = 8}) async {
 
 Future<void> _review() async {
   await Future<void>.delayed(const Duration(seconds: 6));
-  await _tap(const ValueKey('topic-card-7'));
+  final card = _rectOf(const ValueKey('topic-card-7'));
+  // The title, clear of the row's category and tag links.
+  if (card != null) {
+    await _drag(card.topLeft + const Offset(24, 16), Offset.zero, steps: 1);
+  }
   await _stage('expanded');
   await _tap(const ValueKey('topic-header-more-tags'));
   await _stage('all-tags');

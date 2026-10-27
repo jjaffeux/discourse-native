@@ -469,6 +469,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     final height = box?.naturalHeight ?? _compactHeight;
     band.report(
       _bandOwner,
+      condensed: _compact,
       resting: _compact && shown > .999,
       coversGrabber: _compact && shown * height >= _grabberFoot,
     );

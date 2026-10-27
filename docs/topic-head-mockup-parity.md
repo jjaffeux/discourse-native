@@ -72,6 +72,7 @@ geometry and elevation belong to the shared sheet work.
 | Condensed head | A band of `wellFill` across the sheet's top, bottom corners 31, running up into the screen's head. Both header states keep the band's box so the morph keeps its state. |
 | Card under a resting band | Its top corners are squared. Otherwise the two curves' antialiasing lets a sliver of the lighter card through. The corners round again as soon as the head starts to leave. |
 | Grabber | Drawn under the band while the band still covers its foot, 12 below the sheet's top. |
+| Card's depth | None while the head is drawn in, wherever the band is: the band runs on up into the screen's head, so the card has no rim, catch of light or shadow along its top. The panel depth returns with the full head. |
 
 `DPageSurface.scrollable(compactHeaderBand: true)` reports its compact state
 and how much of it is shown to the enclosing page sheet through

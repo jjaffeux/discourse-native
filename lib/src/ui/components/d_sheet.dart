@@ -228,10 +228,12 @@ class DSheetViewport extends StatelessWidget {
 /// that edge is the sheet's top while it rests there.
 abstract interface class DSheetPageBand {
   /// [owner] is the head reporting; a later report from it replaces this one.
-  /// [resting]: the band sits whole over the top edge. [coversGrabber]: enough
-  /// of it is still there to cover the grabber.
+  /// [condensed]: the head is drawn in to its band, wherever it is. [resting]:
+  /// the band sits whole over the top edge. [coversGrabber]: enough of it is
+  /// still there to cover the grabber.
   void report(
     Object owner, {
+    required bool condensed,
     required bool resting,
     required bool coversGrabber,
   });
@@ -257,7 +259,9 @@ class _DSheetPageBandScope extends InheritedWidget {
 /// A page sheet's card: round at its top as the phone's bar is, squared under
 /// a band resting there, whose antialiased edge would otherwise let a sliver
 /// of the card show along the curve the two share. The grabber is drawn under
-/// the band while the band covers it.
+/// the band while the band covers it. While the head is a band at all, the
+/// card has no edge along its top: the band runs on up into the screen's
+/// head, so the card stands off nothing there.
 class _DSheetPageCard extends StatefulWidget {
   const _DSheetPageCard({
     required this.color,
@@ -276,6 +280,7 @@ class _DSheetPageCard extends StatefulWidget {
 class _DSheetPageCardState extends State<_DSheetPageCard>
     implements DSheetPageBand {
   Object? _owner;
+  bool _condensed = false;
   bool _resting = false;
   bool _coversGrabber = false;
 
@@ -285,23 +290,30 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   @override
   void report(
     Object owner, {
+    required bool condensed,
     required bool resting,
     required bool coversGrabber,
   }) {
     if (_withdrawn[owner] == true) return;
-    _apply(owner, resting: resting, coversGrabber: coversGrabber);
+    _apply(
+      owner,
+      condensed: condensed,
+      resting: resting,
+      coversGrabber: coversGrabber,
+    );
   }
 
   @override
   void withdraw(Object owner) {
     _withdrawn[owner] = true;
-    _apply(owner, resting: false, coversGrabber: false);
+    _apply(owner, condensed: false, resting: false, coversGrabber: false);
   }
 
   // Reports arrive from scroll ticks, layout and unmounting, so the change
   // waits for the frame's build to be over.
   void _apply(
     Object owner, {
+    required bool condensed,
     required bool resting,
     required bool coversGrabber,
   }) {
@@ -312,12 +324,14 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
         return;
       }
       if (identical(owner, _owner) &&
+          condensed == _condensed &&
           resting == _resting &&
           coversGrabber == _coversGrabber) {
         return;
       }
       setState(() {
         _owner = owner;
+        _condensed = condensed;
         _resting = resting;
         _coversGrabber = coversGrabber;
       });
@@ -347,7 +361,7 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
           bottom: const Radius.circular(22),
         ),
         backgroundColor: widget.color,
-        depth: DSurfaceDepth.panel,
+        depth: _condensed ? null : DSurfaceDepth.panel,
         child: Stack(
           fit: StackFit.expand,
           children: [

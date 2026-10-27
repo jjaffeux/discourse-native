@@ -1696,6 +1696,15 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    DPageSurface card(WidgetTester tester) => tester.widget<DPageSurface>(
+      find
+          .descendant(
+            of: find.byType(DSheetContent),
+            matching: find.byType(DPageSurface),
+          )
+          .first,
+    );
+
     BorderRadiusGeometry? corners(WidgetTester tester) => tester
         .widget<DPageSurface>(
           find
@@ -1718,27 +1727,34 @@ void main() {
     ) async {
       await pump(tester);
       expect(corners(tester), round);
+      expect(card(tester).depth, DSurfaceDepth.panel);
       final head = Object();
-      band.report(head, resting: true, coversGrabber: true);
+      band.report(head, condensed: true, resting: true, coversGrabber: true);
       await tester.pump();
       expect(corners(tester), squared);
       expect(grabber, findsNothing);
-      band.report(head, resting: false, coversGrabber: true);
+      // The band runs on into the screen's head: no edge along the top.
+      expect(card(tester).depth, isNull);
+      band.report(head, condensed: true, resting: false, coversGrabber: true);
       await tester.pump();
       expect(corners(tester), round);
       expect(grabber, findsNothing);
-      band.report(head, resting: false, coversGrabber: false);
+      band.report(head, condensed: true, resting: false, coversGrabber: false);
       await tester.pump();
       expect(grabber, findsOneWidget);
+      expect(card(tester).depth, isNull);
+      band.report(head, condensed: false, resting: false, coversGrabber: false);
+      await tester.pump();
+      expect(card(tester).depth, DSurfaceDepth.panel);
     });
 
     testWidgets('a withdrawn head is not heard from again', (tester) async {
       await pump(tester);
       final head = Object();
-      band.report(head, resting: true, coversGrabber: true);
+      band.report(head, condensed: true, resting: true, coversGrabber: true);
       await tester.pump();
       band.withdraw(head);
-      band.report(head, resting: true, coversGrabber: true);
+      band.report(head, condensed: true, resting: true, coversGrabber: true);
       await tester.pump();
       expect(corners(tester), round);
       expect(grabber, findsOneWidget);
@@ -1749,7 +1765,7 @@ void main() {
     ) async {
       await pump(tester);
       final resting = Object();
-      band.report(resting, resting: true, coversGrabber: true);
+      band.report(resting, condensed: true, resting: true, coversGrabber: true);
       await tester.pump();
       band.withdraw(Object());
       await tester.pump();
