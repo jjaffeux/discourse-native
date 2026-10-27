@@ -16,6 +16,7 @@ import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
 
@@ -1705,10 +1706,12 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           onPointerDown: (event) {
             _openedWithTouch = event.kind == PointerDeviceKind.touch;
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.enabled ? trigger.toggle : null,
-            child: action,
+          child: DTouchTarget(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.enabled ? trigger.toggle : null,
+              child: action,
+            ),
           ),
         ),
       ),
@@ -2023,13 +2026,17 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>>
           setState(() => _focused = value);
           updateKeepAlive();
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: enabled && !widget.readOnly
-              ? () =>
-                    widget.onChoose(widget.item, DSelectChangeReason.itemPress)
-              : null,
-          child: Opacity(opacity: enabled ? 1 : 0.5, child: row),
+        child: DTouchTarget(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled && !widget.readOnly
+                ? () => widget.onChoose(
+                    widget.item,
+                    DSelectChangeReason.itemPress,
+                  )
+                : null,
+            child: Opacity(opacity: enabled ? 1 : 0.5, child: row),
+          ),
         ),
       ),
     );
@@ -2098,17 +2105,19 @@ class _DSelectScrollArrowState extends State<_DSelectScrollArrow> {
           ? context.l10n.scrollOptionsUp
           : context.l10n.scrollOptionsDown,
       onTap: widget.enabled ? _scroll : null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.enabled ? _scroll : null,
-        child: Opacity(
-          opacity: widget.enabled ? 1 : 0,
-          child: SizedBox(
-            height: 24,
-            child: Center(
-              child: Transform.rotate(
-                angle: widget.up ? math.pi : 0,
-                child: const DIcon(DIcons.chevronDown, size: 16),
+      child: DTouchTarget(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.enabled ? _scroll : null,
+          child: Opacity(
+            opacity: widget.enabled ? 1 : 0,
+            child: SizedBox(
+              height: 24,
+              child: Center(
+                child: Transform.rotate(
+                  angle: widget.up ? math.pi : 0,
+                  child: const DIcon(DIcons.chevronDown, size: 16),
+                ),
               ),
             ),
           ),

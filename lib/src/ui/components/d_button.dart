@@ -12,6 +12,7 @@ import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_avatar.dart';
 import 'd_kbd.dart';
 import 'd_link_interaction.dart';
@@ -1358,6 +1359,7 @@ class DButton extends StatelessWidget {
             clipBehavior: Clip.none,
             child: child,
           );
+    result = DTouchTarget(child: result);
     if (!enabled && !timelineEnd) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }

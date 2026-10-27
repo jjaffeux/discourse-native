@@ -8,6 +8,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_link_interaction.dart';
 
 /// The six base-nova badge treatments. A treatment does not imply interaction.
@@ -592,19 +593,25 @@ class _DBadgeState extends State<DBadge> {
               },
             ),
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: _enabled
-                ? () {
-                    _focusNode.requestFocus();
-                    activate();
-                  }
-                : null,
-            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
-            onTapCancel: () => setState(() => _pressed = false),
-            child: semantics,
+          child: DTouchTarget(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: _enabled
+                  ? () {
+                      _focusNode.requestFocus();
+                      activate();
+                    }
+                  : null,
+              onTapDown: _enabled
+                  ? (_) => setState(() => _pressed = true)
+                  : null,
+              onTapUp: _enabled
+                  ? (_) => setState(() => _pressed = false)
+                  : null,
+              onTapCancel: () => setState(() => _pressed = false),
+              child: semantics,
+            ),
           ),
         ),
       ),

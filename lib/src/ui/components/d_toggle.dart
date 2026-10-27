@@ -8,6 +8,7 @@ import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
 enum DToggleVariant { standard, outline, segmented, inline }
@@ -89,7 +90,7 @@ class DToggleVisualStyle {
 /// by [initialPressed]. [onPressedChanged] observes or updates that state but
 /// is not required for the control to remain focusable. [focusNode] is
 /// borrowed and never disposed. Desktop artwork follows base-nova's compact
-/// bounds on every platform, without invisible target padding.
+/// bounds on every platform; a phone adds only the kit's [DTouchTarget] area.
 class DToggle extends StatefulWidget {
   const DToggle({
     super.key,
@@ -653,20 +654,24 @@ class _DToggleState extends State<DToggle> {
                 },
               ),
             },
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onLongPress: _enabled ? widget.onLongPress : null,
-              onTapDown: _canToggle ? (_) => _setPointerPressed(true) : null,
-              onTapUp: _canToggle ? (_) => _setPointerPressed(false) : null,
-              onTapCancel: _canToggle ? () => _setPointerPressed(false) : null,
-              onTap: _canToggle
-                  ? () {
-                      _focus.requestFocus();
-                      _toggle();
-                    }
-                  : null,
-              child: Opacity(opacity: _enabled ? 1 : .6, child: surface),
+            child: DTouchTarget(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onLongPress: _enabled ? widget.onLongPress : null,
+                onTapDown: _canToggle ? (_) => _setPointerPressed(true) : null,
+                onTapUp: _canToggle ? (_) => _setPointerPressed(false) : null,
+                onTapCancel: _canToggle
+                    ? () => _setPointerPressed(false)
+                    : null,
+                onTap: _canToggle
+                    ? () {
+                        _focus.requestFocus();
+                        _toggle();
+                      }
+                    : null,
+                child: Opacity(opacity: _enabled ? 1 : .6, child: surface),
+              ),
             ),
           ),
         ),

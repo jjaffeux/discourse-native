@@ -7,7 +7,8 @@ import '../../theme/discourse_typography.dart';
 import 'tokens.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
-/// mockup artwork on every platform, with matching hit areas.
+/// mockup artwork on every platform, with matching hit areas; a phone adds
+/// the kit's `DTouchTarget` area round those drawn under 44.
 enum DControlSize {
   small,
   regular,

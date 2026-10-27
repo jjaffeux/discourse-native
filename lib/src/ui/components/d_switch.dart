@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_label.dart';
 
 /// Compact and standard Linear switch sizes, in logical pixels.
@@ -142,32 +143,34 @@ class _DSwitchState extends State<DSwitch> {
           child: MouseRegion(
             onEnter: (_) => setState(() => _hovered = true),
             onExit: (_) => setState(() => _hovered = false),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTapDown: _enabled
-                  ? (_) => setState(() => _pressed = true)
-                  : null,
-              onTapUp: _enabled
-                  ? (_) => setState(() => _pressed = false)
-                  : null,
-              onTapCancel: () => setState(() => _pressed = false),
-              onTap: _enabled
-                  ? () {
-                      _focus.requestFocus();
-                      _toggle();
-                    }
-                  : null,
-              child: Opacity(
-                opacity: _enabled ? 1 : 0.5,
-                child:
-                    widget._content?.call(
-                      context,
+            child: DTouchTarget(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onTapDown: _enabled
+                    ? (_) => setState(() => _pressed = true)
+                    : null,
+                onTapUp: _enabled
+                    ? (_) => setState(() => _pressed = false)
+                    : null,
+                onTapCancel: () => setState(() => _pressed = false),
+                onTap: _enabled
+                    ? () {
+                        _focus.requestFocus();
+                        _toggle();
+                      }
+                    : null,
+                child: Opacity(
+                  opacity: _enabled ? 1 : 0.5,
+                  child:
+                      widget._content?.call(
+                        context,
+                        artwork,
+                        _focusVisible,
+                        _hovered,
+                      ) ??
                       artwork,
-                      _focusVisible,
-                      _hovered,
-                    ) ??
-                    artwork,
+                ),
               ),
             ),
           ),

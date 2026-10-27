@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 
 /// A disclosure scope. Layout and decoration belong to its child composition.
 ///
@@ -310,25 +311,27 @@ class _TriggerState extends State<DCollapsibleTrigger> {
             },
           ),
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTap: enabled ? activate : null,
-          onTapDown: enabled ? (_) => _handlePointerDown() : null,
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTapCancel: _handlePointerCancel,
-          child: CustomPaint(
-            foregroundPainter: _FocusOutline(
-              color: DTokens.of(context).focusRing,
-              visible: _focused,
-              borderRadius: widget.focusBorderRadius,
-              border: widget.focusBorder,
-              ringWidth: widget.focusRingWidth,
-              ringOpacity: widget.focusRingOpacity,
+        child: DTouchTarget(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: enabled ? activate : null,
+            onTapDown: enabled ? (_) => _handlePointerDown() : null,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: _handlePointerCancel,
+            child: CustomPaint(
+              foregroundPainter: _FocusOutline(
+                color: DTokens.of(context).focusRing,
+                visible: _focused,
+                borderRadius: widget.focusBorderRadius,
+                border: widget.focusBorder,
+                ringWidth: widget.focusRingWidth,
+                ringOpacity: widget.focusRingOpacity,
+              ),
+              child: widget.interactiveChildren
+                  ? semanticVisual
+                  : SelectionContainer.disabled(child: semanticVisual),
             ),
-            child: widget.interactiveChildren
-                ? semanticVisual
-                : SelectionContainer.disabled(child: semanticVisual),
           ),
         ),
       ),

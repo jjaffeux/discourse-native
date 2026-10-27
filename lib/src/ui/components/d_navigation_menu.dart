@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_popover.dart';
 
 enum DNavigationMenuChangeReason {
@@ -1039,72 +1040,79 @@ class _NavigationActionState extends State<_NavigationAction> {
         onShowFocusHighlight: (value) {
           setState(() => _focused = value);
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: interactive
-              ? (_) => setState(() => _pressed = true)
-              : null,
-          onTapCancel: interactive
-              ? () {
-                  if (_pressed) setState(() => _pressed = false);
-                }
-              : null,
-          onTapUp: interactive ? (_) => setState(() => _pressed = false) : null,
-          onTap: interactive ? widget.onPressed : null,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(),
-            child: Center(
-              widthFactor: 1,
-              heightFactor: 1,
-              child: CustomPaint(
-                foregroundPainter: _focused
-                    ? _NavigationFocusRingPainter(
-                        color: tokens.focusRing,
-                        radius: radius,
-                      )
-                    : null,
-                child: interactiveRowSurface(
-                  constraints: BoxConstraints(minHeight: visualHeight ?? 0),
-                  padding: widget.triggerStyle
-                      ? const EdgeInsetsDirectional.symmetric(
-                          horizontal: 10,
-                          vertical: 1,
+        child: DTouchTarget(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: interactive
+                ? (_) => setState(() => _pressed = true)
+                : null,
+            onTapCancel: interactive
+                ? () {
+                    if (_pressed) setState(() => _pressed = false);
+                  }
+                : null,
+            onTapUp: interactive
+                ? (_) => setState(() => _pressed = false)
+                : null,
+            onTap: interactive ? widget.onPressed : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(),
+              child: Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: CustomPaint(
+                  foregroundPainter: _focused
+                      ? _NavigationFocusRingPainter(
+                          color: tokens.focusRing,
+                          radius: radius,
                         )
-                      : const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: highlighted
-                        ? DControlStyle.rowHover(tokens)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(radius),
-                  ),
-                  child: DefaultTextStyle.merge(
-                    style: TextStyle(
-                      color: tokens.foreground.withValues(
-                        alpha: widget.disabled ? .5 : 1,
-                      ),
-                      fontSize: DControlStyle.fontSize(
-                        widget.size,
-                        context: context,
-                      ),
-                      height:
-                          DControlStyle.lineHeight(
-                            widget.size,
-                            context: context,
-                          ) /
-                          DControlStyle.fontSize(widget.size, context: context),
-                      fontWeight: widget.triggerStyle
-                          ? FontWeight.w500
-                          : FontWeight.w400,
-                      letterSpacing: 0,
+                      : null,
+                  child: interactiveRowSurface(
+                    constraints: BoxConstraints(minHeight: visualHeight ?? 0),
+                    padding: widget.triggerStyle
+                        ? const EdgeInsetsDirectional.symmetric(
+                            horizontal: 10,
+                            vertical: 1,
+                          )
+                        : const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: highlighted
+                          ? DControlStyle.rowHover(tokens)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(radius),
                     ),
-                    child: IconTheme.merge(
-                      data: IconThemeData(
-                        size: 16,
+                    child: DefaultTextStyle.merge(
+                      style: TextStyle(
                         color: tokens.foreground.withValues(
                           alpha: widget.disabled ? .5 : 1,
                         ),
+                        fontSize: DControlStyle.fontSize(
+                          widget.size,
+                          context: context,
+                        ),
+                        height:
+                            DControlStyle.lineHeight(
+                              widget.size,
+                              context: context,
+                            ) /
+                            DControlStyle.fontSize(
+                              widget.size,
+                              context: context,
+                            ),
+                        fontWeight: widget.triggerStyle
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                        letterSpacing: 0,
                       ),
-                      child: widget.child,
+                      child: IconTheme.merge(
+                        data: IconThemeData(
+                          size: 16,
+                          color: tokens.foreground.withValues(
+                            alpha: widget.disabled ? .5 : 1,
+                          ),
+                        ),
+                        child: widget.child,
+                      ),
                     ),
                   ),
                 ),

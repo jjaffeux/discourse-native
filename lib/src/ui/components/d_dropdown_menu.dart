@@ -10,6 +10,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_popover.dart';
@@ -1866,29 +1867,31 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
               }
             },
             onKeyEvent: _onKey,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: widget.enabled
-                  ? (_) {
-                      _content?.focusFromPointer(this);
-                      _focus.requestFocus();
-                      setState(() => _pressed = true);
-                    }
-                  : null,
-              onTapCancel: widget.enabled
-                  ? () {
-                      if (_pressed) setState(() => _pressed = false);
-                    }
-                  : null,
-              onTapUp: widget.enabled
-                  ? (_) {
-                      setState(() => _pressed = false);
-                      widget.onActivate();
-                    }
-                  : null,
-              child: DefaultTextStyle.merge(
-                style: TextStyle(color: foreground),
-                child: Center(heightFactor: 1, child: row),
+            child: DTouchTarget(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: widget.enabled
+                    ? (_) {
+                        _content?.focusFromPointer(this);
+                        _focus.requestFocus();
+                        setState(() => _pressed = true);
+                      }
+                    : null,
+                onTapCancel: widget.enabled
+                    ? () {
+                        if (_pressed) setState(() => _pressed = false);
+                      }
+                    : null,
+                onTapUp: widget.enabled
+                    ? (_) {
+                        setState(() => _pressed = false);
+                        widget.onActivate();
+                      }
+                    : null,
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(color: foreground),
+                  child: Center(heightFactor: 1, child: row),
+                ),
               ),
             ),
           ),

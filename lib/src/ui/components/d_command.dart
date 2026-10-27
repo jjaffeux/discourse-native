@@ -15,6 +15,7 @@ import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_filter_token.dart';
@@ -1573,14 +1574,16 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                   widget.scope.controller.highlight(item.value);
                 }
               },
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: item.enabled ? _activate : null,
-                child: Opacity(
-                  opacity: item.enabled ? 1 : .5,
-                  child: _DCommandItemVisualScope(
-                    selected: selected,
-                    child: row,
+              child: DTouchTarget(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: item.enabled ? _activate : null,
+                  child: Opacity(
+                    opacity: item.enabled ? 1 : .5,
+                    child: _DCommandItemVisualScope(
+                      selected: selected,
+                      child: row,
+                    ),
                   ),
                 ),
               ),

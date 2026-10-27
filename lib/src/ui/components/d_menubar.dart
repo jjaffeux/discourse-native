@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_dropdown_menu.dart';
 import 'd_popover.dart';
 
@@ -527,49 +528,51 @@ class _DMenubarTriggerState extends State<DMenubarTrigger> {
                   if (mounted) setState(() => _focused = focused);
                 },
                 onKeyEvent: (_, event) => _onKey(event, root, menu, trigger),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: enabled
-                      ? (_) => setState(() => _pressed = true)
-                      : null,
-                  onTapCancel: enabled
-                      ? () {
-                          if (_pressed) setState(() => _pressed = false);
-                        }
-                      : null,
-                  onTapUp: enabled
-                      ? (_) {
-                          setState(() => _pressed = false);
-                          trigger.toggle();
-                        }
-                      : null,
-                  child: Center(
-                    widthFactor: 1,
-                    heightFactor: 1,
-                    child: AnimatedContainer(
-                      duration: Duration.zero,
-                      constraints: BoxConstraints(
-                        minWidth: 0,
-                        minHeight: height,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? DControlStyle.rowHover(tokens)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(
-                          DControlStyle.rowRadius,
+                child: DTouchTarget(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: enabled
+                        ? (_) => setState(() => _pressed = true)
+                        : null,
+                    onTapCancel: enabled
+                        ? () {
+                            if (_pressed) setState(() => _pressed = false);
+                          }
+                        : null,
+                    onTapUp: enabled
+                        ? (_) {
+                            setState(() => _pressed = false);
+                            trigger.toggle();
+                          }
+                        : null,
+                    child: Center(
+                      widthFactor: 1,
+                      heightFactor: 1,
+                      child: AnimatedContainer(
+                        duration: Duration.zero,
+                        constraints: BoxConstraints(
+                          minWidth: 0,
+                          minHeight: height,
                         ),
-                      ),
-                      child: DefaultTextStyle(
-                        style: style,
-                        child: Center(
-                          widthFactor: 1,
-                          heightFactor: 1,
-                          child: widget.child,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: active
+                              ? DControlStyle.rowHover(tokens)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(
+                            DControlStyle.rowRadius,
+                          ),
+                        ),
+                        child: DefaultTextStyle(
+                          style: style,
+                          child: Center(
+                            widthFactor: 1,
+                            heightFactor: 1,
+                            child: widget.child,
+                          ),
                         ),
                       ),
                     ),
