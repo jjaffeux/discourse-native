@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
 import '../data/dashboard_api.dart';
@@ -11,6 +12,7 @@ import '../plugin_api/dashboard_report_source.dart';
 import 'dashboard_controller.dart';
 import 'dashboard_page.dart';
 import 'external_link.dart';
+import 'forum_theme_surfaces.dart';
 import 'open_link.dart';
 import 'report_controller.dart';
 import 'report_page.dart';
@@ -35,6 +37,14 @@ class DashboardHostState extends State<DashboardHost> {
   DashboardController? _controller;
   Object? _identity;
   ReportController? _report;
+  final _dashboardKey = GlobalKey();
+
+  void _closeReport() {
+    setState(() {
+      _report?.dispose();
+      _report = null;
+    });
+  }
 
   Future<void> refresh() =>
       _report?.refresh() ?? _controller?.refresh() ?? Future.value();
@@ -96,19 +106,9 @@ class DashboardHostState extends State<DashboardHost> {
               }
             });
           }
-          final report = _report;
-          if (report != null) {
-            return ReportPage(
-              key: ValueKey((identity, report.report.key)),
-              controller: report,
-              onBack: () => setState(() {
-                _report?.dispose();
-                _report = null;
-              }),
-            );
-          }
           final controller = _controller!;
-          return ListenableBuilder(
+          final dashboard = ListenableBuilder(
+            key: _dashboardKey,
             listenable: controller,
             builder: (context, _) => DashboardPage(
               key: ValueKey(identity),
@@ -157,6 +157,27 @@ class DashboardHostState extends State<DashboardHost> {
                   unawaited(openLink(context, url, siteUrl: widget.siteUrl));
                 }
               },
+            ),
+          );
+          final report = _report;
+          if (report == null) return dashboard;
+          final page = ReportPage(
+            key: ValueKey((identity, report.report.key)),
+            controller: report,
+            onBack: _closeReport,
+          );
+          if (!owner.shell.mobileNavigationEnabled) return page;
+          return DSheetViewport(
+            key: ObjectKey(report),
+            onDismiss: _closeReport,
+            underlay: dashboard,
+            content: DSheetContent(
+              side: DSheetSide.bottom,
+              variant: DSheetVariant.page,
+              showCloseButton: false,
+              semanticLabel: report.report.title,
+              backgroundColor: ForumWindowBackground.panelColor(context),
+              children: [Expanded(child: page)],
             ),
           );
         },

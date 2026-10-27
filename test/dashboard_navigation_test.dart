@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/dashboard_host.dart';
 import 'package:discourse_native/src/shell/dashboard_page.dart';
 import 'package:discourse_native/src/shell/report_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -254,11 +255,12 @@ void main() {
     testWidgets(
       'report viewer stays native for ${explorer ? 'plugin queries' : 'core reports'}',
       (tester) async {
+        final mobile = defaultTargetPlatform != TargetPlatform.linux;
         final api = DashboardTestApi()..explorer = explorer;
         final auth = FakeAuthenticator()..keys[siteUrl] = 'staff-key';
         await pumpShell(
           tester,
-          phone,
+          mobile ? phone : desktop,
           api: api,
           authenticator: auth,
           instances: const [
@@ -285,9 +287,35 @@ void main() {
           );
           await tester.pumpAndSettle();
         }
+        final dashboardState = tester.state(find.byType(DashboardPage));
+        final dashboardScroll = tester.state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(DashboardPage),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        final dashboardOffset = dashboardScroll.position.pixels;
         await tester.tap(find.text('Open report').hitTestable().first);
         await tester.pumpAndSettle();
         expect(find.byType(ReportPage), findsOneWidget);
+        final sheet = find.byType(DSheetContent);
+        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+        if (mobile) {
+          expect(sheet, findsOneWidget);
+          expect(tester.getRect(sheet).left, 0);
+          expect(tester.getRect(sheet).right, phone.width);
+          expect(tester.getRect(sheet).bottom, phone.height);
+          expect(tester.getSize(handle), const Size(36, 5));
+          expect(
+            find.ancestor(of: find.byType(ReportPage), matching: sheet),
+            findsOneWidget,
+          );
+          expect(find.byType(DashboardPage), findsNothing);
+        } else {
+          expect(sheet, findsNothing);
+        }
         expect(api.reportRequests, 1);
         expect(launched, isEmpty);
         if (explorer) {
@@ -306,14 +334,43 @@ void main() {
         await shell.refreshCurrentTab();
         await tester.pumpAndSettle();
         expect(api.reportRequests, 2);
-        await tester.tap(find.text('Back to dashboard'));
+        if (mobile && !explorer) {
+          final bounds = tester.getRect(sheet);
+          final gesture = await tester.startGesture(tester.getCenter(handle));
+          await gesture.moveBy(const Offset(0, 20));
+          await gesture.moveBy(const Offset(0, 60));
+          await tester.pump();
+          expect(tester.getRect(sheet).top, greaterThan(bounds.top));
+          expect(find.byType(DashboardPage), findsOneWidget);
+          expect(find.text('Open report').hitTestable(), findsNothing);
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), bounds);
+          expect(find.byType(ReportPage), findsOneWidget);
+          await tester.drag(handle, const Offset(0, 200));
+        } else {
+          await tester.tap(find.text('Back to dashboard'));
+        }
         await tester.pumpAndSettle();
+        expect(find.byType(ReportPage), findsNothing);
+        expect(sheet, findsNothing);
         expect(find.byType(DashboardPage), findsOneWidget);
+        if (mobile) {
+          expect(
+            tester.state(find.byType(DashboardPage)),
+            same(dashboardState),
+          );
+          expect(dashboardScroll.position.pixels, dashboardOffset);
+        }
         expect(api.requests, 1);
         expect(launched, isEmpty);
         expect(tester.takeException(), isNull);
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      variant: const TargetPlatformVariant({
+        TargetPlatform.linux,
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
     );
   }
   testWidgets(
