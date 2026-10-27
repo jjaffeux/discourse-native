@@ -17,7 +17,7 @@ import 'd_skeleton.dart';
 class DPlaceCard extends StatefulWidget {
   const DPlaceCard({
     super.key,
-    required this.leading,
+    this.leading,
     required this.title,
     required this.footer,
     required this.onPressed,
@@ -32,7 +32,7 @@ class DPlaceCard extends StatefulWidget {
     this.focusNode,
   });
 
-  final Widget leading;
+  final Widget? leading;
   final Widget title;
   final Widget? description;
   final Widget footer;
@@ -113,8 +113,10 @@ class _DPlaceCardState extends State<DPlaceCard> {
                   Expanded(
                     child: Row(
                       children: [
-                        widget.leading,
-                        const SizedBox(width: 9),
+                        if (widget.leading case final leading?) ...[
+                          leading,
+                          const SizedBox(width: 9),
+                        ],
                         Expanded(
                           child: DefaultTextStyle.merge(
                             maxLines: 1,

@@ -6,7 +6,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'boards_data.dart';
-import 'boards_navigation.dart';
 
 class BoardsDirectory extends StatefulWidget {
   const BoardsDirectory({
@@ -238,10 +237,6 @@ class _BoardDirectoryCard extends StatelessWidget {
     final avatar = resolveAvatarUrl(creator?.avatarTemplate, site, size: 40);
     return DPlaceCard(
       onPressed: onPressed,
-      leading: DPlaceCardMark(
-        color: DTokens.of(context).primary,
-        child: const DIcon(boardsIcon, size: 13),
-      ),
       title: Text(board.name),
       description:
           board.columns.isEmpty &&

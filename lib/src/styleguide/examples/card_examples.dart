@@ -20,7 +20,7 @@ final cardExamples = ComponentExamples(
     StyleguideExample(
       title: 'Directory card',
       description:
-          'A flat destination card with a tinted mark, unread count, two-line description and aligned footer. The same card is used on phones and desktops.',
+          'A flat destination card with an optional tinted mark, unread count, two-line description and aligned footer. Omit leading to align the title with the content. The same card is used on phones and desktops.',
       code:
           "DPlaceCard(leading: DPlaceCardMark(color: Colors.blue, child: DIcon(DIcons.tag)), title: Text('Support'), unreadCount: '3', strong: true, description: Text('Get help from the community.'), footer: Text('42 topics · 2h'), onPressed: open)",
       builder: (_) => SizedBox(

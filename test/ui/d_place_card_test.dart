@@ -50,6 +50,29 @@ Future<void> _mount(
 }
 
 void main() {
+  testWidgets('card without a mark aligns its title with its content', (
+    tester,
+  ) async {
+    var presses = 0;
+    await _mount(
+      tester,
+      DPlaceCard(
+        title: const Text('Team roadmap'),
+        description: const Text('Upcoming work'),
+        footer: const Text('3 columns'),
+        onPressed: () => presses++,
+      ),
+    );
+    final title = tester.getRect(find.text('Team roadmap'));
+    final card = tester.getRect(find.byType(DPlaceCard));
+    expect(title.left, card.left + 12);
+    expect(title.left, tester.getRect(find.text('Upcoming work')).left);
+    expect(title.left, tester.getRect(find.text('3 columns')).left);
+    await tester.tap(find.text('Team roadmap'));
+    expect(presses, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('card owns one accessible action and its native metrics', (
     tester,
   ) async {
