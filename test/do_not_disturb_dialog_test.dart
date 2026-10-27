@@ -4,10 +4,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
+import 'package:discourse_native/src/models/notification_schedule.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/shell/do_not_disturb_dialog.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +21,317 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets(
+    'custom days and invalid time ranges prevent saving until corrected',
+    (tester) async {
+      final api = _DndApi();
+      await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      await _choose(tester, 'notification-schedule-days', 'Custom days');
+      for (final day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
+        await tester.tap(find.text(day));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Choose at least one day.'), findsOneWidget);
+      final save = find.byKey(const ValueKey('notification-schedule-save'));
+      expect(tester.widget<DButton>(save).onPressed, isNull);
+      expect(api.userPreferenceUpdates, isEmpty);
+      await tester.tap(find.text('Mon'));
+      await tester.pumpAndSettle();
+      await _choose(tester, 'notification-schedule-to', '08:00');
+      expect(find.text('End time must be after start time.'), findsOneWidget);
+      expect(tester.widget<DButton>(save).onPressed, isNull);
+      await _choose(tester, 'notification-schedule-to', '18:00');
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      final fields =
+          api.userPreferenceUpdates.single.values['user_notification_schedule']
+              as Map<String, Object?>;
+      expect(fields['day_0_start_time'], 540);
+      expect(fields['day_0_end_time'], 1080);
+      for (var day = 1; day < 7; day++) {
+        expect(fields['day_${day}_start_time'], -1);
+        expect(fields['day_${day}_end_time'], -1);
+      }
+    },
+  );
+  testWidgets(
+    'schedule saves selected days and times in-app and updates the quick menu',
+    (tester) async {
+      final api = _DndApi();
+      api.userPreferences = UserPreferences(
+        username: 'reader',
+        timezone: 'Europe/Paris',
+        canEdit: true,
+        notificationSchedule: NotificationSchedule.initial(),
+      );
+      final launcher = _watchLauncher(tester);
+      await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Europe/Paris'), findsOneWidget);
+      expect(
+        find.textContaining('Notifications are paused outside'),
+        findsNothing,
+      );
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      await _choose(tester, 'notification-schedule-days', 'Weekdays');
+      await _choose(tester, 'notification-schedule-from', '09:30');
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-save')),
+      );
+      await tester.pumpAndSettle();
+      expect(launcher.urls, isEmpty);
+      expect(api.userPreferenceUpdates, hasLength(1));
+      expect(api.userPreferenceUpdates.single.values, {
+        'user_notification_schedule': {
+          'enabled': true,
+          'day_0_start_time': 570,
+          'day_0_end_time': 1080,
+          'day_1_start_time': 570,
+          'day_1_end_time': 1080,
+          'day_2_start_time': 570,
+          'day_2_end_time': 1080,
+          'day_3_start_time': 570,
+          'day_3_end_time': 1080,
+          'day_4_start_time': 570,
+          'day_4_end_time': 1080,
+          'day_5_start_time': -1,
+          'day_5_end_time': -1,
+          'day_6_start_time': -1,
+          'day_6_end_time': -1,
+        },
+      });
+      expect(find.text('Weekdays · 09:30–18:00'), findsOneWidget);
+      expect(find.text('Allow notifications on'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Back discards schedule edits and reopening reads confirmed settings',
+    (tester) async {
+      final api = _DndApi();
+      await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(api.userPreferenceUpdates, isEmpty);
+      expect(find.text('Not set'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<DSwitchTile>(find.byType(DSwitchTile)).value,
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets(
+    'enabling an existing schedule preserves different hours for each day',
+    (tester) async {
+      final api = _DndApi();
+      final original = NotificationSchedule(
+        enabled: false,
+        days: [
+          for (var i = 0; i < 7; i++)
+            (start: i < 5 ? 480 + i * 30 : -1, end: i < 5 ? 1020 : -1),
+        ],
+      );
+      api.userPreferences = UserPreferences(
+        username: 'reader',
+        canEdit: true,
+        notificationSchedule: original,
+      );
+      await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Varies by day'), findsOneWidget);
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-save')),
+      );
+      await tester.pumpAndSettle();
+      expect(api.userPreferenceUpdates.single.values, {
+        'user_notification_schedule': {...original.wireValues, 'enabled': true},
+      });
+    },
+  );
+
+  testWidgets('schedule save failures keep the draft for retry', (
+    tester,
+  ) async {
+    final api = _DndApi();
+    await _open(tester, api);
+    await tester.tap(find.byKey(const ValueKey('notification-schedule-open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DSwitch));
+    await tester.pumpAndSettle();
+    api.preferenceFailure = const WriteException(WriteFailure.forbidden);
+    await tester.tap(find.byKey(const ValueKey('notification-schedule-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Allow notifications on'), findsOneWidget);
+    expect(find.byType(DFieldError), findsOneWidget);
+    api.preferenceFailure = null;
+    await tester.tap(find.byKey(const ValueKey('notification-schedule-save')));
+    await tester.pumpAndSettle();
+    expect(api.userPreferenceUpdates, hasLength(2));
+    expect(find.text('Allow notifications on'), findsNothing);
+  });
+
+  testWidgets(
+    'cancel after a failed first save discards its shared preferences draft',
+    (tester) async {
+      final api = _DndApi();
+      final shell = await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      api.preferenceFailure = const WriteException(WriteFailure.forbidden);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-save')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel').last);
+      await tester.pumpAndSettle();
+      expect(
+        shell.preferences
+            .stateFor(_site)
+            ?.dirty(PreferenceSection.notificationSchedule),
+        isFalse,
+      );
+      expect(find.text('Not set'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'late schedule saves cannot close an editor belonging to a retired account',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final api = _DndApi(preferencesWriteGate: gate);
+      final shell = await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      final editor = tester.element(find.byType(DDialogContent));
+      await tester.tap(find.byType(DSwitch));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-save')),
+      );
+      await tester.pump();
+      expect(api.userPreferenceUpdates, hasLength(1));
+      await shell.disconnectCurrentInstance();
+      await shell.connectCurrentInstance();
+      gate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.element(find.byType(DDialogContent)), same(editor));
+      expect(shell.preferences.stateFor(_site), isNull);
+      expect(
+        tester
+            .widget<DButton>(
+              find.byKey(const ValueKey('notification-schedule-save')),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final (width, scale) in [
+    (320.0, 17 / 14),
+    (390.0, 17 / 14),
+    (320.0, 2.0),
+  ]) {
+    testWidgets(
+      'quick menu and schedule use Native bottom sheets at width $width and text scale $scale',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final api = _DndApi();
+        final shell = await _loadShell(api);
+        await _pump(
+          tester,
+          shell,
+          platform: TargetPlatform.iOS,
+          textScale: scale,
+        );
+        await tester.tap(find.text('Pause'));
+        await tester.pumpAndSettle();
+        expect(
+          find.ancestor(
+            of: find.text('30 minutes'),
+            matching: find.byType(DSheetContent),
+          ),
+          findsOneWidget,
+        );
+        if (scale > 1.5) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, -450),
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('notification-schedule-open')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('notification-schedule-open')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.ancestor(
+            of: find.text('Time zone'),
+            matching: find.byType(DSheetContent),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getBottomRight(
+                find.byKey(const ValueKey('notification-schedule-save')),
+              )
+              .dx,
+          lessThanOrEqualTo(width),
+        );
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        expect(find.text('30 minutes'), findsOneWidget);
+        expect(api.userPreferenceUpdates, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
   for (final replacement in ['account', 'shell']) {
     for (final action in ['pause', 'schedule']) {
       testWidgets(
@@ -26,7 +340,7 @@ void main() {
           final api = _DndApi();
           final launcher = _watchLauncher(tester);
           final shell = await _open(tester, api);
-          final dialog = tester.element(find.byType(DDialogContent));
+          final dialog = tester.element(find.byType(DDropdownMenuContent));
           final replacementApi = _DndApi();
           if (replacement == 'account') {
             await shell.disconnectCurrentInstance();
@@ -36,19 +350,20 @@ void main() {
             await _pump(tester, await _loadShell(replacementApi));
           }
           await tester.pumpAndSettle();
-          expect(tester.element(find.byType(DDialogContent)), same(dialog));
+          expect(
+            tester.element(find.byType(DDropdownMenuContent)),
+            same(dialog),
+          );
 
           await tester.tap(
-            action == 'pause'
-                ? _oneHour
-                : find.text('Set a notification schedule'),
+            action == 'pause' ? _oneHour : find.text('Notification schedule'),
           );
           await tester.pumpAndSettle();
 
           expect(api.writes, isEmpty);
           expect(replacementApi.writes, isEmpty);
           expect(launcher.urls, isEmpty);
-          expect(find.byType(DDialogContent), findsOneWidget);
+          expect(find.byType(DDropdownMenuContent), findsOneWidget);
         },
       );
     }
@@ -60,7 +375,7 @@ void main() {
           final api = _DndApi();
           final gate = _writeGate(api);
           final shell = await _open(tester, api);
-          final dialog = tester.element(find.byType(DDialogContent));
+          final dialog = tester.element(find.byType(DDropdownMenuContent));
           await tester.tap(_oneHour);
           await tester.pump();
           expect(api.writes, [
@@ -80,8 +395,11 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
 
-          expect(tester.element(find.byType(DDialogContent)), same(dialog));
-          expect(tester.widget<DButton>(_oneHour).onPressed, isNull);
+          expect(
+            tester.element(find.byType(DDropdownMenuContent)),
+            same(dialog),
+          );
+          expect(tester.widget<DDropdownMenuItem>(_oneHour).onPressed, isNull);
           expect(
             find.text(const WriteException(WriteFailure.forbidden).message),
             findsNothing,
@@ -107,7 +425,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.writes, [(_site, 'key', duration)]);
       expect(shell.doNotDisturb.stateFor(_site).until, api.doNotDisturbUntil);
-      expect(find.byType(DDialogContent), findsNothing);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
     });
   }
 
@@ -118,7 +436,7 @@ void main() {
     final gate = _writeGate(api);
     final launcher = _watchLauncher(tester);
     await _open(tester, api);
-    final pause = tester.widget<DButton>(_oneHour).onPressed!;
+    final pause = tester.widget<DDropdownMenuItem>(_oneHour).onPressed!;
     final schedule = _scheduleButton(tester).onPressed!;
     pause();
     pause();
@@ -128,14 +446,14 @@ void main() {
       (_site, 'key', const DoNotDisturbDuration.minutes(60)),
     ]);
     expect(launcher.urls, isEmpty);
-    expect(tester.widget<DButton>(_oneHour).onPressed, isNull);
+    expect(tester.widget<DDropdownMenuItem>(_oneHour).onPressed, isNull);
     expect(
       find.text('Another notification change is still finishing.'),
       findsNothing,
     );
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.byType(DDialogContent), findsNothing);
+    expect(find.byType(DDropdownMenuContent), findsNothing);
   });
 
   testWidgets('schedule opens once and rejects same-frame pause callbacks', (
@@ -144,49 +462,17 @@ void main() {
     final api = _DndApi();
     final launcher = _watchLauncher(tester);
     await _open(tester, api);
-    final pause = tester.widget<DButton>(_oneHour).onPressed!;
+    final pause = tester.widget<DDropdownMenuItem>(_oneHour).onPressed!;
     final schedule = _scheduleButton(tester).onPressed!;
     schedule();
     schedule();
     pause();
     await tester.pumpAndSettle();
     expect(api.writes, isEmpty);
-    expect(launcher.urls, ['$_site/u/reader/preferences/notifications']);
-    expect(find.byType(DDialogContent), findsNothing);
+    expect(launcher.urls, isEmpty);
+    expect(find.text('Allow notifications on'), findsOneWidget);
+    expect(api.userPreferenceLoads, hasLength(1));
   });
-
-  for (final replacement in ['none', 'account', 'shell', 'messenger']) {
-    testWidgets(
-      'late schedule failure with $replacement replacement is reported only to its live owner',
-      (tester) async {
-        final launcher = _watchLauncher(tester);
-        final shell = await _open(tester, _DndApi());
-        await tester.tap(find.text('Set a notification schedule'));
-        await tester.pumpAndSettle();
-        expect(launcher.urls, ['$_site/u/reader/preferences/notifications']);
-        expect(find.byType(DDialogContent), findsNothing);
-
-        switch (replacement) {
-          case 'account':
-            await shell.disconnectCurrentInstance();
-            await shell.connectCurrentInstance();
-          case 'shell':
-            await _pump(tester, await _loadShell(_DndApi()));
-          case 'messenger':
-            await tester.pumpWidget(const SizedBox.shrink());
-          case 'none':
-            break;
-        }
-        launcher.result.complete(false);
-        await tester.pumpAndSettle();
-        expect(
-          find.text('Could not open notification preferences.'),
-          replacement == 'none' ? findsOneWidget : findsNothing,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
 
   testWidgets('current pause failure allows retrying another duration', (
     tester,
@@ -209,18 +495,19 @@ void main() {
       (_site, 'key', const DoNotDisturbDuration.minutes(60)),
       (_site, 'key', const DoNotDisturbDuration.minutes(120)),
     ]);
-    expect(find.byType(DDialogContent), findsNothing);
+    expect(find.byType(DDropdownMenuContent), findsNothing);
   });
 }
 
 Finder get _oneHour => find.byKey(const ValueKey('do-not-disturb-oneHour'));
 
-DButton _scheduleButton(WidgetTester tester) => tester.widget<DButton>(
-  find.ancestor(
-    of: find.text('Set a notification schedule'),
-    matching: find.byType(DButton),
-  ),
-);
+DDropdownMenuItem _scheduleButton(WidgetTester tester) =>
+    tester.widget<DDropdownMenuItem>(
+      find.ancestor(
+        of: find.text('Notification schedule'),
+        matching: find.byType(DDropdownMenuItem),
+      ),
+    );
 
 Future<ShellController> _open(WidgetTester tester, FakeDiscourseApi api) async {
   final shell = await _loadShell(api);
@@ -259,14 +546,18 @@ Completer<void> _writeGate(_DndApi api) {
 }
 
 class _DndApi extends FakeDiscourseApi {
-  _DndApi()
+  _DndApi({Completer<void>? preferencesWriteGate})
     : super(
         user: _user,
         feeds: const {'/latest.json': <Topic>[]},
         doNotDisturbUntil: eternalDoNotDisturbUntil,
+        userPreferencesWriteGate: preferencesWriteGate,
       );
 
   Future<void>? writeGate;
+  WriteException? preferenceFailure;
+  @override
+  WriteException? get writeFailure => preferenceFailure;
   final writes = <(String, String, DoNotDisturbDuration)>[];
 
   @override
@@ -280,6 +571,15 @@ class _DndApi extends FakeDiscourseApi {
     await writeGate;
     return doNotDisturbUntil!;
   }
+}
+
+Future<void> _choose(WidgetTester tester, String key, String option) async {
+  await tester.tap(find.byKey(ValueKey(key)));
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.text(option).last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(option).last);
+  await tester.pumpAndSettle();
 }
 
 Future<ShellController> _loadShell(FakeDiscourseApi api) async {
@@ -297,21 +597,30 @@ Future<ShellController> _loadShell(FakeDiscourseApi api) async {
   return shell;
 }
 
-Future<void> _pump(WidgetTester tester, ShellController shell) =>
-    tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          builder: (context, child) => DToaster(child: child!),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () =>
-                    showDoNotDisturbDialog(context, siteUrl: _site),
-                child: const Text('Pause'),
-              ),
-            ),
+Future<void> _pump(
+  WidgetTester tester,
+  ShellController shell, {
+  TargetPlatform platform = TargetPlatform.macOS,
+  double textScale = 1,
+}) => tester.pumpWidget(
+  ShellScope(
+    controller: shell,
+    child: MaterialApp(
+      theme: AppTheme.dark.copyWith(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: DToaster(child: child!),
+      ),
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => DButton(
+            onPressed: () => showDoNotDisturbDialog(context, siteUrl: _site),
+            label: const Text('Pause'),
           ),
         ),
       ),
-    );
+    ),
+  ),
+);

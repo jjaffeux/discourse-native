@@ -5,7 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/do_not_disturb.dart';
-import 'external_link.dart';
+import '../theme/d_icons.dart';
+import 'notification_schedule_sheet.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -13,13 +14,11 @@ Future<void> showDoNotDisturbDialog(
   BuildContext context, {
   required String siteUrl,
   ShellController? controller,
-}) {
+}) async {
   final shell = controller ?? ShellScope.read(context);
   final instance = shell.instanceFor(siteUrl);
-  final user = instance?.user;
-  if (user == null) return Future.value();
+  if (instance?.user == null) return;
   final lease = shell.lifecycle.capture(siteUrl);
-  // User-menu routes may be dismissed as soon as this dialog is opened.
   final navigatorContext = Navigator.of(context, rootNavigator: true).context;
   final scope = ShellScope.maybeRead(navigatorContext);
   bool ownsAccount() =>
@@ -27,12 +26,17 @@ Future<void> showDoNotDisturbDialog(
       !shell.accountSessionDisposed &&
       lease.isCurrent &&
       identical(ShellScope.maybeRead(navigatorContext), scope);
-  return showDDialog<void>(
+  await showDDialog<void>(
     context: context,
     useRootNavigator: true,
-    builder: (context, dialog) => _DoNotDisturbDialog(
+    modal: false,
+    dismissOnBarrier: false,
+    dismissOnEscape: false,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    presentationBuilder: (_, presentation) => presentation.content,
+    builder: (context, dialog) => _PauseNotificationsMenu(
       siteUrl: siteUrl,
-      username: user.username,
       controller: shell,
       ownsAccount: ownsAccount,
       onClose: dialog.close,
@@ -40,40 +44,48 @@ Future<void> showDoNotDisturbDialog(
   );
 }
 
-class _DoNotDisturbDialog extends StatefulWidget {
-  const _DoNotDisturbDialog({
+class _PauseNotificationsMenu extends StatefulWidget {
+  const _PauseNotificationsMenu({
     required this.siteUrl,
-    required this.username,
     required this.controller,
     required this.ownsAccount,
     required this.onClose,
   });
-
   final String siteUrl;
-  final String username;
   final ShellController controller;
   final bool Function() ownsAccount;
   final VoidCallback onClose;
-
   @override
-  State<_DoNotDisturbDialog> createState() => _DoNotDisturbDialogState();
+  State<_PauseNotificationsMenu> createState() =>
+      _PauseNotificationsMenuState();
 }
 
-class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
+class _PauseNotificationsMenuState extends State<_PauseNotificationsMenu> {
+  final _menu = DDropdownMenuController();
   DoNotDisturbOption? _saving;
   bool _openingSchedule = false;
+  bool _open = true;
   String? _error;
-
-  bool get _isCurrent =>
+  bool get _canAct =>
       mounted &&
       widget.ownsAccount() &&
-      ModalRoute.of(context)?.isActive == true;
-
-  bool get _canAct =>
-      _isCurrent &&
-      ModalRoute.of(context)?.isCurrent == true &&
+      _open &&
       _saving == null &&
       !_openingSchedule;
+  @override
+  void initState() {
+    super.initState();
+    final instance = widget.controller.instanceFor(widget.siteUrl);
+    if (instance != null) {
+      unawaited(widget.controller.preferences.load(instance));
+    }
+  }
+
+  @override
+  void dispose() {
+    _menu.dispose();
+    super.dispose();
+  }
 
   Future<void> _save(DoNotDisturbOption option) async {
     if (!_canAct) return;
@@ -85,11 +97,9 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
       widget.siteUrl,
       option.duration,
     );
-    if (!mounted || !_isCurrent) return;
+    if (!mounted || !widget.ownsAccount() || !_open) return;
     if (error == null) {
-      if (ModalRoute.of(context)?.isCurrent == true) {
-        widget.onClose();
-      }
+      _menu.close();
     } else {
       setState(() {
         _saving = null;
@@ -98,88 +108,103 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
     }
   }
 
-  Future<void> _openSchedule() async {
+  Future<void> _openSchedule(BuildContext context) async {
     if (!_canAct) return;
     _openingSchedule = true;
-    final toast = DToast.maybeOf(context);
-    final ownsAccount = widget.ownsAccount;
-    widget.onClose();
-    final username = Uri.encodeComponent(widget.username);
-    final opened = await openExternalLink(
-      '${widget.siteUrl}/u/$username/preferences/notifications',
-    );
-    if (!opened && toast?.isDisposed == false && ownsAccount()) {
-      toast!.add(
-        DToastOptions(
-          description: appL10n.couldNotOpenNotificationPreferences,
-          type: DToastType.error,
-        ),
+    try {
+      await showNotificationScheduleSheet(
+        context: context,
+        siteUrl: widget.siteUrl,
+        controller: widget.controller,
+        ownsAccount: widget.ownsAccount,
       );
+    } finally {
+      if (mounted) {
+        setState(() => _openingSchedule = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && widget.ownsAccount() && !_menu.isOpen) _menu.open();
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DDialogContent(
-      showCloseButton: false,
-      maxWidth: 520,
+    final size = MediaQuery.sizeOf(context);
+    return Stack(
       children: [
-        DDialogHeader(
-          children: [
-            DDialogTitle(child: Text(context.l10n.pauseNotificationsFor)),
-          ],
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final option in DoNotDisturbOption.values)
-                    SizedBox(
-                      width: 190,
-                      child: DButton(
-                        key: ValueKey('do-not-disturb-${option.name}'),
-                        onPressed: _saving == null
-                            ? () => unawaited(_save(option))
+        Positioned(
+          left: size.width / 2,
+          top: size.height / 3,
+          child: DDropdownMenu(
+            controller: _menu,
+            defaultOpen: true,
+            sheetOnMobile: true,
+            mobileSheetVariant: DSheetVariant.adaptiveMenu,
+            onOpenChange: (open, _) => _open = open,
+            onOpenChangeComplete: (open) {
+              if (!open && !_openingSchedule) widget.onClose();
+            },
+            content: DDropdownMenuContent(
+              width: 360,
+              align: DPopoverAlign.center,
+              semanticLabel: context.l10n.pauseNotifications,
+              children: [
+                DDropdownMenuLabel(
+                  child: Text(context.l10n.pauseNotifications),
+                ),
+                for (final option in DoNotDisturbOption.values)
+                  DDropdownMenuItem(
+                    key: ValueKey('do-not-disturb-${option.name}'),
+                    closeOnSelect: false,
+                    onPressed: _saving == null && !_openingSchedule
+                        ? () => unawaited(_save(option))
+                        : null,
+                    trailing: _saving == option
+                        ? const DSpinner(size: 14)
+                        : null,
+                    child: Text(option.label),
+                  ),
+                if (_error case final error?) DFieldError(errors: [error]),
+                const DDropdownMenuSeparator(),
+                Builder(
+                  builder: (context) => ListenableBuilder(
+                    listenable: widget.controller.preferences,
+                    builder: (context, _) {
+                      final schedule = widget.controller.preferences
+                          .stateFor(widget.siteUrl)
+                          ?.confirmed
+                          ?.notificationSchedule;
+                      return DDropdownMenuItem(
+                        key: const ValueKey('notification-schedule-open'),
+                        closeOnSelect: false,
+                        onPressed: _saving == null && !_openingSchedule
+                            ? () => unawaited(_openSchedule(context))
                             : null,
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.large,
-                        loading: _saving == option,
-                        label: Text(option.label),
-                      ),
-                    ),
-                ],
-              ),
-              if (_error case final error?) ...[
-                const SizedBox(height: 12),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    error,
-                    style: TextStyle(color: theme.colorScheme.error),
+                        trailing: const DIcon(DIcons.chevronRight),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(context.l10n.notificationSchedule),
+                            DText(
+                              notificationScheduleSummary(context, schedule),
+                              variant: DTextVariant.muted,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
+                DDropdownMenuItem(
+                  onPressed: _saving == null ? () => _menu.close() : null,
+                  child: Text(context.l10n.cancel),
+                ),
               ],
-            ],
+            ),
+            child: const DPopoverAnchor(child: SizedBox.square(dimension: 1)),
           ),
-        ),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: Text(context.l10n.setANotificationSchedule),
-              onPressed: _saving == null ? _openSchedule : null,
-            ),
-            DButton(
-              label: Text(context.l10n.cancel),
-              onPressed: _saving == null ? () => widget.onClose() : null,
-            ),
-          ],
         ),
       ],
     );

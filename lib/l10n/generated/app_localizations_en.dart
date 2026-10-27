@@ -14560,4 +14560,44 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get reportLoadError =>
       'Could not load this report. Refresh to try again.';
+
+  @override
+  String get notificationSchedule => 'Notification schedule';
+
+  @override
+  String get notificationScheduleUse => 'Use a schedule';
+
+  @override
+  String get notificationScheduleAllowOn => 'Allow notifications on';
+
+  @override
+  String get notificationScheduleWeekdays => 'Weekdays';
+
+  @override
+  String get notificationScheduleCustomDays => 'Custom days';
+
+  @override
+  String get notificationScheduleFrom => 'From';
+
+  @override
+  String get notificationScheduleTimeZone => 'Time zone';
+
+  @override
+  String get notificationScheduleSave => 'Save schedule';
+
+  @override
+  String get notificationScheduleNotSet => 'Not set';
+
+  @override
+  String get notificationScheduleVaries => 'Varies by day';
+
+  @override
+  String get notificationScheduleMidnight => 'Midnight';
+
+  @override
+  String get notificationScheduleChooseDay => 'Choose at least one day.';
+
+  @override
+  String get notificationScheduleEndAfterStart =>
+      'End time must be after start time.';
 }
