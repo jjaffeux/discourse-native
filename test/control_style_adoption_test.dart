@@ -57,13 +57,10 @@ void main() {
           'borderColor': 1,
           'shape': 1,
         },
-        // Category identity uses the same tint on both halves of the control,
-        // and the head's category control is the mockup's flat pill.
+        // Category identity uses the same tint on both halves of the control.
         'lib/src/shell/topic_inbox_header.dart': {
-          'shape': 2,
           'foregroundColor': 2,
           'backgroundColor': 2,
-          'borderColor': 2,
           'interactiveBackgroundColor': 2,
         },
         // Category dropdowns reuse the topic header's category identity tint.

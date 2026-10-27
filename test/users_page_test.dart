@@ -1031,7 +1031,11 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
     testWidgets('directory controls use their visible bounds on $platform', (
       tester,
     ) async {
@@ -1068,7 +1072,7 @@ void main() {
           find
               .descendant(of: search, matching: find.byType(AnimatedContainer))
               .first,
-          platform == TargetPlatform.iOS ? kDTouchTargetExtent : 35.5,
+          platform == TargetPlatform.macOS ? 35.5 : kDTouchTargetExtent,
           () => searchFocus.hasFocus,
         ),
         (
