@@ -19203,9 +19203,9 @@
   "@notificationSchedule": {
     "description": "Notification schedule sheet: Notification schedule"
   },
-  "notificationScheduleUse": "Use a schedule",
-  "@notificationScheduleUse": {
-    "description": "Notification schedule sheet: Use a schedule"
+  "notificationScheduleTurnOff": "Turn off schedule",
+  "@notificationScheduleTurnOff": {
+    "description": "Disable the notification schedule while preserving its saved days and hours."
   },
   "notificationScheduleAllowOn": "Allow notifications on",
   "@notificationScheduleAllowOn": {

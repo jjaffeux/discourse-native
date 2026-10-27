@@ -30,8 +30,6 @@ void main() {
         find.byKey(const ValueKey('notification-schedule-open')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DSwitch));
-      await tester.pumpAndSettle();
       await _choose(tester, 'notification-schedule-days', 'Custom days');
       for (final day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']) {
         await tester.tap(find.text(day));
@@ -77,12 +75,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Europe/Paris'), findsOneWidget);
+      expect(find.byType(DSwitch), findsNothing);
+      expect(find.text('Turn off schedule'), findsNothing);
       expect(
         find.textContaining('Notifications are paused outside'),
         findsNothing,
       );
-      await tester.tap(find.byType(DSwitch));
-      await tester.pumpAndSettle();
       await _choose(tester, 'notification-schedule-days', 'Weekdays');
       await _choose(tester, 'notification-schedule-from', '09:30');
       await tester.tap(
@@ -125,8 +123,7 @@ void main() {
         find.byKey(const ValueKey('notification-schedule-open')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DSwitch));
-      await tester.pumpAndSettle();
+      await _choose(tester, 'notification-schedule-from', '10:00');
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       expect(api.userPreferenceUpdates, isEmpty);
@@ -135,10 +132,10 @@ void main() {
         find.byKey(const ValueKey('notification-schedule-open')),
       );
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<DSwitchTile>(find.byType(DSwitchTile)).value,
-        isFalse,
-      );
+      expect(find.byType(DSwitch), findsNothing);
+      expect(find.text('Turn off schedule'), findsNothing);
+      expect(find.text('Every day'), findsOneWidget);
+      expect(find.text('09:00'), findsOneWidget);
     },
   );
 
@@ -164,8 +161,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Varies by day'), findsOneWidget);
-      await tester.tap(find.byType(DSwitch));
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('notification-schedule-save')),
       );
@@ -183,8 +178,6 @@ void main() {
     await _open(tester, api);
     await tester.tap(find.byKey(const ValueKey('notification-schedule-open')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DSwitch));
-    await tester.pumpAndSettle();
     api.preferenceFailure = const WriteException(WriteFailure.forbidden);
     await tester.tap(find.byKey(const ValueKey('notification-schedule-save')));
     await tester.pumpAndSettle();
@@ -198,6 +191,72 @@ void main() {
   });
 
   testWidgets(
+    'turning off retries failures and preserves saved days and hours for reuse',
+    (tester) async {
+      final original = NotificationSchedule(
+        enabled: true,
+        days: [
+          for (var i = 0; i < 7; i++)
+            (start: i < 5 ? 480 + i * 30 : -1, end: i < 5 ? 1020 : -1),
+        ],
+      );
+      final api = _DndApi()
+        ..userPreferences = UserPreferences(
+          username: 'reader',
+          canEdit: true,
+          notificationSchedule: original,
+        );
+      final shell = await _open(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      // An invalid unsaved edit must neither block turning off nor replace the
+      // saved hours that will be reused when the schedule is enabled again.
+      await _choose(tester, 'notification-schedule-to', '08:00');
+      expect(find.text('End time must be after start time.'), findsOneWidget);
+      api.preferenceFailure = const WriteException(WriteFailure.forbidden);
+      await tester.tap(find.text('Turn off schedule'));
+      await tester.pumpAndSettle();
+      expect(find.text('Turn off schedule'), findsOneWidget);
+      expect(
+        shell.preferences.stateFor(_site)?.confirmed?.notificationSchedule,
+        original,
+      );
+      api.preferenceFailure = null;
+      await tester.tap(find.text('Turn off schedule'));
+      await tester.pumpAndSettle();
+      expect(api.userPreferenceUpdates, hasLength(2));
+      for (final update in api.userPreferenceUpdates) {
+        expect(update.values, {
+          'user_notification_schedule': {
+            ...original.wireValues,
+            'enabled': false,
+          },
+        });
+      }
+      expect(find.text('Not set'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-open')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Turn off schedule'), findsNothing);
+      expect(find.text('Weekdays'), findsOneWidget);
+      expect(find.text('Varies by day'), findsOneWidget);
+      expect(find.text('17:00'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('notification-schedule-save')),
+      );
+      await tester.pumpAndSettle();
+      expect(api.userPreferenceUpdates.last.values, {
+        'user_notification_schedule': original.wireValues,
+      });
+      expect(find.text('Not set'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'cancel after a failed first save discards its shared preferences draft',
     (tester) async {
       final api = _DndApi();
@@ -205,8 +264,6 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('notification-schedule-open')),
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DSwitch));
       await tester.pumpAndSettle();
       api.preferenceFailure = const WriteException(WriteFailure.forbidden);
       await tester.tap(
@@ -239,8 +296,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       final editor = tester.element(find.byType(DDialogContent));
-      await tester.tap(find.byType(DSwitch));
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('notification-schedule-save')),
       );
@@ -277,6 +332,13 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         final api = _DndApi();
+        api.userPreferences = UserPreferences(
+          username: 'reader',
+          canEdit: true,
+          notificationSchedule: NotificationSchedule.initial().copyWith(
+            enabled: true,
+          ),
+        );
         final shell = await _loadShell(api);
         await _pump(
           tester,
@@ -321,6 +383,10 @@ void main() {
                 find.byKey(const ValueKey('notification-schedule-save')),
               )
               .dx,
+          lessThanOrEqualTo(width),
+        );
+        expect(
+          tester.getBottomRight(find.text('Turn off schedule')).dx,
           lessThanOrEqualTo(width),
         );
         await tester.tap(find.byTooltip('Back'));
