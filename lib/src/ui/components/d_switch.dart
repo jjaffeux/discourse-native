@@ -199,7 +199,11 @@ class _SwitchArtwork extends StatelessWidget {
     final tokens = DTokens.of(context);
 
     final preference = size == DSwitchSize.preference;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final ring = invalid ? tokens.destructive : tokens.focusRing;
+    // Off, the track is the reference's well: a step of black over whatever
+    // the switch sits on, edged all the way round, with a mark-subtle knob.
+    final offEdge = Color.lerp(tokens.background, tokens.foreground, .12)!;
     final duration = DMotion.duration(
       context,
       const Duration(milliseconds: 150),
@@ -215,16 +219,13 @@ class _SwitchArtwork extends StatelessWidget {
             ? (interactive
                   ? tokens.controlTheme.primary.hover
                   : tokens.controlTheme.primary.background)
-            : Color.lerp(
-                tokens.background,
-                tokens.mutedForeground,
-                interactive ? .85 : .70,
-              ),
+            : Colors.black.withValues(alpha: dark ? .16 : .045),
         borderRadius: BorderRadius.circular(999),
       ),
       foregroundDecoration: DControlDecoration(
         color: Colors.transparent,
-        borderColor: Colors.transparent,
+        borderColor: checked ? Colors.transparent : offEdge,
+        strokeWidth: 1,
         borderRadius: BorderRadius.circular(999),
         ringColor: invalid || focused ? ring : Colors.transparent,
         ringWidth: DControlStyle.focusWidth,
@@ -238,10 +239,10 @@ class _SwitchArtwork extends StatelessWidget {
             : AlignmentDirectional.centerStart,
         child: SizedBox.square(
           dimension: preference ? 18 : 14,
-          child: const DecoratedBox(
+          child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: checked ? Colors.white : tokens.subtleMark,
             ),
           ),
         ),
