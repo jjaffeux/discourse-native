@@ -10,6 +10,54 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('plain preset phone canvas shares the compact header fill', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      final palette = forumThemePresets
+          .firstWhere((theme) => theme.id == 'dracula')
+          .forBrightness(brightness)
+          .copyWith(background: const ForumBackground.appearance());
+      final theme = AppTheme.fromPalette(palette.resolve(brightness));
+      final fill = theme.extension<DTokens>()!.wellFill;
+      await tester.pumpWidget(
+        MaterialApp(
+          themeAnimationStyle: AnimationStyle.noAnimation,
+          theme: theme,
+          home: const RepaintBoundary(
+            key: ValueKey('plain-phone-canvas'),
+            child: ForumWindowBackground(
+              mobile: true,
+              child: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('plain-phone-canvas')),
+      );
+      await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          for (final (channel, expected) in [fill.r, fill.g, fill.b].indexed) {
+            expect(
+              bytes.getUint8(channel),
+              closeTo(expected * 255, 2),
+              reason: '$brightness phone canvas uses the header well fill',
+            );
+          }
+        } finally {
+          image.dispose();
+        }
+      });
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('phone pages and sidebar paint one surface over window chrome', (
     tester,
   ) async {
