@@ -239,6 +239,22 @@ void main() {
     );
   }
 
+  testWidgets('a poster with no picture shows its letter at 11', (
+    tester,
+  ) async {
+    await _pump(tester, platform: TargetPlatform.macOS);
+    final posters = find.byKey(const ValueKey('topic-card-posters-1'));
+    expect(posters, findsOneWidget);
+    for (final letter in ['D', 'M', 'C', 'S']) {
+      final text = tester.widget<Text>(
+        find.descendant(of: posters, matching: find.text(letter)),
+      );
+      // The reference's avatar letter is max(11, size * .42), 11 at 20.
+      expect(text.style!.fontSize, 11, reason: letter);
+      expect(text.style!.fontWeight, FontWeight.w700, reason: letter);
+    }
+  });
+
   testWidgets('unread count stays with the final title word', (tester) async {
     await _pump(tester, width: 320);
     final card = find.byKey(const ValueKey('topic-card-1'));
