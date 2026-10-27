@@ -1222,7 +1222,6 @@ class _CategoryChip extends StatelessWidget {
     // Flat and round as the head's other tools: only the category a topic is
     // in is filled; the ones it sits under are context, and read as such.
     final fill = contextOnly ? Colors.transparent : surface.background;
-    const border = Colors.transparent;
     final hover = surface.hover;
     final foreground = contextOnly
         ? tokens.mutedForeground
@@ -1241,12 +1240,10 @@ class _CategoryChip extends StatelessWidget {
               isLink: primaryIsLink,
               tooltip: edit == null ? label : editLabel,
               semanticLabel: edit == null ? label : '$editLabel: $label',
-              variant: DButtonVariant.outline,
-              shape: DButtonShape.pill,
+              variant: DButtonVariant.tool,
               size: DButtonSize.filter,
               backgroundColor: fill,
               foregroundColor: foreground,
-              borderColor: border,
               interactiveBackgroundColor: hover,
               loading: saving,
               loadingSemanticLabel: context.l10n.savingCategory,
@@ -1289,12 +1286,10 @@ class _CategoryChip extends StatelessWidget {
                 ),
                 isLink: true,
                 onPressed: navigate,
-                variant: DButtonVariant.outline,
-                shape: DButtonShape.pill,
+                variant: DButtonVariant.tool,
                 size: DButtonSize.filter,
                 backgroundColor: fill,
                 foregroundColor: foreground,
-                borderColor: border,
                 interactiveBackgroundColor: hover,
               ),
             ),
