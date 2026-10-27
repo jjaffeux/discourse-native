@@ -262,6 +262,7 @@ Future<void> showReactionPicker(
               siteUrl: siteUrl,
               post: post,
               onPicked: sheet.close,
+              inSheet: true,
             ),
           ),
         ],
@@ -299,6 +300,7 @@ class ReactionGrid extends StatelessWidget {
     required this.onPicked,
   }) : _ownerContext = null,
        onMore = null,
+       inSheet = false,
        _session = controller.beginPicker(siteUrl, post);
 
   const ReactionGrid._withSession(
@@ -309,7 +311,14 @@ class ReactionGrid extends StatelessWidget {
     required this.post,
     required this.onPicked,
     this.onMore,
+    this.inSheet = false,
   });
+
+  /// A phone's sheet holds as many 44 cells to a row as fit its width, each
+  /// with a 24 glyph, inside the sheet's own inset.
+  static const double sheetCell = 44;
+  static const double sheetGlyph = 24;
+  static const double _sheetGap = 2;
 
   static double get maxWidth =>
       DToggle.visualDimensionFor(DToggleSize.post) * 8 +
@@ -322,6 +331,7 @@ class ReactionGrid extends StatelessWidget {
   final Post post;
   final VoidCallback onPicked;
   final VoidCallback? onMore;
+  final bool inSheet;
   final ReactionPickerSession _session;
 
   @override
@@ -361,15 +371,16 @@ class ReactionGrid extends StatelessWidget {
       );
     }
 
-    final grid = Wrap(
-      spacing: DSpacing.controlGap,
-      runSpacing: DSpacing.controlGap,
+    Widget cells({double? width}) => Wrap(
+      spacing: width == null ? DSpacing.controlGap : _sheetGap,
+      runSpacing: width == null ? DSpacing.controlGap : _sheetGap,
       children: [
         for (final id in settings.offeredReactions)
           _ReactionCell(
             id: id,
             url: controller.emojiUrlFor(siteUrl, id),
             held: id == held,
+            width: width,
             onTap: !enabled
                 ? null
                 : () {
@@ -404,6 +415,22 @@ class ReactionGrid extends StatelessWidget {
           ),
       ],
     );
+    final grid = !inSheet
+        ? cells()
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final room = constraints.maxWidth;
+                final columns = ((room + _sheetGap) / (sheetCell + _sheetGap))
+                    .floor()
+                    .clamp(1, 1 << 20);
+                return cells(
+                  width: (room - _sheetGap * (columns - 1)) / columns,
+                );
+              },
+            ),
+          );
 
     if (!settings.desaturatedPanel) return grid;
     return ColorFiltered(
@@ -453,6 +480,7 @@ class _ReactionCell extends StatelessWidget {
     required this.url,
     required this.held,
     required this.onTap,
+    this.width,
   });
 
   final String id;
@@ -460,23 +488,36 @@ class _ReactionCell extends StatelessWidget {
   final bool held;
   final VoidCallback? onTap;
 
+  /// A sheet's column width; null for the popover's compact cell.
+  final double? width;
+
   @override
-  Widget build(BuildContext context) => DToggle.iconOnly(
-    semanticLabel: id,
-    pressed: held,
-    enabled: onTap != null,
-    size: DToggleSize.post,
-    onPressedChanged: (_) => onTap?.call(),
-    icon: Builder(
-      builder: (context) => SizedBox.square(
-        dimension: 16,
-        child: EmojiImage(
-          url: url,
-          size: 16,
-          alt: ':$id:',
-          style: Theme.of(context).textTheme.labelSmall,
+  Widget build(BuildContext context) {
+    final width = this.width;
+    final glyph = width == null ? 16.0 : ReactionGrid.sheetGlyph;
+    final toggle = DToggle.iconOnly(
+      semanticLabel: id,
+      pressed: held,
+      enabled: onTap != null,
+      size: DToggleSize.post,
+      visualStyle: width == null
+          ? null
+          : const DToggleVisualStyle(expandArtwork: true, fillHeight: true),
+      onPressedChanged: (_) => onTap?.call(),
+      icon: Builder(
+        builder: (context) => SizedBox.square(
+          dimension: glyph,
+          child: EmojiImage(
+            url: url,
+            size: glyph,
+            alt: ':$id:',
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
         ),
       ),
-    ),
-  );
+    );
+    return width == null
+        ? toggle
+        : SizedBox(width: width, height: ReactionGrid.sheetCell, child: toggle);
+  }
 }
