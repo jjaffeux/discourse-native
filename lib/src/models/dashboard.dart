@@ -239,11 +239,17 @@ final class DashboardReportResult {
     this.total,
     this.average = false,
     this.percent = false,
-  }) : points = List.unmodifiable(points),
+    Iterable<DashboardSeries> series = const [],
+  }) : series = List.unmodifiable(series),
+       points = List.unmodifiable(points),
        headings = List.unmodifiable(headings),
        rows = List.unmodifiable(rows.map(List<String>.unmodifiable));
   factory DashboardReportResult.fromJson(Map<String, dynamic> json) {
     final data = jsonObject(json['data']);
+    final series = [
+      for (final item in jsonObjects(data['data']))
+        if (item['data'] is List) DashboardSeries.fromJson(item),
+    ];
     final values = jsonObjects(data['data']).toList();
     final labels = jsonObjects(data['labels']).toList();
     final properties = labels.map(_reportProperty).toList();
@@ -262,15 +268,17 @@ final class DashboardReportResult {
           data['error'] != null && data['error'] != false,
       unsupported:
           data.isEmpty ||
-          points.isEmpty &&
+          series.isEmpty &&
+              points.isEmpty &&
               (values.isNotEmpty && labels.isEmpty ||
                   properties.contains(null)),
       points: points,
+      series: series,
       average: data['average'] == true,
       percent: data['percent'] == true,
       total: dashboardNumber(data['total']),
       headings: labels.map((label) => jsonString(label['title'])),
-      rows: points.isNotEmpty || properties.contains(null)
+      rows: series.isNotEmpty || properties.contains(null)
           ? const []
           : values.map(
               (row) => [
@@ -310,6 +318,7 @@ final class DashboardReportResult {
   final bool error;
   final bool unsupported;
   final List<DashboardPoint> points;
+  final List<DashboardSeries> series;
   final List<String> headings;
   final List<List<String>> rows;
   final num? total;

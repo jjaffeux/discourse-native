@@ -22880,6 +22880,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The server username cannot contain a colon. Neither field can contain control characters.'**
   String get httpBasicAuthenticationInvalid;
+
+  /// Native report viewer. Back to dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Back to dashboard'**
+  String get reportBackToDashboard;
+
+  /// Native report viewer. Date range
+  ///
+  /// In en, this message translates to:
+  /// **'Date range'**
+  String get reportDateRange;
+
+  /// Native report viewer. Start date
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get reportStartDate;
+
+  /// Native report viewer. End date
+  ///
+  /// In en, this message translates to:
+  /// **'End date'**
+  String get reportEndDate;
+
+  /// Native report viewer. Chart
+  ///
+  /// In en, this message translates to:
+  /// **'Chart'**
+  String get reportChart;
+
+  /// Native report viewer. Could not load this report. Refresh to try again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this report. Refresh to try again.'**
+  String get reportLoadError;
 }
 
 class _AppLocalizationsDelegate

@@ -3,6 +3,7 @@ import 'assign/assign_module.dart';
 import 'boards/boards_module.dart';
 import 'chat/chat_module.dart';
 import 'cooking/cooking_module.dart';
+import 'data_explorer/data_explorer_module.dart';
 import 'discourse_ai/discourse_ai_module.dart';
 import 'discourse_events/discourse_events_module.dart';
 import 'discourse_github/discourse_github_module.dart';
@@ -33,6 +34,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   prometheusAlertReceiverModule,
   gifsModule,
   discourseAiModule,
+  dataExplorerModule,
   assignModule,
   boardsModule,
   chatModule,

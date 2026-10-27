@@ -76,6 +76,7 @@ class DashboardPage extends StatefulWidget {
     required this.onRefreshProblems,
     required this.onDismissProblem,
     required this.onOpenUrl,
+    required this.onOpenReport,
   });
   final DashboardState state;
   final bool staff;
@@ -86,6 +87,7 @@ class DashboardPage extends StatefulWidget {
   final VoidCallback onRefreshProblems;
   final ValueChanged<DashboardProblem> onDismissProblem;
   final ValueChanged<DashboardLink> onOpenUrl;
+  final ValueChanged<DashboardReport> onOpenReport;
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
@@ -429,8 +431,7 @@ class _DashboardPageState extends State<DashboardPage> {
               child: DButton(
                 label: Text(context.l10n.dashboardOpenReport),
                 variant: DButtonVariant.link,
-                onPressed: () =>
-                    widget.onOpenUrl(DashboardLink.app(report.path)),
+                onPressed: () => widget.onOpenReport(report),
               ),
             ),
           ],

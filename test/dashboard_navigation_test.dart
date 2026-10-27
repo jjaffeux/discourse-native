@@ -7,11 +7,16 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/dashboard_host.dart';
 import 'package:discourse_native/src/shell/dashboard_page.dart';
+import 'package:discourse_native/src/shell/report_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'plugins/data_explorer/data_explorer_reports_test.dart'
+    show query, payload;
+import 'report_test.dart' show reportPayload;
 import 'support/dashboard_fixture.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
@@ -22,6 +27,8 @@ const staff = DiscourseUser(id: 7, username: 'sam', staff: true, admin: true);
 class DashboardTestApi extends FakeDiscourseApi {
   DashboardTestApi() : super(user: staff);
   int requests = 0;
+  int reportRequests = 0;
+  bool explorer = false;
   Completer<Map<String, dynamic>>? dashboardGate;
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -32,7 +39,41 @@ class DashboardTestApi extends FakeDiscourseApi {
   }) async {
     if (Uri.parse(path).path == '/admin/dashboard.json') {
       requests++;
-      return dashboardGate?.future ?? dashboardFixture;
+      return dashboardGate?.future ??
+          (explorer
+              ? {
+                  'sections': [
+                    {
+                      'id': 'reports',
+                      'data': {
+                        'items': [
+                          {
+                            'source': query.source,
+                            'identifier': query.identifier,
+                            'title': query.title,
+                            'url': query.path,
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                }
+              : dashboardFixture);
+    }
+    if (Uri.parse(path).path.startsWith('/admin/reports/')) {
+      reportRequests++;
+      return {'report': reportPayload};
+    }
+    if (Uri.parse(path).path.startsWith('/data-explorer/queries/')) {
+      reportRequests++;
+      return payload;
+    }
+    if (path == '/site.json') {
+      return {
+        'categories': [
+          {'id': 7, 'name': 'Sailing'},
+        ],
+      };
     }
     return super.pluginGetJson(
       siteUrl: siteUrl,
@@ -52,7 +93,13 @@ class DashboardTestApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     if (path == '/admin/dashboard/reports/bulk.json') {
-      return dashboardReportsFixture;
+      return explorer
+          ? {
+              'items': [
+                {'key': query.key, 'source': query.source, 'data': payload},
+              ],
+            }
+          : dashboardReportsFixture;
     }
     return super.pluginWriteJson(
       siteUrl: siteUrl,
@@ -201,6 +248,72 @@ void main() {
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
+    );
+  }
+  for (final explorer in [false, true]) {
+    testWidgets(
+      'report viewer stays native for ${explorer ? 'plugin queries' : 'core reports'}',
+      (tester) async {
+        final api = DashboardTestApi()..explorer = explorer;
+        final auth = FakeAuthenticator()..keys[siteUrl] = 'staff-key';
+        await pumpShell(
+          tester,
+          phone,
+          api: api,
+          authenticator: auth,
+          instances: const [
+            DiscourseInstance(url: siteUrl, title: 'Forum', user: staff),
+          ],
+        );
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        shell.openCorePageUrl('$siteUrl/admin/dashboard');
+        await tester.pumpAndSettle();
+        for (
+          var attempt = 0;
+          attempt < 12 &&
+              find.text('Open report').hitTestable().evaluate().isEmpty;
+          attempt++
+        ) {
+          await tester.drag(
+            find
+                .descendant(
+                  of: find.byType(DashboardPage),
+                  matching: find.byType(ListView),
+                )
+                .first,
+            const Offset(0, -250),
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text('Open report').hitTestable().first);
+        await tester.pumpAndSettle();
+        expect(find.byType(ReportPage), findsOneWidget);
+        expect(api.reportRequests, 1);
+        expect(launched, isEmpty);
+        if (explorer) {
+          expect(find.text('Sailing'), findsOneWidget);
+          expect(find.text('11'), findsOneWidget);
+        } else {
+          expect(
+            find.byType(DCartesianChart<MapEntry<String, Map<String, num?>>>),
+            findsOneWidget,
+          );
+          await tester.tap(find.text('Table').last);
+          await tester.pumpAndSettle();
+          expect(find.text('2026-10-01'), findsOneWidget);
+          expect(find.text('12'), findsOneWidget);
+        }
+        await shell.refreshCurrentTab();
+        await tester.pumpAndSettle();
+        expect(api.reportRequests, 2);
+        await tester.tap(find.text('Back to dashboard'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DashboardPage), findsOneWidget);
+        expect(api.requests, 1);
+        expect(launched, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
   }
   testWidgets(

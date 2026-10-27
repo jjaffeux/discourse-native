@@ -1,5 +1,6 @@
 import '../models/dashboard.dart';
 import '../models/json.dart';
+import '../plugin_api/dashboard_report_source.dart';
 import 'plugin_transport.dart';
 
 abstract interface class DashboardApi {
@@ -36,8 +37,9 @@ abstract interface class DashboardApi {
 }
 
 final class DiscourseDashboardApi implements DashboardApi {
-  const DiscourseDashboardApi(this.transport);
+  const DiscourseDashboardApi(this.transport, {this.sources = const []});
   final PluginApiTransport transport;
+  final Iterable<DashboardReportSource> sources;
 
   @override
   Future<DashboardSnapshot> load({
@@ -89,8 +91,27 @@ final class DiscourseDashboardApi implements DashboardApi {
           );
     return Map.unmodifiable({
       for (final item in jsonObjects(response['items']))
-        jsonString(item['key']): DashboardReportResult.fromJson(item),
+        jsonString(item['key']): _decode(item, items),
     });
+  }
+
+  DashboardReportResult _decode(
+    Map<String, dynamic> payload,
+    List<DashboardReport> items,
+  ) {
+    final source = items
+        .where((item) => item.key == payload['key'])
+        .firstOrNull
+        ?.source;
+    if (source == 'core_report') return DashboardReportResult.fromJson(payload);
+    final extension = sources
+        .where((extension) => extension.source == source)
+        .firstOrNull;
+    return extension?.decode(payload) ??
+        DashboardReportResult(
+          unsupported: true,
+          error: payload['error'] == true,
+        );
   }
 
   @override

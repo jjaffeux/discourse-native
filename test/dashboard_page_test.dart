@@ -50,6 +50,7 @@ Widget dashboard({
       onRefreshProblems: () {},
       onDismissProblem: onDismiss ?? (_) {},
       onOpenUrl: onOpen ?? (_) {},
+      onOpenReport: (_) {},
     ),
   ),
 );
