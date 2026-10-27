@@ -74,6 +74,11 @@ geometry and elevation belong to the shared sheet work.
 | Grabber | Drawn under the band while the band still covers its foot, 12 below the sheet's top. |
 | Card's depth | None while the head is drawn in, wherever the band is: the band runs on up into the screen's head, so the card has no rim, catch of light or shadow along its top. The panel depth returns with the full head. |
 
+The outer `ForumMobileSurface` stays square and transparent while a page
+sheet covers it. The sheet owns the visible corners; a second rounded clip
+would cut off the condensed band's square top corners. Plain preset
+backgrounds use `wellFill` on phones too, so the band joins the canvas above.
+
 `DPageSurface.scrollable(compactHeaderBand: true)` reports its compact state
 and how much of it is shown to the enclosing page sheet through
 `DSheetPageBand`. The sheet applies each report outside the frame's build. A
@@ -87,6 +92,9 @@ At 390 and 1000 wide on iOS and Android it covers the line, the path
 collapsing, the opened run, the chip colours, corners, heights and split, the
 sheet's groups and order, Assign opening its drawer from the sheet, the card
 corners, and the band squaring the card and hiding the grabber, then rounding
-it again. `test/support/topic_head_review_main.dart` runs the production head
+it again. A full-shell pixel check on a distinct canvas catches ancestor
+clipping of the band's top corners. `test/forum_mobile_surface_test.dart`
+checks the plain preset canvas fill in light and dark.
+`test/support/topic_head_review_main.dart` runs the production head
 on a simulator with a fixture. It opens the topic, draws the head in, opens
 the sheet and opens every tag, printing `TOPIC_HEAD_REVIEW` before each stage.

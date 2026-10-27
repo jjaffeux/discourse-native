@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
@@ -9,6 +12,7 @@ import 'package:discourse_native/src/shell/topic_header_tags.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -128,6 +132,18 @@ Future<ShellController> _openTopic(
 }
 
 void main() {
+  const notificationOpens = MethodChannel(
+    'org.discourse.native/notification_opens',
+  );
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationOpens, (_) async => null);
+  });
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationOpens, null);
+  });
+
   group('the reference head arithmetic', () {
     double count(int hidden) => 30;
 
@@ -343,25 +359,10 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
-  testWidgets('the page card and the topic sheet are 31 round at their top', (
+  testWidgets('the topic sheet starts with 31-point top corners', (
     tester,
   ) async {
     await _openTopic(tester);
-    final card = tester.widget<DPageSurface>(
-      find
-          .descendant(
-            of: find.byKey(const ValueKey('mobile-content-panel')),
-            matching: find.byType(DPageSurface),
-          )
-          .first,
-    );
-    expect(
-      card.borderRadius,
-      const BorderRadius.vertical(
-        top: Radius.circular(31),
-        bottom: Radius.circular(22),
-      ),
-    );
     final sheet = tester.widget<DPageSurface>(
       find
           .descendant(
@@ -384,7 +385,15 @@ void main() {
   testWidgets('the condensed head is a band the card squares under', (
     tester,
   ) async {
-    await _openTopic(tester);
+    final shell = await _openTopic(tester);
+    // A distinct canvas makes clipped corners visible even when a plain
+    // phone's canvas and header normally share the same fill.
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(
+        effects: const ForumBackground.appearance(strength: .4),
+      ),
+    );
+    await tester.pumpAndSettle();
     final sheet = find
         .descendant(
           of: find.byType(DSheetContent),
@@ -425,6 +434,41 @@ void main() {
     );
     expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
     expect(tester.widget<DPageSurface>(sheet).depth, isNull);
+
+    final bounds = tester.getRect(
+      find.byKey(const ValueKey('topic-header-band')),
+    );
+    final fill = DTokens.of(tester.element(sheet)).wellFill;
+    // Capture the complete shell: checking the inner sheet's radius alone
+    // misses a rounded ancestor cutting both top corners off the band.
+    await tester.runAsync(() async {
+      final builder = ui.SceneBuilder();
+      tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+      final scene = builder.build();
+      final image = await scene.toImage(390, 844);
+      try {
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        for (final point in [
+          bounds.topLeft + const Offset(2, 2),
+          bounds.topRight + const Offset(-3, 2),
+        ]) {
+          final offset =
+              (point.dy.floor() * image.width + point.dx.floor()) * 4;
+          for (final (channel, expected) in [fill.r, fill.g, fill.b].indexed) {
+            expect(
+              bytes.getUint8(offset + channel),
+              closeTo(expected * 255, 2),
+              reason: 'The compact band must reach the top corner at $point',
+            );
+          }
+        }
+      } finally {
+        image.dispose();
+        scene.dispose();
+      }
+    });
 
     // Rounded again, and the grabber back, once the head has gone.
     await wheel(400);

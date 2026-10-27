@@ -114,7 +114,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final tokens = DTokens.of(context);
 
     final transparency = background?.transparency ?? 0;
-    final mobile = widget.mobile && background == null;
+    final mobile = widget.mobile && (background?.isPlain ?? true);
     return _ForumCanvas(
       continuous: background != null,
       transparency: transparency,
@@ -302,9 +302,10 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
   Widget build(BuildContext context) => DPageSurface(
     framed: true,
     border: false,
-    // The page's card is as round at its top as the bar of places it meets
-    // at the screen's foot.
-    borderRadius: widget._sidebar
+    // A covering sheet owns its clip; other pages follow the dock's corners.
+    borderRadius: widget.coveredBySheet
+        ? BorderRadius.zero
+        : widget._sidebar
         ? BorderRadiusDirectional.only(
             topStart: const Radius.circular(DRadius.panel),
             topEnd: const Radius.circular(DRadius.panel),
