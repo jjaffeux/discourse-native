@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
@@ -8,6 +9,7 @@ import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -112,6 +114,83 @@ void main() {
     expect(find.byKey(const ValueKey('topic-list-tag-filter')), findsOneWidget);
     expect(find.textContaining('matching topics'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filter gaps show the desktop page background', (tester) async {
+    const imageKey = ValueKey('filter-background');
+    for (final brightness in Brightness.values) {
+      for (final layout in ['wrapped', 'inline', 'scrolling']) {
+        await tester.pumpWidget(
+          MaterialApp(
+            themeAnimationStyle: AnimationStyle.noAnimation,
+            theme: AppTheme.forBrightness(
+              brightness,
+            ).copyWith(platform: TargetPlatform.macOS),
+            home: Center(
+              child: RepaintBoundary(
+                key: imageKey,
+                child: SizedBox(
+                  width: 600,
+                  height: 200,
+                  child: DPageSurface(
+                    child: DPageSurface.headed(
+                      title: const Text('Latest topics'),
+                      controls: TopicListFilterBar(
+                        inline: layout != 'scrolling',
+                        wrap: layout == 'wrapped',
+                        siteUrl: 'https://example.com',
+                        categories: const [parent, child, other],
+                        knownTags: knownTags,
+                        selectedCategoryId: null,
+                        selectedTagName: null,
+                        taggingEnabled: true,
+                        searchTags: (_) async => const [],
+                        onCategorySelected: (_) {},
+                        onTagSelected: (_) {},
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final category = tester.getRect(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        );
+        final tag = tester.getRect(
+          find.byKey(const ValueKey('topic-list-tag-filter')),
+        );
+        final origin = tester.getTopLeft(find.byKey(imageKey));
+        final gap = Offset((category.right + tag.left) / 2, category.center.dy);
+        final above = Offset(gap.dx, category.top - 3);
+        await tester.runAsync(() async {
+          final image = await tester
+              .renderObject<RenderRepaintBoundary>(find.byKey(imageKey))
+              .toImage();
+          try {
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            List<int> pixel(Offset point) {
+              final local = point - origin;
+              final offset =
+                  (local.dy.floor() * image.width + local.dx.floor()) * 4;
+              return List.generate(
+                4,
+                (channel) => bytes.getUint8(offset + channel),
+              );
+            }
+
+            expect(pixel(gap), pixel(above), reason: '$brightness, $layout');
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+    }
   });
 
   testWidgets('labels and opens the unfiltered category selector', (

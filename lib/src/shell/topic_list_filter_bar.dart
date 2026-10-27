@@ -6,11 +6,9 @@ import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
-import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
-import 'forum_theme_surfaces.dart';
 import 'topic_category_path.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_scope.dart';
@@ -72,7 +70,6 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final selectedTags = [
       for (final value in widget.selectedTagNames ?? [?widget.selectedTagName])
         _selectedTag(widget.knownTags, value),
@@ -250,9 +247,8 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
             ],
           );
 
-    return Material(
+    return KeyedSubtree(
       key: const ValueKey('topic-list-filter-bar'),
-      color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
       child: widget.wrap
           ? Align(
               widthFactor: 1,
