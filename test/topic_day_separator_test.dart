@@ -3,7 +3,13 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DButtonDecoration, DButtonShape, DMarker, DMarkerVariant;
+    show
+        DButton,
+        DButtonDecoration,
+        DButtonShape,
+        DMarker,
+        DMarkerVariant,
+        DTokens;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -648,10 +654,11 @@ void main() {
     );
     expect(floatingFirst, findsOneWidget);
     expect(tester.getSize(floatingFirst).height, StreamDaySeparator.height);
-    final expectedBackground = theme.shell.content;
+    final tokens = DTokens.of(tester.element(floatingFirst));
+    final expectedBackground = tokens.raisedBackground;
     final expectedBorder = Color.lerp(
-      theme.shell.content,
-      theme.colorScheme.onSurface,
+      tokens.background,
+      tokens.foreground,
       .12,
     )!;
     final floatingDecoration = buttonSurface(tester, of: floatingFirst);

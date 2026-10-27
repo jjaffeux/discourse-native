@@ -198,7 +198,10 @@ void main() {
           .first;
       expect(
         tester.widget<DPageSurface>(surface).borderRadius,
-        BorderRadius.circular(22),
+        const BorderRadius.vertical(
+          top: Radius.circular(DMobileDockGeometry.capsuleRadius),
+          bottom: Radius.circular(22),
+        ),
       );
       expect(find.byType(ChatChannelView), findsOneWidget);
       final semantics = tester.ensureSemantics();

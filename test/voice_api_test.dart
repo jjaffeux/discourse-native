@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -793,7 +792,9 @@ void main() {
         'a site sending ${settings.keys.single} is reached under $root',
         () async {
           final namespace = VoiceClientConfig.fromSettings(settings).namespace;
-          final transport = _RouteRecordingTransport();
+          // The shared fake answers no request, so a sweep shows where
+          // each call goes without depending on how its response parses.
+          final transport = RecordingPluginTransport();
           final api = VoiceApi(transport, namespaceFor: (_) => namespace);
           final calls = <Future<Object?> Function()>[
             () => api.agentPermission(siteUrl: _siteUrl, apiKey: _apiKey),
@@ -950,79 +951,51 @@ void main() {
           ];
 
           for (final call in calls) {
-            await expectLater(call(), throwsA(isA<_ServerReached>()));
+            await expectLater(call(), throwsStateError);
           }
 
-          expect(transport.routes, [
-            'GET /site.json',
-            'GET $root/agents.json',
-            'GET $root/agents.json?refresh=true',
-            'POST $root/rooms/7/invite_agent.json',
-            'GET $root/rooms.json',
-            'GET $root/rooms/conf-room-1.json',
-            'POST $root/rooms/7/join.json',
-            'POST $root/rooms/7/heartbeat.json',
-            'DELETE $root/rooms/7/leave.json',
-            'POST $root/rooms/7/signal.json',
-            'POST $root/rooms/7/state.json',
-            'POST $root/rooms/7/livekit_token.json',
-            'GET $root/rooms/7/chat_session.json',
-            'POST $root/rooms/7/chat_session.json',
-            'POST $root/rooms/7/chat_message.json',
-            'POST $root/calls.json',
-            'POST $root/rooms/7/invites.json',
-            'GET $root/rooms/7/invites/suggestions.json',
-            'POST $root/rooms.json',
-            'PUT $root/rooms/7.json',
-            'DELETE $root/rooms/7.json',
-            'GET $root/rooms/7/memberships.json',
-            'POST $root/rooms/7/memberships.json',
-            'PUT $root/rooms/7/memberships/8.json',
-            'DELETE $root/rooms/7/memberships/8.json',
-            'POST $root/rooms/7/request_to_speak.json',
-            'DELETE $root/rooms/7/request_to_speak.json',
-            'DELETE $root/rooms/7/kick.json',
-            'POST $root/rooms/7/flag.json',
-            'GET /site.json',
-            'POST $root/rooms/7/recording.json',
-            'DELETE $root/rooms/7/recording.json',
-          ]);
+          expect(
+            [
+              for (final request in transport.requests)
+                '${request.method} ${request.path}',
+            ],
+            [
+              'GET /site.json',
+              'GET $root/agents.json',
+              'GET $root/agents.json?refresh=true',
+              'POST $root/rooms/7/invite_agent.json',
+              'GET $root/rooms.json',
+              'GET $root/rooms/conf-room-1.json',
+              'POST $root/rooms/7/join.json',
+              'POST $root/rooms/7/heartbeat.json',
+              'DELETE $root/rooms/7/leave.json',
+              'POST $root/rooms/7/signal.json',
+              'POST $root/rooms/7/state.json',
+              'POST $root/rooms/7/livekit_token.json',
+              'GET $root/rooms/7/chat_session.json',
+              'POST $root/rooms/7/chat_session.json',
+              'POST $root/rooms/7/chat_message.json',
+              'POST $root/calls.json',
+              'POST $root/rooms/7/invites.json',
+              'GET $root/rooms/7/invites/suggestions.json',
+              'POST $root/rooms.json',
+              'PUT $root/rooms/7.json',
+              'DELETE $root/rooms/7.json',
+              'GET $root/rooms/7/memberships.json',
+              'POST $root/rooms/7/memberships.json',
+              'PUT $root/rooms/7/memberships/8.json',
+              'DELETE $root/rooms/7/memberships/8.json',
+              'POST $root/rooms/7/request_to_speak.json',
+              'DELETE $root/rooms/7/request_to_speak.json',
+              'DELETE $root/rooms/7/kick.json',
+              'POST $root/rooms/7/flag.json',
+              'GET /site.json',
+              'POST $root/rooms/7/recording.json',
+              'DELETE $root/rooms/7/recording.json',
+            ],
+          );
         },
       );
     }
   });
-}
-
-final class _ServerReached implements Exception {
-  const _ServerReached();
-}
-
-/// Answers no request, so a sweep shows where each call goes without
-/// depending on how its response would parse.
-final class _RouteRecordingTransport implements PluginApiTransport {
-  final List<String> routes = [];
-
-  @override
-  Future<Map<String, dynamic>> pluginGetJson({
-    required String siteUrl,
-    required String path,
-    required String? apiKey,
-    String? clientId,
-  }) async {
-    routes.add('GET $path');
-    throw const _ServerReached();
-  }
-
-  @override
-  Future<Map<String, dynamic>> pluginWriteJson({
-    required String siteUrl,
-    required String path,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-  }) async {
-    routes.add('$method $path');
-    throw const _ServerReached();
-  }
 }

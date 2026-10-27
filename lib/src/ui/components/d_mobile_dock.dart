@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -1751,7 +1752,7 @@ class DMobileDockAction extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: DiscourseTypography.metadata,
                       fontWeight: FontWeight.w400,
                       color: tokens.primary,
                     ),

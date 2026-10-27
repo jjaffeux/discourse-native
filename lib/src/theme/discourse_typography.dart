@@ -21,6 +21,9 @@ abstract final class DiscourseTypography {
   static const double base = sm;
   static const double mobileBase = 17;
   static const double rowTitle = 14.5;
+
+  /// A phone sheet's heading, the mockups' 15pt title over its body.
+  static const double sheetTitle = 15;
   static const double lg = 17;
   static const double xl = 18;
   static const double magnifier = 20;
