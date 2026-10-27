@@ -662,6 +662,12 @@ Widget _sheetLayout(
   final page = variant == DSheetVariant.page;
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
+  final mobile = switch (Theme.of(context).platform) {
+    TargetPlatform.iOS ||
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
   final background = DTokens.of(context).background.withValues(alpha: 1);
   // Full-height sheets start with an opaque canvas. A swipe reveals the
   // underlying application as the sheet moves out of the viewport.
@@ -711,9 +717,15 @@ Widget _sheetLayout(
       !extendBehindKeyboard &&
       variant == DSheetVariant.menu &&
       side == DSheetSide.bottom;
+  final roundedForm =
+      mobile &&
+      inset &&
+      !extendBehindKeyboard &&
+      variant == DSheetVariant.standard &&
+      side == DSheetSide.bottom;
   final view = View.of(context);
   final end = DMobileDockGeometry(
-    foot: endMenu
+    foot: endMenu || roundedForm
         ? math.max(
             MediaQuery.viewPaddingOf(context).bottom,
             view.viewPadding.bottom / view.devicePixelRatio,
@@ -740,33 +752,43 @@ Widget _sheetLayout(
           ),
         )
       : presentation.content;
-  Widget popup = _DSheetSideScope(
-    side: side,
-    inset: inset,
-    menuFootRadius: endMenu ? end.endRadius(24) : null,
-    fillAvailableHeight: fillAvailableHeight,
-    extendBehindKeyboard: extendBehindKeyboard,
-    child: extendBehindKeyboard
-        ? Builder(
-            builder: (context) => MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              child: content,
-            ),
-          )
-        : fillAvailableHeight
-        ? MediaQuery.removeViewInsets(
-            context: context,
-            removeBottom: true,
-            child: Builder(
-              builder: (context) => MediaQuery.removePadding(
+  Widget popup = Builder(
+    builder: (context) {
+      final formOverKeyboard =
+          roundedForm && MediaQuery.viewInsetsOf(context).bottom > 0;
+      return _DSheetSideScope(
+        side: side,
+        inset: inset,
+        menuFootRadius: endMenu || roundedForm
+            ? formOverKeyboard
+                  ? 24
+                  : end.endRadius(24)
+            : null,
+        fillAvailableHeight: fillAvailableHeight,
+        extendBehindKeyboard: extendBehindKeyboard,
+        child: extendBehindKeyboard
+            ? Builder(
+                builder: (context) => MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: content,
+                ),
+              )
+            : fillAvailableHeight
+            ? MediaQuery.removeViewInsets(
                 context: context,
-                removeTop: true,
-                child: content,
-              ),
-            ),
-          )
-        : content,
+                removeBottom: true,
+                child: Builder(
+                  builder: (context) => MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    child: content,
+                  ),
+                ),
+              )
+            : content,
+      );
+    },
   );
   if (page) {
     popup = ValueListenableBuilder<double>(
@@ -776,12 +798,6 @@ Widget _sheetLayout(
       child: popup,
     );
   }
-  final mobile = switch (Theme.of(context).platform) {
-    TargetPlatform.iOS ||
-    TargetPlatform.android ||
-    TargetPlatform.fuchsia => true,
-    _ => false,
-  };
   if (dismissOnSwipe && (mobile || page) && side == DSheetSide.bottom) {
     if (presentation.modal) {
       // The backdrop owns outside gestures; the sheet keeps its own bounds.
@@ -1829,7 +1845,7 @@ class DSheetContent extends StatelessWidget {
     final menuFootRadius = context
         .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
         ?.menuFootRadius;
-    final radius = menu
+    final radius = menu || menuFootRadius != null
         ? BorderRadius.vertical(
             top: const Radius.circular(22),
             bottom: Radius.circular(menuFootRadius ?? 24),

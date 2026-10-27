@@ -356,6 +356,16 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
         final sheet = find.byType(DSheetContent);
+        BorderRadiusGeometry? corners() => tester
+            .widget<Material>(
+              find.descendant(of: sheet, matching: find.byType(Material)).first,
+            )
+            .borderRadius;
+        const restingCorners = BorderRadius.vertical(
+          top: Radius.circular(22),
+          bottom: Radius.circular(32),
+        );
+        expect(corners(), restingCorners);
         expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
         expect(
           MediaQuery.paddingOf(tester.element(find.text('Body'))).bottom,
@@ -366,12 +376,20 @@ void main() {
           tester.view.padding = const FakeViewPadding(top: 59);
           await tester.pumpAndSettle();
           expect(
+            corners(),
+            const BorderRadius.vertical(
+              top: Radius.circular(22),
+              bottom: Radius.circular(24),
+            ),
+          );
+          expect(
             tester.getRect(sheet).bottom,
             phone.height - 300 - DSpacing.md,
           );
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
           await tester.pumpAndSettle();
+          expect(corners(), restingCorners);
           expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
         }
         expect(tester.takeException(), isNull);
