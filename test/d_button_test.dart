@@ -1813,6 +1813,43 @@ void main() {
       semantics.dispose();
     }
   });
+
+  testWidgets('a phone presses a small button across the 44 point area', (
+    tester,
+  ) async {
+    for (final (platform, reaches) in [
+      (TargetPlatform.iOS, true),
+      (TargetPlatform.macOS, false),
+    ]) {
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          builder: (context, child) => DTouchTargets(child: child!),
+          home: Scaffold(
+            body: Center(
+              child: DButton.iconOnly(
+                size: DControlSize.post,
+                variant: DButtonVariant.ghost,
+                icon: const DIcon(DIcons.xmark),
+                tooltip: 'Close',
+                onPressed: () => presses++,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(find.byType(DButton));
+
+      await tester.tapAt(rect.topCenter.translate(0, -6.5));
+      await tester.tapAt(rect.centerLeft.translate(-6.5, 0));
+      await tester.tapAt(rect.topCenter.translate(0, -7.5));
+
+      expect(rect.size, const Size(30, 30), reason: '$platform');
+      expect(presses, reaches ? 2 : 0, reason: '$platform');
+    }
+  });
 }
 
 Future<void> _pumpButton(WidgetTester tester, DButton button) =>

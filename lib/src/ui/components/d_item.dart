@@ -10,6 +10,7 @@ import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_card.dart';
 import 'd_link_interaction.dart';
 import 'd_separator.dart';
@@ -607,20 +608,24 @@ class _DItemState extends State<DItem> {
           onShowFocusHighlight: (value) =>
               setState(() => _focusVisible = value),
           onFocusChange: (value) => setState(() => _focused = value),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapDown: _active ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
-            // Always set, so the tap recognizer outlives a mid-press disable.
-            onTapCancel: () => setState(() => _pressed = false),
-            onTap: _active
-                ? () {
-                    _focus.requestFocus();
-                    linkActivation.onPressed!();
-                  }
-                : null,
-            child: result,
+          child: DTouchTarget(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapDown: _active
+                  ? (_) => setState(() => _pressed = true)
+                  : null,
+              onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
+              // Always set, so the tap recognizer outlives a mid-press disable.
+              onTapCancel: () => setState(() => _pressed = false),
+              onTap: _active
+                  ? () {
+                      _focus.requestFocus();
+                      linkActivation.onPressed!();
+                    }
+                  : null,
+              child: result,
+            ),
           ),
         ),
       );

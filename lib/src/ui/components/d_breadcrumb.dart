@@ -6,6 +6,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 
 /// How a breadcrumb list responds when its path is wider than the viewport.
 enum DBreadcrumbOverflow { wrap, scroll }
@@ -256,41 +257,43 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
               },
             ),
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: enabled ? _activate : null,
-            child: AnimatedContainer(
-              duration: duration,
-              curve: Curves.easeOut,
-              // Painted over the label inside its own bounds: a decoration
-              // border would inset the label and resize the trail on focus,
-              // and an outside stroke would be clipped by scroll overflow.
-              foregroundDecoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(tokens.radius * .6),
-                border: _focused
-                    ? Border.all(color: tokens.focusRing, width: 1)
-                    : null,
-              ),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                widthFactor: 1,
-                heightFactor: 1,
-                child: AnimatedDefaultTextStyle(
-                  duration: duration,
-                  curve: Curves.easeOut,
-                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    color: color,
-                    fontSize: widget.compact
-                        ? DiscourseTypography.micro
-                        : DiscourseTypography.sm,
-                    height: DiscourseTypography.lineHeightSmall,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0,
-                  ),
-                  child: IconTheme.merge(
-                    data: IconThemeData(color: color, size: 14),
-                    child: widget.child,
+          child: DTouchTarget(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: enabled ? _activate : null,
+              child: AnimatedContainer(
+                duration: duration,
+                curve: Curves.easeOut,
+                // Painted over the label inside its own bounds: a decoration
+                // border would inset the label and resize the trail on focus,
+                // and an outside stroke would be clipped by scroll overflow.
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(tokens.radius * .6),
+                  border: _focused
+                      ? Border.all(color: tokens.focusRing, width: 1)
+                      : null,
+                ),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: AnimatedDefaultTextStyle(
+                    duration: duration,
+                    curve: Curves.easeOut,
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                      color: color,
+                      fontSize: widget.compact
+                          ? DiscourseTypography.micro
+                          : DiscourseTypography.sm,
+                      height: DiscourseTypography.lineHeightSmall,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0,
+                    ),
+                    child: IconTheme.merge(
+                      data: IconThemeData(color: color, size: 14),
+                      child: widget.child,
+                    ),
                   ),
                 ),
               ),

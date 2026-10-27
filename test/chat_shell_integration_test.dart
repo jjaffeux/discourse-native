@@ -4508,8 +4508,8 @@ void _registerChatShellTests() {
 
         final heart = find.bySemanticsLabel('3 heart reactions');
         final clap = find.bySemanticsLabel('2 clap reactions');
-        // Each reaction answers exactly where its Native pill is painted,
-        // on touch platforms too.
+        // Each reaction answers where its Native pill is painted, and on a
+        // phone across the mockup's 44 point area round it, never further.
         final heartPill = tester.getRect(
           find.descendant(
             of: find.byKey(const ValueKey('chat-reaction-heart')),
@@ -4521,9 +4521,14 @@ void _registerChatShellTests() {
         final textScale = MediaQuery.textScalerOf(tester.element(heart));
         expect(heartPill.height, closeTo(textScale.scale(12) * 1.5 + 6, 0.5));
         expect(tester.getRect(heart), heartPill);
+        final reach = switch (defaultTargetPlatform) {
+          TargetPlatform.iOS || TargetPlatform.android =>
+            (kDTouchTargetExtent - heartPill.height) / 2,
+          _ => 0.0,
+        };
         for (final outside in [
-          heartPill.topCenter - const Offset(0, 1),
-          heartPill.bottomCenter + const Offset(0, 1),
+          heartPill.topCenter - Offset(0, reach + 1),
+          heartPill.bottomCenter + Offset(0, reach + 1),
         ]) {
           await tester.tapAt(outside);
           await tester.pumpAndSettle();

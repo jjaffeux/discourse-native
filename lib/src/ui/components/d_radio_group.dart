@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_label.dart';
 
 /// Complete reading-order choices for a radio group with lazily mounted rows.
@@ -727,34 +728,41 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>>
             SingleActivator(LogicalKeyboardKey.enter): DoNothingIntent(),
             SingleActivator(LogicalKeyboardKey.numpadEnter): DoNothingIntent(),
           },
-          child: RawRadio<T>(
-            value: widget.value,
-            enabled: enabled,
-            groupRegistry: registry,
-            mouseCursor: WidgetStatePropertyAll(
-              enabled ? SystemMouseCursors.basic : SystemMouseCursors.forbidden,
-            ),
-            toggleable: widget.toggleable,
-            focusNode: _focus,
-            autofocus: false,
-            builder: (context, state) => Opacity(
-              opacity: enabled ? 1 : 0.5,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                // A choice card fills the height it is given, so cards side by
-                // side in a row share the tallest one's height, as grid items
-                // stretch on the web.
-                child: widget.card
-                    ? ColoredBox(color: Colors.transparent, child: content)
-                    : Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        widthFactor: 1,
-                        heightFactor: 1,
-                        child: ColoredBox(
-                          color: Colors.transparent,
-                          child: content,
+          child: DTouchTarget(
+            child: RawRadio<T>(
+              value: widget.value,
+              enabled: enabled,
+              groupRegistry: registry,
+              mouseCursor: WidgetStatePropertyAll(
+                enabled
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.forbidden,
+              ),
+              toggleable: widget.toggleable,
+              focusNode: _focus,
+              autofocus: false,
+              builder: (context, state) => Opacity(
+                opacity: enabled ? 1 : 0.5,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  // A choice card fills the height it is given, so cards side by
+                  // side in a row share the tallest one's height, as grid items
+                  // stretch on the web.
+                  child: widget.card
+                      ? ColoredBox(color: Colors.transparent, child: content)
+                      : Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: ColoredBox(
+                            color: Colors.transparent,
+                            child: content,
+                          ),
                         ),
-                      ),
+                ),
               ),
             ),
           ),

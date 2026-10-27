@@ -12,6 +12,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/header_motion.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
@@ -1204,7 +1205,7 @@ class _PageControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
-    child: child ?? const SizedBox.shrink(),
+    child: DTouchFields(child: child ?? const SizedBox.shrink()),
   );
 }
 

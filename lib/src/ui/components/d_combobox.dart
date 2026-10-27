@@ -13,6 +13,7 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_input_group.dart';
 import 'd_popover.dart';
@@ -1620,44 +1621,50 @@ class DComboboxItem<T> extends StatelessWidget {
         selected: selected,
         enabled: itemEnabled,
         label: option.label,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: itemEnabled
-              ? () => root._select(option, DComboboxChangeReason.itemPress)
-              : null,
-          // Switch backgrounds immediately so two rows never cross-fade.
-          child: interactiveRowSurface(
-            constraints: const BoxConstraints(
-              minHeight: DControlStyle.rowHeight,
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: DControlStyle.menuVerticalInset(context),
-            ),
-            decoration: BoxDecoration(
-              color: highlighted
-                  ? DControlStyle.rowHover(tokens)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
-            ),
-            foregroundDecoration: itemEnabled
-                ? null
-                : BoxDecoration(
-                    color: tokens.surface.withValues(
-                      alpha: tokens.surface.a * .5,
+        child: DTouchTarget(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: itemEnabled
+                ? () => root._select(option, DComboboxChangeReason.itemPress)
+                : null,
+            // Switch backgrounds immediately so two rows never cross-fade.
+            child: interactiveRowSurface(
+              constraints: const BoxConstraints(
+                minHeight: DControlStyle.rowHeight,
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: DControlStyle.menuVerticalInset(context),
+              ),
+              decoration: BoxDecoration(
+                color: highlighted
+                    ? DControlStyle.rowHover(tokens)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
+              ),
+              foregroundDecoration: itemEnabled
+                  ? null
+                  : BoxDecoration(
+                      color: tokens.surface.withValues(
+                        alpha: tokens.surface.a * .5,
+                      ),
                     ),
+              child: Row(
+                children: [
+                  Expanded(child: child),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 16,
+                    child: selected
+                        ? DIcon(
+                            DIcons.check,
+                            size: 16,
+                            color: tokens.foreground,
+                          )
+                        : null,
                   ),
-            child: Row(
-              children: [
-                Expanded(child: child),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 16,
-                  child: selected
-                      ? DIcon(DIcons.check, size: 16, color: tokens.foreground)
-                      : null,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -10,6 +10,7 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_kbd.dart';
 import 'd_tooltip.dart';
@@ -1130,28 +1131,30 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             },
           ),
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTapDown: expanding && enabled
-              ? (_) => setState(() => _pressed = true)
-              : null,
-          onTapUp: expanding && enabled
-              ? (_) => setState(() => _pressed = false)
-              : null,
-          onTapCancel: expanding && enabled
-              ? () => setState(() => _pressed = false)
-              : null,
-          onTap: enabled
-              ? () {
-                  // Desktop highlight mode includes mouse focus. Keep the
-                  // ring reserved for keyboard use without clearing focus.
-                  _setFocusFromPointer(true);
-                  focusNode.requestFocus();
-                  root.state.select(widget.value);
-                }
-              : null,
-          child: artwork,
+        child: DTouchTarget(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTapDown: expanding && enabled
+                ? (_) => setState(() => _pressed = true)
+                : null,
+            onTapUp: expanding && enabled
+                ? (_) => setState(() => _pressed = false)
+                : null,
+            onTapCancel: expanding && enabled
+                ? () => setState(() => _pressed = false)
+                : null,
+            onTap: enabled
+                ? () {
+                    // Desktop highlight mode includes mouse focus. Keep the
+                    // ring reserved for keyboard use without clearing focus.
+                    _setFocusFromPointer(true);
+                    focusNode.requestFocus();
+                    root.state.select(widget.value);
+                  }
+                : null,
+            child: artwork,
+          ),
         ),
       ),
     );

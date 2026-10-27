@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_label.dart';
 
 /// Checkbox artwork sizes with matching hit areas, in logical pixels.
@@ -294,11 +295,13 @@ class _DCheckboxState extends State<DCheckbox> {
           enabled: _enabled,
           label: widget.semanticLabel,
           onTap: _enabled && !widget.readOnly ? _pointerActivate : null,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: _enabled ? _pointerActivate : null,
-            child: Opacity(opacity: _enabled ? 1 : .5, child: content),
+          child: DTouchTarget(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: _enabled ? _pointerActivate : null,
+              child: Opacity(opacity: _enabled ? 1 : .5, child: content),
+            ),
           ),
         ),
       ),
