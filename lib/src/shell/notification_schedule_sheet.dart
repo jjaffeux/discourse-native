@@ -118,7 +118,6 @@ class _NotificationScheduleEditorState
   _Days _mode = _Days.weekdays;
   bool _loading = true;
   bool _saving = false;
-  bool _disabling = false;
   String? _error;
   bool get _canAct => mounted && widget.ownsAccount() && !_loading && !_saving;
 
@@ -145,7 +144,10 @@ class _NotificationScheduleEditorState
       _error = state?.error;
       if (confirmed == null) return;
       _timezone = confirmed.timezone.isNotEmpty ? confirmed.timezone : 'UTC';
-      _draft = confirmed.notificationSchedule ?? NotificationSchedule.initial();
+      final schedule = confirmed.notificationSchedule;
+      _draft = schedule?.enabled == true
+          ? schedule
+          : NotificationSchedule.initial();
       final days = _draft!.activeDays;
       _mode = listEquals(days, [0, 1, 2, 3, 4])
           ? _Days.weekdays
@@ -210,8 +212,8 @@ class _NotificationScheduleEditorState
         ?.confirmed
         ?.notificationSchedule;
     if (!enabled && confirmed?.enabled != true) return;
-    // Turning off changes only the saved schedule's activation, even when the
-    // editor contains unsaved changes to its days or hours.
+    // Cancellation preserves the saved hours. Reset the form only after the
+    // server confirms, so a failed cancellation keeps the active schedule visible.
     final value = enabled
         ? _draft!.copyWith(enabled: true)
         : confirmed!.copyWith(enabled: false);
@@ -222,7 +224,6 @@ class _NotificationScheduleEditorState
     }
     setState(() {
       _saving = true;
-      _disabling = !enabled;
       _error = null;
     });
     widget.onSaving(true);
@@ -238,8 +239,15 @@ class _NotificationScheduleEditorState
     );
     if (!mounted || !widget.ownsAccount()) return;
     widget.onSaving(false);
-    if (saved) {
+    if (saved && enabled) {
       DDialogClose.close<bool>(context, true);
+    } else if (saved) {
+      setState(() {
+        _draft = NotificationSchedule.initial();
+        _mode = _Days.everyDay;
+        _saving = false;
+        _error = null;
+      });
     } else {
       setState(() {
         _saving = false;
@@ -249,7 +257,7 @@ class _NotificationScheduleEditorState
   }
 
   Widget _timeField(String label, bool start, bool editable) {
-    final selected = _common(start);
+    final selected = _common(start) ?? (start ? 540 : 1080);
     final options = {
       for (
         var minute = start ? 0 : 30;
@@ -257,7 +265,7 @@ class _NotificationScheduleEditorState
         minute += 30
       )
         minute,
-      ?selected,
+      selected,
     }.toList()..sort();
     return DField(
       children: [
@@ -272,11 +280,8 @@ class _NotificationScheduleEditorState
           size: DControlSize.preference,
           enabled: editable,
           semanticLabel: label,
-          valueBuilder: (context, value, _) => Text(
-            value == null
-                ? context.l10n.notificationScheduleVaries
-                : _time(context, value),
-          ),
+          valueBuilder: (context, value, _) =>
+              Text(_time(context, value ?? selected)),
           entries: [
             for (final value in options)
               DSelectOption(
@@ -330,7 +335,6 @@ class _NotificationScheduleEditorState
             ?.confirmed
             ?.canEdit ==
         true;
-    final editable = _canAct && permitted;
     final active =
         widget.controller.preferences
             .stateFor(widget.siteUrl)
@@ -338,6 +342,7 @@ class _NotificationScheduleEditorState
             ?.notificationSchedule
             ?.enabled ==
         true;
+    final editable = _canAct && permitted && !active;
     final locale = context.l10n.localeName;
     final dayLabels = [
       for (var i = 0; i < 7; i++)
@@ -406,33 +411,52 @@ class _NotificationScheduleEditorState
             ),
           ],
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final fields = [
-                _timeField(
-                  context.l10n.notificationScheduleFrom,
-                  true,
-                  editable,
-                ),
-                _timeField(context.l10n.to, false, editable),
-              ];
-              return MediaQuery.textScalerOf(context).scale(14) > 21 ||
-                      constraints.maxWidth < 260
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: 12,
-                      children: fields,
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 12,
-                      children: [
-                        for (final field in fields) Expanded(child: field),
-                      ],
-                    );
-            },
-          ),
+          if (draft.activeDays.map((i) => draft.days[i]).toSet().length > 1)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 8,
+              children: [
+                for (final day in draft.activeDays)
+                  Row(
+                    spacing: 12,
+                    children: [
+                      Expanded(child: DText(dayLabels[day])),
+                      DText(
+                        '${_time(context, draft.days[day].start)}–${_time(context, draft.days[day].end)}',
+                      ),
+                    ],
+                  ),
+              ],
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final fields = [
+                  _timeField(
+                    context.l10n.notificationScheduleFrom,
+                    true,
+                    editable,
+                  ),
+                  _timeField(context.l10n.to, false, editable),
+                ];
+                return MediaQuery.textScalerOf(context).scale(14) > 21 ||
+                        constraints.maxWidth < 260
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: 12,
+                        children: fields,
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 12,
+                        children: [
+                          for (final field in fields) Expanded(child: field),
+                        ],
+                      );
+              },
+            ),
           const SizedBox(height: 18),
           Row(
             spacing: 7,
@@ -466,30 +490,25 @@ class _NotificationScheduleEditorState
               Expanded(
                 child: DButton(
                   key: const ValueKey('notification-schedule-save'),
-                  label: Text(context.l10n.notificationScheduleSave),
+                  label: Text(
+                    active
+                        ? context.l10n.notificationScheduleCancel
+                        : context.l10n.notificationScheduleSave,
+                  ),
+                  variant: active
+                      ? DButtonVariant.destructive
+                      : DButtonVariant.primary,
                   size: DButtonSize.action,
-                  loading: _saving && !_disabling,
+                  loading: _saving,
                   shape: DButtonShape.pill,
-                  onPressed: _canAct && permitted && _validation == null
-                      ? () => unawaited(_save())
+                  onPressed:
+                      _canAct && permitted && (active || _validation == null)
+                      ? () => unawaited(_save(enabled: !active))
                       : null,
                 ),
               ),
             ],
           ),
-          if (active) ...[
-            const SizedBox(height: DSpacing.controlGap),
-            DButton(
-              key: const ValueKey('notification-schedule-turn-off'),
-              label: Text(context.l10n.notificationScheduleTurnOff),
-              variant: DButtonVariant.ghost,
-              size: DButtonSize.action,
-              loading: _saving && _disabling,
-              onPressed: editable
-                  ? () => unawaited(_save(enabled: false))
-                  : null,
-            ),
-          ],
         ],
       ),
     );

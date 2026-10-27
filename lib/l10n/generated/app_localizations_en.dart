@@ -14565,7 +14565,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationSchedule => 'Notification schedule';
 
   @override
-  String get notificationScheduleTurnOff => 'Turn off schedule';
+  String get notificationScheduleCancel => 'Cancel schedule';
 
   @override
   String get notificationScheduleAllowOn => 'Allow notifications on';
@@ -14587,9 +14587,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationScheduleNotSet => 'Not set';
-
-  @override
-  String get notificationScheduleVaries => 'Varies by day';
 
   @override
   String get notificationScheduleMidnight => 'Midnight';
