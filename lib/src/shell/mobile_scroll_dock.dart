@@ -35,6 +35,7 @@ class MobileScrollDock extends StatelessWidget {
       enabled: hideOnScroll,
       keepFooterVisible: keepActionVisible,
       floatingFooter: floating,
+      fadeUnderFooter: floating,
       footerBuilder: (hidden) => RepaintBoundary(
         child: dockBuilder(floating ? hidden : hidden && keepActionVisible),
       ),

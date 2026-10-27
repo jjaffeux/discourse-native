@@ -467,4 +467,119 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  group('a list under a floating bar', () {
+    final ground = GlobalKey();
+    late ValueNotifier<double> covered;
+    setUp(() => covered = ValueNotifier(60));
+    tearDown(() => covered.dispose());
+
+    Widget underBar(Widget list) => SizedBox(
+      key: ground,
+      child: DScrollFootScope(
+        foot: DScrollFoot(
+          extent: covered,
+          ground: () => ground.currentContext?.findRenderObject() as RenderBox?,
+        ),
+        child: list,
+      ),
+    );
+
+    // From the bar's top edge at 120 to the foot at 180, ink thins to .3.
+    double thinned(double y, {double from = 120, double extent = 60}) =>
+        1 - .7 * (y + .5 - from) / extent;
+
+    testWidgets('thins from the bar\'s top edge to .3 at the foot', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final scroll = ScrollController(initialScrollOffset: 100);
+      addTearDown(scroll.dispose);
+      var builds = 0;
+      await tester.pumpWidget(
+        _host(
+          key,
+          underBar(
+            Builder(
+              builder: (_) {
+                builds++;
+                return _list(scroll);
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 119), 1);
+      _expectInk(await _pixel(tester, key, 149), thinned(149));
+      _expectInk(await _pixel(tester, key, 179), thinned(179));
+
+      // Not only while the list continues: at its end it still runs on
+      // under the bar.
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 179), thinned(179));
+
+      // The bar folding repaints the band without rebuilding the list.
+      covered.value = 30;
+      await tester.pump();
+      _expectInk(await _pixel(tester, key, 149), 1);
+      _expectInk(
+        await _pixel(tester, key, 179),
+        thinned(179, from: 150, extent: 30),
+      );
+      covered.value = 0;
+      await tester.pump();
+      _expectInk(await _pixel(tester, key, 179), 1);
+      expect(builds, 1);
+    });
+
+    testWidgets('a list stopping short of the foot keeps its own edge', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final scroll = ScrollController(initialScrollOffset: 100);
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          key,
+          underBar(
+            Column(
+              children: [
+                Expanded(child: _list(scroll)),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 139), 1);
+      _expectInk(await _pixel(tester, key, 159), .5 / 20);
+    });
+
+    testWidgets('a page keeping its own room at the foot fades into it', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final scroll = ScrollController(initialScrollOffset: 100);
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          key,
+          underBar(
+            DScrollFadeScope(
+              topExtent: 0,
+              bottomExtent: 40,
+              bottomInset: () => 0,
+              child: _list(scroll),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _expectInk(await _pixel(tester, key, 139), 1);
+      _expectInk(await _pixel(tester, key, 179), .5 / 40);
+    });
+  });
 }

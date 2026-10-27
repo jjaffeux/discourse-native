@@ -116,6 +116,7 @@ class DScrollChrome extends StatefulWidget {
     this.enabled = true,
     this.keepFooterVisible = false,
     this.floatingFooter = false,
+    this.fadeUnderFooter = false,
   });
 
   final Object identity;
@@ -130,6 +131,10 @@ class DScrollChrome extends StatefulWidget {
   /// Overlays the footer without resizing the page viewport. The builder owns
   /// its compact state; [bottomInsetOf] keeps the last row clear of the open dock.
   final bool floatingFooter;
+
+  /// Thins the page's lists as they run on to the foot under what the
+  /// floating footer's [DScrollFootCover] covers, the bar they read past.
+  final bool fadeUnderFooter;
 
   static double bottomInsetOf(BuildContext context) =>
       context
@@ -280,6 +285,22 @@ class _DScrollChromeState extends State<DScrollChrome>
   double _shownFooterHeight = 0;
   Widget? _footerContent;
   final _dockRoom = ValueNotifier<double>(0);
+  final _groundKey = GlobalKey();
+  final _footCovered = ValueNotifier<double>(0);
+  late final _foot = DScrollFoot(
+    extent: _footCovered,
+    ground: () => _groundKey.currentContext?.findRenderObject() as RenderBox?,
+  );
+  double _covered = 0;
+  bool _footerAway = true;
+
+  void _cover(double extent) {
+    _covered = extent;
+    _publishFoot();
+  }
+
+  void _publishFoot() => _footCovered.value =
+      widget.fadeUnderFooter && widget.visible && !_footerAway ? _covered : 0;
 
   void _measureDock() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -594,6 +615,7 @@ class _DScrollChromeState extends State<DScrollChrome>
     _controller.dispose();
     _footerFocus.dispose();
     _dockRoom.dispose();
+    _footCovered.dispose();
     super.dispose();
   }
 
@@ -601,26 +623,37 @@ class _DScrollChromeState extends State<DScrollChrome>
   Widget build(BuildContext context) {
     if (widget.floatingFooter) {
       final footerHidden = _controller._footerHiders.isNotEmpty;
+      _footerAway = footerHidden;
+      _publishFoot();
       _measureDock();
+      final body = NotificationListener<ScrollMetricsNotification>(
+        onNotification: _onMetrics,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: ScrollConfiguration(
+            behavior: _ChromeScrollBehavior(
+              delegate: ScrollConfiguration.of(context),
+              anchorFor: _anchorFor,
+            ),
+            child: widget.child,
+          ),
+        ),
+      );
       return _ChromeScope(
         controller: _controller,
         child: Stack(
+          key: _groundKey,
           fit: StackFit.expand,
           children: [
             _DockRoom(
               notifier: _dockRoom,
-              child: NotificationListener<ScrollMetricsNotification>(
-                onNotification: _onMetrics,
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: _onScroll,
-                  child: ScrollConfiguration(
-                    behavior: _ChromeScrollBehavior(
-                      delegate: ScrollConfiguration.of(context),
-                      anchorFor: _anchorFor,
-                    ),
-                    child: widget.child,
-                  ),
-                ),
+              // A footer that is not a bar leaves the lists under the one
+              // around it, such as a chat's composer over the phone's bar.
+              child: DScrollFootScope(
+                foot: widget.fadeUnderFooter
+                    ? _foot
+                    : DScrollFootScope.maybeOf(context),
+                child: body,
               ),
             ),
             if (widget.visible)
@@ -653,8 +686,11 @@ class _DScrollChromeState extends State<DScrollChrome>
                                     away: footerHidden,
                                     child: _ChromeExtent(
                                       key: _footerContentKey,
-                                      child: _footerContent ??= widget
-                                          .footerBuilder(_hidden),
+                                      child: _FooterCover(
+                                        report: _cover,
+                                        child: _footerContent ??= widget
+                                            .footerBuilder(_hidden),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -762,6 +798,70 @@ class _RenderChromeExtent extends RenderProxyBox {
   void performLayout() {
     super.performLayout();
     extent = size.height;
+  }
+}
+
+class _FooterCover extends InheritedWidget {
+  const _FooterCover({required this.report, required super.child});
+
+  final ValueSetter<double> report;
+
+  @override
+  bool updateShouldNotify(_FooterCover oldWidget) => report != oldWidget.report;
+}
+
+/// Tells the [DScrollChrome] whose floating footer holds it how much of the
+/// foot it covers: its own height as laid out, as it folds and unfolds, and
+/// [margin] more for the room kept around it. The chrome thins its lists
+/// under that much; a footer holding none covers nothing.
+class DScrollFootCover extends SingleChildRenderObjectWidget {
+  const DScrollFootCover({super.key, required this.margin, super.child});
+
+  final double margin;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderFootCover(
+    context.dependOnInheritedWidgetOfExactType<_FooterCover>()?.report,
+    margin,
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
+      (renderObject as _RenderFootCover)
+        ..report = context
+            .dependOnInheritedWidgetOfExactType<_FooterCover>()
+            ?.report
+        ..margin = margin;
+}
+
+class _RenderFootCover extends RenderProxyBox {
+  _RenderFootCover(this._report, this._margin);
+
+  ValueSetter<double>? _report;
+  set report(ValueSetter<double>? value) {
+    if (value == _report) return;
+    _report?.call(0);
+    _report = value;
+    markNeedsLayout();
+  }
+
+  double _margin;
+  set margin(double value) {
+    if (value == _margin) return;
+    _margin = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _report?.call(size.height + _margin);
+  }
+
+  @override
+  void detach() {
+    _report?.call(0);
+    super.detach();
   }
 }
 
