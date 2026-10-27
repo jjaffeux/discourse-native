@@ -9187,6 +9187,13 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
+  /// Marks the restored page's place on the bar without restarting its history.
+  void claimRestoredMobilePlace(MobileTab tab) {
+    if (mobileNavigation.restoredPlace != tab) return;
+    mobileNavigation.claimRestoredPlace(tab);
+    _notify();
+  }
+
   /// Starts a tab's journey using the same route and permission owners as desktop.
   void selectMobileDestination(MobileTab tab, SidebarDestination destination) {
     if (!mobileNavigationEnabled || !destination.enabled) return;

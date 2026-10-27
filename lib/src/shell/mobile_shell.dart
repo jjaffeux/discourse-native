@@ -162,18 +162,27 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             .sidebarPanels(context)
             .where((entry) => entry.panel.showSwitch)
             .toList();
-        final selected = shell.mobileNavigation.tab;
+        final restored = shell.mobileNavigation.restoredPlace;
         final places = _mobilePlaces(
           context,
           shell: shell,
           registry: registry,
           instance: instance,
           panels: panels,
-          selected: selected,
+          selected: restored ?? shell.mobileNavigation.tab,
           order: placeOrder?.order ?? const [],
         );
         final tabOrder = [for (final place in places) place.tab];
-        if (!tabOrder.contains(selected)) {
+        // A restored page that is one of the bar's places is that place's
+        // root; any other belongs to Topics, which a relaunch starts on.
+        final selected = restored != null && tabOrder.contains(restored)
+            ? restored
+            : shell.mobileNavigation.tab;
+        if (selected == restored) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) shell.claimRestoredMobilePlace(selected);
+          });
+        } else if (!tabOrder.contains(selected)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && shell.mobileNavigation.tab == selected) {
               shell.selectMobileDestination(
