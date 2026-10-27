@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_directory.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +92,99 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+
+  for (final (label, distance, scrollBoard) in [
+    ('at the top', 0.0, false),
+    ('partway through a row', 333.0, false),
+    ('deep in the list', 1800.0, false),
+    ('after scrolling the board', 333.0, true),
+  ]) {
+    testWidgets('dismissing a board pill sheet preserves topics $label', (
+      tester,
+    ) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        board: boardFixtureJson(extraCards: 30),
+        topics: [
+          for (var id = 1; id <= 50; id++)
+            Topic(
+              id: id,
+              title: id.isEven
+                  ? 'Topic $id with a longer title that wraps onto another line'
+                  : 'Topic $id',
+              slug: 'topic-$id',
+              plugins: PluginData.none.withValue(
+                boardsMembershipKey,
+                const BoardMemberships([
+                  BoardMembership(
+                    1,
+                    'Product roadmap',
+                    'roadmap',
+                    101,
+                    'Backlog',
+                  ),
+                ]),
+              ),
+            ),
+        ],
+      );
+      if (distance > 0) {
+        await tester.timedDrag(
+          find.byType(TopicListView),
+          Offset(0, -distance),
+          const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+      }
+      final pill = find.text('Product roadmap · Backlog').hitTestable().first;
+      final visibleTitle = find
+          .textContaining(RegExp(r'^Topic \d+'))
+          .hitTestable()
+          .first;
+      final title = find.text(tester.widget<Text>(visibleTitle).data!);
+      final before = tester.getTopLeft(title).dy;
+      await tester.tap(pill);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'boards/1/cards/101');
+      if (scrollBoard) {
+        final column = find.byKey(const PageStorageKey('board-column-list-10'));
+        await tester.timedDrag(
+          column,
+          const Offset(0, -250),
+          const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: column, matching: find.byType(Scrollable)),
+            )
+            .position;
+        final scrolled = position.pixels;
+        expect(scrolled, greaterThan(0));
+        await tester.timedDrag(
+          column,
+          const Offset(0, 100),
+          const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+        expect(position.pixels, lessThan(scrolled));
+      }
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        const Offset(0, 300),
+      );
+      // Check the first revealed frame as well as the settled page.
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (_sheet.evaluate().isEmpty) {
+          expect(tester.getTopLeft(title).dy, closeTo(before, 0.1));
+        }
+      }
+      expect(_sheet, findsNothing);
+      expect(shell.currentContent?.isTopicList, isTrue);
+      expect(tester.takeException(), isNull);
+    }, variant: platforms);
+  }
 
   testWidgets('a board opens from the directory as a page sheet', (
     tester,

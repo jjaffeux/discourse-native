@@ -51,6 +51,14 @@ part 'topic_card_metadata.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String, Object?);
 
+typedef _TopicListExtents = ({
+  TopicFeed feed,
+  double width,
+  TextScaler textScaler,
+  ThemeData theme,
+  List<double> extents,
+});
+
 Widget _restoringRow(BuildContext context) => DSkeletonRegion(
   semanticsLabel: appL10n.loadingTopics,
   color: skeletonFill(context),
@@ -68,6 +76,12 @@ class TopicListView extends StatefulWidget {
 }
 
 class _TopicListViewState extends State<TopicListView> {
+  _TopicListExtents? _savedExtents;
+  double? _extentWidth;
+  PageStorageBucket? _pageStorage;
+  late TextScaler _textScaler;
+  late ThemeData _theme;
+
   late final _prefetch = _TopicListPrefetch(this);
   ValueListenable<TickerModeData>? _tickerMode;
   bool _touch = true;
@@ -238,6 +252,9 @@ class _TopicListViewState extends State<TopicListView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _pageStorage = PageStorage.maybeOf(context);
+    _textScaler = MediaQuery.textScalerOf(context);
+    _theme = Theme.of(context);
 
     _prefetch.geometryChanged();
     _touch = context.isTouch;
@@ -323,6 +340,13 @@ class _TopicListViewState extends State<TopicListView> {
             owner: _viewportOwner,
           );
     _feedIdentity = feedIdentity;
+    _extentWidth = null;
+    _savedExtents =
+        PageStorage.maybeOf(context)?.readState(
+              context,
+              identifier: ('topic-list-extents', feedIdentity),
+            )
+            as _TopicListExtents?;
     _loadMoreToken = null;
     _rangeToken = null;
     _incomingRevealToken = null;
@@ -371,6 +395,9 @@ class _TopicListViewState extends State<TopicListView> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_isCurrent(controller, feedIdentity)) return;
+      // PageStorage restores the exact in-session offset before the first paint.
+      // Keep the persisted row as the fallback for a fresh page session.
+      if (_scroll?.hasClients == true && _scroll!.offset > 0) return;
       _jumpTo(row);
       // The first jump was measured against estimated heights for rows that
       // had never been built. Now that the real ones are laid out, land on the
@@ -466,8 +493,32 @@ class _TopicListViewState extends State<TopicListView> {
     });
   }
 
+  // Pixel offsets depend on the sliver measurements that produced them.
+  void _saveExtents() {
+    final list = _list;
+    final identity = _feedIdentity;
+    final width = _extentWidth;
+    if (identity != null && width != null && list?.isAttached == true) {
+      _pageStorage?.writeState(
+        context,
+        (
+          feed: widget.feed,
+          width: width,
+          textScaler: _textScaler,
+          theme: _theme,
+          extents: [
+            for (var index = 0; index < list!.numberOfItems; index++)
+              list.extentForIndex(index).$1,
+          ],
+        ),
+        identifier: ('topic-list-extents', identity),
+      );
+    }
+  }
+
   @override
   void deactivate() {
+    _saveExtents();
     _prefetch.setEnabled(false);
     _cursorOwner?.cancelSelectionRestore();
     super.deactivate();
@@ -887,7 +938,7 @@ class _TopicListViewState extends State<TopicListView> {
                       // Switching destinations swaps the controller, so the
                       // scrollable has to be a new one rather than re-attached
                       // to a different controller.
-                      key: ValueKey(feedIdentity),
+                      key: PageStorageKey(feedIdentity),
                       physics: const AlwaysScrollableScrollPhysics(),
                       controller: _scroll,
                       listController: _list,
@@ -1021,6 +1072,16 @@ class _TopicListViewState extends State<TopicListView> {
   // library's default 100px forces large corrections as they are measured.
   double _estimateExtent(int? index, double crossAxisExtent) {
     if (index == null) return 0;
+    _extentWidth = crossAxisExtent;
+    final saved = _savedExtents;
+    if (saved != null &&
+        identical(saved.feed, widget.feed) &&
+        saved.width == crossAxisExtent &&
+        saved.textScaler == _textScaler &&
+        saved.theme == _theme &&
+        index < saved.extents.length) {
+      return saved.extents[index];
+    }
     // Most rows include an excerpt and metadata. The minimum is a lower
     // bound for sparse cards, not a useful estimate for those richer rows.
     return index.isOdd ? 1 : 110;

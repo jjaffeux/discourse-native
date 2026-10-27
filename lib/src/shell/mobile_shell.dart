@@ -231,6 +231,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               null => false,
             };
         final source = shell.topicListContent;
+        // A board covers the list without starting a new scroll-chrome session.
+        final preserveListChrome =
+            pageSheetOpen &&
+            hideDock &&
+            shell
+                    .mobileNavigation
+                    .previousLocation
+                    ?.contentStack
+                    .last
+                    .isTopicList ==
+                true;
         final showReply =
             !widget.boundary &&
             !panelRoot &&
@@ -370,14 +381,19 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     identity: (
                       owner,
                       selected,
-                      shell.mobileNavigation.entryId,
+                      preserveListChrome
+                          ? shell.mobileNavigation.previousEntryId
+                          : shell.mobileNavigation.entryId,
                       widget.boundary,
                     ),
                     visible: hidden < 1,
                     hiddenFraction: hidden,
-                    hideOnScroll: !hideDock,
+                    hideOnScroll: !hideDock || preserveListChrome,
                     keepActionVisible: _footerAction.action != null,
-                    body: content!,
+                    body: NotificationListener<ScrollNotification>(
+                      onNotification: (_) => preserveListChrome,
+                      child: content!,
+                    ),
                     dockBuilder: (hidden) {
                       // A parked draft waits over the bar, which keeps pages
                       // clear of both.
