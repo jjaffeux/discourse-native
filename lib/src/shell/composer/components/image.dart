@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../../theme/d_icons.dart';
+import '../../../theme/d_native_icons.dart';
 import '../../image_decode.dart';
 import '../../server_image.dart';
 import '../../shell_scope.dart';
@@ -213,7 +214,7 @@ class _ImageFallback extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.image_outlined, size: 18),
+            const DIcon(DNativeIcons.image, size: 18),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -376,7 +377,7 @@ class ComposerImageMenu extends StatelessWidget {
                       : null,
                   variant: DButtonVariant.ghost,
                   tooltip: context.l10n.decreaseImageSize,
-                  icon: const Icon(Icons.zoom_out),
+                  icon: const DIcon(DIcons.minus),
                 ),
                 Text('$scale%', style: Theme.of(context).textTheme.labelMedium),
                 DButton.iconOnly(
@@ -385,7 +386,7 @@ class ComposerImageMenu extends StatelessWidget {
                       : null,
                   variant: DButtonVariant.ghost,
                   tooltip: context.l10n.increaseImageSize,
-                  icon: const Icon(Icons.zoom_in),
+                  icon: const DIcon(DIcons.plus),
                 ),
               ],
               const Spacer(),
@@ -393,7 +394,7 @@ class ComposerImageMenu extends StatelessWidget {
                 onPressed: onDelete,
                 variant: DButtonVariant.ghost,
                 tooltip: context.l10n.deleteImage,
-                icon: const Icon(Icons.delete_outline),
+                icon: const DIcon(DIcons.trashCan),
               ),
             ],
           ),
@@ -408,7 +409,7 @@ class ComposerImageMenu extends StatelessWidget {
               onPressed: onSaveAlt,
               variant: DButtonVariant.ghost,
               tooltip: context.l10n.saveAltText,
-              icon: const Icon(Icons.check),
+              icon: const DIcon(DIcons.check),
             ),
           ),
         ],

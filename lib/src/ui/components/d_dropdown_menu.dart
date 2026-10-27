@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
@@ -1365,7 +1367,7 @@ class DDropdownMenuCheckboxItem extends StatelessWidget {
     this.semanticLabel,
     this.semanticValue,
     this.focusNode,
-    this.indicatorSize = 16,
+    this.indicatorSize = 11,
     this.leadingGap = 6,
   });
 
@@ -1901,100 +1903,36 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
   }
 }
 
-class _CheckIcon extends StatelessWidget {
-  const _CheckIcon({this.size = 16});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: Size.square(size),
-    painter: _CheckPainter(IconTheme.of(context).color ?? Colors.black),
-  );
-}
-
 class _CheckIndicator extends StatelessWidget {
-  const _CheckIndicator({required this.checked, this.size = 16});
+  const _CheckIndicator({required this.checked, this.size = 11});
 
   final bool checked;
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: checked ? _CheckIcon(size: size) : null,
+  Widget build(BuildContext context) => DIconGlyphTheme(
+    scale: 1,
+    naturalWidth: true,
+    child: Opacity(
+      opacity: checked ? 1 : 0,
+      child: DIcon(DIcons.check, size: size),
+    ),
   );
-}
-
-class _CheckPainter extends CustomPainter {
-  const _CheckPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      // Lucide's 2px stroke in a 24px viewBox scales to 4/3px at 16px.
-      ..strokeWidth = size.width / 12
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width * 0.20, size.height * 0.52)
-        ..lineTo(size.width * 0.42, size.height * 0.72)
-        ..lineTo(size.width * 0.82, size.height * 0.28),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_CheckPainter oldDelegate) => color != oldDelegate.color;
 }
 
 class _DirectionalChevron extends StatelessWidget {
   const _DirectionalChevron();
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: const Size.square(16),
-    painter: _ChevronPainter(
-      color: IconTheme.of(context).color ?? Colors.black,
-      direction: Directionality.of(context),
+  Widget build(BuildContext context) => DIconGlyphTheme(
+    scale: 1,
+    child: DIcon(
+      Directionality.of(context) == TextDirection.rtl
+          ? DIcons.chevronLeft
+          : DIcons.chevronRight,
+      size: 16,
     ),
   );
-}
-
-class _ChevronPainter extends CustomPainter {
-  const _ChevronPainter({required this.color, required this.direction});
-
-  final Color color;
-  final TextDirection direction;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = direction == TextDirection.ltr
-        ? const [Offset(6, 4), Offset(10, 8), Offset(6, 12)]
-        : const [Offset(10, 4), Offset(6, 8), Offset(10, 12)];
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4 / 3
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(
-      Path()
-        ..moveTo(points[0].dx, points[0].dy)
-        ..lineTo(points[1].dx, points[1].dy)
-        ..lineTo(points[2].dx, points[2].dy),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_ChevronPainter oldDelegate) =>
-      color != oldDelegate.color || direction != oldDelegate.direction;
 }
 
 String _plainText(Widget widget) => widget is Text ? widget.data ?? '' : '';

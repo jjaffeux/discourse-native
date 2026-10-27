@@ -4,6 +4,8 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_label.dart';
@@ -202,13 +204,17 @@ class _DCheckboxState extends State<DCheckbox> {
         ),
       ),
       child: Center(
-        child: CustomPaint(
-          size: Size.square(14 * artworkScale),
-          painter: _CheckboxMark(
-            _current,
-            checked ? tokens.primaryForeground : tokens.foreground,
-          ),
-        ),
+        child: _current == false
+            ? null
+            : DIconGlyphTheme(
+                scale: 1,
+                naturalWidth: true,
+                child: DIcon(
+                  _current == true ? DIcons.check : DIcons.minus,
+                  size: 9 * dimension / 14,
+                  color: checked ? tokens.primaryForeground : tokens.foreground,
+                ),
+              ),
       ),
     );
     Widget content = widget.title == null
@@ -352,37 +358,6 @@ class _DCheckboxState extends State<DCheckbox> {
       ),
     );
   }
-}
-
-class _CheckboxMark extends CustomPainter {
-  const _CheckboxMark(this.value, this.color);
-  final bool? value;
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (value == false) return;
-    canvas.scale(size.width / 24, size.height / 24);
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    // Lucide Check (20 6, 9 17, 4 12) and Minus (5 12, 19 12).
-    final path = value == true
-        ? (Path()
-            ..moveTo(20, 6)
-            ..lineTo(9, 17)
-            ..lineTo(4, 12))
-        : (Path()
-            ..moveTo(5, 12)
-            ..lineTo(19, 12));
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_CheckboxMark oldDelegate) =>
-      oldDelegate.value != value || oldDelegate.color != color;
 }
 
 /// Native FormField integration. Reset restores [initialValue] and notifies

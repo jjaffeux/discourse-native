@@ -2,6 +2,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
@@ -934,34 +936,9 @@ class _MenubarCheckIcon extends StatelessWidget {
   const _MenubarCheckIcon();
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    size: const Size.square(16),
-    painter: _MenubarCheckPainter(IconTheme.of(context).color ?? Colors.black),
+  Widget build(BuildContext context) => const DIconGlyphTheme(
+    scale: 1,
+    naturalWidth: true,
+    child: DIcon(DIcons.check, size: 11),
   );
-}
-
-class _MenubarCheckPainter extends CustomPainter {
-  const _MenubarCheckPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width * 0.20, size.height * 0.52)
-        ..lineTo(size.width * 0.42, size.height * 0.72)
-        ..lineTo(size.width * 0.82, size.height * 0.28),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_MenubarCheckPainter oldDelegate) =>
-      color != oldDelegate.color;
 }

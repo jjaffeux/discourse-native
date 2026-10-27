@@ -1527,7 +1527,11 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
                   ] else if (item.checked)
                     const Padding(
                       padding: EdgeInsetsDirectional.only(start: DSpacing.sm),
-                      child: Icon(Icons.check, size: 16),
+                      child: DIconGlyphTheme(
+                        scale: 1,
+                        naturalWidth: true,
+                        child: DIcon(DIcons.check, size: 11),
+                      ),
                     ),
                 ],
               ),

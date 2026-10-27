@@ -1901,7 +1901,9 @@ void main() {
       final menuIcon = tester.getRect(
         find.descendant(
           of: find.byKey(const ValueKey('mobile-menu-button')),
-          matching: find.byIcon(Icons.menu),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon.name == 'bars',
+          ),
         ),
       );
       expect(menuIcon.center.dx, menu.center.dx);

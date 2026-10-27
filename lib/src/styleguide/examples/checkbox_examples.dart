@@ -13,8 +13,8 @@ final checkboxExamples = ComponentExamples(
       'DCheckbox.defaultValue for local default state. Null is mixed with '
       'tristate enabled. DCheckboxFormField integrates validation, save and reset. '
       'Independent actions belong outside title/subtitle. Reference control is '
-      '16px with 14px Lucide artwork; DCheckboxSize.large is 24px with 21px '
-      'artwork. DCheckboxSize.compact is 14px for menu rows. '
+      '16px with a DIcon check or mixed-state minus in the selected icon family. '
+      'DCheckboxSize.large is 24px; DCheckboxSize.compact is 14px for menu rows. '
       'All sizes have matching hit areas. '
       'Use the shared preview controls for live light/dark/custom palettes, '
       '360px width, 200% text, RTL and reduced motion.',

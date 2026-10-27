@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -942,10 +943,7 @@ void main() {
     );
     await open(tester);
     final chevron = find.byWidgetPredicate(
-      (widget) =>
-          widget is CustomPaint &&
-          widget.size == const Size.square(16) &&
-          widget.painter.runtimeType.toString() == '_ChevronPainter',
+      (widget) => widget is DIcon && widget.icon == DIcons.chevronLeft,
     );
     expect(chevron, findsOneWidget);
     expect(Directionality.of(tester.element(chevron)), TextDirection.rtl);

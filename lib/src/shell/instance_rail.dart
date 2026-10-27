@@ -17,6 +17,7 @@ import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';
@@ -77,7 +78,11 @@ class InstanceRail extends StatelessWidget {
                       ),
                       child: DButton.iconOnly(
                         key: const ValueKey('rail-sidebar-toggle'),
-                        icon: const Icon(Icons.menu),
+                        icon: const DIconGlyphTheme(
+                          scale: 1,
+                          naturalWidth: true,
+                          child: DIcon(DNativeIcons.bars, size: 18),
+                        ),
                         tooltipSide: DTooltipSide.right,
                         tooltip: onToggleSidebar == null
                             ? context.l10n.selectAForumToToggleItsSidebar

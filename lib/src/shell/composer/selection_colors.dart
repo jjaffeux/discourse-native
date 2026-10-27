@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_native_icons.dart';
 import 'controller.dart';
 import 'inline_formatting.dart';
 
@@ -131,7 +132,7 @@ class ComposerSelectionColors extends StatelessWidget {
       builder: (context, state) => DButton.iconOnly(
         tooltip: context.l10n.color,
         semanticLabel: context.l10n.color,
-        icon: const Icon(Icons.format_color_text),
+        icon: const DIcon(DNativeIcons.font),
         variant: DButtonVariant.ghost,
         size: size,
         focusNode: state.focusNode,

@@ -12,6 +12,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'account_menu_scope.dart';
 import 'composer/presentation.dart';
 import 'forum_search.dart';
@@ -285,7 +286,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           child: Center(
                             child: DButton.iconOnly(
                               key: const ValueKey('mobile-menu-button'),
-                              icon: const Icon(Icons.menu, size: 20),
+                              icon: const DIconGlyphTheme(
+                                scale: 1,
+                                naturalWidth: true,
+                                child: DIcon(DNativeIcons.bars, size: 18),
+                              ),
                               tooltip: sidebarOpen
                                   ? context.l10n.closeNavigation
                                   : context.l10n.openNavigation,

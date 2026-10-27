@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../shell_scope.dart';
 import 'controller.dart';
 import 'inline_formatting.dart';
@@ -206,13 +207,13 @@ class _ComposerFormattingControlsState
         );
         final underline = _toggle(
           context.l10n.underline,
-          const Icon(Icons.format_underlined),
+          const DIcon(DNativeIcons.underline),
           pressed('ins'),
           () => _format((value) => toggleComposerTag(value, 'ins')),
         );
         final clear = DButton.iconOnly(
           tooltip: context.l10n.clearFormatting,
-          icon: const Icon(Icons.format_clear),
+          icon: const DIcon(DNativeIcons.eraser),
           variant: DButtonVariant.ghost,
           size: _size,
           onPressed: _hasSelection
@@ -229,7 +230,7 @@ class _ComposerFormattingControlsState
         );
         final strike = _toggle(
           context.l10n.strikethrough,
-          const Icon(Icons.format_strikethrough),
+          const DIcon(DNativeIcons.strikethrough),
           pressed('~~'),
           () => _format(
             (value) => composerSelectionHasFormat(value, '~~')
@@ -239,7 +240,7 @@ class _ComposerFormattingControlsState
         );
         final code = _toggle(
           context.l10n.inlineCode,
-          const Icon(Icons.code),
+          const DIcon(DIcons.code),
           pressed('code'),
           () => _mark(ComposerMark.inlineCode),
           key: inline ? const ValueKey('composer-format-inlineCode') : null,
