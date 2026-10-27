@@ -57,8 +57,10 @@ void main() {
           'borderColor': 1,
           'shape': 1,
         },
-        // Category identity uses the same tint on both halves of the control.
+        // Category identity uses the same tint on both halves of the control,
+        // and the head's category control is the mockup's flat pill.
         'lib/src/shell/topic_inbox_header.dart': {
+          'shape': 2,
           'foregroundColor': 2,
           'backgroundColor': 2,
           'borderColor': 2,
@@ -154,11 +156,25 @@ void main() {
         'lib/src/shell/title_bar.dart': {'shape': 2},
         'lib/src/shell/global_search_panel.dart': {'shape': 1},
         'lib/src/shell/main_content.dart': {'shape': 1},
-        'lib/src/shell/user_menu.dart': {'shape': 2, 'foregroundColor': 1},
+        // The icon-only presence circle is bare at rest, 8% of the text under
+        // the pointer and raised only while its menu is open.
+        'lib/src/shell/user_menu.dart': {
+          'shape': 2,
+          'foregroundColor': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+        },
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
         // Inline taxonomy edit actions are the same pill as the tag chips.
         'lib/src/shell/topic_taxonomy_fields.dart': {'shape': 1},
+        // The tag overflow count is the mockup's bare muted button beside
+        // the tag pills: no fill of its own, the muted text, a pill to sit
+        // level with the chips.
+        'lib/src/shell/topic_header_tags.dart': {
+          'shape': 1,
+          'foregroundColor': 1,
+        },
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Shared category paths and list filters supply their quiet selection fill.
         // The incoming-topics pill stays quiet yet keeps the primary fill.
