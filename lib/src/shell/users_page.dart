@@ -13,7 +13,6 @@ import '../models/user_directory.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
-import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';
 import 'shell_scope.dart';
@@ -542,7 +541,7 @@ class _UsersPageState extends State<UsersPage> {
         ?.key;
     final content = KeyedSubtree(
       key: const ValueKey('users-page'),
-      child: ContentReadingLaneBox(
+      child: DPageReadingLaneBox(
         padding: EdgeInsets.zero,
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -589,7 +588,7 @@ class _UsersPageState extends State<UsersPage> {
                 ? 132.0
                 : math.max(
                     132.0,
-                    (constraints.maxWidth - explicitWidth) / automaticCount,
+                    (toolbarWidth - explicitWidth) / automaticCount,
                   );
             final columns = _columns(metricWidth);
             return DPageSurface.headed(
@@ -744,87 +743,91 @@ class _UsersPageState extends State<UsersPage> {
                   ),
                 ],
               ),
-              child: KeyedSubtree(
-                key: const ValueKey('users-table'),
-                child: data.error != null && data.items.isEmpty
-                    ? _TableState(
-                        key: const ValueKey('users-error'),
-                        icon: DIcons.triangleExclamation,
-                        title: context.l10n.directoryUnavailable,
-                        detail: data.error!,
-                        onRetry: widget.onRefresh == null
-                            ? null
-                            : () => unawaited(widget.onRefresh!()),
-                      )
-                    : !data.loaded && data.items.isEmpty
-                    ? const DirectorySkeleton(
-                        key: ValueKey('users-loading'),
-                        kind: DirectorySkeletonKind.users,
-                      )
-                    : DDataTable<UserDirectoryItem>(
-                        key: ValueKey((
-                          widget.siteUrl,
-                          data.currentUsername,
-                          data.query,
-                        )),
-                        variant: DDataTableVariant.borderless,
-                        semanticLabel: context.l10n.users,
-                        data: data.items,
-                        columns: columns,
-                        rowId: (item) => item.id,
-                        operationMode: DDataTableOperationMode.manual,
-                        rowCount: data.totalRows,
-                        virtualized: true,
-                        scrollController: _horizontal,
-                        verticalScrollController: _vertical,
-                        columnWidths: _columnWidths,
-                        onColumnWidthsChanged: _resizeColumns,
-                        onColumnResizeStart: _beginColumnResize,
-                        onColumnResizeEnd: _finishColumnResize,
-                        empty: Text(
-                          context.l10n.noMatchingUsers,
-                          key: const ValueKey('users-empty'),
-                        ),
-                        state: DDataTableState(
-                          hiddenColumnIds: _hiddenColumnIds,
-                          sort: sortedId == null
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: KeyedSubtree(
+                  key: const ValueKey('users-table'),
+                  child: data.error != null && data.items.isEmpty
+                      ? _TableState(
+                          key: const ValueKey('users-error'),
+                          icon: DIcons.triangleExclamation,
+                          title: context.l10n.directoryUnavailable,
+                          detail: data.error!,
+                          onRetry: widget.onRefresh == null
                               ? null
-                              : DDataTableSort(
-                                  columnId: sortedId,
-                                  direction: data.query.ascending
-                                      ? DDataTableSortDirection.ascending
-                                      : DDataTableSortDirection.descending,
+                              : () => unawaited(widget.onRefresh!()),
+                        )
+                      : !data.loaded && data.items.isEmpty
+                      ? const DirectorySkeleton(
+                          key: ValueKey('users-loading'),
+                          kind: DirectorySkeletonKind.users,
+                        )
+                      : DDataTable<UserDirectoryItem>(
+                          key: ValueKey((
+                            widget.siteUrl,
+                            data.currentUsername,
+                            data.query,
+                          )),
+                          variant: DDataTableVariant.borderless,
+                          semanticLabel: context.l10n.users,
+                          data: data.items,
+                          columns: columns,
+                          rowId: (item) => item.id,
+                          operationMode: DDataTableOperationMode.manual,
+                          rowCount: data.totalRows,
+                          virtualized: true,
+                          scrollController: _horizontal,
+                          verticalScrollController: _vertical,
+                          columnWidths: _columnWidths,
+                          onColumnWidthsChanged: _resizeColumns,
+                          onColumnResizeStart: _beginColumnResize,
+                          onColumnResizeEnd: _finishColumnResize,
+                          empty: Text(
+                            context.l10n.noMatchingUsers,
+                            key: const ValueKey('users-empty'),
+                          ),
+                          state: DDataTableState(
+                            hiddenColumnIds: _hiddenColumnIds,
+                            sort: sortedId == null
+                                ? null
+                                : DDataTableSort(
+                                    columnId: sortedId,
+                                    direction: data.query.ascending
+                                        ? DDataTableSortDirection.ascending
+                                        : DDataTableSortDirection.descending,
+                                  ),
+                          ),
+                          onStateChanged: (next) {
+                            if (!setEquals(
+                              next.hiddenColumnIds,
+                              _hiddenColumnIds,
+                            )) {
+                              setState(
+                                () => _hiddenColumnIds = Set.of(
+                                  next.hiddenColumnIds,
                                 ),
+                              );
+                            }
+                            final sort = next.sort;
+                            final order = sort == null
+                                ? null
+                                : orderById[sort.columnId];
+                            if (sort != null &&
+                                order != null &&
+                                (order != data.query.order ||
+                                    (sort.direction ==
+                                            DDataTableSortDirection
+                                                .ascending) !=
+                                        data.query.ascending)) {
+                              widget.onSortChanged?.call(
+                                order,
+                                sort.direction ==
+                                    DDataTableSortDirection.ascending,
+                              );
+                            }
+                          },
                         ),
-                        onStateChanged: (next) {
-                          if (!setEquals(
-                            next.hiddenColumnIds,
-                            _hiddenColumnIds,
-                          )) {
-                            setState(
-                              () => _hiddenColumnIds = Set.of(
-                                next.hiddenColumnIds,
-                              ),
-                            );
-                          }
-                          final sort = next.sort;
-                          final order = sort == null
-                              ? null
-                              : orderById[sort.columnId];
-                          if (sort != null &&
-                              order != null &&
-                              (order != data.query.order ||
-                                  (sort.direction ==
-                                          DDataTableSortDirection.ascending) !=
-                                      data.query.ascending)) {
-                            widget.onSortChanged?.call(
-                              order,
-                              sort.direction ==
-                                  DDataTableSortDirection.ascending,
-                            );
-                          }
-                        },
-                      ),
+                ),
               ),
             );
           },

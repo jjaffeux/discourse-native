@@ -16,7 +16,6 @@ import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
 import 'account_feed_viewport.dart';
-import 'content_reading_lane.dart';
 import 'desktop_header_menu.dart';
 import 'destination_bookmark_ui.dart';
 import 'directory_skeleton.dart';
@@ -489,9 +488,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       identity: widget.siteUrl,
       title: Text(context.l10n.bookmarks),
       controls: _heading(context, filters),
-      // Rows span the same lane as the heading and inset their own content,
-      // so their text starts under the title.
-      bodyBuilder: (context, header) => ContentReadingLane(
+      bodyBuilder: (context, header) => DPageReadingLane(
         builder: (context, lane) => AccountFeedViewport(
           identity: (
             widget.controller,
@@ -514,8 +511,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                   SliverToBoxAdapter(child: header.spacer),
                   SliverPadding(
                     padding: EdgeInsets.only(
-                      left: lane.leftInset,
-                      right: lane.rightInset,
+                      left: lane.leftInset + 16,
+                      right: lane.rightInset + 16,
                     ),
                     sliver: SliverMainAxisGroup(
                       slivers: _pageSlivers(
@@ -556,6 +553,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       itemBuilder: (context, index) => DestinationBookmarkRow(
         siteUrl: widget.siteUrl,
         bookmark: visibleLocalEntries[index],
+        padding: const EdgeInsets.symmetric(vertical: 12),
         onOpened: widget.onOpened,
       ),
     ),
@@ -585,6 +583,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               bookmark: entry.bookmark,
               siteUrl: widget.siteUrl,
               presentation: entry.presentation,
+              padding: const EdgeInsets.symmetric(vertical: 12),
               onTap: () => _openBookmark(entry.bookmark),
             ),
           );
@@ -668,12 +667,14 @@ class BookmarkRow extends StatelessWidget {
     this.siteUrl,
     required this.onTap,
     this.presentation,
+    this.padding,
   });
 
   final Bookmark bookmark;
   final String? siteUrl;
   final VoidCallback onTap;
   final BookmarkPresentation? presentation;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -696,6 +697,7 @@ class BookmarkRow extends StatelessWidget {
     );
     final row = DItem(
       key: ValueKey('bookmark-row-${bookmark.id}'),
+      padding: padding,
       shape: details == null ? DItemShape.standard : DItemShape.fullWidth,
       selectionStyle: DItemSelectionStyle.leadingAccent,
       selected: expired,

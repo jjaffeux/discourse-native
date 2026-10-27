@@ -9,7 +9,6 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
-import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';
 import 'site_url.dart';
@@ -186,8 +185,7 @@ class _GroupsPageState extends State<GroupsPage> {
           onShowSearch: _showSearch,
         ),
       ),
-      bodyBuilder: (context, header) => ContentReadingLane(
-        basePadding: const EdgeInsets.symmetric(horizontal: 16),
+      bodyBuilder: (context, header) => DPageReadingLane(
         builder: (context, lane) => NotificationListener<ScrollNotification>(
           onNotification: _onScroll,
           child: RepaintBoundary(
@@ -200,8 +198,8 @@ class _GroupsPageState extends State<GroupsPage> {
                 slivers: [
                   SliverPadding(
                     padding: EdgeInsets.only(
-                      left: lane.leftInset,
-                      right: lane.rightInset,
+                      left: lane.leftInset + 16,
+                      right: lane.rightInset + 16,
                       bottom: DScrollChrome.bottomInsetOf(context),
                     ),
                     sliver: SliverMainAxisGroup(
@@ -447,6 +445,7 @@ class _GroupDirectoryRow extends StatelessWidget {
         : null;
     return DItem(
       shape: DItemShape.fullWidth,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       selectionStyle: DItemSelectionStyle.leadingAccent,
       link: true,
       onPressed: onTap,

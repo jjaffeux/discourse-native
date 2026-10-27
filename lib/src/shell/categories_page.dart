@@ -15,7 +15,6 @@ import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
-import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
@@ -175,105 +174,100 @@ class _CategoriesPageState extends State<CategoriesPage> {
       hasMore: feed.hasMore,
       loading: feed.loadingMore,
       child: DPageSurface.headed(
-        limitContentSize: false,
         title: Text(context.l10n.categories),
-        controls: ContentReadingLaneBox(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final wrap =
-                  constraints.maxWidth < 600 &&
-                  MediaQuery.textScalerOf(context).scale(14) > 21;
-              final path = TopicCategoryPathSelector(
-                keyPrefix: 'categories',
-                siteUrl: widget.siteUrl,
-                categories: directory.accessibleCategories.toList(),
-                selectedCategoryId: parentId,
-                maxCategoryNesting: controller
-                    .siteConfigFor(widget.siteUrl)
-                    .maxCategoryNesting,
-                onSelected: (category) {
-                  setState(() => _parentCategoryId = category?.id);
-                  _resetScroll();
-                },
-              );
-              return DControlWrap(
-                spacing: 8,
-                runSpacing: 8,
-                wrap: wrap,
-                children: [
-                  if (words.isNotEmpty)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 128),
-                      child: DButton(
-                        key: const ValueKey('categories-search-words'),
-                        variant: DButtonVariant.quietSelected,
-                        size: DButtonSize.filter,
-                        icon: const DIcon(DIcons.magnifyingGlass, size: 11),
-                        label: Text(
-                          '“$words”',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: const DIcon(DIcons.xmark, size: 10),
-                        tooltip: context.l10n.clearSearch,
-                        semanticLabel: '${context.l10n.clearSearch}: $words',
-                        onPressed: () {
-                          controller.search.setPageWords(
-                            widget.siteUrl,
-                            ForumTabScope.idOf(context) ??
-                                controller.activeTabId,
-                            'all-categories',
-                            '',
-                          );
-                          _resetScroll();
-                        },
-                      ),
-                    ),
-                  DSelect<CategoryDirectoryScope>.controlled(
-                    size: DControlSize.filter,
-                    width: 128,
-                    key: ValueKey(('category-scope', widget.siteUrl)),
-                    value: scope,
-                    semanticLabel: context.l10n.categoryDirectoryScope,
-                    triggerBuilder: (context, state, _) => DButton(
+        controls: LayoutBuilder(
+          builder: (context, constraints) {
+            final wrap =
+                constraints.maxWidth < 600 &&
+                MediaQuery.textScalerOf(context).scale(14) > 21;
+            final path = TopicCategoryPathSelector(
+              keyPrefix: 'categories',
+              siteUrl: widget.siteUrl,
+              categories: directory.accessibleCategories.toList(),
+              selectedCategoryId: parentId,
+              maxCategoryNesting: controller
+                  .siteConfigFor(widget.siteUrl)
+                  .maxCategoryNesting,
+              onSelected: (category) {
+                setState(() => _parentCategoryId = category?.id);
+                _resetScroll();
+              },
+            );
+            return DControlWrap(
+              spacing: 8,
+              runSpacing: 8,
+              wrap: wrap,
+              children: [
+                if (words.isNotEmpty)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 128),
+                    child: DButton(
+                      key: const ValueKey('categories-search-words'),
+                      variant: DButtonVariant.quietSelected,
                       size: DButtonSize.filter,
-                      variant: DButtonVariant.quiet,
+                      icon: const DIcon(DIcons.magnifyingGlass, size: 11),
                       label: Text(
-                        _scopeLabel(context, scope),
+                        '“$words”',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      semanticLabel: context.l10n.categoryDirectoryScope,
-                      focusNode: state.focusNode,
-                      hasPopup: true,
-                      expanded: state.open,
-                      onPressed: state.toggle,
+                      trailing: const DIcon(DIcons.xmark, size: 10),
+                      tooltip: context.l10n.clearSearch,
+                      semanticLabel: '${context.l10n.clearSearch}: $words',
+                      onPressed: () {
+                        controller.search.setPageWords(
+                          widget.siteUrl,
+                          ForumTabScope.idOf(context) ?? controller.activeTabId,
+                          'all-categories',
+                          '',
+                        );
+                        _resetScroll();
+                      },
                     ),
-                    entries: [
-                      for (final value in CategoryDirectoryScope.values)
-                        DSelectOption(
-                          value: value,
-                          label: _scopeLabel(context, value),
-                          enabled:
-                              value != CategoryDirectoryScope.unread ||
-                              user != null,
-                          child: Text(_scopeLabel(context, value)),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _scope = value);
-                      _resetScroll();
-                    },
                   ),
-                  if (wrap) path else DControlExpanded(child: path),
-                ],
-              );
-            },
-          ),
+                DSelect<CategoryDirectoryScope>.controlled(
+                  size: DControlSize.filter,
+                  width: 128,
+                  key: ValueKey(('category-scope', widget.siteUrl)),
+                  value: scope,
+                  semanticLabel: context.l10n.categoryDirectoryScope,
+                  triggerBuilder: (context, state, _) => DButton(
+                    size: DButtonSize.filter,
+                    variant: DButtonVariant.quiet,
+                    label: Text(
+                      _scopeLabel(context, scope),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    semanticLabel: context.l10n.categoryDirectoryScope,
+                    focusNode: state.focusNode,
+                    hasPopup: true,
+                    expanded: state.open,
+                    onPressed: state.toggle,
+                  ),
+                  entries: [
+                    for (final value in CategoryDirectoryScope.values)
+                      DSelectOption(
+                        value: value,
+                        label: _scopeLabel(context, value),
+                        enabled:
+                            value != CategoryDirectoryScope.unread ||
+                            user != null,
+                        child: Text(_scopeLabel(context, value)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _scope = value);
+                    _resetScroll();
+                  },
+                ),
+                if (wrap) path else DControlExpanded(child: path),
+              ],
+            );
+          },
         ),
-        bodyBuilder: (context, header) => ContentReadingLane(
-          basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        bodyBuilder: (context, header) => DPageReadingLane(
           builder: (context, lane) => NotificationListener<ScrollNotification>(
             onNotification: _onScroll,
             child: CustomScrollView(
@@ -283,8 +277,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 SliverToBoxAdapter(child: header.spacer),
                 SliverPadding(
                   padding: lane.padding.add(
-                    EdgeInsets.only(
-                      bottom: DScrollChrome.bottomInsetOf(context),
+                    EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      16 + DScrollChrome.bottomInsetOf(context),
                     ),
                   ),
                   sliver: SliverMainAxisGroup(
@@ -297,6 +294,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                   (constraints.viewportMainAxisExtent -
                                           constraints.precedingScrollExtent -
                                           lane.padding.bottom -
+                                          16 -
                                           DScrollChrome.bottomInsetOf(context))
                                       .clamp(0, double.infinity),
                               child: const DirectorySkeleton(

@@ -574,8 +574,8 @@ void main() {
         find.byKey(const ValueKey('users-table')),
       );
       expect(pageRect, const Rect.fromLTWH(0, 0, 1100, 820));
-      expect(tableRect.left, 0);
-      expect(tableRect.right, 1100);
+      expect(tableRect.left, 16);
+      expect(tableRect.right, 1100 - 16);
       expect(tableRect.bottom, 820);
 
       expect(find.byType(DDataTableFilterField), findsOneWidget);
@@ -1353,8 +1353,8 @@ void main() {
       }
       expect(tester.getRect(find.text('Users')).bottom, lessThan(search.top));
       final table = tester.getRect(find.byKey(const ValueKey('users-table')));
-      expect(table.left, 0);
-      expect(table.right, 488);
+      expect(table.left, search.left);
+      expect(table.right, 488 - 16);
       expect(tester.takeException(), isNull);
     },
   );

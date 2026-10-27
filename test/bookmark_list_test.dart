@@ -286,7 +286,7 @@ void main() {
           matching: find.byType(DAvatar),
         ),
       );
-      expect(row.width, limited ? DPageReadingLane.maxWidth : 1440);
+      expect(row.width, (limited ? DPageReadingLane.maxWidth : 1440) - 32);
       expect(row.center.dx, 720);
       expect(media.left, title.left);
       expect(find.text('Try this with the weekly meal plan'), findsOneWidget);

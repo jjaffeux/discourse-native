@@ -210,8 +210,8 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
       expand: true,
       semanticsLabel: context.l10n.loadingDrafts,
       color: skeletonFill(context),
-      child: ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: DPageReadingLane(
+        basePadding: const EdgeInsets.only(top: 12, bottom: 24),
         builder: (context, lane) => LayoutBuilder(
           builder: (context, constraints) {
             final compact =
@@ -232,7 +232,9 @@ class _DraftListLoadingSkeleton extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: Padding(
-                    padding: lane.padding,
+                    padding: lane.padding.add(
+                      const EdgeInsets.symmetric(horizontal: 16),
+                    ),
                     child: Center(
                       child: SizedBox(
                         width: double.infinity,
@@ -291,9 +293,9 @@ class _DraftSkeletonRow extends StatelessWidget {
             520;
         final row = Padding(
           padding: EdgeInsets.fromLTRB(
-            compact ? 8 : 16,
+            0,
             compact ? 14 : 20,
-            compact ? 8 : 12,
+            0,
             compact ? 14 : 20,
           ),
           child: Row(
@@ -382,8 +384,8 @@ class _Drafts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+    return DPageReadingLane(
+      basePadding: const EdgeInsets.only(top: 12, bottom: 24),
       builder: (context, lane) => AccountFeedViewport(
         identity: (
           controller,
@@ -416,7 +418,9 @@ class _Drafts extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: lane.padding,
+                padding: lane.padding.add(
+                  const EdgeInsets.symmetric(horizontal: 16),
+                ),
                 sliver: SliverMainAxisGroup(
                   slivers: [
                     SliverToBoxAdapter(child: headerSpacer),
@@ -610,6 +614,7 @@ class _DraftRowContent extends StatelessWidget {
 
     final row = DItem(
       size: DItemSize.sm,
+      padding: const EdgeInsets.symmetric(vertical: 10),
       onPressed: action,
       children: [
         DItemContent(

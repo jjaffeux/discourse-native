@@ -73,10 +73,12 @@ class DestinationBookmarkRow extends StatelessWidget {
     required this.siteUrl,
     required this.bookmark,
     this.onOpened,
+    this.padding,
   });
   final String siteUrl;
   final DestinationBookmark bookmark;
   final VoidCallback? onOpened;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +97,7 @@ class DestinationBookmarkRow extends StatelessWidget {
       siteUrl: siteUrl,
       child: DItem(
         key: ValueKey('destination-bookmark-row-${bookmark.identity}'),
+        padding: padding,
         shape: DItemShape.fullWidth,
         semanticLabel: '${bookmark.route.title}, $label, $forum',
         onPressed: () => unawaited(() async {

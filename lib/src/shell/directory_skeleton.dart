@@ -90,7 +90,7 @@ class DirectorySkeleton extends StatelessWidget {
     final tags = kind == DirectorySkeletonKind.tags;
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: DSpacing.lg,
+        horizontal: kind == DirectorySkeletonKind.bookmarks ? 0 : DSpacing.lg,
         vertical: users ? DSpacing.sm : DSpacing.lg,
       ),
       child: Column(
@@ -167,6 +167,7 @@ class _GroupRowSkeleton extends StatelessWidget {
     final body = text.bodyMedium;
     return DItem(
       shape: DItemShape.fullWidth,
+      padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
         DItemContent(
           spacing: DSpacing.md,
