@@ -23,7 +23,6 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Brightness, Color;
@@ -395,7 +394,6 @@ final class _Fixture {
     final library = ForumThemeLibrary(
       themes: themes,
       forums: {
-        ForumSettingsController.homeSite: ForumThemePreferences.defaults,
         for (var index = 0; index < instances.length; index++)
           instances[index].url: ForumThemePreferences(
             source: ForumThemeSource.custom,
@@ -420,10 +418,6 @@ final class _Fixture {
     );
     await preferences.setString(
       AppSettingsStore.themeModeKey,
-      AppThemeMode.system.name,
-    );
-    await preferences.setString(
-      ForumSettingsStore.themeModeKey(ForumSettingsController.homeSite),
       AppThemeMode.system.name,
     );
     for (var index = 0; index < instances.length; index++) {

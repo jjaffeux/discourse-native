@@ -25,7 +25,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
-const _home = ForumSettingsController.homeSite;
 const _first = 'https://first.example';
 const _second = 'https://second.example/forum';
 const _third = 'https://third.example';
@@ -83,7 +82,6 @@ void main() {
     expect(shell.activeTabId, 'saved-9');
     expect(shell.currentContent?.isAppearance, isTrue);
     expect(shell.forumSettings.shared.font, ForumFont.jetBrainsMono);
-    expect(shell.forumSettings.themeModeFor(_home), AppThemeMode.system);
     expect(persistence.libraryReads, lessThanOrEqualTo(3));
     for (var i = 0; i < sites.length; i++) {
       shell.selectInstance(i);
@@ -110,11 +108,10 @@ void main() {
     expect(persistence.reads, reads);
   });
 
-  test('startup keeps home-first legacy collision order and adopts the '
+  test('startup keeps rail-order legacy collision order and adopts the '
       'earlier rail forum font', () async {
     final persistence = _Persistence();
     for (final (site, name, font) in [
-      (_home, 'Home', 'lato'),
       (_first, 'First', 'openSans'),
       (_second, 'Second', 'jetBrainsMono'),
     ]) {
@@ -134,16 +131,13 @@ void main() {
     ], initialMode: AppThemeMode.dark);
 
     expect(settings.shared.font, ForumFont.openSans);
-    expect(settings.themesFor(_home).customId, 'custom-same');
-    expect(settings.themesFor(_first).customId, 'custom-same-2');
-    expect(settings.themesFor(_second).customId, 'custom-same-3');
+    expect(settings.themesFor(_first).customId, 'custom-same');
+    expect(settings.themesFor(_second).customId, 'custom-same-2');
     expect(settings.themesFor(_second).customTheme?.name, 'Second');
     expect(settings.themesFor(_first).customThemes.map((theme) => theme.name), [
-      'Home',
       'First',
       'Second',
     ]);
-    expect(settings.themeModeFor(_home), AppThemeMode.system);
     expect(settings.themeModeFor(_first), AppThemeMode.dark);
     expect(settings.themeModeFor(_second), AppThemeMode.dark);
     expect(persistence.libraryReads, 1);
@@ -289,9 +283,7 @@ void main() {
       _second,
     ], initialMode: AppThemeMode.system);
     await persistence.libraryReadStarted.future;
-    settings.forgetSites(
-      ForgottenSites.removed(_first, keeping: [_home, _second]),
-    );
+    settings.forgetSites(ForgottenSites.removed(_first, keeping: [_second]));
     final retired = store.loadThemeLibrary([_second]);
     final readding = settings.load(_first);
 
@@ -346,7 +338,6 @@ _Persistence _modernPersistence(List<String> sites) => _Persistence()
     ForumSettingsStore.themeLibraryKey: jsonEncode(
       ForumThemeLibrary(
         forums: {
-          _home: ForumThemePreferences.defaults,
           for (var i = 0; i < sites.length; i++)
             sites[i]: ForumThemePreferences.preset(
               i.isEven ? 'dracula' : 'wcag',

@@ -16047,12 +16047,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Home'**
-  String get home;
-
-  /// English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Applies to {forumName} only.'**
   String appliesToOnly(String forumName);
 
@@ -20083,12 +20077,6 @@ abstract class AppLocalizations {
   /// **'and {hidden} others'**
   String andOthers(String hidden);
 
-  /// English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Home default'**
-  String get homeDefault;
-
   /// English UI message used by shell/post_revision_history.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -21447,13 +21435,13 @@ abstract class AppLocalizations {
   /// **'Choose fonts for the interface and reading in every forum. System default reading follows the interface font.'**
   String get fontAssignmentsDescription;
 
-  /// Confirmation before replacing theme selections across forums and Home.
+  /// Confirmation before replacing every forum's theme selection with this one.
   ///
   /// In en, this message translates to:
-  /// **'Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.'**
+  /// **'Every forum will use this theme. The ones you gave their own will lose it.'**
   String get confirmThemeEverywhere;
 
-  /// Confirm replacement of theme selections across every forum and Home.
+  /// Confirm replacement of theme selections across every forum.
   ///
   /// In en, this message translates to:
   /// **'Use everywhere'**

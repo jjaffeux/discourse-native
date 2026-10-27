@@ -31,7 +31,6 @@ import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
-import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +42,7 @@ import 'support/fakes.dart';
 import 'support/site_appearance_fixtures.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
+const _legacyHome = 'https://discourse.native.invalid/home';
 const _publicConfig = SiteConfig(minPersonalMessagePostLength: 10);
 
 final class _AccountFeedApi extends FakeDiscourseApi {
@@ -2622,7 +2622,8 @@ void main() {
         test(
           rail.isEmpty
               ? "an empty rail keeps every forum's preferences"
-              : 'a restart drops the preferences of forums off the rail',
+              : 'a restart drops the preferences of forums off the rail and '
+                    'of the retired Home theme slot',
           () async {
             final previous = storedPreferencesShell(
               FakeInstanceStore([
@@ -2633,19 +2634,27 @@ void main() {
             await previous.load();
             await _keepSitePreferences(previous, _siteUrl);
             await _keepSitePreferences(previous, otherSite);
+            // What older builds kept for the Home theme slot.
             await previous.forumSettings.setThemeMode(
-              ForumSettingsController.homeSite,
+              _legacyHome,
               AppThemeMode.dark,
+            );
+            await previous.forumSettings.setThemes(
+              _legacyHome,
+              ForumThemePreferences.preset('wcag'),
             );
             final removed = await _storedPreferencesOf(_siteUrl);
             final kept = await _storedPreferencesOf(otherSite);
-            final home = await _storedPreferencesOf(
-              ForumSettingsController.homeSite,
-            );
+            final home = await _storedPreferencesOf(_legacyHome);
             expect(home, isNotEmpty);
+            expect(
+              previous.forumSettings.store.themeLibrary.forums,
+              contains(_legacyHome),
+            );
 
             final restored = storedPreferencesShell(FakeInstanceStore(rail));
             await restored.load();
+            await pumpEventQueue();
 
             expect(
               await _storedPreferencesOf(_siteUrl),
@@ -2653,8 +2662,16 @@ void main() {
             );
             expect(await _storedPreferencesOf(otherSite), kept);
             expect(
-              await _storedPreferencesOf(ForumSettingsController.homeSite),
-              home,
+              await _storedPreferencesOf(_legacyHome),
+              rail.isEmpty ? home : isEmpty,
+            );
+            expect(
+              (await restored.forumSettings.store.loadThemeLibrary(
+                const [],
+              )).forums,
+              rail.isEmpty
+                  ? contains(_legacyHome)
+                  : isNot(contains(_legacyHome)),
             );
           },
         );

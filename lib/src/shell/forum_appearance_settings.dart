@@ -101,8 +101,6 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   List<String> _otherForums() {
     final site = requireStoredForumBase(widget.siteUrl);
     return [
-      if (site != ForumSettingsController.homeSite)
-        ForumSettingsController.homeSite,
       for (final instance in ShellScope.identityOf(context).instances)
         if (requireStoredForumBase(instance.url) != site) instance.url,
     ];
@@ -120,9 +118,9 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
   /// The forum's own palette for each mode, or Discourse's own Light and Dark
   /// where the forum has not published one.
   Map<Brightness, ForumTheme> _forumPalettes() {
-    final forum = widget.siteUrl == ForumSettingsController.homeSite
-        ? null
-        : ShellScope.identityOf(context).siteAppearanceFor(widget.siteUrl);
+    final forum = ShellScope.identityOf(
+      context,
+    ).siteAppearanceFor(widget.siteUrl);
     return {
       for (final mode in Brightness.values)
         mode: switch (forum?.paletteForBrightness(mode)) {
@@ -130,12 +128,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
           null =>
             forumThemePresets.first
                 .forBrightness(mode)
-                .copyWith(
-                  id: 'forum',
-                  name: widget.siteUrl == ForumSettingsController.homeSite
-                      ? appL10n.homeDefault
-                      : appL10n.forumDefault,
-                ),
+                .copyWith(id: 'forum', name: appL10n.forumDefault),
         },
     };
   }
@@ -169,15 +162,12 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
 
   Widget _themeScope(List<String> others) {
     final site = requireStoredForumBase(widget.siteUrl);
-    final forumName = site == ForumSettingsController.homeSite
-        ? appL10n.home
-        : ShellScope.identityOf(context).instances
-                  .where(
-                    (instance) => requireStoredForumBase(instance.url) == site,
-                  )
-                  .firstOrNull
-                  ?.title ??
-              Uri.parse(site).host;
+    final forumName =
+        ShellScope.identityOf(context).instances
+            .where((instance) => requireStoredForumBase(instance.url) == site)
+            .firstOrNull
+            ?.title ??
+        Uri.parse(site).host;
     final note = _HeadingNote(
       _confirmEverywhere
           ? context.l10n.confirmThemeEverywhere

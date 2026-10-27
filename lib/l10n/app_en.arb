@@ -12528,10 +12528,6 @@
   "@couldNotSaveChanges": {
     "description": "English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact."
   },
-  "home": "Home",
-  "@home": {
-    "description": "English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact."
-  },
   "appliesToOnly": "Applies to {forumName} only.",
   "@appliesToOnly": {
     "description": "English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact.",
@@ -16182,10 +16178,6 @@
       }
     }
   },
-  "homeDefault": "Home default",
-  "@homeDefault": {
-    "description": "English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact."
-  },
   "edits": "{count} edits",
   "@edits": {
     "description": "English UI message used by shell/post_revision_history.dart. Keep placeholders intact.",
@@ -18072,13 +18064,13 @@
   "@fontAssignmentsDescription": {
     "description": "Explanation of the independent shared font assignments."
   },
-  "confirmThemeEverywhere": "Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.",
+  "confirmThemeEverywhere": "Every forum will use this theme. The ones you gave their own will lose it.",
   "@confirmThemeEverywhere": {
-    "description": "Confirmation before replacing theme selections across forums and Home."
+    "description": "Confirmation before replacing every forum's theme selection with this one."
   },
   "confirmUseEverywhere": "Use everywhere",
   "@confirmUseEverywhere": {
-    "description": "Confirm replacement of theme selections across every forum and Home."
+    "description": "Confirm replacement of theme selections across every forum."
   },
   "composerIndent": "Indent",
   "@composerIndent": {

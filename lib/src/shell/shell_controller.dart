@@ -2251,11 +2251,7 @@ class ShellController extends FrameSafeNotifier
       forgetSitePreferences(
         [...declaredSitePreferenceKeys, ...plugins.registry.sitePreferenceKeys],
         () {
-          // The app home keeps an appearance of its own, like a forum.
-          final keeping = [
-            ForumSettingsController.homeSite,
-            for (final instance in _instances) instance.url,
-          ];
+          final keeping = [for (final instance in _instances) instance.url];
           final ForgottenSites sites;
           if (removed == null) {
             // An empty rail may be a list that could not be decoded, so it

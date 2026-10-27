@@ -9362,9 +9362,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldNotSaveChanges => 'Could not save changes.';
 
   @override
-  String get home => 'Home';
-
-  @override
   String appliesToOnly(String forumName) {
     return 'Applies to $forumName only.';
   }
@@ -11980,9 +11977,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeDefault => 'Home default';
-
-  @override
   String edits(String count) {
     return '$count edits';
   }
@@ -13665,7 +13659,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmThemeEverywhere =>
-      'Every forum and Home will use these light and dark theme selections, replacing their individual selections. Saved themes will stay in your library.';
+      'Every forum will use this theme. The ones you gave their own will lose it.';
 
   @override
   String get confirmUseEverywhere => 'Use everywhere';
