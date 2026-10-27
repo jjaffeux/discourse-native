@@ -194,53 +194,49 @@ class _BoardsPageState extends State<BoardsPage> {
       framed: false,
       border: false,
       limitContentSize: false,
-      child: DPullToRefresh(
+      child: CustomScrollView(
         key: ValueKey((
           widget.controller,
           widget.site,
           widget.route.boardId,
           widget.controller.accountRevision(widget.site),
         )),
-        onRefresh: handle.reading || handle.writing ? null : handle.refresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: _BoardHeader(
-                title: title,
-                badges: badges,
-                sheet: widget.navigation.mobileNavigationEnabled,
-                onBack: () => widget.navigation.open(),
-              ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _BoardHeader(
+              title: title,
+              badges: badges,
+              sheet: widget.navigation.mobileNavigationEnabled,
+              onBack: () => widget.navigation.open(),
             ),
-            SliverLayoutBuilder(
-              builder: (context, constraints) {
-                final dock = DScrollChrome.bottomInsetOf(context);
-                final dots = _columnDots(constraints.crossAxisExtent, columns)
-                    ? _columnDotsExtent
-                    : 0.0;
-                return SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: math.max(
-                      constraints.viewportMainAxisExtent -
-                          constraints.precedingScrollExtent,
-                      24 +
-                          MediaQuery.textScalerOf(
-                            context,
-                          ).scale(_minimumColumnHeight) +
-                          dots +
-                          dock,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: dock),
-                      child: body,
-                    ),
+          ),
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final dock = DScrollChrome.bottomInsetOf(context);
+              final dots = _columnDots(constraints.crossAxisExtent, columns)
+                  ? _columnDotsExtent
+                  : 0.0;
+              return SliverToBoxAdapter(
+                child: SizedBox(
+                  height: math.max(
+                    constraints.viewportMainAxisExtent -
+                        constraints.precedingScrollExtent,
+                    24 +
+                        MediaQuery.textScalerOf(
+                          context,
+                        ).scale(_minimumColumnHeight) +
+                        dots +
+                        dock,
                   ),
-                );
-              },
-            ),
-          ],
-        ),
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: dock),
+                    child: body,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
     if (board == null) {
