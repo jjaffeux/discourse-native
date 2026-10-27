@@ -289,6 +289,60 @@ void main() {
       },
     );
   }
+
+  for (final (foot, keyboard) in [(34.0, 0.0), (0.0, 336.0)]) {
+    testWidgets('a phone composer\'s foot stands where the bar of places sits '
+        '($foot, $keyboard)', (tester) async {
+      const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
+      final controller = ShellController(
+        mobileNavigationEnabled: true,
+        forumTabsEnabled: false,
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(
+          user: user,
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
+        ),
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+      tester.view.padding = FakeViewPadding(top: 59, bottom: foot);
+      tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.forBrightness(
+              Brightness.light,
+            ).copyWith(platform: TargetPlatform.iOS),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await controller.openNewTopicFromSidebar();
+      await tester.pumpAndSettle();
+      // 6 past half the foot's room, as the bar of places stands, or 6 off
+      // the keyboard.
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('composer-toolbar-bar')))
+            .bottom,
+        844 - keyboard - (6 + foot / 2),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 Future<List<int>> _pixelsUnderKeyboard(WidgetTester tester) async {
