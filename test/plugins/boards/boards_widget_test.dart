@@ -124,7 +124,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('board pull refresh keeps cards without a header actions menu', (
+  testWidgets('board live updates keep cards and recover after a failed read', (
     tester,
   ) async {
     final fixture = BoardsFixture();
@@ -141,24 +141,21 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       findsNothing,
     );
     expect(find.text('Refresh'), findsNothing);
-    final pending = Completer<Map<String, dynamic>>();
-    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
-        pending.future;
     await tester.dragFrom(
       tester.getCenter(find.byKey(const ValueKey('board-title'))),
       const Offset(0, 500),
     );
+    await tester.pumpAndSettle();
+    expect(fixture.transport.reads, hasLength(1));
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    fixture.live.deliver('/boards/1', {'type': 'board_updated'});
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(fixture.transport.reads, hasLength(2));
     expect(find.text('Improve search'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
-    await tester.dragFrom(
-      tester.getCenter(find.byKey(const ValueKey('board-title'))),
-      const Offset(0, 500),
-    );
-    await tester.pump();
-    expect(fixture.transport.reads, hasLength(2));
     pending.completeError(StateError('Board refresh unavailable'));
     await tester.pumpAndSettle();
     expect(find.text('Improve search'), findsOneWidget);
@@ -167,10 +164,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     (refreshed['board'] as Map)['name'] = 'Refreshed board';
     fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
         refreshed;
-    await tester.dragFrom(
-      tester.getCenter(find.byKey(const ValueKey('board-title'))),
-      const Offset(0, 500),
-    );
+    fixture.live.deliver('/boards/1', {'type': 'board_updated'});
     await tester.pumpAndSettle();
     expect(find.text('Refreshed board'), findsOneWidget);
     expect(find.textContaining('Board refresh unavailable'), findsNothing);
@@ -476,20 +470,17 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     await tester.pumpWidget(retainedPage(first));
     await tester.pumpAndSettle();
     expect(first.live.subscriberCount('/boards/1'), 1);
-    final oldPull = Completer<Map<String, dynamic>>();
+    final oldRead = Completer<Map<String, dynamic>>();
     first.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
-        oldPull.future;
-    await tester.dragFrom(
-      tester.getCenter(find.byKey(const ValueKey('board-title'))),
-      const Offset(0, 500),
-    );
+        oldRead.future;
+    first.live.deliver('/boards/1', {'type': 'board_updated'});
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+    expect(first.transport.reads, hasLength(2));
+    expect(find.text('Product roadmap'), findsOneWidget);
     await tester.pumpWidget(retainedPage(second));
     await tester.pump();
-    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
-    oldPull.complete(boardFixtureJson());
+    expect(find.text('Product roadmap'), findsNothing);
+    oldRead.complete(boardFixtureJson());
     await tester.pumpAndSettle();
     expect(find.text('Replacement controller board'), findsOneWidget);
     expect(first.live.channels, isEmpty);

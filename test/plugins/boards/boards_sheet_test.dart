@@ -118,24 +118,52 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('pulling board content refreshes without dismissing the sheet', (
-    tester,
-  ) async {
+  for (final target in ['board-title', 'board-card-101']) {
+    testWidgets(
+      'pulling board content at $target dismisses without refreshing',
+      (tester) async {
+        late FakeDiscourseApi api;
+        final shell = await _openBoard(tester, onApi: (value) => api = value);
+        final before = api.pluginReadPaths
+            .where((path) => path == '/boards/api/boards/1.json')
+            .length;
+        await tester.dragFrom(
+          tester.getCenter(find.byKey(ValueKey(target))),
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'boards');
+        expect(_sheet, findsNothing);
+        expect(
+          api.pluginReadPaths
+              .where((path) => path == '/boards/api/boards/1.json')
+              .length,
+          before,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: platforms,
+    );
+  }
+
+  testWidgets('message bus updates an open board sheet', (tester) async {
     late FakeDiscourseApi api;
     final shell = await _openBoard(tester, onApi: (value) => api = value);
-    final before = api.pluginReadPaths
-        .where((path) => path == '/boards/api/boards/1.json')
-        .length;
-    await tester.dragFrom(tester.getCenter(_title), const Offset(0, 300));
+    final response = api.pluginResponses['GET /boards/api/boards/1.json']!;
+    (response['board'] as Map)['name'] = 'Updated roadmap';
+    final column = (response['columns'] as List).first as Map;
+    final card = (column['cards'] as List).first as Map;
+    (card['topic'] as Map)['title'] = 'Updated search plan';
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == shell.currentInstance?.url,
+    );
+    tracker.deliverPluginMessage('/boards/1', {'type': 'board_updated'});
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'boards/1');
     expect(_sheet, findsOneWidget);
-    expect(
-      api.pluginReadPaths
-          .where((path) => path == '/boards/api/boards/1.json')
-          .length,
-      before + 1,
-    );
+    expect(find.text('Updated roadmap'), findsOneWidget);
+    expect(find.text('Updated search plan'), findsOneWidget);
+    expect(find.text('Improve search'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
