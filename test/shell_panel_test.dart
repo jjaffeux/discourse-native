@@ -1,11 +1,88 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('desktop panels retain the page color over a dark window', (
+    tester,
+  ) async {
+    const capture = ValueKey('desktop-panel-background');
+    for (final brightness in Brightness.values) {
+      for (final transparency in [0.0, .3]) {
+        final theme = AppTheme.fromPalette(
+          forumThemePresets
+              .firstWhere((theme) => theme.id == 'dark-rose')
+              .copyWith(
+                background: ForumBackground.appearance(
+                  transparency: transparency,
+                  noiseIntensity: 0,
+                ),
+              )
+              .resolve(brightness),
+        ).copyWith(platform: TargetPlatform.macOS);
+        await tester.pumpWidget(
+          MaterialApp(
+            themeAnimationStyle: AnimationStyle.noAnimation,
+            theme: theme,
+            home: const RepaintBoundary(
+              key: capture,
+              child: ForumWindowBackground(
+                child: Row(
+                  children: [
+                    Expanded(child: WorkspacePanel(child: SizedBox.expand())),
+                    SizedBox(width: 12),
+                    Expanded(child: Builder(builder: _standalonePanel)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          final image = await tester
+              .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+              .toImage();
+          try {
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            final expected = Color.lerp(
+              theme.shell.content,
+              theme.colorScheme.onSurface,
+              .03,
+            )!.toARGB32();
+            for (final x in [image.width ~/ 4, image.width * 3 ~/ 4]) {
+              final offset = (image.height ~/ 2 * image.width + x) * 4;
+              expect(
+                List.generate(4, (channel) => bytes.getUint8(offset + channel)),
+                [
+                  (expected >> 16) & 255,
+                  (expected >> 8) & 255,
+                  expected & 255,
+                  255,
+                ],
+                reason: '$brightness, transparency $transparency, panel at $x',
+              );
+            }
+          } finally {
+            image.dispose();
+          }
+        });
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
   testWidgets('nested panel previews do not inherit the outer window corner', (
     tester,
   ) async {
@@ -187,3 +264,10 @@ void main() {
     expect(decoration.border, Border.all(color: ShellColors.light.divider));
   });
 }
+
+Widget _standalonePanel(BuildContext context) => DPageSurface(
+  border: false,
+  backgroundColor: ForumWindowBackground.panelColor(context),
+  depth: DSurfaceDepth.panel,
+  child: const SizedBox.expand(),
+);

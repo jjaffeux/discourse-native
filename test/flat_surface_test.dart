@@ -152,7 +152,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('plain and translucent panels retain the same palette tint', (
+  testWidgets('phone panels retain their tint at both opacity endpoints', (
     tester,
   ) async {
     for (final brightness in Brightness.values) {
@@ -168,7 +168,7 @@ void main() {
                 background: ForumBackground.appearance(
                   transparency: transparency,
                 ),
-              ),
+              ).copyWith(platform: TargetPlatform.iOS),
               home: MediaQuery(
                 data: MediaQueryData(highContrast: highContrast),
                 child: ForumWindowBackground(

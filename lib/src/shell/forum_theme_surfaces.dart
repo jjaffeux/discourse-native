@@ -7,6 +7,7 @@ import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
 import 'decorative_cadence.dart';
 import 'forum_texture.dart';
+import 'platform.dart';
 
 /// A phone's ground is its bar's own fill. The desktop ground mixes the
 /// palette background with 14% black in both brightness modes, independently
@@ -52,14 +53,14 @@ class ForumWindowBackground extends StatefulWidget {
         : fallback;
   }
 
-  /// Paint once at each panel boundary, without restarting the window effect.
-  /// The slight foreground tint keeps flat backgrounds visibly framed too.
+  /// Desktop reading surfaces keep their palette tint above the darker window.
+  /// Phone surfaces retain the configurable transparency over their canvas.
   static Color? panelColor(BuildContext context) {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     if (canvas == null) return null;
     final tokens = DTokens.of(context);
+    if (!context.isTouch) return tokens.panelBackground;
     return tokens.panelBackground.withValues(
-      // The current reference shares its panel treatment across materials.
       alpha: 1 - (canvas.transparency / .3 * 40).round() / 100,
     );
   }
