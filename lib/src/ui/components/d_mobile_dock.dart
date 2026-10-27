@@ -29,14 +29,27 @@ class DMobileDockPlace {
     required this.label,
     required this.onPressed,
     this.badge,
+    this.semanticLabel,
     this.selected = false,
   });
+
+  DMobileDockPlace.avatar({
+    required this.key,
+    required Widget face,
+    required this.label,
+    required this.onPressed,
+    Color? ring,
+    this.semanticLabel,
+  }) : icon = _Face(face: face, ring: ring),
+       badge = null,
+       selected = false;
 
   /// The bar's item carries this key; the panel's tile carries
   /// [DMobileDock.tileKey] of it.
   final Key key;
   final Widget icon;
   final String label;
+  final String? semanticLabel;
   final Widget? badge;
 
   /// Whether this is the page a person is on.
@@ -46,17 +59,6 @@ class DMobileDockPlace {
 
 /// The ⋮ that grows the bar into its panel.
 typedef DMobileDockMore = ({Widget icon, String label});
-
-/// You, a tile among the panel's places: your face, 22 across, ringed in
-/// [ring] when there is something to say of your presence; your name; what
-/// is said of your account and presence; and what pressing it opens.
-typedef DMobileDockYou = ({
-  Widget face,
-  String name,
-  Color? ring,
-  String semanticLabel,
-  VoidCallback onPressed,
-});
 
 /// Where the page a person is on stands among a bar's places.
 sealed class DMobileDockCurrent {
@@ -154,7 +156,6 @@ class DMobileDock extends StatefulWidget {
     required this.more,
     required this.collapsedDestination,
     this.action,
-    this.you,
     this.collapsed = false,
     this.destinationsHidden = false,
     this.covered = false,
@@ -171,8 +172,6 @@ class DMobileDock extends StatefulWidget {
   final Widget collapsedDestination;
   final Widget? action;
 
-  /// The panel's last tile, while signed in.
-  final DMobileDockYou? you;
   final bool collapsed;
   final bool destinationsHidden;
 
@@ -200,7 +199,6 @@ class DMobileDock extends StatefulWidget {
   static const panelKey = ValueKey('mobile-dock-panel');
   static const dimKey = ValueKey('mobile-dock-dim');
   static const grabberKey = ValueKey('mobile-dock-grabber');
-  static const youKey = ValueKey('mobile-dock-you');
 
   /// The panel's tile for the place keyed [place].
   static Key tileKey(Key place) => ValueKey(('mobile-dock-tile', place));
@@ -388,7 +386,7 @@ class _DMobileDockState extends State<DMobileDock>
   List<DMobileDockPlace> get _rest =>
       widget.places.skip(DMobileDockGeometry.placeColumns).toList();
 
-  int get _tiles => _rest.length + (widget.you == null ? 0 : 1);
+  int get _tiles => _rest.length;
 
   @override
   void didUpdateWidget(DMobileDock oldWidget) {
@@ -873,6 +871,7 @@ class _DMobileDockState extends State<DMobileDock>
               focusNode: place.key == _firstTileKey ? _firstTile : null,
               icon: place.icon,
               label: place.label,
+              semanticLabel: place.semanticLabel,
               badge: place.badge,
               selected: place.selected,
               customSemanticsActions: _moveActions(
@@ -886,21 +885,6 @@ class _DMobileDockState extends State<DMobileDock>
             ),
           ),
           key: _slotKey(place.key),
-        ),
-      if (widget.you case final you?)
-        _tile(
-          panel.tileRect(_rest.length, width),
-          DMobileDockItem(
-            key: DMobileDock.youKey,
-            growth: 1,
-            icon: _Face(face: you.face, ring: you.ring),
-            label: you.name,
-            semanticLabel: you.semanticLabel,
-            onPressed: () {
-              _grow(false);
-              you.onPressed();
-            },
-          ),
         ),
     ];
     final body = DecoratedBox(
@@ -1088,6 +1072,7 @@ class _DMobileDockState extends State<DMobileDock>
       growth: 1,
       icon: place.icon,
       label: place.label,
+      semanticLabel: place.semanticLabel,
       badge: place.badge,
       selected: place.selected,
       onPressed: () {},
@@ -1266,6 +1251,7 @@ class _DMobileDockState extends State<DMobileDock>
         focusNode: out && place.key == _firstTileKey ? _firstTile : null,
         icon: place.icon,
         label: place.label,
+        semanticLabel: place.semanticLabel,
         badge: place.badge,
         selected: place.selected,
         customSemanticsActions: _moveActions(context, index),

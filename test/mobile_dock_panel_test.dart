@@ -3,6 +3,8 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/user_menu.dart';
+import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +14,74 @@ import 'mobile_shell_test.dart' as fixture;
 /// alone while it moves, and what the shell leaves to it.
 void main() {
   final panel = find.byKey(DMobileDock.panelKey);
+
+  testWidgets('the profile tile opens the profile menu and the bell opens '
+      'notifications', (tester) async {
+    await fixture.pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(DMobileDock.moreKey));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(DMobileDock.tileKey(const ValueKey('mobile-mode-profile'))),
+    );
+    await tester.pumpAndSettle();
+    expect(panel, findsNothing);
+    expect(find.byType(UserMenuPanel), findsNothing);
+    expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(UserMenuButton.bellKey));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<UserMenuPanel>(find.byType(UserMenuPanel)).view,
+      UserMenuView.notifications,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'the profile tile can move into the bar and keeps its position '
+    'after remounting',
+    (tester) async {
+      final shell = await fixture.pumpMobileShellFixture(tester);
+      const profileKey = ValueKey('mobile-mode-profile');
+      final profile = find.byKey(DMobileDock.tileKey(profileKey));
+      final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+      List<String> barLabels() => [
+        for (final item in tester.widgetList<DMobileDockItem>(
+          find.descendant(of: surface, matching: find.byType(DMobileDockItem)),
+        ))
+          if (item.key != DMobileDock.moreKey) item.label,
+      ];
+      await tester.tap(find.byKey(DMobileDock.moreKey));
+      await tester.pumpAndSettle();
+      final destination = tester.getCenter(
+        find.byKey(const ValueKey('mobile-mode-topics')),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(profile));
+      await tester.pump(const Duration(milliseconds: 320));
+      expect(find.byKey(DMobileDock.movingKey(profileKey)), findsOneWidget);
+      await gesture.moveTo(destination);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(barLabels(), ['reader', 'Topics', 'Chat']);
+      expect(panel, findsOneWidget);
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(shell.mobileNavigation.tab, MobileTab.topics);
+
+      await fixture.pumpMobileShellFixture(tester);
+      expect(barLabels(), ['reader', 'Topics', 'Chat']);
+      await tester.tap(find.byKey(profileKey));
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets('a drag on the bar rebuilds neither the shell nor the page', (
     tester,
@@ -77,7 +147,9 @@ void main() {
     final shell = await fixture.pumpMobileShellFixture(tester);
     await tester.tap(find.byKey(DMobileDock.moreKey));
     await tester.pumpAndSettle();
-    final you = find.byKey(DMobileDock.youKey);
+    final you = find.byKey(
+      DMobileDock.tileKey(const ValueKey('mobile-mode-profile')),
+    );
     final ringBox = find.descendant(
       of: you,
       matching: find.byWidgetPredicate(
@@ -258,7 +330,9 @@ void main() {
       for (final item in tester.widgetList<DMobileDockItem>(
         find.descendant(of: panel, matching: find.byType(DMobileDockItem)),
       ))
-        if (item.key != DMobileDock.youKey) item.label,
+        if (item.key !=
+            DMobileDock.tileKey(const ValueKey('mobile-mode-profile')))
+          item.label,
     ];
     expect(barLabels(), ['Topics', 'Chat', 'Bookmarks']);
     await tester.tap(find.byKey(DMobileDock.moreKey));

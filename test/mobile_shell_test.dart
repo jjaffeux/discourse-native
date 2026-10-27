@@ -178,7 +178,8 @@ List<String> _panelLabels(WidgetTester tester) => [
       in find
           .descendant(of: _panel, matching: find.byType(DMobileDockItem))
           .evaluate())
-    if (element.widget.key != DMobileDock.youKey)
+    if (element.widget.key !=
+        DMobileDock.tileKey(const ValueKey('mobile-mode-profile')))
       (element.widget as DMobileDockItem).label,
 ];
 
@@ -3210,7 +3211,9 @@ void main() {
     );
     // You are its last tile, named as the account menu names you, with your
     // presence said as the header's account button says it.
-    final you = find.byKey(DMobileDock.youKey);
+    final you = find.byKey(
+      DMobileDock.tileKey(const ValueKey('mobile-mode-profile')),
+    );
     expect(you.hitTestable(), findsOneWidget);
     expect(tester.widget<DMobileDockItem>(you).label, 'reader');
     expect(
@@ -3234,13 +3237,13 @@ void main() {
     expect(shell.currentContent, same(content));
     expect(shell.mobileNavigation.tab, tab);
 
-    // You open what the header's account button opens.
+    // The profile tile opens the account menu.
     await tester.tap(more);
     await tester.pumpAndSettle();
     await tester.tap(you);
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
-    expect(find.byType(UserMenuPanel), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

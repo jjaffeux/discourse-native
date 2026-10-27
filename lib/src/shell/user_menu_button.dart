@@ -41,11 +41,13 @@ class UserMenuButton extends StatefulWidget {
     this.leadingActions,
     this.presentation = UserMenuPresentation.combined,
     this.menuController,
-  }) : drawerBuilder = null;
+  }) : drawerBuilder = null,
+       profileController = null;
 
   const UserMenuButton.drawer({
     super.key,
     required Widget Function(BuildContext, Widget?) builder,
+    this.profileController,
   }) : drawerBuilder = builder,
        presentation = UserMenuPresentation.profileCard,
        ringColor = null,
@@ -62,10 +64,12 @@ class UserMenuButton extends StatefulWidget {
   final UserMenuPresentation presentation;
   final Widget Function(BuildContext, Widget?)? drawerBuilder;
 
-  /// The notifications menu's controller, for what opens the menu from
-  /// elsewhere, as a phone's panel of places does. The button makes its own
-  /// when none is given.
+  /// The notifications menu's controller. The button makes its own when
+  /// none is given.
   final DPopoverController? menuController;
+
+  /// Opens the drawer's profile menu from another account control.
+  final DPopoverController? profileController;
 
   static double footerExtent(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -104,7 +108,9 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   DPopoverController? _ownNotifications;
   DPopoverController get _notifications =>
       widget.menuController ?? (_ownNotifications ??= DPopoverController());
-  final _profile = DPopoverController();
+  DPopoverController? _ownProfile;
+  DPopoverController get _profile =>
+      widget.profileController ?? (_ownProfile ??= DPopoverController());
   final _drawerPresence = DPopoverController();
   _AccountMenuOwner? _menuOwner;
   var _menuGeneration = 0;
@@ -160,7 +166,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
   void dispose() {
     _shell?.removeListener(_handleShellChanged);
     _ownNotifications?.dispose();
-    _profile.dispose();
+    _ownProfile?.dispose();
     _drawerPresence.dispose();
     super.dispose();
   }

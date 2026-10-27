@@ -10,7 +10,8 @@ final mobileDockExamples = ComponentExamples(
       'A measured floating dock with an active destination retained while reading.',
   notes:
       'Three places take a column each; the ⋮ grows the bar into a panel of '
-      'the rest, risen from the foot over a dim, with you as its last tile. '
+      'the rest, risen from the foot over a dim. The profile is a regular place '
+      'that can be reordered with the others. '
       'Compose with DScrollChrome(floatingFooter: true) and add bottomInsetOf '
       'to the primary viewport. The open dock extent stays reserved at the end '
       'of the content while the viewport remains fixed. A collapsed dock only '
@@ -32,7 +33,7 @@ final mobileDockExamples = ComponentExamples(
         ],
         code:
             'DMobileDock(geometry: geometry, places: places, more: more, '
-            'you: you, action: action, collapsed: hidden, '
+            'action: action, collapsed: hidden, '
             'collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,

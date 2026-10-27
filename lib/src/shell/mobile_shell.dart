@@ -59,7 +59,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
-  // The header's account menu, which the panel's you tile opens too.
+  // The drawer's profile menu, also opened by the dock's profile tile.
   final _accountMenu = DPopoverController();
 
   @override
@@ -87,7 +87,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   @override
   Widget build(BuildContext context) => MobileFooterActionScope(
     controller: _footerAction,
-    child: UserMenuButton.drawer(builder: _buildWithProfileFooter),
+    child: UserMenuButton.drawer(
+      builder: _buildWithProfileFooter,
+      profileController: _accountMenu,
+    ),
   );
 
   Widget _buildWithProfileFooter(BuildContext context, Widget? profileFooter) =>
@@ -308,10 +311,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        UserMenuButton(
+                        const UserMenuButton(
                           compact: true,
                           presentation: UserMenuPresentation.notifications,
-                          menuController: _accountMenu,
                         ),
                       ];
                       final largeText =
@@ -538,25 +540,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     // Notifications paused rings the you tile, and nothing else here.
     return ListenableBuilder(
       listenable: shell.doNotDisturb,
-      builder: (context, _) => DMobileDock(
-        key: const ValueKey('mobile-bottom-bar'),
-        geometry: geometry,
-        collapsed: hideDestinations && pageAction == null,
-        destinationsHidden: hideDestinations && pageAction != null,
-        // A composer's sheet covers the shell from inside it; the panel, which
-        // paints over the shell, must not stand over the sheet.
-        covered: ComposerPresentationHost.hasMobileSheetOf(context),
-        collapsedDestination: DMobileDockItem(
-          key: const ValueKey('mobile-dock-reveal'),
-          collapsed: true,
-          icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
-          label:
-              '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
-          onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
-        ),
-        places: [
+      builder: (context, _) {
+        final places = <String, DMobileDockPlace>{
           for (final item in destinations)
-            DMobileDockPlace(
+            item.tab.name: DMobileDockPlace(
               key: ValueKey('mobile-mode-${item.tab.name}'),
               icon: DIcon(item.icon),
               label: item.label,
@@ -564,47 +551,64 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               selected: selected == item.tab,
               onPressed: item.onPressed,
             ),
-        ],
-        more: (
-          icon: const DIcon(DIcons.ellipsisVertical),
-          label: context.l10n.more,
-        ),
-        you: _you(context, shell: shell, instance: instance),
-        onPanelChanged: panelOut == null ? null : (out) => panelOut.value = out,
-        // The order written is the one shown, the moved place in its new
-        // slot; a place hidden for now, Drafts between drafts, keeps the
-        // slot it had.
-        onMoved: placeOrder == null
-            ? null
-            : (from, to) => unawaited(
-                placeOrder.place(
-                  DMobileDockReorder.moved(
-                    [for (final item in destinations) item.tab.name],
-                    from,
-                    to,
+          'profile': ?_profilePlace(context, shell: shell, instance: instance),
+        };
+        final order = MobilePlaceOrderController.apply(
+          places.keys.toList(),
+          placeOrder?.order ?? const [],
+          (name) => name,
+        );
+        return DMobileDock(
+          key: const ValueKey('mobile-bottom-bar'),
+          geometry: geometry,
+          collapsed: hideDestinations && pageAction == null,
+          destinationsHidden: hideDestinations && pageAction != null,
+          // A composer's sheet covers the shell from inside it; the panel, which
+          // paints over the shell, must not stand over the sheet.
+          covered: ComposerPresentationHost.hasMobileSheetOf(context),
+          collapsedDestination: DMobileDockItem(
+            key: const ValueKey('mobile-dock-reveal'),
+            collapsed: true,
+            icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
+            label:
+                '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
+            onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
+          ),
+          places: [for (final name in order) places[name]!],
+          more: (
+            icon: const DIcon(DIcons.ellipsisVertical),
+            label: context.l10n.more,
+          ),
+          onPanelChanged: panelOut == null
+              ? null
+              : (out) => panelOut.value = out,
+          // The order written is the one shown, the moved place in its new
+          // slot; a place hidden for now, Drafts between drafts, keeps the
+          // slot it had.
+          onMoved: placeOrder == null
+              ? null
+              : (from, to) => unawaited(
+                  placeOrder.place(DMobileDockReorder.moved(order, from, to)),
+                ),
+          action: primaryAction == null
+              ? null
+              : DActionTransition(
+                  key: ValueKey((
+                    shell.currentInstance?.url,
+                    shell.currentAccountIdentity,
+                  )),
+                  child: KeyedSubtree(
+                    key: ValueKey(actionIcon),
+                    child: primaryAction,
                   ),
                 ),
-              ),
-        action: primaryAction == null
-            ? null
-            : DActionTransition(
-                key: ValueKey((
-                  shell.currentInstance?.url,
-                  shell.currentAccountIdentity,
-                )),
-                child: KeyedSubtree(
-                  key: ValueKey(actionIcon),
-                  child: primaryAction,
-                ),
-              ),
-      ),
+        );
+      },
     );
   }
 
-  /// You, among the panel's places: your face ringed by your presence as
-  /// the header's account button rings it, named as the account menu names
-  /// you, opening what that button opens.
-  DMobileDockYou? _you(
+  /// The profile is a place with the same ordering as every other dock tile.
+  DMobileDockPlace? _profilePlace(
     BuildContext context, {
     required ShellController shell,
     required DiscourseInstance instance,
@@ -624,14 +628,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         : hidePresence == true
         ? context.l10n.offline
         : context.l10n.presenceUnavailable;
-    return (
+    return DMobileDockPlace.avatar(
+      key: const ValueKey('mobile-mode-profile'),
       face: UserMenuAvatar(
         avatarUrl: user?.avatarUrl,
         initial: username.characters.first.toUpperCase(),
         connecting: shell.connecting,
         dimension: 22,
       ),
-      name: user?.displayName ?? username,
+      label: user?.displayName ?? username,
       ring: paused
           ? tokens.subtleMark
           : hidePresence == false

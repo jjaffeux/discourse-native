@@ -122,17 +122,18 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                               : null,
                           onPressed: () => setState(() => _selected = index),
                         ),
+                      DMobileDockPlace.avatar(
+                        key: const ValueKey('profile'),
+                        face: const DAvatarFallback(child: Text('J')),
+                        label: 'Jo',
+                        ring: DTokens.of(context).success,
+                        semanticLabel: 'Your account, online',
+                        onPressed: () {},
+                      ),
                     ],
                     more: (
                       icon: const DIcon(DIcons.ellipsisVertical),
                       label: 'More',
-                    ),
-                    you: (
-                      face: const DAvatarFallback(child: Text('J')),
-                      name: 'Jo',
-                      ring: DTokens.of(context).success,
-                      semanticLabel: 'Your account, online',
-                      onPressed: () {},
                     ),
                     collapsedDestination: DMobileDockItem(
                       icon: const DIcon(DIcons.layerGroup),

@@ -28,7 +28,7 @@ Widget fixture({
     'A very long destination',
   ],
   String? selected = 'Topics',
-  DMobileDockYou? you,
+  DMobileDockPlace? you,
   ValueChanged<bool>? onPanelChanged,
   bool covered = false,
   bool hidden = false,
@@ -84,12 +84,12 @@ Widget fixture({
                                 selected: name == selected,
                                 onPressed: () => onPlace?.call(name),
                               ),
+                            ?you,
                           ],
                           more: (
                             icon: const Icon(Icons.more_vert),
                             label: 'More',
                           ),
-                          you: you,
                           onPanelChanged: onPanelChanged,
                           onMoved: onMoved,
                           collapsedDestination: DMobileDockItem(
@@ -122,17 +122,19 @@ Widget fixture({
 );
 
 /// You, as the shell would hand the dock: a face, a name and a presence.
-DMobileDockYou you({Color? ring, VoidCallback? onPressed}) => (
-  face: const ColoredBox(
-    key: ValueKey('face'),
-    color: Colors.orange,
-    child: SizedBox.expand(),
-  ),
-  name: 'Jo',
-  ring: ring,
-  semanticLabel: 'Your account, online',
-  onPressed: onPressed ?? () {},
-);
+DMobileDockPlace you({Color? ring, VoidCallback? onPressed}) =>
+    DMobileDockPlace.avatar(
+      key: const ValueKey('profile'),
+      face: const ColoredBox(
+        key: ValueKey('face'),
+        color: Colors.orange,
+        child: SizedBox.expand(),
+      ),
+      label: 'Jo',
+      ring: ring,
+      semanticLabel: 'Your account, online',
+      onPressed: onPressed ?? () {},
+    );
 
 final _panel = find.byKey(DMobileDock.panelKey);
 final _dim = find.byKey(DMobileDock.dimKey);
@@ -684,7 +686,9 @@ void main() {
         expect(tile.height, 56, reason: name);
         expect(tile.top, panel.top + 92, reason: name);
       }
-      final youTile = tester.getRect(find.byKey(DMobileDock.youKey));
+      final youTile = tester.getRect(
+        find.byKey(DMobileDock.tileKey(const ValueKey('profile'))),
+      );
       expect(fromStart(youTile), closeTo(6 + 3 * 95.5, .01));
       expect(find.text('Jo'), findsOneWidget);
       expect(tester.getSize(find.byKey(const ValueKey('face'))).width, 22);
@@ -757,7 +761,9 @@ void main() {
     expect(pressed, ['Users', 'Topics']);
     expect(_panel, findsNothing);
     await open();
-    await tester.tap(find.byKey(DMobileDock.youKey));
+    await tester.tap(
+      find.byKey(DMobileDock.tileKey(const ValueKey('profile'))),
+    );
     await tester.pumpAndSettle();
     expect(pressed, ['Users', 'Topics', 'you']);
     expect(_panel, findsNothing);
@@ -1035,7 +1041,9 @@ void main() {
       ),
     );
     expect(
-      tester.getSemantics(find.byKey(DMobileDock.youKey)),
+      tester.getSemantics(
+        find.byKey(DMobileDock.tileKey(const ValueKey('profile'))),
+      ),
       matchesSemantics(
         label: 'Your account, online',
         isButton: true,
@@ -1613,8 +1621,7 @@ void main() {
     );
     await tester.tap(_more);
     await tester.pumpAndSettle();
-    // Out, every place but the first and the last can go either way; you
-    // and the action are not places.
+    // Every place, including the profile, can move; the action stays fixed.
     expect(
       tester.getSemantics(find.byKey(const ValueKey('Start'))),
       place('Start', actions: [later]),
@@ -1633,11 +1640,13 @@ void main() {
       tester.getSemantics(
         find.byKey(DMobileDock.tileKey(const ValueKey('Last'))),
       ),
-      place('Last', actions: [earlier]),
+      place('Last', actions: [earlier, later]),
     );
     expect(
-      tester.getSemantics(find.byKey(DMobileDock.youKey)),
-      place('Your account, online'),
+      tester.getSemantics(
+        find.byKey(DMobileDock.tileKey(const ValueKey('profile'))),
+      ),
+      place('Your account, online', actions: [earlier]),
     );
     expect(
       tester.getSemantics(find.byType(DMobileDockAction)),
@@ -2102,7 +2111,7 @@ void main() {
     expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Users')));
     await _tab(tester);
     await _tab(tester);
-    expect(_focusedKey(), DMobileDock.youKey);
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('profile')));
     // Past the last tile, the head comes round again.
     await _tab(tester);
     expect(_focusedKey(), const ValueKey('Start'));
