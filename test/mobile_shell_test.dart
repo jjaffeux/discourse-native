@@ -1610,7 +1610,7 @@ void main() {
             ancestor: navigation,
           )
           .dy;
-      expect(navigation.size.height - panelBottom, 6);
+      expect(navigation.size.height - panelBottom, 6 + 34 / 2);
       expect(tester.getRect(find.byType(DScrollChrome)).bottom, 810);
       await _captureChrome(tester, 'navigation-preview');
       await gesture.cancel();
@@ -2060,8 +2060,10 @@ void main() {
           )
           .first;
       expect(
-        tester.widget<DPageSurface>(frame).borderRadius,
-        BorderRadius.circular(DRadius.panel),
+        (tester.widget<DPageSurface>(frame).borderRadius!
+                as BorderRadiusDirectional)
+            .topStart,
+        const Radius.circular(DRadius.panel),
       );
       expect(tester.widget<DPageSurface>(frame).border, isFalse);
       expect(tester.getRect(list).left, panel.left + 12);
@@ -2341,15 +2343,33 @@ void main() {
               matching: find.byType(DPageSurface),
             )
             .first;
+        // As low as a sheet at its end: 6 past half the foot, the outer
+        // foot corner following the screen's 55 curve, 32 at a foot of 34.
+        final lift = 6 + bottom / 2;
         expect(
           tester.widget<DPageSurface>(frame).borderRadius,
-          BorderRadius.circular(DRadius.panel),
+          BorderRadiusDirectional.only(
+            topStart: const Radius.circular(DRadius.panel),
+            topEnd: const Radius.circular(DRadius.panel),
+            bottomStart: const Radius.circular(DRadius.panel),
+            bottomEnd: Radius.circular(bottom > 0 ? 55 - lift : DRadius.panel),
+          ),
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
-        expect(page.bottom - panel.bottom, 6);
-        expect(page.bottom, phone.height - keyboard - bottom);
+        expect(page.bottom - panel.bottom, lift);
+        expect(page.bottom, phone.height - keyboard);
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
+        expect(rail.bottom, page.bottom, reason: 'the rail runs to the foot');
+        final railColumn = tester.getRect(
+          find
+              .descendant(
+                of: find.byType(InstanceRail),
+                matching: find.byType(Column),
+              )
+              .first,
+        );
+        expect(rail.bottom - railColumn.bottom, bottom / 2 + 10);
         expect(panel.left - rail.right, 6);
         expect(page.right - panel.right, 6);
         final menuBounds = tester.getRect(menu);

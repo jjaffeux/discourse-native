@@ -268,21 +268,29 @@ class ForumSidebarTheme extends StatelessWidget {
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
 /// Pages use the mockup's 22px corners; the inset sidebar uses the Native
-/// panel radius.
+/// panel radius, but for its outer foot corner.
 class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
     required this.child,
     this.coveredBySheet = false,
-  }) : _sidebar = false;
+  }) : _sidebar = false,
+       foot = 0;
 
   /// The mockup's mobile SideNav is a rounded sheet on the window ground.
-  const ForumMobileSurface.sidebar({super.key, required this.child})
-    : _sidebar = true,
-      coveredBySheet = false;
+  const ForumMobileSurface.sidebar({
+    super.key,
+    required this.child,
+    this.foot = 0,
+  }) : _sidebar = true,
+       coveredBySheet = false;
 
   final bool _sidebar;
   final bool coveredBySheet;
+
+  /// The screen's foot the sidebar stands off. Its outer foot corner follows
+  /// the screen's, as a sheet at its end does.
+  final double foot;
   final Widget child;
   @override
   State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
@@ -297,7 +305,14 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     // The page's card is as round at its top as the bar of places it meets
     // at the screen's foot.
     borderRadius: widget._sidebar
-        ? BorderRadius.circular(DRadius.panel)
+        ? BorderRadiusDirectional.only(
+            topStart: const Radius.circular(DRadius.panel),
+            topEnd: const Radius.circular(DRadius.panel),
+            bottomStart: const Radius.circular(DRadius.panel),
+            bottomEnd: Radius.circular(
+              DMobileDockGeometry(foot: widget.foot).endRadius(DRadius.panel),
+            ),
+          )
         : const BorderRadius.vertical(
             top: Radius.circular(DMobileDockGeometry.capsuleRadius),
             bottom: Radius.circular(22),

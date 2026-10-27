@@ -119,6 +119,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
+        final foot = MediaQuery.paddingOf(context).bottom;
         final navigationPage = CallbackShortcuts(
           key: _navigationPageKey,
           bindings: {
@@ -127,22 +128,29 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           },
           child: Focus(
             autofocus: sidebarOpen,
-            // The inset navigation panel floats above the home indicator.
-            child: SafeArea(
-              top: false,
-              left: false,
-              right: false,
+            // The panel stands off the screen's foot as a sheet at its end
+            // does, and the rail beside it runs down to the foot, keeping its
+            // last control level a little lower.
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: true,
               child: Row(
                 key: const ValueKey('mobile-navigation-page'),
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: _mobileRailWidth,
-                    child: InstanceRail(),
+                    child: InstanceRail(footRoom: foot / 2 + 10),
                   ),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(6),
+                      padding: EdgeInsets.fromLTRB(
+                        6,
+                        6,
+                        6,
+                        DMobileDockGeometry(foot: foot).endLift,
+                      ),
                       child: ForumMobileSurface.sidebar(
+                        foot: foot,
                         key: const ValueKey('mobile-navigation-panel'),
                         child: InstanceSidebar(
                           key: ValueKey(('mobile-navigation', owner)),
