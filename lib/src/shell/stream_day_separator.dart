@@ -6,23 +6,20 @@ import '../foundation/calendar_day.dart';
 import '../theme/app_theme.dart';
 
 /// The pill shared by day separators and the topic progress trigger, which sit
-/// over the same post stream. Floating pills stand on the content color behind
-/// a hairline; inline ones are a faint well without one.
+/// over the same post stream. Both forms are flat: a pinned pill is the raised
+/// surface edged by the subtle border, and a resting one a 5% wash of the text
+/// with no edge, as part of the page.
 final class StreamChip {
   factory StreamChip.of(BuildContext context, {required bool floating}) {
     final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
     return StreamChip._(
       floating: floating,
       background: floating
-          ? theme.shell.content
-          : Color.alphaBlend(
-              Colors.black.withValues(
-                alpha: theme.brightness == Brightness.dark ? .16 : .045,
-              ),
-              theme.shell.content,
-            ),
+          ? tokens.raisedBackground
+          : tokens.foreground.withValues(alpha: .05),
       border: floating
-          ? Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .12)!
+          ? Color.lerp(tokens.background, tokens.foreground, .12)!
           : Colors.transparent,
       foreground: Color.lerp(
         theme.shell.content,

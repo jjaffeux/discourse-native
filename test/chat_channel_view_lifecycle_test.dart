@@ -3817,7 +3817,10 @@ void main() {
       expect(floatingSecond, findsOneWidget);
       expect(tester.getSize(floatingSecond).height, StreamDaySeparator.height);
       final floatingDecoration = buttonSurface(tester, of: floatingSecond);
-      expect(floatingDecoration.color, theme.shell.content);
+      expect(
+        floatingDecoration.color,
+        DTokens.of(tester.element(floatingSecond)).raisedBackground,
+      );
       expect(
         floatingDecoration.borderColor,
         Color.lerp(theme.shell.content, theme.colorScheme.onSurface, .12),

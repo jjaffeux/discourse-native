@@ -72,7 +72,13 @@ void main() {
               ),
             ),
           );
-          expect(buttonSurface(tester, of: button).color, theme.shell.content);
+          final tokens = DTokens.of(tester.element(button));
+          final surface = buttonSurface(tester, of: button);
+          expect(surface.color, tokens.raisedBackground);
+          expect(
+            surface.borderColor,
+            Color.lerp(tokens.background, tokens.foreground, .12),
+          );
           await tester.tapAt(rect.topCenter - const Offset(0, 1));
           expect(taps, 0);
           await tester.tapAt(rect.center);
@@ -85,6 +91,31 @@ void main() {
           expect(tester.takeException(), isNull);
         }
       }
+    }
+  });
+
+  testWidgets('a resting date is a 5% wash of the text with no edge', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          themeAnimationStyle: AnimationStyle.noAnimation,
+          theme: AppTheme.forBrightness(brightness),
+          home: Center(
+            child: StreamDaySeparator(day: DateTime(2020, 1, 2), onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = find.descendant(
+        of: find.byType(StreamDaySeparator),
+        matching: find.byType(DButton),
+      );
+      final tokens = DTokens.of(tester.element(button));
+      final surface = buttonSurface(tester, of: button);
+      expect(surface.color, tokens.foreground.withValues(alpha: .05));
+      expect(surface.borderColor, Colors.transparent);
     }
   });
 }
