@@ -35,6 +35,7 @@ void main() {
       'discourse-prometheus-alert-receiver',
       'gifs',
       'discourse-ai',
+      'discourse-data-explorer',
       'discourse-assign',
       'boards',
       'chat',

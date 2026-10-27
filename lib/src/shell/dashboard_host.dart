@@ -3,13 +3,17 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../data/dashboard_api.dart';
+import '../data/report_api.dart';
 import '../data/site_lifecycle.dart';
 import '../models/dashboard.dart';
 import '../models/discourse_instance.dart';
+import '../plugin_api/dashboard_report_source.dart';
 import 'dashboard_controller.dart';
 import 'dashboard_page.dart';
 import 'external_link.dart';
 import 'open_link.dart';
+import 'report_controller.dart';
+import 'report_page.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -30,8 +34,10 @@ class DashboardHost extends StatefulWidget {
 class DashboardHostState extends State<DashboardHost> {
   DashboardController? _controller;
   Object? _identity;
+  ReportController? _report;
 
-  Future<void> refresh() => _controller?.refresh() ?? Future.value();
+  Future<void> refresh() =>
+      _report?.refresh() ?? _controller?.refresh() ?? Future.value();
 
   @override
   Widget build(BuildContext context) =>
@@ -64,13 +70,19 @@ class DashboardHostState extends State<DashboardHost> {
             owner.admin,
           );
           if (_identity != identity) {
+            _report?.dispose();
+            _report = null;
             _controller?.dispose();
             _identity = identity;
             final SiteLease lease = owner.shell.lifecycle.capture(
               widget.siteUrl,
             );
             final controller = DashboardController(
-              api: DiscourseDashboardApi(owner.shell.api.pluginTransport),
+              api: DiscourseDashboardApi(
+                owner.shell.api.pluginTransport,
+                sources: owner.shell.plugins
+                    .capabilities<DashboardReportSource>(),
+              ),
               credentials: owner.shell.credentials,
               lease: lease,
               siteUrl: widget.siteUrl,
@@ -83,6 +95,17 @@ class DashboardHostState extends State<DashboardHost> {
                 unawaited(controller.refresh());
               }
             });
+          }
+          final report = _report;
+          if (report != null) {
+            return ReportPage(
+              key: ValueKey((identity, report.report.key)),
+              controller: report,
+              onBack: () => setState(() {
+                _report?.dispose();
+                _report = null;
+              }),
+            );
           }
           final controller = _controller!;
           return ListenableBuilder(
@@ -100,6 +123,23 @@ class DashboardHostState extends State<DashboardHost> {
               onRefreshProblems: () => unawaited(controller.refreshProblems()),
               onDismissProblem: (problem) =>
                   unawaited(controller.dismissProblem(problem)),
+              onOpenReport: (report) {
+                if (!owner.staff) return;
+                final detail = ReportController(
+                  api: DiscourseReportApi(
+                    owner.shell.api.pluginTransport,
+                    sources: owner.shell.plugins
+                        .capabilities<DashboardReportSource>(),
+                  ),
+                  credentials: owner.shell.credentials,
+                  lease: owner.shell.lifecycle.capture(widget.siteUrl),
+                  siteUrl: widget.siteUrl,
+                  report: report,
+                  range: controller.state.period.rangeAt(DateTime.now()),
+                );
+                setState(() => _report = detail);
+                unawaited(detail.refresh());
+              },
               onOpenUrl: (link) {
                 final url = dashboardLinkUrl(widget.siteUrl, link);
                 final target = Uri.tryParse(url);
@@ -124,6 +164,7 @@ class DashboardHostState extends State<DashboardHost> {
 
   @override
   void dispose() {
+    _report?.dispose();
     _controller?.dispose();
     super.dispose();
   }

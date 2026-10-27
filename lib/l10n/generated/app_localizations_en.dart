@@ -14541,4 +14541,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get httpBasicAuthenticationInvalid =>
       'The server username cannot contain a colon. Neither field can contain control characters.';
+
+  @override
+  String get reportBackToDashboard => 'Back to dashboard';
+
+  @override
+  String get reportDateRange => 'Date range';
+
+  @override
+  String get reportStartDate => 'Start date';
+
+  @override
+  String get reportEndDate => 'End date';
+
+  @override
+  String get reportChart => 'Chart';
+
+  @override
+  String get reportLoadError =>
+      'Could not load this report. Refresh to try again.';
 }

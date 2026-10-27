@@ -19186,5 +19186,17 @@
   "httpBasicAuthenticationInvalid": "The server username cannot contain a colon. Neither field can contain control characters.",
   "@httpBasicAuthenticationInvalid": {
     "description": "Validation error for an HTTP Basic Auth username or password, without echoing either value."
-  }
+  },
+  "reportBackToDashboard": "Back to dashboard",
+  "@reportBackToDashboard": {"description": "Native report viewer. Back to dashboard"},
+  "reportDateRange": "Date range",
+  "@reportDateRange": {"description": "Native report viewer. Date range"},
+  "reportStartDate": "Start date",
+  "@reportStartDate": {"description": "Native report viewer. Start date"},
+  "reportEndDate": "End date",
+  "@reportEndDate": {"description": "Native report viewer. End date"},
+  "reportChart": "Chart",
+  "@reportChart": {"description": "Native report viewer. Chart"},
+  "reportLoadError": "Could not load this report. Refresh to try again.",
+  "@reportLoadError": {"description": "Native report viewer. Could not load this report. Refresh to try again."}
 }
