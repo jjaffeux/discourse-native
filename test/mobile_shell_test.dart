@@ -3302,7 +3302,7 @@ void main() {
   for (final (label, id) in [
     ('Categories', 'all-categories'),
     ('Badges', 'badges'),
-    ('Settings', 'appearance'),
+    ('Interface', 'appearance'),
   ]) {
     _mobileTest('a relaunch on $label marks $label as the current place', (
       tester,
@@ -3377,7 +3377,7 @@ void main() {
       'Categories',
       'Groups',
       'Badges',
-      'Settings',
+      'Interface',
       'Preferences',
       'Summary',
       'Activity',
@@ -3396,7 +3396,7 @@ void main() {
     placed.dispose();
     await pumpMobileShellFixture(tester);
     expect(await _placesInOrder(tester), [
-      'Settings',
+      'Interface',
       'Users',
       'Topics',
       'Chat',

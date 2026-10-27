@@ -65,7 +65,7 @@ void main() {
           'Groups',
           'Badges',
           if (connected) 'Bookmarks',
-          'Settings',
+          'Interface',
           if (connected) 'Preferences',
         ]);
         expect(find.byType(DDropdownMenuContent), findsNothing);
@@ -186,7 +186,7 @@ void main() {
         ('Categories', 'all-categories'),
         ('Badges', 'badges'),
         ('Bookmarks', 'user-bookmarks'),
-        ('Settings', 'appearance'),
+        ('Interface', 'appearance'),
         ('Preferences', 'preferences'),
       ]) {
         await tester.tap(_button(label));
@@ -237,7 +237,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(_more);
     await tester.pumpAndSettle();
-    expect(_labels(tester), ['Categories', 'Groups', 'Badges', 'Settings']);
+    expect(_labels(tester), ['Categories', 'Groups', 'Badges', 'Interface']);
     expect(tester.widget<DSidebarMenuButton>(_more).expanded, isTrue);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));

@@ -8045,8 +8045,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/app_settings_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Close settings'**
-  String get closeSettings;
+  /// **'Close interface'**
+  String get closeInterface;
 
   /// English UI message used by shell/app_settings_page.dart. Keep placeholders intact.
   ///

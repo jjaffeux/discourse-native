@@ -6,7 +6,7 @@ import 'support/theme_settings.dart';
 
 void main() {
   test(
-    'rail Settings opens a tab in the current forum without switching forums',
+    'rail Interface opens a tab in the current forum without switching forums',
     () async {
       final shell = controller(
         instances: const [
@@ -21,7 +21,7 @@ void main() {
       expect(shell.rootMode, ShellRootMode.forum);
       expect(shell.currentInstance!.url, original);
       expect(shell.currentContent?.isAppearance, isTrue);
-      expect(shell.currentContent?.title, 'Settings');
+      expect(shell.currentContent?.title, 'Interface');
     },
   );
 }

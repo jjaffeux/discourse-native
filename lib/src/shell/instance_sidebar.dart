@@ -443,7 +443,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                       ),
                     SidebarDestination(
                       id: 'appearance',
-                      label: context.l10n.settings,
+                      label: context.l10n.interface,
                       icon: DIcons.gear,
                       onTap: () =>
                           controller.openForumSettings(sidebar.siteUrl!),

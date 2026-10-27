@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-/// The same section navigation for forum Settings and account Preferences.
+/// The same section navigation for forum Interface and account Preferences.
 class SettingsSectionTabs<T> extends StatelessWidget {
   const SettingsSectionTabs({
     super.key,

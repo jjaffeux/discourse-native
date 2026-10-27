@@ -264,7 +264,7 @@ class ContentRoute {
 
   factory ContentRoute.appearance() => ContentRoute(
     destination: const PageDestination(CorePage.appearance),
-    title: appL10n.settings,
+    title: appL10n.interface,
     icon: DIcons.gear,
   );
 

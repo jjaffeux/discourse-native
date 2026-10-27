@@ -49,7 +49,7 @@ void main() {
   const siteB = 'https://b.example';
 
   testWidgets(
-    'rail Settings opens app preferences before any forum is connected',
+    'rail Interface opens app preferences before any forum is connected',
     (tester) async {
       await _pumpApp(
         tester,

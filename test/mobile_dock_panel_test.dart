@@ -363,7 +363,7 @@ void main() {
     final settings = tester.getCenter(
       find.descendant(
         of: panel,
-        matching: find.widgetWithText(DMobileDockItem, 'Settings'),
+        matching: find.widgetWithText(DMobileDockItem, 'Interface'),
       ),
     );
     final bookmarks = tester.getCenter(
@@ -401,14 +401,14 @@ void main() {
     expect(rebuilt, isNot(contains(root)));
     expect(rebuilt, isNot(contains(page)));
     expect(notifications, 0);
-    expect(barLabels(), ['Topics', 'Chat', 'Settings']);
+    expect(barLabels(), ['Topics', 'Chat', 'Interface']);
     expect(panelLabels().take(3), ['Bookmarks', 'Inbox', 'Users']);
     // The release pressed nothing.
     expect(shell.mobileNavigation.tab, MobileTab.topics);
     expect(panel, findsOneWidget);
 
     await fixture.pumpMobileShellFixture(tester);
-    expect(barLabels(), ['Topics', 'Chat', 'Settings']);
+    expect(barLabels(), ['Topics', 'Chat', 'Interface']);
     await tester.tap(find.byKey(DMobileDock.moreKey));
     await tester.pumpAndSettle();
     expect(panelLabels().take(3), ['Bookmarks', 'Inbox', 'Users']);

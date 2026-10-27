@@ -6103,8 +6103,8 @@
   "@removeDraftDraftlist": {
     "description": "English UI message used by shell/draft_list.dart. Keep placeholders intact."
   },
-  "closeSettings": "Close settings",
-  "@closeSettings": {
+  "closeInterface": "Close interface",
+  "@closeInterface": {
     "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
   },
   "preferencesForAllYourForums": "Preferences for all your forums.",

@@ -979,7 +979,7 @@ class _SettingsButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RailFooterButton(
       buttonKey: const ValueKey('settings-rail-button'),
-      tooltip: context.l10n.settings,
+      tooltip: context.l10n.interface,
       onTap: onTap,
       icon: const DIcon(DIcons.gear, size: _railFooterIconSize),
     );

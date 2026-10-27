@@ -285,7 +285,7 @@ class NewTabPage extends StatelessWidget {
           ),
         _StartSection(
           id: 'settings',
-          title: context.l10n.settings,
+          title: context.l10n.interface,
           icon: DIcons.gear,
           rows: const [],
           siteUrl: siteUrl,

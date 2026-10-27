@@ -810,7 +810,7 @@ List<_DockDestination> _mobilePlaces(
     page(
       SidebarDestination(
         id: 'appearance',
-        label: context.l10n.settings,
+        label: context.l10n.interface,
         icon: DIcons.gear,
       ),
     ),

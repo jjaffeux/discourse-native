@@ -21,6 +21,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
+Finder _interfaceHeading() => find.descendant(
+  of: find.byType(DDialogTitle),
+  matching: find.text('Interface'),
+);
+
 /// The Text size readout, which the effects' percentages must not be
 /// mistaken for.
 Finder _textSize(String value) => find.descendant(
@@ -95,7 +100,7 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('app-settings-form'))).width,
       568,
     );
-    expect(find.text('Settings'), findsOneWidget);
+    expect(_interfaceHeading(), findsOneWidget);
     expect(find.text('Appearance'), findsNothing);
     expect(find.text('System'), findsNothing);
     expect(find.text('Limit content size'), findsOneWidget);
@@ -259,7 +264,7 @@ void main() {
     final controller = _controller();
     addTearDown(controller.dispose);
     await _pumpPage(tester, controller, scale: 2, size: const Size(800, 800));
-    final title = tester.getRect(find.text('Settings'));
+    final title = tester.getRect(_interfaceHeading());
     final header = tester.getRect(
       find.byKey(const ValueKey('app-settings-header')),
     );
@@ -281,14 +286,14 @@ void main() {
       await controller.appSettings.load();
       await _pumpPage(tester, controller);
 
-      expect(find.bySemanticsLabel('Close settings'), findsOneWidget);
-      for (final (label, level) in [
-        ('Settings', 1),
-        ('Text size', 2),
-        ('Font', 2),
+      expect(find.bySemanticsLabel('Close interface'), findsOneWidget);
+      for (final (heading, level) in [
+        (_interfaceHeading(), 1),
+        (find.text('Text size'), 2),
+        (find.text('Font'), 2),
       ]) {
         expect(
-          tester.getSemantics(find.text(label)).getSemanticsData().headingLevel,
+          tester.getSemantics(heading).getSemanticsData().headingLevel,
           level,
         );
       }

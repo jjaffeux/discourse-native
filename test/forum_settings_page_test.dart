@@ -48,7 +48,7 @@ void main() {
     addTearDown(shell.dispose);
     await pumpSettings(tester, shell);
     final heading = find.ancestor(
-      of: find.text('Settings'),
+      of: find.text('Interface'),
       matching: find.byType(Row),
     );
     expect(

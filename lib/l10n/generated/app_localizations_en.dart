@@ -4662,7 +4662,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeDraftDraftlist => 'Remove draft';
 
   @override
-  String get closeSettings => 'Close settings';
+  String get closeInterface => 'Close interface';
 
   @override
   String get preferencesForAllYourForums => 'Preferences for all your forums.';

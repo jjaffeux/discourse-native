@@ -51,7 +51,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
     return DPageSurface.headed(
       identity: widget.siteUrl,
       icon: DIcons.gear,
-      title: Text(context.l10n.settings),
+      title: Text(context.l10n.interface),
       controls: SettingsSectionTabs<String>(
         value: _section,
         onChanged: (value) => setState(() => _section = value),

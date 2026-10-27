@@ -681,7 +681,7 @@ void _registerShellNavigationTests() {
             'Teams',
             'Badges',
             if (connected) 'Bookmarks',
-            'Settings',
+            'Interface',
             if (connected) 'Preferences',
           ],
         );
@@ -773,7 +773,7 @@ void _registerShellNavigationTests() {
                 ),
               )
               .map((row) => row.destination.label),
-          ['Categories', 'Groups', 'Badges', 'Settings'],
+          ['Categories', 'Groups', 'Badges', 'Interface'],
         );
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),

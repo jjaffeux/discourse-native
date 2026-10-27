@@ -39,7 +39,7 @@ class AppSettingsModal extends StatelessWidget {
       child: DDialogContent(
         key: const ValueKey('app-settings-modal'),
         maxWidth: 600,
-        semanticLabel: context.l10n.settings,
+        semanticLabel: context.l10n.interface,
         spacing: DSpacing.xl,
         closeButton: DDialogClose<void>(
           builder: (_, close) => DButton.iconOnly(
@@ -47,7 +47,7 @@ class AppSettingsModal extends StatelessWidget {
             onPressed: close,
             icon: const DIcon(DIcons.xmark),
             tooltip: context.l10n.close,
-            semanticLabel: context.l10n.closeSettings,
+            semanticLabel: context.l10n.closeInterface,
             size: DButtonSize.small,
             variant: DButtonVariant.ghost,
           ),
@@ -59,7 +59,7 @@ class AppSettingsModal extends StatelessWidget {
               DDialogTitle(
                 child: Semantics(
                   headingLevel: 1,
-                  child: Text(context.l10n.settings),
+                  child: Text(context.l10n.interface),
                 ),
               ),
               DDialogDescription(

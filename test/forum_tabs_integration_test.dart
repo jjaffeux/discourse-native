@@ -208,7 +208,7 @@ void main() {
       for (final (key, message) in [
         ('add-instance-rail-button', 'Add a Discourse site'),
         ('styleguide-rail-button', 'Open component styleguide'),
-        ('settings-rail-button', 'Settings'),
+        ('settings-rail-button', 'Interface'),
       ]) {
         final button = find.byKey(ValueKey(key));
         await mouse.moveTo(tester.getCenter(button));

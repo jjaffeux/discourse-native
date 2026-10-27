@@ -301,7 +301,7 @@ void main() {
       names.take(names.length - 2),
       orderedEquals([...names.take(names.length - 2)]..sort()),
     );
-    expect(names.sublist(names.length - 2), ['Preferences', 'Settings']);
+    expect(names.sublist(names.length - 2), ['Preferences', 'Interface']);
     expect(
       names,
       containsAll([
@@ -415,7 +415,7 @@ void main() {
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     expect(api.feedPaths, requests);
-    final settings = shortcut('Settings');
+    final settings = shortcut('Interface');
     await Scrollable.ensureVisible(tester.element(settings), alignment: .5);
     await tester.pumpAndSettle();
     await tester.tap(settings);
@@ -545,7 +545,7 @@ void main() {
       expect(shortcut(name), findsNothing);
     }
     expect(shortcut('Topics'), findsOneWidget);
-    expect(shortcut('Settings'), findsOneWidget);
+    expect(shortcut('Interface'), findsOneWidget);
   });
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
