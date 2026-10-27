@@ -13922,6 +13922,10 @@
   "@pauseNotifications": {
     "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."
   },
+  "unpauseNotifications": "Unpause notifications",
+  "@unpauseNotifications": {
+    "description": "Action in the user menu that resumes notifications while they are paused."
+  },
   "drafts": "Drafts",
   "@drafts": {
     "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."

@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -296,8 +297,17 @@ void main() {
           tester.getSemantics(online),
           isSemantics(hasCheckedState: true, isChecked: true),
         );
+        final onlineCheck = find.descendant(
+          of: online,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.check,
+          ),
+        );
+        expect(onlineCheck, findsOneWidget);
+        expect(tester.getSize(onlineCheck), const Size(10, 11));
         await tester.tap(online);
         await tester.pumpAndSettle();
+        expect(onlineCheck, findsNothing);
         expect(controller.hidePresenceFor(_site), isTrue);
         expect(find.text('Online'), findsOneWidget);
         expect(menu, findsOneWidget);
@@ -311,8 +321,45 @@ void main() {
 
         await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
-        expect(menu, findsNothing);
-        expect(find.text('Pause notifications for…'), findsOneWidget);
+        expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-halfHour')),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('30 minutes'));
+        await tester.pumpAndSettle();
+        await tester.tap(avatar);
+        await tester.pumpAndSettle();
+        final pause = find.byKey(const ValueKey('pause-notifications-row'));
+        expect(find.text('Unpause notifications'), findsOneWidget);
+        expect(find.text('Pause notifications'), findsNothing);
+        expect(
+          tester.getSemantics(pause),
+          isSemantics(
+            label: 'Unpause notifications',
+            hasCheckedState: true,
+            isChecked: true,
+            hasTapAction: true,
+          ),
+        );
+        final pauseCheck = find.descendant(
+          of: pause,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.check,
+          ),
+        );
+        expect(pauseCheck, findsOneWidget);
+        expect(tester.getSize(pauseCheck), const Size(10, 11));
+        await _capture(tester, '${platform.name}-paused');
+        await tester.tap(find.text('Unpause notifications'));
+        await tester.pumpAndSettle();
+        expect(find.text('Pause notifications'), findsOneWidget);
+        expect(find.text('Unpause notifications'), findsNothing);
+        expect(pauseCheck, findsNothing);
+        expect(
+          controller.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
+          isFalse,
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
 
@@ -462,7 +509,11 @@ Future<ShellController> _pump(
     instanceStore: FakeInstanceStore([
       instance('meta.example').copyWith(user: _user, config: config),
     ]),
-    api: FakeDiscourseApi(user: _user, siteConfigs: const {_site: config}),
+    api: FakeDiscourseApi(
+      user: _user,
+      siteConfigs: const {_site: config},
+      doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
+    ),
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),

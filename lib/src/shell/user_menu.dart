@@ -950,6 +950,9 @@ class _DoNotDisturbTile extends StatelessWidget {
         final lease = controller.lifecycle.capture(siteUrl);
         final state = controller.doNotDisturb.stateFor(siteUrl);
         final active = state.isActiveAt(DateTime.now());
+        final label = active
+            ? context.l10n.unpauseNotifications
+            : context.l10n.pauseNotifications;
         final until = state.until;
         final detail = active && until != null && !state.isEternal
             ? doNotDisturbRemainingLabel(until)
@@ -995,9 +998,19 @@ class _DoNotDisturbTile extends StatelessWidget {
           return DDropdownMenuCheckboxItem(
             key: const ValueKey('pause-notifications-row'),
             checked: active,
-            indicatorSize: 11,
+            trailing: SizedBox(
+              width: 10,
+              height: 11,
+              child: active
+                  ? DIcon(
+                      DIcons.check,
+                      size: 11,
+                      color: DTokens.of(context).mutedForeground,
+                    )
+                  : null,
+            ),
             leadingGap: 9,
-            semanticLabel: context.l10n.pauseNotifications,
+            semanticLabel: label,
             semanticValue: value,
             onChanged: action == null ? null : (_) => action(),
             leading: DIcon(
@@ -1007,7 +1020,7 @@ class _DoNotDisturbTile extends StatelessWidget {
                   ? DTokens.of(context).foreground
                   : DTokens.of(context).mutedForeground,
             ),
-            child: Text(context.l10n.pauseNotifications),
+            child: Text(label),
           );
         }
         return Padding(
@@ -1020,7 +1033,7 @@ class _DoNotDisturbTile extends StatelessWidget {
                 pressed: active,
                 enabled: action != null,
                 onPressedChanged: action == null ? null : (_) => action(),
-                semanticLabel: context.l10n.pauseNotifications,
+                semanticLabel: label,
                 visualStyle: const DToggleVisualStyle(expandArtwork: true),
                 icon: state.saving
                     ? const DSpinner()
@@ -1029,7 +1042,7 @@ class _DoNotDisturbTile extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        context.l10n.pauseNotifications,
+                        label,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1162,7 +1175,17 @@ class _HidePresenceTile extends StatelessWidget {
             DDropdownMenuCheckboxItem(
               key: semanticsKey,
               checked: hidden == false,
-              indicatorSize: 11,
+              trailing: SizedBox(
+                width: 10,
+                height: 11,
+                child: hidden == false
+                    ? DIcon(
+                        DIcons.check,
+                        size: 11,
+                        color: DTokens.of(context).mutedForeground,
+                      )
+                    : null,
+              ),
               leadingGap: 9,
               onChanged: onTap == null ? null : (_) => onTap(),
               semanticLabel: [semanticsLabel, ?semanticsValue].join(', '),

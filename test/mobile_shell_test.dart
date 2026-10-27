@@ -1306,7 +1306,10 @@ void main() {
       expect(shell.hidePresenceFor(_site), isFalse);
       await tester.tap(find.text('Pause notifications'));
       await tester.pumpAndSettle();
-      expect(find.text('Pause notifications for…'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('do-not-disturb-halfHour')),
+        findsOneWidget,
+      );
       await tester.tap(find.text('30 minutes'));
       await tester.pumpAndSettle();
       expect(
@@ -1315,7 +1318,7 @@ void main() {
       );
       await tester.tap(trigger);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Pause notifications'));
+      await tester.tap(find.text('Unpause notifications'));
       await tester.pumpAndSettle();
       expect(
         shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),

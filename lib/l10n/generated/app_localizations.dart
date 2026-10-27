@@ -17796,6 +17796,12 @@ abstract class AppLocalizations {
   /// **'Pause notifications'**
   String get pauseNotifications;
 
+  /// Action in the user menu that resumes notifications while they are paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpause notifications'**
+  String get unpauseNotifications;
+
   /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

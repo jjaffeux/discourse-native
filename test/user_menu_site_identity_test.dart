@@ -249,24 +249,31 @@ void main() {
           await tester.pump();
           await choosePause();
           expect(find.byType(UserMenuPanel), findsNothing);
-          expect(find.text('Pause notifications for…'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-halfHour')),
+            findsOneWidget,
+          );
           final focused = FocusManager.instance.primaryFocus!.context!;
           expect(
             ModalRoute.of(focused),
             same(
               ModalRoute.of(
-                tester.element(find.text('Pause notifications for…')),
+                tester.element(
+                  find.byKey(const ValueKey('do-not-disturb-halfHour')),
+                ),
               ),
             ),
           );
 
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
-          expect(find.text('Pause notifications for…'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-halfHour')),
+            findsNothing,
+          );
           expect(avatar.hasPrimaryFocus, isTrue);
 
           await choosePause();
-          expect(find.text('Pause notifications for…'), findsOneWidget);
           expect(
             find.byKey(const ValueKey('do-not-disturb-halfHour')),
             findsOneWidget,
@@ -284,7 +291,7 @@ void main() {
             findsOneWidget,
           );
 
-          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
           await tester.pump();
           expect(
             _focusWithin(find.byKey(const ValueKey('do-not-disturb-halfHour'))),
@@ -296,7 +303,10 @@ void main() {
           expect(fixture.api.doNotDisturbDurations, [
             const DoNotDisturbDuration.minutes(30),
           ]);
-          expect(find.text('Pause notifications for…'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('do-not-disturb-halfHour')),
+            findsNothing,
+          );
 
           await tester.tap(find.byKey(UserMenuButton.avatarKey));
           await tester.pumpAndSettle();
@@ -304,7 +314,7 @@ void main() {
           expect(
             tester.getSemantics(row),
             isSemantics(
-              label: 'Pause notifications',
+              label: 'Unpause notifications',
               hasTapAction: true,
               hasCheckedState: true,
               isChecked: true,
@@ -333,24 +343,36 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
 
-        expect(find.text('Pause notifications for…'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('do-not-disturb-halfHour')),
+          findsOneWidget,
+        );
         expect(find.text('Profile'), findsNothing);
         expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
       }),
     );
 
     testWidgets(
-      'link pause choices to the source account notification schedule',
-      (tester) => _withMenu(tester, TargetPlatform.macOS, (_) async {
+      'open the source account notification schedule from pause choices',
+      (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
         final launched = _watchBrowser(tester);
         await tester.tap(find.byKey(UserMenuButton.avatarKey));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('pause-notifications-row')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Set a notification schedule'));
+        await tester.tap(
+          find.byKey(const ValueKey('notification-schedule-open')),
+        );
         await tester.pumpAndSettle();
 
-        expect(launched, ['$_metaUrl/u/meta-user/preferences/notifications']);
+        expect(find.text('Allow notifications on'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('notification-schedule-save')),
+        );
+        await tester.pumpAndSettle();
+        expect(fixture.api.userPreferenceUpdates.single.siteUrl, _metaUrl);
+        expect(fixture.api.userPreferenceUpdates.single.username, 'meta-user');
+        expect(launched, isEmpty);
       }),
     );
 

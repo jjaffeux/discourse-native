@@ -10379,6 +10379,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pauseNotifications => 'Pause notifications';
 
   @override
+  String get unpauseNotifications => 'Unpause notifications';
+
+  @override
   String get drafts => 'Drafts';
 
   @override
