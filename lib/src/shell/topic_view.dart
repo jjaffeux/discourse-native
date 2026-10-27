@@ -1933,24 +1933,26 @@ class _TopicViewState extends State<TopicView>
                     : 0.0;
                 final folded = dock > 0 && hiddenFraction >= .5;
                 final geometry = DMobileDockGeometry.of(context);
-                final corner = geometry.cornerAt(
-                  TopicProgressButton.floatingHeightOf(context),
-                );
+                final height = TopicProgressButton.floatingHeightOf(context);
+                final corner = geometry.cornerAt(height);
+                final foldedBottom =
+                    geometry.cornerAt(geometry.circle) +
+                    (geometry.circle - height) / 2;
                 final duration = DMotion.duration(
                   context,
                   const Duration(milliseconds: 420),
                 );
                 const curve = Cubic(.32, .72, 0, 1);
                 // Content keeps the open bar's clearance. Folded, the control
-                // settles into the bottom-end corner as the bar's circle does
-                // into the bottom-start one, on the bar's curve and time. The
-                // band slides without changing width, so the control is not
+                // settles beside the bar's circle with their centres aligned,
+                // on the bar's curve and time. The band slides without
+                // changing width, so the control is not
                 // laid out again each frame and keeps its painted label.
                 return AnimatedPositionedDirectional(
                   start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
                   end: folded ? corner : DSpacing.sm,
-                  bottom: folded ? corner : DSpacing.sm + dock,
-                  height: TopicProgressButton.floatingHeightOf(context),
+                  bottom: folded ? foldedBottom : DSpacing.sm + dock,
+                  height: height,
                   duration: duration,
                   curve: curve,
                   child: Align(

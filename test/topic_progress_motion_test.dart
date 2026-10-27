@@ -143,14 +143,15 @@ void main() {
           tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
           isTrue,
         );
-        // Into the bottom-end corner as the bar's circle goes into the
-        // bottom-start one: on the corner's diagonal for its own height,
-        // never deeper than the foot, and the bar's 6 on a square screen.
         final circle = tester.getRect(
           find.byKey(const ValueKey('mobile-dock-surface')),
         );
+        final topics = tester.getRect(
+          find.byKey(const ValueKey('mobile-dock-reveal')),
+        );
+        expect(lowered.center.dy, closeTo(topics.center.dy, .01));
+        expect(lowered.center.dy, closeTo(circle.center.dy, .01));
         final corner = dockCornerAt(lowered.height, foot);
-        expect(viewport.bottom - lowered.bottom, closeTo(corner, .01));
         expect(viewport.right - lowered.right, closeTo(corner, .01));
         final circleCorner = dockCornerAt(circle.height, foot);
         expect(circleCorner, closeTo(foot == 0 ? 6 : 12.98, .01));
