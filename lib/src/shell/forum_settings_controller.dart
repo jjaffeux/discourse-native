@@ -15,8 +15,6 @@ import '../models/shared_appearance.dart';
 import '../models/site_appearance.dart';
 
 final class ForumSettingsController extends FrameSafeNotifier {
-  /// Local appearance identity for the app home workspace.
-  static const homeSite = 'https://discourse.native.invalid/home';
   ForumSettingsController({required this.store}) {
     ForumSettingsStore.themeModeKeys.track(
       this,
@@ -181,21 +179,19 @@ final class ForumSettingsController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final sites = [for (final url in siteUrls) requireStoredForumBase(url)];
-    final themeSites = [homeSite, ...sites];
     Future<ForumThemeLibrary>? library;
     await Future.wait([
-      _themeModes.ensure(homeSite, () => store.loadThemeMode(homeSite)),
       for (final site in sites)
         _themeModes.ensure(
           site,
           () => store.loadThemeMode(site, initialMode: initialMode),
         ),
       _shared.ensure(_everyForum, () => store.loadAppearance(sites: sites)),
-      for (final site in themeSites)
+      for (final site in sites)
         _themes.ensure(
           site,
           () => (library ??= store.loadThemeLibrary(
-            themeSites,
+            sites,
           )).then((value) => value.forSite(site)),
         ),
     ]);

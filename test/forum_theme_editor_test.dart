@@ -5,7 +5,6 @@ import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/shell/forum_appearance_settings.dart';
 import 'package:discourse_native/src/shell/forum_display_settings.dart';
-import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/forum_theme_thumbnail.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -282,11 +281,14 @@ void main() {
     expect(find.byKey(const ValueKey('appearance-mode')), findsOneWidget);
   });
 
-  testWidgets('Use on every forum copies the selected theme to Home too', (
-    tester,
-  ) async {
+  testWidgets('Use on every forum copies the selected theme to every other '
+      'forum', (tester) async {
+    const other = 'https://b.example';
     final shell = controller(
-      instances: const [DiscourseInstance(url: site, title: 'Doggerel')],
+      instances: const [
+        DiscourseInstance(url: site, title: 'Doggerel'),
+        DiscourseInstance(url: other, title: 'Limerick'),
+      ],
     );
     addTearDown(shell.dispose);
     await shell.load();
@@ -311,13 +313,14 @@ void main() {
       find.byKey(const ValueKey('theme-use-everywhere')),
     );
     expect(
-      shell.forumSettings
-          .themesFor(ForumSettingsController.homeSite)
-          .presetFor(Brightness.light),
+      shell.forumSettings.themesFor(other).presetFor(Brightness.light),
       isNull,
     );
     expect(
-      find.textContaining('replacing their individual selections'),
+      find.text(
+        'Every forum will use this theme. '
+        'The ones you gave their own will lose it.',
+      ),
       findsOneWidget,
     );
     await tapVisible(
@@ -325,22 +328,30 @@ void main() {
       find.byKey(const ValueKey('theme-use-everywhere-cancel')),
     );
     expect(
-      shell.forumSettings
-          .themesFor(ForumSettingsController.homeSite)
-          .presetFor(Brightness.light),
+      shell.forumSettings.themesFor(other).presetFor(Brightness.light),
       isNull,
     );
     await tapVisible(tester, useEverywhere);
     await tapVisible(tester, find.text('Use everywhere'));
     expect(
-      shell.forumSettings
-          .themesFor(ForumSettingsController.homeSite)
-          .presetFor(Brightness.light)
-          ?.id,
+      shell.forumSettings.themesFor(other).presetFor(Brightness.light)?.id,
       'wcag',
     );
     expect(find.text('Applies to Doggerel only.'), findsOneWidget);
     expect(find.byKey(const ValueKey('theme-use-everywhere')), findsOneWidget);
+  });
+
+  testWidgets('a lone forum has no other forum to copy its theme to', (
+    tester,
+  ) async {
+    final shell = controller(
+      instances: const [DiscourseInstance(url: site, title: 'Doggerel')],
+    );
+    addTearDown(shell.dispose);
+    await shell.load();
+    await pumpSettings(tester, shell);
+    expect(find.text('Applies to Doggerel only.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('theme-use-everywhere')), findsNothing);
   });
 
   testWidgets('Display and Accessibility controls use Native settings', (

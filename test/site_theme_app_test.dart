@@ -1228,6 +1228,29 @@ void main() {
         appearance.alternate?.tertiary,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('with no forum the app follows the system in its own theme, '
+        'whatever an older build chose for Home', (tester) async {
+      const legacyHome = 'https://discourse.native.invalid/home';
+      final forumSettings = ForumSettingsStore.memory();
+      await forumSettings.writeThemeMode(legacyHome, AppThemeMode.dark);
+      await forumSettings.writeThemes(
+        legacyHome,
+        ForumThemePreferences.preset('wcag'),
+      );
+
+      await _pumpApp(
+        tester,
+        store: FakeInstanceStore([]),
+        api: FakeDiscourseApi(),
+        forumSettingsStore: forumSettings,
+      );
+
+      final app = _materialApp(tester);
+      expect(app.themeMode, ThemeMode.system);
+      expect(app.theme?.colorScheme, AppTheme.light.colorScheme);
+      expect(app.darkTheme?.colorScheme, AppTheme.dark.colorScheme);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   group('instance rail presentation', () {

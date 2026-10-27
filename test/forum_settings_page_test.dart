@@ -301,7 +301,13 @@ void main() {
         tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        await pumpShell(tester, phone, instances: [instance('a.example')]);
+        // A second forum gives the Themes tab its last control, the one that
+        // copies a theme to every other forum.
+        await pumpShell(
+          tester,
+          phone,
+          instances: [instance('a.example'), instance('b.example')],
+        );
         final shell = ShellScope.read(
           tester.element(find.byType(MobileForumRoot)),
         );
