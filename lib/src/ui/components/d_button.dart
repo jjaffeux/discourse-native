@@ -72,7 +72,7 @@ enum DButtonDensity {
   /// Header-menu text action: 12.5px semibold, 4px/8px insets and 7px corners.
   menuAction,
 
-  /// A translucent 26px pill with 11.5px text and 11px insets.
+  /// An opaque 26px pill with 11.5px text and 11px insets.
   floatingCall,
 
   /// A pinned date with a flat fill and the chosen control size.
@@ -558,49 +558,6 @@ class DButton extends StatelessWidget {
   static Color _alpha(Color color, double factor) =>
       color.withValues(alpha: color.a * factor);
 
-  // The reference lowers OKLab lightness by .08, preserving hue and chroma,
-  // then paints the well at 40% opacity. Avoid a palette-dependent black mix.
-  static Color _floatingCallFill(DTokens tokens) {
-    double linear(double c) =>
-        c <= .04045 ? c / 12.92 : math.pow((c + .055) / 1.055, 2.4).toDouble();
-    double srgb(double c) =>
-        (c <= .0031308 ? 12.92 * c : 1.055 * math.pow(c, 1 / 2.4) - .055)
-            .clamp(0, 1)
-            .toDouble();
-    final color = tokens.background;
-    final r = linear(color.r), g = linear(color.g), b = linear(color.b);
-    final l = math
-        .pow(.4122214708 * r + .5363325363 * g + .0514459929 * b, 1 / 3)
-        .toDouble();
-    final m = math
-        .pow(.2119034982 * r + .6806995451 * g + .1073969566 * b, 1 / 3)
-        .toDouble();
-    final s = math
-        .pow(.0883024619 * r + .2817188376 * g + .6299787005 * b, 1 / 3)
-        .toDouble();
-    final lightness = math.max(
-      0.0,
-      .2104542553 * l + .793617785 * m - .0040720468 * s - .08,
-    );
-    final a = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s;
-    final labB = .0259040371 * l + .7827717662 * m - .808675766 * s;
-    final ll = math
-        .pow(lightness + .3963377774 * a + .2158037573 * labB, 3)
-        .toDouble();
-    final mm = math
-        .pow(lightness - .1055613458 * a - .0638541728 * labB, 3)
-        .toDouble();
-    final ss = math
-        .pow(lightness - .0894841775 * a - 1.291485548 * labB, 3)
-        .toDouble();
-    return Color.from(
-      alpha: color.a * .4,
-      red: srgb(4.0767416621 * ll - 3.3077115913 * mm + .2309699292 * ss),
-      green: srgb(-1.2684380046 * ll + 2.6097574011 * mm - .3413193965 * ss),
-      blue: srgb(-.0041960863 * ll - .7034186147 * mm + 1.707614701 * ss),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final effectiveSemanticLabel =
@@ -920,8 +877,10 @@ class DButton extends StatelessWidget {
         return DButtonStateStyle(
           foregroundColor: foreground,
           iconColor: foreground,
+          // A floating call is solid, on the menus' own ground, since what
+          // it floats over (bubbles, cards) is not.
           backgroundColor: floatingCall
-              ? _floatingCallFill(tokens)
+              ? tokens.panelBackground
               : timelineEnd
               ? Color.lerp(
                   tokens.background,
