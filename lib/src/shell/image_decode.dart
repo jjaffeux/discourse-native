@@ -5,6 +5,9 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_libavif/flutter_libavif.dart';
+
+import '../data/avif.dart';
 
 Size? safeImageLayoutSize(double? width, double? height) {
   if (width == null ||
@@ -255,12 +258,15 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
   @override
   Future<FittedMemoryImage> obtainKey(ImageConfiguration configuration) =>
       _sourceSize(bytes).then((size) {
+        final target = size != null && avifKind(bytes) != null
+            ? _fitWithin(size.$1, size.$2, width, height)
+            : null;
         // A fit bound at or beyond the source in a dimension constrains
         // nothing in it, so clamping never changes what the key decodes to.
         final key = FittedMemoryImage(
           bytes,
-          width: _clamp(width, size?.$1),
-          height: _clamp(height, size?.$2),
+          width: target?.width ?? _clamp(width, size?.$1),
+          height: target?.height ?? _clamp(height, size?.$2),
         );
         return key == this ? this : key;
       });
@@ -273,6 +279,9 @@ final class FittedMemoryImage extends ImageProvider<FittedMemoryImage> {
     FittedMemoryImage key,
     ImageDecoderCallback decode,
   ) {
+    if (avifKind(key.bytes) != null) {
+      return _loadAvif(key.bytes, width: key.width, height: key.height);
+    }
     final completer = MultiFrameImageStreamCompleter(
       codec: _decodeWithinCap(
         key.bytes,
@@ -351,6 +360,9 @@ final class CoveredMemoryImage extends ImageProvider<CoveredMemoryImage> {
     CoveredMemoryImage key,
     ImageDecoderCallback decode,
   ) {
+    if (avifKind(key.bytes) != null) {
+      return _loadAvif(key.bytes, width: key.width, height: key.height);
+    }
     final completer = MultiFrameImageStreamCompleter(
       codec: _decodeWithinCap(
         key.bytes,
@@ -392,6 +404,35 @@ final class CoveredMemoryImage extends ImageProvider<CoveredMemoryImage> {
 // widget showing a URL the same bytes.
 final _sourceSizes = Expando<Future<(int, int)?>>('encoded image size');
 
+const _avifOptions = AvifDecodeOptions(
+  maxPixels: maximumFittedImagePixels,
+  maxInputBytes: 32 * 1024 * 1024,
+);
+
+/// Uses the AVIF sequence decoder even when the platform can read a still.
+ImageProvider<Object> rasterMemoryImage(Uint8List bytes) =>
+    avifKind(bytes) == null
+    ? MemoryImage(bytes)
+    : AvifMemoryImage(bytes, options: _avifOptions);
+
+ImageStreamCompleter _loadAvif(Uint8List bytes, {int? width, int? height}) {
+  final provider = AvifMemoryImage(
+    bytes,
+    cacheWidth: width,
+    cacheHeight: height,
+    options: _avifOptions,
+  );
+  return provider.loadImage(
+    provider,
+    PaintingBinding.instance.instantiateImageCodecWithSize,
+  );
+}
+
+/// Reads intrinsic dimensions without decoding a full-size frame.
+Future<Size?> encodedImageSize(Uint8List bytes) => _sourceSize(bytes).then(
+  (size) => size == null ? null : Size(size.$1.toDouble(), size.$2.toDouble()),
+);
+
 Future<(int, int)?> _sourceSize(Uint8List bytes) =>
     _sourceSizes[bytes] ??= _readSourceSize(bytes);
 
@@ -416,6 +457,19 @@ Future<(int, int)?> _readSourceSize(Uint8List bytes) async {
   ui.ImageDescriptor? descriptor;
   (int, int)? size;
   try {
+    if (avifKind(bytes) != null) {
+      await Avif.warmUp();
+      final decoder = await AvifSequenceDecoder.open(
+        bytes,
+        options: _avifOptions,
+      );
+      try {
+        size = (decoder.info.width, decoder.info.height);
+      } finally {
+        decoder.dispose();
+      }
+      return size;
+    }
     buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     // Reads the header only; no frame is decoded.
     descriptor = await ui.ImageDescriptor.encoded(buffer);
@@ -425,8 +479,8 @@ Future<(int, int)?> _readSourceSize(Uint8List bytes) async {
   } finally {
     descriptor?.dispose();
     buffer?.dispose();
+    _sourceSizes[bytes] = SynchronousFuture(size);
   }
-  _sourceSizes[bytes] = SynchronousFuture(size);
   return size;
 }
 
@@ -455,11 +509,18 @@ ui.TargetImageSize _fitWithin(
   );
 }
 
-ResizeImage memoryImageForLayout(
+ImageProvider<Object> memoryImageForLayout(
   BuildContext context,
   Uint8List bytes, {
   required Size logicalSize,
 }) {
+  if (avifKind(bytes) != null) {
+    return FittedMemoryImage(
+      bytes,
+      width: imagePhysicalPixels(context, logicalSize.width),
+      height: imagePhysicalPixels(context, logicalSize.height),
+    );
+  }
   return ResizeImage(
     MemoryImage(bytes),
     width: imagePhysicalPixels(context, logicalSize.width),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -11,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/avif.dart';
 import '../data/http_basic_auth.dart';
 import '../data/site_image_repository.dart';
 import '../models/forum_workspace.dart';
@@ -157,9 +157,10 @@ class _SiteImageState extends State<SiteImage> {
 
     if (repository == null || siteUrl == null) {
       final destination = Uri.tryParse(url);
-      if (destination != null &&
-          destination.hasAuthority &&
-          HttpBasicAuthStore.instance.protects(destination)) {
+      if (_isAvifUrl(url) ||
+          (destination != null &&
+              destination.hasAuthority &&
+              HttpBasicAuthStore.instance.protects(destination))) {
         _resolved = false;
         unawaited(_loadServerImage(url, _generation));
         return;
@@ -303,23 +304,8 @@ class _SiteImageState extends State<SiteImage> {
   }
 
   Future<void> _measureBytes(SiteImageBytes bytes, int generation) async {
-    ui.ImmutableBuffer? buffer;
-    ui.ImageDescriptor? descriptor;
-    final Size size;
-    try {
-      buffer = await ui.ImmutableBuffer.fromUint8List(bytes.bytes);
-      descriptor = await ui.ImageDescriptor.encoded(buffer);
-      // Read intrinsic dimensions without decoding or caching a full-size
-      // frame alongside the image used for display.
-      size = Size(descriptor.width.toDouble(), descriptor.height.toDouble());
-    } catch (_) {
-      // The rendered image owns the error fallback.
-      return;
-    } finally {
-      descriptor?.dispose();
-      buffer?.dispose();
-    }
-    if (!mounted || generation != _generation) return;
+    final size = await encodedImageSize(bytes.bytes);
+    if (size == null || !mounted || generation != _generation) return;
     widget.onNaturalSize?.call(size);
   }
 
@@ -382,10 +368,10 @@ class _SiteImageState extends State<SiteImage> {
             _errorStack ?? StackTrace.current,
           ) ??
           const SizedBox.shrink();
-    } else if (_repository == null || widget.siteUrl == null) {
-      child = _networkImage();
     } else if (_bytes case final bytes?) {
       child = bytes.isSvg ? _svg(bytes) : _raster(bytes);
+    } else if (_repository == null || widget.siteUrl == null) {
+      child = _networkImage();
     } else {
       child = const SizedBox.shrink();
     }
@@ -426,6 +412,7 @@ class _SiteImageState extends State<SiteImage> {
   bool get _isAnimated =>
       widget.knownAnimated ||
       _bytes?.isAnimated == true ||
+      (_bytes != null && avifKind(_bytes!.bytes) == AvifKind.animated) ||
       Uri.tryParse(_url)?.path.toLowerCase().endsWith('.gif') == true;
 
   Widget _networkImage() {
@@ -479,7 +466,7 @@ class _SiteImageState extends State<SiteImage> {
   );
 
   Widget _raster(SiteImageBytes image) {
-    ImageProvider<Object> provider = MemoryImage(image.bytes);
+    ImageProvider<Object> provider = rasterMemoryImage(image.bytes);
     if (widget.coverDecodeSize case final size?) {
       provider = memoryImageForCover(context, image.bytes, logicalSize: size);
     } else if (widget.cacheWidth != null || widget.cacheHeight != null) {
@@ -504,6 +491,9 @@ class _SiteImageState extends State<SiteImage> {
 
   static bool _isSvgUrl(String url) =>
       Uri.tryParse(url)?.path.toLowerCase().endsWith('.svg') == true;
+
+  static bool _isAvifUrl(String url) =>
+      Uri.tryParse(url)?.path.toLowerCase().endsWith('.avif') == true;
 }
 
 abstract final class _SiteImageViewportChecks {

@@ -17,6 +17,7 @@ dependencies:
 # Overrides from dependencies are deliberately ignored by Dart Pub. Activate
 # reviewed forks explicitly in this application graph.
 dependency_overrides:
+  code_assets: ^2.1.0
   flutter_widget_from_html_core:
     path: ../../packages/flutter_widget_from_html_core
   flutter_webrtc:

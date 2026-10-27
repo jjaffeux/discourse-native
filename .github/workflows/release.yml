@@ -92,6 +92,9 @@ jobs:
           # Fail here rather than 200 lines into a cmake log.
           pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0
 
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
+
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:

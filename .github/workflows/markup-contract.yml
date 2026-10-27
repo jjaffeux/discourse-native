@@ -29,5 +29,8 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
+
       - name: Check for upstream markup drift
         run: dart run tool/markup_contract.dart

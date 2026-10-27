@@ -29,7 +29,7 @@ void main() {
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
 
-    late ResizeImage provider;
+    late ImageProvider<Object> provider;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
@@ -45,10 +45,11 @@ void main() {
       ),
     );
 
-    expect(provider.width, 60);
-    expect(provider.height, 45);
-    expect(provider.policy, ResizeImagePolicy.fit);
-    expect(provider.allowUpscaling, isFalse);
+    final resized = provider as ResizeImage;
+    expect(resized.width, 60);
+    expect(resized.height, 45);
+    expect(resized.policy, ResizeImagePolicy.fit);
+    expect(resized.allowUpscaling, isFalse);
   });
 
   testWidgets('rounds network decode hints up to physical pixels', (

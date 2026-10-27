@@ -32,5 +32,8 @@ jobs:
       - name: Resolve locked dependencies
         run: flutter pub get --enforce-lockfile
 
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
+
       - name: Check vendored package provenance
         run: dart run tool/vendor_provenance_contract.dart

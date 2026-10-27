@@ -6,6 +6,7 @@ import 'package:mime/mime.dart';
 
 import 'api_credentials.dart';
 import 'avatar_loader.dart';
+import 'avif.dart';
 import 'byte_cache.dart';
 import 'media_request_coordinator.dart';
 import 'site_asset_account.dart';
@@ -360,6 +361,7 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
 }
 
 SiteImageMediaType? _imageMediaType(Uint8List bytes, String? contentType) {
+  if (avifKind(bytes) != null) return SiteImageMediaType.avif;
   // An empty path prevents filenames from becoming evidence of a format.
   final normalized = contentType?.split(';').first.trim().toLowerCase();
   final declared = SiteImageMediaType._fromMimeType(normalized);
@@ -376,6 +378,7 @@ SiteImageMediaType? _imageMediaType(Uint8List bytes, String? contentType) {
 }
 
 bool _looksAnimated(Uint8List bytes, {String? contentType}) {
+  if (avifKind(bytes) == AvifKind.animated) return true;
   if (contentType?.toLowerCase().split(';').first.trim() == 'image/gif') {
     return true;
   }

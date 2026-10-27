@@ -46,6 +46,10 @@ jobs:
           (cd packages/discourse_voice && flutter analyze)
           (cd profiles/full && flutter analyze)
 
+      - name: Set up AVIF build tools
+        # Native AVIF is built during Flutter tests as well as application builds.
+        uses: ./.github/actions/setup-avif
+
       - name: Test
         run: |
           flutter test --test-randomize-ordering-seed=random
@@ -82,6 +86,9 @@ jobs:
         run: |
           flutter pub get --enforce-lockfile
           (cd profiles/full && flutter pub get --enforce-lockfile)
+
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
 
       - name: Build root and compatibility Linux bundles
         run: |
@@ -132,6 +139,9 @@ jobs:
         run: |
           flutter pub get --enforce-lockfile
           (cd profiles/full && flutter pub get --enforce-lockfile)
+
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
 
       - name: Build root macOS bundle
         # `flutter build macos` has no --no-codesign, and the Xcode project now

@@ -98,7 +98,7 @@ packages:
     source: hosted
     version: "1.1.3"
   code_assets:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: code_assets
       sha256: "828110d598123b5ea96c00c9f3c72105bf79f8ee36c20a39b26209ade421ec57"
@@ -383,6 +383,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.0"
+  flutter_libavif:
+    dependency: "direct main"
+    description:
+      name: flutter_libavif
+      sha256: "94954d197390dda27afced5a6c4d6e8e38f5e23bc1aeca19003237d32d40a757"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -678,6 +686,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
+  libavif:
+    dependency: transitive
+    description:
+      name: libavif
+      sha256: e96c31379cd472786133085ec18b977c79d3965a1a339bf283447e7b85955268
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
   linked_pageview:
     dependency: transitive
     description:
@@ -790,6 +806,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.19.5"
+  native_toolchain_rust:
+    dependency: transitive
+    description:
+      name: native_toolchain_rust
+      sha256: dc8e5f20c0cb7052372bc302f075607086d86354b37199e89ec9d3d35589e519
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.7"
   nm:
     dependency: transitive
     description:
@@ -1147,6 +1171,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.11.2"
+  toml:
+    dependency: transitive
+    description:
+      name: toml
+      sha256: "35a35f782228656a2af31e8c73d1353cc4ef3d683fd68af1111b44631879c05e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.18.0"
   tuple:
     dependency: transitive
     description:
