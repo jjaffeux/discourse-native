@@ -145,6 +145,32 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+  testWidgets('drawer presence is the reference icon-only circle at 34', (
+    tester,
+  ) async {
+    await _pumpProduction(tester, phone);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    final presence = find.byKey(const ValueKey('user-presence-menu'));
+    final button = tester.widget<DButton>(presence);
+    expect(button.size, DControlSize.toolbar);
+    expect(DControlStyle.height(DControlSize.toolbar), 34);
+    final bounds = tester.getSize(presence);
+    expect(bounds.width, bounds.height);
+    final icon = tester.widget<DIcon>(
+      find.descendant(of: presence, matching: find.byType(DIcon)),
+    );
+    expect(icon.size, 10, reason: 'one glyph, no chevron');
+    expect(buttonSurface(tester, of: presence).color, Colors.transparent);
+    await tester.tap(presence);
+    await tester.pumpAndSettle();
+    expect(
+      buttonSurface(tester, of: presence).color,
+      DTokens.of(tester.element(presence)).raisedBackground,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('closing drawer footer follows its page and ignores input', (
     tester,
   ) async {

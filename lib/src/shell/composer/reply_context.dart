@@ -3,13 +3,12 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
-import 'package:html/parser.dart' as html;
 
 import '../../models/post.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import '../avatar_image.dart';
+import '../post_plain_text.dart';
 import '../shell_scope.dart';
 import '../topic_title.dart';
 import 'controller.dart';
@@ -26,23 +25,11 @@ class ComposerReplyContext extends StatefulWidget {
 
 class _ComposerReplyContextState extends State<ComposerReplyContext> {
   bool _expanded = false;
-  Post? _excerptPost;
-  String? _excerpt;
 
   String? _textFor(Post? post) {
-    if (identical(post, _excerptPost)) return _excerpt;
-    _excerptPost = post;
-    if (post == null || post.hidden || post.isDeleted) return _excerpt = null;
-    final fragment = html.parseFragment(post.cooked);
-    for (final node in fragment.querySelectorAll('script, style')) {
-      node.remove();
-    }
-    // Keep adjacent paragraphs from running together in the plain excerpt.
-    for (final node in fragment.querySelectorAll('p, div, li, br')) {
-      node.nodes.add(dom.Text(' '));
-    }
-    final text = (fragment.text ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
-    return _excerpt = text.isEmpty ? null : text;
+    if (post == null || post.hidden || post.isDeleted) return null;
+    final text = postPlainText(post);
+    return text.isEmpty ? null : text;
   }
 
   @override

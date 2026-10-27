@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -231,11 +232,41 @@ void main() {
             matching: find.byType(DToggle),
           );
           expect(cells, findsNWidgets(2));
-          for (final cell in cells.evaluate()) {
-            expect(
-              tester.getSize(find.byWidget(cell.widget)),
-              const Size.square(30),
-            );
+          // As many 44 cells to a row as fit, 2 apart, inside the grid's own
+          // 4 inset, each glyph at 24.
+          final room = tester.getSize(find.byType(ReactionGrid)).width - 8;
+          final columns = ((room + 2) / 46).floor();
+          final width = (room - 2 * (columns - 1)) / columns;
+          expect(width, greaterThanOrEqualTo(44));
+          final first = tester.getRect(cells.first);
+          final second = tester.getRect(cells.last);
+          for (final rect in [first, second]) {
+            expect(rect.height, 44);
+            expect(rect.width, closeTo(width, .01));
+          }
+          expect(second.left - first.right, closeTo(2, .01));
+          expect(
+            tester.getRect(
+              find
+                  .descendant(
+                    of: cells.first,
+                    matching: find.byType(AnimatedContainer),
+                  )
+                  .first,
+            ),
+            first,
+          );
+          expect(
+            first.left - tester.getRect(find.byType(ReactionGrid)).left,
+            closeTo(4, .01),
+          );
+          for (final glyph in tester.widgetList<EmojiImage>(
+            find.descendant(
+              of: find.byType(ReactionGrid),
+              matching: find.byType(EmojiImage),
+            ),
+          )) {
+            expect(glyph.size, 24);
           }
           expect(tester.takeException(), isNull);
           await tester.tap(close);

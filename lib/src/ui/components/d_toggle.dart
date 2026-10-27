@@ -69,6 +69,7 @@ class DToggleVisualStyle {
     this.borderRadius,
     this.borderEdges = DToggleBorderEdges.all,
     this.expandArtwork = false,
+    this.fillHeight = false,
   });
 
   final BorderRadiusGeometry? borderRadius;
@@ -76,6 +77,10 @@ class DToggleVisualStyle {
 
   /// Fill the width assigned by a parent group instead of hugging the label.
   final bool expandArtwork;
+
+  /// Fill the height assigned by the parent too, as a grid's cell does, rather
+  /// than standing at the size's own height inside it.
+  final bool fillHeight;
 }
 
 /// A two-state button with native pressed-toggle semantics.
@@ -578,7 +583,7 @@ class _DToggleState extends State<DToggle> {
         widthFactor: tile || widget.visualStyle?.expandArtwork == true
             ? null
             : 1,
-        heightFactor: 1,
+        heightFactor: widget.visualStyle?.fillHeight == true ? null : 1,
         child: content,
       ),
     );

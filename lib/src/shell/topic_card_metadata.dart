@@ -213,7 +213,7 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
                       poster.username?.characters.firstOrNull?.toUpperCase() ??
                           '',
                       style: const TextStyle(
-                        fontSize: DiscourseTypography.badge,
+                        fontSize: DiscourseTypography.micro,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

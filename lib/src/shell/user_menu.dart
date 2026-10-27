@@ -23,6 +23,7 @@ import 'do_not_disturb_dialog.dart';
 import 'external_link.dart';
 import 'invite_list.dart';
 import 'notification_list.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
@@ -864,20 +865,33 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
                 state.toggle();
               }
 
-              final icon = DIcon(
+              final tokens = DTokens.of(context);
+              DIcon icon({double? dot, double? pause}) => DIcon(
                 paused ? DIcons.discourseBellSlash : DIcons.circle,
+                size: paused ? pause : dot,
                 color: !paused && hidden == false
-                    ? DTokens.of(context).success
-                    : DTokens.of(context).mutedForeground,
+                    ? tokens.success
+                    : tokens.mutedForeground,
               );
               if (widget.iconOnly) {
+                // The reference's icon-only presence: a bare circle, 34 on a
+                // phone's sidebar and 30 on a desktop's, its dot at 10 and its
+                // pause at 13, raised only while open.
                 return wrap(
                   DButton.iconOnly(
                     key: const ValueKey('user-presence-menu'),
-                    icon: icon,
+                    icon: icon(dot: 10, pause: 13),
                     variant: DButtonVariant.ghost,
                     shape: DButtonShape.pill,
-                    size: DControlSize.filter,
+                    size: context.isTouch
+                        ? DControlSize.toolbar
+                        : DControlSize.filter,
+                    backgroundColor: state.open
+                        ? tokens.raisedBackground
+                        : Colors.transparent,
+                    interactiveBackgroundColor: tokens.foreground.withValues(
+                      alpha: .08,
+                    ),
                     tooltip: label,
                     semanticLabel: context.l10n.statusAndNotificationsUsermenu(
                       label,
@@ -903,7 +917,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
                   hasPopup: true,
                   expanded: state.open,
                   onPressed: toggle,
-                  icon: icon,
+                  icon: icon(),
                   label: const DIcon(DNativeIcons.filterChevron, size: 10),
                 ),
               );

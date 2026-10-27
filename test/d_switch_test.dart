@@ -777,16 +777,73 @@ void main() {
         ),
       );
       final decoration = track.decoration! as BoxDecoration;
-      expect(
-        decoration.color,
-        Color.lerp(tokens.background, tokens.mutedForeground, .70),
-      );
       expect(decoration.color, isNot(tokens.border));
       expect(decoration.border, isNull);
       expect(
         (track.foregroundDecoration! as DControlDecoration).ringColor,
         tokens.destructive,
       );
+    }
+  });
+
+  testWidgets('on and off take the reference switch fills in both modes', (
+    tester,
+  ) async {
+    for (final dark in [false, true]) {
+      final theme = dark ? AppTheme.dark : AppTheme.light;
+      final tokens = DTokens.fromTheme(theme);
+      for (final on in [false, true]) {
+        await mount(
+          tester,
+          DSwitch(value: on, onChanged: (_) {}),
+          theme: theme,
+        );
+        await tester.pumpAndSettle();
+        final track = tester.widget<AnimatedContainer>(
+          find.descendant(
+            of: find.byType(DSwitch),
+            matching: find.byType(AnimatedContainer),
+          ),
+        );
+        final fill = (track.decoration! as BoxDecoration).color;
+        final edge =
+            (track.foregroundDecoration! as DControlDecoration).borderColor;
+        final knob =
+            (tester
+                        .widget<DecoratedBox>(
+                          find
+                              .descendant(
+                                of: find.byType(DSwitch),
+                                matching: find.byType(DecoratedBox),
+                              )
+                              .last,
+                        )
+                        .decoration
+                    as BoxDecoration)
+                .color;
+        final mode = dark ? 'dark' : 'light';
+        if (on) {
+          expect(fill, tokens.controlTheme.primary.background, reason: mode);
+          expect(edge, Colors.transparent, reason: mode);
+          expect(knob, Colors.white, reason: mode);
+        } else {
+          expect(
+            fill,
+            Colors.black.withValues(alpha: dark ? .16 : .045),
+            reason: mode,
+          );
+          expect(
+            edge,
+            Color.lerp(tokens.background, tokens.foreground, .12),
+            reason: mode,
+          );
+          expect(
+            knob,
+            Color.lerp(tokens.background, tokens.foreground, .40),
+            reason: mode,
+          );
+        }
+      }
     }
   });
 
@@ -800,7 +857,7 @@ void main() {
       StatefulBuilder(
         builder: (context, setState) {
           update = setState;
-          return DSwitch(value: false, onChanged: enabled ? (_) {} : null);
+          return DSwitch(value: true, onChanged: enabled ? (_) {} : null);
         },
       ),
     );

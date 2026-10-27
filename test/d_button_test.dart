@@ -116,8 +116,18 @@ void main() {
             );
             final surface = buttonSurface(tester);
 
-            expect(surface.color.a, floating ? closeTo(.4, .001) : 1);
-            expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
+            final tokens = DTokens.of(tester.element(button));
+            if (floating) {
+              expect(surface.color, tokens.panelBackground);
+              expect(surface.color.a, 1);
+              expect(
+                surface.borderColor,
+                Color.lerp(tokens.background, tokens.foreground, .22),
+              );
+            } else {
+              expect(surface.color.a, 1);
+              expect(surface.borderColor.a, 0);
+            }
 
             expect(surface.borderRadius.topLeft.x, 999);
             final artwork = find.descendant(

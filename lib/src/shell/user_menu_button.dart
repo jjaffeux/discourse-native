@@ -312,6 +312,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                         account.session,
                       )),
                       siteUrl: siteUrl,
+                      iconOnly: true,
                       side: DPopoverSide.top,
                       onBeforeOpen: _profile.close,
                       triggerWrapper: (context, presenceTrigger) =>
@@ -387,7 +388,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   : UserPresenceMenu(
                       key: ValueKey((siteUrl, account.userId, account.session)),
                       siteUrl: siteUrl,
-                      iconOnly: !context.isTouch,
+                      iconOnly: true,
                       side: DPopoverSide.top,
                       onBeforeOpen: _profile.close,
                     ),

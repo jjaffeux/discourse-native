@@ -10,6 +10,7 @@ import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'platform.dart';
+import 'post_plain_text.dart';
 import 'shell_controller.dart';
 import 'stream_day_separator.dart';
 
@@ -375,6 +376,10 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
     final total = widget.total < 1 ? 1 : widget.total;
     final at = _preview.clamp(1, total);
     final post = widget.postAt?.call(at);
+    final words = post == null || post.hidden || post.isDeleted
+        ? ''
+        : postPlainText(post);
+    final excerpt = words.isEmpty ? null : words;
     final muted = Color.lerp(tokens.background, tokens.foreground, .50)!;
     final dayStyle = TextStyle(
       color: muted,
@@ -442,6 +447,27 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  // What the post says, so dragging finds a post by its words
+                  // as well as its place.
+                  if (excerpt != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      excerpt,
+                      key: const ValueKey('topic-progress-excerpt'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Color.lerp(
+                          tokens.background,
+                          tokens.foreground,
+                          .62,
+                        ),
+                        fontSize: DiscourseTypography.preview,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
                   if (post?.createdAt != null) ...[
                     const SizedBox(height: 1),
                     Text(day(post!.createdAt), style: dayStyle),

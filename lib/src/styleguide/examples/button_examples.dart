@@ -162,7 +162,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'A translucent floating pill and compact endpoints. Pinned dates and topic progress share a flat chip. Hit bounds follow each control on desktop and touch.',
+          'An opaque floating pill and compact endpoints. Pinned dates and topic progress share a flat chip. Hit bounds follow each control on desktop and touch.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(

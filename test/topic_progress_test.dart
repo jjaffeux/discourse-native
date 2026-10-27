@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -105,6 +106,63 @@ void main() {
     } finally {
       debugDisableShadows = shadowsDisabled;
     }
+  });
+
+  testWidgets('the timeline reads a post by its words, cooked or markup', (
+    tester,
+  ) async {
+    Post post(int number, {String cooked = '', String? raw, bool? hidden}) =>
+        Post.fromJson({
+          'id': number,
+          'post_number': number,
+          'username': 'sam',
+          'cooked': cooked,
+          'raw': ?raw,
+          'hidden': ?hidden,
+        }, 'https://meta.example');
+    final posts = {
+      1: post(1, cooked: '<p>Cooked <em>words</em></p>'),
+      2: post(2, raw: '**Written** in [markup](https://example.com)'),
+      3: post(3, cooked: '<p>Flagged</p>', hidden: true),
+    };
+    for (final (position, words) in [
+      (1, 'Cooked words'),
+      (2, 'Written in markup'),
+      (3, null),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              child: TopicProgressPanel(
+                position: position,
+                total: 3,
+                postAt: (at) => posts[at],
+                onJump: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      final excerpt = find.byKey(const ValueKey('topic-progress-excerpt'));
+      if (words == null) {
+        expect(excerpt, findsNothing);
+        continue;
+      }
+      final text = tester.widget<Text>(excerpt);
+      expect(text.data, words);
+      expect(text.maxLines, 2);
+      final tokens = DTokens.of(tester.element(excerpt));
+      expect(
+        text.style!.color,
+        Color.lerp(tokens.background, tokens.foreground, .62),
+      );
+      expect(text.style!.fontSize, 12.5);
+      expect(text.style!.height, 1.4);
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('one-post timeline disables its ends and stays bounded', (
