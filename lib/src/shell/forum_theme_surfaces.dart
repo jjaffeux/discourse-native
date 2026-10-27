@@ -53,13 +53,13 @@ class ForumWindowBackground extends StatefulWidget {
         : fallback;
   }
 
-  /// Desktop reading surfaces keep their palette tint above the darker window.
+  /// Desktop reading surfaces expose the shared window background.
   /// Phone surfaces retain the configurable transparency over their canvas.
   static Color? panelColor(BuildContext context) {
+    if (!context.isTouch) return Colors.transparent;
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     if (canvas == null) return null;
     final tokens = DTokens.of(context);
-    if (!context.isTouch) return tokens.panelBackground;
     return tokens.panelBackground.withValues(
       alpha: 1 - (canvas.transparency / .3 * 40).round() / 100,
     );

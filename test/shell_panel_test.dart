@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('desktop panels retain the page color over a dark window', (
+  testWidgets('desktop panels reveal the background behind them', (
     tester,
   ) async {
     const capture = ValueKey('desktop-panel-background');
@@ -36,12 +36,20 @@ void main() {
             home: const RepaintBoundary(
               key: capture,
               child: ForumWindowBackground(
-                child: Row(
-                  children: [
-                    Expanded(child: WorkspacePanel(child: SizedBox.expand())),
-                    SizedBox(width: 12),
-                    Expanded(child: Builder(builder: _standalonePanel)),
-                  ],
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xff2465a2), Color(0xffb07325)],
+                      stops: [.5, .5],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(child: WorkspacePanel(child: SizedBox.expand())),
+                      SizedBox(width: 12),
+                      Expanded(child: Builder(builder: _standalonePanel)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -56,12 +64,10 @@ void main() {
             final bytes = (await image.toByteData(
               format: ui.ImageByteFormat.rawRgba,
             ))!;
-            final expected = Color.lerp(
-              theme.shell.content,
-              theme.colorScheme.onSurface,
-              .03,
-            )!.toARGB32();
-            for (final x in [image.width ~/ 4, image.width * 3 ~/ 4]) {
+            for (final (x, expected) in [
+              (image.width ~/ 4, 0xff2465a2),
+              (image.width * 3 ~/ 4, 0xffb07325),
+            ]) {
               final offset = (image.height ~/ 2 * image.width + x) * 4;
               expect(
                 List.generate(4, (channel) => bytes.getUint8(offset + channel)),
