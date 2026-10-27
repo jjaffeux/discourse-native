@@ -12,6 +12,7 @@ class MobileScrollDock extends StatelessWidget {
     this.hideOnScroll = true,
     this.keepActionVisible = false,
     this.floating = true,
+    this.hiddenFraction = 0,
   });
 
   final Widget body;
@@ -25,6 +26,7 @@ class MobileScrollDock extends StatelessWidget {
   /// An active composer must keep its Send/Save action reachable.
   final bool keepActionVisible;
   final bool floating;
+  final double hiddenFraction;
 
   @override
   Widget build(BuildContext context) => RepaintBoundary(
@@ -35,6 +37,7 @@ class MobileScrollDock extends StatelessWidget {
       enabled: hideOnScroll,
       keepFooterVisible: keepActionVisible,
       floatingFooter: floating,
+      footerHiddenFraction: hiddenFraction,
       fadeUnderFooter: floating,
       footerBuilder: (hidden) => RepaintBoundary(
         child: dockBuilder(floating ? hidden : hidden && keepActionVisible),

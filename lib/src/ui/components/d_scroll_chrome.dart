@@ -117,7 +117,8 @@ class DScrollChrome extends StatefulWidget {
     this.keepFooterVisible = false,
     this.floatingFooter = false,
     this.fadeUnderFooter = false,
-  });
+    this.footerHiddenFraction = 0,
+  }) : assert(footerHiddenFraction >= 0 && footerHiddenFraction <= 1);
 
   final Object identity;
   final Widget child;
@@ -131,6 +132,11 @@ class DScrollChrome extends StatefulWidget {
   /// Overlays the footer without resizing the page viewport. The builder owns
   /// its compact state; [bottomInsetOf] keeps the last row clear of the open dock.
   final bool floatingFooter;
+
+  /// Slides a floating footer down by this fraction of its full height.
+  /// Driven directly by interactive navigation, without an extra animation.
+  /// The page viewport and reserved end-of-content clearance stay unchanged.
+  final double footerHiddenFraction;
 
   /// Thins the page's lists as they run on to the foot under what the
   /// floating footer's [DScrollFootCover] covers, the bar they read past.
@@ -300,7 +306,9 @@ class _DScrollChromeState extends State<DScrollChrome>
   }
 
   void _publishFoot() => _footCovered.value =
-      widget.fadeUnderFooter && widget.visible && !_footerAway ? _covered : 0;
+      widget.fadeUnderFooter && widget.visible && !_footerAway
+      ? _covered * (1 - widget.footerHiddenFraction)
+      : 0;
 
   void _measureDock() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -623,7 +631,8 @@ class _DScrollChromeState extends State<DScrollChrome>
   Widget build(BuildContext context) {
     if (widget.floatingFooter) {
       final footerHidden = _controller._footerHiders.isNotEmpty;
-      _footerAway = footerHidden;
+      final footerAway = footerHidden || widget.footerHiddenFraction == 1;
+      _footerAway = footerAway;
       _publishFoot();
       _measureDock();
       final body = NotificationListener<ScrollMetricsNotification>(
@@ -661,41 +670,48 @@ class _DScrollChromeState extends State<DScrollChrome>
                 start: 0,
                 end: 0,
                 bottom: 0,
-                child: ExcludeSemantics(
-                  excluding: footerHidden,
-                  child: ExcludeFocus(
-                    excluding: footerHidden,
-                    child: IgnorePointer(
-                      ignoring: footerHidden,
-                      child: AnimatedSlide(
-                        offset: footerHidden ? const Offset(0, 1) : Offset.zero,
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 420),
-                        curve: const Cubic(.32, .72, 0, 1),
-                        child:
-                            NotificationListener<SizeChangedLayoutNotification>(
-                              onNotification: (_) {
-                                _measureDock();
-                                return false;
-                              },
-                              child: SizeChangedLayoutNotifier(
-                                child: Focus(
-                                  focusNode: _footerFocus,
-                                  child: _FooterAway(
-                                    away: footerHidden,
-                                    child: _ChromeExtent(
-                                      key: _footerContentKey,
-                                      child: _FooterCover(
-                                        report: _cover,
-                                        child: _footerContent ??= widget
-                                            .footerBuilder(_hidden),
+                child: FractionalTranslation(
+                  translation: Offset(0, widget.footerHiddenFraction),
+                  child: ExcludeSemantics(
+                    excluding: footerAway,
+                    child: ExcludeFocus(
+                      excluding: footerAway,
+                      child: IgnorePointer(
+                        ignoring: footerAway,
+                        child: AnimatedSlide(
+                          offset: footerHidden
+                              ? const Offset(0, 1)
+                              : Offset.zero,
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 420),
+                          curve: const Cubic(.32, .72, 0, 1),
+                          child:
+                              NotificationListener<
+                                SizeChangedLayoutNotification
+                              >(
+                                onNotification: (_) {
+                                  _measureDock();
+                                  return false;
+                                },
+                                child: SizeChangedLayoutNotifier(
+                                  child: Focus(
+                                    focusNode: _footerFocus,
+                                    child: _FooterAway(
+                                      away: footerAway,
+                                      child: _ChromeExtent(
+                                        key: _footerContentKey,
+                                        child: _FooterCover(
+                                          report: _cover,
+                                          child: _footerContent ??= widget
+                                              .footerBuilder(_hidden),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                        ),
                       ),
                     ),
                   ),

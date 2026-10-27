@@ -21,7 +21,9 @@ final historyTransitionExamples = ComponentExamples(
       'History previews use bounded '
       'in-memory images; navigation previews stay ready offstage for the first '
       'reveal. A frameBuilder includes stationary chrome and outer padding in '
-      'the gesture surface. Reduced motion disables page movement. '
+      'the gesture surface. DHistoryTransition.swipeOf exposes the destination '
+      'and progress to its chrome; DScrollChrome.footerHiddenFraction slides '
+      'a floating footer with that progress. Reduced motion disables movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
   examples: [
     StyleguideExample(
@@ -36,8 +38,13 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Live navigation preview',
       description:
-          'Drag inward from the left edge to reveal navigation immediately, even before its first visit. Cancel a short drag or release to open it. The preview cannot receive focus or interaction.',
-      states: const ['First reveal', 'Cancel', 'Preserved state'],
+          'Drag inward from the left edge to reveal navigation while its page action slides down. Swipe back to bring the action up. Cancel a short drag to return both to their starting positions. The preview cannot receive focus or interaction.',
+      states: const [
+        'First reveal',
+        'Cancel',
+        'Preserved state',
+        'Coupled footer',
+      ],
       code:
           'DHistoryTransition(history: journeyId, entry: pageId, previousEntry: navigationId, previousPreview: navigation, onBack: openNavigation, child: currentPage)',
       builder: (_) => const _NavigationPreviewExample(),
@@ -110,6 +117,26 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
         children: [
           Expanded(
             child: DHistoryTransition(
+              frameBuilder: (context, page) {
+                final swipe = DHistoryTransition.swipeOf(context);
+                final hidden = _open
+                    ? 1.0 - (swipe?.progress ?? 0.0)
+                    : swipe?.progress ?? 0.0;
+                return DScrollChrome(
+                  identity: _history,
+                  floatingFooter: true,
+                  visible: hidden < 1,
+                  footerHiddenFraction: hidden,
+                  footerBuilder: (_) => Padding(
+                    padding: const EdgeInsets.all(DSpacing.sm),
+                    child: DButton(
+                      label: const Text('Show sidebar'),
+                      onPressed: _toggle,
+                    ),
+                  ),
+                  child: page,
+                );
+              },
               history: _history,
               entry: _open ? 'navigation' : 'page',
               previousEntry: _open ? null : 'navigation',

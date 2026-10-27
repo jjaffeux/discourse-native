@@ -355,55 +355,69 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               child: ListenableBuilder(
                 listenable: _footerAction,
                 child: page,
-                builder: (context, content) => MobileScrollDock(
-                  identity: (
-                    owner,
-                    selected,
-                    shell.mobileNavigation.entryId,
-                    widget.boundary,
-                  ),
-                  visible: !sidebarOpen,
-                  hideOnScroll: !hideDock,
-                  keepActionVisible: _footerAction.action != null,
-                  body: content!,
-                  dockBuilder: (hidden) {
-                    // A parked draft waits over the bar, which keeps pages
-                    // clear of both.
-                    final parked = ComposerDock.parkedDraftRoomOf(context);
-                    if (hideDock) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: parked + MediaQuery.paddingOf(context).bottom,
-                        ),
-                      );
-                    }
-                    final geometry = DMobileDockGeometry.of(context);
-                    return ForumSidebarTheme(
-                      child: Padding(
-                        padding: geometry.margin.add(
-                          EdgeInsets.only(top: parked),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) => _buildBottomBar(
-                            context,
-                            constraints,
-                            geometry: geometry,
-                            destinations: places,
-                            selected: selected,
-                            instance: instance,
-                            showReply: showReply,
-                            showNewMessage: showNewMessage,
-                            panelAction: panelAction,
-                            showNewTopic: showNewTopic,
-                            shell: shell,
-                            placeOrder: placeOrder,
-                            hideDestinations: hidden,
+                builder: (context, content) {
+                  final swipe = DHistoryTransition.swipeOf(context);
+                  final sidebarEntry = (
+                    shell.mobileNavigation.historyId,
+                    'sidebar',
+                  );
+                  final hidden = sidebarOpen
+                      ? 1.0 - (swipe?.progress ?? 0.0)
+                      : swipe?.entry == sidebarEntry
+                      ? swipe!.progress
+                      : 0.0;
+                  return MobileScrollDock(
+                    identity: (
+                      owner,
+                      selected,
+                      shell.mobileNavigation.entryId,
+                      widget.boundary,
+                    ),
+                    visible: hidden < 1,
+                    hiddenFraction: hidden,
+                    hideOnScroll: !hideDock,
+                    keepActionVisible: _footerAction.action != null,
+                    body: content!,
+                    dockBuilder: (hidden) {
+                      // A parked draft waits over the bar, which keeps pages
+                      // clear of both.
+                      final parked = ComposerDock.parkedDraftRoomOf(context);
+                      if (hideDock) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                parked + MediaQuery.paddingOf(context).bottom,
+                          ),
+                        );
+                      }
+                      final geometry = DMobileDockGeometry.of(context);
+                      return ForumSidebarTheme(
+                        child: Padding(
+                          padding: geometry.margin.add(
+                            EdgeInsets.only(top: parked),
+                          ),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) => _buildBottomBar(
+                              context,
+                              constraints,
+                              geometry: geometry,
+                              destinations: places,
+                              selected: selected,
+                              instance: instance,
+                              showReply: showReply,
+                              showNewMessage: showNewMessage,
+                              panelAction: panelAction,
+                              showNewTopic: showNewTopic,
+                              shell: shell,
+                              placeOrder: placeOrder,
+                              hideDestinations: hidden,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],

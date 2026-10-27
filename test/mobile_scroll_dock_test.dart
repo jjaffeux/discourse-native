@@ -90,6 +90,54 @@ Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
 }
 
 void main() {
+  testWidgets('interactive footer travel is immediate and keeps the viewport', (
+    tester,
+  ) async {
+    final fraction = ValueNotifier(0.0);
+    addTearDown(fraction.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder(
+          valueListenable: fraction,
+          builder: (context, hidden, _) => MobileScrollDock(
+            identity: 'topics',
+            floating: true,
+            hiddenFraction: hidden,
+            body: const SizedBox.expand(key: _body),
+            dockBuilder: (_) => SizedBox(
+              key: _dock,
+              height: 60,
+              child: DButton(
+                label: const Text('Dock action'),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final body = tester.getRect(find.byKey(_body));
+    final dock = tester.getRect(find.byKey(_dock));
+    for (final hidden in [.25, .75, 1.0, .5, 0.0]) {
+      fraction.value = hidden;
+      await tester.pump();
+      expect(tester.getRect(find.byKey(_body)), body);
+      expect(tester.getTopLeft(find.byKey(_dock)).dy, dock.top + 60 * hidden);
+      expect(
+        DScrollChrome.bottomInsetOf(tester.element(find.byKey(_body))),
+        60,
+      );
+      expect(
+        find.byKey(_dock).hitTestable(at: const Alignment(0, -.9)),
+        hidden == 1 ? findsNothing : findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.getTopLeft(find.byKey(_dock)).dy, dock.top + 60 * hidden);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'floating dock keeps the viewport and exposes measured clearance',
     (tester) async {

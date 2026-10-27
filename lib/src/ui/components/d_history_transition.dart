@@ -71,6 +71,13 @@ class DHistoryTransition extends StatefulWidget {
           );
   }
 
+  /// The destination and progress of an edge swipe, including its settle.
+  ///
+  /// Descendants of [frameBuilder] can use this to move navigation chrome with
+  /// the page. Returns null at rest, during tab switches, and in reduced motion.
+  static ({Object entry, double progress})? swipeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HistorySwipeScope>()?.swipe;
+
   final Object history;
   final Object entry;
   final Object? previousEntry;
@@ -228,7 +235,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _switchingTab = false;
     _distance = 0;
     _progress.stop();
-    _progress.value = 0;
+    if (_progress.value != 0) _progress.value = 0;
     final preview = _preview;
     _preview = null;
     // A RawImage from this frame may still own the old handle until rebuild.
@@ -401,7 +408,23 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                     ..onCancel = () => unawaited(_settle(false)),
                 ),
           },
-          child: widget.frameBuilder?.call(context, page) ?? page,
+          child: widget.frameBuilder == null
+              ? page
+              : AnimatedBuilder(
+                  animation: _progress,
+                  builder: (context, child) => _HistorySwipeScope(
+                    swipe:
+                        !_switchingTab &&
+                            (_dragging || _settling) &&
+                            !MediaQuery.disableAnimationsOf(context)
+                        ? (entry: _target!, progress: _progress.value)
+                        : null,
+                    child: child!,
+                  ),
+                  child: Builder(
+                    builder: (context) => widget.frameBuilder!(context, page),
+                  ),
+                ),
         ),
       );
     },
@@ -558,6 +581,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       },
     );
   }
+}
+
+class _HistorySwipeScope extends InheritedWidget {
+  const _HistorySwipeScope({required this.swipe, required super.child});
+
+  final ({Object entry, double progress})? swipe;
+
+  @override
+  bool updateShouldNotify(_HistorySwipeScope oldWidget) =>
+      swipe != oldWidget.swipe;
 }
 
 class _HistoryEdgeRecognizer extends HorizontalDragGestureRecognizer {

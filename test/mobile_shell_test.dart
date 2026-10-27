@@ -4449,6 +4449,78 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest(
+    'sidebar swipe moves the tab bar with the finger in both directions',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      final shell = await pumpMobileShellFixture(tester);
+      final header = tester.getRect(_header);
+      final bar = tester.getRect(_bar);
+      final page = tester.getSize(
+        find.byKey(const ValueKey('mobile-content-panel')),
+      );
+      final travel = DMobileDockGeometry.of(tester.element(_bar)).footerExtent;
+
+      for (final opening in [true, false]) {
+        for (final cancel in [true, false]) {
+          final start = Offset(opening ? 1 : phone.width - 1, 400);
+          final gesture = await tester.startGesture(start);
+          var step = 0;
+          for (final fraction in [.2, .6, .35]) {
+            await gesture.moveTo(
+              start + Offset(phone.width * fraction * (opening ? 1 : -1), 0),
+              timeStamp: Duration(milliseconds: ++step * 200),
+            );
+            await tester.pump();
+            final hidden = opening ? fraction : 1 - fraction;
+            expect(
+              tester.getTopLeft(_bar).dy,
+              closeTo(bar.top + travel * hidden, .01),
+            );
+            expect(tester.getRect(_header), header);
+            if (opening) {
+              expect(
+                tester.getSize(
+                  find.byKey(const ValueKey('mobile-content-panel')),
+                ),
+                page,
+              );
+            }
+            // Holding the finger still must hold the bar at the same position.
+            final held = tester.getRect(_bar);
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(tester.getRect(_bar), held);
+          }
+          if (cancel) {
+            await gesture.cancel();
+          } else {
+            await gesture.up();
+          }
+          final open = cancel ? !opening : opening;
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 32));
+          final settlingTop = tester.getTopLeft(_bar).dy;
+          final releaseTop = bar.top + travel * (opening ? .35 : .65);
+          if (open) {
+            expect(settlingTop, greaterThan(releaseTop));
+            expect(settlingTop, lessThan(bar.top + travel));
+          } else {
+            expect(settlingTop, lessThan(releaseTop));
+            expect(settlingTop, greaterThan(bar.top));
+          }
+          await tester.pumpAndSettle();
+          expect(shell.mobileNavigation.sidebarOpen, open);
+          if (open) {
+            expect(_bar, findsNothing);
+          } else {
+            expect(tester.getRect(_bar), bar);
+          }
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('root edge swipes open and close navigation across mobile tabs', (
     tester,
   ) async {
