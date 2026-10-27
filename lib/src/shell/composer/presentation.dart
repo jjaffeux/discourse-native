@@ -13,7 +13,6 @@ import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../theme/app_theme.dart';
 import '../desktop_panels.dart';
-import '../forum_theme_surfaces.dart';
 import '../platform.dart';
 import '../shell_controller.dart';
 import '../shell_metrics.dart';
@@ -891,10 +890,6 @@ class _ComposerDockState extends State<ComposerDock> {
               child: WorkspacePanel(
                 atRightEdge: placement != ComposerPlacement.left,
                 child: Container(
-                  color: ForumWindowBackground.surfaceColor(
-                    context,
-                    Theme.of(context).shell.content,
-                  ),
                   padding: EdgeInsets.only(top: dividerInset),
                   child: LayoutBuilder(
                     builder: (context, bounds) => Column(
@@ -999,13 +994,7 @@ class _ComposerSurface extends StatelessWidget {
     final composer = entry.composer;
     final minimized = entry.minimized && !parked;
     return Material(
-      // The mobile sheet paints one surface behind its handle and editor.
-      color: minimized || mobile
-          ? Colors.transparent
-          : ForumWindowBackground.surfaceColor(
-              context,
-              Theme.of(context).shell.content,
-            ),
+      type: MaterialType.transparency,
       child: AbsorbPointer(
         absorbing: entry.moving,
         child: Stack(

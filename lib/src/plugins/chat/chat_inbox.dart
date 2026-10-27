@@ -414,21 +414,12 @@ class ChatSidebarInboxHeader extends StatelessWidget {
       ),
       Padding(
         padding: const EdgeInsets.only(bottom: 14),
-        child: ColoredBox(
-          color: ForumWindowBackground.surfaceColor(
+        child: ChatInboxFilterBar(
+          siteUrl: siteUrl,
+          filters: PluginUiScope.require(
             context,
-            ForumWindowBackground.chromeColor(
-              context,
-              DTokens.of(context).surface,
-            ),
-          ),
-          child: ChatInboxFilterBar(
-            siteUrl: siteUrl,
-            filters: PluginUiScope.require(
-              context,
-              chatControllerService,
-            ).inboxFilters,
-          ),
+            chatControllerService,
+          ).inboxFilters,
         ),
       ),
     ],

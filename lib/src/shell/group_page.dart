@@ -494,7 +494,7 @@ class _GroupHeader extends StatelessWidget {
     const overflowButtonSize = DButtonSize.small;
 
     return Material(
-      color: theme.colorScheme.surface,
+      type: MaterialType.transparency,
       child: ContentReadingLaneBox(
         padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
         child: LayoutBuilder(
@@ -849,7 +849,7 @@ class _PrimaryTabs extends StatelessWidget {
         : 'core:${route.section}';
 
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      type: MaterialType.transparency,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact =

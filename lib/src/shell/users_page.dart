@@ -540,9 +540,8 @@ class _UsersPageState extends State<UsersPage> {
         .where((entry) => entry.value == data.query.order)
         .firstOrNull
         ?.key;
-    final content = ColoredBox(
+    final content = KeyedSubtree(
       key: const ValueKey('users-page'),
-      color: DTokens.of(context).background,
       child: ContentReadingLaneBox(
         padding: EdgeInsets.zero,
         child: LayoutBuilder(

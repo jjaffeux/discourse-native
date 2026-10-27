@@ -97,7 +97,7 @@ class _ChannelInfoTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surface,
+      type: MaterialType.transparency,
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.dividerColor)),

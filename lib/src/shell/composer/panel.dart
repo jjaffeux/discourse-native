@@ -20,7 +20,6 @@ import '../../plugin_api/composer_footer_layout.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
 import '../app_settings_controller.dart';
@@ -421,14 +420,7 @@ class ComposerPanel extends StatelessWidget {
                   : composerHeight),
           clipBehavior: Clip.antiAlias,
           // The dock divider owns the boundary with adjacent containers.
-          decoration: BoxDecoration(
-            color: mobile
-                ? Colors.transparent
-                : ForumWindowBackground.surfaceColor(
-                    context,
-                    theme.shell.content,
-                  ),
-          ),
+          decoration: const BoxDecoration(),
           child: CallbackShortcuts(
             bindings: {
               const SingleActivator(LogicalKeyboardKey.enter, meta: true):

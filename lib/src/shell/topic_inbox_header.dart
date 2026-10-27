@@ -16,7 +16,6 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
-import 'forum_theme_surfaces.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
@@ -95,16 +94,10 @@ class TopicInboxHeader extends StatelessWidget {
     final rows = [
       _TopicHeaderToolbar(header: this),
       if (taxonomy != null)
-        ColoredBox(
-          color: ForumWindowBackground.surfaceColor(
-            context,
-            Theme.of(context).shell.content,
-          ),
-          child: _TopicHeaderReadingLane(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: taxonomy,
-            ),
+        _TopicHeaderReadingLane(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: taxonomy,
           ),
         ),
     ];
@@ -522,30 +515,24 @@ class _TopicHeaderToolbar extends StatelessWidget {
       final padding = lane.padding.add(
         const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
       );
-      return ColoredBox(
-        color: ForumWindowBackground.surfaceColor(
-          context,
-          Theme.of(context).shell.content,
-        ),
-        child: ConstrainedBox(
-          key: const ValueKey('topic-content-header'),
-          constraints: const BoxConstraints(minHeight: readerHeaderHeight),
-          child: Padding(
-            padding: padding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!ShellScope.read(context).mobileNavigationEnabled)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: TopicCloseButton(
-                      canReturnToSidebar: header.canReturnToSidebar,
-                      backToList: !header.keepTopicListOpen,
-                    ),
+      return ConstrainedBox(
+        key: const ValueKey('topic-content-header'),
+        constraints: const BoxConstraints(minHeight: readerHeaderHeight),
+        child: Padding(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!ShellScope.read(context).mobileNavigationEnabled)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TopicCloseButton(
+                    canReturnToSidebar: header.canReturnToSidebar,
+                    backToList: !header.keepTopicListOpen,
                   ),
-                _TopicHeaderTitle(header: header),
-              ],
-            ),
+                ),
+              _TopicHeaderTitle(header: header),
+            ],
           ),
         ),
       );
