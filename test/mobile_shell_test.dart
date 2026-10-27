@@ -365,9 +365,7 @@ Future<ShellController> pumpMobileShellFixture(
           targetMessageId: null,
         ),
     },
-    chatBrowsePagesByKey: {
-      FakeDiscourseApi.chatBrowseKey(): ?chatBrowsePage,
-    },
+    chatBrowsePagesByKey: {FakeDiscourseApi.chatBrowseKey(): ?chatBrowsePage},
     chatChannelThreadPagesByKey: channelThreadPages,
     chatThreadsByKey: {
       for (final thread in [?chatThread])

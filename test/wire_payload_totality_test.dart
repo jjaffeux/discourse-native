@@ -20,6 +20,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/pending_post.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/report.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
@@ -1566,6 +1567,24 @@ void main() {
             report.identifier.isNotEmpty ||
             report.title.isNotEmpty ||
             report.rows != 1,
+      );
+      probe(
+        'ReportDetails',
+        () => ReportDetails.fromJson(
+          withFields({
+            'data': gate(
+              withFields({
+                'title': gate('Report'),
+                'description': loose,
+                'modes': loose,
+                'dates_filtering': loose,
+                'available_filters': gate([json, loose]),
+              }),
+            ),
+          }),
+          site: withFields({'categories': loose, 'groups': loose}),
+        ),
+        (details) => details.title.isNotEmpty,
       );
       probe(
         'DashboardReportResult',
