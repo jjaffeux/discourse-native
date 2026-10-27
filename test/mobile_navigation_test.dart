@@ -216,4 +216,42 @@ void main() {
     expect(count, MobileNavigation.maximumPages);
     expect(navigation.atRoot, isTrue);
   });
+
+  test('a restored root names its place until a place is chosen', () {
+    final navigation = MobileNavigation();
+    expect(navigation.restoredPlace, isNull);
+    navigation.synchronize(
+      owner: 'owner',
+      location: page('all-categories'),
+      contentRoot: true,
+    );
+    navigation.synchronize(owner: 'owner', location: page('category-5'));
+    expect(navigation.tab, MobileTab.topics);
+    expect(
+      navigation.restoredPlace,
+      const MobileTab.destination('all-categories'),
+    );
+
+    navigation.claimRestoredPlace(navigation.restoredPlace!);
+    expect(navigation.tab, const MobileTab.destination('all-categories'));
+    expect(navigation.restoredPlace, isNull);
+    expect(navigation.goBack(), isTrue);
+    expect(navigation.location?.rootDestinationId, 'all-categories');
+
+    navigation.synchronize(
+      owner: 'other',
+      location: page('messages'),
+      contentRoot: true,
+    );
+    expect(navigation.tab, MobileTab.topics);
+    expect(navigation.restoredPlace, MobileTab.messages);
+
+    navigation.selectTab(MobileTab.topics);
+    navigation.synchronize(
+      owner: 'other',
+      location: page('users'),
+      contentRoot: true,
+    );
+    expect(navigation.restoredPlace, isNull);
+  });
 }

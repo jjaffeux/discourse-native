@@ -13,6 +13,14 @@ final class MobileTab {
   static const topics = MobileTab._('topics');
   static const messages = MobileTab._('messages');
   static const users = MobileTab._('users');
+
+  /// The place whose own page is the destination [id]. A destination that is
+  /// no place on this site names a tab the bar does not offer.
+  static MobileTab forDestination(String id) => switch (id) {
+    'messages' => messages,
+    'users' => users,
+    _ => MobileTab.destination(id),
+  };
   final String name;
   final String? panelOwner;
   @override
@@ -35,9 +43,27 @@ final class MobileNavigation {
   int _index = 0;
   String? _panelOwner;
   MobileTab _tab = MobileTab.topics;
+  bool _tabChosen = false;
   bool _sidebarOpen = false;
 
   MobileTab get tab => _tab;
+
+  /// The place a restored root page names while no place has been chosen.
+  /// Which places a site offers is the bar's to say, so the bar claims it.
+  MobileTab? get restoredPlace => switch (_entries.first.content) {
+    final root? when !_tabChosen => MobileTab.forDestination(
+      root.rootDestinationId,
+    ),
+    _ => null,
+  };
+
+  /// Makes [tab] the restored history's place, keeping that history.
+  void claimRestoredPlace(MobileTab tab) {
+    assert(tab.panelOwner == null);
+    _tab = tab;
+    _tabChosen = true;
+  }
+
   bool get sidebarOpen => _sidebarOpen;
 
   void openSidebar() => _sidebarOpen = true;
@@ -123,12 +149,14 @@ final class MobileNavigation {
     if (_panelOwner == owner) return;
     _panelOwner = owner;
     _tab = owner == null ? MobileTab.topics : MobileTab.panel(owner);
+    _tabChosen = true;
     _resetHistory();
   }
 
   void selectTab(MobileTab tab) {
     closeSidebar();
     _tab = tab;
+    _tabChosen = true;
     _panelOwner = tab.panelOwner;
     _resetHistory();
   }
@@ -138,6 +166,7 @@ final class MobileNavigation {
     _resetHistory();
     _panelOwner = null;
     _tab = MobileTab.topics;
+    _tabChosen = false;
   }
 
   void _resetHistory() {

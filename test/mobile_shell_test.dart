@@ -255,6 +255,8 @@ Future<ShellController> pumpMobileShellFixture(
   ChatThread? chatThread,
   Map<String, dynamic>? board,
   Map<String, Map<String, dynamic>> pluginResponses = const {},
+  FakeForumTabStore? forumTabs,
+  Key? key,
   void Function(FakeDiscourseApi api)? onApi,
 }) async {
   final config = SiteConfig(
@@ -401,6 +403,8 @@ Future<ShellController> pumpMobileShellFixture(
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     api: api,
+    forumTabs: forumTabs,
+    key: key,
   );
   final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
   if (voice) {
@@ -411,6 +415,15 @@ Future<ShellController> pumpMobileShellFixture(
   }
   return shell;
 }
+
+/// The label of the place the bar marks as the current page, null when it
+/// marks none.
+String? _markedPlace(WidgetTester tester) => tester
+    .widget<DMobileDock>(_bar)
+    .places
+    .where((place) => place.selected)
+    .singleOrNull
+    ?.label;
 
 void _expectPage() {
   expect(_bar, findsOneWidget);
@@ -3199,6 +3212,40 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final (label, id) in [
+    ('Categories', 'all-categories'),
+    ('Badges', 'badges'),
+    ('Settings', 'appearance'),
+  ]) {
+    _mobileTest('a relaunch on $label marks $label as the current place', (
+      tester,
+    ) async {
+      final forumTabs = FakeForumTabStore();
+      final shell = await pumpMobileShellFixture(tester, forumTabs: forumTabs);
+      await _chooseFromPanel(tester, label);
+      expect(shell.currentContent?.id, id);
+      expect(_markedPlace(tester), label);
+
+      final relaunched = await pumpMobileShellFixture(
+        tester,
+        forumTabs: forumTabs,
+        key: UniqueKey(),
+      );
+      expect(relaunched, isNot(same(shell)));
+      expect(relaunched.currentContent?.id, id);
+      expect(relaunched.mobileNavigation.tab, MobileTab.destination(id));
+      expect(_markedPlace(tester), label);
+      expect(relaunched.mobileNavigation.canGoBack, isFalse);
+
+      // The restored page is that place's root, so Topics starts its own.
+      await _tapDockTab(tester, 'topics');
+      expect(relaunched.currentContent?.id, 'latest');
+      expect(_markedPlace(tester), 'Topics');
+      expect(relaunched.mobileNavigation.canGoBack, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   _mobileTest('Start is not a place: the bar and its panel are Start', (
     tester,
