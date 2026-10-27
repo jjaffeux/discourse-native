@@ -74,10 +74,11 @@ Future<void> showAssignmentEditor({
   final drawer = MediaQuery.sizeOf(context).width < 768;
   final editorKey = GlobalKey<_AssignmentEditorState>();
   bool canDismiss() => !(editorKey.currentState?._saving ?? false);
-  Widget editor(VoidCallback close) => AssignmentEditor(
+  Widget editor(VoidCallback close, {Widget? sheet}) => AssignmentEditor(
     key: editorKey,
     title: title,
-    drawer: drawer,
+    drawer: drawer && sheet == null,
+    sheet: sheet,
     existing: existing,
     statusesEnabled: statusOptions.enabled,
     statuses: statusOptions.values,
@@ -107,6 +108,29 @@ Future<void> showAssignmentEditor({
     },
     onCancel: close,
   );
+  if (drawer && context.isTouch) {
+    void closeSheet() {
+      if (editorKey.currentContext case final context?) {
+        DDialogClose.close<void>(context);
+      }
+    }
+
+    return showShellSheet<void>(
+      context: context,
+      title: title,
+      canDismiss: canDismiss,
+      fillAvailableHeight: true,
+      surfaceBuilder: (_, sheet) => editor(closeSheet, sheet: sheet),
+      builder: (context) => ShellSheetForm.of<_AssignmentEditorState>(
+        context,
+      )._sheetBody(context),
+      footerBuilder: (context) => ShellSheetActions(
+        children: ShellSheetForm.of<_AssignmentEditorState>(
+          context,
+        )._actions(context),
+      ),
+    );
+  }
   if (drawer) {
     return showDDrawer<void>(
       context: context,
@@ -139,8 +163,9 @@ class AssignmentEditor extends StatefulWidget {
     this.onCancel,
     this._title,
     this.drawer = false,
+    this.sheet,
     this.searchDebounce = const Duration(milliseconds: 300),
-  });
+  }) : assert(!drawer || sheet == null);
 
   final AssignmentSuggestionsLoader loadSuggestions;
   final AssignmentAssigneeSearch searchAssignees;
@@ -154,6 +179,9 @@ class AssignmentEditor extends StatefulWidget {
   final String? _title;
   String get title => _title ?? appL10n.assignTopic;
   final bool drawer;
+
+  /// The phone sheet's surface, whose body and actions read this form.
+  final Widget? sheet;
   final Duration searchDebounce;
 
   @override
@@ -199,7 +227,10 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         existingStatus ??
         (advertisedStatuses.isEmpty ? null : advertisedStatuses.first);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !widget.drawer) _searchFocus.requestFocus();
+      // A phone keeps its keyboard closed until a person asks for search.
+      if (mounted && !widget.drawer && widget.sheet == null) {
+        _searchFocus.requestFocus();
+      }
     });
     unawaited(_loadSuggestions());
   }
@@ -419,15 +450,14 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _body(BuildContext context) {
     final statuses = <String>{
       ...widget.statuses
           .map((status) => status.trim())
           .where((status) => status.isNotEmpty),
       ?_nullableText(widget.existing?.status),
     }.toList(growable: false);
-    final body = Column(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
@@ -455,38 +485,78 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           KeyedSubtree(key: _errorKey, child: _errorMessage()),
       ],
     );
-    final cancel = DButton(
-      key: const Key('assignment-cancel'),
-      label: Text(context.l10n.cancel),
-      onPressed: _saving ? null : widget.onCancel,
-      variant: DButtonVariant.outline,
-      size: widget.drawer ? DControlSize.large : DControlSize.regular,
-    );
-    final save = DButton(
-      key: const Key('assignment-save'),
-      label: Text(
-        widget.existing != null
-            ? context.l10n.saveChanges
-            : _selected == null
-            ? context.l10n.assignAssignmentsheet
-            : context.l10n.assignTo((_selected!.identifier).toString()),
-        maxLines: null,
-      ),
-      onPressed: _saving || _searching || _selected == null ? null : _save,
-      icon: const DIcon(DIcons.check),
-      variant: DButtonVariant.primary,
-      size: widget.drawer ? DControlSize.large : DControlSize.regular,
-      loading: _saving,
-    );
-    final remove = widget.remove == null
-        ? null
-        : DButton(
-            key: const Key('assignment-unassign'),
-            label: Text(context.l10n.unassign),
-            onPressed: _saving ? null : _remove,
-            variant: DButtonVariant.destructive,
-            size: widget.drawer ? DControlSize.large : DControlSize.regular,
-          );
+  }
+
+  Widget _sheetBody(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.md,
+    children: [
+      DSheetDescription(child: Text(context.l10n.chooseOnePersonOrGroup)),
+      _search(),
+      _body(context),
+    ],
+  );
+
+  DControlSize get _controlSize =>
+      widget.drawer ? DControlSize.large : DControlSize.regular;
+
+  DButton _cancelButton(BuildContext context) => DButton(
+    key: const Key('assignment-cancel'),
+    label: Text(context.l10n.cancel),
+    onPressed: _saving ? null : widget.onCancel,
+    variant: DButtonVariant.outline,
+    size: _controlSize,
+  );
+
+  DButton _saveButton(BuildContext context) => DButton(
+    key: const Key('assignment-save'),
+    label: Text(
+      widget.existing != null
+          ? context.l10n.saveChanges
+          : _selected == null
+          ? context.l10n.assignAssignmentsheet
+          : context.l10n.assignTo((_selected!.identifier).toString()),
+      maxLines: null,
+    ),
+    onPressed: _saving || _searching || _selected == null ? null : _save,
+    icon: const DIcon(DIcons.check),
+    variant: DButtonVariant.primary,
+    size: _controlSize,
+    loading: _saving,
+  );
+
+  DButton? _removeButton(BuildContext context) => widget.remove == null
+      ? null
+      : DButton(
+          key: const Key('assignment-unassign'),
+          label: Text(context.l10n.unassign),
+          onPressed: _saving ? null : _remove,
+          variant: DButtonVariant.destructive,
+          size: _controlSize,
+        );
+
+  List<Widget> _actions(BuildContext context) => [
+    ?_removeButton(context),
+    _cancelButton(context),
+    _saveButton(context),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.sheet case final sheet?) {
+      return PopScope(
+        canPop: !_saving,
+        child: ShellSheetForm<_AssignmentEditorState>(
+          state: this,
+          child: sheet,
+        ),
+      );
+    }
+    final body = _body(context);
+    final cancel = _cancelButton(context);
+    final save = _saveButton(context);
+    final remove = _removeButton(context);
     final close = DButton.iconOnly(
       key: const Key('assignment-close'),
       onPressed: _saving ? null : widget.onCancel,

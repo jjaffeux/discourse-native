@@ -85,6 +85,13 @@ void main() {
     await tester.enterText(find.byType(EditableText).first, 'forum.example');
     await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
+    // The phone sheet opens at its lower height; the challenge's fields push
+    // Connect below it until the sheet is pulled up.
+    await tester.drag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
     return (shell: shell, storage: storage, authentication: authentication);
   }
 

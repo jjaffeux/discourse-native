@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +32,9 @@ Future<T?> showShellSheet<T>({
 
   /// Fills the viewport above the keyboard on touch. An opener inside a
   /// Scaffold has already consumed the keyboard inset, so a sheet that
-  /// autofocuses a field must track the view's inset instead.
+  /// autofocuses a field must track the view's inset instead. A draggable
+  /// touch sheet instead reserves its lower opening height, so arriving
+  /// results cannot resize it, and takes the room above a visible keyboard.
   bool fillAvailableHeight = false,
 
   /// Wraps the whole surface, so an inherited theme also reaches its fill.
@@ -75,11 +79,20 @@ Future<T?> showShellSheet<T>({
       ),
     );
   }
-  final variant = enableDrag ? DSheetVariant.menu : DSheetVariant.standard;
+  // On a phone a draggable sheet comes up from the foot as every other panel
+  // does, put away by its grabber or the page around it.
+  final variant = !enableDrag
+      ? DSheetVariant.standard
+      : context.isTouch
+      ? DSheetVariant.adaptiveMenu
+      : DSheetVariant.menu;
+  final adaptive = variant == DSheetVariant.adaptiveMenu;
+  final sizeToContent = !(adaptive && fillAvailableHeight);
   return showDSheet<T>(
     context: context,
     side: DSheetSide.bottom,
     variant: variant,
+    sizeToContent: sizeToContent,
     dismissOnSwipe: enableDrag,
     canDismiss: canDismiss,
     initialFocusNode: initialFocusNode,
@@ -87,30 +100,41 @@ Future<T?> showShellSheet<T>({
     topBottomMaxWidth: 640,
     builder: (context, _) => surface(
       context,
-      ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 640),
-        child: DSheetContent(
-          side: DSheetSide.bottom,
-          variant: variant,
-          semanticLabel: title,
-          showCloseButton: false,
-          scrollWholeSheet: false,
-          topBottomMaxHeightFactor: 1,
-          fillAvailableHeight: fillAvailableHeight,
-          children: [
-            Flexible(
-              child: _SheetBody(
-                title: title,
-                builder: builder,
-                footerBuilder: footerBuilder,
-                nested: nested,
-                scrollBody: scrollBody,
-                showHeaderDivider: showHeaderDivider,
-                padding: padding,
-                footerPadding: footerPadding,
+      Padding(
+        // The adaptive sheet spans the viewport; centre the capped width
+        // without loosening the height it lays the surface out at.
+        padding: EdgeInsets.symmetric(
+          horizontal: adaptive
+              ? math.max(0, (MediaQuery.sizeOf(context).width - 640) / 2)
+              : 0,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 640),
+          child: DSheetContent(
+            side: DSheetSide.bottom,
+            variant: variant,
+            sizeToContent: sizeToContent,
+            semanticLabel: title,
+            showCloseButton: false,
+            scrollWholeSheet: false,
+            topBottomMaxHeightFactor: 1,
+            fillAvailableHeight: fillAvailableHeight,
+            children: [
+              Flexible(
+                child: _SheetBody(
+                  title: title,
+                  builder: builder,
+                  footerBuilder: footerBuilder,
+                  nested: nested,
+                  grabbed: adaptive,
+                  scrollBody: scrollBody,
+                  showHeaderDivider: showHeaderDivider,
+                  padding: padding,
+                  footerPadding: footerPadding,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
@@ -123,6 +147,7 @@ class _SheetBody extends StatelessWidget {
     required this.builder,
     required this.footerBuilder,
     required this.nested,
+    this.grabbed = false,
     required this.scrollBody,
     required this.showHeaderDivider,
     required this.padding,
@@ -133,6 +158,9 @@ class _SheetBody extends StatelessWidget {
   final WidgetBuilder builder;
   final WidgetBuilder? footerBuilder;
   final bool nested;
+
+  /// Put away by its grabber, so its title stands alone as the heading.
+  final bool grabbed;
   final bool scrollBody;
   final bool showHeaderDivider;
   final EdgeInsetsGeometry padding;
@@ -146,7 +174,9 @@ class _SheetBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
+          padding: grabbed && !nested
+              ? const EdgeInsets.fromLTRB(20, 2, 20, 12)
+              : EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
           child: Row(
             children: [
               if (nested)
@@ -157,9 +187,19 @@ class _SheetBody extends StatelessWidget {
                   icon: const DIcon(DIcons.arrowLeft),
                 ),
               Expanded(
-                child: DText(title, variant: DTextVariant.h4, headingLevel: 1),
+                child: DText(
+                  title,
+                  variant: DTextVariant.h4,
+                  headingLevel: 1,
+                  style: grabbed
+                      ? TextStyle(
+                          fontSize: 15,
+                          color: DTokens.of(context).foreground,
+                        )
+                      : null,
+                ),
               ),
-              if (!nested)
+              if (!nested && !grabbed)
                 DButton.iconOnly(
                   onPressed: () => DDialogClose.close<void>(context),
                   variant: DButtonVariant.ghost,
@@ -184,4 +224,35 @@ class _SheetBody extends StatelessWidget {
       ],
     );
   }
+}
+
+/// One form's state, shared by the body and footer that [showShellSheet]
+/// builds as separate subtrees. The form wraps the surface through
+/// `surfaceBuilder`, and each part rebuilds from it through [of].
+class ShellSheetForm<S extends State> extends InheritedWidget {
+  const ShellSheetForm({super.key, required this.state, required super.child});
+
+  final S state;
+
+  static S of<S extends State>(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ShellSheetForm<S>>()!.state;
+
+  // The form rebuilds this scope only when its state changed.
+  @override
+  bool updateShouldNotify(ShellSheetForm<S> oldWidget) => true;
+}
+
+/// A sheet footer's actions, in order towards its trailing edge.
+class ShellSheetActions extends StatelessWidget {
+  const ShellSheetActions({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.end,
+    spacing: DSpacing.sm,
+    runSpacing: DSpacing.sm,
+    children: children,
+  );
 }

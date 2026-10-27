@@ -8,6 +8,8 @@ import '../../../data/site_pdf_thumbnail_repository.dart';
 import '../../../models/site_config.dart';
 import '../../../plugin_api/composer_syntax.dart';
 import '../../pdf_attachment.dart';
+import '../../platform.dart';
+import '../../shell_sheet.dart';
 import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import '../markdown_tokens.dart';
@@ -800,14 +802,29 @@ Future<void> showComposerLinkDialog({
           capturedSelection.end,
         )
       : '';
-  final draft = await showDDialog<_ComposerLinkDraft>(
-    context: context,
-    builder: (context, controller) => _ComposerLinkDialog(
-      controller: controller,
-      initialAnchor: link?.anchor ?? selectedAnchor,
-      initialUrl: link?.url ?? '',
-    ),
+  Widget editor({Widget? sheet}) => _ComposerLinkDialog(
+    initialAnchor: link?.anchor ?? selectedAnchor,
+    initialUrl: link?.url ?? '',
+    sheet: sheet,
   );
+  final draft = context.isTouch
+      ? await showShellSheet<_ComposerLinkDraft>(
+          context: context,
+          title: appL10n.insertLink,
+          surfaceBuilder: (_, sheet) => editor(sheet: sheet),
+          builder: (context) => ShellSheetForm.of<_ComposerLinkDialogState>(
+            context,
+          )._fields(context),
+          footerBuilder: (context) => ShellSheetActions(
+            children: ShellSheetForm.of<_ComposerLinkDialogState>(
+              context,
+            )._actions(context),
+          ),
+        )
+      : await showDDialog<_ComposerLinkDraft>(
+          context: context,
+          builder: (_, _) => editor(),
+        );
   if (draft == null ||
       !selectionIsInBounds ||
       !context.mounted ||
@@ -844,12 +861,14 @@ class _ComposerLinkDialog extends StatefulWidget {
   const _ComposerLinkDialog({
     required this.initialAnchor,
     required this.initialUrl,
-    required this.controller,
+    this.sheet,
   });
 
-  final DDialogController<_ComposerLinkDraft> controller;
   final String initialAnchor;
   final String initialUrl;
+
+  /// The phone sheet's surface, whose fields and actions read this form.
+  final Widget? sheet;
 
   @override
   State<_ComposerLinkDialog> createState() => _ComposerLinkDialogState();
@@ -877,54 +896,73 @@ class _ComposerLinkDialogState extends State<_ComposerLinkDialog> {
 
   void _insert() {
     if (!_canInsert) return;
-    widget.controller.close(
+    DDialogClose.close<_ComposerLinkDraft>(
+      context,
       _ComposerLinkDraft(url: _url.text.trim(), anchor: _anchor.text),
     );
   }
 
-  @override
-  Widget build(BuildContext context) => DDialogContent(
-    key: const ValueKey('composer-link-dialog'),
-    semanticLabel: context.l10n.insertLink,
-    maxWidth: 460,
-    children: [
-      DDialogHeader(
-        children: [DDialogTitle(child: Text(context.l10n.insertLink))],
-      ),
-      DInput(
-        key: const ValueKey('composer-link-url'),
-        controller: _url,
-        autofocus: true,
-        keyboardType: TextInputType.url,
-        textInputAction: TextInputAction.next,
-        onChanged: (_) => setState(() {}),
-        onSubmitted: (_) => _insert(),
-        labelText: context.l10n.urlLabel,
-      ),
-      DInput(
-        key: const ValueKey('composer-link-anchor'),
-        controller: _anchor,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => _insert(),
-        labelText: context.l10n.text,
-      ),
-      DDialogFooter(
-        children: [
-          DButton(
-            label: Text(context.l10n.cancel),
-            variant: DButtonVariant.outline,
-            onPressed: widget.controller.close,
-          ),
-          DButton(
-            key: const ValueKey('composer-link-insert'),
-            label: Text(context.l10n.insertLink),
-            onPressed: _canInsert ? _insert : null,
-            variant: DButtonVariant.primary,
-          ),
-        ],
-      ),
-    ],
+  List<Widget> _inputs(BuildContext context) => [
+    DInput(
+      key: const ValueKey('composer-link-url'),
+      controller: _url,
+      autofocus: true,
+      keyboardType: TextInputType.url,
+      textInputAction: TextInputAction.next,
+      onChanged: (_) => setState(() {}),
+      onSubmitted: (_) => _insert(),
+      labelText: context.l10n.urlLabel,
+    ),
+    DInput(
+      key: const ValueKey('composer-link-anchor'),
+      controller: _anchor,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _insert(),
+      labelText: context.l10n.text,
+    ),
+  ];
+
+  Widget _fields(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: DSpacing.lg,
+    children: _inputs(context),
   );
+
+  List<Widget> _actions(BuildContext context) => [
+    DButton(
+      label: Text(context.l10n.cancel),
+      variant: DButtonVariant.outline,
+      onPressed: () => DDialogClose.close<_ComposerLinkDraft>(context),
+    ),
+    DButton(
+      key: const ValueKey('composer-link-insert'),
+      label: Text(context.l10n.insertLink),
+      onPressed: _canInsert ? _insert : null,
+      variant: DButtonVariant.primary,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.sheet case final sheet?) {
+      return ShellSheetForm<_ComposerLinkDialogState>(
+        state: this,
+        child: sheet,
+      );
+    }
+    return DDialogContent(
+      key: const ValueKey('composer-link-dialog'),
+      semanticLabel: context.l10n.insertLink,
+      maxWidth: 460,
+      children: [
+        DDialogHeader(
+          children: [DDialogTitle(child: Text(context.l10n.insertLink))],
+        ),
+        ..._inputs(context),
+        DDialogFooter(children: _actions(context)),
+      ],
+    );
+  }
 }
 
 TextStyle _hidden(TextStyle base) => TextStyle(

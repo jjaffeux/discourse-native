@@ -177,6 +177,15 @@ void main() {
           );
 
           expect(tester.takeException(), isNull);
+          if (platform == TargetPlatform.iOS) {
+            // A phone sheet taller than its lower height opens there and is
+            // pulled up to reach its foot.
+            await tester.drag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, -600),
+            );
+            await tester.pumpAndSettle();
+          }
           for (final key in [_copyKey, _shareKey, _replyKey]) {
             final button = find.byKey(key);
             final rect = tester.getRect(button);

@@ -4741,6 +4741,9 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
+    // On a phone the choice comes up from the foot as every other panel does.
+    sheetOnMobile: true,
+    mobileSheetVariant: DSheetVariant.adaptiveMenu,
     content: DDropdownMenuContent(
       semanticLabel: context.l10n.upload,
       side: DPopoverSide.top,

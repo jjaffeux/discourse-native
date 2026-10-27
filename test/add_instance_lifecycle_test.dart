@@ -237,7 +237,7 @@ void main() {
       await tester.pumpWidget(_app(controller));
       await _startLookup(tester, api);
 
-      await tester.tap(find.byTooltip('Close'));
+      await _dismissSheet(tester);
       await tester.pumpAndSettle();
       api.lookupGate.complete();
       await tester.pumpAndSettle();
@@ -260,7 +260,7 @@ void main() {
 
       // Dismissal is underway, but the exit animation keeps the form mounted:
       // exactly the window in which the connect may still complete.
-      await tester.tap(find.byTooltip('Close'));
+      await _dismissSheet(tester);
       await tester.pump();
       api.lookupGate.complete();
       await tester.pump();
@@ -341,6 +341,12 @@ Future<void> _startLookup(WidgetTester tester, _GatedLookupApi api) async {
   await tester.pump();
   await api.started.future;
 }
+
+/// Puts the phone sheet away by its grabber, as it has no close button.
+Future<void> _dismissSheet(WidgetTester tester) => tester.drag(
+  find.byKey(const ValueKey('sheet-drag-handle')),
+  const Offset(0, 400),
+);
 
 Future<void> _openSheet(WidgetTester tester) async {
   await tester.tap(find.text('Add site'));

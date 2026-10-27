@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 
 const _site = 'https://meta.discourse.org';
 const _sam = AssignmentUser(username: 'sam', name: 'Sam');
@@ -44,14 +45,16 @@ void main() {
           fixture.api.pendingWrite = Completer<Map<String, dynamic>>();
           await tester.tap(find.byKey(Key('assignment-$action')));
           await tester.pump();
-          await tester.tap(find.byKey(const Key('assignment-close')));
+          if (size.width >= 768) {
+            await tester.tap(find.byKey(const Key('assignment-close')));
+          }
           await tester.tap(find.byKey(const Key('assignment-cancel')));
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.binding.handlePopRoute();
           await tester.tapAt(const Offset(4, 4));
           if (size.width < 768) {
             await tester.drag(
-              find.byType(DDrawerSwipeHandle),
+              find.byKey(const ValueKey('sheet-drag-handle')),
               const Offset(0, 650),
             );
           }
@@ -149,6 +152,28 @@ void main() {
     });
   });
 
+  testWidgets('a phone assigns from its sheet', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fixture = await _fixture(tester);
+    await tester.pumpWidget(
+      fixture.host(existing: false, platform: TargetPlatform.iOS),
+    );
+    await _openAndSelect(tester);
+    expectPhoneSheet(tester, title: 'Assign topic');
+
+    await tester.tap(find.byKey(const Key('assignment-save')));
+    await tester.pumpAndSettle();
+    expect(fixture.api.calls.last.body, {
+      'target_id': 7,
+      'target_type': 'Topic',
+      'username': 'sam',
+    });
+    expect(find.byType(AssignmentEditor), findsNothing);
+  });
+
   testWidgets(
     'a resize preserves the mounted draft and selects the next presentation on reopen',
     (tester) async {
@@ -180,7 +205,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await _close(tester);
       await _openAndSelect(tester);
-      expect(find.byType(DDrawerContent), findsOneWidget);
+      expectPhoneSheet(tester, title: 'Edit topic assignment');
       expect(
         tester
             .widget<DTextarea>(
@@ -395,7 +420,7 @@ Future<void> _act(WidgetTester tester, String action) async {
 }
 
 Future<void> _close(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Close'));
+  await tester.tap(find.byKey(const Key('assignment-cancel')));
   await tester.pumpAndSettle();
   expect(find.byType(AssignmentEditor), findsNothing);
 }
@@ -471,10 +496,13 @@ class _Fixture {
   final AssignmentController assignments;
   int writeAdmissions = 0;
 
-  Widget host({bool existing = true}) => ShellScope(
+  Widget host({
+    bool existing = true,
+    TargetPlatform platform = TargetPlatform.android,
+  }) => ShellScope(
     controller: shell,
     child: MaterialApp(
-      theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+      theme: AppTheme.light.copyWith(platform: platform),
       home: Scaffold(
         body: PluginUiScope.own(
           assignPluginId,

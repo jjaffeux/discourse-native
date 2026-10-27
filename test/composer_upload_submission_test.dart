@@ -142,8 +142,15 @@ void main() {
       await tester.tap(uploadButton);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+      // A phone's upload sheet measures itself before it comes up.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byKey(const ValueKey('composer-upload-files')));
       await tester.pump();
+      // and goes back down before what it covered is in reach.
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(pickerCalls, 1);
       expect(api.uploads, hasLength(3));
       final cancel = find.descendant(

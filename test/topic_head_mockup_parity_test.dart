@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/bundled_plugins.dart';
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 // Reference: discourse-native-mockups 847614e, look A. `toolChip`,
@@ -338,7 +339,7 @@ void main() {
     ]);
     await tester.tap(find.byKey(const Key('assign-topic-action')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
+    expectPhoneSheet(tester, title: 'Assign topic');
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 

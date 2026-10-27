@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -154,7 +155,7 @@ void topicCompactActionsSheetTests({
         await tester.tap(find.byKey(const Key('assign-topic-reassign-action')));
         await tester.pumpAndSettle();
         expect(_menu, findsNothing);
-        expect(find.byKey(const Key('assignment-drawer')), findsOneWidget);
+        expectPhoneSheet(tester, title: 'Edit topic assignment');
         // Reassigning edits the existing assignment, which it can also remove.
         expect(find.byKey(const Key('assignment-unassign')), findsOneWidget);
         await tester.tap(find.byKey(const Key('assignment-cancel')));

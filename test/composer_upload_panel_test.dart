@@ -910,6 +910,9 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-upload')));
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
+        // A phone's upload sheet measures itself before it comes up.
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
         await tester.pump();
 
@@ -1059,6 +1062,8 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-upload-photos')));
         await tester.pump();
         await tester.pump(const Duration(seconds: 1));
+        // The phone's upload sheet goes down over frames of its own.
+        await tester.pump(const Duration(milliseconds: 400));
 
         expect(find.text('Optimizing video…'), findsOneWidget);
         final editorBounds = tester.getRect(find.byType(ComposerEditor));
@@ -1080,6 +1085,46 @@ void main() {
         await tester.tap(find.byTooltip('Cancel upload'));
         await tester.pump();
         expect(composer.uploads, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
+
+    testWidgets(
+      'a phone chooses what to upload from a sheet, as the mockup does',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        addTearDown(tester.view.reset);
+        final composer = ComposerController(
+          _target,
+          imageUploader: (_, {required onProgress, required abortTrigger}) =>
+              Completer<ComposerUploadResult>().future,
+        );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer, pickImages: () async => []);
+        await tester.tap(find.byKey(const ValueKey('composer-upload')));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        expect(sheet, findsOneWidget);
+        expect(
+          find.descendant(
+            of: sheet,
+            matching: find.byKey(const ValueKey('sheet-drag-handle')),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find
+              .descendant(
+                of: sheet,
+                matching: find.byKey(const ValueKey('composer-upload-files')),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
       variant: const TargetPlatformVariant({TargetPlatform.iOS}),

@@ -8,9 +8,11 @@ import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
 import 'category_icon.dart';
+import 'platform.dart';
 import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'shell_sheet.dart';
 
 Future<void> showTopicMovePosts({
   required BuildContext context,
@@ -39,20 +41,39 @@ Future<void> showTopicMovePosts({
       )
       .toList();
   final dialogKey = GlobalKey<_TopicMovePostsDialogState>();
-  final result = await showDDialog<PostMoveOutcome>(
-    context: context,
-    dismissOnBarrier: false,
-    canDismiss: () => !(dialogKey.currentState?._saving ?? false),
-    builder: (context, dialog) => _TopicMovePostsDialog(
-      key: dialogKey,
-      controller: controller,
-      onClose: (result) => dialog.close(result),
-      target: target,
-      topic: topic,
-      selectedPosts: selectedPosts,
-      categories: categories,
-    ),
+  bool canDismiss() => !(dialogKey.currentState?._saving ?? false);
+  Widget editor({Widget? sheet}) => _TopicMovePostsDialog(
+    key: dialogKey,
+    controller: controller,
+    target: target,
+    topic: topic,
+    selectedPosts: selectedPosts,
+    categories: categories,
+    sheet: sheet,
   );
+  final result = context.isTouch
+      ? await showShellSheet<PostMoveOutcome>(
+          context: context,
+          title: appL10n.movePosts,
+          canDismiss: canDismiss,
+          scrollBody: false,
+          fillAvailableHeight: true,
+          surfaceBuilder: (_, sheet) => editor(sheet: sheet),
+          builder: (context) => ShellSheetForm.of<_TopicMovePostsDialogState>(
+            context,
+          )._body(context),
+          footerBuilder: (context) => ShellSheetActions(
+            children: ShellSheetForm.of<_TopicMovePostsDialogState>(
+              context,
+            )._actions(context),
+          ),
+        )
+      : await showDDialog<PostMoveOutcome>(
+          context: context,
+          dismissOnBarrier: false,
+          canDismiss: canDismiss,
+          builder: (_, _) => editor(),
+        );
   if (!context.mounted ||
       result == null ||
       !controller.isTopicPostMoveTargetCurrent(target) ||
@@ -93,19 +114,21 @@ class _TopicMovePostsDialog extends StatefulWidget {
   const _TopicMovePostsDialog({
     super.key,
     required this.controller,
-    required this.onClose,
     required this.target,
     required this.topic,
     required this.selectedPosts,
     required this.categories,
+    this.sheet,
   });
 
   final ShellController controller;
-  final ValueChanged<PostMoveOutcome?> onClose;
   final TopicPostMoveTarget target;
   final TopicDetail topic;
   final List<Post> selectedPosts;
   final List<TopicCategory> categories;
+
+  /// The phone sheet's surface, whose body and actions read this form.
+  final Widget? sheet;
 
   @override
   State<_TopicMovePostsDialog> createState() => _TopicMovePostsDialogState();
@@ -205,7 +228,7 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
     if (outcome is PostMutationAccepted &&
         outcome.projection != PostProjectionFreshness.retired) {
       _saving = false;
-      widget.onClose(result);
+      _close(result);
       return;
     }
     setState(() {
@@ -232,9 +255,103 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
               _destinations.contains(_destination),
       };
 
+  void _close(PostMoveOutcome? result) =>
+      DDialogClose.close<PostMoveOutcome>(context, result);
+
+  Widget _body(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (widget.sheet != null) ...[
+        DSheetDescription(
+          child: Text(context.l10n.moveSelected(widget.selectedPosts.length)),
+        ),
+        const SizedBox(height: DSpacing.md),
+      ],
+      DToggleGroup<_MoveMode>(
+        key: const ValueKey('topic-move-posts-mode'),
+        items: [
+          if (_canCreateNew)
+            DToggleGroupItem(
+              value: _MoveMode.newTopic,
+              child: Text(
+                _message ? context.l10n.newMessage : context.l10n.newTopic,
+              ),
+            ),
+          DToggleGroupItem(
+            value: _MoveMode.existingTopic,
+            child: Text(
+              _message
+                  ? context.l10n.existingMessage
+                  : context.l10n.existingTopic,
+            ),
+          ),
+        ],
+        values: [_mode],
+        allowEmptySelection: false,
+        variant: DToggleVariant.outline,
+        spacing: 0,
+        onChanged: _saving
+            ? null
+            : (selection) => setState(() {
+                _mode = selection.single;
+                _error = null;
+              }),
+      ),
+      const SizedBox(height: 16),
+      Expanded(
+        child: switch (_mode) {
+          _MoveMode.newTopic => _newTopicFields(),
+          _MoveMode.existingTopic => _existingTopicFields(),
+        },
+      ),
+      if (_error case final error?)
+        DAlert(
+          key: const ValueKey('topic-move-posts-error'),
+          variant: DAlertVariant.destructive,
+          description: DAlertDescription(child: Text(error)),
+        ),
+    ],
+  );
+
+  List<Widget> _actions(BuildContext context) => [
+    DButton(
+      label: Text(context.l10n.cancel),
+      onPressed: _saving ? null : () => _close(null),
+      variant: DButtonVariant.outline,
+    ),
+    if (_recovery case final recovery?)
+      PostMutationRecoveryButton(
+        recovery: recovery,
+        onRefreshed: (projection) => setState(
+          () => _error = postMutationRefreshMessage(
+            context,
+            projection,
+            retiredMessage:
+                context.l10n.yourConnectionChangedReopenMovePostsAndTryAgain,
+          ),
+        ),
+      ),
+    DButton(
+      key: const ValueKey('topic-move-posts-submit'),
+      label: Text(
+        _mode == _MoveMode.newTopic
+            ? context.l10n.createAndMove
+            : context.l10n.movePosts,
+      ),
+      onPressed: _canSubmit ? () => unawaited(_move()) : null,
+      variant: DButtonVariant.primary,
+      loading: _saving,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final count = widget.selectedPosts.length;
+    if (widget.sheet case final sheet?) {
+      return ShellSheetForm<_TopicMovePostsDialogState>(
+        state: this,
+        child: sheet,
+      );
+    }
     return DDialogContent(
       key: const ValueKey('topic-move-posts-dialog'),
       semanticLabel: context.l10n.movePosts,
@@ -244,95 +361,15 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         DDialogHeader(
           children: [
             DDialogTitle(child: Text(context.l10n.movePosts)),
-            DDialogDescription(child: Text(context.l10n.moveSelected(count))),
-          ],
-        ),
-        SizedBox(
-          height: 430,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DToggleGroup<_MoveMode>(
-                key: const ValueKey('topic-move-posts-mode'),
-                items: [
-                  if (_canCreateNew)
-                    DToggleGroupItem(
-                      value: _MoveMode.newTopic,
-                      child: Text(
-                        _message
-                            ? context.l10n.newMessage
-                            : context.l10n.newTopic,
-                      ),
-                    ),
-                  DToggleGroupItem(
-                    value: _MoveMode.existingTopic,
-                    child: Text(
-                      _message
-                          ? context.l10n.existingMessage
-                          : context.l10n.existingTopic,
-                    ),
-                  ),
-                ],
-                values: [_mode],
-                allowEmptySelection: false,
-                variant: DToggleVariant.outline,
-                spacing: 0,
-                onChanged: _saving
-                    ? null
-                    : (selection) => setState(() {
-                        _mode = selection.single;
-                        _error = null;
-                      }),
+            DDialogDescription(
+              child: Text(
+                context.l10n.moveSelected(widget.selectedPosts.length),
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: switch (_mode) {
-                  _MoveMode.newTopic => _newTopicFields(),
-                  _MoveMode.existingTopic => _existingTopicFields(),
-                },
-              ),
-              if (_error case final error?)
-                DAlert(
-                  key: const ValueKey('topic-move-posts-error'),
-                  variant: DAlertVariant.destructive,
-                  description: DAlertDescription(child: Text(error)),
-                ),
-            ],
-          ),
-        ),
-        DDialogFooter(
-          children: [
-            DButton(
-              label: Text(context.l10n.cancel),
-              onPressed: _saving ? null : () => widget.onClose(null),
-              variant: DButtonVariant.outline,
-            ),
-            if (_recovery case final recovery?)
-              PostMutationRecoveryButton(
-                recovery: recovery,
-                onRefreshed: (projection) => setState(
-                  () => _error = postMutationRefreshMessage(
-                    context,
-                    projection,
-                    retiredMessage: context
-                        .l10n
-                        .yourConnectionChangedReopenMovePostsAndTryAgain,
-                  ),
-                ),
-              ),
-            DButton(
-              key: const ValueKey('topic-move-posts-submit'),
-              label: Text(
-                _mode == _MoveMode.newTopic
-                    ? context.l10n.createAndMove
-                    : context.l10n.movePosts,
-              ),
-              onPressed: _canSubmit ? () => unawaited(_move()) : null,
-              variant: DButtonVariant.primary,
-              loading: _saving,
             ),
           ],
         ),
+        SizedBox(height: 430, child: _body(context)),
+        DDialogFooter(children: _actions(context)),
       ],
     );
   }

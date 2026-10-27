@@ -29,6 +29,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/phone_sheet.dart';
 
 const _site = 'https://meta.example';
 const _lastCustomKey = 'bookmark.last-custom.https%3A%2F%2Fmeta.example.reader';
@@ -201,6 +202,67 @@ void main() {
     expect(api.createdBookmarks, hasLength(1));
     expect(find.text('Bookmarked!'), findsOneWidget);
   });
+
+  testWidgets('a phone confirms deleting a reminder in its sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (controller, api) = await _controller();
+    addTearDown(controller.dispose);
+    final reminded = _post.copyWith(
+      bookmark: Bookmark(
+        id: 81,
+        bookmarkableId: 12,
+        bookmarkableType: 'Post',
+        postNumber: 2,
+        reminderAt: DateTime.now().add(const Duration(days: 1)),
+      ),
+    );
+    await tester.pumpWidget(
+      _host(
+        controller,
+        TargetPlatform.iOS,
+        Builder(
+          builder: (context) => DButton(
+            onPressed: () => unawaited(
+              showPostBookmarkMenu(
+                context: context,
+                controller: controller,
+                siteUrl: _site,
+                topicId: 7,
+                post: reminded,
+              ),
+            ),
+            label: const Text('Open bookmark'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open bookmark'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete bookmark'));
+    await tester.pumpAndSettle();
+
+    expectPhoneSheet(tester, title: 'Delete bookmark?');
+    expect(
+      find.descendant(
+        of: phoneSheet('Delete bookmark?'),
+        matching: find.text('This also removes its scheduled reminder.'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(
+        of: phoneSheet('Delete bookmark?'),
+        matching: find.widgetWithText(DButton, 'Delete'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(phoneSheet('Delete bookmark?'), findsNothing);
+    expect(api.deletedBookmarks, [81]);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('a saved bookmark is available in More actions', (tester) async {
     final (controller, _) = await _controller();
@@ -1011,6 +1073,13 @@ Widget _host(
 Future<void> _scrollEditorToEnd(WidgetTester tester, String action) async {
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pump();
+  // A phone sheet taller than its lower height opens there, as the mockup's
+  // does, and is pulled up to its full height for what is below.
+  final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
+  if (grabber.evaluate().isNotEmpty) {
+    await tester.drag(grabber.last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+  }
   final button = find.text(action);
   await tester.ensureVisible(button);
   await tester.pump();

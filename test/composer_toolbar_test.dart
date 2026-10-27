@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/marks.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -296,7 +297,10 @@ void main() {
     const source = 'Read [Dart]($url) now.';
     open(source);
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: SizedBox())),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(body: SizedBox()),
+      ),
     );
     final projection = const ComposerLinkSyntaxPolicy().parse(source).single;
     final editing = projection.edit(
