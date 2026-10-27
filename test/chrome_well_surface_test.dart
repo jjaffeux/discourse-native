@@ -50,6 +50,9 @@ void main() {
               return (image, bytes);
             }))!;
 
+        // The sidebar switch is no bar group: its well is edged by the 12%
+        // line (d_sidebar_tab_material_test.dart), so only the navigation
+        // capsule shares the search input's edge.
         for (final (name, control) in <(String, Widget)>[
           (
             'navigation capsule',
@@ -59,40 +62,6 @@ void main() {
                 size: DCardSize.small,
                 borderColor: Colors.transparent,
                 child: SizedBox(width: 140, height: 24 * scale),
-              ),
-            ),
-          ),
-          (
-            'sidebar switch',
-            const SizedBox(
-              width: 126,
-              child: DTabs<String>(
-                selectFirstOnMount: false,
-                children: [
-                  DTabList<String>(
-                    expandSelected: true,
-                    children: [
-                      DTabTrigger(
-                        value: 'forum',
-                        selectedLabelOnly: true,
-                        semanticLabel: 'Forum',
-                        child: Text('Forum'),
-                      ),
-                      DTabTrigger(
-                        value: 'chat',
-                        selectedLabelOnly: true,
-                        semanticLabel: 'Chat',
-                        child: Text('Chat'),
-                      ),
-                      DTabTrigger(
-                        value: 'shortcuts',
-                        selectedLabelOnly: true,
-                        semanticLabel: 'Shortcuts',
-                        child: Text('Shortcuts'),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
