@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -79,6 +80,10 @@ class DScrollBehavior extends ScrollBehavior {
       topInset: horizontal ? null : local?.topInset,
       bottomInset: horizontal ? null : local?.bottomInset,
       repaint: horizontal ? null : local?.repaint,
+      // A page that keeps its own room at the foot fades into it instead.
+      foot: horizontal || local?.bottomInset != null
+          ? null
+          : DScrollFootScope.maybeOf(context),
       child: decorated,
     );
   }
@@ -132,6 +137,37 @@ class DScrollFadeScope extends InheritedWidget {
       repaint != oldWidget.repaint;
 }
 
+/// A bar floating over the foot of the lists under this scope, [extent] tall
+/// up from the bottom of [ground]. A vertical list that runs on under it to
+/// that bottom thins from the bar's top edge to [opacity] at the foot, never
+/// quite gone, so it still reads past the bar; that replaces its bottom edge
+/// fade. A list stopping short of the foot is not under the bar.
+class DScrollFoot {
+  const DScrollFoot({required this.extent, required this.ground});
+
+  /// How much of the foot the bar covers now, 0 while there is none.
+  final ValueListenable<double> extent;
+
+  /// What the bar floats at the bottom of.
+  final ValueGetter<RenderBox?> ground;
+
+  /// What is left of a list at the very foot.
+  static const opacity = .3;
+}
+
+/// Puts the lists below it under [foot], or under no bar when it is null.
+class DScrollFootScope extends InheritedWidget {
+  const DScrollFootScope({super.key, required this.foot, required super.child});
+
+  final DScrollFoot? foot;
+
+  static DScrollFoot? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DScrollFootScope>()?.foot;
+
+  @override
+  bool updateShouldNotify(DScrollFootScope oldWidget) => foot != oldWidget.foot;
+}
+
 class _ScrollEdgeFade extends StatefulWidget {
   const _ScrollEdgeFade({
     required this.controller,
@@ -141,6 +177,7 @@ class _ScrollEdgeFade extends StatefulWidget {
     required this.topInset,
     required this.bottomInset,
     required this.repaint,
+    required this.foot,
     required this.child,
   });
 
@@ -151,6 +188,7 @@ class _ScrollEdgeFade extends StatefulWidget {
   final ValueGetter<double>? topInset;
   final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
+  final DScrollFoot? foot;
   final Widget child;
 
   @override
@@ -178,6 +216,7 @@ class _ScrollEdgeFadeState extends State<_ScrollEdgeFade> {
           topInset: widget.topInset,
           bottomInset: widget.bottomInset,
           repaint: widget.repaint,
+          foot: widget.foot,
           child: widget.child,
         ),
       );
@@ -193,6 +232,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
     required this.topInset,
     required this.bottomInset,
     required this.repaint,
+    required this.foot,
     required super.child,
   });
 
@@ -203,6 +243,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   final ValueGetter<double>? topInset;
   final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
+  final DScrollFoot? foot;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -214,6 +255,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
         topInset,
         bottomInset,
         repaint,
+        foot,
       );
 
   @override
@@ -229,6 +271,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
       topInset,
       bottomInset,
       repaint,
+      foot,
     );
   }
 }
@@ -242,6 +285,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     this._topInset,
     this._bottomInset,
     this._repaint,
+    this._foot,
   );
 
   ScrollController? _controller;
@@ -251,6 +295,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   ValueGetter<double>? _topInset;
   ValueGetter<double>? _bottomInset;
   Listenable? _repaint;
+  DScrollFoot? _foot;
 
   void update(
     ScrollController? controller,
@@ -260,6 +305,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     ValueGetter<double>? topInset,
     ValueGetter<double>? bottomInset,
     Listenable? repaint,
+    DScrollFoot? foot,
   ) {
     if (controller != _controller) {
       if (attached) _controller?.removeListener(markNeedsPaint);
@@ -271,6 +317,11 @@ class _RenderScrollFadeMask extends RenderProxyBox {
       _repaint = repaint;
       if (attached) _repaint?.addListener(markNeedsPaint);
     }
+    if (attached && foot?.extent != _foot?.extent) {
+      _foot?.extent.removeListener(markNeedsPaint);
+      foot?.extent.addListener(markNeedsPaint);
+    }
+    _foot = foot;
     _topExtent = topExtent;
     _axis = axis;
     _bottomExtent = bottomExtent;
@@ -284,12 +335,14 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     super.attach(owner);
     _controller?.addListener(markNeedsPaint);
     _repaint?.addListener(markNeedsPaint);
+    _foot?.extent.addListener(markNeedsPaint);
   }
 
   @override
   void detach() {
     _controller?.removeListener(markNeedsPaint);
     _repaint?.removeListener(markNeedsPaint);
+    _foot?.extent.removeListener(markNeedsPaint);
     super.detach();
   }
 
@@ -298,6 +351,20 @@ class _RenderScrollFadeMask extends RenderProxyBox {
 
   @override
   ShaderMaskLayer? get layer => super.layer as ShaderMaskLayer?;
+
+  /// How much of this list the foot's bar covers: all of the bar when the
+  /// list runs on to the bottom it floats at, none when it stops short.
+  double _underFoot(double extent) {
+    final foot = _foot;
+    final covered = foot?.extent.value ?? 0;
+    final ground = foot?.ground();
+    if (covered <= 0 || ground == null || !ground.attached || !ground.hasSize) {
+      return 0;
+    }
+    final reach = localToGlobal(Offset(0, size.height)).dy;
+    final floor = ground.localToGlobal(Offset(0, ground.size.height)).dy;
+    return (reach - floor).abs() > .5 ? 0 : math.min(covered, extent);
+  }
 
   @override
   void paint(PaintingContext context, Offset offset) {
@@ -319,9 +386,11 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     // Match the mockup's 2px tolerance, including elastic overscroll.
     final before = position.pixels - position.minScrollExtent > 2;
     final after = position.maxScrollExtent - position.pixels > 2;
+    final foot = horizontal ? 0.0 : _underFoot(extent);
     final top = (reversed ? after : before) && _topExtent > 0;
-    final bottom = (reversed ? before : after) && _bottomExtent > 0;
-    if (!top && !bottom) {
+    final bottom =
+        (reversed ? before : after) && _bottomExtent > 0 && foot == 0;
+    if (!top && !bottom && foot == 0) {
       layer = null;
       super.paint(context, offset);
       return;
@@ -332,6 +401,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     final room = end - inset;
     final topFade = top ? math.min(_topExtent, room / 2) : 0.0;
     final bottomFade = bottom ? math.min(_bottomExtent, room / 2) : 0.0;
+    final footStart = math.max(inset + topFade, extent - foot);
     layer ??= ShaderMaskLayer();
     layer!
       ..shader = LinearGradient(
@@ -342,12 +412,18 @@ class _RenderScrollFadeMask extends RenderProxyBox {
           Colors.white,
           Colors.white,
           if (bottom) ...[Colors.transparent, Colors.transparent],
+          if (foot > 0) Colors.white.withValues(alpha: DScrollFoot.opacity),
         ],
         stops: [
           if (top) ...[0, inset / extent],
           top ? (inset + topFade) / extent : 0,
-          bottom ? (end - bottomFade) / extent : 1,
+          foot > 0
+              ? footStart / extent
+              : bottom
+              ? (end - bottomFade) / extent
+              : 1,
           if (bottom) ...[end / extent, 1],
+          if (foot > 0) 1,
         ],
       ).createShader(Offset.zero & size)
       ..maskRect = offset & size

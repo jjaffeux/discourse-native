@@ -796,7 +796,15 @@ class _DMobileDockState extends State<DMobileDock>
         height: widget.geometry.barHeight,
         child: _out
             ? null
-            : Align(alignment: AlignmentDirectional.bottomStart, child: bar),
+            : Align(
+                alignment: AlignmentDirectional.bottomStart,
+                // The page's lists thin under the bar from its top margin's
+                // edge to the foot, as far as it reaches open or folded.
+                child: DScrollFootCover(
+                  margin: widget.geometry.margin.vertical,
+                  child: bar,
+                ),
+              ),
       ),
     );
   }
