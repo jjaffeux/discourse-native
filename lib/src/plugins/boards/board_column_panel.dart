@@ -181,7 +181,11 @@ class _BoardColumnPanelState extends State<BoardColumnPanel> {
                   controller: _scroll,
                   listController: _list,
                   shrinkWrap: true,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsetsDirectional.only(
+                    end:
+                        DScrollThumb.defaultThickness +
+                        2 * DScrollThumb.containerInset,
+                  ),
                   itemCount:
                       shown.length +
                       (placeholder == null ? 0 : 1) +

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -10,6 +11,7 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -299,6 +301,120 @@ void boardsReaderTests({
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('linked highlight expires and a new link gets its own timeout', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    Widget linked(int id) =>
+        page(fixture, route: BoardsRoute(boardId: 1, cardId: id));
+    Finder card(String title) =>
+        find.ancestor(of: find.text(title), matching: find.byType(DItem));
+    bool highlighted(String title) =>
+        tester.widget<DItem>(card(title)).selected;
+
+    await tester.pumpWidget(linked(101));
+    await tester.pump(const Duration(milliseconds: 2999));
+    expect(highlighted('Improve search'), isTrue);
+    expect(
+      find.descendant(
+        of: card('Improve search'),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.check,
+        ),
+      ),
+      findsNothing,
+    );
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(highlighted('Improve search'), isFalse);
+    await handle.refresh();
+    await tester.pump();
+    expect(highlighted('Improve search'), isFalse);
+
+    await tester.pumpWidget(linked(102));
+    expect(highlighted('Write release notes'), isTrue);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(linked(101));
+    await tester.pump(const Duration(seconds: 2));
+    expect(highlighted('Improve search'), isTrue);
+    await tester.pump(const Duration(seconds: 1));
+    expect(highlighted('Improve search'), isFalse);
+    await tester.pumpWidget(linked(102));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('linked card paints a complete border inside the phone list', (
+    tester,
+  ) async {
+    resize(tester, const Size(390, 844));
+    final fixture = BoardsFixture(json: boardFixtureJson(extraCards: 20));
+    addTearDown(fixture.dispose);
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(
+      page(
+        fixture,
+        route: const BoardsRoute(boardId: 1, cardId: 101),
+        phone: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final card = find.ancestor(
+      of: find.text('Improve search'),
+      matching: find.byType(DItem),
+    );
+    final cardBounds = tester.getRect(card);
+    final scrollbar = find.ancestor(
+      of: card,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DScrollBar && widget.axis == Axis.vertical,
+      ),
+    );
+    expect(
+      tester.getRect(scrollbar).right - cardBounds.right,
+      greaterThanOrEqualTo(
+        DScrollThumb.defaultThickness + 2 * DScrollThumb.containerInset,
+      ),
+      reason: 'The scrollbar must not cover the card border',
+    );
+    final bounds = cardBounds.deflate(1);
+    final primary = DTokens.of(tester.element(card)).primary;
+    final boundaryFinder = find.byKey(const ValueKey('boards-native-capture'));
+    final origin = tester.getTopLeft(boundaryFinder);
+    final boundary = tester.renderObject<RenderRepaintBoundary>(boundaryFinder);
+    await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      try {
+        final pixels = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        for (final edge in [
+          bounds.topCenter,
+          bounds.centerLeft,
+          bounds.centerRight,
+          bounds.bottomCenter,
+        ]) {
+          final point = edge - origin;
+          final offset =
+              (point.dy.toInt() * image.width + point.dx.toInt()) * 4;
+          expect(
+            pixels.getUint32(offset),
+            (primary.toARGB32() << 8 | 0xff) & 0xffffffff,
+            reason: 'Visible highlight at $edge',
+          );
+        }
+      } finally {
+        image.dispose();
+      }
+    });
+    await capture(tester, 'boards-reader-linked-highlight-phone');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'recency columns keep linked older cards and reveal the remainder locally',
     (tester) async {
@@ -338,6 +454,8 @@ void boardsReaderTests({
       expect(find.text('Linked old work'), findsOneWidget);
       expect(find.text('Other old work'), findsNothing);
       expect(find.text('Show 1 older card'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('Linked old work'), findsOneWidget);
       final reads = fixture.transport.reads.length;
       await tester.tap(find.text('Show 1 older card'));
       await tester.pumpAndSettle();

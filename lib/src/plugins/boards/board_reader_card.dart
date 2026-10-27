@@ -41,6 +41,8 @@ class BoardReaderCard extends StatelessWidget {
       shape: DItemShape.card,
       variant: DItemVariant.outline,
       selected: selected,
+      selectionStyle: DItemSelectionStyle.outline,
+      showSelectionIndicator: false,
       onPressed: onPressed,
       footer:
           board.detailed &&

@@ -72,12 +72,15 @@ class _BoardsPageState extends State<BoardsPage> {
   final _horizontal = ScrollController();
   (int, int, double, int)? _horizontalTarget;
   late final _drag = BoardCardDrag(board: () => _handle?.snapshot);
+  Timer? _linkHighlightTimer;
+  bool _linkHighlightExpired = false;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_changed);
     _reconcile();
+    _startLinkHighlight();
   }
 
   @override
@@ -87,12 +90,15 @@ class _BoardsPageState extends State<BoardsPage> {
       oldWidget.controller.removeListener(_changed);
       widget.controller.addListener(_changed);
     }
+    if (oldWidget.route.cardId != widget.route.cardId) _resetLinkHighlight();
     _reconcile();
+    _startLinkHighlight();
   }
 
   void _changed() {
     if (!mounted) return;
     _reconcile();
+    _startLinkHighlight();
     _drag.boardChanged();
     setState(() {});
   }
@@ -109,6 +115,7 @@ class _BoardsPageState extends State<BoardsPage> {
     );
     if (_identity == identity) return;
     _identity = identity;
+    _resetLinkHighlight();
     final previous = _handle;
     _handle = null;
     previous?.release();
@@ -122,6 +129,23 @@ class _BoardsPageState extends State<BoardsPage> {
     } else {
       unawaited(_directory());
     }
+  }
+
+  void _resetLinkHighlight() {
+    _linkHighlightTimer?.cancel();
+    _linkHighlightTimer = null;
+    _linkHighlightExpired = false;
+  }
+
+  void _startLinkHighlight() {
+    if (_linkHighlightExpired ||
+        _linkHighlightTimer != null ||
+        _handle?.snapshot?.card(widget.route.cardId ?? -1) == null) {
+      return;
+    }
+    _linkHighlightTimer = Timer(const Duration(seconds: 3), () {
+      setState(() => _linkHighlightExpired = true);
+    });
   }
 
   Future<void> _directory({bool force = false}) async {
@@ -140,6 +164,7 @@ class _BoardsPageState extends State<BoardsPage> {
 
   @override
   void dispose() {
+    _linkHighlightTimer?.cancel();
     widget.controller.removeListener(_changed);
     _handle?.release();
     _horizontal.dispose();
@@ -658,7 +683,7 @@ class _BoardsPageState extends State<BoardsPage> {
       category: category == null
           ? null
           : (name: category.name, color: category.colorValue),
-      selected: widget.route.cardId == card.id,
+      selected: widget.route.cardId == card.id && !_linkHighlightExpired,
       onPressed: card.kind == BoardCardKind.topic && card.topicId != null
           ? () => widget.navigation.openTopic(widget.site, card)
           : () => _edit(column, card: card),
