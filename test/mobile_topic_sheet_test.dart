@@ -325,6 +325,53 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
+  testWidgets(
+    'returning to the top cancels a pending compact header during dismissal',
+    (tester) async {
+      final shell = await _openTopic(tester);
+      final scroll = find
+          .descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(CustomScrollView),
+          )
+          .first;
+      final controller = tester.widget<CustomScrollView>(scroll).controller!;
+      await tester.drag(scroll, const Offset(0, -900));
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      await tester.pump();
+      // Cross the compact threshold while the hidden header is returning, then
+      // reach the top before the deferred compact layout can take effect.
+      controller.jumpTo(160);
+      await tester.pump();
+      controller.jumpTo(0);
+      await tester.pump();
+      final band = find.byKey(const ValueKey('topic-header-band'));
+      expect(
+        tester.widget<DecoratedBox>(band).decoration,
+        const BoxDecoration(),
+      );
+      final drag = await tester.startGesture(const Offset(180, 500));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 170));
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (band.evaluate().isNotEmpty) {
+          expect(
+            tester.widget<DecoratedBox>(band).decoration,
+            const BoxDecoration(),
+            reason: 'dismissal frame $frame',
+          );
+        }
+        if (frame == 4) await drag.up();
+      }
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   testWidgets('short pull restores and trackpad pull dismisses at the top', (
     tester,
   ) async {

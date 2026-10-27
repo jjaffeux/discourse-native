@@ -671,8 +671,9 @@ class _DPageSurfaceState extends State<DPageSurface>
         ? metrics.maxScrollExtent - metrics.pixels
         : metrics.pixels - metrics.minScrollExtent;
     final compact = top > floor;
-    if (compact == _compact) return;
+    // Returning to the current layout also invalidates a delayed switch.
     _compactTimer?.cancel();
+    if (compact == _compact) return;
     void change() {
       if (!mounted) return;
       if (SchedulerBinding.instance.schedulerPhase ==
