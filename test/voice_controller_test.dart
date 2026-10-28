@@ -1015,6 +1015,62 @@ void main() {
     },
   );
 
+  for (final permission in [
+    (
+      name: 'screen-only permission',
+      camera: false,
+      screen: true,
+      enabled: true,
+      type: 'open',
+      expected: true,
+    ),
+    (
+      name: 'camera-only permission',
+      camera: true,
+      screen: false,
+      enabled: true,
+      type: 'open',
+      expected: false,
+    ),
+    (
+      name: 'room media disabled',
+      camera: true,
+      screen: true,
+      enabled: false,
+      type: 'open',
+      expected: false,
+    ),
+    (
+      name: 'stage listener',
+      camera: true,
+      screen: true,
+      enabled: true,
+      type: 'stage',
+      expected: false,
+    ),
+  ]) {
+    test('screen publishing respects ${permission.name}', () async {
+      final room =
+          transport.responses['POST /voice/rooms/7/join.json']!['room']
+              as Map<String, dynamic>;
+      room.addAll({
+        'room_type': permission.type,
+        'video_enabled': permission.enabled,
+        'video_allowed': permission.camera,
+        'screen_share_allowed': permission.screen,
+      });
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await controller.setScreenSharing(true);
+      expect(controller.call!.screenSharing, permission.expected);
+      expect(mediaFactory.sessions.single.screen, permission.expected);
+    });
+  }
+
   group('media control settlement', () {
     Future<FakeVoiceMediaSession> join() async {
       final room =
