@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,12 +7,14 @@ import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
+import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_reaction_widgets.dart';
 import 'package:discourse_native/src/plugins/voice/voice_reactions.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -20,7 +23,7 @@ import 'package:http/testing.dart';
 import 'support/media_pipeline.dart';
 import 'support/voice_fake_chat_conversations.dart';
 import 'voice_controller_test.dart'
-    show FakeVoiceMediaFactory, FakeVoicePreferences, FakeVoiceSystemCall;
+    show FakeVoiceMediaFactory, FakeVoicePreferences;
 
 const _site = 'https://voice.example.com';
 final _emoji = PluginEmojiHost(
@@ -132,21 +135,15 @@ void main() {
         'GET /site.json': {
           'voice_reaction_emojis': ['heart'],
         },
+        'POST /voice/rooms/7/state.json': {},
+        'POST /voice/rooms/7/heartbeat.json': {},
+        'DELETE /voice/rooms/7/leave.json': {},
       },
     );
     final module = _StageModule(transport);
-    final host = await PluginHostHarness.open(
-      transport: transport,
-      manifest: PluginManifest([module]),
-      sites: [
-        const PluginHostSite(
-          url: _site,
-          apiKey: 'key',
-          user: PluginHostUser(id: 1, username: 'sam'),
-        ),
-      ],
-    );
-    addTearDown(host.close);
+    final plugins = PluginInstaller.install(PluginManifest([module]));
+    final session = plugins.openSession(const PluginHostBindings.empty());
+    addTearDown(session.close);
     final controller = module.controller;
     await controller.ensureLoaded(_site);
     await controller.join(
@@ -155,7 +152,9 @@ void main() {
       room: VoiceRoom.fromJson(room),
     );
 
-    Widget stage(int roomId) => host.scope(
+    Widget stage(int roomId) => PluginScope(
+      session: session,
+      registry: plugins.registry,
       child: MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
@@ -190,7 +189,7 @@ void main() {
     expect(find.text('alex'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await controller.close();
-    await host.close();
+    await session.close();
     await tester.pump();
   });
 }
@@ -209,12 +208,12 @@ final class _StageModule implements PluginModule {
       controller = VoiceController(
         api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
         chatConversations: FakeChatConversationCapability(),
-        requests: bindings.require(corePluginRequestPort),
+        requests: PluginTestRequestHost(apiKeys: {_site: 'key'}),
         trackerFor: (_) => null,
         userIdFor: (_) => 1,
         onCallSiteChanged: () {},
         mediaFactory: FakeVoiceMediaFactory(),
-        systemCall: FakeVoiceSystemCall(),
+        systemCall: _SystemCall(),
         preferences: FakeVoicePreferences(),
         heartbeatInterval: const Duration(days: 1),
       );
@@ -222,7 +221,7 @@ final class _StageModule implements PluginModule {
         lifecycle: _Lifecycle(controller),
         services: [PluginService<Object>(voiceEmojiHostService, _emoji)],
       );
-    }, requires: const [corePluginRequestPort]);
+    });
   }
 }
 
@@ -231,4 +230,52 @@ final class _Lifecycle extends PluginSessionLifecycle {
   final VoiceController controller;
   @override
   Future<void> close() => controller.close();
+}
+
+final class _SystemCall implements VoiceSystemCall {
+  @override
+  Stream<VoiceSystemCallAction> get actions => _SystemActions();
+  @override
+  Future<void> start({
+    required String roomName,
+    required String siteName,
+  }) async {}
+  @override
+  Future<void> connected() async {}
+  @override
+  Future<void> dispose() async {}
+  @override
+  Future<void> end() async {}
+  @override
+  Future<void> failed() async {}
+  @override
+  Future<void> setMuted(bool muted) async {}
+  @override
+  Future<bool> reportIncomingCall({
+    required String callerName,
+    required String roomName,
+    required String handle,
+  }) async => false;
+  @override
+  Future<void> answerIncomingCall() async {}
+  @override
+  Future<void> declineIncomingCall() async {}
+  @override
+  Future<void> endIncomingCall(VoiceIncomingCallEndReason reason) async {}
+}
+
+final class _SystemActions extends Stream<VoiceSystemCallAction> {
+  @override
+  StreamSubscription<VoiceSystemCallAction> listen(
+    void Function(VoiceSystemCallAction)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _SystemSubscription();
+}
+
+final class _SystemSubscription extends Fake
+    implements StreamSubscription<VoiceSystemCallAction> {
+  @override
+  Future<void> cancel() => SynchronousFuture<void>(null);
 }
