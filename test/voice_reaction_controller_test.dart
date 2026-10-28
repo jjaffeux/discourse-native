@@ -6,13 +6,18 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
+import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/voice_fake_chat_conversations.dart';
 import 'voice_controller_test.dart'
-    show FakeVoiceMediaFactory, FakeVoicePreferences, FakeVoiceSystemCall;
+    show
+        FakeVoiceMediaFactory,
+        FakeVoiceMediaSession,
+        FakeVoicePreferences,
+        FakeVoiceSystemCall;
 
 const _site = 'https://voice.example.com';
 
@@ -81,6 +86,39 @@ void main() {
   });
 
   tearDown(() => controller.close());
+
+  test(
+    'reconnecting retires pending settings and recovery loads a fresh reaction session',
+    () async {
+      final pending = Completer<Map<String, dynamic>>();
+      final started = Completer<void>();
+      transport.responders['GET /site.json'] = (_) {
+        started.complete();
+        return pending.future;
+      };
+      final previous = controller.callReactions!;
+      final loading = previous.load();
+      await started.future;
+      final media = controller.call!.media as FakeVoiceMediaSession;
+      media.connectionState = VoiceMediaConnectionState.reconnecting;
+      media.notifyListeners();
+      expect(controller.callReactions, isNull);
+      expect(previous.isCurrent, isFalse);
+      transport.responders.remove('GET /site.json');
+      media.connectionState = VoiceMediaConnectionState.connected;
+      media.notifyListeners();
+      final recovered = controller.callReactions!;
+      await recovered.load();
+      expect(recovered, isNot(same(previous)));
+      expect(recovered.canSend, isTrue);
+      pending.complete({
+        'voice_reaction_emojis': ['stale_emoji'],
+      });
+      await loading;
+      expect(previous.settings, isNull);
+      expect(recovered.settings!.emojis, ['heart', 'clap']);
+    },
+  );
 
   test('a different room or site cannot display the active call reactions', () {
     expect(controller.reactionsForCall(_site, 8), isNull);

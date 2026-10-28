@@ -90,8 +90,7 @@ extension VoiceCallReactions on VoiceController {
   void _retireObsoleteReactions() {
     if (_reactionSession == null) return;
     if (!identical(_reactionMedia, _call?.media) ||
-        _call?.status == VoiceCallStatus.leaving ||
-        _call?.status == VoiceCallStatus.failed) {
+        _call?.status != VoiceCallStatus.connected) {
       _clearReactions();
     }
   }
