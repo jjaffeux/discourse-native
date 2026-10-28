@@ -4054,6 +4054,26 @@ void main() {
           greaterThan(0),
         );
         expect(outgoing.transform.getTranslation().x * direction, lessThan(0));
+        final boundary = find.byWidgetPredicate(
+          (widget) =>
+              widget is ClipRRect &&
+              widget.clipper != null &&
+              widget.clipBehavior != Clip.none,
+        );
+        expect(boundary, findsOneWidget);
+        final clip = tester
+            .widget<ClipRRect>(boundary)
+            .clipper!
+            .getClip(tester.getSize(boundary));
+        final box = tester.renderObject<RenderBox>(boundary);
+        expect(
+          clip.outerRect.shift(box.localToGlobal(Offset.zero)),
+          restingPanel,
+        );
+        expect(clip.tlRadius, const Radius.circular(31));
+        expect(clip.trRadius, const Radius.circular(31));
+        expect(clip.blRadius, const Radius.circular(22));
+        expect(clip.brRadius, const Radius.circular(22));
         expect(
           (tester.getRect(panel).left - restingPanel.left) * direction,
           greaterThan(0),

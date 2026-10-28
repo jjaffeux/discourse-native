@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _page = ValueKey('live-page');
+const _tabPanelInsets = EdgeInsets.fromLTRB(16, 6, 16, 0);
 final _live = find.byKey(_page);
 
 Rect _paintedRect(WidgetTester tester, Finder finder) {
@@ -961,54 +962,75 @@ void main() {
     }
   }
 
-  testWidgets('tab fades keep solid page fills and transparent corners', (
-    tester,
-  ) async {
-    final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
-    Future<void> expectPageColors({bool atRest = false}) async {
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        find.byKey(const ValueKey('history-test-boundary')),
+  for (final direction in TextDirection.values) {
+    testWidgets('tab fades preserve all four corners throughout $direction', (
+      tester,
+    ) async {
+      final state = await _pump(
+        tester,
+        direction: direction,
+        tabTransitions: true,
+        roundedPanel: true,
       );
-      final image = boundary.toImageSync(pixelRatio: 1);
-      final pixels = await tester.runAsync(
-        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-      );
-      expect(pixels, isNotNull);
-      if (atRest) {
-        expect(pixels!.getUint8(0), 0);
-        expect(pixels.getUint8(1), 255);
-        expect(pixels.getUint8(2), 0);
+      Future<void> expectPageColors() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('history-test-boundary')),
+        );
+        final image = boundary.toImageSync(pixelRatio: 1);
+        final pixels = await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+        );
+        expect(pixels, isNotNull);
+        for (final (x, y) in [
+          (17, 7),
+          (image.width - 18, 7),
+          (17, image.height - 2),
+          (image.width - 18, image.height - 2),
+          (2, image.height ~/ 2),
+          (image.width - 3, image.height ~/ 2),
+          (image.width ~/ 2, 2),
+        ]) {
+          final offset = (image.width * y + x) * 4;
+          expect(
+            List.generate(3, (channel) => pixels!.getUint8(offset + channel)),
+            [0, 255, 0],
+            reason:
+                'The fixed corner or gutter at ($x, $y) must expose the canvas',
+          );
+        }
+        final center =
+            (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
+        expect(
+          List.generate(3, (channel) => pixels!.getUint8(center + channel)),
+          [244, 67, 54],
+          reason: 'Solid page fills must not reveal the green canvas mid-fade',
+        );
+        image.dispose();
       }
-      final center = (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
-      expect(
-        List.generate(3, (channel) => pixels!.getUint8(center + channel)),
-        [244, 67, 54],
-        reason: 'Solid page fills must not reveal the green canvas mid-fade',
-      );
-      image.dispose();
-    }
 
-    await expectPageColors(atRest: true);
-    for (final tab in [1, 0]) {
-      state.selectTab(tab);
-      await tester.pump();
-      final snapshot = tester.widget<RawImage>(find.byType(RawImage)).image!;
-      final pixels = await tester.runAsync(
-        () => snapshot.toByteData(format: ui.ImageByteFormat.rawRgba),
-      );
-      expect(
-        pixels!.getUint8(3),
-        0,
-        reason: 'Snapshot corners stay transparent',
-      );
-      for (var frame = 0; frame < 6; frame++) {
-        await tester.pump(const Duration(milliseconds: 50));
+      await expectPageColors();
+      for (final tab in [1, 0]) {
+        state.selectTab(tab);
+        await tester.pump();
+        final snapshot = tester.widget<RawImage>(find.byType(RawImage)).image!;
+        final pixels = await tester.runAsync(
+          () => snapshot.toByteData(format: ui.ImageByteFormat.rawRgba),
+        );
+        expect(
+          pixels!.getUint8(3),
+          0,
+          reason: 'Snapshot corners stay transparent',
+        );
+        await tester.pump();
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          await expectPageColors();
+        }
+        await tester.pumpAndSettle();
         await expectPageColors();
       }
-      await tester.pumpAndSettle();
-      await expectPageColors(atRest: true);
-    }
-  });
+    });
+  }
 
   testWidgets('tab changes take 300ms to settle', (tester) async {
     final state = await _pump(tester, tabTransitions: true);
@@ -1227,6 +1249,12 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
         history: history,
         tab: tab,
         tabOwner: tabOwner,
+        tabViewport: widget.roundedPanel
+            ? const DHistoryTabViewport(
+                borderRadius: DSheetViewport.pageBorderRadius,
+                insets: _tabPanelInsets,
+              )
+            : null,
         entry: index,
         previousEntry: index > 0 ? index - 1 : null,
         nextEntry: index < furthest ? index + 1 : null,
@@ -1256,12 +1284,17 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
               }
             : null,
         child: widget.roundedPanel
-            ? const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+            ? Padding(
+                padding: widget.tabTransitions
+                    ? _tabPanelInsets
+                    : const EdgeInsets.symmetric(horizontal: 16),
                 child: DPageSurface(
                   key: _page,
+                  borderRadius: widget.tabTransitions
+                      ? DSheetViewport.pageBorderRadius
+                      : null,
                   backgroundColor: Colors.red,
-                  child: SizedBox.expand(),
+                  child: const SizedBox.expand(),
                 ),
               )
             : ColoredBox(

@@ -35,10 +35,10 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Ordered tabs',
       description:
-          'Select tabs in either direction. A 300ms directional slide fades the incoming page over the outgoing snapshot, keeping solid fills stable while the controls stay still.',
-      states: const ['Tab order', 'RTL', 'Reduced motion'],
+          'Select tabs in either direction. A fixed rounded boundary keeps all four corners clear during the 300ms slide and incoming fade. Controls stay still.',
+      states: const ['Tab order', 'Rounded boundary', 'RTL', 'Reduced motion'],
       code:
-          'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, child: currentPage)',
+          'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, tabViewport: DHistoryTabViewport(borderRadius: BorderRadius.circular(DRadius.panel)), child: currentPage)',
       builder: (_) => const _TabTransitionExample(),
     ),
     StyleguideExample(
@@ -281,6 +281,9 @@ class _TabTransitionExampleState extends State<_TabTransitionExample> {
             entry: _index,
             tab: (id: _index, index: _index),
             tabOwner: 'example',
+            tabViewport: const DHistoryTabViewport(
+              borderRadius: BorderRadius.all(Radius.circular(DRadius.panel)),
+            ),
             child: DCard(
               child: DCardContent(
                 child: Center(
