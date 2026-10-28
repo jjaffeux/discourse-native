@@ -1951,10 +1951,11 @@ void main() {
         final target = find
             .ancestor(of: icon, matching: find.byType(InkWell))
             .last;
-        expect(tester.getSize(target), const Size(32, 24));
+        expect(tester.getSize(target), const Size.square(30));
         final button = find.ancestor(of: icon, matching: find.byType(DButton));
         final tokens = DTokens.of(tester.element(button));
         final surface = buttonSurface(tester, of: button);
+        expect(surface.borderRadius, BorderRadius.circular(15));
         expect(surface.color, tokens.raisedBackground);
         expect(
           surface.borderColor,
