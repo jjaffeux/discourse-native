@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -21,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/fakes.dart';
+import 'support/topic_post_list.dart';
 
 const _site = 'https://meta.discourse.org';
 final _handle = find.byKey(const ValueKey('sheet-drag-handle'));
@@ -35,6 +37,7 @@ const _platforms = TargetPlatformVariant({
 Future<ShellController> _openTopic(
   WidgetTester tester, {
   Size size = const Size(390, 844),
+  bool multipleDays = false,
 }) async {
   final shell = await pumpMobileShellFixture(
     tester,
@@ -49,7 +52,7 @@ Future<ShellController> _openTopic(
             id: id,
             postNumber: id,
             username: 'crumbcoat',
-            createdAt: DateTime.utc(2026, 5, 18),
+            createdAt: DateTime.utc(2026, 5, multipleDays && id > 15 ? 19 : 18),
             cooked:
                 '<p>I have been experimenting between 72% and 82% and '
                 'keep landing back at 76%. Crumb is open enough without '
@@ -102,6 +105,69 @@ void main() {
     }
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  testWidgets('sliding dates keep a small clear gap below the sheet handle', (
+    tester,
+  ) async {
+    await _openTopic(tester, multipleDays: true);
+    final list = topicPostList(tester);
+    list.listController!.jumpToItem(
+      index: 15 * 2,
+      scrollController: list.controller!,
+      alignment: 0,
+    );
+    await tester.pumpAndSettle();
+    final boundaryOffset =
+        list.controller!.offset +
+        tester.getTopLeft(find.byKey(const ValueKey(16))).dy -
+        topicReadingViewportRect(tester).top;
+    final seenDays = <DateTime>{};
+    var slidingFrames = 0;
+    for (final delta in [-100, -60, -48, -30, -18, -8, -2, 2, 12, 50, 100]) {
+      list.controller!.jumpTo(boundaryOffset + delta);
+      await tester.pumpAndSettle();
+      final floating = find.byWidgetPredicate(
+        (widget) => widget is StreamDaySeparator && widget.floating,
+      );
+      seenDays.add(tester.widget<StreamDaySeparator>(floating).day);
+      final date = find.descendant(
+        of: floating,
+        matching: find.byType(DButton),
+      );
+      Rect? clip;
+      tester.element(date).visitAncestorElements((ancestor) {
+        if (ancestor.widget is ClipRect) {
+          clip = tester.getRect(find.byWidget(ancestor.widget));
+          return false;
+        }
+        return true;
+      });
+      final viewport = topicReadingViewportRect(tester);
+      final nextDateTop = tester.getTopLeft(find.byKey(const ValueKey(16))).dy;
+      if (nextDateTop < viewport.top + 6) {
+        expect(
+          tester.widget<StreamDaySeparator>(floating).day,
+          DateTime(2026, 5, 19),
+        );
+      }
+      expect(clip, isNotNull);
+      final dateRect = tester.getRect(date);
+      final visibleDate = dateRect.intersect(clip!);
+      if (!visibleDate.isEmpty) {
+        expect(visibleDate.top - viewport.top, closeTo(16, .1));
+        expect(
+          visibleDate.top - tester.getRect(_handle).bottom,
+          greaterThanOrEqualTo(4),
+        );
+      }
+      if (dateRect.top < clip!.top && dateRect.bottom > clip!.top) {
+        slidingFrames++;
+      }
+    }
+    expect(seenDays, {DateTime(2026, 5, 18), DateTime(2026, 5, 19)});
+    expect(slidingFrames, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
 
   testWidgets('opening a topic slides its page up below fixed navigation', (
     tester,

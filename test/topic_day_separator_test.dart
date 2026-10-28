@@ -73,17 +73,18 @@ void main() {
     final floating = find.byWidgetPredicate(
       (widget) => widget is StreamDaySeparator && widget.floating,
     );
+    final date = find.descendant(of: floating, matching: find.byType(DButton));
     var moved = 0;
     for (var step = 0; step < 130; step++) {
       final before = tester.widget<StreamDaySeparator>(floating);
       final beforeElement = tester.element(floating);
-      final beforeTop = tester.getTopLeft(floating).dy;
+      final beforeTop = tester.getTopLeft(date).dy;
       list.controller!.position.pointerScroll(2);
       await tester.pump(const Duration(milliseconds: 16));
       await tester.pump();
       final after = tester.widget<StreamDaySeparator>(floating);
       if (before.day != after.day ||
-          (tester.getTopLeft(floating).dy - beforeTop).abs() <= .1) {
+          (tester.getTopLeft(date).dy - beforeTop).abs() <= .1) {
         continue;
       }
       moved++;

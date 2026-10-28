@@ -83,6 +83,7 @@ class StreamDaySeparator extends StatelessWidget {
     this.floating = false,
     this.showDivider = true,
     this.onTap,
+    this.dateWrapper,
   });
 
   static const double height = 48;
@@ -92,6 +93,7 @@ class StreamDaySeparator extends StatelessWidget {
   final bool showDivider;
 
   final VoidCallback? onTap;
+  final Widget Function(Widget date)? dateWrapper;
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +132,7 @@ class StreamDaySeparator extends StatelessWidget {
               : DMarkerVariant.inline,
           axis: floating || !showDivider ? Axis.vertical : Axis.horizontal,
           borderColor: chip.border,
-          child: DMarkerContent(child: date),
+          child: DMarkerContent(child: dateWrapper?.call(date) ?? date),
         ),
       ),
     );

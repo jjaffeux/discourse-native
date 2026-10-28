@@ -238,7 +238,7 @@ class _TopicViewState extends State<TopicView>
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
-  double get _floatingDayTopInset => context.isTouch ? 12 : 0;
+  double get _floatingDayTopInset => context.isTouch ? 6 : 0;
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
@@ -723,6 +723,11 @@ class _TopicViewState extends State<TopicView>
       return;
     }
 
+    if (context.isTouch && candidateIndex + 1 < _laidOutDayStarts.length) {
+      final nextTop = topOf(_laidOutDayStarts[candidateIndex + 1]);
+      if (nextTop != null && nextTop < _floatingDayTopInset) candidateIndex++;
+    }
+
     final current = _laidOutDayStarts[candidateIndex];
     final nextIndex = candidateIndex + 1;
     var offset = 0.0;
@@ -1204,6 +1209,24 @@ class _TopicViewState extends State<TopicView>
           builder: (context, _) {
             final floatingDay = _floatingDay;
             if (floatingDay == null) return const SizedBox.shrink();
+            if (context.isTouch) {
+              return StreamDaySeparator(
+                key: ValueKey(('topic-floating-day', floatingDay)),
+                day: floatingDay,
+                floating: true,
+                onTap: () => _interaction.jumpToDayStart(floatingDay),
+                dateWrapper: (date) => ListenableBuilder(
+                  listenable: _viewportState.floatingDayOverlayListenable,
+                  builder: (context, child) => ClipRect(
+                    child: Transform.translate(
+                      offset: Offset(0, _floatingDayOffset),
+                      child: child,
+                    ),
+                  ),
+                  child: date,
+                ),
+              );
+            }
             return ListenableBuilder(
               listenable: _viewportState.floatingDayOverlayListenable,
               builder: (context, child) => ClipRect(
