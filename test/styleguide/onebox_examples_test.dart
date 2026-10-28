@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugins/discourse_github/oneboxes/commit/bl
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/github.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/issue/block.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/pr/block.dart';
+import 'package:discourse_native/src/plugins/voice/voice_room_onebox.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
@@ -35,6 +36,7 @@ final _renderers = <String, Type>{
   for (final provider in oneboxProviderSamples.keys)
     'embed-$provider': EmbeddedOnebox,
   'generic': OneboxCard,
+  'live-room': VoiceRoomOneboxCard,
   'forum-theme': ForumThemeOnebox,
   'discourse-topic': DiscourseTopicOnebox,
   'discourse-local-topic': QuoteBlock,

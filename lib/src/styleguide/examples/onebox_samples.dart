@@ -9,6 +9,8 @@ import '../../plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
 import '../../plugins/local_dates/local_date.dart';
 import '../../plugins/local_dates/local_date_environment.dart';
 import '../../plugins/local_dates/local_dates_cooked_time_parser.dart';
+import '../../plugins/voice/voice_models.dart';
+import '../../plugins/voice/voice_room_onebox.dart';
 import '../../shell/cooked_html.dart';
 import 'onebox_event_sample.dart';
 import 'onebox_provider_samples.dart';
@@ -91,6 +93,38 @@ final oneboxSamples = <OneboxSample>[
           '<h3><a href="https://www.discourse.org">Discourse</a></h3>',
         ),
       ),
+    ],
+  ),
+  OneboxSample(
+    id: 'live-room',
+    name: 'Live room',
+    description:
+        'A native room link with the viewer’s current participant presence.',
+    keywords: 'live voice room call presence participants',
+    states: [
+      for (final count in [0, 1, 7])
+        OneboxSampleState(
+          count == 0 ? 'Empty room' : '$count here now',
+          (_) => VoiceRoomOneboxCard(
+            siteUrl: _site,
+            data: const VoiceRoomOneboxData(
+              url: '$_site/live/r/watercooler',
+              name: 'Watercooler',
+              type: 'Open room',
+              descriptionHtml: '<p>Meet the community and share ideas.</p>',
+              localSlug: 'watercooler',
+              stage: false,
+            ),
+            participants: [
+              for (var i = 0; i < count; i++)
+                VoiceParticipant(
+                  id: i + 1,
+                  username: 'person$i',
+                  role: VoiceRole.participant,
+                ),
+            ],
+          ),
+        ),
     ],
   ),
   OneboxSample(

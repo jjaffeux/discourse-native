@@ -1,6 +1,8 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart' hide DIcon;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:html/dom.dart' as dom;
 
 import '../chat/chat_contract.dart';
 import 'site_preference_inventory.g.dart';
@@ -12,6 +14,7 @@ import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_notices.dart';
 import 'voice_notifications.dart';
+import 'voice_room_onebox.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -33,8 +36,32 @@ final class VoicePlugin
         UserCardRecordPlugin<VoiceUserCardData>,
         UserCardActionPlugin,
         PluginSiteFeature,
-        SitePreferencesPlugin {
+        SitePreferencesPlugin,
+        CookedElementPlugin,
+        CookedInlinePlugin {
   const VoicePlugin();
+
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) {
+    final data = VoiceRoomOneboxData.read(element, siteUrl);
+    return data == null ? null : VoiceRoomOnebox(data: data, siteUrl: siteUrl);
+  }
+
+  @override
+  CookedInlinePrefix? cookedInlinePrefix(dom.Element element) {
+    if (element.localName != 'a' ||
+        !element.classes.contains('inline-onebox')) {
+      return null;
+    }
+    final stage = element.classes.contains('live-inline-onebox-stage');
+    if (!stage && !element.classes.contains('live-inline-onebox-room')) {
+      return null;
+    }
+    return CookedInlinePrefix(
+      child: DIcon(stage ? DIcons.earListen : DIcons.microphoneLines, size: 14),
+      excludeLinkSemantics: true,
+    );
+  }
 
   /// Drafts saved before the Live rename keep their `new_topic_voice_` key.
   @override
