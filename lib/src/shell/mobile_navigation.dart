@@ -14,13 +14,19 @@ final class MobileTab {
   static const messages = MobileTab._('messages');
   static const users = MobileTab._('users');
 
-  /// The place whose own page is the destination [id]. A destination that is
-  /// no place on this site names a tab the bar does not offer.
-  static MobileTab forDestination(String id) => switch (id) {
+  /// The place [name] names, null for a name no build has written.
+  static MobileTab? tryParse(String name) => switch (name) {
+    'topics' => topics,
     'messages' => messages,
     'users' => users,
-    _ => MobileTab.destination(id),
+    _ when name.startsWith('panel/') && name.length > 6 => MobileTab.panel(
+      name.substring(6),
+    ),
+    _ when name.startsWith('destination/') && name.length > 12 =>
+      MobileTab.destination(name.substring(12)),
+    _ => null,
   };
+
   final String name;
   final String? panelOwner;
   @override
@@ -43,25 +49,32 @@ final class MobileNavigation {
   int _index = 0;
   String? _panelOwner;
   MobileTab _tab = MobileTab.topics;
-  bool _tabChosen = false;
   bool _sidebarOpen = false;
 
   MobileTab get tab => _tab;
 
-  /// The place a restored root page names while no place has been chosen.
-  /// Which places a site offers is the bar's to say, so the bar claims it.
-  MobileTab? get restoredPlace => switch (_entries.first.content) {
-    final root? when !_tabChosen => MobileTab.forDestination(
-      root.rootDestinationId,
-    ),
-    _ => null,
-  };
+  MobileNavigationState get state => MobileNavigationState(
+    place: _tab.name,
+    visits: [for (final entry in _entries) entry.content],
+    index: _index,
+  );
 
-  /// Makes [tab] the restored history's place, keeping that history.
-  void claimRestoredPlace(MobileTab tab) {
-    assert(tab.panelOwner == null);
+  /// Returns to a saved [state] for [owner]. Whether the bar still offers its
+  /// place is the bar's to say. Answers false, changing nothing, for a place
+  /// no build has written.
+  bool restore({required Object? owner, required MobileNavigationState state}) {
+    final tab = MobileTab.tryParse(state.place);
+    if (tab == null) return false;
+    _owner = owner;
+    closeSidebar();
     _tab = tab;
-    _tabChosen = true;
+    _panelOwner = tab.panelOwner;
+    _entries = [
+      for (final visit in state.visits) (id: Object(), content: visit),
+    ];
+    _index = state.index;
+    _historyId = Object();
+    return true;
   }
 
   bool get sidebarOpen => _sidebarOpen;
@@ -161,14 +174,12 @@ final class MobileNavigation {
     if (_panelOwner == owner) return;
     _panelOwner = owner;
     _tab = owner == null ? MobileTab.topics : MobileTab.panel(owner);
-    _tabChosen = true;
     _resetHistory();
   }
 
   void selectTab(MobileTab tab) {
     closeSidebar();
     _tab = tab;
-    _tabChosen = true;
     _panelOwner = tab.panelOwner;
     _resetHistory();
   }
@@ -178,7 +189,6 @@ final class MobileNavigation {
     _resetHistory();
     _panelOwner = null;
     _tab = MobileTab.topics;
-    _tabChosen = false;
   }
 
   void _resetHistory() {

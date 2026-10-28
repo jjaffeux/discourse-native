@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
@@ -246,41 +248,65 @@ void main() {
     expect(navigation.canGoForward, isFalse);
   });
 
-  test('a restored root names its place until a place is chosen', () {
-    final navigation = MobileNavigation();
-    expect(navigation.restoredPlace, isNull);
-    navigation.synchronize(
-      owner: 'owner',
-      location: page('all-categories'),
-      contentRoot: true,
-    );
-    navigation.synchronize(owner: 'owner', location: page('category-5'));
-    expect(navigation.tab, MobileTab.topics);
-    expect(
-      navigation.restoredPlace,
-      const MobileTab.destination('all-categories'),
-    );
-
-    navigation.claimRestoredPlace(navigation.restoredPlace!);
-    expect(navigation.tab, const MobileTab.destination('all-categories'));
-    expect(navigation.restoredPlace, isNull);
+  test('a saved place and its visits survive a JSON round trip', () {
+    final navigation = MobileNavigation()
+      ..synchronize(owner: 'owner', location: null)
+      ..selectPanel('chat');
+    navigation.synchronize(owner: 'owner', location: page('chat-c-10'));
+    navigation.synchronize(owner: 'owner', location: page('chat-t-10-4'));
     expect(navigation.goBack(), isTrue);
-    expect(navigation.location?.rootDestinationId, 'all-categories');
 
-    navigation.synchronize(
-      owner: 'other',
-      location: page('messages'),
-      contentRoot: true,
+    final saved = MobileNavigationState.tryFromJson(
+      jsonDecode(jsonEncode(navigation.state)),
+    );
+    expect(saved, navigation.state);
+
+    final relaunched = MobileNavigation();
+    expect(relaunched.restore(owner: 'owner', state: saved!), isTrue);
+    expect(relaunched.tab, const MobileTab.panel('chat'));
+    expect(relaunched.panelOwner, 'chat');
+    expect(relaunched.location, page('chat-c-10'));
+    expect(relaunched.canGoForward, isTrue);
+    expect(relaunched.goBack(), isTrue);
+    expect(relaunched.atRoot, isTrue);
+    expect(relaunched.canGoBack, isFalse);
+
+    // The same owner keeps the restored visits; another owner starts over.
+    relaunched.synchronize(owner: 'owner', location: null);
+    expect(relaunched.tab, const MobileTab.panel('chat'));
+    relaunched.synchronize(owner: 'other', location: null);
+    expect(relaunched.tab, MobileTab.topics);
+  });
+
+  test('a saved state from an unknown build is declined', () {
+    for (final json in <Object?>[
+      null,
+      {'place': 'topics', 'visits': <Object?>[], 'index': 0},
+      {
+        'place': 'topics',
+        'visits': [null],
+        'index': 1,
+      },
+      {
+        'place': 'topics',
+        'visits': [null, null],
+        'index': 0,
+      },
+    ]) {
+      expect(MobileNavigationState.tryFromJson(json), isNull, reason: '$json');
+    }
+    final navigation = MobileNavigation();
+    expect(
+      navigation.restore(
+        owner: 'owner',
+        state: MobileNavigationState(
+          place: 'sideways',
+          visits: const [null],
+          index: 0,
+        ),
+      ),
+      isFalse,
     );
     expect(navigation.tab, MobileTab.topics);
-    expect(navigation.restoredPlace, MobileTab.messages);
-
-    navigation.selectTab(MobileTab.topics);
-    navigation.synchronize(
-      owner: 'other',
-      location: page('users'),
-      contentRoot: true,
-    );
-    expect(navigation.restoredPlace, isNull);
   });
 }

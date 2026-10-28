@@ -483,6 +483,72 @@ final class ForumTab {
   );
 }
 
+/// The phone's chosen place and the visits in its history. A relaunch returns
+/// to exactly these: the saved page alone cannot say which place it belongs
+/// to, nor what was behind it.
+@immutable
+final class MobileNavigationState {
+  MobileNavigationState({
+    required this.place,
+    required List<ForumTabLocation?> visits,
+    required this.index,
+  }) : assert(place.isNotEmpty),
+       assert(visits.isNotEmpty),
+       assert(visits.skip(1).every((visit) => visit != null)),
+       assert(index >= 0 && index < visits.length),
+       visits = List.unmodifiable(visits);
+
+  /// The bar's name for the place.
+  final String place;
+
+  /// Only the first visit may be null: the place's own root, such as Chat's
+  /// channel list.
+  final List<ForumTabLocation?> visits;
+  final int index;
+
+  Map<String, Object?> toJson() => {
+    'place': place,
+    'visits': [for (final visit in visits) visit?.toJson()],
+    'index': index,
+  };
+
+  static MobileNavigationState? tryFromJson(Object? value) {
+    if (value is! Map) return null;
+    final place = value['place'];
+    final rawVisits = value['visits'];
+    final index = value['index'];
+    if (place is! String ||
+        place.isEmpty ||
+        rawVisits is! List ||
+        rawVisits.isEmpty ||
+        rawVisits.length > ForumTab.maximumHistoryEntries + 1 ||
+        index is! int ||
+        index < 0 ||
+        index >= rawVisits.length) {
+      return null;
+    }
+    final visits = <ForumTabLocation?>[];
+    for (final (position, raw) in rawVisits.indexed) {
+      final visit = raw == null && position == 0
+          ? null
+          : ForumTabLocation.tryFromJson(raw);
+      if (visit == null && position > 0) return null;
+      visits.add(visit);
+    }
+    return MobileNavigationState(place: place, visits: visits, index: index);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is MobileNavigationState &&
+      other.place == place &&
+      other.index == index &&
+      listEquals(other.visits, visits);
+
+  @override
+  int get hashCode => Object.hash(place, index, Object.hashAll(visits));
+}
+
 @immutable
 final class ForumWorkspace {
   ForumWorkspace({
@@ -492,6 +558,7 @@ final class ForumWorkspace {
     required this.activeTabId,
     this.mainTabId,
     this.secondaryTabId,
+    this.mobile,
   }) : assert(siteUrl.isNotEmpty),
        assert(accountIdentity.isNotEmpty),
        assert(tabs.isNotEmpty),
@@ -512,6 +579,7 @@ final class ForumWorkspace {
   final String activeTabId;
   final String? mainTabId;
   final String? secondaryTabId;
+  final MobileNavigationState? mobile;
 
   List<ForumTab> tabsIn(ForumPanel panel) =>
       tabs.where((tab) => tab.panel == panel).toList();
@@ -539,6 +607,7 @@ final class ForumWorkspace {
     String? activeTabId,
     String? mainTabId,
     String? secondaryTabId,
+    MobileNavigationState? mobile,
   }) => ForumWorkspace(
     siteUrl: siteUrl,
     accountIdentity: accountIdentity,
@@ -546,6 +615,7 @@ final class ForumWorkspace {
     activeTabId: activeTabId ?? this.activeTabId,
     mainTabId: mainTabId ?? selectedTabIn(ForumPanel.main)?.id,
     secondaryTabId: secondaryTabId ?? selectedTabIn(ForumPanel.secondary)?.id,
+    mobile: mobile ?? this.mobile,
   );
 
   Map<String, Object?> toJson() =>
@@ -560,6 +630,7 @@ final class ForumWorkspace {
     'main_tab_id': selectedTabIn(ForumPanel.main)?.id,
     'secondary_tab_id': selectedTabIn(ForumPanel.secondary)?.id,
     'tabs': tabsJson(tabs),
+    if (mobile case final mobile?) 'mobile': mobile.toJson(),
   };
 
   /// Writes exactly `jsonEncode(toJson())`. Tabs and their history entries
@@ -631,6 +702,7 @@ final class ForumWorkspace {
       secondaryTabId: json['secondary_tab_id'] is String
           ? json['secondary_tab_id'] as String
           : null,
+      mobile: MobileNavigationState.tryFromJson(json['mobile']),
     );
   }
 
@@ -644,6 +716,7 @@ final class ForumWorkspace {
           selectedTabIn(ForumPanel.main)?.id &&
       other.selectedTabIn(ForumPanel.secondary)?.id ==
           selectedTabIn(ForumPanel.secondary)?.id &&
+      other.mobile == mobile &&
       listEquals(other.tabs, tabs);
 
   @override
@@ -653,6 +726,7 @@ final class ForumWorkspace {
     activeTabId,
     selectedTabIn(ForumPanel.main)?.id,
     selectedTabIn(ForumPanel.secondary)?.id,
+    mobile,
     Object.hashAll(tabs),
   );
 }
