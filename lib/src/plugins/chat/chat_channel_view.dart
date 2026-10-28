@@ -2382,14 +2382,19 @@ class _JumpToPresent extends StatelessWidget {
     final label = pendingCount > 0
         ? context.l10n.jumpToLatestMessagesNew((pendingCount).toString())
         : context.l10n.jumpToLatestMessages;
+    final chip = StreamChip.of(context, floating: true);
     return Stack(
       clipBehavior: Clip.none,
       children: [
         DButton.iconOnly(
-          size: DControlSize.toolbar,
-          density: DButtonDensity.floatingCall,
+          size: DButtonSize.chip,
+          density: DButtonDensity.floatingDate,
           shape: DButtonShape.pill,
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.outline,
+          backgroundColor: chip.background,
+          interactiveBackgroundColor: chip.hover,
+          foregroundColor: chip.foreground,
+          borderColor: chip.border,
           icon: const DIcon(DIcons.chevronDown),
           semanticLabel: label,
           tooltip: label,

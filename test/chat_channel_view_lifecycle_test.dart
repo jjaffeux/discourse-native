@@ -1951,7 +1951,15 @@ void main() {
         final target = find
             .ancestor(of: icon, matching: find.byType(InkWell))
             .last;
-        expect(tester.getSize(target), const Size.square(26));
+        expect(tester.getSize(target), const Size(32, 24));
+        final button = find.ancestor(of: icon, matching: find.byType(DButton));
+        final tokens = DTokens.of(tester.element(button));
+        final surface = buttonSurface(tester, of: button);
+        expect(surface.color, tokens.raisedBackground);
+        expect(
+          surface.borderColor,
+          Color.lerp(tokens.background, tokens.foreground, .12),
+        );
         expect(
           tester.getCenter(target).dx,
           tester.getCenter(find.byType(ChatChannelView)).dx,

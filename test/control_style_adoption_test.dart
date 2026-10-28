@@ -118,8 +118,14 @@ void main() {
         },
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
-        // The chat jump-to-latest control is the floating call capsule.
-        'lib/src/plugins/chat/chat_channel_view.dart': {'shape': 1},
+        // Chat's jump-to-latest action shares the floating stream chip palette.
+        'lib/src/plugins/chat/chat_channel_view.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'foregroundColor': 1,
+          'borderColor': 1,
+        },
         // Mobile user-card actions match the documented borderless pill row.
         // Chat uses the mockup's muted fill beside the primary Message action.
         'lib/src/shell/user_card.dart': {'shape': 2, 'borderColor': 2},
