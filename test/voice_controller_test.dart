@@ -6382,6 +6382,38 @@ void main() {
     });
 
     test(
+      'keeps a connected mesh call while the local participant resumes',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final localIds = controller.call!.room.participants
+            .map((p) => p.id)
+            .toList();
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+          'resuming_ids': localIds,
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNotNull);
+        expect(media.disposeCount, 0);
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+          'resuming_ids': const <int>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+      },
+    );
+
+    test(
       'ends the local call when another client removes it from the roster',
       () async {
         await controller.ensureLoaded(firstSite);

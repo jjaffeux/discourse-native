@@ -117,6 +117,39 @@ void main() {
     expect([mesh.stopCalls, first.stopCalls, replacement.stopCalls], [0, 0, 0]);
   });
 
+  for (final source in [
+    lk.TrackSource.camera,
+    lk.TrackSource.screenShareVideo,
+  ]) {
+    testWidgets(
+      'keeps ${source.name} uncropped for portrait or shared content',
+      (tester) async {
+        final nativeTrack = _NativeTrack('uncropped-video', 'peer')
+          ..settings = source == lk.TrackSource.camera
+              ? {'width': 360, 'height': 640}
+              : {'width': 1920, 'height': 1080};
+        final video = lk.RemoteVideoTrack(
+          source,
+          _BorrowedStream(nativeTrack),
+          nativeTrack,
+        );
+        addTearDown(video.dispose);
+        final handle = VoiceVideoHandleAdapter().fromLiveKit(video)!;
+        await tester.pumpWidget(
+          MaterialApp(home: VoiceVideoSurface(track: handle)),
+        );
+        await tester.pumpAndSettle();
+        final renderer = tester.widget<lk.VideoTrackRenderer>(
+          find.byType(lk.VideoTrackRenderer),
+        );
+        expect(renderer.fit, lk.VideoViewFit.contain);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        expect(nativeTrack.stopCalls, 0);
+      },
+    );
+  }
+
   testWidgets('LiveKit surface borrows its track and preserves cover fit', (
     tester,
   ) async {
@@ -205,6 +238,10 @@ final class _NativeTrack extends MediaStreamTrackNative {
   _NativeTrack(String id, String owner) : super(id, id, 'video', true, owner);
 
   int stopCalls = 0;
+  Map<String, dynamic> settings = {};
+
+  @override
+  Map<String, dynamic> getSettings() => settings;
 
   @override
   Future<void> stop() async {

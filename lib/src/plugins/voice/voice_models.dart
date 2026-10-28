@@ -79,6 +79,8 @@ class VoiceParticipant {
     this.handRaisedAt,
     this.externalAgent = false,
     this.livekitIdentity,
+    this.canPublishVideo,
+    this.canScreenShare,
   });
 
   factory VoiceParticipant.fromJson(Map<String, dynamic> json) {
@@ -91,6 +93,12 @@ class VoiceParticipant {
       role: VoiceRole.parse(json['role']),
       externalAgent: json['external_agent'] == true,
       livekitIdentity: jsonText(json['livekit_identity']),
+      canPublishVideo: json['can_publish_video'] is bool
+          ? json['can_publish_video'] as bool
+          : null,
+      canScreenShare: json['can_screen_share'] is bool
+          ? json['can_screen_share'] as bool
+          : null,
       muted: json['is_muted'] == true,
       deafened: json['is_deafened'] == true,
       videoOn: json['is_video_on'] == true,
@@ -119,6 +127,8 @@ class VoiceParticipant {
   final DateTime? handRaisedAt;
   final bool externalAgent;
   final String? livekitIdentity;
+  final bool? canPublishVideo;
+  final bool? canScreenShare;
 
   bool get isAgent => externalAgent || id < 0;
 
@@ -369,8 +379,10 @@ class VoiceRoom {
     this.messageBusLastId,
     this.creatorId,
     this.canManage = false,
+    this.canDelete = false,
     this.videoEnabled = false,
     this.videoAllowed = false,
+    bool? screenShareAllowed,
     this.chatAvailable = false,
     this.chatChannelId,
     this.chatIdleMinutes,
@@ -383,10 +395,15 @@ class VoiceRoom {
     this.expectedTransport,
     this.ringing = const [],
     this._omittedUserFields = const {},
-  });
+    // The public parameter keeps the legacy fallback private.
+    // ignore: prefer_initializing_formals
+  }) : _screenShareAllowed = screenShareAllowed;
 
   static const _userFields = {
     'can_manage',
+    'can_delete',
+    'video_allowed',
+    'screen_share_allowed',
     'can_invite',
     'membership',
     'chat_available',
@@ -422,6 +439,7 @@ class VoiceRoom {
     ]),
     creatorId: jsonIntOrNull(json['creator_id']),
     canManage: json['can_manage'] == true,
+    canDelete: json['can_delete'] == true,
     canInvite: json['can_invite'] == true,
     expectedTransport: VoiceTransport.parse(json['expected_transport']),
     ringing: List.unmodifiable([
@@ -430,6 +448,9 @@ class VoiceRoom {
     ]),
     videoEnabled: json['video_enabled'] == true,
     videoAllowed: json['video_allowed'] == true,
+    screenShareAllowed: json.containsKey('screen_share_allowed')
+        ? json['screen_share_allowed'] == true
+        : null,
     chatAvailable: json['chat_available'] == true,
     chatChannelId: jsonIntOrNull(json['chat_channel_id']),
     chatIdleMinutes: jsonIntOrNull(json['chat_idle_minutes']),
@@ -462,8 +483,13 @@ class VoiceRoom {
   final List<VoiceParticipant> participants;
   final int? creatorId;
   final bool canManage;
+  final bool canDelete;
   final bool videoEnabled;
   final bool videoAllowed;
+  final bool? _screenShareAllowed;
+
+  /// Older servers grant camera and screen sharing through one permission.
+  bool get screenShareAllowed => _screenShareAllowed ?? videoAllowed;
   final bool chatAvailable;
   final int? chatChannelId;
   final int? chatIdleMinutes;
@@ -498,6 +524,9 @@ class VoiceRoom {
     int? messageBusLastId,
     List<VoiceParticipant>? participants,
     bool? canManage,
+    bool? canDelete,
+    bool? videoAllowed,
+    Object? screenShareAllowed = _unchanged,
     bool? canInvite,
     bool? chatAvailable,
     Object? chatChannelId = _unchanged,
@@ -522,8 +551,12 @@ class VoiceRoom {
     participants: participants ?? this.participants,
     creatorId: creatorId,
     canManage: canManage ?? this.canManage,
+    canDelete: canDelete ?? this.canDelete,
     videoEnabled: videoEnabled,
-    videoAllowed: videoAllowed,
+    videoAllowed: videoAllowed ?? this.videoAllowed,
+    screenShareAllowed: identical(screenShareAllowed, _unchanged)
+        ? _screenShareAllowed
+        : screenShareAllowed as bool?,
     chatAvailable: chatAvailable ?? this.chatAvailable,
     chatChannelId: identical(chatChannelId, _unchanged)
         ? this.chatChannelId
@@ -546,6 +579,9 @@ class VoiceRoom {
     omittedUserFields: Set.unmodifiable(
       _omittedUserFields.difference({
         if (canManage != null) 'can_manage',
+        if (canDelete != null) 'can_delete',
+        if (videoAllowed != null) 'video_allowed',
+        if (!identical(screenShareAllowed, _unchanged)) 'screen_share_allowed',
         if (canInvite != null) 'can_invite',
         if (chatAvailable != null) 'chat_available',
         if (!identical(chatChannelId, _unchanged)) 'chat_channel_id',
@@ -564,6 +600,15 @@ class VoiceRoom {
       canManage: _omittedUserFields.contains('can_manage')
           ? held.canManage
           : canManage,
+      canDelete: _omittedUserFields.contains('can_delete')
+          ? held.canDelete
+          : canDelete,
+      videoAllowed: _omittedUserFields.contains('video_allowed')
+          ? held.videoAllowed
+          : videoAllowed,
+      screenShareAllowed: _omittedUserFields.contains('screen_share_allowed')
+          ? held._screenShareAllowed
+          : _screenShareAllowed,
       canInvite: _omittedUserFields.contains('can_invite')
           ? held.canInvite
           : canInvite,
@@ -593,6 +638,11 @@ class VoiceRoom {
     bool supplied(String field) => !source._omittedUserFields.contains(field);
     return copyWith(
       canManage: supplied('can_manage') ? source.canManage : null,
+      canDelete: supplied('can_delete') ? source.canDelete : null,
+      videoAllowed: supplied('video_allowed') ? source.videoAllowed : null,
+      screenShareAllowed: supplied('screen_share_allowed')
+          ? source._screenShareAllowed
+          : _unchanged,
       canInvite: supplied('can_invite') ? source.canInvite : null,
       chatAvailable: supplied('chat_available') ? source.chatAvailable : null,
       chatChannelId: supplied('chat_channel_id')
@@ -837,6 +887,13 @@ sealed class VoiceRoomEvent {
             for (final participant in jsonObjects(json['participants']))
               VoiceParticipant.fromJson(participant),
           ]),
+          resumingIds: {
+            for (final value
+                in (json['resuming_ids'] is List
+                    ? json['resuming_ids'] as List
+                    : const []))
+              if (jsonIntOrNull(value) case final id? when id > 0) id,
+          },
         ),
         'kicked' => const VoiceKickedEvent(),
         'role_change' => VoiceRoleChangedEvent(
@@ -863,8 +920,12 @@ sealed class VoiceRoomEvent {
 }
 
 final class VoiceParticipantsEvent extends VoiceRoomEvent {
-  const VoiceParticipantsEvent(this.participants);
+  const VoiceParticipantsEvent(
+    this.participants, {
+    this.resumingIds = const {},
+  });
   final List<VoiceParticipant> participants;
+  final Set<int> resumingIds;
 }
 
 final class VoiceKickedEvent extends VoiceRoomEvent {

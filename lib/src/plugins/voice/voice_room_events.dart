@@ -8,8 +8,11 @@ final class _VoiceRoomEvents {
     required this._publish,
     required this._notify,
     required this._observe,
+    this.reactionReceived,
   });
 
+  final void Function(String siteUrl, int roomId, Map<String, dynamic> data)?
+  reactionReceived;
   final _VoiceCallManager _calls;
   final _VoiceRoomDirectory? Function(String) _directoryFor;
   final VoiceUserIdLookup _userIdFor;
@@ -27,6 +30,10 @@ final class _VoiceRoomEvents {
 
   void deliver(String siteUrl, int roomId, Object? data) {
     if (data is! Map<String, dynamic>) return;
+    if (data['type'] == 'reaction') {
+      reactionReceived?.call(siteUrl, roomId, data);
+      return;
+    }
     if (data['type'] == 'signal') {
       _observe(() => _handleSignalEnvelope(siteUrl, roomId, data));
       return;
@@ -70,7 +77,12 @@ final class _VoiceRoomEvents {
         updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
         _publish();
       case VoiceParticipantsEvent():
-        _replaceParticipants(siteUrl, roomId, event.participants);
+        _replaceParticipants(
+          siteUrl,
+          roomId,
+          event.participants,
+          resumingIds: event.resumingIds,
+        );
       case VoiceRecordingEvent():
         final wasRecording = room(siteUrl, roomId)?.recording?.active ?? false;
         updateRoom(
@@ -208,6 +220,8 @@ final class _VoiceRoomEvents {
     username: participant.username,
     externalAgent: participant.externalAgent,
     livekitIdentity: participant.livekitIdentity,
+    canPublishVideo: participant.canPublishVideo,
+    canScreenShare: participant.canScreenShare,
     role: role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -228,6 +242,8 @@ final class _VoiceRoomEvents {
     username: participant.username,
     externalAgent: participant.externalAgent,
     livekitIdentity: participant.livekitIdentity,
+    canPublishVideo: participant.canPublishVideo,
+    canScreenShare: participant.canScreenShare,
     role: participant.role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -259,8 +275,9 @@ final class _VoiceRoomEvents {
   void _replaceParticipants(
     String siteUrl,
     int roomId,
-    List<VoiceParticipant> participants,
-  ) {
+    List<VoiceParticipant> participants, {
+    Set<int> resumingIds = const {},
+  }) {
     updateRoom(
       siteUrl,
       roomId,
@@ -268,7 +285,12 @@ final class _VoiceRoomEvents {
       updateCall: false,
     );
     if (_calls.current case final session?) {
-      session.receiveParticipants(siteUrl, roomId, participants);
+      session.receiveParticipants(
+        siteUrl,
+        roomId,
+        participants,
+        resumingIds: resumingIds,
+      );
     } else {
       _publish();
     }

@@ -716,8 +716,21 @@ final class _VoiceCallSession {
     return _canPublishCamera(current, userId);
   }
 
-  bool _canPublishCamera(VoiceCallSnapshot call, int userId) {
-    if (!call.room.videoAllowed ||
+  bool _canPublishCamera(VoiceCallSnapshot call, int userId) =>
+      _canPublishVisualMedia(call, userId, screen: false);
+
+  bool _canPublishVisualMedia(
+    VoiceCallSnapshot call,
+    int userId, {
+    required bool screen,
+  }) {
+    final participant = call.room.participants
+        .where((p) => p.id == userId)
+        .firstOrNull;
+    final entitled = screen
+        ? call.room.screenShareAllowed && participant?.canScreenShare != false
+        : call.room.videoAllowed && participant?.canPublishVideo != false;
+    if (!entitled ||
         !call.room.videoEnabled ||
         !VoiceController._canPublishAudio(
           call.room,
@@ -1162,9 +1175,12 @@ final class _VoiceCallSession {
     final canPublishAudio =
         userId == null ||
         VoiceController._canPublishAudio(room, room.participants, userId);
-    final canPublishVideo = canPublishAudio && room.videoAllowed;
-    final stopsVideo =
-        !canPublishVideo && (call.cameraEnabled || call.screenSharing);
+    final stopsCamera =
+        (!canPublishAudio || !room.videoEnabled || !room.videoAllowed) &&
+        call.cameraEnabled;
+    final stopsScreen =
+        (!canPublishAudio || !room.videoEnabled || !room.screenShareAllowed) &&
+        call.screenSharing;
     if (!canPublishAudio) {
       _mediaControls[_VoiceMediaSetting.muted]?.accept(true);
     }
@@ -1182,10 +1198,10 @@ final class _VoiceCallSession {
         );
       });
     }
-    if (stopsVideo) {
+    if (stopsCamera || stopsScreen) {
       controller._observe(() async {
-        if (call.cameraEnabled) await _setCameraEnabled(false);
-        if (call.screenSharing) await _setScreenSharing(false);
+        if (stopsCamera) await _setCameraEnabled(false);
+        if (stopsScreen) await _setScreenSharing(false);
       });
       controller._notify(appL10n.videoWasTurnedOffInThisRoom);
     }
@@ -1208,6 +1224,14 @@ final class _VoiceCallSession {
   );
 
   Future<void> _setScreenSharing(bool enabled) async {
+    final call = _call;
+    final userId = call == null ? null : controller._userIdFor(call.siteUrl);
+    if (enabled &&
+        (call == null ||
+            userId == null ||
+            !_canPublishVisualMedia(call, userId, screen: true))) {
+      return;
+    }
     _cameraRevision++;
     await _updateMediaState(
       setting: _VoiceMediaSetting.screenSharing,
@@ -1220,11 +1244,24 @@ final class _VoiceCallSession {
   void receiveParticipants(
     String siteUrl,
     int roomId,
-    List<VoiceParticipant> participants,
-  ) {
+    List<VoiceParticipant> participants, {
+    Set<int> resumingIds = const {},
+  }) {
     final call = _call;
     if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = controller._userIdFor(siteUrl);
+      final resumable = call.media.transport == VoiceTransport.mesh
+          ? resumingIds
+          : const <int>{};
+      final receivedIds = {
+        for (final participant in participants) participant.id,
+      };
+      final effectiveParticipants = canonicalVoiceParticipants([
+        ...participants,
+        for (final held in call.room.participants)
+          if (resumable.contains(held.id) && !receivedIds.contains(held.id))
+            held,
+      ]);
       // Room subscriptions are cursored from the directory load, not from the
       // join response, so a roster published before join.json committed can
       // still be delivered while the join settles. The local user's absence
@@ -1233,7 +1270,8 @@ final class _VoiceCallSession {
       if (call.status != VoiceCallStatus.leaving &&
           call.status != VoiceCallStatus.joining &&
           userId != null &&
-          !participants.any((participant) => participant.id == userId)) {
+          !receivedIds.contains(userId) &&
+          !resumable.contains(userId)) {
         controller._observe(
           () => close(notifyServer: false, clearImmediately: true),
         );
@@ -1243,7 +1281,7 @@ final class _VoiceCallSession {
       if (userId != null) {
         canPublishAudio = VoiceController._canPublishAudio(
           call.room,
-          participants,
+          effectiveParticipants,
           userId,
         );
       }
@@ -1251,10 +1289,19 @@ final class _VoiceCallSession {
         _mediaControls[_VoiceMediaSetting.muted]?.accept(true);
       }
       _call = call.copyWith(
-        room: call.room.withParticipants(participants),
+        room: call.room.withParticipants(effectiveParticipants),
         muted: canPublishAudio ? null : true,
       );
-      _restoreParticipantVolumes(_call!);
+      final current = _call!;
+      final stopCamera =
+          current.cameraEnabled &&
+          userId != null &&
+          !_canPublishCamera(current, userId);
+      final stopScreen =
+          current.screenSharing &&
+          userId != null &&
+          !_canPublishVisualMedia(current, userId, screen: true);
+      _restoreParticipantVolumes(current);
       controller._observe(() async {
         if (userId != null) {
           // The call already shows a demoted speaker muted, so silence the
@@ -1267,8 +1314,15 @@ final class _VoiceCallSession {
             () => call.media.setAudioPublishingAllowed(canPublishAudio),
           );
         }
+        if (stopCamera) await _setCameraEnabled(false);
+        if (stopScreen) await _setScreenSharing(false);
         await controller._runHandled(
-          () => call.media.syncParticipants(participants),
+          () => call.media is MeshVoiceMediaSession
+              ? (call.media as MeshVoiceMediaSession).syncParticipants(
+                  effectiveParticipants,
+                  resumingIds: resumable,
+                )
+              : call.media.syncParticipants(participants),
         );
       });
     }
