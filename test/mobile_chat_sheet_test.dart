@@ -234,7 +234,7 @@ void main() {
   for (final origin in ['inbox', 'directory', 'channel']) {
     for (final reducedMotion in [false, true]) {
       testWidgets(
-        'pull reveals departing $origin pixels with reduced motion $reducedMotion',
+        'pull after resuming reveals departing $origin pixels with reduced motion $reducedMotion',
         (tester) async {
           final shell = await _fixture(tester);
           await shell.appSettings.setReduceMotion(reducedMotion);
@@ -266,6 +266,17 @@ void main() {
             tester.view.viewInsets = FakeViewPadding.zero;
             await tester.pumpAndSettle();
           }
+          for (final state in [
+            AppLifecycleState.inactive,
+            AppLifecycleState.hidden,
+            AppLifecycleState.paused,
+            AppLifecycleState.hidden,
+            AppLifecycleState.inactive,
+            AppLifecycleState.resumed,
+          ]) {
+            tester.binding.handleAppLifecycleStateChanged(state);
+          }
+          await tester.pumpAndSettle();
           final drag = await tester.startGesture(tester.getCenter(_handle));
           await drag.moveBy(const Offset(0, 20));
           await drag.moveBy(const Offset(0, 90));

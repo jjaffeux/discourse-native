@@ -112,7 +112,6 @@ void main() {
     'width',
     'padding',
     'memory',
-    'lifecycle',
   ]) {
     testWidgets('previous underlay clears safely on $invalidation', (
       tester,
@@ -139,23 +138,11 @@ void main() {
           state.changePadding();
         case 'memory':
           tester.binding.handleMemoryPressure();
-        case 'lifecycle':
-          tester.binding.handleAppLifecycleStateChanged(
-            AppLifecycleState.paused,
-          );
-          tester.binding.handleAppLifecycleStateChanged(
-            AppLifecycleState.resumed,
-          );
       }
       await tester.pumpAndSettle();
       expect(previousUnderlay(tester), isNull);
       await drag.cancel();
       await tester.pumpAndSettle();
-      if (invalidation == 'lifecycle') {
-        tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        );
-      }
       expect(tester.takeException(), isNull);
     });
   }
@@ -692,6 +679,34 @@ void main() {
     expect(state.swipes, 0);
     expect(tester.getTopLeft(_live).dx, 0);
     expect(find.byType(RawImage), findsNothing);
+  });
+
+  testWidgets('backgrounding cancels an edge swipe and retains its preview', (
+    tester,
+  ) async {
+    final state = await _pump(tester);
+    state.visit(1);
+    await tester.pumpAndSettle();
+    final gesture = await _drag(tester);
+    expect(find.byType(RawImage), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await gesture.up();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(state.swipes, 0);
+    expect(tester.getTopLeft(_live).dx, 0);
+    expect(find.byType(RawImage), findsNothing);
+    final resumedGesture = await _drag(tester);
+    expect(find.byType(RawImage), findsOneWidget);
+    await resumedGesture.up();
+    await tester.pumpAndSettle();
+    expect(state.index, 0);
+    expect(state.swipes, 1);
+    expect(tester.takeException(), isNull);
   });
 
   for (final direction in TextDirection.values) {

@@ -29,7 +29,8 @@ typedef DHistoryTab = ({Object id, int index});
 /// Supply [previousPreview] or [nextPreview] for an adjacent navigation surface
 /// that must be ready on its first reveal. These remain mounted offstage, with
 /// focus, semantics and interaction excluded until they become the real page.
-/// Theme, viewport width, history and app lifecycle changes discard snapshots.
+/// Theme, viewport width, history and memory pressure discard snapshots.
+/// App lifecycle changes cancel gestures while retaining page snapshots.
 /// Reduced motion keeps the page stationary while preserving the gestures.
 /// Departures are still captured for descendant reading-sheet underlays.
 /// Keyboard insets do not invalidate those departure snapshots.
@@ -240,7 +241,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) setState(_clear);
+    if (state != AppLifecycleState.resumed) {
+      setState(() {
+        _committedEntry = null;
+        _resetGesture();
+        _pointers.clear();
+      });
+    }
   }
 
   @override
