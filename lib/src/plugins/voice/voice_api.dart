@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 
 import 'voice_agents.dart';
 import 'voice_models.dart';
+import 'voice_reactions.dart';
 import 'voice_settings.dart';
 
 final class VoiceApi {
@@ -15,6 +16,31 @@ final class VoiceApi {
 
   String _route(String siteUrl, String route) =>
       '${namespaceFor(siteUrl).root}$route';
+
+  Future<VoiceReactionSettings> reactionSettings({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async => VoiceReactionSettings.fromJson(
+    await _transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: '/site.json',
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  );
+
+  Future<void> reaction({
+    required String siteUrl,
+    required int roomId,
+    required String apiKey,
+    required String emoji,
+    required String participantSessionId,
+    String? clientId,
+  }) => _voidWrite(siteUrl, '/rooms/$roomId/reaction.json', 'POST', apiKey, {
+    'emoji': emoji,
+    'participant_session_id': participantSessionId,
+  }, clientId);
 
   Future<VoiceAgentPermission> agentPermission({
     required String siteUrl,

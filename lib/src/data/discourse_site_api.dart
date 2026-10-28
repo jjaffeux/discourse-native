@@ -361,6 +361,7 @@ final class DiscourseSiteApi {
               name: name,
               url: resolved,
               tonable: row['tonable'] == true,
+              animated: row['animated'] == true,
             ),
           );
         }

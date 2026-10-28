@@ -35,11 +35,29 @@ class SiteEmoji {
     required this.name,
     required this.url,
     this.tonable = false,
+    this.animated = false,
   });
 
   final String name;
   final String url;
   final bool tonable;
+  final bool animated;
+
+  /// The animation shares the static asset's origin, subfolder and skin tone.
+  /// Upload-backed custom emoji never match the standard emoji asset path.
+  String? animatedUrlFor(EmojiSkinTone tone) {
+    if (!animated) return null;
+    final uri = Uri.tryParse(urlFor(tone));
+    if (uri == null) return null;
+    final match = RegExp(
+      r'/images/emoji/[^/]+/(.+)\.[^/.]+$',
+    ).firstMatch(uri.path);
+    if (match == null) return null;
+    final prefix = uri.path.substring(0, match.start);
+    return uri
+        .replace(path: '$prefix/images/emoji/noto_animated/${match[1]}.avif')
+        .toString();
+  }
 
   String codeFor(EmojiSkinTone tone) =>
       !tonable || tone == EmojiSkinTone.neutral
@@ -74,10 +92,11 @@ class SiteEmoji {
       (other is SiteEmoji &&
           other.name == name &&
           other.url == url &&
-          other.tonable == tonable);
+          other.tonable == tonable &&
+          other.animated == animated);
 
   @override
-  int get hashCode => Object.hash(name, url, tonable);
+  int get hashCode => Object.hash(name, url, tonable, animated);
 }
 
 @immutable
@@ -148,6 +167,22 @@ final class SiteEmojiCatalog {
   bool get isNotEmpty => all.isNotEmpty;
 
   SiteEmoji? emojiNamed(String name) => byName[name];
+
+  String? animatedUrlFor(String code, {String? staticUrl}) {
+    final toned = RegExp(r':t([1-6])$').firstMatch(code);
+    final name = toned == null ? code : code.substring(0, toned.start);
+    final tone = EmojiSkinTone.fromCode(
+      toned?.group(1) == null ? null : int.parse(toned!.group(1)!),
+    );
+    final emoji =
+        emojiNamed(name) ??
+        (staticUrl == null
+            ? null
+            : all
+                  .where((entry) => entry.urlFor(tone) == staticUrl)
+                  .firstOrNull);
+    return emoji?.animatedUrlFor(tone);
+  }
 
   @override
   bool operator ==(Object other) =>

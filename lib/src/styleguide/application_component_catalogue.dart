@@ -4,6 +4,16 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'animated-emoji',
+    name: 'Animated emoji',
+    sections: ['Animated and static artwork'],
+  ),
+  ComponentReference(
+    id: 'reaction-overlay',
+    name: 'Reaction overlay',
+    sections: ['Floating reactions'],
+  ),
+  ComponentReference(
     id: 'mobile-dock',
     name: 'Mobile dock',
     sections: ['Floating capsule', 'Collapsed destination'],

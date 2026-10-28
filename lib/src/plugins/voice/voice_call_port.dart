@@ -18,6 +18,8 @@ final class VoiceCallPresentation {
     required this.muted,
     this.recording = false,
     this.localVideoPreview,
+    this.reactionOverlay,
+    this.reactionControl,
     this.failureMessage,
     this.identity,
   });
@@ -32,6 +34,8 @@ final class VoiceCallPresentation {
 
   /// Selected remote speaker video, falling back to the local camera.
   final Widget? localVideoPreview;
+  final Widget? reactionOverlay;
+  final Widget? reactionControl;
   final String? failureMessage;
 
   /// Stable for one call so a replacement starts with a visible preview.

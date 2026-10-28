@@ -94,6 +94,7 @@ class _FloatingCallState extends State<_FloatingCall> {
                                         color: tokens.mutedForeground,
                                       ),
                                     ),
+                                ?call.reactionOverlay,
                                 PositionedDirectional(
                                   start: DSpacing.sm,
                                   end: DSpacing.sm,
@@ -149,6 +150,7 @@ class _FloatingCallState extends State<_FloatingCall> {
                           spacing: DSpacing.controlGap,
                           runSpacing: DSpacing.controlGap,
                           children: [
+                            ?call.reactionControl,
                             DTooltip(
                               message: call.muted
                                   ? context.l10n.unmute

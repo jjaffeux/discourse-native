@@ -14,6 +14,7 @@ import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_notices.dart';
 import 'voice_notifications.dart';
+import 'voice_room_info.dart';
 import 'voice_room_onebox.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
@@ -29,6 +30,9 @@ final class VoicePlugin
         SidebarPanelPlugin,
         SidebarPanelListenablePlugin,
         ContentPlugin,
+        ContentHeaderPlugin,
+        ContentHeaderLeadingPlugin,
+        ContentHeaderTitlePlugin,
         ShellOverlayPlugin,
         NotificationTypePlugin,
         SiteSettingsPlugin<VoiceClientConfig>,
@@ -40,6 +44,72 @@ final class VoicePlugin
         CookedElementPlugin,
         CookedInlinePlugin {
   const VoicePlugin();
+
+  @override
+  List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {
+    final id = roomIdIn(route.id);
+    if (id == null) return const [];
+    final shell = PluginUiScope.require(context, voiceShellService);
+    final site = shell.currentInstance?.url;
+    final controller = PluginUiScope.require(context, voiceControllerService);
+    final room = site == null ? null : controller.room(site, id);
+    if (site == null ||
+        room?.chatAvailable != true ||
+        controller.call?.siteUrl != site ||
+        controller.call?.room.id != id) {
+      return const [];
+    }
+    return [
+      DButton.iconOnly(
+        tooltip: appL10n.roomChat,
+        icon: const DIcon(DIcons.comment),
+        variant: DButtonVariant.ghost,
+        onPressed: () =>
+            showVoiceRoomChat(context, controller, siteUrl: site, roomId: id),
+      ),
+    ];
+  }
+
+  @override
+  Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
+    final id = roomIdIn(route.id);
+    if (id == null) return null;
+    final shell = PluginUiScope.require(context, voiceShellService);
+    final site = shell.currentInstance?.url;
+    final room = site == null ? null : shell.controller.room(site, id);
+    if (room == null) return null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DIcon(
+          room.type == VoiceRoomType.stage
+              ? DIcons.earListen
+              : DIcons.microphoneLines,
+        ),
+        if (!room.isPublic) const DIcon(DIcons.lock, size: 12),
+      ],
+    );
+  }
+
+  @override
+  VoidCallback? contentHeaderTitleAction(
+    BuildContext context,
+    ContentRoute route,
+  ) {
+    final id = roomIdIn(route.id);
+    if (id == null) return null;
+    final shell = PluginUiScope.require(context, voiceShellService);
+    final site = shell.currentInstance?.url;
+    final controller = PluginUiScope.require(context, voiceControllerService);
+    final room = site == null ? null : controller.room(site, id);
+    if (room == null || site == null) return null;
+    return () => showVoiceRoomInfo(
+      context,
+      siteUrl: site,
+      room: room,
+      controller: controller,
+    );
+  }
 
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {

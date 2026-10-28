@@ -19,6 +19,7 @@ class EmojiImage extends StatefulWidget {
     required this.size,
     required this.alt,
     this.style,
+    this.fallbackUrl,
   });
 
   final String url;
@@ -26,6 +27,7 @@ class EmojiImage extends StatefulWidget {
   final String alt;
 
   final TextStyle? style;
+  final String? fallbackUrl;
 
   @override
   State<EmojiImage> createState() => _EmojiImageState();
@@ -85,7 +87,11 @@ class _EmojiImageState extends State<EmojiImage> {
 
     // Nothing yet: hold the space rather than drawing the shortcode, so a
     // paragraph does not reflow under the reader when the images land.
-    if (!_resolved) return SizedBox(width: widget.size, height: widget.size);
+    if (!_resolved) {
+      return widget.fallbackUrl == null
+          ? SizedBox(width: widget.size, height: widget.size)
+          : _fallback();
+    }
 
     if (image == null) return _fallback();
 
@@ -125,7 +131,15 @@ class _EmojiImageState extends State<EmojiImage> {
     return _fallback();
   }
 
-  Widget _fallback() => Text(widget.alt, style: widget.style);
+  Widget _fallback() =>
+      widget.fallbackUrl != null && widget.fallbackUrl != widget.url
+      ? EmojiImage(
+          url: widget.fallbackUrl!,
+          size: widget.size,
+          alt: widget.alt,
+          style: widget.style,
+        )
+      : Text(widget.alt, style: widget.style);
 }
 
 const double emojiScale = 1;
