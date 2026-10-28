@@ -133,7 +133,6 @@ void main() {
       addTearDown(host.close);
       final controller = host.require(voiceControllerService);
       final tracker = RecordingPluginLiveChannels();
-      controller.attachTracker(_site, tracker);
       await controller.ensureLoaded(_site);
       await tester.pumpWidget(
         host.scope(
@@ -156,6 +155,9 @@ void main() {
       expect(find.text('1 person here now'), findsOneWidget);
       expect(find.textContaining('99 stale'), findsNothing);
       expect(find.byType(DAvatar), findsOneWidget);
+      // Startup attaches the host tracker asynchronously; replace it only
+      // after the mounted host has finished initializing its live session.
+      controller.attachTracker(_site, tracker);
 
       tracker.deliver('/live/rooms/index', {
         'type': 'updated',
