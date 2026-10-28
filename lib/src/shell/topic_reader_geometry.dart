@@ -203,13 +203,40 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     if (render is! _TopicPostRenderSliver || render.geometry == null) {
       return null;
     }
+    final offset = _constrainItemViewportOffset(itemIndex, viewportOffset);
     return render.getOffsetToReveal(
           window.childIndexForItem(itemIndex),
           0,
           estimationOnly: true,
         ) -
-        viewportOffset -
+        offset -
         viewportTopInset;
+  }
+
+  @override
+  double constrainPostViewportOffset(int postId, double viewportOffset) {
+    final index = window[postId];
+    return index == null
+        ? viewportOffset
+        : _constrainItemViewportOffset(
+            index + window.leadingItems,
+            viewportOffset,
+          );
+  }
+
+  double _constrainItemViewportOffset(int itemIndex, double viewportOffset) {
+    if (viewportOffset >= 0) return viewportOffset;
+    final list = _list;
+    final childIndex = window.childIndexForItem(itemIndex);
+    final extent =
+        list != null && list.isAttached && childIndex < list.numberOfItems
+        ? list.extentForIndex(childIndex).$1
+        : 0.0;
+    // Keep the anchor in the laid-out range while an estimated or partially
+    // mounted post grows. Its saved offset becomes reachable as layout fills in.
+    return viewportOffset
+        .clamp(-(extent - 1).clamp(0, double.infinity), 0)
+        .toDouble();
   }
 
   double? offsetForPost(int postId, {required double viewportOffset}) {
@@ -245,7 +272,8 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
         alignment: 0,
       );
     }
-    final targetInset = viewportOffset + viewportTopInset;
+    final targetInset =
+        _constrainItemViewportOffset(index, viewportOffset) + viewportTopInset;
     if (targetInset == 0 || !scroll.hasClients) {
       return;
     }

@@ -117,6 +117,10 @@ final class _Rig {
 
 final class _Geometry implements TopicViewportGeometry {
   @override
+  double constrainPostViewportOffset(int postId, double viewportOffset) =>
+      viewportOffset;
+
+  @override
   double get viewportTopInset => 0;
 
   @override

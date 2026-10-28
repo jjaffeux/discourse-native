@@ -74,6 +74,8 @@ abstract interface class TopicViewportGeometry {
 
   double? postViewportOffset(int postId);
 
+  double constrainPostViewportOffset(int postId, double viewportOffset);
+
   /// Obscured space above the readable area used by [postViewportOffset].
   double get viewportTopInset;
 
@@ -388,11 +390,18 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   // An anchor keeps its physical screen position while the overlay moves.
   // Convert that frozen position back to the current readable-area coordinates
   // for both layout-time and post-frame corrections.
-  double get anchorRestoreViewportOffset =>
-      _anchorRestoreViewportOffset +
-      (_anchorRestoreToken == null
-          ? 0
-          : _anchorRestoreTopInset - _geometry.viewportTopInset);
+  double get anchorRestoreViewportOffset {
+    final offset =
+        _anchorRestoreViewportOffset +
+        (_anchorRestoreToken == null
+            ? 0
+            : _anchorRestoreTopInset - _geometry.viewportTopInset);
+    final postId = _anchorRestorePostId;
+    return postId == null
+        ? offset
+        : _geometry.constrainPostViewportOffset(postId, offset);
+  }
+
   int get generation => _generation;
 
   bool get _readerActive =>
