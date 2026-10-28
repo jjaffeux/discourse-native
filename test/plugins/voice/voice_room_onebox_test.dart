@@ -157,7 +157,7 @@ void main() {
       expect(find.textContaining('99 stale'), findsNothing);
       expect(find.byType(DAvatar), findsOneWidget);
 
-      tracker.deliver('/live/rooms', {
+      tracker.deliver('/live/rooms/index', {
         'type': 'updated',
         'room': _room(participants: 7),
       }, messageId: 2);
@@ -169,7 +169,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(host.currentContent?.id, 'voice-room-7');
 
-      tracker.deliver('/live/rooms', {
+      tracker.deliver('/live/rooms/index', {
         'type': 'destroyed',
         'room': _room(),
       }, messageId: 3);
