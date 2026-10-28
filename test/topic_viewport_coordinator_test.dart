@@ -939,6 +939,10 @@ final class _Owner {
 
 final class _Geometry implements TopicViewportGeometry {
   @override
+  double constrainPostViewportOffset(int postId, double viewportOffset) =>
+      viewportOffset;
+
+  @override
   double viewportTopInset = 0;
   final Map<int, double> offsets = {};
   TopicViewportAnchor? capturedAnchor;
