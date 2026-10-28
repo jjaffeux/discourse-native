@@ -61,7 +61,7 @@ final class _LiveKitVideoHandle implements VoiceVideoHandle {
 }
 
 bool _portrait(rtc.MediaStreamTrack track, rtc.RTCVideoValue value) {
-  if (value.width > 0 && value.height > 0) return value.height > value.width;
+  if (value.width > 0 && value.height > 0) return value.aspectRatio < 1;
   final settings = track.getSettings();
   final width = settings['width'];
   final height = settings['height'];
@@ -80,10 +80,22 @@ class _LiveKitTrackRendererState extends State<_LiveKitTrackRenderer> {
   final _renderer = rtc.RTCVideoRenderer();
   late final Future<void> _initialization;
   bool _ready = false;
+  bool _contain = false;
+
+  void _sizeChanged() {
+    final contain =
+        widget.track.source == lk.TrackSource.screenShareVideo ||
+        _portrait(widget.track.mediaStreamTrack, _renderer.value);
+    if (mounted && contain != _contain) setState(() => _contain = contain);
+  }
 
   @override
   void initState() {
     super.initState();
+    _contain =
+        widget.track.source == lk.TrackSource.screenShareVideo ||
+        _portrait(widget.track.mediaStreamTrack, _renderer.value);
+    _renderer.addListener(_sizeChanged);
     _initialization = _renderer.initialize();
     unawaited(
       _initialization
@@ -96,6 +108,7 @@ class _LiveKitTrackRendererState extends State<_LiveKitTrackRenderer> {
 
   @override
   void dispose() {
+    _renderer.removeListener(_sizeChanged);
     unawaited(
       _initialization
           .then((_) => _renderer.dispose())
@@ -107,18 +120,11 @@ class _LiveKitTrackRendererState extends State<_LiveKitTrackRenderer> {
   @override
   Widget build(BuildContext context) => !_ready
       ? const SizedBox.shrink()
-      : ValueListenableBuilder<rtc.RTCVideoValue>(
-          valueListenable: _renderer,
-          builder: (context, value, child) => lk.VideoTrackRenderer(
-            widget.track,
-            cachedRenderer: _renderer,
-            autoDisposeRenderer: false,
-            fit:
-                widget.track.source == lk.TrackSource.screenShareVideo ||
-                    _portrait(widget.track.mediaStreamTrack, value)
-                ? lk.VideoViewFit.contain
-                : lk.VideoViewFit.cover,
-          ),
+      : lk.VideoTrackRenderer(
+          widget.track,
+          cachedRenderer: _renderer,
+          autoDisposeRenderer: false,
+          fit: _contain ? lk.VideoViewFit.contain : lk.VideoViewFit.cover,
         );
 }
 
