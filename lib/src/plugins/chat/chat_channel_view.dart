@@ -2387,7 +2387,7 @@ class _JumpToPresent extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         DButton.iconOnly(
-          size: DButtonSize.chip,
+          size: DButtonSize.regular,
           density: DButtonDensity.floatingDate,
           shape: DButtonShape.pill,
           variant: DButtonVariant.outline,
