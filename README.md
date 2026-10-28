@@ -32,5 +32,8 @@ bundle install
 brew install xcbeautify
 ```
 
+Fastlane adds Homebrew's `rustup` to `PATH` and selects Rust `1.92.0`
+automatically for every lane.
+
 Both iOS and macOS TestFlight builds use `xcbeautify`, the
 [formatter recommended by Fastlane](https://docs.fastlane.tools/best-practices/xcodebuild-formatters/).

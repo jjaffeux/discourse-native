@@ -1,5 +1,6 @@
 require "minitest/autorun"
 require "minitest/mock"
+require "open3"
 require "fastlane"
 require "gym"
 require "gym/generators/package_command_generator_xcode7"
@@ -8,7 +9,9 @@ require "gym/generators/package_command_generator_xcode7"
 class SigningFastfile < Fastlane::FastFile
   def opt_out_usage; end
   def default_platform(_platform); end
-  def sh(*_arguments); end
+  def sh(*arguments, **_options)
+    "/test homebrew/rustup" if arguments == ["brew", "--prefix", "rustup"]
+  end
   def latest_testflight_build_number(**_options) = 134
   def upload_to_testflight(**_options); end
 
@@ -22,6 +25,8 @@ SIGNING_FASTFILE = SigningFastfile.new(File.expand_path("../Fastfile", __dir__))
 
 class SigningTest < Minitest::Test
   def setup
+    @original_path = ENV["PATH"]
+    @original_rustup_toolchain = ENV["RUSTUP_TOOLCHAIN"]
     @temporary_root = Dir.mktmpdir("signing-test-")
     @directory = File.join(@temporary_root, "signing test files")
     Dir.mkdir(@directory)
@@ -36,13 +41,22 @@ class SigningTest < Minitest::Test
   end
 
   def teardown
+    ENV["PATH"] = @original_path
+    ENV["RUSTUP_TOOLCHAIN"] = @original_rustup_toolchain
     FileUtils.remove_entry(@temporary_root)
   end
 
-  def test_beta_authenticates_both_platforms_during_archive_and_export
+  def test_beta_configures_native_tools_and_authenticates_both_platforms
     builds = []
     key_paths = []
     build = lambda do |**options|
+      environment, status = Open3.capture2(
+        "/bin/sh", "-c", 'printf "%s\n%s\n" "$PATH" "$RUSTUP_TOOLCHAIN"'
+      )
+      assert status.success?
+      path, toolchain = environment.lines.map(&:chomp)
+      assert_equal "/test homebrew/rustup/bin", path.split(File::PATH_SEPARATOR).first
+      assert_equal "1.92.0", toolchain
       builds << options
       key_paths << verify_signing_arguments(options)
       "#{options.fetch(:output_name)}.#{builds.length == 1 ? 'ipa' : 'pkg'}"
@@ -52,14 +66,14 @@ class SigningTest < Minitest::Test
       SIGNING_FASTFILE.stub(:prune_testflight_artifacts, nil) do
         SIGNING_FASTFILE.stub(:prune_full_profile_build_cache, nil) do
           Dir.stub(:tmpdir, @directory) do
-            SIGNING_FASTFILE.runner.lanes.fetch(nil).fetch(:beta).call(
+            SIGNING_FASTFILE.runner.execute(:beta, nil, {
               version: "1.1.0",
               api_key_path: @api_key_path,
               uses_non_exempt_encryption: false,
               skip_checks: true,
               allow_dirty: true,
               wait_for_processing: false
-            )
+            })
           end
         end
       end

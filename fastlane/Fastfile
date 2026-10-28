@@ -14,6 +14,12 @@ TESTFLIGHT_OUTPUT = File.join(PROJECT_ROOT, "build", "testflight")
 
 default_platform(:ios)
 
+before_all do
+  rustup_prefix = sh("brew", "--prefix", "rustup", log: false).strip
+  ENV["PATH"] = [File.join(rustup_prefix, "bin"), ENV.fetch("PATH")].join(File::PATH_SEPARATOR)
+  ENV["RUSTUP_TOOLCHAIN"] = "1.92.0"
+end
+
 def boolean_option(value, name:, default: nil)
   return default if value.nil?
   return value if value == true || value == false
