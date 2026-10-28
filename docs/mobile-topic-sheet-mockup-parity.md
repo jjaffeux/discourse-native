@@ -10,8 +10,8 @@ Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. Its top corners are 31, as round as the phone's bar, and its bottom
 corners keep the 22px page radius; see
-[topic-head-mockup-parity.md](topic-head-mockup-parity.md) for the top
-squaring under a resting condensed head. The shared mobile body runs to the bottom screen edge for Start, topic
+[topic-head-mockup-parity.md](topic-head-mockup-parity.md) for the condensed
+head's matching rounded outline. The shared mobile body runs to the bottom screen edge for Start, topic
 lists, ordinary pages, plugin roots, topic sheets, and chat channel and thread
 sheets. Page sheets add no menu margins or reserved handle row. The outer mobile
 surface stays mounted with a transparent fill, so the corners show the window
@@ -27,11 +27,24 @@ Back. The handle, downward overscroll at the top of the reader, wheel input,
 and native trackpad pans share dismissal. Ordinary reading continues to scroll.
 Reduced motion completes an accepted dismissal immediately.
 
+The fixed mobile header also pulls the active content sheet down, including
+while its reader is scrolled. `DSheetDragScope` connects that header's
+`DSheetDragRegion` to the page's existing drag handler. The header stays in
+place, and its buttons retain their normal tap actions. A cancelled pull
+restores the sheet. Hidden pages and gestures begun on an earlier visit cannot
+dismiss a newer page.
+
 Chat channel sheets, thread sheets, and topics opened outside a retained inbox
-reveal the previous history visit's captured frame. Native owns the bounded
+reveal the previous history visit's captured frame. The live page and captured
+frame share the sheet's rounded outline as they recede during entrance and
+return during dismissal. Live backgrounds paint their panel rim with
+`DSheetViewport.pageBorderRadius`, matching the clip so the rim continues
+around the corners. Native owns the bounded
 snapshot cache and image lifetime. The underlay does not mount another reader.
 The snapshot follows its original capture coordinates, including the mobile
-host's top gap, and keeps its aspect ratio. Keyboard changes retain the departure
+host's top gap, and keeps its aspect ratio. Its layout offset is measured before
+the depth transform, so the whole captured container scales together without
+moving its contents inside the frame. Keyboard changes retain the departure
 frame. History, account, appearance, width, memory pressure, and lifecycle
 changes clear it. Reduced motion still captures departures for vertical pulls.
 

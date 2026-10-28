@@ -68,16 +68,13 @@ frame, so a band costs much less than one path the size of the surface.
 
 Nothing adds a blur layer, a `BackdropFilter` or a `saveLayer`.
 
+Phone page cards, page sheets, and the previous page revealed beneath them
+keep 31px top corners and 22px bottom corners. The condensed topic head keeps
+its rounded outline and removes the card's rim and shadow through
+`DSheetPageBand`. See [Topic head parity](topic-head-mockup-parity.md).
+
 ## Not matched here
 
-- The mockup rounds the phone page card's top corners to 31px under look A
-  (`[data-touch] [data-panel-body].glass-sheet`). The page under a page sheet
-  is rounded too (`.pushed-under`, 22px). Native keeps 22px on the card and
-  square corners on the underlay. These are geometry, so the panel rim
-  follows Native's corners.
-- When a topic's head draws into its bar, the mockup drops the card's edge
-  and shadow (`.glass-sheet:has(.topic-head-compact)`). This depends on the
-  one-line topic head.
 - The open search field merges into its menu (`.bar-field.is-merged`,
   `.menu-surface.is-attached`) with its own pulled-in shadows. Native has no
   merged field.

@@ -147,8 +147,8 @@ class DPageSurface extends StatefulWidget {
   final bool? initialCompactHeader;
 
   /// [compactHeader] is a band of its own fill across the top of the page
-  /// sheet this page is in, which squares its corners under the band while
-  /// it rests there and keeps its grabber beneath it. See [DSheetPageBand].
+  /// sheet this page is in, sharing its rounded outline and keeping its
+  /// grabber beneath the band. See [DSheetPageBand].
   final bool compactHeaderBand;
 
   /// Measures an inert, offstage copy of [compactHeader] before its first use.
@@ -470,7 +470,6 @@ class _DPageSurfaceState extends State<DPageSurface>
     band.report(
       _bandOwner,
       condensed: _compact,
-      resting: _compact && shown > .999,
       coversGrabber: _compact && shown * height >= _grabberFoot,
     );
   }

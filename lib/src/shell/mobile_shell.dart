@@ -274,92 +274,94 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             // Ancestor Material ink layers also repaint on scroll. Retain the
             // fixed header independently of the moving page and dock.
             RepaintBoundary(
-              child: ForumSidebarTheme(
-                child: Padding(
-                  key: const ValueKey('mobile-header'),
-                  padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 14, 4),
-                  child: Builder(
-                    builder: (context) {
-                      final navigation = <Widget>[
-                        SizedBox(
-                          width: _mobileRailWidth,
-                          child: Center(
-                            child: DButton.iconOnly(
-                              key: const ValueKey('mobile-menu-button'),
-                              icon: const DIconGlyphTheme(
-                                scale: 1,
-                                naturalWidth: true,
-                                child: DIcon(DNativeIcons.bars, size: 18),
+              child: DSheetDragRegion(
+                child: ForumSidebarTheme(
+                  child: Padding(
+                    key: const ValueKey('mobile-header'),
+                    padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 14, 4),
+                    child: Builder(
+                      builder: (context) {
+                        final navigation = <Widget>[
+                          SizedBox(
+                            width: _mobileRailWidth,
+                            child: Center(
+                              child: DButton.iconOnly(
+                                key: const ValueKey('mobile-menu-button'),
+                                icon: const DIconGlyphTheme(
+                                  scale: 1,
+                                  naturalWidth: true,
+                                  child: DIcon(DNativeIcons.bars, size: 18),
+                                ),
+                                tooltip: sidebarOpen
+                                    ? context.l10n.closeNavigation
+                                    : context.l10n.openNavigation,
+                                variant: DButtonVariant.inline,
+                                expanded: sidebarOpen,
+                                onPressed: () {
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  shell.toggleMobileSidebar();
+                                },
                               ),
-                              tooltip: sidebarOpen
-                                  ? context.l10n.closeNavigation
-                                  : context.l10n.openNavigation,
-                              variant: DButtonVariant.inline,
-                              expanded: sidebarOpen,
-                              onPressed: () {
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                shell.toggleMobileSidebar();
-                              },
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: ForumIdentityHeader(
-                              size: 28,
-                              name: instance.title,
-                              iconUrl: instance.iconUrl,
-                              monogram: instance.monogram,
-                              accentColor: instance.accentColor,
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: ForumIdentityHeader(
+                                size: 28,
+                                name: instance.title,
+                                iconUrl: instance.iconUrl,
+                                monogram: instance.monogram,
+                                accentColor: instance.accentColor,
+                              ),
                             ),
                           ),
-                        ),
-                        const ForumSearch(fullScreen: true),
-                      ];
-                      final actions = <Widget>[
-                        ...registry.shellHeaderActions(
-                          context,
-                          surface: PluginHeaderSurface.content,
-                          compact: true,
-                          ringColor: ForumWindowBackground.chromeColor(
+                          const ForumSearch(fullScreen: true),
+                        ];
+                        final actions = <Widget>[
+                          ...registry.shellHeaderActions(
                             context,
-                            Theme.of(context).shell.sidebar,
+                            surface: PluginHeaderSurface.content,
+                            compact: true,
+                            ringColor: ForumWindowBackground.chromeColor(
+                              context,
+                              Theme.of(context).shell.sidebar,
+                            ),
                           ),
-                        ),
-                        const UserMenuButton(
-                          compact: true,
-                          presentation: UserMenuPresentation.notifications,
-                        ),
-                      ];
-                      final largeText =
-                          MediaQuery.textScalerOf(context).scale(12) > 18;
-                      if (largeText) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          const UserMenuButton(
+                            compact: true,
+                            presentation: UserMenuPresentation.notifications,
+                          ),
+                        ];
+                        final largeText =
+                            MediaQuery.textScalerOf(context).scale(12) > 18;
+                        if (largeText) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(spacing: 10, children: navigation),
+                              const SizedBox(height: DSpacing.controlGap),
+                              Wrap(
+                                alignment: WrapAlignment.end,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                runSpacing: DSpacing.controlGap,
+                                children: actions,
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          spacing: 10,
                           children: [
-                            Row(spacing: 10, children: navigation),
-                            const SizedBox(height: DSpacing.controlGap),
-                            Wrap(
-                              alignment: WrapAlignment.end,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              runSpacing: DSpacing.controlGap,
+                            ...navigation,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: actions,
                             ),
                           ],
                         );
-                      }
-                      return Row(
-                        spacing: 10,
-                        children: [
-                          ...navigation,
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions,
-                          ),
-                        ],
-                      );
-                    },
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -875,42 +877,44 @@ class MobileHistoryGestures extends StatelessWidget {
     final sidebarEntry = (navigation.historyId, 'sidebar');
     final root = !navigation.canGoBack;
     final topicOpen = !sidebarOpen && shell.currentContent?.isTopic == true;
-    return DHistoryTransition(
-      frameBuilder: frameBuilder,
-      history: navigation.historyId,
-      tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
-      tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
-      entry: sidebarOpen ? sidebarEntry : navigation.entryId,
-      // Navigation is adjacent to the tab root without becoming a visit in
-      // its history. Deeper pages keep their normal Back/Forward targets.
-      previousEntry: sidebarOpen
-          ? null
-          : root
-          ? sidebarEntry
-          : navigation.previousEntryId,
-      nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
-      previousPreview: !sidebarOpen && root ? navigationPreview : null,
-      onBack: !sidebarOpen && !topicOpen
-          ? () {
-              FocusManager.instance.primaryFocus?.unfocus();
-              if (root) {
-                shell.toggleMobileSidebar();
-              } else {
-                shell.handleBack();
+    return DSheetDragScope(
+      child: DHistoryTransition(
+        frameBuilder: frameBuilder,
+        history: navigation.historyId,
+        tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
+        tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
+        entry: sidebarOpen ? sidebarEntry : navigation.entryId,
+        // Navigation is adjacent to the tab root without becoming a visit in
+        // its history. Deeper pages keep their normal Back/Forward targets.
+        previousEntry: sidebarOpen
+            ? null
+            : root
+            ? sidebarEntry
+            : navigation.previousEntryId,
+        nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
+        previousPreview: !sidebarOpen && root ? navigationPreview : null,
+        onBack: !sidebarOpen && !topicOpen
+            ? () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                if (root) {
+                  shell.toggleMobileSidebar();
+                } else {
+                  shell.handleBack();
+                }
               }
-            }
-          : null,
-      onForward: !topicOpen && (sidebarOpen || navigation.canGoForward)
-          ? () {
-              FocusManager.instance.primaryFocus?.unfocus();
-              if (sidebarOpen) {
-                shell.closeMobileSidebar();
-              } else {
-                shell.handleForward();
+            : null,
+        onForward: !topicOpen && (sidebarOpen || navigation.canGoForward)
+            ? () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                if (sidebarOpen) {
+                  shell.closeMobileSidebar();
+                } else {
+                  shell.handleForward();
+                }
               }
-            }
-          : null,
-      child: child,
+            : null,
+        child: child,
+      ),
     );
   }
 }

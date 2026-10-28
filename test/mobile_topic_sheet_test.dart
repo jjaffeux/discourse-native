@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
@@ -81,13 +82,13 @@ Future<void> _capture(WidgetTester tester, String name) async {
 }
 
 void main() {
-  if (const bool.fromEnvironment('captureTopicSheet')) {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    const channel = MethodChannel('org.discourse.native/notification_opens');
-    setUpAll(() async {
-      messenger.setMockMethodCallHandler(channel, (_) async => null);
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  const channel = MethodChannel('org.discourse.native/notification_opens');
+  setUpAll(() async {
+    messenger.setMockMethodCallHandler(channel, (_) async => null);
+    if (const bool.fromEnvironment('captureTopicSheet')) {
       final manifest =
           jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
       for (final entry in manifest.cast<Map<String, dynamic>>()) {
@@ -98,9 +99,32 @@ void main() {
         }
         await loader.load();
       }
-    });
-    tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
-  }
+    }
+  });
+  tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  testWidgets('opening a topic slides its page up below fixed navigation', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, topic: topicPayload(id: 7));
+    final header = tester.getRect(_header);
+    final dock = tester.getRect(_dock);
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pump();
+    final startingTop = tester.getTopLeft(_sheet).dy;
+    expect(startingTop, greaterThanOrEqualTo(844));
+    await tester.pump(const Duration(milliseconds: 140));
+    expect(
+      tester.getTopLeft(_sheet).dy,
+      inExclusiveRange(header.bottom, startingTop),
+    );
+    expect(tester.getRect(_header), header);
+    expect(tester.getRect(_dock), dock);
+    await _capture(tester, 'entrance-half');
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(_sheet).dy, header.bottom + 6);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     testWidgets('topic sheet geometry ${mode.name} flat', (tester) async {
@@ -233,7 +257,7 @@ void main() {
   );
 
   testWidgets(
-    'dismissing a topic sheet keeps the revealed topic rows in place',
+    'dismissing a topic sheet retains its rows as background depth restores',
     (tester) async {
       final shell = await pumpMobileShellFixture(
         tester,
@@ -260,6 +284,17 @@ void main() {
       await tester.pumpAndSettle();
       final offset = position.pixels;
       final bounds = tester.getRect(card);
+      double cardTopInList() {
+        final box = tester.renderObject<RenderBox>(card);
+        return box
+            .localToGlobal(
+              Offset.zero,
+              ancestor: tester.renderObject<RenderBox>(list),
+            )
+            .dy;
+      }
+
+      final localTop = cardTopInList();
       await _capture(tester, 'stable-list-before');
 
       await tester.tap(card);
@@ -269,7 +304,7 @@ void main() {
       await drag.moveBy(const Offset(0, 220));
       await tester.pump();
       expect(currentOffset(), closeTo(offset, .01));
-      expect(tester.getRect(card).top, closeTo(bounds.top, 1));
+      expect(cardTopInList(), closeTo(localTop, 1));
       await _capture(tester, 'stable-list-pull');
       await drag.up();
       for (var frame = 0; frame < 40; frame++) {
@@ -279,7 +314,7 @@ void main() {
           closeTo(offset, .01),
           reason: 'The revealed list moved during dismissal frame $frame',
         );
-        expect(tester.getRect(card).top, closeTo(bounds.top, 1));
+        expect(cardTopInList(), closeTo(localTop, 1));
       }
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'latest');
@@ -324,6 +359,177 @@ void main() {
     expect(shell.currentContent?.id, 'latest');
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
+
+  testWidgets('the fixed page header pulls a scrolled topic sheet down', (
+    tester,
+  ) async {
+    final shell = await _openTopic(tester);
+    final scroll = find
+        .descendant(
+          of: find.byType(TopicView),
+          matching: find.byType(CustomScrollView),
+        )
+        .first;
+    final controller = tester.widget<CustomScrollView>(scroll).controller!;
+    controller.jumpTo(600);
+    await tester.pumpAndSettle();
+    final offset = controller.offset;
+    final bounds = tester.getRect(_sheet);
+    final header = tester.getRect(_header);
+    final dock = tester.getRect(_dock);
+    final entry = shell.mobileNavigation.entryId;
+    final headerDrag = find
+        .ancestor(of: _header, matching: find.byType(DSheetDragRegion))
+        .first;
+    final pull = await tester.startGesture(header.center);
+    await pull.moveBy(const Offset(0, 20));
+    await pull.moveBy(const Offset(0, 70));
+    await tester.pump();
+    expect(tester.getTopLeft(_sheet).dy, greaterThan(bounds.top));
+    expect(tester.getRect(_header), header);
+    expect(tester.getRect(_dock), dock);
+    expect(controller.offset, offset);
+    await pull.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_sheet), bounds);
+    expect(shell.mobileNavigation.entryId, same(entry));
+
+    await tester.drag(headerDrag, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_sheet), bounds);
+    expect(shell.mobileNavigation.entryId, same(entry));
+    await tester.drag(headerDrag, const Offset(0, 200));
+    await tester.pump();
+    expect(shell.currentContent?.isTopic, isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'latest');
+    final rootEntry = shell.mobileNavigation.entryId;
+    await tester.drag(headerDrag, const Offset(0, 200));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.entryId, same(rootEntry));
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('the revealed background rim follows both rounded top corners', (
+    tester,
+  ) async {
+    final shell = await _openTopic(tester);
+    await shell.forumSettings.setThemeMode(_site, AppThemeMode.dark);
+    await tester.pumpAndSettle();
+    final pull = await tester.startGesture(tester.getCenter(_handle));
+    await pull.moveBy(const Offset(0, 20));
+    await pull.moveBy(const Offset(0, 120));
+    await tester.pump();
+    final viewport = tester.widget<DSheetViewport>(find.byType(DSheetViewport));
+    final background = tester.renderObject<RenderBox>(
+      find.byWidget(viewport.underlay!),
+    );
+    final colors = (await tester.runAsync(() async {
+      final builder = ui.SceneBuilder();
+      tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+      final scene = builder.build();
+      final image = await scene.toImage(390, 844);
+      try {
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        double brightness(Offset local) {
+          final point = background.localToGlobal(local);
+          final index = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+          return (bytes.getUint8(index) +
+                  bytes.getUint8(index + 1) +
+                  bytes.getUint8(index + 2)) /
+              3;
+        }
+
+        final fill = brightness(const Offset(31, 6));
+        final rims = <double>[];
+        for (final right in [false, true]) {
+          var brightest = 0.0;
+          for (var y = 7.0; y <= 13; y++) {
+            for (var x = 7.0; x <= 13; x++) {
+              final value = brightness(
+                Offset(right ? background.size.width - x : x, y),
+              );
+              if (value > brightest) brightest = value;
+            }
+          }
+          rims.add(brightest);
+        }
+        return (fill: fill, rims: rims);
+      } finally {
+        image.dispose();
+        scene.dispose();
+      }
+    }))!;
+    for (final (index, rim) in colors.rims.indexed) {
+      expect(
+        rim,
+        greaterThan(colors.fill + 4),
+        reason:
+            'The ${index == 0 ? 'left' : 'right'} curve must carry the panel rim',
+      );
+    }
+    await _capture(tester, 'background-rim');
+    await pull.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets(
+    'the topic list heading and text scale with their whole container',
+    (tester) async {
+      const title = 'Container scaling sample';
+      await pumpMobileShellFixture(
+        tester,
+        topics: const [Topic(id: 7, title: title, slug: 'container-scaling')],
+        topic: topicPayload(id: 7, title: title),
+      );
+      Rect painted(Finder finder) {
+        final box = tester.renderObject<RenderBox>(finder);
+        return Rect.fromPoints(
+          box.localToGlobal(Offset.zero),
+          box.localToGlobal(box.size.bottomRight(Offset.zero)),
+        );
+      }
+
+      final panel = painted(find.byKey(const ValueKey('mobile-content-panel')));
+      final heading = find.byKey(const ValueKey('topic-list-heading'));
+      final card = find.byKey(const ValueKey('topic-card-7'));
+      final text = find
+          .descendant(of: card, matching: find.byType(TopicTitle))
+          .first;
+      final original = [painted(heading), painted(text)];
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      final pull = await tester.startGesture(tester.getCenter(_handle));
+      await pull.moveBy(const Offset(0, 20));
+      await pull.moveBy(const Offset(0, 160));
+      await tester.pump();
+      final viewport = tester.widget<DSheetViewport>(
+        find.byType(DSheetViewport),
+      );
+      final background = painted(find.byWidget(viewport.underlay!));
+      final scale = background.width / panel.width;
+      for (final (index, finder) in [heading, text].indexed) {
+        final now = painted(finder);
+        final expected =
+            background.topLeft +
+            (original[index].topLeft - panel.topLeft) * scale;
+        expect(now.left, closeTo(expected.dx, 1));
+        expect(now.top, closeTo(expected.dy, 1));
+        expect(now.width, closeTo(original[index].width * scale, 2));
+        expect(now.height, closeTo(original[index].height * scale, 1));
+      }
+      await pull.cancel();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   testWidgets(
     'returning to the top cancels a pending compact header during dismissal',

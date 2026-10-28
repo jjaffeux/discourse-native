@@ -205,6 +205,19 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('the fixed page header dismisses a board sheet', (tester) async {
+    final shell = await _openBoard(tester);
+    final header = find.byKey(const ValueKey('mobile-header'));
+    final headerDrag = find
+        .ancestor(of: header, matching: find.byType(DSheetDragRegion))
+        .first;
+    await tester.drag(headerDrag, const Offset(0, 200));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    expect(_sheet, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('going back from a board shows the directory already loaded', (
     tester,
   ) async {

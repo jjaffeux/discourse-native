@@ -151,16 +151,16 @@ class TopicInboxHeader extends StatelessWidget {
     if (!ShellScope.read(context).mobileNavigationEnabled) {
       return Column(children: rows);
     }
-    // Drawn in to one line, the head is part of the screen's own head: a band
-    // of the bar's stock running up into it, rounded where it gives onto the
-    // page as the bar is. Both states keep the box so the morph keeps its state.
+    // The rounded head shares the canvas fill while attached to the top.
+    // Pulling the page exposes its existing curves. Both states keep this
+    // box so the morph keeps its state.
     return DecoratedBox(
       key: const ValueKey('topic-header-band'),
       decoration: compact
           ? BoxDecoration(
               color: DTokens.of(context).wellFill,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(DMobileDockGeometry.capsuleRadius),
+              borderRadius: BorderRadius.circular(
+                DMobileDockGeometry.capsuleRadius,
               ),
             )
           : const BoxDecoration(),

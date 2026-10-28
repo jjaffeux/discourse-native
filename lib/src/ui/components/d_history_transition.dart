@@ -71,6 +71,15 @@ class DHistoryTransition extends StatefulWidget {
           );
   }
 
+  /// Whether a descendant page should play its own entrance.
+  /// Returning to an earlier visit, switching tabs, and committing an edge
+  /// swipe already reveal that page without another entrance transition.
+  static bool shouldAnimatePageEntranceOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_HistoryPageScope>()
+          ?.animatePageEntrance ??
+      true;
+
   /// The destination and progress of an edge swipe, including its settle.
   ///
   /// Descendants of [frameBuilder] can use this to move navigation chrome with
@@ -138,6 +147,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool _dragging = false;
   bool _settling = false;
   bool _switchingTab = false;
+  bool _animatePageEntrance = true;
   double _tabSign = 1;
   double _distance = 0;
   int _generation = 0;
@@ -178,6 +188,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     super.didUpdateWidget(oldWidget);
     final committed = _committedEntry == widget.entry;
     _committedEntry = null;
+    if (oldWidget.entry != widget.entry ||
+        oldWidget.history != widget.history) {
+      _animatePageEntrance =
+          !committed &&
+          widget.entry != oldWidget.previousEntry &&
+          oldWidget.history == widget.history &&
+          oldWidget.tab?.id == widget.tab?.id;
+    }
     if (oldWidget.tabOwner != widget.tabOwner) {
       _clear();
     } else if ((oldWidget.tab, widget.tab) case (final was?, final now?)
@@ -453,6 +471,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             animation: _progress,
             child: _HistoryPageScope(
               previousImage: _previews[widget.previousEntry],
+              animatePageEntrance: _animatePageEntrance,
               child: _HistoryBoundary(key: _boundary, child: widget.child),
             ),
             builder: (context, child) {
@@ -638,13 +657,19 @@ class _HistoryRepaintBoundary extends RenderRepaintBoundary {
 }
 
 class _HistoryPageScope extends InheritedWidget {
-  const _HistoryPageScope({required this.previousImage, required super.child});
+  const _HistoryPageScope({
+    required this.previousImage,
+    required this.animatePageEntrance,
+    required super.child,
+  });
 
   final ui.Image? previousImage;
+  final bool animatePageEntrance;
 
   @override
   bool updateShouldNotify(_HistoryPageScope oldWidget) =>
-      previousImage != oldWidget.previousImage;
+      previousImage != oldWidget.previousImage ||
+      animatePageEntrance != oldWidget.animatePageEntrance;
 }
 
 class _HistorySnapshotUnderlay extends LeafRenderObjectWidget {
@@ -691,12 +716,16 @@ class _HistorySnapshotRenderer extends RenderBox {
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    RenderObject? ancestor = parent;
+    RenderObject? ancestor = this;
+    var origin = Offset.zero;
     while (ancestor != null && ancestor is! _HistoryRepaintBoundary) {
+      final data = ancestor.parentData;
+      if (data is BoxParentData) origin += data.offset;
       ancestor = ancestor.parent;
     }
     if (ancestor is! _HistoryRepaintBoundary || ancestor.size.isEmpty) return;
-    final origin = localToGlobal(Offset.zero, ancestor: ancestor);
+    // Align the image using layout offsets. The canvas already carries the
+    // sheet's scale and translation; including them again crops its content.
     final target = Rect.fromLTWH(
       offset.dx - origin.dx,
       offset.dy - origin.dy,

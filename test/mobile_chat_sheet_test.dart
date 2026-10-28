@@ -272,15 +272,20 @@ void main() {
           await tester.pump();
           final exposed = await _pixels(tester, region);
           await _capture(tester, '$platform-$origin-revealed-$reducedMotion');
-          expect(
-            List.generate(
-                  previous.length,
-                  (i) => (previous[i] - exposed[i]).abs(),
-                ).reduce((total, value) => total + value) /
+          final difference =
+              List.generate(
                 previous.length,
-            lessThan(3),
-            reason: 'the departure pixels align within snapshot antialiasing',
+                (i) => (previous[i] - exposed[i]).abs(),
+              ).reduce((total, value) => total + value) /
+              previous.length;
+          expect(
+            difference,
+            reducedMotion ? lessThan(3) : greaterThan(3),
+            reason: reducedMotion
+                ? 'the departure pixels align within snapshot antialiasing'
+                : 'background depth changes the departure size and brightness',
           );
+          expect(exposed.toSet().length, greaterThan(8));
           expect(find.byType(ComposerEditor), findsOneWidget);
           expect(
             find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
@@ -483,6 +488,31 @@ void main() {
       variant: _platforms,
     );
   }
+
+  testWidgets(
+    'the fixed header dismisses the active thread and then its channel',
+    (tester) async {
+      final shell = await _fixture(tester);
+      shell.openChatChannel(10);
+      await tester.pumpAndSettle();
+      final channelEntry = shell.mobileNavigation.entryId;
+      shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+      await tester.pumpAndSettle();
+      final headerDrag = find
+          .ancestor(of: _header, matching: find.byType(DSheetDragRegion))
+          .first;
+      await tester.drag(headerDrag, const Offset(0, 200));
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.entryId, same(channelEntry));
+      expect(find.byType(ChatChannelView), findsOneWidget);
+      await tester.drag(headerDrag, const Offset(0, 200));
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.atRoot, isTrue);
+      expect(_sheet, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   testWidgets(
     'downward conversation header drag dismisses and stale callbacks preserve newer visits',

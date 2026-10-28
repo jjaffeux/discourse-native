@@ -69,19 +69,21 @@ geometry and elevation belong to the shared sheet work.
 | Part | Value |
 | --- | --- |
 | Page card (`ForumMobileSurface`) and topic sheet (`DSheetVariant.page`) | Top corners 31 (`DMobileDockGeometry.capsuleRadius`), as round as the bar. Bottom corners stay 22. |
-| Condensed head | A band of `wellFill` across the sheet's top, bottom corners 31, running up into the screen's head. Both header states keep the band's box so the morph keeps its state. |
-| Card under a resting band | Its top corners are squared. Otherwise the two curves' antialiasing lets a sliver of the lighter card through. The corners round again as soon as the head starts to leave. |
+| Condensed head | A band of `wellFill` with 31px corners throughout its motion. Both header states keep the band's box so the morph keeps its state. |
+| Card under the band | Its top corners stay at 31px, including while the band rests at the top. The shared sheet clips the page and head to this outline. |
+| Previous page | The live page or captured history frame has the same rounded outline while it recedes behind the sheet. |
 | Grabber | Drawn under the band while the band still covers its foot, 12 below the sheet's top. |
 | Card's depth | None while the head is drawn in, wherever the band is: the band runs on up into the screen's head, so the card has no rim, catch of light or shadow along its top. The panel depth returns with the full head. |
 
 The outer `ForumMobileSurface` stays square and transparent while a page
-sheet covers it. The sheet owns the visible corners; a second rounded clip
-would cut off the condensed band's square top corners. Plain preset
-backgrounds use `wellFill` on phones too, so the band joins the canvas above.
+sheet covers it. The sheet owns the visible corners. Plain preset backgrounds
+use `wellFill` on phones too, so the head's upper curves blend into the canvas
+while attached to the top. Pulling the sheet reveals the same rounded shape.
 
 `DPageSurface.scrollable(compactHeaderBand: true)` reports its compact state
 and how much of it is shown to the enclosing page sheet through
-`DSheetPageBand`. The sheet applies each report outside the frame's build. A
+`DSheetPageBand`. These reports control the grabber and depth, leaving the
+corners rounded. The sheet applies each report outside the frame's build. A
 head that has withdrawn is not heard from again, even if one of its reports
 was still waiting for the frame.
 
@@ -91,9 +93,10 @@ was still waiting for the frame.
 At 390 and 1000 wide on iOS and Android it covers the line, the path
 collapsing, the opened run, the chip colours, corners, heights and split, the
 sheet's groups and order, Assign opening its drawer from the sheet, the card
-corners, and the band squaring the card and hiding the grabber, then rounding
-it again. A full-shell pixel check on a distinct canvas catches ancestor
-clipping of the band's top corners. `test/forum_mobile_surface_test.dart`
+corners, and the band hiding the grabber while retaining its rounded outline.
+A full-shell pixel check on a distinct canvas verifies both top curves during
+a pull. `test/ui/d_sheet_page_motion_test.dart` checks rounded live and captured
+backgrounds during entrance and dismissal. `test/forum_mobile_surface_test.dart`
 checks the plain preset canvas fill in light and dark.
 `test/support/topic_head_review_main.dart` runs the production head
 on a simulator with a fixture. It opens the topic, draws the head in, opens

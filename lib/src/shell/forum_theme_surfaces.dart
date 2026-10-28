@@ -268,8 +268,8 @@ class ForumSidebarTheme extends StatelessWidget {
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
-/// Pages use the mockup's 22px corners; the inset sidebar uses the Native
-/// panel radius, but for its outer foot corner.
+/// Pages share the reading sheet's outline. The inset sidebar uses the Native
+/// panel radius, except for its outer foot corner.
 class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
@@ -315,10 +315,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
               DMobileDockGeometry(foot: widget.foot).endRadius(DRadius.panel),
             ),
           )
-        : const BorderRadius.vertical(
-            top: Radius.circular(DMobileDockGeometry.capsuleRadius),
-            bottom: Radius.circular(22),
-          ),
+        : DSheetViewport.pageBorderRadius,
     backgroundColor: widget.coveredBySheet
         ? Colors.transparent
         : ForumWindowBackground.panelColor(context),

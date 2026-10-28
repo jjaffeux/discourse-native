@@ -16,6 +16,7 @@ import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
+import 'd_history_transition.dart';
 import 'd_mobile_dock_geometry.dart';
 import 'd_page_surface.dart';
 
@@ -152,7 +153,13 @@ class DSheet<T> extends StatelessWidget {
 /// handling and excludes the covered content from focus and semantics. Hide
 /// [DSheetContent.showCloseButton] or compose a close action with
 /// the host's close action; route-owned [DSheetClose] is unavailable here.
-class DSheetViewport extends StatelessWidget {
+class DSheetViewport extends StatefulWidget {
+  /// The reading page's outline, shared by its card and previous-page surface.
+  static const pageBorderRadius = BorderRadius.vertical(
+    top: Radius.circular(DMobileDockGeometry.capsuleRadius),
+    bottom: Radius.circular(22),
+  );
+
   const DSheetViewport({
     super.key,
     required this.content,
@@ -165,7 +172,9 @@ class DSheetViewport extends StatelessWidget {
 
   final DSheetContent content;
 
-  /// The previous page, painted only while a page sheet is pulled down.
+  /// The previous page, painted during entrance and while pulled down.
+  /// It recedes and darkens as the reading page covers it.
+  /// Live surfaces paint their border and rim with [pageBorderRadius].
   /// Focus, semantics and input stay excluded throughout the reveal.
   final Widget? underlay;
 
@@ -190,14 +199,46 @@ class DSheetViewport extends StatelessWidget {
   final ValueNotifier<bool>? covering;
 
   @override
+  State<DSheetViewport> createState() => _DSheetViewportState();
+}
+
+class _DSheetViewportState extends State<DSheetViewport>
+    with SingleTickerProviderStateMixin {
+  late final _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.content.variant != DSheetVariant.page ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
+      _entrance.value = 1;
+    } else if (!_started) {
+      unawaited(_entrance.forward());
+    }
+    _started = true;
+  }
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final content = widget.content;
     assert((!content.showCloseButton));
     return FocusScope(
       child: _sheetPresentation(
         context,
         DDialogPresentation(
           content: content,
-          animation: const AlwaysStoppedAnimation(1),
+          animation: _entrance,
           barrierLabel: context.l10n.sheetBackground,
           dismissOnBarrier: false,
           onBarrierDismiss: () {},
@@ -209,32 +250,29 @@ class DSheetViewport extends StatelessWidget {
         false,
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
-        onDismiss != null || onSwipeDismissRequested != null,
+        widget.onDismiss != null || widget.onSwipeDismissRequested != null,
         variant: content.variant,
         sizeToContent: content.sizeToContent,
         contentLoading: content.contentLoading,
         retainKeyboardInsets: true,
-        onRetainedDismiss: onDismiss,
-        onRetainedSwipeDismissRequested: onSwipeDismissRequested,
-        underlay: underlay,
-        covering: covering,
+        onRetainedDismiss: widget.onDismiss,
+        onRetainedSwipeDismissRequested: widget.onSwipeDismissRequested,
+        underlay: widget.underlay,
+        covering: widget.covering,
       ),
     );
   }
 }
 
 /// Where the content of a page sheet says what its condensed head is doing
-/// over the sheet's top edge. A head that is a band of its own fill across
-/// that edge is the sheet's top while it rests there.
+/// over the sheet's top edge, inside the card's rounded outline.
 abstract interface class DSheetPageBand {
   /// [owner] is the head reporting; a later report from it replaces this one.
-  /// [condensed]: the head is drawn in to its band, wherever it is. [resting]:
-  /// the band sits whole over the top edge. [coversGrabber]: enough of it is
+  /// [condensed]: the head is drawn in to its band. [coversGrabber]: enough is
   /// still there to cover the grabber.
   void report(
     Object owner, {
     required bool condensed,
-    required bool resting,
     required bool coversGrabber,
   });
 
@@ -256,12 +294,8 @@ class _DSheetPageBandScope extends InheritedWidget {
       band != oldWidget.band;
 }
 
-/// A page sheet's card: round at its top as the phone's bar is, squared under
-/// a band resting there, whose antialiased edge would otherwise let a sliver
-/// of the card show along the curve the two share. The grabber is drawn under
-/// the band while the band covers it. While the head is a band at all, the
-/// card has no edge along its top: the band runs on up into the screen's
-/// head, so the card stands off nothing there.
+/// The page and its condensed head share one rounded outline. The grabber
+/// stays beneath the head while covered; a condensed head has no top rim.
 class _DSheetPageCard extends StatefulWidget {
   const _DSheetPageCard({
     required this.color,
@@ -281,7 +315,6 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
     implements DSheetPageBand {
   Object? _owner;
   bool _condensed = false;
-  bool _resting = false;
   bool _coversGrabber = false;
 
   // A head's reports can still be waiting for the frame when it withdraws.
@@ -291,22 +324,16 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   void report(
     Object owner, {
     required bool condensed,
-    required bool resting,
     required bool coversGrabber,
   }) {
     if (_withdrawn[owner] == true) return;
-    _apply(
-      owner,
-      condensed: condensed,
-      resting: resting,
-      coversGrabber: coversGrabber,
-    );
+    _apply(owner, condensed: condensed, coversGrabber: coversGrabber);
   }
 
   @override
   void withdraw(Object owner) {
     _withdrawn[owner] = true;
-    _apply(owner, condensed: false, resting: false, coversGrabber: false);
+    _apply(owner, condensed: false, coversGrabber: false);
   }
 
   // Reports arrive from scroll ticks, layout and unmounting, so the change
@@ -314,7 +341,6 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   void _apply(
     Object owner, {
     required bool condensed,
-    required bool resting,
     required bool coversGrabber,
   }) {
     final withdrawing = _withdrawn[owner] == true;
@@ -325,14 +351,12 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
       }
       if (identical(owner, _owner) &&
           condensed == _condensed &&
-          resting == _resting &&
           coversGrabber == _coversGrabber) {
         return;
       }
       setState(() {
         _owner = owner;
         _condensed = condensed;
-        _resting = resting;
         _coversGrabber = coversGrabber;
       });
     }
@@ -349,17 +373,11 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
 
   @override
   Widget build(BuildContext context) {
-    final top = Radius.circular(
-      _resting ? 0 : DMobileDockGeometry.capsuleRadius,
-    );
     return _DSheetPageBandScope(
       band: this,
       child: DPageSurface(
         border: false,
-        borderRadius: BorderRadius.vertical(
-          top: top,
-          bottom: const Radius.circular(22),
-        ),
+        borderRadius: DSheetViewport.pageBorderRadius,
         backgroundColor: widget.color,
         depth: _condensed ? null : DSurfaceDepth.panel,
         child: Stack(
@@ -386,14 +404,14 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   }
 }
 
-class _DSheetPagePullScope extends InheritedWidget {
-  const _DSheetPagePullScope({required this.pulled, required super.child});
+class _DSheetPageMotionScope extends InheritedWidget {
+  const _DSheetPageMotionScope({required this.moving, required super.child});
 
-  final bool pulled;
+  final bool moving;
 
   @override
-  bool updateShouldNotify(_DSheetPagePullScope oldWidget) =>
-      pulled != oldWidget.pulled;
+  bool updateShouldNotify(_DSheetPageMotionScope oldWidget) =>
+      moving != oldWidget.moving;
 }
 
 // A retained sheet stays visible beneath picker routes. Its keyboard belongs
@@ -690,16 +708,46 @@ Widget _sheetLayout(
   if (animate && !fillAvailableHeight && !page) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
-  backdrop = ValueListenableBuilder<double>(
-    valueListenable: swipeProgress,
-    builder: (context, progress, child) => page
-        ? Offstage(
-            offstage: progress <= 0,
-            child: TickerMode(enabled: progress > 0, child: child!),
-          )
-        : Opacity(opacity: 1 - progress, child: child),
-    child: backdrop,
-  );
+  if (page) {
+    backdrop = AnimatedBuilder(
+      animation: Listenable.merge([popupCurve, swipeProgress]),
+      child: backdrop,
+      builder: (context, child) {
+        final visible = popupCurve.value < 1 || swipeProgress.value > 0;
+        final depth = animate
+            ? popupCurve.value * (1 - swipeProgress.value)
+            : 0.0;
+        return Offstage(
+          offstage: !visible,
+          child: TickerMode(
+            enabled: visible,
+            child: Transform.scale(
+              scale: 1 - .06 * depth,
+              child: ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  DTokens.of(
+                    context,
+                  ).colors.scrim.withValues(alpha: .24 * depth),
+                  BlendMode.srcATop,
+                ),
+                child: ClipRRect(
+                  borderRadius: DSheetViewport.pageBorderRadius,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  } else {
+    backdrop = ValueListenableBuilder<double>(
+      valueListenable: swipeProgress,
+      builder: (context, progress, child) =>
+          Opacity(opacity: 1 - progress, child: child),
+      child: backdrop,
+    );
+  }
 
   final beginOffset = switch (side) {
     DSheetSide.center => const Offset(0, 40),
@@ -791,10 +839,12 @@ Widget _sheetLayout(
     },
   );
   if (page) {
-    popup = ValueListenableBuilder<double>(
-      valueListenable: swipeProgress,
-      builder: (context, progress, child) =>
-          _DSheetPagePullScope(pulled: progress > 0, child: child!),
+    popup = AnimatedBuilder(
+      animation: Listenable.merge([popupCurve, swipeProgress]),
+      builder: (context, child) => _DSheetPageMotionScope(
+        moving: popupCurve.value < 1 || swipeProgress.value > 0,
+        child: child!,
+      ),
       child: popup,
     );
   }
@@ -846,6 +896,7 @@ Widget _sheetLayout(
       curve: popupCurve,
       beginOffset: beginOffset,
       scale: fillAvailableHeight,
+      page: page,
       child: popup,
     );
   }
@@ -967,17 +1018,29 @@ class _DSheetMotion extends StatelessWidget {
     required this.curve,
     required this.beginOffset,
     required this.scale,
+    this.page = false,
     required this.child,
   });
 
   final Animation<double> curve;
   final Offset beginOffset;
   final bool scale;
+  final bool page;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
+    if (page) {
+      return AnimatedBuilder(
+        animation: curve,
+        child: child,
+        builder: (context, child) => FractionalTranslation(
+          translation: Offset(0, 1 - curve.value),
+          child: child,
+        ),
+      );
+    }
     final motion = AnimatedBuilder(
       animation: curve,
       child: scale
@@ -1032,6 +1095,66 @@ class _DSheetDismissSimulation extends Simulation {
   bool isDone(double time) => _progress(time) >= 1;
 }
 
+/// Connects a stationary [DSheetDragRegion] to the active reading page.
+///
+/// Wrap the frame containing both the header and its [DSheetViewport]. Only
+/// visible page sheets register; covered routes and retained previews are inert.
+class DSheetDragScope extends StatefulWidget {
+  const DSheetDragScope({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<DSheetDragScope> createState() => _DSheetDragScopeState();
+}
+
+class _DSheetDragScopeState extends State<DSheetDragScope> {
+  _DSheetSwipeDismissState? _swipe;
+  bool _scheduled = false;
+
+  void _attach(_DSheetSwipeDismissState swipe) {
+    if (identical(_swipe, swipe)) return;
+    _swipe = swipe;
+    _publish();
+  }
+
+  void _detach(_DSheetSwipeDismissState swipe) {
+    if (!identical(_swipe, swipe)) return;
+    _swipe = null;
+    _publish();
+  }
+
+  void _publish() {
+    if (_scheduled) return;
+    _scheduled = true;
+    // Sheets attach during build and detach during unmounting.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _DSheetDragHost(owner: this, swipe: _swipe, child: widget.child);
+}
+
+class _DSheetDragHost extends InheritedWidget {
+  const _DSheetDragHost({
+    required this.owner,
+    required this.swipe,
+    required super.child,
+  });
+
+  final _DSheetDragScopeState owner;
+  final _DSheetSwipeDismissState? swipe;
+
+  @override
+  bool updateShouldNotify(_DSheetDragHost oldWidget) =>
+      owner != oldWidget.owner || swipe != oldWidget.swipe;
+}
+
 /// A visible sheet region that drags the sheet independently of body scrolling.
 ///
 /// Wrap a pinned header to allow dismissal even when its scrollable ancestor
@@ -1065,30 +1188,117 @@ class DSheetDragRegion extends StatelessWidget {
         ),
       );
     }
-    final swipe = context
+    final localSwipe = context
         .dependOnInheritedWidgetOfExactType<_DSheetSwipeScope>()
         ?.swipe;
-    if (swipe == null) return child;
+    final host = context.dependOnInheritedWidgetOfExactType<_DSheetDragHost>();
+    final swipe = localSwipe ?? host?.swipe;
+    if (swipe == null && host == null) return child;
+    return _DSheetDragHandle(
+      swipe: swipe,
+      external: localSwipe == null,
+      child: child,
+    );
+  }
+}
+
+class _DSheetDragHandle extends StatefulWidget {
+  const _DSheetDragHandle({
+    required this.swipe,
+    required this.external,
+    required this.child,
+  });
+
+  final _DSheetSwipeDismissState? swipe;
+  final bool external;
+  final Widget child;
+
+  @override
+  State<_DSheetDragHandle> createState() => _DSheetDragHandleState();
+}
+
+class _DSheetDragHandleState extends State<_DSheetDragHandle> {
+  _DSheetSwipeDismissState? _target;
+  int? _pointer;
+  bool _finished = false;
+
+  void _dispatch(void Function(_DSheetSwipeDismissState) action) {
+    final target = _target;
+    if (target != null && target.mounted) action(target);
+  }
+
+  void _claim(PointerEvent event) {
+    if (_pointer != null) return;
+    _pointer = event.pointer;
+    _target = widget.swipe;
+    _finished = false;
+    _dispatch((target) => target._claimHandlePointer(event));
+  }
+
+  void _release(PointerEvent event) {
+    if (event.pointer != _pointer) return;
+    if (widget.external) {
+      _dispatch((target) {
+        if (event is PointerCancelEvent) {
+          target._onPointerCancel(event);
+        } else if (event is PointerUpEvent) {
+          target._onPointerUp(event);
+        } else if (event is PointerPanZoomEndEvent) {
+          target._onPanZoomEnd(event);
+        }
+      });
+    }
+    _pointer = null;
+    // The recognizer can deliver its end after this pointer-up listener.
+    // Keep the original target until both pointer and recognizer have ended.
+    if (_finished) _target = null;
+  }
+
+  void _finish(double velocity, {bool cancelled = false}) {
+    _dispatch((target) => target._finish(velocity, cancelled: cancelled));
+    _finished = true;
+    if (_pointer == null) _target = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final page = widget.swipe?.widget.page ?? true;
+    final enabled = widget.swipe != null;
     return Listener(
-      onPointerDown: swipe._claimHandlePointer,
-      onPointerPanZoomStart: swipe.widget.page
-          ? swipe._claimHandlePointer
+      onPointerDown: _claim,
+      onPointerPanZoomStart: page ? _claim : null,
+      onPointerMove: widget.external
+          ? (event) => _dispatch((target) => target._onPointerMove(event))
           : null,
+      onPointerUp: _release,
+      onPointerCancel: _release,
+      onPointerPanZoomUpdate: widget.external
+          ? (event) => _dispatch((target) => target._onPanZoomUpdate(event))
+          : null,
+      onPointerPanZoomEnd: _release,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        supportedDevices: swipe.widget.page
+        supportedDevices: page
             ? const {
                 PointerDeviceKind.touch,
                 PointerDeviceKind.mouse,
                 PointerDeviceKind.trackpad,
               }
             : const {PointerDeviceKind.touch},
-        onVerticalDragStart: (_) => swipe._start(),
-        onVerticalDragUpdate: (details) => swipe._update(details.delta.dy),
-        onVerticalDragEnd: (details) =>
-            swipe._finish(details.primaryVelocity ?? 0),
-        onVerticalDragCancel: () => swipe._finish(0, cancelled: true),
-        child: child,
+        onVerticalDragStart: !enabled
+            ? null
+            : (_) => _dispatch((target) => target._start()),
+        onVerticalDragUpdate: !enabled
+            ? null
+            : (details) =>
+                  _dispatch((target) => target._update(details.delta.dy)),
+        onVerticalDragEnd: !enabled
+            ? null
+            : (details) => _finish(details.primaryVelocity ?? 0),
+        onVerticalDragCancel: !enabled
+            ? null
+            : () => _finish(0, cancelled: true),
+        child: widget.child,
       ),
     );
   }
@@ -1155,6 +1365,25 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   Timer? _wheelEnd;
   bool _wheeling = false;
   DateTime? _wheelSpentUntil;
+  _DSheetDragScopeState? _dragOwner;
+  bool _externalDragEnabled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final owner = context
+        .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+        ?.owner;
+    final enabled =
+        widget.page &&
+        TickerMode.valuesOf(context).enabled &&
+        (ModalRoute.isCurrentOf(context) ?? true);
+    if (owner == _dragOwner && enabled == _externalDragEnabled) return;
+    _dragOwner?._detach(this);
+    _dragOwner = owner;
+    _externalDragEnabled = enabled;
+    if (enabled) owner?._attach(this);
+  }
 
   void _rememberScroll(BuildContext? origin) {
     if (!widget.page || origin == null) return;
@@ -1546,6 +1775,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   @override
   void dispose() {
+    _dragOwner?._detach(this);
     _wheelEnd?.cancel();
     _clearPendingSimulation();
     widget.routeAnimation.removeListener(_syncBackdrop);
@@ -1567,6 +1797,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
               : AlwaysStoppedAnimation(_dismissCurve),
           beginOffset: const Offset(0, 40),
           scale: widget.scale,
+          page: widget.page,
           child: child!,
         ),
       );
@@ -1785,10 +2016,10 @@ class DSheetContent extends StatelessWidget {
       ),
     );
     if (page) {
-      final pulled =
+      final moving =
           context
-              .dependOnInheritedWidgetOfExactType<_DSheetPagePullScope>()
-              ?.pulled ??
+              .dependOnInheritedWidgetOfExactType<_DSheetPageMotionScope>()
+              ?.moving ??
           false;
       final color = backgroundColor ?? tokens.panelBackground;
       return Semantics(
@@ -1797,7 +2028,7 @@ class DSheetContent extends StatelessWidget {
         scopesRoute: true,
         label: semanticLabel,
         child: _DSheetPageCard(
-          color: pulled ? color.withValues(alpha: 1) : color,
+          color: moving ? color.withValues(alpha: 1) : color,
           handle: handle,
           children: children,
         ),

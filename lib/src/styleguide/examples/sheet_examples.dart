@@ -31,10 +31,15 @@ final sheetExamples = ComponentExamples(
       'onSwipeDismissRequested instead restores the sheet as soon as the swipe '
       'reaches the dismissal threshold, then lets the host show close actions. '
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
+      'DSheetDragScope connects a stationary header to the active page sheet. '
       'Retained page sheets use DSheetVariant.page to fill their host with '
-      '22px corners and a 36 by 5px overlaid handle. '
-      'Its underlay is hidden '
-      'at rest and excluded from input, focus and semantics while revealed. '
+      '31px top corners, 22px bottom corners and a 36 by 5px overlaid handle. '
+      'Reading pages slide up from below the viewport while their previous '
+      'page shrinks and darkens inside matching rounded corners. '
+      'Pulling down restores its size and brightness. '
+      'The underlay is hidden at rest and excluded from input, focus and '
+      'semantics while revealed. Reduced motion skips entrance and depth. '
+      'History returns and completed edge swipes do not replay the entrance. '
       'A pull beyond 120px or a downward flick dismisses the page. '
       'Adaptive menu sheets open at 55% for tall content and can be pulled '
       'to their full height. That upward gesture only expands the sheet; a '
@@ -53,8 +58,8 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Retained reading page',
       description:
-          'A page sheet below application chrome. Pull down from the handle '
-          'or the top of the reader to return to the previous page.',
+          'A reading page slides up as the previous page recedes. Pull down '
+          'from the handle or the top of the reader to restore the previous page.',
       code:
           'DSheetViewport(onDismiss: closePage, underlay: previousPage, '
           'content: DSheetContent(side: DSheetSide.bottom, '
@@ -62,7 +67,14 @@ final sheetExamples = ComponentExamples(
           'showCloseButton: false, '
           'children: [Expanded(child: reader)]))',
       builder: (_) => const _PageSheetExample(),
-      states: const ['open', 'pull', 'cancel', 'dismissed'],
+      states: const [
+        'entrance',
+        'open',
+        'pull',
+        'cancel',
+        'dismissed',
+        'reduced motion',
+      ],
     ),
     StyleguideExample(
       title: 'Adaptive menu sheet',
@@ -308,6 +320,9 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
   @override
   Widget build(BuildContext context) {
     final previous = DPageSurface(
+      border: false,
+      borderRadius: DSheetViewport.pageBorderRadius,
+      depth: DSurfaceDepth.panel,
       child: Center(
         child: DButton(
           label: const Text('Open reading page'),
@@ -317,40 +332,54 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
     );
     return SizedBox(
       height: 420,
-      child: _open
-          ? DSheetViewport(
-              onDismiss: () => setState(() => _open = false),
-              underlay: previous,
-              content: DSheetContent(
-                side: DSheetSide.bottom,
-                variant: DSheetVariant.page,
-                semanticLabel: 'Reading page',
-                showCloseButton: false,
-                children: [
-                  Expanded(
-                    child: DScrollArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(DSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: DSpacing.lg,
-                          children: [
-                            const Text('A community discussion'),
-                            DButton(
-                              label: const Text('Close reading page'),
-                              onPressed: () => setState(() => _open = false),
-                            ),
-                            for (var i = 1; i <= 20; i++)
-                              Text('Post $i in the discussion.'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+      child: DSheetDragScope(
+        child: Column(
+          children: [
+            const DSheetDragRegion(
+              child: DSheetHeader(
+                children: [DSheetTitle(child: Text('Community header'))],
               ),
-            )
-          : previous,
+            ),
+            Expanded(
+              child: _open
+                  ? DSheetViewport(
+                      onDismiss: () => setState(() => _open = false),
+                      underlay: previous,
+                      content: DSheetContent(
+                        side: DSheetSide.bottom,
+                        variant: DSheetVariant.page,
+                        semanticLabel: 'Reading page',
+                        showCloseButton: false,
+                        children: [
+                          Expanded(
+                            child: DScrollArea(
+                              child: Padding(
+                                padding: const EdgeInsets.all(DSpacing.lg),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  spacing: DSpacing.lg,
+                                  children: [
+                                    const Text('A community discussion'),
+                                    DButton(
+                                      label: const Text('Close reading page'),
+                                      onPressed: () =>
+                                          setState(() => _open = false),
+                                    ),
+                                    for (var i = 1; i <= 20; i++)
+                                      Text('Post $i in the discussion.'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : previous,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

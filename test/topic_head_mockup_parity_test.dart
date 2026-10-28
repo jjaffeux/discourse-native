@@ -382,7 +382,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
-  testWidgets('the condensed head is a band the card squares under', (
+  testWidgets('the condensed head keeps its rounded outline during a pull', (
     tester,
   ) async {
     final shell = await _openTopic(tester);
@@ -422,13 +422,13 @@ void main() {
       band.decoration,
       BoxDecoration(
         color: DTokens.of(tester.element(sheet)).wellFill,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(31)),
+        borderRadius: BorderRadius.circular(31),
       ),
     );
     expect(
       tester.widget<DPageSurface>(sheet).borderRadius,
       const BorderRadius.vertical(
-        top: Radius.zero,
+        top: Radius.circular(31),
         bottom: Radius.circular(22),
       ),
     );
@@ -439,8 +439,25 @@ void main() {
       find.byKey(const ValueKey('topic-header-band')),
     );
     final fill = DTokens.of(tester.element(sheet)).wellFill;
-    // Capture the complete shell: checking the inner sheet's radius alone
-    // misses a rounded ancestor cutting both top corners off the band.
+    final pull = await tester.startGesture(
+      bounds.topCenter + const Offset(0, 8),
+    );
+    await pull.moveBy(const Offset(0, 20));
+    await pull.moveBy(const Offset(0, 70));
+    await tester.pump();
+    final pulledBounds = tester.getRect(
+      find.byKey(const ValueKey('topic-header-band')),
+    );
+    expect(pulledBounds.top, greaterThan(bounds.top));
+    expect(
+      tester.widget<DPageSurface>(sheet).borderRadius,
+      const BorderRadius.vertical(
+        top: Radius.circular(31),
+        bottom: Radius.circular(22),
+      ),
+    );
+    // Inspect the shell's painted corners: the fill must stop at the curve,
+    // while the centre of the top edge remains the header's own fill.
     await tester.runAsync(() async {
       final builder = ui.SceneBuilder();
       tester.binding.renderViews.first.debugLayer!.addToScene(builder);
@@ -451,18 +468,28 @@ void main() {
           format: ui.ImageByteFormat.rawRgba,
         ))!;
         for (final point in [
-          bounds.topLeft + const Offset(2, 2),
-          bounds.topRight + const Offset(-3, 2),
+          pulledBounds.topLeft + const Offset(2, 2),
+          pulledBounds.topRight + const Offset(-3, 2),
         ]) {
           final offset =
               (point.dy.floor() * image.width + point.dx.floor()) * 4;
-          for (final (channel, expected) in [fill.r, fill.g, fill.b].indexed) {
-            expect(
-              bytes.getUint8(offset + channel),
-              closeTo(expected * 255, 2),
-              reason: 'The compact band must reach the top corner at $point',
-            );
-          }
+          final difference = [fill.r, fill.g, fill.b].indexed.fold<double>(
+            0,
+            (total, entry) =>
+                total +
+                (bytes.getUint8(offset + entry.$1) - entry.$2 * 255).abs(),
+          );
+          expect(
+            difference,
+            greaterThan(10),
+            reason: 'Rounded corner at $point',
+          );
+        }
+        final centre = pulledBounds.topCenter + const Offset(0, 2);
+        final offset =
+            (centre.dy.floor() * image.width + centre.dx.floor()) * 4;
+        for (final (channel, expected) in [fill.r, fill.g, fill.b].indexed) {
+          expect(bytes.getUint8(offset + channel), closeTo(expected * 255, 2));
         }
       } finally {
         image.dispose();
@@ -470,7 +497,10 @@ void main() {
       }
     });
 
-    // Rounded again, and the grabber back, once the head has gone.
+    await pull.cancel();
+    await tester.pumpAndSettle();
+
+    // The outline stays rounded and the grabber returns after the head leaves.
     await wheel(400);
     expect(
       tester.widget<DPageSurface>(sheet).borderRadius,
