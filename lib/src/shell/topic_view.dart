@@ -1629,14 +1629,26 @@ class _TopicViewState extends State<TopicView>
         lastRead > 0 &&
         !snapshot.summary &&
         !snapshot.topic!.isNestedView) {
+      final currentUser = controller.currentUserFor(siteUrl);
+      var readThrough = lastRead;
       for (var index = 0; index < postIds.length; index++) {
         final post = controller.store.read<Post>(siteUrl, postIds[index]);
-        if (post == null || post.postNumber <= lastRead) continue;
+        if (post == null || post.postNumber <= readThrough) continue;
         final previous = index > 0
             ? controller.store.read<Post>(siteUrl, postIds[index - 1])
             : null;
-        if (post.postNumber == lastRead + 1 ||
-            (previous != null && previous.postNumber <= lastRead)) {
+        if (post.postNumber == readThrough + 1 ||
+            (previous != null && previous.postNumber <= readThrough)) {
+          final ownPost =
+              currentUser != null &&
+              (post.userId != null && currentUser.id != null
+                  ? post.userId == currentUser.id
+                  : post.username.toLowerCase() ==
+                        currentUser.username.toLowerCase());
+          if (ownPost) {
+            readThrough = post.postNumber;
+            continue;
+          }
           firstUnreadIndex = index;
         }
         break;

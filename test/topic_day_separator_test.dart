@@ -13,6 +13,7 @@ import 'package:discourse_native/discourse_ui.dart'
         DTokens;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
@@ -192,6 +193,129 @@ void main() {
           image.dispose();
         });
       }
+    });
+  }
+
+  for (final postType in [Post.smallActionPostType, Post.regularPostType]) {
+    testWidgets('own live post does not introduce an unread marker $postType', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(800, 1600)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final site = instance(
+        'meta.example',
+        user: const DiscourseUser(id: 7, username: 'joffreyj'),
+      );
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [1],
+            postsCount: 1,
+            lastReadPostNumber: 1,
+          ),
+        )
+        ..put(site.url, _post(1, day: DateTime(2026, 10, 28)));
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      expect(find.text('New'), findsNothing);
+
+      controller.store
+        ..put(
+          site.url,
+          Post(
+            id: 2,
+            postNumber: 2,
+            userId: 7,
+            username: 'joffreyj',
+            cooked: '<p>My reply</p>',
+            postType: postType,
+            actionCode: postType == Post.smallActionPostType ? 'closed' : null,
+          ),
+        )
+        ..update<TopicDetail>(site.url, 1, (topic) => topic.withPostId(2));
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey(2)), findsOneWidget);
+      expect(find.text('New'), findsNothing);
+
+      controller.store
+        ..put(site.url, _post(3, day: DateTime(2026, 10, 28)))
+        ..update<TopicDetail>(site.url, 1, (topic) => topic.withPostId(3));
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-last-visit-3')), findsOneWidget);
+      expect(find.text('New'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final scenario in [
+    (authors: {2: 'JoffreyJ'}, loaded: [1, 2], marker: null),
+    (authors: {2: 'JoffreyJ', 3: 'sam'}, loaded: [1, 2, 3], marker: 3),
+    (authors: {2: 'sam', 3: 'JoffreyJ'}, loaded: [1, 2, 3], marker: 2),
+    (authors: {2: 'sam'}, loaded: [1, 2], marker: 2),
+    (authors: {3: 'JoffreyJ', 4: 'sam'}, loaded: [3, 4], marker: null),
+  ]) {
+    testWidgets('unread marker skips own actions on entry $scenario', (
+      tester,
+    ) async {
+      final site = instance(
+        'meta.example',
+        user: const DiscourseUser(username: 'joffreyj'),
+      );
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: scenario.loaded,
+            postsCount: scenario.loaded.last,
+            lastReadPostNumber: 1,
+          ),
+        )
+        ..putAll(site.url, [
+          if (scenario.loaded.first == 1) _post(1, day: DateTime(2026, 10, 28)),
+          for (final entry in scenario.authors.entries)
+            Post(
+              id: entry.key,
+              postNumber: entry.key,
+              username: entry.value,
+              cooked: '',
+              postType: Post.smallActionPostType,
+              actionCode: 'closed',
+            ),
+        ]);
+      controller.pushContent(
+        ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+      );
+      await tester.pumpWidget(_topicView(controller));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('New'),
+        scenario.marker == null ? findsNothing : findsOneWidget,
+      );
+      if (scenario.marker case final number?) {
+        expect(
+          find.byKey(ValueKey('topic-last-visit-$number')),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
     });
   }
 
