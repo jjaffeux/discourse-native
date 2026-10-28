@@ -14600,4 +14600,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationScheduleEndAfterStart =>
       'End time must be after start time.';
+
+  @override
+  String voiceRoomHereNow(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people here now',
+      one: '1 person here now',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get voiceRoomDelete => 'Delete room';
+
+  @override
+  String get voiceRoomDeleteConfirm =>
+      'Delete this room? Everyone in the call will be disconnected. This cannot be undone.';
+
+  @override
+  String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';
 }

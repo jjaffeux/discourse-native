@@ -19250,5 +19250,16 @@
   "notificationScheduleEndAfterStart": "End time must be after start time.",
   "@notificationScheduleEndAfterStart": {
     "description": "Notification schedule sheet: End time must be after start time."
-  }
+  },
+  "voiceRoomHereNow": "{count, plural, one{1 person here now} other{{count} people here now}}",
+  "@voiceRoomHereNow": {
+    "description": "Live room onebox participant count from the viewer's current room directory.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "voiceRoomDelete": "Delete room",
+  "@voiceRoomDelete": {"description": "Action to delete a persistent Live room."},
+  "voiceRoomDeleteConfirm": "Delete this room? Everyone in the call will be disconnected. This cannot be undone.",
+  "@voiceRoomDeleteConfirm": {"description": "Confirmation before deleting a Live room."},
+  "voiceRoomDeleteFailed": "Couldn’t delete the room.",
+  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."}
 }
