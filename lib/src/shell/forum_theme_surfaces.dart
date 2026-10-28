@@ -53,13 +53,16 @@ class ForumWindowBackground extends StatefulWidget {
         : fallback;
   }
 
-  /// Desktop reading surfaces expose the shared window background.
+  /// Desktop reading surfaces keep their palette fill above the plain window,
+  /// which is darker than the page, and expose a custom background whole.
   /// Phone surfaces retain the configurable transparency over their canvas.
   static Color? panelColor(BuildContext context) {
-    if (!context.isTouch) return Colors.transparent;
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     if (canvas == null) return null;
     final tokens = DTokens.of(context);
+    if (!context.isTouch) {
+      return canvas.plain ? tokens.panelBackground : Colors.transparent;
+    }
     return tokens.panelBackground.withValues(
       alpha: 1 - (canvas.transparency / .3 * 40).round() / 100,
     );
@@ -118,6 +121,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
     final mobile = widget.mobile && (background?.isPlain ?? true);
     return _ForumCanvas(
       continuous: background != null,
+      plain: background?.isPlain ?? true,
       transparency: transparency,
       mobile: mobile,
       child: DecoratedBox(
@@ -178,18 +182,23 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
 class _ForumCanvas extends InheritedWidget {
   const _ForumCanvas({
     required this.continuous,
+    this.plain = true,
     this.transparency = 0,
     required this.mobile,
     required super.child,
   });
 
   final bool continuous;
+
+  /// Whether the forum's background paints nothing over the window ground.
+  final bool plain;
   final double transparency;
   final bool mobile;
 
   @override
   bool updateShouldNotify(_ForumCanvas oldWidget) =>
       continuous != oldWidget.continuous ||
+      plain != oldWidget.plain ||
       transparency != oldWidget.transparency ||
       mobile != oldWidget.mobile;
 }

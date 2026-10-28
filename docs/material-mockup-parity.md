@@ -3,8 +3,9 @@
 The app uses one solid appearance on every platform. Fonts, icon sets, forum
 palettes, opacity, and background textures remain configurable.
 
-Desktop reading panels have no background fill, exposing the shared window
-canvas. Panel opacity remains configurable on phones.
+Desktop reading panels keep their opaque palette fill over a plain window,
+which is darker than the page. Over a custom background they have no fill,
+exposing it whole. Panel opacity remains configurable on phones.
 
 Native components own control fills, borders, interaction states, focus rings,
 validation rings, semantics, and visible hit bounds. Controls, tabs, and the
