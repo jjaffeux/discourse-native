@@ -866,11 +866,11 @@ void main() {
     }
   }
 
-  testWidgets('rounded tab snapshots preserve transparent corners', (
+  testWidgets('tab fades keep solid page fills and transparent corners', (
     tester,
   ) async {
     final state = await _pump(tester, tabTransitions: true, roundedPanel: true);
-    Future<void> expectTransparentCorner() async {
+    Future<void> expectPageColors({bool atRest = false}) async {
       final boundary = tester.renderObject<RenderRepaintBoundary>(
         find.byKey(const ValueKey('history-test-boundary')),
       );
@@ -879,24 +879,53 @@ void main() {
         () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
       );
       expect(pixels, isNotNull);
-      expect(pixels!.getUint8(0), 0);
-      expect(pixels.getUint8(1), 255);
-      expect(pixels.getUint8(2), 0);
+      if (atRest) {
+        expect(pixels!.getUint8(0), 0);
+        expect(pixels.getUint8(1), 255);
+        expect(pixels.getUint8(2), 0);
+      }
+      final center = (image.width * (image.height ~/ 2) + image.width ~/ 2) * 4;
+      expect(
+        List.generate(3, (channel) => pixels!.getUint8(center + channel)),
+        [244, 67, 54],
+        reason: 'Solid page fills must not reveal the green canvas mid-fade',
+      );
       image.dispose();
     }
 
-    await expectTransparentCorner();
+    await expectPageColors(atRest: true);
+    for (final tab in [1, 0]) {
+      state.selectTab(tab);
+      await tester.pump();
+      final snapshot = tester.widget<RawImage>(find.byType(RawImage)).image!;
+      final pixels = await tester.runAsync(
+        () => snapshot.toByteData(format: ui.ImageByteFormat.rawRgba),
+      );
+      expect(
+        pixels!.getUint8(3),
+        0,
+        reason: 'Snapshot corners stay transparent',
+      );
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        await expectPageColors();
+      }
+      await tester.pumpAndSettle();
+      await expectPageColors(atRest: true);
+    }
+  });
+
+  testWidgets('tab changes take 300ms to settle', (tester) async {
+    final state = await _pump(tester, tabTransitions: true);
     state.selectTab(1);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 70));
-    final image = tester.widget<RawImage>(find.byType(RawImage)).image!;
-    final pixels = await tester.runAsync(
-      () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
-    );
-    expect(pixels, isNotNull);
-    expect(pixels!.getUint8(3), 0);
-    await tester.pumpAndSettle();
-    await expectTransparentCorner();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(find.byKey(const ValueKey('history-incoming-tab')), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 121));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('history-incoming-tab')), findsNothing);
+    expect(tester.getTopLeft(_live).dx, 0);
   });
 
   testWidgets('tab changes respect reduced motion and owner changes', (
