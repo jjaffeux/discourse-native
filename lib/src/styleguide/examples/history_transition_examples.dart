@@ -29,7 +29,7 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Ordered tabs',
       description:
-          'Select tabs in either direction. A short slide and crossfade indicate the tab order while the controls stay still.',
+          'Select tabs in either direction. A 300ms directional slide fades the incoming page over the outgoing snapshot, keeping solid fills stable while the controls stay still.',
       states: const ['Tab order', 'RTL', 'Reduced motion'],
       code:
           'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, child: currentPage)',

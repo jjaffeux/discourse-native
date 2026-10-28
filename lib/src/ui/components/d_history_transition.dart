@@ -21,7 +21,8 @@ typedef DHistoryTab = ({Object id, int index});
 /// parallax separates the pages during a drag. Background
 /// pages stay inside the viewport, shrinking as a forward page covers them.
 /// The background page lightens as it is revealed and darkens as it is covered.
-/// Tab switches slide directionally and crossfade the pages.
+/// Tab switches slide directionally, fading the incoming page over the outgoing
+/// snapshot so solid page fills do not expose the surrounding canvas.
 ///
 /// History previews are in-memory snapshots. Up to eight recently visited
 /// pages are retained, at most one million pixels each.
@@ -133,6 +134,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   // leading edge stays visible instead of sliding outside the viewport.
   static const _parallax = (1 - _previewScale) / 2;
   static const _tabTravel = 24.0;
+  static const _tabDuration = Duration(milliseconds: 300);
 
   final _boundary = GlobalKey();
   final _previews = <Object, ui.Image>{};
@@ -377,7 +379,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       await _progress
           .animateTo(
             1,
-            duration: DMotion.duration(context, DMotion.change),
+            duration: DMotion.duration(context, _tabDuration),
             curve: Curves.easeInOutCubic,
           )
           .orCancel;
@@ -552,13 +554,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       key: const ValueKey('history-outgoing-tab'),
                       offset: Offset(-_tabSign * _tabTravel * p, 0),
                       child: ExcludeSemantics(
-                        child: Opacity(
-                          opacity: 1 - p,
-                          child: RawImage(
-                            image: _preview,
-                            fit: BoxFit.fitWidth,
-                            alignment: Alignment.topCenter,
-                          ),
+                        // Fading both layers exposes the canvas between them.
+                        // Keep the departure behind the incoming fade.
+                        child: RawImage(
+                          image: _preview,
+                          fit: BoxFit.fitWidth,
+                          alignment: Alignment.topCenter,
                         ),
                       ),
                     ),
