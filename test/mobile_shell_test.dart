@@ -673,6 +673,95 @@ void main() {
     },
   );
 
+  _mobileTest('returning from Chat keeps the scrolled topic row stable', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    await pumpMobileShellFixture(
+      tester,
+      onApi: (value) => api = value,
+      topics: [
+        for (var id = 1; id <= 100; id++)
+          Topic(
+            id: id,
+            title: 'Scrollable topic $id ' * (id % 4 + 1),
+            slug: 'scrollable-$id',
+            excerpt: 'A discussion with a variable length excerpt. ' * (id % 3),
+          ),
+      ],
+    );
+    final list = find.byType(TopicListView);
+    ScrollPosition position() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: list,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable && widget.axis == Axis.vertical,
+                ),
+              )
+              .first,
+        )
+        .position;
+    await tester.drag(list, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    await _chatWheel(tester, list, -100);
+    expect(position().pixels, greaterThan(1000));
+    final visibleRow = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              RegExp(
+                r'^topic-card-\d+$',
+              ).hasMatch((widget.key! as ValueKey<String>).value),
+        )
+        .evaluate()
+        .firstWhere((element) {
+          final rect = tester.getRect(
+            find.byElementPredicate((e) => e == element),
+          );
+          return rect.top > 200 && rect.bottom < 650;
+        });
+    final row = find.byKey(visibleRow.widget.key!);
+    final requests = api.feedPaths.length;
+    api.feedGates['/latest.json'] = gate;
+    await _tapDockTab(tester, 'panel/chat');
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
+    await _tapDockTab(tester, 'topics', settle: false);
+    double? firstTop;
+    double? firstOffset;
+    for (var frame = 0; frame < 30; frame++) {
+      if (frame == 5) gate.complete();
+      await tester.pump(const Duration(milliseconds: 16));
+      firstOffset ??= position().pixels;
+      expect(firstOffset, greaterThan(1000));
+      expect(
+        position().pixels,
+        closeTo(firstOffset, .5),
+        reason: 'frame $frame',
+      );
+      expect(row, findsOneWidget, reason: 'frame $frame');
+      final top = tester.getTopLeft(row).dy;
+      // Returning shows the heading again; the row must then stay still
+      // throughout the tab transition and a delayed server response.
+      firstTop ??= top;
+      expect(top, closeTo(firstTop, .5), reason: 'frame $frame');
+      expect(find.byType(TopicListLoadingSkeleton), findsNothing);
+    }
+    expect(api.feedPaths, hasLength(requests));
+
+    // An explicit reselect still asks the server for fresh topics.
+    await _tapDockTab(tester, 'topics');
+    expect(api.feedPaths, hasLength(requests + 1));
+    expect(api.feedPaths.last, '/latest.json');
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('Topics keeps the dock compact across a delayed infinite page', (
     tester,
   ) async {

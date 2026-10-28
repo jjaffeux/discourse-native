@@ -8633,7 +8633,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
-  void selectDestination(SidebarDestination destination) {
+  void selectDestination(
+    SidebarDestination destination, {
+    bool refreshIfSelected = true,
+  }) {
     if (!desktopPanelsEnabled) {
       _workspace.preparePluginPaneForRoute(
         ContentRoute.fromDestination(destination),
@@ -8648,7 +8651,9 @@ class ShellController extends FrameSafeNotifier
     // pull to refresh. Only at the destination's root: a tap that is busy
     // returning from a topic stays a return.
     final refresh =
-        destination.id == tab.rootDestinationId && tab.contentStack.length <= 1;
+        refreshIfSelected &&
+        destination.id == tab.rootDestinationId &&
+        tab.contentStack.length <= 1;
 
     final content = destination.id == 'latest'
         ? _homepageFor(instance)
@@ -9193,9 +9198,12 @@ class ShellController extends FrameSafeNotifier
   /// Starts a tab's journey using the same route and permission owners as desktop.
   void selectMobileDestination(MobileTab tab, SidebarDestination destination) {
     if (!mobileNavigationEnabled || !destination.enabled) return;
+    // A parked Topics route is still the workspace root while Chat is shown.
+    // Returning to it must not refresh the feed during scroll restoration.
+    final reselecting = mobileNavigation.tab == tab;
     mobileNavigation.selectTab(tab);
     _rootMode = ShellRootMode.forum;
-    selectDestination(destination);
+    selectDestination(destination, refreshIfSelected: reselecting);
   }
 
   void _restoreMobileLocation() {
