@@ -2137,6 +2137,72 @@ void main() {
     });
   }
 
+  for (final conversation in ['channel', 'direct message', 'thread']) {
+    _mobileTest('opening navigation from a $conversation selects Chat', (
+      tester,
+    ) async {
+      final direct = conversation == 'direct message';
+      final channel = ChatChannel(
+        id: 10,
+        title: 'Support',
+        kind: direct ? ChatChannelKind.directMessage : ChatChannelKind.category,
+        membership: const ChatMembership(following: true),
+        threadingEnabled: true,
+      );
+      final shell = await pumpMobileShellFixture(
+        tester,
+        conversations: ChatChannels(
+          public: [if (!direct) channel],
+          direct: [if (direct) channel],
+        ),
+        chatThread: conversation == 'thread'
+            ? const ChatThread(
+                id: 3,
+                channelId: 10,
+                title: 'Support thread',
+                status: 'open',
+                replyCount: 0,
+              )
+            : null,
+      );
+      final menu = find.byKey(const ValueKey('mobile-menu-button'));
+      final tabs = find.byKey(const ValueKey('sidebar-panel-tabs'));
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(tester.widget<DTabs<String>>(tabs).value, 'forum');
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+
+      if (conversation == 'thread') {
+        shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+      } else {
+        shell.openChatChannel(10);
+      }
+      await tester.pumpAndSettle();
+      final route = shell.currentContent;
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
+      expect(
+        find.byKey(const ValueKey('chat-inbox-channel-10')),
+        findsOneWidget,
+      );
+      expect(shell.currentContent, route);
+
+      await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-main')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<DTabs<String>>(tabs).value, 'forum');
+      expect(shell.currentContent, route);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
+      expect(shell.currentContent, route);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   _mobileTest('mobile sidebar hides unavailable Chat and opens conversations', (
     tester,
   ) async {

@@ -374,7 +374,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       controller.currentContent?.id,
       routedPanel?.owner,
     );
-    if (!widget.mobile && _navigation != navigation) {
+    if (_navigation != navigation) {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
       if (routedPanel != null) _shortcuts = false;
