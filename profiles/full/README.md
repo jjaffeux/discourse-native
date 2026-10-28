@@ -5,9 +5,9 @@ configurations. It uses the same complete bundled manifest as the repository
 root, including Voice, WebRTC, LiveKit, and CallKit. There is no core-only
 application graph.
 
-This compatibility wrapper currently supports iOS, macOS, and Linux. Android
-remains planned; the root repository's placeholder Android tree does not
-establish Android support.
+This compatibility wrapper includes iOS, macOS, Linux, and Android hosts.
+Build Android releases from this directory. See
+[Google Play internal testing](../../docs/android-testing.md) for signing and upload setup.
 
 Run commands from this directory:
 
@@ -16,6 +16,7 @@ flutter pub get
 flutter run -d macos
 flutter build ios --no-codesign
 flutter build linux
+flutter build appbundle
 ```
 
 The repository-root app can be run directly with `flutter run`. The legacy
