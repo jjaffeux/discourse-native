@@ -14,6 +14,13 @@ class SigningFastfile < Fastlane::FastFile
   end
   def latest_testflight_build_number(**_options) = 134
   def upload_to_testflight(**_options); end
+  def upload_to_play_store(**_options); end
+  def next_android_build_number(**_options) = "42"
+  def prune_testflight_artifacts(**_options); end
+  def prune_full_profile_build_cache; end
+  def build_google_play_app(_options)
+    raise "build_google_play_app must be stubbed"
+  end
 
   def build_app(**_options)
     raise "build_app must be stubbed"
@@ -27,10 +34,16 @@ class SigningTest < Minitest::Test
   def setup
     @original_path = ENV["PATH"]
     @original_rustup_toolchain = ENV["RUSTUP_TOOLCHAIN"]
+    @original_google_key = ENV["GOOGLE_PLAY_JSON_KEY_PATH"]
+    @original_android_signing = ENV["ANDROID_KEY_PROPERTIES"]
     @temporary_root = Dir.mktmpdir("signing-test-")
     @directory = File.join(@temporary_root, "signing test files")
     Dir.mkdir(@directory)
     @api_key_path = File.join(@directory, "api-key.json")
+    ENV["GOOGLE_PLAY_JSON_KEY_PATH"] = File.join(@directory, "google-key.json")
+    ENV["ANDROID_KEY_PROPERTIES"] = File.join(@directory, "key.properties")
+    File.write(ENV.fetch("GOOGLE_PLAY_JSON_KEY_PATH"), "{}")
+    File.write(ENV.fetch("ANDROID_KEY_PROPERTIES"), "test signing configuration")
     @private_key = OpenSSL::PKey::EC.generate("prime256v1").private_to_pem
     @key = {
       key_id: "TESTKEY123",
@@ -43,12 +56,18 @@ class SigningTest < Minitest::Test
   def teardown
     ENV["PATH"] = @original_path
     ENV["RUSTUP_TOOLCHAIN"] = @original_rustup_toolchain
+    ENV["GOOGLE_PLAY_JSON_KEY_PATH"] = @original_google_key
+    ENV["ANDROID_KEY_PROPERTIES"] = @original_android_signing
     FileUtils.remove_entry(@temporary_root)
   end
 
-  def test_beta_configures_native_tools_and_authenticates_both_platforms
+  def test_beta_builds_all_platforms_before_uploading_and_preserves_signing
     builds = []
     key_paths = []
+    events = []
+    android_options = nil
+    android_upload = nil
+    apple_uploads = []
     build = lambda do |**options|
       environment, status = Open3.capture2(
         "/bin/sh", "-c", 'printf "%s\n%s\n" "$PATH" "$RUSTUP_TOOLCHAIN"'
@@ -58,31 +77,69 @@ class SigningTest < Minitest::Test
       assert_equal "/test homebrew/rustup/bin", path.split(File::PATH_SEPARATOR).first
       assert_equal "1.92.0", toolchain
       builds << options
+      events << :build_apple
       key_paths << verify_signing_arguments(options)
       "#{options.fetch(:output_name)}.#{builds.length == 1 ? 'ipa' : 'pkg'}"
     end
 
-    SIGNING_FASTFILE.stub(:build_app, build) do
-      SIGNING_FASTFILE.stub(:prune_testflight_artifacts, nil) do
-        SIGNING_FASTFILE.stub(:prune_full_profile_build_cache, nil) do
-          Dir.stub(:tmpdir, @directory) do
-            SIGNING_FASTFILE.runner.execute(:beta, nil, {
-              version: "1.1.0",
-              api_key_path: @api_key_path,
-              uses_non_exempt_encryption: false,
-              skip_checks: true,
-              allow_dirty: true,
-              wait_for_processing: false
-            })
+    android_build = lambda do |options|
+      events << :build_android
+      android_options = options
+      "Discourse-1.1.0-42.aab"
+    end
+    upload_android = lambda do |**options|
+      events << :upload_android
+      android_upload = options
+    end
+    upload_apple = lambda do |**options|
+      events << :upload_apple
+      apple_uploads << options
+    end
+
+    SIGNING_FASTFILE.stub(:build_google_play_app, android_build) do
+      SIGNING_FASTFILE.stub(:upload_to_play_store, upload_android) do
+        SIGNING_FASTFILE.stub(:upload_to_testflight, upload_apple) do
+          SIGNING_FASTFILE.stub(:build_app, build) do
+            Dir.stub(:tmpdir, @directory) do
+              SIGNING_FASTFILE.runner.execute(:beta, nil, {
+                version: "1.1.0",
+                api_key_path: @api_key_path,
+                uses_non_exempt_encryption: false,
+                skip_checks: true,
+                allow_dirty: true,
+                wait_for_processing: false
+              })
+            end
           end
         end
       end
     end
 
     assert_equal 2, builds.length
+    assert_equal [:build_apple, :build_apple, :build_android, :upload_android, :upload_apple, :upload_apple], events
+    assert_equal "1.1.0", android_options.fetch(:version)
+    assert_equal "42", android_options.fetch(:build_number)
+    assert_equal "internal", android_upload.fetch(:track)
+    assert_equal "completed", android_upload.fetch(:release_status)
+    assert_equal "Discourse-1.1.0-42.aab", android_upload.fetch(:aab)
+    assert_equal %w[ios osx], apple_uploads.map { |upload| upload.fetch(:app_platform) }
+    assert_match /1\.1\.0-135\.ipa\z/, apple_uploads[0].fetch(:ipa)
+    assert_match /1\.1\.0-136\.pkg\z/, apple_uploads[1].fetch(:pkg)
     assert_match %r{/ios/Runner.xcworkspace\z}, builds[0].fetch(:workspace)
     assert_match %r{/macos/Runner.xcworkspace\z}, builds[1].fetch(:workspace)
     key_paths.each { |path| refute_path_exists path }
+  end
+
+  def test_missing_android_credentials_fail_before_any_apple_build_or_upload
+    ENV.delete("GOOGLE_PLAY_JSON_KEY_PATH")
+    SIGNING_FASTFILE.stub(:build_app, ->(**) { flunk "Must fail before archiving Apple builds" }) do
+      assert_raises(FastlaneCore::Interface::FastlaneError) do
+        SIGNING_FASTFILE.runner.execute(:beta, nil, {
+          version: "1.1.0", api_key_path: @api_key_path,
+          uses_non_exempt_encryption: false, skip_checks: true, allow_dirty: true
+        })
+      end
+    end
   end
 
   def test_removes_the_private_key_when_building_fails

@@ -37,3 +37,19 @@ automatically for every lane.
 
 Both iOS and macOS TestFlight builds use `xcbeautify`, the
 [formatter recommended by Fastlane](https://docs.fastlane.tools/best-practices/xcodebuild-formatters/).
+
+## Google Play internal testing
+
+See [Deploy an Android build to internal testing](docs/android-testing.md) for
+Android SDK setup, upload signing, the first Play Console upload, and the
+`fastlane android build` and `fastlane android beta` commands.
+
+With both stores' credentials configured, the existing release command builds
+all three platforms and publishes Android to internal testing:
+
+```sh
+bundle exec fastlane beta version:1.1.0 skip_checks:true
+```
+
+Apple build numbers come from TestFlight. Android selects the next version code
+from the app bundles and APKs in Google Play, independently of the version name.

@@ -39,7 +39,7 @@ void main() {
     directory = await Directory.systemTemp.createTemp('account-draft-scope-');
     file = File('${directory.path}/drafts.json');
     store = DraftStore(
-      persistence: AppleFileDraftPersistence(
+      persistence: ApplicationSupportDraftPersistence(
         file: file,
         legacyStorage: _EmptyLegacy(),
       ),

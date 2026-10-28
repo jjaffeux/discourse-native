@@ -67,6 +67,10 @@ fastlane/*api*key*.json
 *.p8
 *.p12
 *.mobileprovision
+*.jks
+*.keystore
+**/key.properties
+**/google-play*.json
 
 # Local agent audit notes; never committed.
 /.audit/

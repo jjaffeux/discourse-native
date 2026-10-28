@@ -389,7 +389,7 @@ void main() {
       directory = await Directory.systemTemp.createTemp('account-drafts-');
       file = File('${directory.path}/drafts.json');
       drafts = DraftStore(
-        persistence: AppleFileDraftPersistence(
+        persistence: ApplicationSupportDraftPersistence(
           file: file,
           legacyStorage: _NoLegacyDrafts(),
         ),
@@ -400,7 +400,7 @@ void main() {
     tearDown(() async => directory.delete(recursive: true));
 
     Future<String?> restoredWriting() => DraftStore(
-      persistence: AppleFileDraftPersistence(
+      persistence: ApplicationSupportDraftPersistence(
         file: file,
         legacyStorage: _NoLegacyDrafts(),
       ),
@@ -618,7 +618,7 @@ void main() {
       expect(expired, isA<AccountDisconnected>());
       final restarted = _Fixture(
         draftStore: DraftStore(
-          persistence: AppleFileDraftPersistence(
+          persistence: ApplicationSupportDraftPersistence(
             file: file,
             legacyStorage: _NoLegacyDrafts(),
           ),

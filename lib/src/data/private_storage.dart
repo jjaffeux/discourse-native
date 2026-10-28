@@ -42,7 +42,8 @@ final _PlatformPrivateStorage _platformStorage =
 
 /// Credential storage: Data Protection Keychain in distributed Apple builds,
 /// an isolated login-keychain service in custom-signed macOS development
-/// builds, and the existing mode-0600 XDG file on Linux.
+/// builds, Android Keystore encryption on Android, and a mode-0600 XDG file
+/// on Linux.
 final PrivateStorage platformCredentialStorage = _platformStorage.credentials;
 
 /// Local document storage used by Linux drafts. Apple drafts have their own
@@ -75,6 +76,14 @@ final class _PlatformPrivateStorage {
   final PrivateStorage? legacyClientIds;
 
   factory _PlatformPrivateStorage.create() {
+    if (Platform.isAndroid) {
+      return _PlatformPrivateStorage(
+        credentials: AndroidKeystoreStorage(),
+        enumerable: const _UnavailableEnumerablePrivateStorage(),
+        legacyApple: null,
+        legacyClientIds: null,
+      );
+    }
     if (Platform.isLinux) {
       final storage = LinuxFileStorage();
       return _PlatformPrivateStorage(
@@ -128,7 +137,7 @@ final class _UnavailableEnumerablePrivateStorage
   const _UnavailableEnumerablePrivateStorage();
 
   Never _unsupported() => throw UnsupportedError(
-    'Enumerable private storage is unavailable on Apple platforms',
+    'Enumerable private storage is unavailable on this platform',
   );
 
   @override
@@ -145,6 +154,27 @@ final class _UnavailableEnumerablePrivateStorage
 
   @override
   Future<void> write(String key, String value) => _unsupported();
+}
+
+/// Uses the Android host's authenticated, Keystore-backed credential store.
+final class AndroidKeystoreStorage implements PrivateStorage {
+  AndroidKeystoreStorage({MethodChannel? channel})
+    : _channel =
+          channel ?? const MethodChannel('org.discourse.native/credentials');
+
+  final MethodChannel _channel;
+
+  @override
+  Future<String?> read(String key) =>
+      _channel.invokeMethod<String>('read', {'key': key});
+
+  @override
+  Future<void> write(String key, String value) =>
+      _channel.invokeMethod<void>('write', {'key': key, 'value': value});
+
+  @override
+  Future<void> delete(String key) =>
+      _channel.invokeMethod<void>('delete', {'key': key});
 }
 
 /// Calls the Darwin implementation directly, without depending on the

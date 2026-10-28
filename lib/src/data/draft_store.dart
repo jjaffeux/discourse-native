@@ -78,23 +78,24 @@ final class PrivateDraftPersistence implements DraftPersistence {
 
 DraftPersistence _platformDraftPersistence() {
   if (Platform.isLinux) return PrivateDraftPersistence();
-  if (Platform.isIOS || Platform.isMacOS) {
-    return AppleFileDraftPersistence();
+  if (Platform.isIOS || Platform.isMacOS || Platform.isAndroid) {
+    return ApplicationSupportDraftPersistence();
   }
   throw UnsupportedError('Draft persistence is unavailable on this platform');
 }
 
-/// Versioned, owner-only draft storage in the Apple application-support
-/// container.
+/// Versioned, owner-only draft storage in the application-support container.
 ///
 /// Old Keychain drafts are recovered lazily by exact key in release builds.
 /// Durable blockers ensure a cleared or newly written draft can never be
 /// resurrected from an inaccessible legacy item. No operation enumerates the
 /// old Keychain service.
-final class AppleFileDraftPersistence implements DraftPersistence {
-  AppleFileDraftPersistence({File? file, PrivateStorage? legacyStorage})
-    : _providedFile = file,
-      _legacyStorage = legacyStorage ?? platformLegacyAppleStorage;
+final class ApplicationSupportDraftPersistence implements DraftPersistence {
+  ApplicationSupportDraftPersistence({
+    File? file,
+    PrivateStorage? legacyStorage,
+  }) : _providedFile = file,
+       _legacyStorage = legacyStorage ?? platformLegacyAppleStorage;
 
   static const String directoryName = 'drafts';
   static const String fileName = 'drafts-v1.json';

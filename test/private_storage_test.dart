@@ -102,6 +102,60 @@ void main() {
     });
   }
 
+  group('Android Keystore channel', () {
+    const channel = MethodChannel('test.discourse.native/android_credentials');
+    final calls = <MethodCall>[];
+
+    setUp(() {
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call);
+            return call.method == 'read' ? 'stored-key' : null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test(
+      'reads, writes, and deletes through the Android host contract',
+      () async {
+        final storage = AndroidKeystoreStorage(channel: channel);
+        const key = 'api_key::https://one.example';
+
+        expect(await storage.read(key), 'stored-key');
+        await storage.write(key, 'new-key');
+        await storage.delete(key);
+
+        expect(calls.map((call) => call.method), ['read', 'write', 'delete']);
+        expect(calls.map((call) => call.arguments), [
+          {'key': key},
+          {'key': key, 'value': 'new-key'},
+          {'key': key},
+        ]);
+      },
+    );
+
+    test(
+      'reports native failures instead of silently dropping credentials',
+      () async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (_) async {
+              throw PlatformException(code: 'credential_storage');
+            });
+        final storage = AndroidKeystoreStorage(channel: channel);
+
+        await expectLater(
+          storage.write('key', 'secret'),
+          throwsA(isA<PlatformException>()),
+        );
+      },
+    );
+  });
+
   group('Apple Keychain options', () {
     const channel = MethodChannel('test.discourse.native/keychain');
     final calls = <MethodCall>[];

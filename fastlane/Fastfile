@@ -3,6 +3,8 @@ opt_out_usage
 require "fileutils"
 require "shellwords"
 require "spaceship"
+require "supply"
+require "supply/options"
 require "tempfile"
 
 APP_IDENTIFIER = "org.discourse.native"
@@ -11,6 +13,7 @@ PROJECT_ROOT = File.expand_path("..", __dir__)
 VOICE_PACKAGE_ROOT = File.join(PROJECT_ROOT, "packages", "discourse_voice")
 FULL_PROFILE_ROOT = File.join(PROJECT_ROOT, "profiles", "full")
 TESTFLIGHT_OUTPUT = File.join(PROJECT_ROOT, "build", "testflight")
+GOOGLE_PLAY_OUTPUT = File.join(PROJECT_ROOT, "build", "google-play")
 
 default_platform(:ios)
 
@@ -164,13 +167,16 @@ private_lane :quality_checks do
   end
 end
 
-desc "Build and upload iOS and macOS builds to TestFlight"
+desc "Build and upload iOS, macOS, and Android testing releases"
 lane :beta do |options|
   version = required_version(options)
   api_key_path = required_api_key_path(options)
+  json_key = google_play_key_path(options)
+  prepare_android_signing!
   uses_non_exempt_encryption = required_encryption_answer(options)
   allow_dirty = boolean_option(options[:allow_dirty], name: "allow_dirty", default: false)
   skip_checks = boolean_option(options[:skip_checks], name: "skip_checks", default: false)
+  draft = boolean_option(options[:draft], name: "draft", default: false)
   wait_for_processing = boolean_option(
     options[:wait_for_processing],
     name: "wait_for_processing",
@@ -212,8 +218,9 @@ lane :beta do |options|
   ].max + 1
   ios_build = next_build
   macos_build = next_build + 1
+  android_build = next_android_build_number(json_key: json_key)
 
-  UI.message("Preparing #{version}: iOS build #{ios_build}, macOS build #{macos_build}")
+  UI.message("Preparing #{version}: iOS build #{ios_build}, macOS build #{macos_build}, Android build #{android_build}")
 
   ios_artifact = nil
   macos_artifact = nil
@@ -280,12 +287,18 @@ lane :beta do |options|
     )
   end
 
+  android_artifact = build_google_play_app(
+    options.merge(version: version, build_number: android_build)
+  )
+
   # gym records every generated artifact in the shared lane context. Since this
   # lane builds both platforms before uploading either, pilot would otherwise
   # add both paths to each upload and warn that both `ipa` and `pkg` are set.
   # The explicit paths below are the only upload inputs we need.
   Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::IPA_OUTPUT_PATH] = nil
   Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::PKG_OUTPUT_PATH] = nil
+
+  upload_google_play_app(artifact: android_artifact, json_key: json_key, draft: draft)
 
   upload_to_testflight(
     **auth,
@@ -324,7 +337,8 @@ lane :beta do |options|
   )
   prune_full_profile_build_cache
   UI.success(
-    "Uploaded iOS #{version} (#{ios_build}) and macOS #{version} (#{macos_build}) to TestFlight"
+    "Uploaded iOS #{version} (#{ios_build}) and macOS #{version} (#{macos_build}) to TestFlight; " \
+    "Android #{version} (#{android_build}) to Google Play internal testing#{draft ? ' as a draft' : ''}"
   )
 end
 
@@ -336,5 +350,115 @@ platform :ios do
     Dir.chdir(FULL_PROFILE_ROOT) do
       sh("flutter", "build", "ipa", "--release", "--no-codesign")
     end
+  end
+end
+
+def android_build_number(options)
+  value = options[:build_number].to_s
+  unless value.match?(/\A[1-9]\d*\z/) && value.to_i <= 2_100_000_000
+    UI.user_error!("Pass build_number: with a new Google Play version code between 1 and 2100000000")
+  end
+  value
+end
+
+def google_play_key_path(options)
+  path = options[:json_key] || ENV["GOOGLE_PLAY_JSON_KEY_PATH"]
+  if path.to_s.strip.empty? || !File.file?(File.expand_path(path))
+    UI.user_error!("Set GOOGLE_PLAY_JSON_KEY_PATH to an external Google Play service-account JSON file")
+  end
+  File.expand_path(path)
+end
+
+def prepare_android_signing!
+  path = ENV["ANDROID_KEY_PROPERTIES"]
+  if path.to_s.strip.empty? || !File.file?(File.expand_path(path))
+    UI.user_error!("Set ANDROID_KEY_PROPERTIES to an external Android signing properties file")
+  end
+  ENV["ANDROID_KEY_PROPERTIES"] = File.expand_path(path)
+end
+
+def next_android_build_number(json_key:)
+  config = FastlaneCore::Configuration.create(
+    Supply::Options.available_options,
+    package_name: APP_IDENTIFIER,
+    json_key: json_key
+  )
+  client = Supply::Client.make_from_config(params: config)
+  begin
+    client.begin_edit(package_name: APP_IDENTIFIER)
+    codes = client.aab_version_codes + client.apks_version_codes
+    latest = codes.map { |code| numeric_build_number(code, platform: "Android") }.max || 0
+    android_build_number(build_number: latest + 1)
+  ensure
+    client.abort_current_edit if client.current_edit
+  end
+end
+
+def build_google_play_app(options)
+  version = required_version(options)
+  build_number = android_build_number(options)
+  allow_dirty = boolean_option(options[:allow_dirty], name: "allow_dirty", default: false)
+  ensure_clean_worktree!(allow_dirty: allow_dirty)
+  prepare_android_signing!
+
+  Dir.chdir(FULL_PROFILE_ROOT) do
+    sh("flutter", "pub", "get", "--enforce-lockfile")
+    ensure_clean_worktree!(allow_dirty: allow_dirty)
+    sh(
+      "flutter", "build", "appbundle", "--release",
+      "--build-name=#{version}", "--build-number=#{build_number}",
+      "--dart-define=DISCOURSE_NATIVE_VERSION=#{version}"
+    )
+  end
+
+  source = File.join(FULL_PROFILE_ROOT, "build", "app", "outputs", "bundle", "release", "app-release.aab")
+  UI.user_error!("Flutter did not produce #{source}") unless File.file?(source)
+  FileUtils.mkdir_p(GOOGLE_PLAY_OUTPUT)
+  artifact = File.join(GOOGLE_PLAY_OUTPUT, "Discourse-#{version}-#{build_number}.aab")
+  FileUtils.cp(source, artifact)
+  UI.success("Built #{artifact}")
+  artifact
+end
+
+def upload_google_play_app(artifact:, json_key:, draft:)
+  upload_to_play_store(
+    package_name: APP_IDENTIFIER,
+    json_key: json_key,
+    aab: artifact,
+    track: "internal",
+    release_status: draft ? "draft" : "completed",
+    skip_upload_apk: true,
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
+platform :android do
+  desc "Verify Google Play credentials and access to the app's internal testing track"
+  lane :verify do |options|
+    json_key = google_play_key_path(options)
+    codes = google_play_track_version_codes(
+      package_name: APP_IDENTIFIER,
+      json_key: json_key,
+      track: "internal"
+    )
+    UI.success("Connected to #{APP_IDENTIFIER}; internal version codes: #{codes.join(', ')}")
+    UI.message("Next Android build number: #{next_android_build_number(json_key: json_key)}")
+  end
+
+  desc "Build a signed Android App Bundle for Google Play internal testing"
+  lane :build do |options|
+    build_google_play_app(options)
+  end
+
+  desc "Build and upload an Android release to Google Play internal testing"
+  lane :beta do |options|
+    json_key = google_play_key_path(options)
+    draft = boolean_option(options[:draft], name: "draft", default: false)
+    build_number = options[:build_number] || next_android_build_number(json_key: json_key)
+    artifact = build_google_play_app(options.merge(build_number: build_number))
+    upload_google_play_app(artifact: artifact, json_key: json_key, draft: draft)
   end
 end

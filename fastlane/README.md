@@ -19,7 +19,7 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 [bundle exec] fastlane beta
 ```
 
-Build and upload iOS and macOS builds to TestFlight
+Build and upload iOS, macOS, and Android testing releases
 
 ----
 
@@ -33,6 +33,35 @@ Build and upload iOS and macOS builds to TestFlight
 ```
 
 Run local checks and create an unsigned iOS archive
+
+----
+
+
+## Android
+
+### android verify
+
+```sh
+[bundle exec] fastlane android verify
+```
+
+Verify Google Play credentials and access to the app's internal testing track
+
+### android build
+
+```sh
+[bundle exec] fastlane android build
+```
+
+Build a signed Android App Bundle for Google Play internal testing
+
+### android beta
+
+```sh
+[bundle exec] fastlane android beta
+```
+
+Build and upload an Android release to Google Play internal testing
 
 ----
 
