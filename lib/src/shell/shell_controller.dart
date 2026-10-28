@@ -2057,9 +2057,14 @@ class ShellController extends FrameSafeNotifier
     // A persisted palette is already good enough for the first frame. Its
     // expensive stylesheet refresh follows the selected account's small JSON
     // reads instead of competing with the feed during the cold-start burst.
-    _restoreInstanceWorkspace(
-      refreshAppearance: initialInstance?.appearance == null,
-    );
+    final refreshAppearance = initialInstance?.appearance == null;
+    if (mobileNavigationEnabled && !_restoreMobileNavigation()) {
+      // A saved page without the phone's place and visits, such as one an
+      // older build wrote, cannot say what belongs behind it.
+      _resetToInstanceDefault(refreshAppearance: refreshAppearance);
+    } else {
+      _restoreInstanceWorkspace(refreshAppearance: refreshAppearance);
+    }
     _loadStatus = InstanceLoadStatus.ready;
     _notify();
 
@@ -9158,6 +9163,13 @@ class ShellController extends FrameSafeNotifier
             ? activeTab?.location
             : null,
       );
+      final workspace = currentWorkspace;
+      final state = mobileNavigation.state;
+      if (workspace != null &&
+          workspace.accountIdentity == currentAccountIdentity &&
+          workspace.mobile != state) {
+        _workspace.put(workspace.copyWith(mobile: state));
+      }
     }
     final request = _pendingTopicProperty;
     if (request != null &&
@@ -9188,13 +9200,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  /// Marks the restored page's place on the bar without restarting its history.
-  void claimRestoredMobilePlace(MobileTab tab) {
-    if (mobileNavigation.restoredPlace != tab) return;
-    mobileNavigation.claimRestoredPlace(tab);
-    _notify();
-  }
-
   /// Starts a tab's journey using the same route and permission owners as desktop.
   void selectMobileDestination(MobileTab tab, SidebarDestination destination) {
     if (!mobileNavigationEnabled || !destination.enabled) return;
@@ -9204,6 +9209,25 @@ class ShellController extends FrameSafeNotifier
     mobileNavigation.selectTab(tab);
     _rootMode = ShellRootMode.forum;
     selectDestination(destination, refreshIfSelected: reselecting);
+  }
+
+  /// The saved visits and active tab are written together, so the restored
+  /// current visit is already the active tab's page.
+  bool _restoreMobileNavigation() {
+    final instance = currentInstance;
+    final state = currentWorkspace?.mobile;
+    if (instance == null ||
+        state == null ||
+        !mobileNavigation.restore(
+          owner: (instance.url, currentAccountIdentity),
+          state: state,
+        )) {
+      return false;
+    }
+    _mobilePane = mobileNavigation.atRoot
+        ? MobilePane.sidebar
+        : MobilePane.content;
+    return true;
   }
 
   void _restoreMobileLocation() {

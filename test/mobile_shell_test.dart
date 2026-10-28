@@ -3488,6 +3488,79 @@ void main() {
     });
   }
 
+  _mobileTest('a relaunch in a chat channel keeps Chat and its list behind', (
+    tester,
+  ) async {
+    final forumTabs = FakeForumTabStore();
+    await pumpMobileShellFixture(tester, forumTabs: forumTabs);
+    await _tapDockTab(tester, 'panel/chat');
+    await tester.tap(find.byKey(const ValueKey('chat-inbox-channel-10')));
+    await tester.pumpAndSettle();
+
+    final relaunched = await pumpMobileShellFixture(
+      tester,
+      forumTabs: FakeForumTabStore([
+        for (final workspace in forumTabs.workspaces)
+          ForumWorkspace.tryFromJson(jsonDecode(jsonEncode(workspace)))!,
+      ]),
+      key: UniqueKey(),
+    );
+    expect(relaunched.currentContent?.id, 'chat-c-10');
+    expect(relaunched.mobileNavigation.tab, const MobileTab.panel('chat'));
+    expect(_markedPlace(tester), 'Chat');
+
+    expect(relaunched.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
+    expect(relaunched.mobileNavigation.panelOwner, 'chat');
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a saved page without its place starts on the default page', (
+    tester,
+  ) async {
+    final forumTabs = FakeForumTabStore();
+    final shell = await pumpMobileShellFixture(tester, forumTabs: forumTabs);
+    await _chooseFromPanel(tester, 'Categories');
+    expect(shell.currentContent?.id, 'all-categories');
+
+    final olderBuild = FakeForumTabStore([
+      for (final workspace in forumTabs.workspaces)
+        ForumWorkspace.tryFromJson(
+          jsonDecode(jsonEncode(workspace)) as Map<String, Object?>
+            ..remove('mobile'),
+        )!,
+    ]);
+    final relaunched = await pumpMobileShellFixture(
+      tester,
+      forumTabs: olderBuild,
+      key: UniqueKey(),
+    );
+    expect(relaunched.currentContent?.id, 'latest');
+    expect(_markedPlace(tester), 'Topics');
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('a relaunch in a topic keeps its list behind it', (tester) async {
+    final forumTabs = FakeForumTabStore();
+    final shell = await pumpMobileShellFixture(tester, forumTabs: forumTabs);
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.isTopic, isTrue);
+
+    final relaunched = await pumpMobileShellFixture(
+      tester,
+      forumTabs: forumTabs,
+      key: UniqueKey(),
+    );
+    expect(relaunched.currentContent?.isTopic, isTrue);
+    expect(_markedPlace(tester), 'Topics');
+    expect(relaunched.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    expect(relaunched.currentContent?.id, 'latest');
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('Start is not a place: the bar and its panel are Start', (
     tester,
   ) async {
