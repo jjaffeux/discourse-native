@@ -1249,8 +1249,8 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
         history: history,
         tab: tab,
         tabOwner: tabOwner,
-        tabViewport: widget.roundedPanel
-            ? const DHistoryTabViewport(
+        tabClipper: widget.roundedPanel
+            ? const DHistoryTabClipper(
                 borderRadius: DSheetViewport.pageBorderRadius,
                 insets: _tabPanelInsets,
               )

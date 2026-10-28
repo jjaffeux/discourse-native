@@ -14,14 +14,22 @@ typedef DHistoryTab = ({Object id, int index});
 /// The stationary rounded boundary shared by a set of tab pages.
 ///
 /// Insets locate the page inside the captured area, leaving its gutters clear.
-final class DHistoryTabViewport {
-  const DHistoryTabViewport({
+final class DHistoryTabClipper extends CustomClipper<RRect> {
+  const DHistoryTabClipper({
     required this.borderRadius,
     this.insets = EdgeInsets.zero,
   });
 
-  final BorderRadiusGeometry borderRadius;
-  final EdgeInsetsGeometry insets;
+  final BorderRadius borderRadius;
+  final EdgeInsets insets;
+
+  @override
+  RRect getClip(Size size) =>
+      borderRadius.toRRect(insets.deflateRect(Offset.zero & size));
+
+  @override
+  bool shouldReclip(DHistoryTabClipper oldClipper) =>
+      borderRadius != oldClipper.borderRadius || insets != oldClipper.insets;
 }
 
 /// A navigation surface revealed from the top leading corner, independently
@@ -80,7 +88,7 @@ class DHistoryTransition extends StatefulWidget {
     this.onForward,
     this.tab,
     this.tabOwner,
-    this.tabViewport,
+    this.tabClipper,
     this.frameBuilder,
   }) : assert(tab == null || tabOwner != null);
 
@@ -167,9 +175,9 @@ class DHistoryTransition extends StatefulWidget {
 
   /// Clips both moving layers to a fixed page outline during tab changes.
   ///
-  /// Applied only when both tabs supply a viewport. Leave null on navigation
+  /// Applied only when both tabs supply a clipper. Leave null on navigation
   /// surfaces with another outline. Edge swipes retain their moving outlines.
-  final DHistoryTabViewport? tabViewport;
+  final DHistoryTabClipper? tabClipper;
 
   @override
   State<DHistoryTransition> createState() => _DHistoryTransitionState();
@@ -281,7 +289,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _preview = image;
       _tabSign = (now.index > was.index ? 1 : -1) * (_rtl ? -1.0 : 1.0);
       _switchingTab = true;
-      _clipTab = oldWidget.tabViewport != null && widget.tabViewport != null;
+      _clipTab = oldWidget.tabClipper != null && widget.tabClipper != null;
       unawaited(_animateTab());
     } else if (oldWidget.history != widget.history) {
       _clear();
@@ -706,21 +714,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   if (active && !_back) previewLayer(preview, back: false),
                 ],
               );
-              final viewport = switching && _clipTab
-                  ? widget.tabViewport
-                  : null;
+              final clipper = switching && _clipTab ? widget.tabClipper : null;
               return ClipRRect(
-                clipBehavior: viewport == null ? Clip.none : Clip.antiAlias,
-                clipper: viewport == null
-                    ? null
-                    : _HistoryTabClipper(
-                        borderRadius: viewport.borderRadius.resolve(
-                          Directionality.of(context),
-                        ),
-                        insets: viewport.insets.resolve(
-                          Directionality.of(context),
-                        ),
-                      ),
+                clipBehavior: clipper == null ? Clip.none : Clip.antiAlias,
+                clipper: clipper,
                 child: pages,
               );
             },
@@ -729,21 +726,6 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       },
     );
   }
-}
-
-class _HistoryTabClipper extends CustomClipper<RRect> {
-  const _HistoryTabClipper({required this.borderRadius, required this.insets});
-
-  final BorderRadius borderRadius;
-  final EdgeInsets insets;
-
-  @override
-  RRect getClip(Size size) =>
-      borderRadius.toRRect(insets.deflateRect(Offset.zero & size));
-
-  @override
-  bool shouldReclip(_HistoryTabClipper oldClipper) =>
-      borderRadius != oldClipper.borderRadius || insets != oldClipper.insets;
 }
 
 class _HistorySwipeScope extends InheritedWidget {
