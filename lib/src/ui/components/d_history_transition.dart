@@ -44,7 +44,9 @@ final class DHistoryNavigation {
 /// Supply [previousPreview] or [nextPreview] for an adjacent navigation surface
 /// that must be ready on its first reveal. These remain mounted offstage, with
 /// focus, semantics and interaction excluded until they become the real page.
-/// Theme, viewport width, history and memory pressure discard snapshots.
+/// Theme, viewport width and history changes discard snapshots. Memory pressure
+/// releases forward previews but retains the bounded chain behind this page,
+/// including the underlays needed when dismissing nested reading sheets.
 /// App lifecycle changes cancel gestures while retaining page snapshots.
 /// Reduced motion keeps the page stationary while preserving the gestures.
 /// Departures are still captured for descendant reading-sheet underlays.
@@ -166,7 +168,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   static const _tabDuration = Duration(milliseconds: 300);
 
   final _boundary = GlobalKey();
-  final _previews = <Object, ui.Image>{};
+  final _previews = <Object, ({ui.Image image, Object? previousEntry})>{};
   final _pointers = <int>{};
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
@@ -249,7 +251,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           : null;
       if (oldWidget.history == widget.history) {
         _resetGesture();
-        if (image != null) _remember(oldWidget.entry, image.clone());
+        if (image != null) {
+          _remember(oldWidget.entry, oldWidget.previousEntry, image.clone());
+        }
       } else {
         _clear();
       }
@@ -266,7 +270,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       if (boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
-          _remember(oldWidget.entry, image);
+          _remember(oldWidget.entry, oldWidget.previousEntry, image);
         }
       }
       _resetGesture();
@@ -294,7 +298,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   }
 
   @override
-  void didHaveMemoryPressure() => setState(_clear);
+  // iOS sends memory pressure on ordinary backgrounding. Back pages still
+  // supply the visible underlays when the current sheet is pulled down.
+  void didHaveMemoryPressure() =>
+      setState(() => _clear(retainBackHistory: true));
 
   void _resetGesture() {
     _generation++;
@@ -313,21 +320,29 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     }
   }
 
-  void _clear() {
+  void _clear({bool retainBackHistory = false}) {
     _committedEntry = null;
     _resetGesture();
     _pointers.clear();
-    for (final image in _previews.values) {
-      image.dispose();
+    final retained = <Object>{};
+    if (retainBackHistory) {
+      var entry = widget.previousEntry;
+      while (entry != null && retained.add(entry)) {
+        entry = _previews[entry]?.previousEntry;
+      }
     }
-    _previews.clear();
+    _previews.removeWhere((entry, preview) {
+      if (retained.contains(entry)) return false;
+      preview.image.dispose();
+      return true;
+    });
   }
 
-  void _remember(Object entry, ui.Image image) {
-    _previews.remove(entry)?.dispose();
-    _previews[entry] = image;
+  void _remember(Object entry, Object? previousEntry, ui.Image image) {
+    _previews.remove(entry)?.image.dispose();
+    _previews[entry] = (image: image, previousEntry: previousEntry);
     while (_previews.length > 8) {
-      _previews.remove(_previews.keys.first)!.dispose();
+      _previews.remove(_previews.keys.first)!.image.dispose();
     }
   }
 
@@ -373,7 +388,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _openingNavigation = _back && _navigationOrigin(details.localPosition);
       _dragging = true;
       _distance = 0;
-      _preview = _previews[_target]?.clone();
+      _preview = _previews[_target]?.image.clone();
     });
   }
 
@@ -540,7 +555,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           child: AnimatedBuilder(
             animation: _progress,
             child: _HistoryPageScope(
-              previousImage: _previews[widget.previousEntry],
+              previousImage: _previews[widget.previousEntry]?.image,
               animatePageEntrance: _animatePageEntrance,
               child: _HistoryBoundary(key: _boundary, child: widget.child),
             ),

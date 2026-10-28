@@ -444,9 +444,8 @@ class _MainContentBody extends StatelessWidget {
       final controller = ShellScope.read(context);
       final entry = controller.mobileNavigation.entryId;
       final previous = state.previousRoute;
-      // The previous page's snapshot is discarded whenever the app leaves the
-      // foreground. A plugin page that draws its own chrome renders live
-      // instead, as it will once the sheet is dismissed.
+      // A plugin page that draws its own chrome renders live, as it will once
+      // the sheet is dismissed.
       final livePrevious =
           previous != null &&
           registry.ownsContentChrome(context, previous) &&

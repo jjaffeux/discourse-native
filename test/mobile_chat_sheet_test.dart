@@ -238,6 +238,7 @@ void main() {
         (tester) async {
           final shell = await _fixture(tester);
           await shell.appSettings.setReduceMotion(reducedMotion);
+          await tester.pumpAndSettle();
           if (origin == 'directory') {
             shell.pluginSession.require(chatShellService).openChannels();
           } else if (origin == 'channel') {
@@ -275,6 +276,9 @@ void main() {
             AppLifecycleState.resumed,
           ]) {
             tester.binding.handleAppLifecycleStateChanged(state);
+            if (state == AppLifecycleState.paused) {
+              tester.binding.handleMemoryPressure();
+            }
           }
           await tester.pumpAndSettle();
           final drag = await tester.startGesture(tester.getCenter(_handle));
@@ -307,6 +311,21 @@ void main() {
           expect(shell.mobileNavigation.entryId, same(currentEntry));
           await _dismiss(tester);
           expect(shell.mobileNavigation.entryId, same(originEntry));
+          if (origin == 'channel') {
+            expect(
+              tester
+                  .widget<DSheetViewport>(find.byType(DSheetViewport))
+                  .underlay,
+              isNotNull,
+              reason:
+                  'dismissing the thread must preserve the channel underlay',
+            );
+            await _dismiss(tester);
+            expect(
+              find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
+              findsOneWidget,
+            );
+          }
           expect(tester.takeException(), isNull);
         },
         variant: _platforms,

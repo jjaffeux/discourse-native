@@ -177,7 +177,6 @@ void main() {
     'theme',
     'width',
     'padding',
-    'memory',
   ]) {
     testWidgets('previous underlay clears safely on $invalidation', (
       tester,
@@ -202,8 +201,6 @@ void main() {
           await tester.binding.setSurfaceSize(const Size(450, 600));
         case 'padding':
           state.changePadding();
-        case 'memory':
-          tester.binding.handleMemoryPressure();
       }
       await tester.pumpAndSettle();
       expect(previousUnderlay(tester), isNull);
@@ -212,6 +209,38 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'memory pressure retains nested underlays and evicts future pages',
+    (tester) async {
+      final state = await pumpSnapshot(tester);
+      for (final entry in [1, 2]) {
+        state.visit(entry);
+        await tester.pumpAndSettle();
+      }
+      tester.binding.handleMemoryPressure();
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+      tester.binding.handleMemoryPressure();
+      tester.binding.handleMemoryPressure();
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+      state.visit(3);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNull);
+      state.visit(0);
+      await tester.pumpAndSettle();
+      tester.binding.handleMemoryPressure();
+      await tester.pumpAndSettle();
+      state.visit(2);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('previous underlay uses only the bounded adjacent entry cache', (
     tester,
@@ -721,7 +750,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('resize and memory pressure clear previews and cancel gestures', (
+  testWidgets('resize and memory pressure cancel active gestures', (
     tester,
   ) async {
     final state = await _pump(tester);
