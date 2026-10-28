@@ -229,6 +229,7 @@ class ImageGridMosaic extends StatefulWidget {
 
 class _ImageGridMosaicState extends State<ImageGridMosaic> {
   final _gridKey = GlobalKey();
+  late List<Widget> _tiles;
   final Set<dom.Element> _hydratedImages = Set.identity();
   final Map<dom.Element, Rect> _pendingBounds = Map.identity();
   bool _checkScheduled = false;
@@ -244,7 +245,18 @@ class _ImageGridMosaicState extends State<ImageGridMosaic> {
   @override
   void initState() {
     super.initState();
+    _updateTiles();
     _scheduleCheck();
+  }
+
+  void _updateTiles() {
+    // Hydrating later rows must not rebuild or repaint existing thumbnails.
+    _tiles = [
+      for (final item in widget.data.items)
+        RepaintBoundary(
+          child: ImageGridTile(item: item, siteUrl: widget.siteUrl),
+        ),
+    ];
   }
 
   @override
@@ -257,6 +269,7 @@ class _ImageGridMosaicState extends State<ImageGridMosaic> {
   @override
   void didUpdateWidget(ImageGridMosaic oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _updateTiles();
     final elements = Set<dom.Element>.identity()
       ..addAll(widget.data.items.map((item) => item.element));
     _hydratedImages.removeWhere((element) => !elements.contains(element));
@@ -424,10 +437,7 @@ class _ImageGridMosaicState extends State<ImageGridMosaic> {
               child:
                   !_isImage(widget.data.items[index]) ||
                       _hydratedImages.contains(widget.data.items[index].element)
-                  ? ImageGridTile(
-                      item: widget.data.items[index],
-                      siteUrl: widget.siteUrl,
-                    )
+                  ? _tiles[index]
                   : null,
             ),
           ),
