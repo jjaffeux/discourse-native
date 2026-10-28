@@ -193,6 +193,14 @@ final class VoiceShellService
     _host.pushContent(route);
   }
 
+  void roomDeleted(String siteUrl, int roomId) {
+    if (currentInstance?.url == siteUrl &&
+        currentContent?.destination is ExtensionDestination &&
+        currentContent?.id == 'voice-room-$roomId') {
+      _host.replaceCurrentContent(ContentRoute.topicList(TopicListMode.latest));
+    }
+  }
+
   @override
   Future<bool> openPluginUrl(
     String url, {

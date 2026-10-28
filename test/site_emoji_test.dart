@@ -15,6 +15,48 @@ void main() {
   });
 
   group('SiteEmoji', () {
+    test('animated artwork keeps CDN, subfolder, tone and URL state', () {
+      const emoji = SiteEmoji(
+        name: 'clap',
+        url: 'https://cdn.example/forum/images/emoji/twitter/clap.png?v=16',
+        tonable: true,
+        animated: true,
+      );
+      expect(
+        emoji.animatedUrlFor(EmojiSkinTone.t3),
+        'https://cdn.example/forum/images/emoji/noto_animated/clap/3.avif?v=16',
+      );
+      final catalog = SiteEmojiCatalog(
+        groups: [
+          SiteEmojiGroup(id: 'people', emojis: const [emoji]),
+        ],
+      );
+      expect(
+        catalog.animatedUrlFor('clap:t3'),
+        'https://cdn.example/forum/images/emoji/noto_animated/clap/3.avif?v=16',
+      );
+      expect(
+        catalog.animatedUrlFor('applause', staticUrl: emoji.url),
+        'https://cdn.example/forum/images/emoji/noto_animated/clap.avif?v=16',
+      );
+      expect(catalog.animatedUrlFor('unknown'), isNull);
+      expect(
+        const SiteEmoji(
+          name: 'party',
+          url: '/uploads/party.png',
+          animated: true,
+        ).animatedUrlFor(EmojiSkinTone.neutral),
+        isNull,
+      );
+      expect(
+        const SiteEmoji(
+          name: 'wave',
+          url: '/images/emoji/twitter/wave.png',
+        ).animatedUrlFor(EmojiSkinTone.neutral),
+        isNull,
+      );
+    });
+
     test(
       'applies a tone to shortcode and artwork without losing URL state',
       () {

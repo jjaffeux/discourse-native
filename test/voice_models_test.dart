@@ -63,6 +63,74 @@ const _callRoomJson = <String, Object?>{
 
 void main() {
   test(
+    'preserves viewer media and deletion permissions across shared broadcasts',
+    () {
+      final held = VoiceRoom.fromJson(const {
+        'id': 7,
+        'video_enabled': true,
+        'video_allowed': false,
+        'screen_share_allowed': true,
+        'can_delete': true,
+      });
+      final broadcast = VoiceRoom.fromJson(const {
+        'id': 7,
+        'video_enabled': true,
+      });
+      final merged = broadcast.mergeUserFields(held);
+      expect(merged.videoAllowed, isFalse);
+      expect(merged.screenShareAllowed, isTrue);
+      expect(merged.canDelete, isTrue);
+      final revoked = VoiceRoom.fromJson(const {
+        'id': 7,
+        'screen_share_allowed': false,
+        'can_delete': false,
+      }).mergeUserFields(merged);
+      expect(revoked.screenShareAllowed, isFalse);
+      expect(revoked.canDelete, isFalse);
+      final overtaken = broadcast.withUserFieldsFrom(held);
+      expect(overtaken.screenShareAllowed, isTrue);
+      expect(overtaken.canDelete, isTrue);
+    },
+  );
+
+  test('legacy room media permission continues to gate screen sharing', () {
+    final held = VoiceRoom.fromJson(const {'id': 7, 'video_allowed': true});
+    final shared = VoiceRoom.fromJson(const {'id': 7}).mergeUserFields(held);
+    expect(shared.screenShareAllowed, isTrue);
+    final revoked = VoiceRoom.fromJson(const {
+      'id': 7,
+      'video_allowed': false,
+    }).mergeUserFields(shared);
+    expect(revoked.screenShareAllowed, isFalse);
+  });
+
+  test(
+    'participant media entitlements and resumable IDs follow server payloads',
+    () {
+      final event =
+          VoiceRoomEvent.fromJson({
+                'type': 'participants',
+                'participants': [
+                  {
+                    'id': 20,
+                    'username': 'sam',
+                    'can_publish_video': false,
+                    'can_screen_share': true,
+                  },
+                ],
+                'resuming_ids': [10, '30', null, 0, -1, 'bad'],
+              })!
+              as VoiceParticipantsEvent;
+      expect(event.resumingIds, {10, 30});
+      expect(event.participants.single.canPublishVideo, isFalse);
+      expect(event.participants.single.canScreenShare, isTrue);
+      expect(
+        VoiceParticipant.fromJson(const {'id': 10}).canPublishVideo,
+        isNull,
+      );
+    },
+  );
+  test(
     'room description Markdown keeps indentation through wire decoding',
     () async {
       const raw = '    code\n\nParagraph hard break  \nnext line\n';

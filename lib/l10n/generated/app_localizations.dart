@@ -22994,6 +22994,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'End time must be after start time.'**
   String get notificationScheduleEndAfterStart;
+
+  /// Live room onebox participant count from the viewer's current room directory.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 person here now} other{{count} people here now}}'**
+  String voiceRoomHereNow(int count);
+
+  /// Action to delete a persistent Live room.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete room'**
+  String get voiceRoomDelete;
+
+  /// Confirmation before deleting a Live room.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this room? Everyone in the call will be disconnected. This cannot be undone.'**
+  String get voiceRoomDeleteConfirm;
+
+  /// Error when a Live room could not be deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t delete the room.'**
+  String get voiceRoomDeleteFailed;
 }
 
 class _AppLocalizationsDelegate

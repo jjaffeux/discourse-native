@@ -1015,8 +1015,74 @@ void main() {
     },
   );
 
+  for (final permission in [
+    (
+      name: 'screen-only permission',
+      camera: false,
+      screen: true,
+      enabled: true,
+      type: 'open',
+      expected: true,
+    ),
+    (
+      name: 'camera-only permission',
+      camera: true,
+      screen: false,
+      enabled: true,
+      type: 'open',
+      expected: false,
+    ),
+    (
+      name: 'room media disabled',
+      camera: true,
+      screen: true,
+      enabled: false,
+      type: 'open',
+      expected: false,
+    ),
+    (
+      name: 'stage listener',
+      camera: true,
+      screen: true,
+      enabled: true,
+      type: 'stage',
+      expected: false,
+    ),
+  ]) {
+    test('screen publishing respects ${permission.name}', () async {
+      final room =
+          transport.responses['POST /voice/rooms/7/join.json']!['room']
+              as Map<String, dynamic>;
+      room.addAll({
+        'room_type': permission.type,
+        'video_enabled': permission.enabled,
+        'video_allowed': permission.camera,
+        'screen_share_allowed': permission.screen,
+      });
+      await controller.ensureLoaded(firstSite);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: controller.room(firstSite, 7)!,
+      );
+      await controller.setScreenSharing(true);
+      expect(controller.call!.screenSharing, permission.expected);
+      expect(mediaFactory.sessions.single.screen, permission.expected);
+    });
+  }
+
   group('media control settlement', () {
-    Future<FakeVoiceMediaSession> join() async {
+    Future<FakeVoiceMediaSession> join({bool mediaAllowed = false}) async {
+      final room =
+          transport.responses['POST /voice/rooms/7/join.json']!['room']
+              as Map<String, dynamic>;
+      if (mediaAllowed) {
+        room.addAll({
+          'room_type': 'open',
+          'video_enabled': true,
+          'video_allowed': true,
+        });
+      }
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
@@ -1057,7 +1123,7 @@ void main() {
       }
 
       test('newer successful $setting survives an older failure', () async {
-        final media = await join();
+        final media = await join(mediaAllowed: setting == 'share');
         await set(true);
         final gate = Completer<void>();
         hold(media, (_) => gate.future);
@@ -1076,7 +1142,7 @@ void main() {
       test(
         'an older $setting failure stays quiet while a newer one is pending',
         () async {
-          final media = await join();
+          final media = await join(mediaAllowed: setting == 'share');
           final gates = [Completer<void>(), Completer<void>()];
           var next = 0;
           hold(media, (_) => gates[next++].future);
@@ -1097,7 +1163,7 @@ void main() {
         test(
           '$setting restores accepted state when both fail, newer first $newerFirst',
           () async {
-            final media = await join();
+            final media = await join(mediaAllowed: setting == 'share');
             await set(true);
             final gates = [Completer<void>(), Completer<void>()];
             var next = 0;
@@ -1123,7 +1189,7 @@ void main() {
       test(
         '$setting rollback reconciles an already synced optimistic state',
         () async {
-          final media = await join();
+          final media = await join(mediaAllowed: setting == 'share');
           await set(true);
           final gates = [Completer<void>(), Completer<void>()];
           var next = 0;
@@ -1156,7 +1222,7 @@ void main() {
           test(
             'late $setting settlement after ${replacing ? 'replacement' : 'retirement'}, fails $fails',
             () async {
-              final media = await join();
+              final media = await join(mediaAllowed: setting == 'share');
               final gate = Completer<void>();
               hold(media, (_) => gate.future);
               final pending = set(false);
@@ -1215,7 +1281,7 @@ void main() {
     );
 
     test('external share end invalidates a pending failed stop', () async {
-      final media = await join();
+      final media = await join(mediaAllowed: true);
       await controller.setScreenSharing(true);
       final gate = Completer<void>();
       media.onSetScreenSharing = (_) => gate.future;
@@ -1232,7 +1298,7 @@ void main() {
     test(
       'a pending share restart survives the older stop media event',
       () async {
-        final media = await join();
+        final media = await join(mediaAllowed: true);
         await controller.setScreenSharing(true);
         media.notifyListeners();
         final gates = [Completer<void>(), Completer<void>()];
@@ -1256,7 +1322,7 @@ void main() {
     test(
       'share failures after an observed stop retain the stopped state',
       () async {
-        final media = await join();
+        final media = await join(mediaAllowed: true);
         await controller.setScreenSharing(true);
         media.notifyListeners();
         final gates = [Completer<void>(), Completer<void>()];
@@ -1283,7 +1349,7 @@ void main() {
     test(
       'unrelated media event does not cancel a pending share start',
       () async {
-        final media = await join();
+        final media = await join(mediaAllowed: true);
         final gate = Completer<void>();
         media.onSetScreenSharing = (_) => gate.future;
         final pending = controller.setScreenSharing(true);
@@ -1306,7 +1372,7 @@ void main() {
           final room = payload['room'] as Map<String, dynamic>;
           room['room_type'] = 'open';
           transport.responses['POST /voice/rooms/7/join.json'] = payload;
-          final media = await join();
+          final media = await join(mediaAllowed: true);
           expect(controller.call?.muted, isFalse);
           final gate = Completer<void>();
           media.onSetMuted = (_) => gate.future;
@@ -5182,6 +5248,14 @@ void main() {
     test(
       'publishes roster state when screen sharing ends externally',
       () async {
+        final room =
+            transport.responses['POST /voice/rooms/7/join.json']!['room']
+                as Map<String, dynamic>;
+        room.addAll({
+          'room_type': 'open',
+          'video_enabled': true,
+          'video_allowed': true,
+        });
         await controller.ensureLoaded(firstSite);
         await controller.join(
           siteUrl: firstSite,
@@ -6380,6 +6454,38 @@ void main() {
         [1],
       );
     });
+
+    test(
+      'keeps a connected mesh call while the local participant resumes',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final localIds = controller.call!.room.participants
+            .map((p) => p.id)
+            .toList();
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+          'resuming_ids': localIds,
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNotNull);
+        expect(media.disposeCount, 0);
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': const <Object?>[],
+          'resuming_ids': const <int>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+      },
+    );
 
     test(
       'ends the local call when another client removes it from the roster',

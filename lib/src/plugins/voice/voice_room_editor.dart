@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'voice_controller.dart';
 import 'voice_models.dart';
 import 'voice_services.dart';
+import 'voice_shell_service.dart';
 
 Future<void> showVoiceRoomEditor(
   BuildContext context, {
@@ -19,10 +20,28 @@ Future<void> showVoiceRoomEditor(
       controller ??
       PluginUiScope.require(context, voiceControllerService);
   final ownsAccount = originController.captureSiteSession(siteUrl);
+  final shell = PluginUiScope.maybe(context, voiceShellService);
   final result = await showDDialog<VoiceRoomDraft>(
     context: context,
-    builder: (context, dialog) =>
-        _VoiceRoomEditorDialog(room: room, dialog: dialog),
+    builder: (context, dialog) => _VoiceRoomEditorDialog(
+      room: room,
+      dialog: dialog,
+      onDelete: room == null || !room.canDelete || room.ephemeral
+          ? null
+          : () async {
+              if (!ownsAccount()) return false;
+              final current =
+                  controllerResolver?.call() ?? controller ?? originController;
+              final deleted = await current.deleteRoom(
+                siteUrl: siteUrl,
+                roomId: room.id,
+              );
+              if (deleted && ownsAccount()) {
+                shell?.roomDeleted(siteUrl, room.id);
+              }
+              return deleted && ownsAccount();
+            },
+    ),
   );
   if (result == null || !context.mounted || !ownsAccount()) return;
   await (controllerResolver?.call() ??
@@ -35,10 +54,15 @@ Future<void> showVoiceRoomEditor(
 /// animation has removed the form. Disposing these controllers in the caller
 /// at that point leaves the outgoing text fields listening to dead objects.
 class _VoiceRoomEditorDialog extends StatefulWidget {
-  const _VoiceRoomEditorDialog({required this.room, required this.dialog});
+  const _VoiceRoomEditorDialog({
+    required this.room,
+    required this.dialog,
+    this.onDelete,
+  });
 
   final VoiceRoom? room;
   final DDialogController<VoiceRoomDraft> dialog;
+  final Future<bool> Function()? onDelete;
 
   @override
   State<_VoiceRoomEditorDialog> createState() => _VoiceRoomEditorDialogState();
@@ -46,6 +70,8 @@ class _VoiceRoomEditorDialog extends StatefulWidget {
 
 class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   final _form = GlobalKey<FormState>();
+  bool _deleting = false;
+  bool _deleteFailed = false;
   final _advanced = DAccordionController<String>();
   late final TextEditingController _name;
   late final TextEditingController _description;
@@ -294,8 +320,17 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
           ),
         ),
       ),
+      if (_deleteFailed)
+        DFieldError(child: Text(context.l10n.voiceRoomDeleteFailed)),
       DDialogFooter(
         children: [
+          if (widget.onDelete != null)
+            DButton(
+              onPressed: _deleting ? null : _delete,
+              loading: _deleting,
+              label: Text(context.l10n.voiceRoomDelete),
+              variant: DButtonVariant.destructive,
+            ),
           DDialogClose<VoiceRoomDraft>(
             builder: (context, close) => DButton(
               onPressed: close,
@@ -304,7 +339,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             ),
           ),
           DButton(
-            onPressed: _name.text.trim().isEmpty ? null : _save,
+            onPressed: _deleting || _name.text.trim().isEmpty ? null : _save,
             label: Text(
               _room == null
                   ? context.l10n.createRoom
@@ -316,6 +351,45 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
       ),
     ],
   );
+
+  Future<void> _delete() async {
+    final confirmed = await showDAlertDialog<bool>(
+      context: context,
+      builder: (context, dialog) => DAlertDialogContent(
+        children: [
+          DAlertDialogHeader(
+            title: Text(context.l10n.voiceRoomDelete),
+            description: Text(context.l10n.voiceRoomDeleteConfirm),
+          ),
+          DAlertDialogFooter(
+            children: [
+              DAlertDialogCancel<bool>(label: Text(context.l10n.cancel)),
+              DAlertDialogAction<bool>(
+                label: Text(context.l10n.voiceRoomDelete),
+                result: true,
+                variant: DButtonVariant.destructive,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() {
+      _deleting = true;
+      _deleteFailed = false;
+    });
+    final deleted = await widget.onDelete!();
+    if (!mounted) return;
+    if (deleted) {
+      widget.dialog.close();
+    } else {
+      setState(() {
+        _deleting = false;
+        _deleteFailed = true;
+      });
+    }
+  }
 
   String _qualityLabel(VoiceQualityProfile quality) => switch (quality) {
     VoiceQualityProfile.standard => appL10n.standard,

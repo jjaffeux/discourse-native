@@ -5,11 +5,13 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show ObjectKey;
 
 import 'voice_call_port.dart';
 import 'voice_controller.dart';
 import 'voice_picture_in_picture.dart';
 import 'voice_plugin.dart';
+import 'voice_reaction_widgets.dart';
 import 'voice_room_view.dart';
 import 'voice_shell_service.dart';
 
@@ -18,6 +20,7 @@ final class VoiceCallControllerPort extends ChangeNotifier
   factory VoiceCallControllerPort({
     required VoiceController controller,
     required VoiceShellService shell,
+    PluginEmojiHost? emoji,
   }) {
     final pip = NativeVoicePictureInPicture(
       onRestore: () => unawaited(
@@ -34,7 +37,7 @@ final class VoiceCallControllerPort extends ChangeNotifier
     );
     return VoiceCallControllerPort.controlled(
       runtime: Listenable.merge([video, pip, ?shell.navigationChanges]),
-      readState: () => _controllerState(controller, shell, video),
+      readState: () => _controllerState(controller, shell, video, emoji),
       performAction: (action) => _performControllerAction(
         controller: controller,
         shell: shell,
@@ -151,6 +154,7 @@ final class VoiceCallControllerPort extends ChangeNotifier
     VoiceController controller,
     VoiceShellService shell,
     VoiceCallVideoSession video,
+    PluginEmojiHost? emoji,
   ) {
     if (!controller.supportedPlatform) {
       return const VoiceCallPortState.unsupported();
@@ -158,6 +162,7 @@ final class VoiceCallControllerPort extends ChangeNotifier
     final call = controller.call;
     if (call == null) return const VoiceCallPortState.idle();
     final selectedVideoTrack = video.track;
+    final reactions = emoji == null ? null : controller.callReactions;
     return VoiceCallPortState(
       supported: true,
       roomVisible: shell.activeRoomVisible,
@@ -180,6 +185,20 @@ final class VoiceCallControllerPort extends ChangeNotifier
             ? null
             : VoiceVideoSurface(track: selectedVideoTrack),
         failureMessage: call.error,
+        reactionOverlay: emoji == null || reactions == null
+            ? null
+            : VoiceReactionOverlay(
+                key: ObjectKey(reactions),
+                session: reactions,
+                emoji: emoji,
+              ),
+        reactionControl: emoji == null || reactions == null
+            ? null
+            : VoiceReactionButton(
+                key: ObjectKey(reactions),
+                session: reactions,
+                emoji: emoji,
+              ),
       ),
     );
   }

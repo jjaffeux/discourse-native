@@ -60,6 +60,87 @@ void main() {
 
   group('MeshVoiceMediaSession', () {
     test(
+      'keeps established resumable peers without connecting to absent members',
+      () async {
+        final peer = _FakePeerConnection();
+        var creations = 0;
+        final response = _meshJoin(localUserId: 10, remoteUserId: 20);
+        final media = MeshVoiceMediaSession(
+          join: response,
+          localUserId: 10,
+          sendSignal: (_, _) async {},
+          audioPublishingAllowed: false,
+          createPeerConnection: (_) async {
+            creations++;
+            return peer;
+          },
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        final video = _FakeTrack('surviving-camera', 'video');
+        peer.onTrack?.call(rtc.RTCTrackEvent(streams: const [], track: video));
+        await media.syncParticipants(
+          [response.room.participants.first],
+          resumingIds: {20, 30},
+        );
+        expect(peer.closed, isFalse);
+        expect(video.stopped, isFalse);
+        expect(creations, 1);
+        expect(media.videoTrackFor(20), isNotNull);
+        await media.syncParticipants([response.room.participants.first]);
+        expect(peer.closed, isTrue);
+        expect(video.stopped, isTrue);
+      },
+    );
+
+    test(
+      'revoked screen entitlement stops screen audio while retaining camera and microphone',
+      () async {
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          setTrackVolume: (_, _) async {},
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        final microphone = _FakeTrack('remote-mic', 'audio');
+        final screenAudio = _FakeTrack('remote-screen', 'audio');
+        final camera = _FakeTrack('remote-camera', 'video');
+        peer.onTrack?.call(
+          rtc.RTCTrackEvent(
+            streams: [
+              _FakeStream('mic-stream', [microphone]),
+            ],
+            track: microphone,
+          ),
+        );
+        peer.onTrack?.call(
+          rtc.RTCTrackEvent(streams: const [], track: screenAudio),
+        );
+        peer.onTrack?.call(rtc.RTCTrackEvent(streams: const [], track: camera));
+        await media.syncParticipants([
+          media.join.room.participants.first,
+          VoiceParticipant.fromJson(const {
+            'id': 20,
+            'username': 'remote',
+            'can_publish_video': true,
+            'can_screen_share': false,
+          }),
+        ]);
+        expect(screenAudio.stopped, isTrue);
+        expect(camera.stopped, isFalse);
+        expect(microphone.stopped, isFalse);
+        final refused = _FakeTrack('new-screen-audio', 'audio');
+        peer.onTrack?.call(
+          rtc.RTCTrackEvent(streams: const [], track: refused),
+        );
+        await _pumpEventQueue();
+        expect(refused.stopped, isTrue);
+        expect(peer.closed, isFalse);
+      },
+    );
+    test(
       'front and back capture replace video without replacing the microphone',
       () async {
         final microphone = _FakeTrack('mic', 'audio');

@@ -19,6 +19,7 @@ import 'voice_incoming_calls.dart';
 import 'voice_media.dart';
 import 'voice_models.dart';
 import 'voice_preferences.dart';
+import 'voice_reactions.dart';
 import 'voice_settings.dart';
 import 'voice_signaling.dart';
 import 'voice_video_handle.dart';
@@ -34,7 +35,9 @@ part 'voice_device_preferences.dart';
 part 'voice_incoming_call_adapters.dart';
 part 'voice_membership_editor.dart';
 part 'voice_room_directory.dart';
+part 'voice_room_deletion.dart';
 part 'voice_room_events.dart';
+part 'voice_reaction_session.dart';
 part 'voice_user_invitation_session.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -260,6 +263,7 @@ final class VoiceController extends ChangeNotifier {
     },
     notify: _notify,
     observe: _observe,
+    reactionReceived: _receiveReaction,
   );
   late final _incoming = VoiceIncomingCalls(
     rooms: _VoiceIncomingRoomAccess(this),
@@ -283,6 +287,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, PluginLiveChannelHandle> _attachedTrackers = {};
   final Map<(String, int), _VoiceChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
+  VoiceReactionSession? _reactionSession;
+  VoiceMediaSession? _reactionMedia;
   final ChangeNotifier _roomListChanges = ChangeNotifier();
   Map<String, VoiceDirectory> _publishedDirectories = {};
   Set<(String, int)> _publishedJoining = {};
@@ -309,6 +315,7 @@ final class VoiceController extends ChangeNotifier {
   VoiceCallSnapshot? get call => _call;
 
   void _notifyCallChanged() {
+    _retireObsoleteReactions();
     _notifyRoomListChanged();
     if (!_disposed) notifyListeners();
   }
@@ -651,6 +658,8 @@ final class VoiceController extends ChangeNotifier {
     username: participant.username,
     externalAgent: participant.externalAgent,
     livekitIdentity: participant.livekitIdentity,
+    canPublishVideo: participant.canPublishVideo,
+    canScreenShare: participant.canScreenShare,
     role: participant.role,
     name: participant.name,
     avatarTemplate: participant.avatarTemplate,
@@ -1325,6 +1334,7 @@ final class VoiceController extends ChangeNotifier {
   }
 
   void forget(String siteUrl) {
+    if (_reactionSession?.siteUrl == siteUrl) _clearReactions();
     _cameraPreferences.removeWhere((account, _) => account.$1 == siteUrl);
     if (_calls.current?.siteUrl == siteUrl) {
       _observe(() => _leave(notifyServer: true));
@@ -1390,6 +1400,7 @@ final class VoiceController extends ChangeNotifier {
     if (active != null) return active;
 
     _disposed = true;
+    _clearReactions();
     _agentPermissionRevision.dispose();
     _calls.retire();
     _roomVideoWatchers.clear();

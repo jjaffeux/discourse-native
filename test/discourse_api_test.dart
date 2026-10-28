@@ -2810,6 +2810,7 @@ void _feedGroups() {
                     'name': 'smile',
                     'url': '/images/emoji/twitter/smile.png?v=2',
                     'tonable': true,
+                    'animated': true,
                     'ignored': 'future field',
                   },
                   {'name': 'grin', 'url': 'https://cdn.example.com/grin.png'},
@@ -2844,6 +2845,8 @@ void _feedGroups() {
           'https://example.com/images/emoji/twitter/smile.png?v=2',
         );
         expect(catalog.all.first.tonable, isTrue);
+        expect(catalog.all.first.animated, isTrue);
+        expect(catalog.all[1].animated, isFalse);
         expect(catalog.all[1].url, 'https://cdn.example.com/grin.png');
         expect(catalog.all[2].url, 'https://cdn.example.com/shipit.png');
       },

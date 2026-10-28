@@ -111,6 +111,7 @@ final class VoiceModule implements PluginModule {
         final callPort = VoiceCallControllerPort(
           controller: controller,
           shell: shell,
+          emoji: bindings.require(corePluginEmojiPort),
         );
         return PluginSessionContribution(
           lifecycle: _VoiceSessionLifecycle(
@@ -124,12 +125,17 @@ final class VoiceModule implements PluginModule {
             PluginService<Object>(voiceControllerService, controller),
             PluginService<Object>(voiceShellService, shell),
             PluginService<Object>(voiceCallPortService, callPort),
+            PluginService<Object>(
+              voiceEmojiHostService,
+              bindings.require(corePluginEmojiPort),
+            ),
           ],
           capabilities: [shell],
         );
       },
       requires: const [
         corePluginTransportPort,
+        corePluginEmojiPort,
         corePluginRequestPort,
         corePluginTrackerPort,
         corePluginUserPort,

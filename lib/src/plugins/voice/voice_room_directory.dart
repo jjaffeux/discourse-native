@@ -98,6 +98,59 @@ final class _VoiceRoomDirectory {
     }
   }
 
+  Future<bool> deleteRoom(int roomId) async {
+    final target = room(roomId);
+    if (!isCurrent || target == null || !target.canDelete || target.ephemeral) {
+      return false;
+    }
+    final credentials = await controller._keyRequestCredentials(
+      siteUrl,
+      ifCurrent: () => isCurrent,
+    );
+    if (credentials == null) return false;
+    try {
+      await credentials.run(
+        () => controller.api.deleteRoom(
+          siteUrl: siteUrl,
+          roomId: roomId,
+          apiKey: credentials.apiKey!,
+        ),
+      );
+      if (!isCurrent) return false;
+      _error = null;
+      removeDestroyedRoom(roomId);
+      return true;
+    } catch (failure) {
+      if (!isCurrent) return false;
+      _error = failure is WriteException
+          ? failure.message
+          : appL10n.voiceRoomDeleteFailed;
+      _notifyChanged();
+      return false;
+    }
+  }
+
+  void removeDestroyedRoom(int roomId) {
+    _roomResponseVersions.remove(roomId);
+    _roomLiveVersions.remove(roomId);
+    _destroyedRoomVersions[roomId] = ++_roomRequestVersion;
+    while (_destroyedRoomVersions.length > _maxDestroyedRoomsPerSite) {
+      _destroyedRoomVersions.remove(_destroyedRoomVersions.keys.first);
+    }
+    final held = snapshot;
+    if (held != null) {
+      _snapshot = VoiceDirectory(
+        rooms: List.unmodifiable(held.rooms.where((room) => room.id != roomId)),
+        canCreateRoom: held.canCreateRoom,
+        messageBusLastId: held.messageBusLastId,
+      );
+    }
+    _linkedRooms.remove(roomId);
+    controller._directoryRoomDestroyed(siteUrl, roomId);
+    syncSubscriptions();
+    _notifyChanged();
+  }
+
   VoiceRoom acceptWrite(VoiceRoom incoming) {
     final room = acceptResponse(incoming, ++_roomRequestVersion);
     refreshRoom(room);
@@ -301,16 +354,8 @@ final class _VoiceRoomDirectory {
         controller._refreshRetainedRoom(siteUrl, incoming);
         liveRoomChanged(incoming.id);
       case 'destroyed':
-        _roomResponseVersions.remove(incoming.id);
-        _roomLiveVersions.remove(incoming.id);
-        final destroyed = _destroyedRoomVersions;
-        destroyed[incoming.id] = ++_roomRequestVersion;
-        while (destroyed.length > _maxDestroyedRoomsPerSite) {
-          destroyed.remove(destroyed.keys.first);
-        }
-        rooms.removeWhere((room) => room.id == incoming.id);
-        _linkedRooms.remove(incoming.id);
-        controller._directoryRoomDestroyed(siteUrl, incoming.id);
+        removeDestroyedRoom(incoming.id);
+        return;
       default:
         return;
     }

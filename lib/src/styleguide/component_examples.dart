@@ -46,6 +46,7 @@ import 'examples/input_otp_examples.dart';
 import 'examples/item_examples.dart';
 import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
+import 'examples/live_reaction_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/menubar_examples.dart';
 import 'examples/mermaid_examples.dart';
@@ -92,6 +93,8 @@ import 'styleguide_example.dart';
 
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
+  'animated-emoji': animatedEmojiExamples,
+  'reaction-overlay': reactionOverlayExamples,
   'mobile-dock': mobileDockExamples,
   'composer-dock': composerDockExamples,
   'header-morph': headerMorphExamples,

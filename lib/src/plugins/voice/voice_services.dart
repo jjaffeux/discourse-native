@@ -5,6 +5,11 @@ import 'voice_controller.dart';
 
 const voicePluginId = PluginId('voice');
 
+const voiceEmojiHostService = PluginServiceKey<PluginEmojiHost>(
+  owner: voicePluginId,
+  name: 'emoji',
+);
+
 const voiceControllerService = PluginServiceKey<VoiceController>(
   owner: voicePluginId,
   name: 'controller',

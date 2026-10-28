@@ -1,6 +1,9 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
+export 'src/shell/emoji.dart' show EmojiImage;
+export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
+
 export 'src/shell/topic_category_path_selector.dart';
 export 'src/shell/topic_category_selector.dart';
 export 'src/shell/topic_tag_selector.dart';
@@ -11,6 +14,7 @@ export 'src/ui/components/d_action_transition.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';
 export 'src/ui/components/d_alphabet_index.dart';
+export 'src/ui/components/d_animated_emoji.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_attachment.dart';
 export 'src/ui/components/d_audio_player.dart';
@@ -90,6 +94,7 @@ export 'src/ui/components/d_pull_to_refresh.dart';
 export 'src/ui/components/d_questionnaire.dart';
 export 'src/ui/components/d_quote.dart';
 export 'src/ui/components/d_radio_group.dart';
+export 'src/ui/components/d_reaction_overlay.dart';
 export 'src/ui/components/d_resizable.dart';
 export 'src/ui/components/d_reveal.dart';
 export 'src/ui/components/d_scroll_area.dart';

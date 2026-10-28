@@ -19,12 +19,20 @@ import 'voice_incoming_call.dart';
 import 'voice_join.dart';
 import 'voice_media.dart';
 import 'voice_models.dart';
+import 'voice_reaction_widgets.dart';
 import 'voice_room_editor.dart';
 import 'voice_services.dart';
 import 'voice_shell_service.dart';
 import 'voice_video_handle.dart';
 
 export 'voice_room_editor.dart' show showVoiceRoomEditor;
+
+Future<void> showVoiceRoomChat(
+  BuildContext context,
+  VoiceController controller, {
+  required String siteUrl,
+  required int roomId,
+}) => _showVoiceChat(context, controller, siteUrl: siteUrl, roomId: roomId);
 
 class VoiceRoomView extends StatelessWidget {
   const VoiceRoomView({
@@ -376,68 +384,73 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
             ),
           ),
         Expanded(
-          child: VoiceRingingClock(
-            room: room,
-            clock: widget.ringingClock,
-            builder: (context, ringing) => LayoutBuilder(
-              builder: (context, constraints) {
-                final participants = room.participants;
-                if (participants.isEmpty && ringing.isEmpty) {
-                  return _EmptyRoom(room: room);
-                }
-                final count = participants.length + ringing.length;
-                final columns = constraints.maxWidth >= 900
-                    ? math.min(3, count)
-                    : constraints.maxWidth >= 560 || count >= 3
-                    ? math.min(2, count)
-                    : 1;
-                final rows = math.min(3, (count / columns).ceil());
-                final stageHeight = math.max(
-                  140.0,
-                  (constraints.maxHeight - 24 - (rows - 1) * 12) / rows,
-                );
-                return GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    mainAxisExtent: active == null ? null : stageHeight,
-                    childAspectRatio: 16 / 10,
-                  ),
-                  itemCount: participants.length + ringing.length,
-                  itemBuilder: (context, index) {
-                    if (index >= participants.length) {
-                      return _RingingTile(
-                        entry: ringing[index - participants.length],
+          child: VoiceReactionStage(
+            controller: controller,
+            siteUrl: siteUrl,
+            roomId: room.id,
+            child: VoiceRingingClock(
+              room: room,
+              clock: widget.ringingClock,
+              builder: (context, ringing) => LayoutBuilder(
+                builder: (context, constraints) {
+                  final participants = room.participants;
+                  if (participants.isEmpty && ringing.isEmpty) {
+                    return _EmptyRoom(room: room);
+                  }
+                  final count = participants.length + ringing.length;
+                  final columns = constraints.maxWidth >= 900
+                      ? math.min(3, count)
+                      : constraints.maxWidth >= 560 || count >= 3
+                      ? math.min(2, count)
+                      : 1;
+                  final rows = math.min(3, (count / columns).ceil());
+                  final stageHeight = math.max(
+                    140.0,
+                    (constraints.maxHeight - 24 - (rows - 1) * 12) / rows,
+                  );
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      mainAxisExtent: active == null ? null : stageHeight,
+                      childAspectRatio: 16 / 10,
+                    ),
+                    itemCount: participants.length + ringing.length,
+                    itemBuilder: (context, index) {
+                      if (index >= participants.length) {
+                        return _RingingTile(
+                          entry: ringing[index - participants.length],
+                          siteUrl: siteUrl,
+                        );
+                      }
+                      final participant = participants[index];
+                      return _ParticipantTile(
+                        key: ValueKey(('voice-participant', participant.id)),
+                        controller: controller,
+                        participant: participant,
                         siteUrl: siteUrl,
+                        roomId: room.id,
+                        media: media,
+                        canManage: active?.room.canManage ?? false,
+                        canKick:
+                            active?.room.canManage == true &&
+                            participant.id != currentUserId &&
+                            participant.id != room.creatorId,
+                        canAdjustLocally:
+                            active != null && participant.id != currentUserId,
+                        stageRoleChange: _stageRoleChange(
+                          active,
+                          participant,
+                          currentUserId,
+                        ),
+                        controllerResolver: controllerResolver,
                       );
-                    }
-                    final participant = participants[index];
-                    return _ParticipantTile(
-                      key: ValueKey(('voice-participant', participant.id)),
-                      controller: controller,
-                      participant: participant,
-                      siteUrl: siteUrl,
-                      roomId: room.id,
-                      media: media,
-                      canManage: active?.room.canManage ?? false,
-                      canKick:
-                          active?.room.canManage == true &&
-                          participant.id != currentUserId &&
-                          participant.id != room.creatorId,
-                      canAdjustLocally:
-                          active != null && participant.id != currentUserId,
-                      stageRoleChange: _stageRoleChange(
-                        active,
-                        participant,
-                        currentUserId,
-                      ),
-                      controllerResolver: controllerResolver,
-                    );
-                  },
-                );
-              },
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -969,9 +982,18 @@ class _CallControlsState extends State<_CallControls> {
         call.room.type != VoiceRoomType.stage ||
         role == VoiceRole.moderator ||
         role == VoiceRole.speaker;
-    final canPublishVideo = canPublish && call.room.videoAllowed;
+    final canPublishVideo =
+        canPublish &&
+        call.room.videoEnabled &&
+        call.room.videoAllowed &&
+        me?.canPublishVideo != false;
     final cameraOn = call.cameraEnabled || controller.cameraStarting;
-    final canShare = (Platform.isMacOS || Platform.isLinux) && canPublishVideo;
+    final canShare =
+        (Platform.isMacOS || Platform.isLinux) &&
+        canPublish &&
+        call.room.videoEnabled &&
+        call.room.screenShareAllowed &&
+        me?.canScreenShare != false;
     final secondary = <Widget>[
       if (context.isTouch && canPublishVideo && cameraOn && !call.screenSharing)
         DButton.iconOnly(
@@ -1093,6 +1115,7 @@ class _CallControlsState extends State<_CallControls> {
         ),
     ];
     final primary = <Widget>[
+      VoiceCallReactionButton(controller: controller),
       if (canPublish)
         VoiceToolbarControl(
           label: call.muted ? context.l10n.unmute : context.l10n.mute,

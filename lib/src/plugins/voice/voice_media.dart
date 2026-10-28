@@ -485,6 +485,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   // they return during this session.
   final Map<int, double> _participantVolumes = {};
   final Map<int, VoiceRole> _participantRoles = {};
+  final Map<int, VoiceParticipant> _participants = {};
   final Set<int> _currentRemoteParticipantIds = {};
   final Set<int> _peerEligibleParticipantIds = {};
   final Set<rtc.MediaStream> _ownedLocalStreams =
@@ -520,8 +521,10 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       VoiceMediaConnectionState.connected;
 
   @override
-  VoiceVideoHandle? get localVideoTrack =>
-      _videoHandles.fromRtc(_screenVideoTrack ?? _cameraTrack);
+  VoiceVideoHandle? get localVideoTrack => _videoHandles.fromRtc(
+    _screenVideoTrack ?? _cameraTrack,
+    screenShare: screenSharing,
+  );
 
   @override
   bool get screenSharing => _screenStream != null;
@@ -530,7 +533,10 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   VoiceVideoHandle? videoTrackFor(int participantId) =>
       participantId == localUserId
       ? localVideoTrack
-      : _videoHandles.fromRtc(_remoteTracks[participantId]?.video);
+      : _videoHandles.fromRtc(
+          _remoteTracks[participantId]?.video,
+          screenShare: _participants[participantId]?.screenSharing ?? false,
+        );
 
   rtc.MediaStreamTrack? get _microphoneTrack =>
       _localStream?.getAudioTracks().firstOrNull;
@@ -726,10 +732,27 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   };
 
   @override
-  Future<void> syncParticipants(List<VoiceParticipant> participants) =>
-      _serialize(() => _syncParticipants(participants));
+  Future<void> syncParticipants(
+    List<VoiceParticipant> participants, {
+    Set<int> resumingIds = const {},
+  }) => _serialize(
+    () => _syncParticipants(participants, resumingIds: resumingIds),
+  );
 
-  Future<void> _syncParticipants(List<VoiceParticipant> participants) async {
+  Future<void> _syncParticipants(
+    List<VoiceParticipant> participants, {
+    Set<int> resumingIds = const {},
+  }) async {
+    final presentIds = {for (final participant in participants) participant.id};
+    participants = canonicalVoiceParticipants([
+      ...participants,
+      for (final held in _participants.values)
+        if (resumingIds.contains(held.id) && !presentIds.contains(held.id))
+          held,
+    ]);
+    _participants
+      ..clear()
+      ..addEntries(participants.map((p) => MapEntry(p.id, p)));
     final currentRemoteIds = {
       for (final participant in participants)
         if (participant.id != localUserId) participant.id,
@@ -774,8 +797,24 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       );
     await Future.wait([
       for (final id in wanted)
-        if (!_peers.containsKey(id)) _createPeer(id),
+        if (!_peers.containsKey(id) && !resumingIds.contains(id))
+          _createPeer(id),
     ]);
+    var removedMedia = false;
+    for (final entry in _remoteTracks.entries) {
+      final slots = entry.value;
+      for (final track in [
+        if (!_remoteVisualAllowed(entry.key, screenOnly: false)) ?slots.video,
+        if (!_remoteVisualAllowed(entry.key, screenOnly: true))
+          ?slots.screenAudio,
+      ]) {
+        removedMedia = true;
+        _remoteVolumes.remove(track)?.retire();
+        slots.remove(track);
+        await _stopRemoteTrackBestEffort(track);
+      }
+    }
+    if (removedMedia) changed();
   }
 
   Future<void> _createPeer(int peerId) {
@@ -1044,10 +1083,21 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     }
     final isScreenAudio = event.track.kind == 'audio' && event.streams.isEmpty;
     if ((event.track.kind == 'video' || isScreenAudio) &&
-        !join.room.videoAllowed) {
+        !_remoteVisualAllowed(peerId, screenOnly: isScreenAudio)) {
       return false;
     }
     return true;
+  }
+
+  bool _remoteVisualAllowed(int peerId, {required bool screenOnly}) {
+    final participant = _participants[peerId];
+    if (participant == null) return false;
+    final screen = participant.canScreenShare ?? join.room.videoAllowed;
+    final camera = participant.canPublishVideo ?? join.room.videoAllowed;
+    if (screenOnly || participant.screenSharing) return screen;
+    if (participant.videoOn) return camera;
+    // A track can arrive before the sender's state broadcast identifies it.
+    return screen || camera;
   }
 
   Future<void> _stopRemoteTrackBestEffort(rtc.MediaStreamTrack track) async {
@@ -1749,6 +1799,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       _ownedLocalStreams.clear();
       _participantVolumes.clear();
       _participantRoles.clear();
+      _participants.clear();
       _currentRemoteParticipantIds.clear();
       _peerEligibleParticipantIds.clear();
 
@@ -2210,7 +2261,25 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         (held) => identical(held, publication),
       ) &&
       _canReceive(participant) &&
+      _publicationEntitled(participant, publication) &&
       !(publication.kind == lk.TrackType.AUDIO && _deafened);
+
+  bool _publicationEntitled(
+    lk.Participant participant,
+    lk.TrackPublication publication,
+  ) {
+    final entry = _roster[_userId(participant.identity)];
+    if (entry == null) {
+      // Human media can precede its roster broadcast.
+      return true;
+    }
+    return switch (publication.source) {
+      lk.TrackSource.camera => entry.canPublishVideo ?? join.room.videoAllowed,
+      lk.TrackSource.screenShareVideo || lk.TrackSource.screenShareAudio =>
+        entry.canScreenShare ?? join.room.videoAllowed,
+      _ => true,
+    };
+  }
 
   void _rejectTrack(lk.Track track) {
     final mediaTrack = track.mediaStreamTrack;

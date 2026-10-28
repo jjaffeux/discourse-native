@@ -26,6 +26,32 @@ const _voiceRegistry = PluginRegistry([VoicePlugin()]);
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('deleting a room replaces only its current page', () async {
+    const siteUrl = 'https://voice.example';
+    final host = await PluginHostHarness.open(
+      transport: RecordingPluginTransport(),
+      manifest: _voiceManifest,
+      sites: const [PluginHostSite(url: siteUrl, apiKey: 'key')],
+    );
+    addTearDown(host.close);
+    final voice = host.require(voiceShellService);
+    voice.openRoom(
+      siteUrl: siteUrl,
+      route: const ContentRoute(
+        destination: ExtensionDestination('voice-room-7'),
+        title: 'Lounge',
+        icon: DIcons.microphoneLines,
+      ),
+    );
+    voice.roomDeleted(siteUrl, 8);
+    expect(host.currentContent?.id, 'voice-room-7');
+    voice.roomDeleted('https://another.example', 7);
+    expect(host.currentContent?.id, 'voice-room-7');
+    voice.roomDeleted(siteUrl, 7);
+    expect(TopicListMode.fromRoute(host.currentContent), TopicListMode.latest);
+    expect(host.contentStack, hasLength(2));
+  });
+
   testWidgets('opening the current Voice room twice needs only one Back', (
     tester,
   ) async {
