@@ -583,11 +583,18 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
               padding: media.padding.copyWith(bottom: media.viewPadding.bottom),
             ),
       child: Scaffold(
-        // iOS exposes this surface around the keyboard's rounded upper corners.
-        backgroundColor: widget.mobile
-            ? Theme.of(context).shell.content
-            : Colors.transparent,
-        body: widget.body,
+        backgroundColor: Colors.transparent,
+        body: Padding(
+          padding: EdgeInsets.only(
+            bottom:
+                widget.mobile &&
+                    _sheetKeyboard == null &&
+                    media.viewInsets.bottom > 0
+                ? 1
+                : 0,
+          ),
+          child: widget.body,
+        ),
       ),
     );
   }
