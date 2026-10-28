@@ -11,6 +11,20 @@ import '../foundation/tokens.dart';
 /// A tab among ordered tabs: which one, and where it stands among them.
 typedef DHistoryTab = ({Object id, int index});
 
+/// A navigation surface revealed from the top leading corner, independently
+/// of the current page's Back destination.
+final class DHistoryNavigation {
+  const DHistoryNavigation({
+    required this.entry,
+    required this.preview,
+    required this.onOpen,
+  });
+
+  final Object entry;
+  final Widget preview;
+  final VoidCallback onOpen;
+}
+
 /// Interactive edge swipes over a single live history page.
 ///
 /// Give each visit a stable [entry] identity and change [history] when its owner
@@ -44,6 +58,8 @@ class DHistoryTransition extends StatefulWidget {
     this.previousEntry,
     this.nextEntry,
     this.previousPreview,
+    this.navigation,
+    this.backSwipeAnywhere = false,
 
     this.onBack,
     this.onForward,
@@ -97,6 +113,17 @@ class DHistoryTransition extends StatefulWidget {
   final VoidCallback? onForward;
   final Widget child;
 
+  /// The top leading 80 by 56 logical pixels of this gesture surface open
+  /// navigation. Mount below the system safe area. The destination is selected
+  /// at touch-down and stays fixed until release, including outside the corner.
+  /// RTL mirrors the corner and swipe direction. This takes priority over Back.
+  final DHistoryNavigation? navigation;
+
+  /// Accept Back swipes across the surface, including retained page sheets.
+  /// Descendant horizontal controls keep their gestures. Forward stays on the
+  /// trailing edge. At the history root, swipes outside [navigation] do nothing.
+  final bool backSwipeAnywhere;
+
   /// Places the animated page within stationary navigation chrome.
   ///
   /// The whole returned frame accepts edge swipes, including its padding and
@@ -129,6 +156,7 @@ class DHistoryTransition extends StatefulWidget {
 class _DHistoryTransitionState extends State<DHistoryTransition>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _edgeWidth = 48.0;
+  static const _navigationCorner = Size(80, 56);
   static const _commitDistance = 64.0;
   static const _previewScale = .94;
   // Match the horizontal inset from centered scaling, so the background's
@@ -147,6 +175,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   Size _size = Size.zero;
   double _gestureWidth = 0;
   bool _back = false;
+  bool _openingNavigation = false;
   bool _dragging = false;
   bool _settling = false;
   bool _switchingTab = false;
@@ -158,8 +187,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
   bool get _rtl => Directionality.of(context) == TextDirection.rtl;
   double get _sign => _back != _rtl ? 1 : -1;
-  Object? get _target => _back ? widget.previousEntry : widget.nextEntry;
-  VoidCallback? get _navigate => _back ? widget.onBack : widget.onForward;
+  Object? get _target => _openingNavigation
+      ? widget.navigation?.entry
+      : _back
+      ? widget.previousEntry
+      : widget.nextEntry;
+  VoidCallback? get _navigate => _openingNavigation
+      ? widget.navigation?.onOpen
+      : _back
+      ? widget.onBack
+      : widget.onForward;
 
   @override
   void initState() {
@@ -236,7 +273,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     } else if ((_dragging || _settling) &&
         (_navigate == null ||
             _target !=
-                (_back ? oldWidget.previousEntry : oldWidget.nextEntry))) {
+                (_openingNavigation
+                    ? oldWidget.navigation?.entry
+                    : _back
+                    ? oldWidget.previousEntry
+                    : oldWidget.nextEntry))) {
       _resetGesture();
     }
   }
@@ -261,6 +302,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _settling = false;
     _switchingTab = false;
     _distance = 0;
+    _openingNavigation = false;
     _progress.stop();
     if (_progress.value != 0) _progress.value = 0;
     final preview = _preview;
@@ -300,20 +342,35 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _gestureWidth <= _edgeWidth * 2) {
       return false;
     }
-    final x = event.localPosition.dx;
-    if (x > _edgeWidth && x < _gestureWidth - _edgeWidth) return false;
-    final back = _rtl ? x >= _gestureWidth - _edgeWidth : x <= _edgeWidth;
-    return back
-        ? widget.previousEntry != null && widget.onBack != null
-        : widget.nextEntry != null && widget.onForward != null;
+    return _allowsDirection(event.localPosition, _rtl ? -1 : 1) ||
+        _allowsDirection(event.localPosition, _rtl ? 1 : -1);
   }
 
-  void _start(DragStartDetails details) {
+  bool _navigationOrigin(Offset position) =>
+      widget.navigation != null &&
+      position.dy >= 0 &&
+      position.dy < _navigationCorner.height &&
+      (_rtl ? _gestureWidth - position.dx : position.dx) <
+          _navigationCorner.width;
+
+  bool _allowsDirection(Offset origin, double distance) {
+    final leading = _rtl ? _gestureWidth - origin.dx : origin.dx;
+    final back = _rtl ? distance < 0 : distance > 0;
+    return back
+        ? _navigationOrigin(origin) ||
+              (widget.previousEntry != null &&
+                  widget.onBack != null &&
+                  (widget.backSwipeAnywhere || leading <= _edgeWidth))
+        : widget.nextEntry != null &&
+              widget.onForward != null &&
+              leading >= _gestureWidth - _edgeWidth;
+  }
+
+  void _start(DragStartDetails details, double distance) {
     if (_pointers.length != 1 || !_routeIsCurrent) return;
     setState(() {
-      _back = _rtl
-          ? details.localPosition.dx >= _gestureWidth - _edgeWidth
-          : details.localPosition.dx <= _edgeWidth;
+      _back = _rtl ? distance < 0 : distance > 0;
+      _openingNavigation = _back && _navigationOrigin(details.localPosition);
       _dragging = true;
       _distance = 0;
       _preview = _previews[_target]?.clone();
@@ -428,8 +485,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   _HistoryEdgeRecognizer.new,
                   (recognizer) => recognizer
                     ..allowsPointer = _allowsPointer
+                    ..allowsDirection = _allowsDirection
+                    ..onlyAcceptDragOnThreshold = true
                     ..dragStartBehavior = DragStartBehavior.down
-                    ..onStart = _start
+                    ..onStart = (details) {
+                      _start(details, recognizer.globalDistanceMoved);
+                    }
                     ..onUpdate = _update
                     ..onEnd = _end
                     ..onCancel = () => unawaited(_settle(false)),
@@ -552,9 +613,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (widget.previousPreview case final live?)
-                    previewLayer(live, back: true)
-                  else if (active && _back)
+                  if (widget.navigation case final navigation?)
+                    Offstage(
+                      offstage: !_openingNavigation,
+                      child: previewLayer(navigation.preview, back: true),
+                    ),
+                  if (!_openingNavigation && widget.previousPreview != null)
+                    previewLayer(widget.previousPreview!, back: true)
+                  else if (!_openingNavigation && active && _back)
                     previewLayer(preview, back: true),
                   if (switching)
                     Transform.translate(
@@ -622,6 +688,32 @@ class _HistorySwipeScope extends InheritedWidget {
 
 class _HistoryEdgeRecognizer extends HorizontalDragGestureRecognizer {
   bool Function(PointerDownEvent)? allowsPointer;
+  bool Function(Offset origin, double distance)? allowsDirection;
+  Offset _origin = Offset.zero;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _origin = event.localPosition;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) {
+    if (!super.hasSufficientGlobalDistanceToAccept(
+      pointerDeviceKind,
+      deviceTouchSlop,
+    )) {
+      return false;
+    }
+    if (!(allowsDirection?.call(_origin, globalDistanceMoved) ?? true)) {
+      resolve(GestureDisposition.rejected);
+      return false;
+    }
+    return true;
+  }
 
   @override
   bool isPointerAllowed(PointerEvent event) =>

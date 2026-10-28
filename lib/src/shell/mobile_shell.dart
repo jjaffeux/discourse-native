@@ -875,8 +875,6 @@ class MobileHistoryGestures extends StatelessWidget {
     final navigation = shell.mobileNavigation;
     final sidebarOpen = navigation.sidebarOpen;
     final sidebarEntry = (navigation.historyId, 'sidebar');
-    final root = !navigation.canGoBack;
-    final topicOpen = !sidebarOpen && shell.currentContent?.isTopic == true;
     return DSheetDragScope(
       child: DHistoryTransition(
         frameBuilder: frameBuilder,
@@ -884,26 +882,26 @@ class MobileHistoryGestures extends StatelessWidget {
         tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
         tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
         entry: sidebarOpen ? sidebarEntry : navigation.entryId,
-        // Navigation is adjacent to the tab root without becoming a visit in
-        // its history. Deeper pages keep their normal Back/Forward targets.
-        previousEntry: sidebarOpen
+        backSwipeAnywhere: true,
+        navigation: sidebarOpen
             ? null
-            : root
-            ? sidebarEntry
-            : navigation.previousEntryId,
+            : DHistoryNavigation(
+                entry: sidebarEntry,
+                preview: navigationPreview,
+                onOpen: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  shell.toggleMobileSidebar();
+                },
+              ),
+        previousEntry: sidebarOpen ? null : navigation.previousEntryId,
         nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
-        previousPreview: !sidebarOpen && root ? navigationPreview : null,
-        onBack: !sidebarOpen && !topicOpen
+        onBack: !sidebarOpen && navigation.canGoBack
             ? () {
                 FocusManager.instance.primaryFocus?.unfocus();
-                if (root) {
-                  shell.toggleMobileSidebar();
-                } else {
-                  shell.handleBack();
-                }
+                shell.handleBack();
               }
             : null,
-        onForward: !topicOpen && (sidebarOpen || navigation.canGoForward)
+        onForward: sidebarOpen || navigation.canGoForward
             ? () {
                 FocusManager.instance.primaryFocus?.unfocus();
                 if (sidebarOpen) {

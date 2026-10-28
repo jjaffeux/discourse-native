@@ -5,11 +5,17 @@ import '../styleguide_example.dart';
 
 final historyTransitionExamples = ComponentExamples(
   status: ComponentStatus.implemented,
-  description: 'Back and forward pages follow a touch swipe from the edge.',
+  description: 'Interactive history and corner navigation with touch swipes.',
   notes:
       'Open a page to populate history, then drag inward from the first or last '
       '48 pixels using touch. Travel at least 64 pixels or flick '
       'to commit; release a short drag to return. RTL mirrors both directions. '
+      'backSwipeAnywhere enables Back across the page, including reading '
+      'sheets. DHistoryNavigation reserves the top leading 80 by 56 logical '
+      'pixels for navigation, below the system safe area. The touch-down '
+      'position fixes the destination until release. At the history root, '
+      'only that corner opens navigation. Descendant horizontal controls keep '
+      'their gestures and Forward stays on the trailing edge. '
       'The incoming page grows from 94% to full size as the swipe progresses. '
       'A 40% scrim lightens as the background page is revealed and darkens '
       'as it is covered. '
@@ -38,7 +44,7 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Live navigation preview',
       description:
-          'Drag inward from the left edge to reveal navigation while its page action slides down. Swipe back to bring the action up. Cancel a short drag to return both to their starting positions. The preview cannot receive focus or interaction.',
+          'Swipe right from the top-left 80 by 56 points to reveal navigation while its page action slides down. Swipe left from the right edge to return. Cancel a short drag to restore both positions. The preview cannot receive focus or interaction.',
       states: const [
         'First reveal',
         'Cancel',
@@ -46,7 +52,7 @@ final historyTransitionExamples = ComponentExamples(
         'Coupled footer',
       ],
       code:
-          'DHistoryTransition(history: journeyId, entry: pageId, previousEntry: navigationId, previousPreview: navigation, onBack: openNavigation, child: currentPage)',
+          'DHistoryTransition(history: journeyId, entry: pageId, backSwipeAnywhere: true, navigation: DHistoryNavigation(entry: navigationId, preview: navigation, onOpen: openNavigation), child: currentPage)',
       builder: (_) => const _NavigationPreviewExample(),
     ),
     StyleguideExample(
@@ -139,10 +145,15 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
               },
               history: _history,
               entry: _open ? 'navigation' : 'page',
-              previousEntry: _open ? null : 'navigation',
+              backSwipeAnywhere: true,
+              navigation: _open
+                  ? null
+                  : DHistoryNavigation(
+                      entry: 'navigation',
+                      preview: navigation,
+                      onOpen: _toggle,
+                    ),
               nextEntry: _open ? 'page' : null,
-              previousPreview: _open ? null : navigation,
-              onBack: _open ? null : _toggle,
               onForward: _open ? _toggle : null,
               tab: (id: _open ? 'navigation' : 'page', index: _open ? -1 : 0),
               tabOwner: _history,

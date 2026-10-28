@@ -4483,7 +4483,12 @@ void main() {
         final live = find.byKey(const ValueKey('mobile-content-panel'));
         final origin = tester.getTopLeft(live);
         final gesture = await tester.startGesture(
-          Offset(back ? surface.left + 1 : surface.right - 1, y),
+          Offset(
+            back
+                ? surface.left + (y < surface.top + 56 ? 80 : 1)
+                : surface.right - 1,
+            y,
+          ),
         );
         await gesture.moveBy(
           Offset(back ? 120 : -120, 0),
@@ -4507,7 +4512,7 @@ void main() {
     }
     shell.handleBack();
     await tester.pumpAndSettle();
-    for (final y in [surface.top + 1, surface.bottom - 1]) {
+    for (final y in [surface.top + 1, surface.top + 55]) {
       await tester.dragFrom(Offset(surface.left + 1, y), const Offset(120, 0));
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
@@ -4538,7 +4543,10 @@ void main() {
 
       for (final opening in [true, false]) {
         for (final cancel in [true, false]) {
-          final start = Offset(opening ? 1 : phone.width - 1, 400);
+          final start = Offset(
+            opening ? 1 : phone.width - 1,
+            opening ? header.top + 12 : 400,
+          );
           final gesture = await tester.startGesture(start);
           var step = 0;
           for (final fraction in [.2, .6, .35]) {
@@ -4596,7 +4604,7 @@ void main() {
     },
   );
 
-  _mobileTest('root edge swipes open and close navigation across mobile tabs', (
+  _mobileTest('corner swipes open navigation across mobile tabs', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
@@ -4624,7 +4632,7 @@ void main() {
       final navigationElement = tester.element(navigationPage);
       expect(find.byType(InstanceRail), findsNothing);
 
-      final open = await tester.startGesture(const Offset(8, 400));
+      final open = await tester.startGesture(Offset(8, header.top + 12));
       await open.moveBy(
         const Offset(120, 0),
         timeStamp: const Duration(milliseconds: 200),
@@ -4712,13 +4720,13 @@ void main() {
       for (final open in [true, false]) {
         for (final cancel in [true, false]) {
           final gesture = await tester.startGesture(
-            Offset(open ? 1 : width - 1, 400),
+            Offset(open ? 1 : width - 1, open ? header.top + 12 : 400),
           );
           for (final fraction in [.1, .45, .8]) {
             await gesture.moveTo(
               Offset(
                 open ? 1 + width * fraction : width - 1 - width * fraction,
-                400,
+                open ? header.top + 12 : 400,
               ),
             );
             await tester.pump();
@@ -4746,9 +4754,12 @@ void main() {
     final page = tester.getRect(
       find.byKey(const ValueKey('mobile-content-panel')),
     );
-    Future<void> swipe(bool right) async {
+    Future<void> swipe(bool right, {bool sidebar = false}) async {
       final gesture = await tester.startGesture(
-        Offset(right ? page.right - 4 : page.left + 4, 400),
+        Offset(
+          right ? page.right - 4 : page.left + 4,
+          sidebar ? tester.getRect(_header).top + 12 : 400,
+        ),
       );
       await gesture.moveBy(
         Offset(right ? -120 : 120, 0),
@@ -4762,17 +4773,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // Topics must be pulled down before horizontal navigation is available.
     await swipe(false);
-    expect(shell.mobileNavigation.entryId, same(topic));
-    expect(shell.mobileNavigation.sidebarOpen, isFalse);
-    expect(shell.handleBack(), isTrue);
-    await tester.pumpAndSettle();
     expect(shell.mobileNavigation.sidebarOpen, isFalse);
     expect(shell.mobileNavigation.entryId, same(root));
     expect(shell.currentContent?.id, 'latest');
     expect(shell.canForwardContent, isTrue);
-    await swipe(false);
+    await swipe(false, sidebar: true);
     expect(shell.mobileNavigation.sidebarOpen, isTrue);
     await swipe(true);
     expect(shell.mobileNavigation.sidebarOpen, isFalse);
@@ -4807,7 +4813,10 @@ void main() {
       }
       for (final cancel in [false, true]) {
         final gesture = await tester.startGesture(
-          Offset(open ? page.right - 4 : page.left + 4, 400),
+          Offset(
+            open ? page.right - 4 : page.left + 4,
+            open ? 400 : tester.getRect(_header).top + 12,
+          ),
         );
         await gesture.moveBy(
           Offset(open ? -30 : 30, 0),

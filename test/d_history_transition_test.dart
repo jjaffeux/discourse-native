@@ -26,6 +26,7 @@ Future<_HistoryHarnessState> _pump(
   bool roundedPanel = false,
   bool livePreviews = false,
   bool framed = false,
+  bool splitNavigation = false,
 }) async {
   await tester.binding.setSurfaceSize(const Size(400, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -42,6 +43,7 @@ Future<_HistoryHarnessState> _pump(
         roundedPanel: roundedPanel,
         livePreviews: livePreviews,
         framed: framed,
+        splitNavigation: splitNavigation,
       ),
     ),
   );
@@ -65,6 +67,70 @@ Future<TestGesture> _drag(
 }
 
 void main() {
+  for (final (direction, reducedMotion) in [
+    for (final direction in TextDirection.values)
+      for (final reducedMotion in [false, true]) (direction, reducedMotion),
+  ]) {
+    testWidgets(
+      'corner and full-surface Back in $direction reduced $reducedMotion',
+      (tester) async {
+        final state = await _pump(
+          tester,
+          direction: direction,
+          splitNavigation: true,
+          reducedMotion: reducedMotion,
+        );
+        state.visit(1);
+        await tester.pumpAndSettle();
+        final rtl = direction == TextDirection.rtl;
+        Future<void> swipe(Offset origin, {bool cancel = false}) async {
+          final gesture = await tester.startGesture(origin);
+          await gesture.moveBy(
+            Offset(rtl ? -120 : 120, 0),
+            timeStamp: const Duration(milliseconds: 200),
+          );
+          await tester.pump();
+          if (cancel) {
+            await gesture.cancel();
+          } else {
+            await gesture.up();
+          }
+          await tester.pumpAndSettle();
+        }
+
+        Offset at(double leading, double top) =>
+            Offset(rtl ? 400 - leading : leading, top);
+        await swipe(at(79, 55), cancel: true);
+        expect(state.navigationOpens, 0);
+        expect(state.index, 1);
+        await swipe(at(79, 55));
+        expect(state.navigationOpens, 1);
+        expect(state.index, 1);
+        // Crossing either boundary selects Back, even after entering the corner.
+        for (final origin in [
+          at(80, 55),
+          at(5, 56),
+          at(200, 250),
+          at(395, 250),
+        ]) {
+          await swipe(origin);
+          expect(state.index, 0);
+          expect(state.navigationOpens, 1);
+          state.visit(1);
+          await tester.pumpAndSettle();
+        }
+        state.visit(0);
+        await tester.pumpAndSettle();
+        await swipe(at(200, 250));
+        expect(state.index, 0);
+        expect(state.navigationOpens, 1);
+        await swipe(at(5, 5));
+        expect(state.navigationOpens, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   Future<_SnapshotHarnessState> pumpSnapshot(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1020,11 +1086,13 @@ class _HistoryHarness extends StatefulWidget {
     this.roundedPanel = false,
     this.livePreviews = false,
     this.framed = false,
+    this.splitNavigation = false,
   });
   final bool tabTransitions;
   final bool roundedPanel;
   final bool livePreviews;
   final bool framed;
+  final bool splitNavigation;
 
   @override
   State<_HistoryHarness> createState() => _HistoryHarnessState();
@@ -1035,6 +1103,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
   final previewFocus = FocusNode();
   int previewTaps = 0;
   int chromeTaps = 0;
+  int navigationOpens = 0;
   Object history = Object();
   int index = 0;
   int furthest = 0;
@@ -1092,6 +1161,14 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
     child: ColoredBox(
       color: const Color(0xFF00FF00),
       child: DHistoryTransition(
+        backSwipeAnywhere: widget.splitNavigation,
+        navigation: widget.splitNavigation
+            ? DHistoryNavigation(
+                entry: 'navigation',
+                preview: const DPageSurface(child: Text('Navigation')),
+                onOpen: () => setState(() => navigationOpens++),
+              )
+            : null,
         frameBuilder: widget.framed
             ? (context, page) => Column(
                 children: [

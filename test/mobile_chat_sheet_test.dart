@@ -316,6 +316,38 @@ void main() {
 
   for (final direct in [false, true]) {
     testWidgets(
+      'rightward Back closes a thread then its ${direct ? 'DM' : 'channel'} sheet',
+      (tester) async {
+        final shell = await _fixture(tester, direct: direct);
+        final root = shell.mobileNavigation.entryId;
+        shell.openChatChannel(10);
+        await tester.pumpAndSettle();
+        final conversation = shell.mobileNavigation.entryId;
+        shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+        await tester.pumpAndSettle();
+        final thread = shell.mobileNavigation.entryId;
+        for (final expected in [conversation, root]) {
+          // The shared header is outside message swipe/reply controls.
+          await tester.dragFrom(
+            Offset(100, tester.getCenter(_header).dy),
+            const Offset(180, 0),
+          );
+          await tester.pumpAndSettle();
+          expect(shell.mobileNavigation.entryId, same(expected));
+          expect(shell.mobileNavigation.sidebarOpen, isFalse);
+        }
+        expect(shell.mobileNavigation.entryId, isNot(same(thread)));
+        expect(_sheet, findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
+
+    testWidgets(
       '${direct ? 'direct' : 'channel'} dismissal restores its originating list',
       (tester) async {
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);

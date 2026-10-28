@@ -218,6 +218,18 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
+  testWidgets('a rightward swipe on the board header dismisses its sheet', (
+    tester,
+  ) async {
+    final shell = await _openBoard(tester);
+    await tester.dragFrom(tester.getCenter(_title), const Offset(180, 0));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'boards');
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(_sheet, findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
   testWidgets('going back from a board shows the directory already loaded', (
     tester,
   ) async {

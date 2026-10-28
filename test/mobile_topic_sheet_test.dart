@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -14,7 +13,6 @@ import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -270,53 +268,53 @@ void main() {
   }
 
   testWidgets(
-    'topic locks both edges until downward dismissal restores the list',
+    'topic swipes open navigation from the corner and go Back elsewhere',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       final list = find.byType(TopicListView);
       final element = tester.element(list);
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
-      // A forward entry ensures both history callbacks would otherwise be live.
-      shell.pushContent(
-        const ContentRoute(
-          destination: PageDestination(CorePage.users),
-          title: 'Users',
-          icon: DIcons.user,
-        ),
-      );
-      shell.handleBack();
-      await tester.pumpAndSettle();
       final visit = shell.mobileNavigation.entryId;
-      final origin = tester.getRect(_sheet);
-      for (final y in [
-        tester.getCenter(_header).dy,
-        400.0,
-        tester.getCenter(_dock).dy,
-      ]) {
-        for (final right in [true, false]) {
-          await tester.dragFrom(
-            Offset(right ? 2 : 388, y),
-            Offset(right ? 180 : -180, 0),
-          );
-          await tester.pumpAndSettle();
-          expect(shell.mobileNavigation.entryId, same(visit));
-          expect(shell.mobileNavigation.sidebarOpen, isFalse);
-          expect(tester.getRect(_sheet), origin);
+      final bounds = tester.getRect(_sheet);
+      for (final cancel in [true, false]) {
+        final drag = await tester.startGesture(const Offset(150, 400));
+        await drag.moveBy(
+          Offset(cancel ? 120 : 25, 0),
+          timeStamp: const Duration(milliseconds: 400),
+        );
+        await tester.pump();
+        if (cancel) {
+          await drag.cancel();
+        } else {
+          await drag.up();
         }
+        await tester.pumpAndSettle();
+        expect(shell.mobileNavigation.entryId, same(visit));
+        expect(tester.getRect(_sheet), bounds);
       }
-      final drag = await tester.startGesture(tester.getCenter(_handle));
-      await drag.moveBy(const Offset(0, 20));
-      await drag.moveBy(const Offset(0, 160));
-      await tester.pump();
-      await drag.up();
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'latest');
-      expect(_sheet, findsNothing);
-      expect(tester.element(list), same(element));
-      await tester.dragFrom(const Offset(2, 400), const Offset(180, 0));
+      final corner = tester.getCenter(
+        find.byKey(const ValueKey('mobile-menu-button')),
+      );
+      final open = await tester.startGesture(corner);
+      await open.moveBy(const Offset(100, 10));
+      await open.moveBy(const Offset(40, 80));
+      await open.up();
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(shell.mobileNavigation.entryId, same(visit));
+      shell.closeMobileSidebar();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
+      await tester.dragFrom(const Offset(150, 400), const Offset(180, 0));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+      expect(_sheet, findsNothing);
+      expect(tester.element(list), same(element));
+      await tester.dragFrom(const Offset(388, 400), const Offset(-180, 0));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
       expect(tester.takeException(), isNull);
     },
     variant: _platforms,

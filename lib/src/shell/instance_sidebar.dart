@@ -98,19 +98,22 @@ final class _SidebarPanelSnapshot {
   const _SidebarPanelSnapshot({
     required this.contentId,
     required this.presentation,
+    required this.navigationOpen,
   });
 
   final String? contentId;
   final Object? presentation;
+  final bool? navigationOpen;
 
   @override
   bool operator ==(Object other) =>
       other is _SidebarPanelSnapshot &&
       contentId == other.contentId &&
-      presentation == other.presentation;
+      presentation == other.presentation &&
+      navigationOpen == other.navigationOpen;
 
   @override
-  int get hashCode => Object.hash(contentId, presentation);
+  int get hashCode => Object.hash(contentId, presentation, navigationOpen);
 }
 
 /// Everything the panel body reads from the plugin panels. A panel's
@@ -346,6 +349,13 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         select: (controller) {
           final instance = controller.currentInstance;
           return _SidebarPanelSnapshot(
+            navigationOpen:
+                widget.mobile &&
+                    widget.panelOwner == null &&
+                    controller.mobileNavigationEnabled &&
+                    controller.mobileNavigation.canGoBack
+                ? controller.mobileNavigation.sidebarOpen
+                : null,
             contentId:
                 '${controller.activeTabId}:${controller.currentContent?.id}',
             presentation: instance == null
@@ -358,12 +368,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                   ),
           );
         },
-        builder: (context, _, _) => _buildPanel(context),
+        builder: (context, state, _) => _buildPanel(context, state),
       ),
     );
   }
 
-  Widget _buildPanel(BuildContext context) {
+  Widget _buildPanel(BuildContext context, _SidebarPanelSnapshot state) {
     final controller = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
@@ -373,6 +383,9 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       controller.activeTabId,
       controller.currentContent?.id,
       routedPanel?.owner,
+      // A retained preview reselects the route's panel when reopened from a
+      // deeper page, as the previously unmounted sidebar did.
+      state.navigationOpen,
     );
     if (_navigation != navigation) {
       _navigation = navigation;
