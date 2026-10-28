@@ -192,7 +192,32 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
           ),
         ),
         adaptiveBodyBuilder: (context, lazy) {
-          if (_directory.loading && !_directory.loaded) {
+          Widget buildBody() {
+            if (_directory.loading && !_directory.loaded) {
+              return ContentReadingLane(
+                basePadding: EdgeInsets.fromLTRB(
+                  16,
+                  0,
+                  16,
+                  16 + DScrollChrome.bottomInsetOf(context),
+                ),
+                builder: (context, lane) => ChatBrowseSkeleton(
+                  page: ChatBrowsePage.threads,
+                  scrollable: lazy,
+                  padding: lane.padding,
+                ),
+              );
+            }
+            if (threads.isEmpty && !hasFooter) {
+              return ChatThreadListMessage(
+                scrollable: lazy,
+                icon: DIcons.comments,
+                message: _channelId == null
+                    ? context.l10n.noChatThreadsYet
+                    : context.l10n.noThreadsInThisChannel,
+              );
+            }
+            final count = threads.length + (hasFooter ? 1 : 0);
             return ContentReadingLane(
               basePadding: EdgeInsets.fromLTRB(
                 16,
@@ -200,47 +225,36 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                 16,
                 16 + DScrollChrome.bottomInsetOf(context),
               ),
-              builder: (context, lane) => ChatBrowseSkeleton(
-                page: ChatBrowsePage.threads,
-                scrollable: lazy,
-                padding: lane.padding,
-              ),
-            );
-          }
-          if (threads.isEmpty && !hasFooter) {
-            return ChatThreadListMessage(
-              icon: DIcons.comments,
-              message: _channelId == null
-                  ? context.l10n.noChatThreadsYet
-                  : context.l10n.noThreadsInThisChannel,
-            );
-          }
-          final count = threads.length + (hasFooter ? 1 : 0);
-          return ContentReadingLane(
-            basePadding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              16 + DScrollChrome.bottomInsetOf(context),
-            ),
-            builder: (context, lane) => lazy
-                ? ListView.builder(
-                    key: const PageStorageKey('chat-my-threads'),
-                    controller: _scroll,
-                    padding: lane.padding,
-                    itemCount: count,
-                    itemBuilder: item,
-                  )
-                : Padding(
-                    padding: lane.padding,
-                    child: Column(
-                      children: [
-                        for (var index = 0; index < count; index++)
-                          item(context, index),
-                      ],
+              builder: (context, lane) => lazy
+                  ? ListView.builder(
+                      key: const PageStorageKey('chat-my-threads'),
+                      controller: _scroll,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: lane.padding,
+                      itemCount: count,
+                      itemBuilder: item,
+                    )
+                  : Padding(
+                      padding: lane.padding,
+                      child: Column(
+                        children: [
+                          for (var index = 0; index < count; index++)
+                            item(context, index),
+                        ],
+                      ),
                     ),
-                  ),
-          );
+            );
+          }
+
+          return lazy
+              ? DPullToRefresh(
+                  key: ObjectKey(_directory),
+                  onRefresh: _directory.loading
+                      ? null
+                      : () => _directory.load(reset: true),
+                  child: buildBody(),
+                )
+              : buildBody();
         },
       );
       return DScrollChromePagination(
@@ -1004,32 +1018,40 @@ class ChatThreadListMessage extends StatelessWidget {
     required this.message,
     this.action,
     this.onAction,
+    this.scrollable = true,
   });
 
+  final bool scrollable;
   final DIconData icon;
   final String message;
   final String? action;
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: SingleChildScrollView(
-      child: DEmpty(
-        children: [
-          DEmptyHeader(
-            children: [
-              DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
-              DEmptyTitle(message),
-            ],
+  Widget build(BuildContext context) {
+    final content = DEmpty(
+      children: [
+        DEmptyHeader(
+          children: [
+            DEmptyMedia(variant: DEmptyMediaVariant.icon, child: DIcon(icon)),
+            DEmptyTitle(message),
+          ],
+        ),
+        if (action case final label?)
+          DEmptyContent(
+            children: [DButton(label: Text(label), onPressed: onAction)],
           ),
-          if (action case final label?)
-            DEmptyContent(
-              children: [DButton(label: Text(label), onPressed: onAction)],
-            ),
-        ],
-      ),
-    ),
-  );
+      ],
+    );
+    return scrollable
+        ? CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(hasScrollBody: false, child: content),
+            ],
+          )
+        : Center(child: content);
+  }
 }
 
 String _replyCountLabel(int count) => countLabel(count, CountNoun.reply);
