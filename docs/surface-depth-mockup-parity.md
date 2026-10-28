@@ -33,7 +33,8 @@ in both brightnesses.
 
 | Mockup selector | Edges | Native surface |
 | --- | --- | --- |
-| `[data-panel]`, `.glass-sheet`, `.composer-panel` | rim, `inset 0 1px 0` light, `0 12px 40px` shade | `DSurfaceDepth.panel`. Phone page card (`ForumMobileSurface`), pushed page sheet (`DSheetVariant.page`) and the page under it (both `DSheetViewport` underlays in `main_content.dart`), desktop page panels (framed `DPageSurface`s in `main_content.dart`) and `WorkspacePanel`, which also holds the docked composer. |
+| `[data-panel]`, `.glass-sheet` | rim, `inset 0 1px 0` light, `0 12px 40px` shade | `DSurfaceDepth.panel`. Phone page card (`ForumMobileSurface`), pushed page sheet (`DSheetVariant.page`) and the page under it (both `DSheetViewport` underlays in `main_content.dart`). |
+| `[data-panel]`, `.composer-panel` on desktop | rim only | `DSurfaceDepth.rim`. Desktop page panels (framed `DPageSurface`s in `main_content.dart`) and `WorkspacePanel`, which also holds the docked composer. A deliberate departure from the mockup: two panels' shadows pile up in the 12px gap between them, a band darker than the window ground around them. |
 | `[data-panel].is-sheet` | none | A phone page under a page sheet: `ForumMobileSurface(coveredBySheet: true)` leaves the depth to the sheet and its underlay. |
 | `.phone-drawer__panel .side-nav` | rim only | `DSurfaceDepth.rim`, `ForumMobileSurface.sidebar`. A shadow here would be cut short by the rail over its edge. |
 | `.menu-surface` | `inset 0 1px 0` light, `0 2px 6px` black 20% / 8%, `0 18px 44px` black 38% / 16% | `DSurfaceDepth.menu`. Every `DPopoverContent` (dropdown menus, selects, comboboxes, date and colour pickers, navigation menus), the phone's menu sheets (`DSheetVariant.menu` and `adaptiveMenu`), `DDialogContent` (the mockup's `[data-modal].menu-surface`) and `DHoverCardContent`. |

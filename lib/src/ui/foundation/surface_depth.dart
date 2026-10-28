@@ -8,12 +8,13 @@ import 'package:flutter/material.dart';
 /// draws it: a 1px inset rim, a 1px catch of light along the top edge, and
 /// the shadows it casts. There is no tint to see through and no blur layer.
 enum DSurfaceDepth {
-  /// Pages, panels, page sheets and the docked composer: `[data-panel]`,
-  /// `.glass-sheet` and `.composer-panel`.
+  /// Phone pages and page sheets: `[data-panel]` and `.glass-sheet`.
   panel,
 
-  /// The phone drawer's sidebar: its rim alone, since a shadow there would be
-  /// cut short by the rail over its edge and left as a band beside it.
+  /// The phone drawer's sidebar and the desktop workspace panels, the docked
+  /// composer among them: their rim alone. The rail over the sidebar's edge
+  /// would cut a shadow short, and the shadows of two desktop panels would
+  /// pile up in the gap between them as a band darker than the window.
   rim,
 
   /// Popovers, dropdowns and the phone's menu sheets: `.menu-surface`, the

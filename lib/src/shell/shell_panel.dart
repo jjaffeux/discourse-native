@@ -87,7 +87,7 @@ class WorkspacePanel extends StatelessWidget {
             atRightEdge: atRightEdge,
           ),
           backgroundColor: ForumWindowBackground.panelColor(context),
-          depth: DSurfaceDepth.panel,
+          depth: DSurfaceDepth.rim,
           child: Expanded(child: child),
         );
 }
