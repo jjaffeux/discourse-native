@@ -674,9 +674,13 @@ void main() {
       expect(send.hitTestable(), findsOneWidget);
       expect(tester.getRect(send).bottom, lessThanOrEqualTo(544));
       expect(_dock.hitTestable(), findsNothing);
-      expect(tester.getRect(_sheet).bottom, 544);
+      expect(tester.getRect(_sheet).bottom, 543);
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        Colors.transparent,
+      );
       final composer = find.byKey(const ValueKey('chat-composer'));
-      expect(tester.getRect(composer).bottom, closeTo(538, .01));
+      expect(tester.getRect(composer).bottom, closeTo(537, .01));
       await _capture(
         tester,
         '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-${width.toInt()}',
