@@ -9,10 +9,13 @@ import 'package:discourse_native/discourse_ui.dart'
         DButtonShape,
         DMarker,
         DMarkerVariant,
+        DSeparator,
         DTokens;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/app_settings_controller.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
@@ -25,6 +28,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
@@ -144,10 +148,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       final shown = lastRead != null && lastRead > 0 && lastRead < 3;
-      expect(
-        find.text('New since your last visit'),
-        shown ? findsOneWidget : findsNothing,
-      );
+      expect(find.text('New'), shown ? findsOneWidget : findsNothing);
       if (shown) {
         expect(
           find.byKey(ValueKey('topic-last-visit-${lastRead + 1}')),
@@ -191,6 +192,89 @@ void main() {
           image.dispose();
         });
       }
+    });
+  }
+
+  for (final layout in [
+    (width: 390.0, limited: false, dark: false),
+    (width: 1200.0, limited: false, dark: true),
+    (width: 1200.0, limited: true, dark: false),
+  ]) {
+    testWidgets('unread divider matches chat within the post lane $layout', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = Size(layout.width, 1000)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      final settings = AppSettingsController();
+      addTearDown(settings.dispose);
+      await settings.setLimitContentSize(layout.limited);
+      final site = instance('meta.example');
+      final controller = _controller(site);
+      addTearDown(controller.dispose);
+      await controller.load();
+      controller.store
+        ..put(
+          site.url,
+          const TopicDetail(
+            id: 1,
+            title: 'A conversation',
+            stream: [1, 2, 3],
+            postsCount: 3,
+            lastReadPostNumber: 1,
+          ),
+        )
+        ..putAll(site.url, [
+          for (var number = 1; number <= 3; number++)
+            Post(
+              id: number,
+              postNumber: number,
+              username: 'sam',
+              cooked: '<p>Post $number</p>',
+            ),
+        ]);
+      controller.pushContent(
+        ContentRoute.topic(
+          topicId: 1,
+          slug: 'conversation',
+          title: 'A conversation',
+        ),
+      );
+      final theme = layout.dark ? AppTheme.dark : AppTheme.light;
+      await tester.pumpWidget(
+        ContentSettingsScope(
+          controller: settings,
+          child: _topicView(controller, theme: theme),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final marker = find.byKey(const ValueKey('topic-last-visit-2'));
+      final label = find.descendant(of: marker, matching: find.text('New'));
+      expect(label, findsOneWidget);
+      expect(find.text('New since your last visit'), findsNothing);
+      final style = tester.widget<Text>(label).style!;
+      expect(style.color, theme.colorScheme.error);
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.fontSize, theme.textTheme.labelSmall!.fontSize);
+      final lines = find.descendant(
+        of: marker,
+        matching: find.byType(DSeparator),
+      );
+      expect(lines, findsNWidgets(2));
+      for (final line in tester.widgetList<DSeparator>(lines)) {
+        expect(line.color, theme.colorScheme.error);
+      }
+      final postRect = tester.getRect(
+        find.byKey(const ValueKey('topic-post-keyboard-2')),
+      );
+      expect(postRect.width, layout.limited ? 825 : layout.width);
+      expect(tester.getRect(lines.first).left, postRect.left + 16);
+      expect(tester.getRect(lines.last).right, postRect.right - 16);
+      expect(tester.getCenter(label).dx, postRect.center.dx);
+      expect(tester.takeException(), isNull);
     });
   }
 
@@ -246,7 +330,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('topic-last-visit-4')), findsOneWidget);
-    expect(find.text('New since your last visit'), findsOneWidget);
+    expect(find.text('New'), findsOneWidget);
   });
 
   for (final loaded in [
@@ -286,7 +370,7 @@ void main() {
       await tester.pumpWidget(_topicView(controller));
       await tester.pumpAndSettle();
       expect(
-        find.text('New since your last visit'),
+        find.text('New'),
         loaded.length == 2 ? findsOneWidget : findsNothing,
       );
     });

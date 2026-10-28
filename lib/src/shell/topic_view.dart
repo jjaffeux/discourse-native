@@ -3631,6 +3631,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final theme = Theme.of(context);
     final day = widget.day;
     final child = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3659,14 +3660,28 @@ class _TopicPostItemState extends State<_TopicPostItem>
             },
           ),
         if (widget.firstUnread)
-          DAlert(
+          Padding(
             key: ValueKey('topic-last-visit-${widget.postId}'),
-            liveRegion: false,
-            backgroundColor: Colors.transparent,
-            borderColor: Colors.transparent,
-            icon: DIcon(DIcons.envelope, color: DTokens.of(context).primary),
-            description: DAlertDescription(
-              child: Text(context.l10n.newSinceLastVisit),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DSeparator(space: 1, color: theme.colorScheme.error),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    context.l10n.messageNew,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: DSeparator(space: 1, color: theme.colorScheme.error),
+                ),
+              ],
             ),
           ),
         if (widget.timeGapDays case final daysSince?)
