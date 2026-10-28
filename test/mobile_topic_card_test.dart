@@ -204,13 +204,35 @@ void main() {
   }
 
   for (final width in [390.0, 1200.0]) {
-    testWidgets('selection preserves text alignment at $width', (tester) async {
+    testWidgets('selection preserves row positions and heights at $width', (
+      tester,
+    ) async {
       await _pump(tester, width: width);
+      Finder titleOf(Topic topic) => find
+          .descendant(
+            of: find.byKey(ValueKey('topic-card-${topic.id}')),
+            matching: find.byType(TopicTitle),
+          )
+          .first;
       final title = find.text(_topics[1].title);
       final before = tester.getRect(title);
+      final positions = [
+        for (final topic in _topics)
+          tester.getRect(find.byKey(ValueKey('topic-card-${topic.id}'))),
+      ];
+      final titles = [
+        for (final topic in _topics) tester.getRect(titleOf(topic)),
+      ];
       await _pump(tester, width: width, selected: 2);
-      expect(tester.getRect(title).left, before.left);
-      expect(tester.getRect(title).size, before.size);
+      expect(tester.getRect(title), before);
+      for (final (index, topic) in _topics.indexed) {
+        final bounds = tester.getRect(
+          find.byKey(ValueKey('topic-card-${topic.id}')),
+        );
+        expect(bounds.top, positions[index].top);
+        expect(bounds.height, positions[index].height);
+        expect(tester.getRect(titleOf(topic)), titles[index]);
+      }
       final card = find.byKey(const ValueKey('topic-card-2'));
       expect(tester.getRect(card).left, 4);
       expect(tester.getRect(card).right, width - 4);
@@ -218,7 +240,21 @@ void main() {
         tester.widget<DItem>(card).selectionStyle,
         DItemSelectionStyle.filled,
       );
-      expect(find.byType(DSeparator), findsNothing);
+      expect(find.byType(DSeparator), findsNWidgets(2));
+      expect(
+        tester
+            .widgetList<DSeparator>(find.byType(DSeparator))
+            .map((separator) => separator.color!.a),
+        everyElement(0),
+      );
+      await _pump(tester, width: width);
+      for (final (index, topic) in _topics.indexed) {
+        expect(
+          tester.getRect(find.byKey(ValueKey('topic-card-${topic.id}'))),
+          positions[index],
+        );
+        expect(tester.getRect(titleOf(topic)), titles[index]);
+      }
       expect(tester.takeException(), isNull);
     });
   }

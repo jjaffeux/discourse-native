@@ -267,13 +267,17 @@ void main() {
         ],
         topic: topicPayload(id: 7, title: 'Discussion 7'),
       );
-      final list = find.byType(TopicListView);
-      final card = find.byKey(const ValueKey('topic-card-7'));
+      final list = find.byType(TopicListView, skipOffstage: false);
+      final card = find.byKey(
+        const ValueKey('topic-card-7'),
+        skipOffstage: false,
+      );
       await tester.ensureVisible(card);
       await tester.pumpAndSettle();
       final scrollable = find.descendant(
         of: list,
-        matching: find.byType(Scrollable),
+        matching: find.byType(Scrollable, skipOffstage: false),
+        skipOffstage: false,
       );
       double currentOffset() =>
           tester.state<ScrollableState>(scrollable).position.pixels;
@@ -284,27 +288,49 @@ void main() {
       await tester.pumpAndSettle();
       final offset = position.pixels;
       final bounds = tester.getRect(card);
-      double cardTopInList() {
-        final box = tester.renderObject<RenderBox>(card);
-        return box
-            .localToGlobal(
-              Offset.zero,
-              ancestor: tester.renderObject<RenderBox>(list),
-            )
-            .dy;
+      List<({double top, double height})> rowsInList() {
+        final ancestor = tester.renderObject<RenderBox>(list);
+        final rows = <({double top, double height})>[];
+        for (final id in [6, 7, 8]) {
+          final box = tester.renderObject<RenderBox>(
+            find.byKey(ValueKey('topic-card-$id'), skipOffstage: false),
+          );
+          rows.add((
+            top: box.localToGlobal(Offset.zero, ancestor: ancestor).dy,
+            height: box.size.height,
+          ));
+        }
+        return rows;
       }
 
-      final localTop = cardTopInList();
+      final rows = rowsInList();
+      void expectRowsUnchanged() {
+        for (final (index, row) in rowsInList().indexed) {
+          expect(
+            row.top,
+            closeTo(rows[index].top, .001),
+            reason: 'Row ${index + 6} moved',
+          );
+          expect(
+            row.height,
+            closeTo(rows[index].height, .001),
+            reason: 'Row ${index + 6} changed height',
+          );
+        }
+      }
+
       await _capture(tester, 'stable-list-before');
 
       await tester.tap(card);
       await tester.pumpAndSettle();
+      expect(tester.widget<DItem>(card).selected, isTrue);
+      expectRowsUnchanged();
       final drag = await tester.startGesture(tester.getCenter(_handle));
       await drag.moveBy(const Offset(0, 20));
       await drag.moveBy(const Offset(0, 220));
       await tester.pump();
       expect(currentOffset(), closeTo(offset, .01));
-      expect(cardTopInList(), closeTo(localTop, 1));
+      expectRowsUnchanged();
       await _capture(tester, 'stable-list-pull');
       await drag.up();
       for (var frame = 0; frame < 40; frame++) {
@@ -314,11 +340,13 @@ void main() {
           closeTo(offset, .01),
           reason: 'The revealed list moved during dismissal frame $frame',
         );
-        expect(cardTopInList(), closeTo(localTop, 1));
+        expectRowsUnchanged();
       }
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'latest');
       expect(currentOffset(), closeTo(offset, .01));
+      expect(tester.widget<DItem>(card).selected, isFalse);
+      expectRowsUnchanged();
       expect(tester.getRect(card), bounds);
       expect(tester.takeException(), isNull);
       await _capture(tester, 'stable-list-after');

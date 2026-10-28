@@ -1417,22 +1417,19 @@ class _TopicRowState extends State<_TopicRow> {
   }
 }
 
-/// Topic rows share inset rules, hidden beside a raised selection.
+/// Inset row dividers keep their height when hidden beside a selection.
 class TopicListSeparator extends StatelessWidget {
   const TopicListSeparator({super.key, this.besideSelection = false});
 
   final bool besideSelection;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      if (besideSelection) return const SizedBox.shrink();
-      return DSeparator(
-        indent: 16,
-        endIndent: 16,
-        color: DTokens.of(context).footerBorder,
-      );
-    },
+  Widget build(BuildContext context) => DSeparator(
+    indent: 16,
+    endIndent: 16,
+    color: besideSelection
+        ? Colors.transparent
+        : DTokens.of(context).footerBorder,
   );
 }
 
