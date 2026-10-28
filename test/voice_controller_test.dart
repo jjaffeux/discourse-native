@@ -1017,6 +1017,14 @@ void main() {
 
   group('media control settlement', () {
     Future<FakeVoiceMediaSession> join() async {
+      final room =
+          transport.responses['POST /voice/rooms/7/join.json']!['room']
+              as Map<String, dynamic>;
+      room.addAll({
+        'room_type': 'open',
+        'video_enabled': true,
+        'video_allowed': true,
+      });
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
@@ -5182,6 +5190,14 @@ void main() {
     test(
       'publishes roster state when screen sharing ends externally',
       () async {
+        final room =
+            transport.responses['POST /voice/rooms/7/join.json']!['room']
+                as Map<String, dynamic>;
+        room.addAll({
+          'room_type': 'open',
+          'video_enabled': true,
+          'video_allowed': true,
+        });
         await controller.ensureLoaded(firstSite);
         await controller.join(
           siteUrl: firstSite,

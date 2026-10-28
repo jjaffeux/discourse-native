@@ -78,21 +78,48 @@ class _LiveKitTrackRenderer extends StatefulWidget {
 
 class _LiveKitTrackRendererState extends State<_LiveKitTrackRenderer> {
   final _renderer = rtc.RTCVideoRenderer();
+  late final Future<void> _initialization;
+  bool _ready = false;
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<rtc.RTCVideoValue>(
-        valueListenable: _renderer,
-        builder: (context, value, child) => lk.VideoTrackRenderer(
-          widget.track,
-          cachedRenderer: _renderer,
-          fit:
-              widget.track.source == lk.TrackSource.screenShareVideo ||
-                  _portrait(widget.track.mediaStreamTrack, value)
-              ? lk.VideoViewFit.contain
-              : lk.VideoViewFit.cover,
-        ),
-      );
+  void initState() {
+    super.initState();
+    _initialization = _renderer.initialize();
+    unawaited(
+      _initialization
+          .then((_) {
+            if (mounted) setState(() => _ready = true);
+          })
+          .catchError((Object _) {}),
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(
+      _initialization
+          .then((_) => _renderer.dispose())
+          .catchError((Object _) {}),
+    );
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => !_ready
+      ? const SizedBox.shrink()
+      : ValueListenableBuilder<rtc.RTCVideoValue>(
+          valueListenable: _renderer,
+          builder: (context, value, child) => lk.VideoTrackRenderer(
+            widget.track,
+            cachedRenderer: _renderer,
+            autoDisposeRenderer: false,
+            fit:
+                widget.track.source == lk.TrackSource.screenShareVideo ||
+                    _portrait(widget.track.mediaStreamTrack, value)
+                ? lk.VideoViewFit.contain
+                : lk.VideoViewFit.cover,
+          ),
+        );
 }
 
 VoiceNativeVideoDescriptor _nativeDescriptor(rtc.MediaStreamTrack track) =>

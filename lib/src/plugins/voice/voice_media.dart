@@ -800,6 +800,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         if (!_peers.containsKey(id) && !resumingIds.contains(id))
           _createPeer(id),
     ]);
+    var removedMedia = false;
     for (final entry in _remoteTracks.entries) {
       final slots = entry.value;
       for (final track in [
@@ -807,12 +808,13 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         if (!_remoteVisualAllowed(entry.key, screenOnly: true))
           ?slots.screenAudio,
       ]) {
+        removedMedia = true;
         _remoteVolumes.remove(track)?.retire();
         slots.remove(track);
         await _stopRemoteTrackBestEffort(track);
       }
     }
-    changed();
+    if (removedMedia) changed();
   }
 
   Future<void> _createPeer(int peerId) {
@@ -1091,9 +1093,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     final participant = _participants[peerId];
     if (participant == null) return false;
     final screen = participant.canScreenShare ?? join.room.videoAllowed;
-    return screenOnly
-        ? screen
-        : screen || (participant.canPublishVideo ?? join.room.videoAllowed);
+    final camera = participant.canPublishVideo ?? join.room.videoAllowed;
+    if (screenOnly || participant.screenSharing) return screen;
+    if (participant.videoOn) return camera;
+    // A track can arrive before the sender's state broadcast identifies it.
+    return screen || camera;
   }
 
   Future<void> _stopRemoteTrackBestEffort(rtc.MediaStreamTrack track) async {

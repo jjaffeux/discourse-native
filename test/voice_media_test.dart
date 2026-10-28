@@ -97,7 +97,11 @@ void main() {
       'revoked screen entitlement stops screen audio while retaining camera and microphone',
       () async {
         final peer = _FakePeerConnection();
-        final media = _meshSession(peer: peer, audioPublishingAllowed: false);
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: false,
+          setTrackVolume: (_, _) async {},
+        );
         addTearDown(media.dispose);
         await media.connect();
         final microphone = _FakeTrack('remote-mic', 'audio');
