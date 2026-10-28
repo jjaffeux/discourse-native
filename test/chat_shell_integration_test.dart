@@ -393,11 +393,10 @@ void _registerChatShellTests() {
           final bounds = tester
               .getRect(content)
               .shift(-boundary.localToGlobal(Offset.zero));
-          // The panel's shadow lies on the ground round its corners, at most
-          // the shade it is cast with; the panel's own fill is lighter than
+          // A desktop panel casts no shadow, so the ground round its corners
+          // is the gutter's own colour; the panel's own fill is lighter than
           // the ground in both brightnesses.
-          final shade = DSurfaceEdges.of(DSurfaceDepth.panel, brightness)
-              .shadows
+          final shade = DSurfaceEdges.of(DSurfaceDepth.rim, brightness).shadows
               .fold(
                 0.0,
                 (deepest, shadow) => math.max(deepest, shadow.color.a),

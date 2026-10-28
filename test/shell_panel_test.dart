@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -109,6 +110,71 @@ void main() {
       }
     },
   );
+
+  testWidgets('desktop panels leave the window ground one colour', (
+    tester,
+  ) async {
+    const capture = ValueKey('desktop-panel-ground');
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          themeAnimationStyle: AnimationStyle.noAnimation,
+          theme: AppTheme.forBrightness(
+            brightness,
+          ).copyWith(platform: TargetPlatform.macOS),
+          home: const RepaintBoundary(
+            key: capture,
+            child: ForumWindowBackground(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(100, 50, 6, 6),
+                child: Row(
+                  children: [
+                    Expanded(child: WorkspacePanel(child: SizedBox.expand())),
+                    SizedBox(width: workspacePanelGap),
+                    Expanded(child: Builder(builder: _standalonePanel)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        final image = await tester
+            .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+            .toImage();
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          List<int> at(Offset point) {
+            final offset =
+                (point.dy.round() * image.width + point.dx.round()) * 4;
+            return List.generate(
+              4,
+              (channel) => bytes.getUint8(offset + channel),
+            );
+          }
+
+          final ground = at(const Offset(50, 300));
+          final gap = (image.width - 106 - workspacePanelGap) / 2 + 100;
+          for (final point in [
+            Offset(gap + workspacePanelGap / 2, 300),
+            Offset(gap + 1, 300),
+            Offset(gap + workspacePanelGap - 1, 300),
+            Offset(300, image.height - 3.0),
+            const Offset(98, 300),
+          ]) {
+            expect(at(point), ground, reason: '$brightness ground at $point');
+          }
+        } finally {
+          image.dispose();
+        }
+      });
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('nested panel previews do not inherit the outer window corner', (
     tester,
@@ -295,6 +361,6 @@ void main() {
 Widget _standalonePanel(BuildContext context) => DPageSurface(
   border: false,
   backgroundColor: ForumWindowBackground.panelColor(context),
-  depth: DSurfaceDepth.panel,
+  depth: DSurfaceDepth.rim,
   child: const SizedBox.expand(),
 );
