@@ -12,82 +12,103 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('desktop panels reveal the background behind them', (
-    tester,
-  ) async {
-    const capture = ValueKey('desktop-panel-background');
-    for (final brightness in Brightness.values) {
-      for (final transparency in [0.0, .3]) {
-        final theme = AppTheme.fromPalette(
-          forumThemePresets
-              .firstWhere((theme) => theme.id == 'dark-rose')
-              .copyWith(
-                background: ForumBackground.appearance(
-                  transparency: transparency,
-                  noiseIntensity: 0,
-                ),
-              )
-              .resolve(brightness),
-        ).copyWith(platform: TargetPlatform.macOS);
-        await tester.pumpWidget(
-          MaterialApp(
-            themeAnimationStyle: AnimationStyle.noAnimation,
-            theme: theme,
-            home: const RepaintBoundary(
-              key: capture,
-              child: ForumWindowBackground(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xff2465a2), Color(0xffb07325)],
-                      stops: [.5, .5],
+  testWidgets(
+    'desktop panels fill a plain window and reveal a custom background',
+    (tester) async {
+      const capture = ValueKey('desktop-panel-background');
+      const stripes = [0xff2465a2, 0xffb07325];
+      final preset = forumThemePresets.firstWhere(
+        (theme) => theme.id == 'dark-rose',
+      );
+      for (final brightness in Brightness.values) {
+        for (final (background, plain) in [
+          (null, true),
+          (const ForumBackground.appearance(noiseIntensity: 0), true),
+          (
+            const ForumBackground.appearance(
+              transparency: .3,
+              noiseIntensity: 0,
+            ),
+            false,
+          ),
+        ]) {
+          final theme = AppTheme.fromPalette(
+            (background == null
+                    ? preset
+                    : preset.copyWith(background: background))
+                .resolve(brightness),
+          ).copyWith(platform: TargetPlatform.macOS);
+          await tester.pumpWidget(
+            MaterialApp(
+              themeAnimationStyle: AnimationStyle.noAnimation,
+              theme: theme,
+              home: RepaintBoundary(
+                key: capture,
+                child: ForumWindowBackground(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(stripes[0]), Color(stripes[1])],
+                        stops: const [.5, .5],
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(child: WorkspacePanel(child: SizedBox.expand())),
-                      SizedBox(width: 12),
-                      Expanded(child: Builder(builder: _standalonePanel)),
-                    ],
+                    child: const Row(
+                      children: [
+                        Expanded(
+                          child: WorkspacePanel(child: SizedBox.expand()),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(child: Builder(builder: _standalonePanel)),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.runAsync(() async {
-          final image = await tester
-              .renderObject<RenderRepaintBoundary>(find.byKey(capture))
-              .toImage();
-          try {
-            final bytes = (await image.toByteData(
-              format: ui.ImageByteFormat.rawRgba,
-            ))!;
-            for (final (x, expected) in [
-              (image.width ~/ 4, 0xff2465a2),
-              (image.width * 3 ~/ 4, 0xffb07325),
-            ]) {
-              final offset = (image.height ~/ 2 * image.width + x) * 4;
-              expect(
-                List.generate(4, (channel) => bytes.getUint8(offset + channel)),
-                [
-                  (expected >> 16) & 255,
-                  (expected >> 8) & 255,
-                  expected & 255,
-                  255,
-                ],
-                reason: '$brightness, transparency $transparency, panel at $x',
-              );
+          );
+          await tester.pumpAndSettle();
+          final fill = Color.lerp(
+            theme.shell.content,
+            theme.colorScheme.onSurface,
+            .03,
+          )!.toARGB32();
+          await tester.runAsync(() async {
+            final image = await tester
+                .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                .toImage();
+            try {
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              for (final (x, stripe) in [
+                (image.width ~/ 4, stripes[0]),
+                (image.width * 3 ~/ 4, stripes[1]),
+              ]) {
+                final expected = plain ? fill : stripe;
+                final offset = (image.height ~/ 2 * image.width + x) * 4;
+                expect(
+                  List.generate(
+                    4,
+                    (channel) => bytes.getUint8(offset + channel),
+                  ),
+                  [
+                    (expected >> 16) & 255,
+                    (expected >> 8) & 255,
+                    expected & 255,
+                    255,
+                  ],
+                  reason: '$brightness, background $background, panel at $x',
+                );
+              }
+            } finally {
+              image.dispose();
             }
-          } finally {
-            image.dispose();
-          }
-        });
-        expect(tester.takeException(), isNull);
+          });
+          expect(tester.takeException(), isNull);
+        }
       }
-    }
-  });
+    },
+  );
 
   testWidgets('nested panel previews do not inherit the outer window corner', (
     tester,
