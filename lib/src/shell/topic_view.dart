@@ -238,6 +238,7 @@ class _TopicViewState extends State<TopicView>
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
   double get _floatingDayOffset => _viewportState.floatingDayOffset;
+  double get _floatingDayTopInset => context.isTouch ? 12 : 0;
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
@@ -727,8 +728,9 @@ class _TopicViewState extends State<TopicView>
     var offset = 0.0;
     if (nextIndex < _laidOutDayStarts.length) {
       final nextTop = topOf(_laidOutDayStarts[nextIndex]);
-      if (nextTop != null && nextTop < StreamDaySeparator.height) {
-        offset = nextTop - StreamDaySeparator.height;
+      final floatingBottom = _floatingDayTopInset + StreamDaySeparator.height;
+      if (nextTop != null && nextTop < floatingBottom) {
+        offset = nextTop - floatingBottom;
       }
     }
     _setFloatingDay(current.day, offset);
@@ -1193,7 +1195,7 @@ class _TopicViewState extends State<TopicView>
   ) => Positioned(
     left: readingLanePadding.left,
     right: readingLanePadding.right,
-    top: 0,
+    top: _floatingDayTopInset,
     child: TopicChromeVisibility(
       covered: _moreTopicsCovered,
       child: header.inset(
