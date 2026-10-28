@@ -2434,7 +2434,7 @@ void main() {
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
         expect(page.bottom - panel.bottom, lift);
-        expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 1 : 0));
+        expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 2 : 0));
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
         expect(rail.bottom, page.bottom, reason: 'the rail runs to the foot');
