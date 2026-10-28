@@ -159,53 +159,75 @@ class ChatChannelsView extends StatelessWidget {
             Expanded(
               child: ContentReadingLane(
                 basePadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                builder: (context, lane) => loading
-                    ? _ChatChannelListLoadingSkeleton(padding: lane.padding)
-                    : channels.isEmpty
-                    ? Padding(
-                        padding: lane.padding,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              filtered
-                                  ? context.l10n.noChannelsMatchThisFilter
-                                  : switch (kind) {
-                                      ChatChannelListKind.channels =>
-                                        context
-                                            .l10n
-                                            .youHaveNotJoinedAnyChannelsYet,
-                                      ChatChannelListKind.starred =>
-                                        context.l10n.youHaveNoStarredChannels,
-                                      ChatChannelListKind.directMessages =>
-                                        context.l10n.youHaveNoDirectMessagesYet,
-                                    },
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        key: PageStorageKey<ChatChannelListKind>(kind),
-                        padding: lane.padding,
-                        itemCount: channels.length,
-                        itemBuilder: (context, index) {
-                          final channel = channels[index];
-                          return ValueListenableBuilder<ChatChannel?>(
-                            key: ValueKey(channel.id),
-                            valueListenable: chat.channelRef(
-                              siteUrl,
-                              channel.id,
-                            ),
-                            builder: (context, current, _) =>
-                                _ChannelListChannelRow(
-                                  siteUrl: siteUrl,
-                                  channel: current ?? channel,
-                                  onTap: () => shell.openChannel(channel.id),
+                builder: (context, lane) => DPullToRefresh(
+                  key: ValueKey((siteUrl, kind)),
+                  onRefresh: loading
+                      ? null
+                      : () => chat.loadChannels(siteUrl, force: true),
+                  child: loading
+                      ? _ChatChannelListLoadingSkeleton(padding: lane.padding)
+                      : channels.isEmpty
+                      ? CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Padding(
+                                padding: lane.padding,
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Text(
+                                      filtered
+                                          ? context
+                                                .l10n
+                                                .noChannelsMatchThisFilter
+                                          : switch (kind) {
+                                              ChatChannelListKind.channels =>
+                                                context
+                                                    .l10n
+                                                    .youHaveNotJoinedAnyChannelsYet,
+                                              ChatChannelListKind.starred =>
+                                                context
+                                                    .l10n
+                                                    .youHaveNoStarredChannels,
+                                              ChatChannelListKind
+                                                  .directMessages =>
+                                                context
+                                                    .l10n
+                                                    .youHaveNoDirectMessagesYet,
+                                            },
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
                                 ),
-                          );
-                        },
-                      ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          key: PageStorageKey<ChatChannelListKind>(kind),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: lane.padding,
+                          itemCount: channels.length,
+                          itemBuilder: (context, index) {
+                            final channel = channels[index];
+                            return ValueListenableBuilder<ChatChannel?>(
+                              key: ValueKey(channel.id),
+                              valueListenable: chat.channelRef(
+                                siteUrl,
+                                channel.id,
+                              ),
+                              builder: (context, current, _) =>
+                                  _ChannelListChannelRow(
+                                    siteUrl: siteUrl,
+                                    channel: current ?? channel,
+                                    onTap: () => shell.openChannel(channel.id),
+                                  ),
+                            );
+                          },
+                        ),
+                ),
               ),
             ),
           ],

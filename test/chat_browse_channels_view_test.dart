@@ -520,31 +520,32 @@ void main() {
       expect(_offsets(api), [0, 2, 2]);
     });
 
-    testWidgets('pull does not refresh an exhausted empty filtered result', (
-      tester,
-    ) async {
-      final api = _BrowseApi(
-        chatBrowsePagesByKey: {
-          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
-            channels: [_channel(1)],
-          ),
-        },
-      );
-      await _pumpBrowse(tester, api);
-      await _selectMembership(tester, 'Joined');
+    testWidgets(
+      'pull refreshes an exhausted empty result with its membership filter',
+      (tester) async {
+        final api = _BrowseApi(
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+              channels: [_channel(1)],
+            ),
+          },
+        );
+        await _pumpBrowse(tester, api);
+        await _selectMembership(tester, 'Joined');
 
-      expect(find.text(_emptyMessage), findsOneWidget);
-      expect(find.text('Load more'), findsNothing);
+        expect(find.text(_emptyMessage), findsOneWidget);
+        expect(find.text('Load more'), findsNothing);
 
-      api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
-          ChatChannelBrowsePage(channels: [_channel(2, following: true)]);
-      await tester.drag(_list, const Offset(0, 350));
-      await tester.pumpAndSettle();
+        api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
+            ChatChannelBrowsePage(channels: [_channel(2, following: true)]);
+        await tester.drag(_list, const Offset(0, 350));
+        await tester.pumpAndSettle();
 
-      expect(_card(2), findsNothing);
-      expect(find.text(_emptyMessage), findsOneWidget);
-      expect(_offsets(api), [0]);
-    });
+        expect(_card(2), findsOneWidget);
+        expect(find.text(_emptyMessage), findsNothing);
+        expect(_offsets(api), [0, 0]);
+      },
+    );
 
     testWidgets('retries an initial failure from offset zero', (tester) async {
       final api = _BrowseApi(chatBrowsePagesByKey: {});

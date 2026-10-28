@@ -128,8 +128,15 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
             ),
           ),
         ),
-        adaptiveBodyBuilder: (context, lazy) =>
-            RepaintBoundary(child: _buildResults(context, lazy)),
+        adaptiveBodyBuilder: (context, lazy) => RepaintBoundary(
+          child: lazy
+              ? DPullToRefresh(
+                  key: ObjectKey(_browse),
+                  onRefresh: _browse.loading ? null : _browse.refresh,
+                  child: _buildResults(context, lazy),
+                )
+              : _buildResults(context, lazy),
+        ),
       ),
     ),
   );
@@ -237,12 +244,20 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     }
     final channels = _browse.visibleChannels;
     if (channels.isEmpty && !_browse.hasMore && _browse.error != null) {
-      return _BrowseMessage(
+      final message = _BrowseMessage(
         icon: DIcons.triangleExclamation,
         message: _browse.error!,
         action: context.l10n.tryAgain,
         onAction: () => unawaited(_browse.refresh()),
       );
+      return lazy
+          ? CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverFillRemaining(hasScrollBody: false, child: message),
+              ],
+            )
+          : message;
     }
     final hasFooter =
         _browse.loadingMore || _browse.error != null || _browse.hasMore;

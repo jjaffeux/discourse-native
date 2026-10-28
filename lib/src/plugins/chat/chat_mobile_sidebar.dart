@@ -77,53 +77,80 @@ class ChatMobileSidebar extends StatelessWidget {
           ),
           adaptiveBodyBuilder: (context, lazy) => ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(horizontal: 16),
-            builder: (context, lane) => loading
-                ? ChatBrowseSkeleton(
-                    page: ChatBrowsePage.chats,
-                    scrollable: lazy,
-                    padding: lane.padding.add(
-                      EdgeInsets.only(
-                        bottom: DScrollChrome.bottomInsetOf(context),
+            builder: (context, lane) {
+              final empty = error != null
+                  ? ChatInboxError(
+                      onRetry: () =>
+                          unawaited(chat.loadChannels(siteUrl, force: true)),
+                    )
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(DSpacing.lg),
+                        child: Text(
+                          chatInboxEmptyMessage(filter),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-                  )
-                : error != null && channels.isEmpty && rooms.isEmpty
-                ? ChatInboxError(
-                    onRetry: () =>
-                        unawaited(chat.loadChannels(siteUrl, force: true)),
-                  )
-                : channels.isEmpty && rooms.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(DSpacing.lg),
-                      child: Text(
-                        chatInboxEmptyMessage(filter),
-                        textAlign: TextAlign.center,
+                    );
+              final content = loading
+                  ? ChatBrowseSkeleton(
+                      page: ChatBrowsePage.chats,
+                      scrollable: lazy,
+                      padding: lane.padding.add(
+                        EdgeInsets.only(
+                          bottom: DScrollChrome.bottomInsetOf(context),
+                        ),
                       ),
-                    ),
-                  )
-                : lazy
-                ? ListView.builder(
-                    key: PageStorageKey(('mobile-chat-list', siteUrl, filter)),
-                    padding: lane.padding.add(
-                      EdgeInsets.only(
-                        bottom: DScrollChrome.bottomInsetOf(context),
+                    )
+                  : channels.isEmpty && rooms.isEmpty
+                  ? lazy
+                        ? CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: empty,
+                              ),
+                            ],
+                          )
+                        : empty
+                  : lazy
+                  ? ListView.builder(
+                      key: PageStorageKey((
+                        'mobile-chat-list',
+                        siteUrl,
+                        filter,
+                      )),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: lane.padding.add(
+                        EdgeInsets.only(
+                          bottom: DScrollChrome.bottomInsetOf(context),
+                        ),
                       ),
-                    ),
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) => entries[index],
-                  )
-                : Padding(
-                    padding: lane.padding.add(
-                      EdgeInsets.only(
-                        bottom: DScrollChrome.bottomInsetOf(context),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) => entries[index],
+                    )
+                  : Padding(
+                      padding: lane.padding.add(
+                        EdgeInsets.only(
+                          bottom: DScrollChrome.bottomInsetOf(context),
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: entries,
-                    ),
-                  ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: entries,
+                      ),
+                    );
+              return lazy
+                  ? DPullToRefresh(
+                      key: ValueKey((siteUrl, filter)),
+                      onRefresh: loading
+                          ? null
+                          : () => chat.loadChannels(siteUrl, force: true),
+                      child: content,
+                    )
+                  : content;
+            },
           ),
         );
       },

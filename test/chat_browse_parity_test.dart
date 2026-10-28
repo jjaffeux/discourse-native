@@ -10,6 +10,8 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
@@ -72,6 +74,144 @@ void main() {
       'Open Sans',
     )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final view in [
+      'chats',
+      'channels',
+      'joined',
+      'threads',
+      'channel threads',
+    ]) {
+      for (final empty in [false, true]) {
+        testWidgets('pull refreshes $view with empty=$empty on ${platform.name}', (
+          tester,
+        ) async {
+          final fixture = await _pump(
+            tester,
+            platform: platform,
+            size: const Size(430, 932),
+          );
+          final api = fixture.api;
+          if (empty) {
+            api.chatChannelsBySite[_site] = const ChatChannels();
+            api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
+                const ChatChannelBrowsePage(channels: []);
+            for (final id in [1, 2]) {
+              api.chatChannelThreadPagesByKey[FakeDiscourseApi.chatChannelThreadPageKey(
+                id,
+                0,
+              )] = const ChatThreadPage(
+                threads: [],
+              );
+            }
+            if (view == 'chats' || view == 'joined') {
+              await fixture.chat.loadChannels(_site, force: true);
+            }
+          }
+          switch (view) {
+            case 'chats':
+              break;
+            case 'channels':
+              await _tab(tester, ChatBrowsePage.channels);
+            case 'joined':
+              await fixture.show(
+                const ChatChannelsView(
+                  siteUrl: _site,
+                  kind: ChatChannelListKind.channels,
+                ),
+              );
+            case 'threads':
+              await _tab(tester, ChatBrowsePage.threads);
+            case 'channel threads':
+              await fixture.show(
+                const ChatChannelThreadsView(siteUrl: _site, channelId: 1),
+              );
+          }
+          await tester.pumpAndSettle();
+          const title = 'Arrived after pulling';
+          final channel = _channel(
+            view == 'threads' || view == 'channel threads' ? 1 : 3,
+            title,
+          );
+          api.chatChannelsBySite[_site] = ChatChannels(public: [channel]);
+          api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
+              ChatChannelBrowsePage(channels: [channel]);
+          api.chatChannelThreadPagesByKey[FakeDiscourseApi.chatChannelThreadPageKey(
+            1,
+            0,
+          )] = const ChatThreadPage(
+            threads: [
+              ChatThread(
+                id: 99,
+                channelId: 1,
+                title: title,
+                status: 'open',
+                lastMessageId: 199,
+                replyCount: 1,
+              ),
+            ],
+          );
+          expect(find.text(title), findsNothing);
+          final requests =
+              api.chatChannelsRequested.length +
+              api.chatBrowseRequested.length +
+              api.chatChannelThreadPagesRequested.length;
+          await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
+          await tester.pumpAndSettle();
+          expect(
+            api.chatChannelsRequested.length +
+                api.chatBrowseRequested.length +
+                api.chatChannelThreadPagesRequested.length,
+            greaterThan(requests),
+          );
+          expect(find.text(title), findsWidgets);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+
+  for (final page in ChatBrowsePage.values) {
+    testWidgets('repeated pulls wait for the pending ${page.name} refresh', (
+      tester,
+    ) async {
+      final fixture = await _pump(
+        tester,
+        platform: TargetPlatform.iOS,
+        size: const Size(430, 932),
+      );
+      await _tab(tester, page);
+      final api = fixture.api;
+      final before = page == ChatBrowsePage.chats
+          ? api.chatChannelsRequested.length
+          : api.chatBrowseRequested.length;
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      if (page == ChatBrowsePage.chats) {
+        api.channelsGate = gate;
+      } else {
+        api.browseGate = gate;
+      }
+      await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(DSpinner), findsOneWidget);
+      await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
+      await tester.pump(const Duration(milliseconds: 300));
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(
+        page == ChatBrowsePage.chats
+            ? api.chatChannelsRequested.length
+            : api.chatBrowseRequested.length,
+        before + 1,
+      );
+      expect(find.byType(DSpinner), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   {
     testWidgets(
