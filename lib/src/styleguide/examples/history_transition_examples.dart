@@ -38,7 +38,7 @@ final historyTransitionExamples = ComponentExamples(
           'Select tabs in either direction. A fixed rounded boundary keeps all four corners clear during the 300ms slide and incoming fade. Controls stay still.',
       states: const ['Tab order', 'Rounded boundary', 'RTL', 'Reduced motion'],
       code:
-          'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, tabViewport: DHistoryTabViewport(borderRadius: BorderRadius.circular(DRadius.panel)), child: currentPage)',
+          'DHistoryTransition(history: journeyId, entry: visitId, tab: (id: selectedTab, index: selectedIndex), tabOwner: accountId, tabClipper: DHistoryTabClipper(borderRadius: BorderRadius.all(Radius.circular(DRadius.panel))), child: currentPage)',
       builder: (_) => const _TabTransitionExample(),
     ),
     StyleguideExample(
@@ -281,7 +281,7 @@ class _TabTransitionExampleState extends State<_TabTransitionExample> {
             entry: _index,
             tab: (id: _index, index: _index),
             tabOwner: 'example',
-            tabViewport: const DHistoryTabViewport(
+            tabClipper: const DHistoryTabClipper(
               borderRadius: BorderRadius.all(Radius.circular(DRadius.panel)),
             ),
             child: DCard(
