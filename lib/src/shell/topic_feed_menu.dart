@@ -72,11 +72,13 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
   final _measurementFrameKey = GlobalKey();
   final _menuKeys = <Object, GlobalKey>{};
   final _toggleKeys = <_View, GlobalKey>{};
-  Map<Object, double> _widths = {};
+  final _widthsByCompact = <bool, Map<Object, double>>{};
   Object? _measurementIdentity;
 
   bool get _compact =>
       widget.compact || (context.isTouch && DFitRow.tightOf(context));
+
+  Map<Object, double> get _widths => _widthsByCompact[_compact] ?? const {};
 
   _View get _current => _viewOf(widget.mode);
   List<_View> get _views => [
@@ -338,7 +340,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
       widths['edges'] =
           frame.size.width - (bounds.last.right - bounds.first.left);
       widths['gap'] = bounds[1].left - bounds[0].right;
-      if (!mapEquals(widths, _widths)) setState(() => _widths = widths);
+      final compact = _compact;
+      if (!mapEquals(widths, _widthsByCompact[compact])) {
+        setState(() => _widthsByCompact[compact] = widths);
+      }
     });
   }
 
@@ -352,7 +357,6 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
       widget.replyCount,
       widget.signedIn,
       widget.unifiedNew,
-      _compact,
       MediaQuery.textScalerOf(context),
       Localizations.localeOf(context),
       Theme.of(context).textTheme,
@@ -360,7 +364,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     );
     if (identity != _measurementIdentity) {
       _measurementIdentity = identity;
-      _widths = {};
+      _widthsByCompact.clear();
     }
     _measure();
     return LayoutBuilder(

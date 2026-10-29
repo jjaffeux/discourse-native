@@ -84,6 +84,71 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('refresh keeps the $platform topic header stable each frame', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(
+        platform == TargetPlatform.macOS ? 1100 : 390,
+        844,
+      );
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final gates = <String, Completer<void>>{};
+      final setup = await _controller(feedGates: gates);
+      final controller = setup.controller;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: MainContent(
+                layout: platform == TargetPlatform.macOS
+                    ? ShellLayout.expanded
+                    : ShellLayout.compact,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final header = find.byKey(const ValueKey('topic-list-navigation'));
+      final views = find.byKey(const ValueKey('topic-list-view-switch'));
+      final headerRect = tester.getRect(header);
+      final viewsRect = tester.getRect(views);
+      final labels = find.descendant(of: views, matching: find.byType(Text));
+      final visibleLabels = tester
+          .widgetList<Text>(labels)
+          .map((t) => t.data)
+          .toList();
+      setup.api.feeds['/latest.json'] = const [
+        Topic(id: 91, title: 'Refreshed topic', slug: 'refreshed-topic'),
+      ];
+      final gate = gates['/latest.json'] = Completer<void>();
+      final refresh = controller.refreshCurrentTab();
+      for (var frame = 0; frame < 12; frame++) {
+        if (frame == 6) gate.complete();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getRect(header), headerRect, reason: 'frame $frame');
+        expect(tester.getRect(views), viewsRect, reason: 'frame $frame');
+        expect(
+          tester.widgetList<Text>(labels).map((t) => t.data).toList(),
+          visibleLabels,
+          reason: 'frame $frame',
+        );
+      }
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(find.text('Refreshed topic'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets('topics list uses the mockup quiet picker row in '
         '${theme.brightness.name}', (tester) async {
