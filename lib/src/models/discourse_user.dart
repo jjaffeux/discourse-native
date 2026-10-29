@@ -445,6 +445,8 @@ class DiscourseUser {
       );
 
   DiscourseUser withPreferences({
+    List<int>? sidebarCategoryIds,
+    List<SidebarTag>? sidebarTags,
     String? timezone,
     bool? likesNotificationsDisabled,
     BookmarkAutoDeletePreference? bookmarkAutoDeletePreference,
@@ -466,8 +468,8 @@ class DiscourseUser {
     canReview: canReview,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    sidebarCategoryIds: sidebarCategoryIds,
-    sidebarTags: sidebarTags,
+    sidebarCategoryIds: sidebarCategoryIds ?? this.sidebarCategoryIds,
+    sidebarTags: sidebarTags ?? this.sidebarTags,
     displaySidebarTags: displaySidebarTags,
     unifiedNewEnabled: unifiedNewEnabled,
     sidebarShowCountOfNewItems: sidebarShowCountOfNewItems,

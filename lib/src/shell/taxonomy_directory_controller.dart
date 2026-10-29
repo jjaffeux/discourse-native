@@ -170,18 +170,10 @@ final class _TaxonomyDirectoryController
     final categories = categoriesFor(siteUrl);
     final user = _shell._instanceAt(siteUrl)?.user;
     final config = _shell.siteConfigFor(siteUrl);
-    if (_shell.sidebarFilterRoute?.categoryId case final id?) {
-      return buildCategorySidebarSection(
-        categories: categories,
-        connected: user != null,
-        levelNavigation: true,
-        scopeCategoryId: id,
-        allowUncategorizedTopics: config.allowUncategorizedTopics,
-      );
-    }
     final site = _sites[siteUrl]!;
     final held = site.categorySidebarCache;
-    if (held != null &&
+    if (_shell.sidebarFilterRoute?.categoryId == null &&
+        held != null &&
         identical(held.categories, categories) &&
         identical(held.user, user) &&
         held.config == config) {
@@ -192,16 +184,22 @@ final class _TaxonomyDirectoryController
       categories: categories,
       connected: user != null,
       preferredCategoryIds: user?.sidebarCategoryIds ?? const [],
+      scopeCategoryId: _shell.sidebarFilterRoute?.categoryId,
+      onSaveCategory: user == null
+          ? null
+          : (id) => unawaited(_shell.saveSidebarCategory(siteUrl, id)),
       defaultCategoryIds: config.defaultNavigationMenuCategoryIds,
       fixedCategoryPositions: config.fixedCategoryPositions,
       allowUncategorizedTopics: config.allowUncategorizedTopics,
     );
-    site.categorySidebarCache = (
-      categories: categories,
-      user: user,
-      config: config,
-      section: section,
-    );
+    if (_shell.sidebarFilterRoute?.categoryId == null) {
+      site.categorySidebarCache = (
+        categories: categories,
+        user: user,
+        config: config,
+        section: section,
+      );
+    }
     return section;
   }
 
@@ -213,32 +211,6 @@ final class _TaxonomyDirectoryController
 
     final user = instance.user;
     final selectedTag = _shell.sidebarTagName;
-    if (_shell.sidebarFilterRoute?.categoryId case final id?) {
-      if (user != null && !user.displaySidebarTags && selectedTag == null) {
-        return null;
-      }
-      final tags = _sites[siteUrl]?.scopedSidebarTags[id];
-      return SidebarSection(
-        id: 'tags',
-        title: appL10n.tags,
-        loading: tags == null && selectedTag == null,
-        collapsible: selectedTag == null,
-        destinations: [
-          if (user == null || user.displaySidebarTags)
-            for (final tag in tags ?? const <TopicFilterLookupValue>[])
-              ?buildTopicTagDestination(TopicTag(name: tag.name)),
-          if (selectedTag != null &&
-              (user?.displaySidebarTags == false ||
-                  !(tags?.any(
-                        (tag) =>
-                            tag.name.toLowerCase() == selectedTag.toLowerCase(),
-                      ) ??
-                      false)))
-            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
-          allTagsDestination,
-        ],
-      );
-    }
     final siteTop = _sites[siteUrl]?.siteTopTags ?? const <SidebarTag>[];
     final anonymousDefaults =
         _sites[siteUrl]?.anonymousDefaultTags ?? const <SidebarTag>[];
@@ -251,7 +223,6 @@ final class _TaxonomyDirectoryController
       return SidebarSection(
         id: 'tags',
         title: appL10n.tags,
-        collapsible: false,
         destinations: [
           if (display)
             for (final tag in tags)
@@ -260,7 +231,25 @@ final class _TaxonomyDirectoryController
               !tags.any(
                 (tag) => tag.name.toLowerCase() == selectedTag.toLowerCase(),
               ))
-            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
+            SidebarDestination(
+              id: 'transient-tag-$selectedTag',
+              label: selectedTag,
+              icon: DIcons.tag,
+              feedPath: buildTopicTagDestination(
+                TopicTag(name: selectedTag),
+              )?.feedPath,
+              trailingIcon: user == null ? null : DIcons.plus,
+              onSecondaryTap: user == null
+                  ? null
+                  : () =>
+                        unawaited(_shell.saveSidebarTag(siteUrl, selectedTag)),
+            ),
+          if (user != null)
+            SidebarDestination(
+              id: 'edit-sidebar-tags',
+              label: appL10n.edit,
+              icon: DIcons.pencil,
+            ),
           allTagsDestination,
         ],
       );
@@ -292,6 +281,49 @@ final class _TaxonomyDirectoryController
       );
     }
     return section;
+  }
+
+  Future<bool> saveSidebarCategory(String siteUrl, int categoryId) async {
+    final lease = _shell.lifecycle.capture(siteUrl);
+    final instance = _shell.instanceFor(siteUrl);
+    if (instance?.user == null) return false;
+    await _shell.preferences.load(instance!);
+    if (!lease.isCurrent) return false;
+    final confirmed = _shell.preferences.stateFor(siteUrl)?.confirmed;
+    if (confirmed == null) return false;
+    _shell.preferences.edit(
+      siteUrl,
+      PreferenceSection.sidebarCategories,
+      (draft) => draft.copyWith(
+        sidebarCategoryIds: {...draft.sidebarCategoryIds, categoryId}.toList(),
+      ),
+    );
+    return _shell.preferences.save(
+      instance,
+      PreferenceSection.sidebarCategories,
+    );
+  }
+
+  Future<bool> saveSidebarTag(String siteUrl, String name) async {
+    final lease = _shell.lifecycle.capture(siteUrl);
+    final instance = _shell.instanceFor(siteUrl);
+    if (instance?.user == null) return false;
+    await Future.wait([_shell.preferences.load(instance!), loadTags(siteUrl)]);
+    if (!lease.isCurrent) return false;
+    final confirmed = _shell.preferences.stateFor(siteUrl)?.confirmed;
+    final tag = knownTopicListTag(siteUrl, name);
+    if (confirmed == null || tag == null) return false;
+    _shell.preferences.edit(
+      siteUrl,
+      PreferenceSection.sidebarTags,
+      (draft) => draft.copyWith(
+        sidebarTags: [
+          ...draft.sidebarTags.where((item) => item.id != tag.id),
+          tag,
+        ],
+      ),
+    );
+    return _shell.preferences.save(instance, PreferenceSection.sidebarTags);
   }
 
   _TopicListFilterTagSources _topicListFilterTagSourcesFor(String siteUrl) {

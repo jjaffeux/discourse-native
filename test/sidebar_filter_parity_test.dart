@@ -249,7 +249,7 @@ void main() {
       await tester.tap(row('Product'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, 1);
-      expect(row('Support'), findsNothing);
+      expect(row('Support'), findsOneWidget);
       expect(row('Design'), findsOneWidget);
       expect(row('Development'), findsOneWidget);
       expect(
@@ -277,10 +277,10 @@ void main() {
         tester.widget<DSidebarMenuButton>(row('Design')).isActive,
         isFalse,
       );
-      await tester.tap(find.byKey(const ValueKey('sidebar-tags-up')));
+      await tester.tap(row('Alpha'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.tagName, isNull);
-      await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+      await tester.tap(row('Design'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, isNull);
       expect(row('Support'), findsOneWidget);
@@ -296,7 +296,10 @@ void main() {
       (tester) async {
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        final (shell: shell, api: _) = await fixture(tester);
+        final (shell: shell, api: _) = await fixture(
+          tester,
+          size: const Size(1440, 1400),
+        );
 
         ({TextStyle style, Size size, double left}) heading(String label) {
           final text = find.descendant(
@@ -327,19 +330,15 @@ void main() {
         expect(heading('Categories'), categories);
         expect(heading('Tags'), tagHeading);
 
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('sidebar-tags-up')),
-        );
+        await tester.ensureVisible(row('Alpha'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('sidebar-tags-up')));
+        await tester.tap(row('Alpha'));
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.tagName, isNull);
         expect(heading('Tags'), tagHeading);
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('sidebar-categories-up')),
-        );
+        await tester.ensureVisible(row('Product'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+        await tester.tap(row('Product'));
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.categoryId, isNull);
         expect(heading('Categories'), categories);

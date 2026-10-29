@@ -14,8 +14,8 @@ SidebarSection buildCategorySidebarSection({
   List<int> defaultCategoryIds = const [],
   bool fixedCategoryPositions = false,
   bool allowUncategorizedTopics = false,
-  bool levelNavigation = false,
   int? scopeCategoryId,
+  ValueChanged<int>? onSaveCategory,
 }) {
   final byId = {for (final category in categories) category.id: category};
   final displayable = allowUncategorizedTopics
@@ -25,53 +25,65 @@ SidebarSection buildCategorySidebarSection({
             .toList(growable: false);
   final selectedIds = connected ? preferredCategoryIds : defaultCategoryIds;
   final selected = selectedIds.where(byId.containsKey).toSet();
-  final ordered = _hierarchical(
+  final ordered = orderedSidebarCategories(
     displayable,
     fixedCategoryPositions: fixedCategoryPositions,
   );
 
-  final List<TopicCategory> visible;
-  final scoped = byId[scopeCategoryId];
-  final base =
-      scoped != null &&
-          displayable.any((item) => item.parentCategoryId == scoped.id)
-      ? scoped
-      : byId[scoped?.parentCategoryId];
-  if (levelNavigation) {
-    visible = [
-      ?base,
-      ...ordered.where(
-        (category) =>
-            (byId.containsKey(category.parentCategoryId)
-                ? category.parentCategoryId
-                : null) ==
-            base?.id,
+  final kept = selectedIds.isNotEmpty
+      ? selected
+      : _topCategories(
+          displayable,
+          fixedCategoryPositions: fixedCategoryPositions,
+        ).map((category) => category.id).toSet();
+  final path = <int>{};
+  var current = byId[scopeCategoryId];
+  while (current != null && path.add(current.id)) {
+    current = byId[current.parentCategoryId];
+  }
+  final passing = path.isNotEmpty && !path.any(kept.contains)
+      ? path.last
+      : null;
+  final childDepths = <int, int>{};
+  final shown = <int>{};
+  final visible = <SidebarDestination>[];
+  for (final category in ordered) {
+    final depth = childDepths[category.parentCategoryId] ?? 0;
+    final expanded =
+        shown.contains(category.parentCategoryId) &&
+        path.contains(category.parentCategoryId);
+    childDepths[category.id] = depth;
+    if (!kept.contains(category.id) && !expanded && category.id != passing) {
+      continue;
+    }
+    shown.add(category.id);
+    childDepths[category.id] = depth + 1;
+    final transient =
+        !kept.contains(category.id) &&
+        (category.id == scopeCategoryId || category.id == passing);
+    visible.add(
+      buildCategoryDestination(
+        category,
+        categoriesById: byId,
+        indent: depth,
+        onSave: transient && onSaveCategory != null
+            ? () => onSaveCategory(category.id)
+            : null,
       ),
-    ];
-  } else if (selectedIds.isNotEmpty) {
-    visible = ordered
-        .where((category) => selected.contains(category.id))
-        .toList(growable: false);
-  } else {
-    final fallback = _topCategories(
-      displayable,
-      fixedCategoryPositions: fixedCategoryPositions,
     );
-    final fallbackIds = {for (final category in fallback) category.id};
-    visible = connected
-        ? ordered
-              .where((category) => fallbackIds.contains(category.id))
-              .toList(growable: false)
-        : fallback;
   }
 
   return SidebarSection(
     id: 'categories',
     title: appL10n.categories,
-    collapsible: base == null,
     destinations: List.unmodifiable([
-      for (final category in visible)
-        buildCategoryDestination(category, categoriesById: byId),
+      ...visible,
+      if (connected)
+        SidebarDestination(
+          id: 'edit-sidebar-categories',
+          label: appL10n.edit,
+          icon: DIcons.pencil,
+        ),
       SidebarDestination(
         id: 'all-categories',
         label: appL10n.allCategoriesCategorysidebar,
@@ -98,7 +110,7 @@ List<TopicCategory> _topCategories(
   return roots.take(topSidebarCategoriesToShow).toList(growable: false);
 }
 
-List<TopicCategory> _hierarchical(
+List<TopicCategory> orderedSidebarCategories(
   List<TopicCategory> categories, {
   required bool fixedCategoryPositions,
 }) {
@@ -167,6 +179,8 @@ int _comparePosition(TopicCategory left, TopicCategory right) {
 SidebarDestination buildCategoryDestination(
   TopicCategory category, {
   required Map<int, TopicCategory> categoriesById,
+  int indent = 0,
+  VoidCallback? onSave,
 }) {
   final categoryColor = Color(category.colorValue);
   final parent = categoriesById[category.parentCategoryId];
@@ -177,6 +191,9 @@ SidebarDestination buildCategoryDestination(
 
   return SidebarDestination(
     id: 'category-${category.id}',
+    indent: indent,
+    trailingIcon: onSave == null ? null : DIcons.plus,
+    onSecondaryTap: onSave,
     label: category.name,
     icon: icon,
     color: styleType == 'square' ? categoryColor : null,

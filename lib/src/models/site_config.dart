@@ -54,6 +54,7 @@ class SiteConfig {
     this.maxCategoryNesting = defaultMaxCategoryNesting,
     this.allowUncategorizedTopics = false,
     this.defaultNavigationMenuCategoryIds = const [],
+    this.defaultNavigationMenuTagNames = const [],
     this.defaultHomepage = '',
     this.topMenu = const ['latest', 'new', 'unread', 'hot', 'categories'],
     this.topPageDefaultPeriod = defaultTopPagePeriod,
@@ -223,6 +224,10 @@ class SiteConfig {
       defaultNavigationMenuCategoryIds: _categoryIds(
         json['default_navigation_menu_categories'],
       ),
+      defaultNavigationMenuTagNames: _stringList(
+        json['default_navigation_menu_tags'],
+        const [],
+      ),
       defaultHomepage: jsonText(json['default_homepage'])?.trim() ?? '',
       topMenu: _stringList(json['top_menu'], const [
         'latest',
@@ -335,6 +340,10 @@ class SiteConfig {
     defaultNavigationMenuCategoryIds: _categoryIds(
       json['defaultNavigationMenuCategoryIds'],
     ),
+    defaultNavigationMenuTagNames: _stringList(
+      json['defaultNavigationMenuTagNames'],
+      const [],
+    ),
     defaultHomepage: jsonText(json['defaultHomepage']) ?? '',
     topMenu: _stringList(json['topMenu'], const [
       'latest',
@@ -419,6 +428,7 @@ class SiteConfig {
       'maxCategoryNesting': maxCategoryNesting,
       'allowUncategorizedTopics': allowUncategorizedTopics,
       'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
+      'defaultNavigationMenuTagNames': defaultNavigationMenuTagNames,
       'defaultHomepage': defaultHomepage,
       'topMenu': topMenu,
       'topPageDefaultPeriod': topPageDefaultPeriod,
@@ -531,6 +541,7 @@ class SiteConfig {
   final int maxCategoryNesting;
   final bool allowUncategorizedTopics;
   final List<int> defaultNavigationMenuCategoryIds;
+  final List<String> defaultNavigationMenuTagNames;
   final String defaultHomepage;
   final List<String> topMenu;
   final String topPageDefaultPeriod;
@@ -702,6 +713,7 @@ class SiteConfig {
         maxCategoryNesting: maxCategoryNesting,
         allowUncategorizedTopics: allowUncategorizedTopics,
         defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
+        defaultNavigationMenuTagNames: defaultNavigationMenuTagNames,
         defaultHomepage: defaultHomepage,
         topMenu: topMenu,
         topPageDefaultPeriod: topPageDefaultPeriod,
@@ -773,6 +785,10 @@ class SiteConfig {
       other.maxCategoryNesting == maxCategoryNesting &&
       other.allowUncategorizedTopics == allowUncategorizedTopics &&
       listEquals(
+        other.defaultNavigationMenuTagNames,
+        defaultNavigationMenuTagNames,
+      ) &&
+      listEquals(
         other.defaultNavigationMenuCategoryIds,
         defaultNavigationMenuCategoryIds,
       ) &&
@@ -842,6 +858,7 @@ class SiteConfig {
     maxCategoryNesting,
     allowUncategorizedTopics,
     Object.hashAll(defaultNavigationMenuCategoryIds),
+    Object.hashAll(defaultNavigationMenuTagNames),
     defaultHomepage,
     Object.hashAll(topMenu),
     topPageDefaultPeriod,

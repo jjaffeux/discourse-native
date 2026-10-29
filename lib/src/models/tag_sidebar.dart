@@ -23,6 +23,12 @@ SidebarSection? buildTagSidebarSection({
     title: appL10n.tags,
     destinations: List.unmodifiable([
       for (final tag in tags) ?buildTagDestination(tag, username: username),
+      if (username != null)
+        SidebarDestination(
+          id: 'edit-sidebar-tags',
+          label: appL10n.edit,
+          icon: DIcons.pencil,
+        ),
       allTagsDestination,
     ]),
   );
