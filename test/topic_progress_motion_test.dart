@@ -42,6 +42,77 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  testWidgets('topic controls return at the bottom of recommendations', (
+    tester,
+  ) async {
+    final shell = await fixture.pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(
+        id: 7,
+        title: 'A discussion with recommendations',
+        canCreatePost: true,
+        posts: [
+          for (var id = 1; id <= 3; id++)
+            Post(
+              id: id,
+              postNumber: id,
+              username: 'reader',
+              cooked: List.filled(8, '<p>Reading the discussion.</p>').join(),
+            ),
+        ],
+        recommendations: TopicRecommendations(
+          sources: [
+            TopicRecommendationSource(
+              definition: coreSuggestedTopicRecommendationSource,
+              topics: [
+                for (var id = 1; id <= 12; id++)
+                  Topic(
+                    id: 100 + id,
+                    title: 'Suggested discussion $id',
+                    slug: 'suggested-$id',
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    shell.openTopic(
+      const Topic(
+        id: 7,
+        title: 'A discussion with recommendations',
+        slug: 'topic-7',
+      ),
+    );
+    await tester.pumpAndSettle();
+    final scroll = topicPostList(tester).controller!;
+    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
+    final notifications = find.byKey(
+      const ValueKey('topic-header-notification-button'),
+    );
+    expect(_progress.hitTestable(), findsOneWidget);
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final bottom = scroll.offset;
+    scroll.jumpTo(bottom - 100);
+    await tester.pumpAndSettle();
+    expect(_progress.hitTestable(), findsNothing);
+    expect(bookmark.hitTestable(), findsNothing);
+    expect(notifications.hitTestable(), findsNothing);
+
+    scroll.position.pointerScroll(200);
+    await tester.pumpAndSettle();
+    expect(scroll.position.extentAfter, 0);
+    expect(_progress.hitTestable(), findsOneWidget);
+    expect(bookmark.hitTestable(), findsOneWidget);
+    expect(notifications.hitTestable(), findsOneWidget);
+    expect(find.text('3 / 3'), findsOneWidget);
+    await tester.tap(_progress);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('topic-progress-author')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   for (final foot in [0.0, 34.0]) {
     for (final reduced in [false, true]) {
       testWidgets('topic progress follows the tab bar in both directions '

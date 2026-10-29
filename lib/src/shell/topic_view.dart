@@ -217,6 +217,7 @@ class _TopicViewState extends State<TopicView>
 
   final _morePanelKey = GlobalKey();
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
+  final _topicControlsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
   int? _visitLastReadPostNumber;
@@ -394,6 +395,7 @@ class _TopicViewState extends State<TopicView>
 
     if (identical(previousScroll, _scroll)) return;
     _moreTopicsCovered.value = false;
+    _topicControlsCovered.value = false;
     _initialBodyChecked = false;
     _openingPostId = null;
     _laidOutDayStarts = const [];
@@ -481,6 +483,7 @@ class _TopicViewState extends State<TopicView>
     _viewport.dispose();
     _warmCacheIdentity.dispose();
     _moreTopicsCovered.dispose();
+    _topicControlsCovered.dispose();
     _interaction.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
@@ -669,6 +672,10 @@ class _TopicViewState extends State<TopicView>
         scroll.hasClients &&
         scroll.offset > 0 &&
         bounds.top < scroll.position.viewportDimension * .5;
+    // Restore actions at the physical bottom while the recommendations keep
+    // the topic header and floating date suppressed.
+    _topicControlsCovered.value =
+        _moreTopicsCovered.value && scroll!.position.extentAfter > .5;
   }
 
   void _showMoreTopics() {
@@ -1322,7 +1329,7 @@ class _TopicViewState extends State<TopicView>
       siteUrl: snapshot.siteUrl,
       isConnected: widget.isConnected,
       viewport: _viewportState,
-      moreTopicsCovered: _moreTopicsCovered,
+      controlsCovered: _topicControlsCovered,
       totalPosts: totalPosts,
       canReply: widget.canReply,
       controller: controller,
@@ -2053,7 +2060,7 @@ class _TopicViewState extends State<TopicView>
                 );
               },
               child: TopicChromeVisibility(
-                covered: _moreTopicsCovered,
+                covered: _topicControlsCovered,
                 child: RepaintBoundary(
                   child: ListenableBuilder(
                     listenable: _viewportState.progressPositionListenable,
@@ -2197,7 +2204,7 @@ class _TopicViewState extends State<TopicView>
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
     required this.viewport,
-    required this.moreTopicsCovered,
+    required this.controlsCovered,
     required this.totalPosts,
     required this.canReply,
     required this.controller,
@@ -2212,7 +2219,7 @@ class _TopicBottomBar extends StatelessWidget {
   /// Only the progress control listens: the reading position changes with
   /// every post scrolled past, and the other controls never depend on it.
   final TopicViewportListenable viewport;
-  final ValueListenable<bool> moreTopicsCovered;
+  final ValueListenable<bool> controlsCovered;
   final int totalPosts;
   final bool canReply;
   final ShellController controller;
@@ -2312,7 +2319,7 @@ class _TopicBottomBar extends StatelessWidget {
                   ),
                 Expanded(
                   child: TopicChromeVisibility(
-                    covered: moreTopicsCovered,
+                    covered: controlsCovered,
                     child: ListenableBuilder(
                       listenable: viewport.progressPositionListenable,
                       builder: (context, _) {

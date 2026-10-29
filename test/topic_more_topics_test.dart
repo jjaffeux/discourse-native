@@ -85,6 +85,16 @@ void main() {
         expect(find.byType(TopicProgressPopover).hitTestable(), findsNothing);
         await _render(tester, 'desktop-panel-${inbox ? 'inbox' : 'topic'}');
 
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(find.byType(TopicProgressPopover).hitTestable(), findsOneWidget);
+        expect(geometry.visibleExtent, 0);
+        expect(scroll.position.maxScrollExtent, closeTo(initialExtent, .1));
+
+        scroll.jumpTo(panelOffset - extent * .45);
+        await tester.pumpAndSettle();
+        expect(find.byType(TopicProgressPopover).hitTestable(), findsNothing);
+
         scroll.jumpTo(panelOffset - extent * .75);
         await tester.pumpAndSettle();
         expect(geometry.visibleExtent, greaterThan(0));
