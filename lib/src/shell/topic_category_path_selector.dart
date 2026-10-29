@@ -36,7 +36,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
   final int maxCategoryNesting;
 
   /// Page filters can keep their existing editor behind the shared path artwork.
-  final Widget Function(BuildContext, int, TopicCategory?, String)?
+  final Widget Function(BuildContext, int, TopicCategory?, String, bool)?
   segmentBuilder;
 
   @override
@@ -62,6 +62,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
         (path.isEmpty || path.length < maxCategoryNesting && deeper.isNotEmpty
             ? 1
             : 0);
+    final short = DFitRow.tightOf(context);
 
     Widget segment(int level) {
       final category = level < path.length ? path[level] : null;
@@ -78,12 +79,35 @@ class TopicCategoryPathSelector extends StatelessWidget {
               : exact
               ? context.l10n.filterNoSubcategories
               : context.l10n.subcategoryTopiccategoryselector);
+      final iconOnly = short && path.isNotEmpty && level != path.length - 1;
+      final icon = category != null
+          ? CategoryIcon(
+              key: ValueKey(('$prefix-selected-icon', category.id)),
+              category: category,
+              siteUrl: siteUrl,
+              size: 14,
+              squareSize: 10,
+            )
+          : level == 0
+          ? const CategorySquare(color: null, size: 10)
+          : exact
+          ? const DIcon(noSubcategoriesIcon)
+          : const DIcon(DIcons.plus);
       if (segmentBuilder case final builder?) {
         return ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 180),
-          child: builder(context, level, category, label),
+          child: builder(context, level, category, label, iconOnly),
         );
       }
+      final semanticLabel = category != null
+          ? context.l10n.categoryPathSegment(
+              topicCategoryPathLabel(category, categoryFor: (id) => byId[id]),
+            )
+          : parent == null
+          ? context.l10n.filterByCategory
+          : exact
+          ? context.l10n.filterNoSubcategories
+          : context.l10n.filterBySubcategoryOf(parent.name);
       return KeyedSubtree(
         key: ValueKey((siteUrl, maxCategoryNesting, level, parent?.id)),
         child: TopicCategorySelector(
@@ -118,50 +142,44 @@ class TopicCategoryPathSelector extends StatelessWidget {
             },
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),
-              child: DButton(
-                size: DButtonSize.filter,
-                variant: DButtonVariant.quiet,
-                alignment: AlignmentDirectional.centerStart,
-                label: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: category == null && level > 0
-                      ? TextStyle(
-                          color: Color.lerp(
-                            DTokens.of(context).background,
-                            DTokens.of(context).foreground,
-                            .40,
-                          ),
-                        )
-                      : null,
-                ),
-                icon: category != null
-                    ? CategoryIcon(
-                        key: ValueKey(('$prefix-selected-icon', category.id)),
-                        category: category,
-                        siteUrl: siteUrl,
-                        size: 14,
-                        squareSize: 10,
-                      )
-                    : level == 0
-                    ? const CategorySquare(color: null, size: 10)
-                    : null,
-                semanticLabel: category != null
-                    ? context.l10n.categoryPathSegment(
-                        topicCategoryPathLabel(
-                          category,
-                          categoryFor: (id) => byId[id],
-                        ),
-                      )
-                    : parent == null
-                    ? context.l10n.filterByCategory
-                    : context.l10n.filterBySubcategoryOf(parent.name),
-                onPressed: onSelected == null ? null : trigger.toggle,
-                focusNode: trigger.focusNode,
-                expanded: trigger.open,
-                hasPopup: true,
-              ),
+              child: iconOnly
+                  ? DButton.iconOnly(
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.quiet,
+                      shape: DButtonShape.pill,
+                      icon: icon,
+                      tooltip: label,
+                      semanticLabel: semanticLabel,
+                      onPressed: onSelected == null ? null : trigger.toggle,
+                      focusNode: trigger.focusNode,
+                      expanded: trigger.open,
+                      hasPopup: true,
+                    )
+                  : DButton(
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.quiet,
+                      alignment: AlignmentDirectional.centerStart,
+                      label: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: category == null && level > 0
+                            ? TextStyle(
+                                color: Color.lerp(
+                                  DTokens.of(context).background,
+                                  DTokens.of(context).foreground,
+                                  .40,
+                                ),
+                              )
+                            : null,
+                      ),
+                      icon: category != null || level == 0 ? icon : null,
+                      semanticLabel: semanticLabel,
+                      onPressed: onSelected == null ? null : trigger.toggle,
+                      focusNode: trigger.focusNode,
+                      expanded: trigger.open,
+                      hasPopup: true,
+                    ),
             ),
           ),
         ),
@@ -186,10 +204,11 @@ class TopicCategoryPathSelector extends StatelessWidget {
                 DButtonGroupText(
                   padding: const EdgeInsets.symmetric(horizontal: 5),
                   child: DIcon(
-                    Directionality.of(context) == TextDirection.rtl
-                        ? DIcons.chevronLeft
-                        : DIcons.chevronRight,
-                    size: 10,
+                    _pathSeparatorIcon,
+                    size: 14,
+                    color: DTokens.of(
+                      context,
+                    ).mutedForeground.withValues(alpha: .45),
                   ),
                 ),
               segment(level),
@@ -200,6 +219,21 @@ class TopicCategoryPathSelector extends StatelessWidget {
     );
   }
 }
+
+const noSubcategoriesIcon = DIconData(
+  'no-subcategories',
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>'
+      '<path d="m4 4 8 8" stroke="currentColor" stroke-width="1.5"/>'
+      '</svg>',
+);
+
+const _pathSeparatorIcon = DIconData(
+  'category-path-separator',
+  '<svg viewBox="0 0 5 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
+      '<path d="M4 1 1 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+      '</svg>',
+);
 
 int _compareCategories(TopicCategory left, TopicCategory right) {
   final leftPosition = left.position;

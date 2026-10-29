@@ -15,7 +15,7 @@ List<String?> _labels(WidgetTester tester) => find
 void main() {
   // The test font draws every glyph a square, so the row's pills are wider
   // than on a phone: at 520 the row holds Latest, Categories and Tags with
-  // a short Filters beside them, and at 460 not even that.
+  // short Tags and Filters beside them, and at 360 not even that.
   Future<void> pumpList(WidgetTester tester, double width, String query) async {
     final shell = await fixture.pumpMobileShellFixture(
       tester,
@@ -80,11 +80,11 @@ void main() {
   testWidgets('the filters wrap at full length when the glyph is not enough', (
     tester,
   ) async {
-    await pumpList(tester, 460, 'status:open');
+    await pumpList(tester, 360, 'status:open');
     expect(_labels(tester), ['Filters · 1']);
     expect(
       top(tester, 'topic-list-filter'),
-      greaterThan(top(tester, 'topic-list-tag-filter')),
+      greaterThan(top(tester, 'topic-list-category-filter')),
     );
     expect(tester.takeException(), isNull);
   });

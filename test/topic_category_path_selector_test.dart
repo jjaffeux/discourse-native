@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +41,8 @@ Future<ValueNotifier<int?>> _pump(
   double textScale = 1,
   int maxCategoryNesting = 4,
   ValueNotifier<int>? nestingSetting,
+  bool fit = false,
+  bool exact = false,
 }) async {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
@@ -60,14 +63,30 @@ Future<ValueNotifier<int?>> _pump(
           alignment: AlignmentDirectional.topStart,
           child: ListenableBuilder(
             listenable: Listenable.merge([value, ?nestingSetting]),
-            builder: (context, _) => TopicCategoryPathSelector(
-              siteUrl: 'https://example.invalid',
-              categories: _categories,
-              selectedCategoryId: value.value,
-              sheetOnMobile: true,
-              maxCategoryNesting: nestingSetting?.value ?? maxCategoryNesting,
-              onSelected: (category) => value.value = category?.id,
-            ),
+            builder: (context, _) {
+              final selector = TopicCategoryPathSelector(
+                siteUrl: 'https://example.invalid',
+                categories: _categories,
+                selectedCategoryId: value.value,
+                sheetOnMobile: true,
+                maxCategoryNesting: nestingSetting?.value ?? maxCategoryNesting,
+                onSelected: (category) => value.value = category?.id,
+                exact: exact,
+              );
+              return fit
+                  ? DFitRow(
+                      children: [
+                        selector,
+                        DButton.iconOnly(
+                          icon: const DIcon(DIcons.filter),
+                          tooltip: 'More filters',
+                          size: DButtonSize.filter,
+                          onPressed: () {},
+                        ),
+                      ],
+                    )
+                  : selector;
+            },
           ),
         ),
       ),
@@ -78,6 +97,39 @@ Future<ValueNotifier<int?>> _pump(
 }
 
 void main() {
+  for (final exact in [false, true]) {
+    testWidgets(
+      'short paths keep the last name and meaningful deeper glyph ($exact)',
+      (tester) async {
+        await _pump(tester, selected: 3, width: 320, fit: true, exact: exact);
+        expect(find.text('Support'), findsNothing);
+        expect(find.text('Bugs'), findsNothing);
+        expect(find.text('Mobile'), findsOneWidget);
+        expect(
+          find.text(exact ? 'No subcategories' : 'Subcategory'),
+          findsNothing,
+        );
+        final ancestor = tester.widget<DButton>(
+          find.descendant(of: _segment(0), matching: find.byType(DButton)),
+        );
+        expect(ancestor.semanticLabel, 'Category: Support');
+        expect(
+          tester.getSize(_segment(0)).width,
+          tester.getSize(_segment(0)).height,
+        );
+        final prompt = tester.widget<DButton>(
+          find.descendant(of: _segment(3), matching: find.byType(DButton)),
+        );
+        expect(
+          prompt.semanticLabel,
+          exact ? 'No subcategories' : 'Filter by subcategory of Mobile',
+        );
+        await _open(tester, 0);
+        expect(_option(0, 6), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'a nesting setting refresh retires open menus and updates levels',
     (tester) async {

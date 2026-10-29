@@ -54,9 +54,10 @@ class TopicListFilterMenu extends StatefulWidget {
     this.triggerKey,
     this.icon = const DIcon(DIcons.filter, size: 11),
     this.dimLabel = false,
+    this.iconOnly = false,
     this.categoryParentId,
     this.onOpenChanged,
-  });
+  }) : assert(!iconOnly || icon != null);
   final String siteUrl;
   final String query;
   final String? label;
@@ -64,6 +65,7 @@ class TopicListFilterMenu extends StatefulWidget {
   final Key? triggerKey;
   final Widget? icon;
   final bool dimLabel;
+  final bool iconOnly;
   final int? categoryParentId;
   final ValueChanged<bool>? onOpenChanged;
 
@@ -216,7 +218,14 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         '${widget.label ?? context.l10n.startPageFilters}${count == null ? '' : ' · $count'}';
     // Short of room in its row, the Filters menu keeps its glyph and how many
     // filters it holds; said aloud and under the pointer at full length.
-    final tight = widget.filterKey == null && DFitRow.tightOf(context);
+    final tight =
+        DFitRow.tightOf(context) &&
+        (widget.filterKey == null ||
+            widget.filterKey == 'tag' && _scopeQuery.isEmpty);
+    final iconOnly = widget.iconOnly || tight && count == null;
+    final variant = widget.filterKey != 'category' && _scopeQuery.isNotEmpty
+        ? DButtonVariant.quietSelected
+        : DButtonVariant.quiet;
     return DPopover(
       controller: _popover,
       onEscape: _input.handleEscape,
@@ -239,8 +248,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         width: 320,
         collisionBoundary: _boundary,
         sideOffset: widget.filterKey == null ? DSpacing.controlGap : 6,
-        padding: EdgeInsets.all(widget.filterKey == null ? 10 : 4),
-        scrollable: widget.filterKey == null,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        scrollable: false,
         align: DPopoverAlign.start,
         semanticLabel: context.l10n.filterTopics,
         child: Column(
@@ -296,12 +305,24 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         ),
       ),
       child: DPopoverTrigger(
-        builder: (context, trigger) => DButton(
-          key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
-          semanticLabel: tight ? label : null,
-          label: tight && count == null
-              ? widget.icon ?? const SizedBox.shrink()
-              : ConstrainedBox(
+        builder: (context, trigger) => iconOnly
+            ? DButton.iconOnly(
+                key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
+                semanticLabel: label,
+                tooltip: label,
+                icon: widget.icon!,
+                shape: DButtonShape.pill,
+                size: DButtonSize.filter,
+                variant: variant,
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                hasPopup: true,
+                onPressed: trigger.toggle,
+              )
+            : DButton(
+                key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
+                semanticLabel: tight ? label : null,
+                label: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxWidth: widget.filterKey == 'tag'
                         ? MediaQuery.textScalerOf(context).scale(88)
@@ -320,19 +341,17 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                         : null,
                   ),
                 ),
-          tooltip: widget.query.isEmpty
-              ? context.l10n.filterTopics
-              : context.l10n.editActiveFilter,
-          icon: tight && count == null ? null : widget.icon,
-          size: DButtonSize.filter,
-          variant: widget.filterKey == 'tag' && _scopeQuery.isNotEmpty
-              ? DButtonVariant.quietSelected
-              : DButtonVariant.quiet,
-          focusNode: trigger.focusNode,
-          expanded: trigger.open,
-          hasPopup: true,
-          onPressed: trigger.toggle,
-        ),
+                tooltip: widget.query.isEmpty
+                    ? context.l10n.filterTopics
+                    : context.l10n.editActiveFilter,
+                icon: widget.icon,
+                size: DButtonSize.filter,
+                variant: variant,
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                hasPopup: true,
+                onPressed: trigger.toggle,
+              ),
       ),
     );
   }
