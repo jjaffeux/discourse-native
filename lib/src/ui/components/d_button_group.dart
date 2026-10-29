@@ -26,7 +26,8 @@ class DButtonGroup extends StatefulWidget {
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
     this.sharedOutline = false,
-  }) : quiet = false,
+  }) : inset = false,
+       quiet = false,
        quietSelected = false,
        split = false,
        spacedSize = null,
@@ -43,6 +44,7 @@ class DButtonGroup extends StatefulWidget {
   }) : orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
        sharedOutline = false,
+       inset = false,
        quiet = false,
        quietSelected = false,
        split = false,
@@ -55,7 +57,8 @@ class DButtonGroup extends StatefulWidget {
     required this.children,
     this.semanticLabel,
     bool selected = false,
-  }) : quiet = true,
+  }) : inset = false,
+       quiet = true,
        quietSelected = selected,
        split = false,
        orientation = DButtonGroupOrientation.horizontal,
@@ -70,7 +73,8 @@ class DButtonGroup extends StatefulWidget {
     super.key,
     required this.children,
     this.semanticLabel,
-  }) : quiet = true,
+  }) : inset = false,
+       quiet = true,
        quietSelected = false,
        split = true,
        orientation = DButtonGroupOrientation.horizontal,
@@ -78,6 +82,23 @@ class DButtonGroup extends StatefulWidget {
        sharedOutline = false,
        spacedSize = null;
 
+  /// A shared inset pill for independently focusable view choices and menus.
+  /// Compose segment-sized controls, with the segmented Toggle variant for
+  /// selectable choices. Children keep selection, focus, and popup ownership.
+  const DButtonGroup.inset({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+    this.mainAxisSize = MainAxisSize.min,
+  }) : inset = true,
+       quiet = false,
+       quietSelected = false,
+       split = false,
+       orientation = DButtonGroupOrientation.horizontal,
+       sharedOutline = false,
+       spacedSize = null;
+
+  final bool inset;
   final List<Widget> children;
   final DButtonGroupOrientation orientation;
 
@@ -117,6 +138,27 @@ class _DButtonGroupState extends State<DButtonGroup> {
     assert(
       widget.semanticLabel == null || widget.semanticLabel!.trim().isNotEmpty,
     );
+    if (widget.inset) {
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: widget.semanticLabel,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: DTokens.of(context).foreground.withValues(alpha: .05),
+            borderRadius: BorderRadius.circular(DRadius.pill),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Row(
+              mainAxisSize: widget.mainAxisSize,
+              spacing: 2,
+              children: children,
+            ),
+          ),
+        ),
+      );
+    }
     if (widget.spacedSize case final size?) {
       final visualSize = DControlStyle.scaledHeight(
         size,

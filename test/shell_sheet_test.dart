@@ -82,8 +82,8 @@ void main() {
         final save = find.byKey(const ValueKey('pinned-save'));
         final low = tester.getRect(surface);
         expect(low.top, greaterThan(47));
-        expect(tester.getRect(save).bottom, lessThanOrEqualTo(844));
-        expect(tester.getRect(save).bottom, closeTo(low.bottom - 16, 1));
+        expect(tester.getRect(save).bottom, lessThanOrEqualTo(844 - 34));
+        expect(tester.getRect(save).bottom, closeTo(low.bottom - 34 - 16, 1));
         expect(save.hitTestable(), findsOneWidget);
         await _capturePolish(tester, 'edit-partial-${platform.name}');
         await tester.drag(

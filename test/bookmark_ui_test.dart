@@ -103,7 +103,7 @@ void main() {
     final position = tester.state<ScrollableState>(scrollable).position;
     position.jumpTo(position.maxScrollExtent);
     await tester.pumpAndSettle();
-    expect(tester.getRect(save).bottom, lessThanOrEqualTo(before.bottom));
+    expect(tester.getRect(save), before);
     expect(save.hitTestable(), findsOneWidget);
     await tester.tap(save);
     await tester.pumpAndSettle();

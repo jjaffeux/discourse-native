@@ -280,7 +280,7 @@ void main() {
     expect(tester.widget<DToggle>(systemFont).pressed, isTrue);
     expect(
       tester.getSize(find.byKey(const ValueKey('text-size-decrease'))).height,
-      28,
+      26,
     );
     await tester.tap(find.byKey(const ValueKey('display-font-lato-reading')));
     await tester.pumpAndSettle();
