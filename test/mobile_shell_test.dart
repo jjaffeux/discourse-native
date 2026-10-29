@@ -4885,6 +4885,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('Back from a raised topic keeps the list below the logo', (
+    tester,
+  ) async {
+    await _loadChromeCaptureFonts(tester);
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(tester);
+    final logo = tester.getRect(
+      find.byKey(const ValueKey('forum-identity-logo')),
+    );
+    final listTop = tester
+        .getTopLeft(find.byKey(const ValueKey('mobile-content-panel')))
+        .dy;
+    final listFrameTop = tester
+        .getTopLeft(find.byKey(const ValueKey('history-live-page')))
+        .dy;
+    shell.openTopic(
+      const Topic(id: 7, title: 'Shared topic card', slug: 'shared-topic-card'),
+    );
+    await tester.pumpAndSettle();
+
+    for (final cancel in [true, false]) {
+      const origin = Offset(8, 400);
+      final gesture = await tester.startGesture(origin);
+      for (final fraction in [.25, .5, .9]) {
+        await gesture.moveTo(
+          origin + Offset(phone.width * fraction, 0),
+          timeStamp: Duration(milliseconds: (fraction * 1000).round()),
+        );
+        await tester.pump();
+        final preview = find.descendant(
+          of: find.byKey(const ValueKey('history-previous-preview')),
+          matching: find.byType(RawImage),
+        );
+        expect(preview, findsOneWidget);
+        expect(
+          tester.getTopLeft(preview).dy,
+          greaterThanOrEqualTo(listFrameTop),
+        );
+        expect(tester.getTopLeft(preview).dy, greaterThan(logo.bottom));
+        await _captureChrome(tester, 'topic-back-$cancel-$fraction');
+      }
+      if (cancel) {
+        await gesture.cancel();
+      } else {
+        await gesture.up();
+      }
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.isTopic, cancel);
+    }
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('mobile-content-panel'))).dy,
+      listTop,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('edge swipes cover the full mobile navigation surface', (
     tester,
   ) async {

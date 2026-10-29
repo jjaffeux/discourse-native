@@ -196,10 +196,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   static const _tabDuration = Duration(milliseconds: 300);
 
   final _boundary = GlobalKey();
-  final _previews = <Object, ({ui.Image image, Object? previousEntry})>{};
+  final _previews =
+      <Object, ({ui.Image image, Object? previousEntry, Offset origin})>{};
   final _pointers = <int>{};
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
+  Offset _previewOffset = Offset.zero;
   Object? _environment;
   Object? _committedEntry;
   Size _size = Size.zero;
@@ -345,6 +347,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     if (_progress.value != 0) _progress.value = 0;
     final preview = _preview;
     _preview = null;
+    _previewOffset = Offset.zero;
     // A RawImage from this frame may still own the old handle until rebuild.
     if (preview != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => preview.dispose());
@@ -371,10 +374,28 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   void _remember(Object entry, Object? previousEntry, ui.Image image) {
     _previews.remove(entry)?.image.dispose();
-    _previews[entry] = (image: image, previousEntry: previousEntry);
+    _previews[entry] = (
+      image: image,
+      previousEntry: previousEntry,
+      origin: _pageOrigin(),
+    );
     while (_previews.length > 8) {
       _previews.remove(_previews.keys.first)!.image.dispose();
     }
+  }
+
+  Offset _pageOrigin() {
+    final frame = context.findRenderObject();
+    RenderObject? page = _boundary.currentContext?.findRenderObject();
+    var origin = Offset.zero;
+    // Use layout offsets: the outgoing page may still carry its swipe transform
+    // when it is captured, but that transform is not part of its resting frame.
+    while (page != null && page != frame) {
+      final data = page.parentData;
+      if (data is BoxParentData) origin += data.offset;
+      page = page.parent;
+    }
+    return origin;
   }
 
   bool _allowsPointer(PointerDownEvent event) {
@@ -419,7 +440,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _openingNavigation = _back && _navigationOrigin(details.localPosition);
       _dragging = true;
       _distance = 0;
-      _preview = _previews[_target]?.image.clone();
+      final preview = _previews[_target];
+      _preview = preview?.image.clone();
+      _previewOffset = preview == null
+          ? Offset.zero
+          : preview.origin - _pageOrigin();
     });
   }
 
@@ -611,10 +636,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 child: IgnorePointer(
                   child: _preview == null
                       ? ColoredBox(color: background)
-                      : RawImage(
-                          image: _preview,
-                          fit: BoxFit.fitWidth,
-                          alignment: Alignment.topCenter,
+                      : Transform.translate(
+                          offset: _previewOffset,
+                          child: RawImage(
+                            image: _preview,
+                            fit: BoxFit.fitWidth,
+                            alignment: Alignment.topCenter,
+                          ),
                         ),
                 ),
               );
