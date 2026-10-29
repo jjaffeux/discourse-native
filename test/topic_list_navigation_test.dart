@@ -1136,7 +1136,7 @@ void main() {
     final feedRect = tester.getRect(
       find.byKey(const ValueKey('topic-list-feed-menu')),
     );
-    expect(parentRect.top, greaterThanOrEqualTo(feedRect.top));
+    expect(parentRect.center.dy, greaterThanOrEqualTo(feedRect.center.dy));
     expect(parentRect.overlaps(feedRect), isFalse);
     expect(tagRect.overlaps(parentRect), isFalse);
     expect(tagRect.overlaps(feedRect), isFalse);
@@ -2244,7 +2244,13 @@ void main() {
           );
           await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
-          expect(find.text('Top · Week'), findsOneWidget);
+          final currentTop = find.byKey(const ValueKey('topic-list-view-top'));
+          expect(currentTop, findsOneWidget);
+          expect(
+            tester.widget<DToggle>(currentTop).semanticLabel,
+            'Top · Week',
+          );
+          expect(tester.widget<DToggle>(currentTop).pressed, isTrue);
           final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
           await tester.tap(trigger);
           await tester.pumpAndSettle();
