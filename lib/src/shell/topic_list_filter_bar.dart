@@ -67,19 +67,37 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
   // from; its key moves to the last remaining segment of the shortened path.
   final _categoryMenuKeys = <int, GlobalKey>{};
   int? _openCategoryLevel;
+  DPageHeader? _header;
+  bool _touch = false;
+  bool _compact = false;
 
   @override
-  Widget build(BuildContext context) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final header = DPageHeaderScope.maybeOf(context);
-    if (header == null) return _buildFilters(context, compact: false);
-    return ValueListenableBuilder<double>(
-      valueListenable: header,
-      builder: (context, progress, _) => _buildFilters(
-        context,
-        compact: DControlStyle.isTouch(context) && progress == 1,
-      ),
-    );
+    if (!identical(header, _header)) {
+      _header?.removeListener(_headerChanged);
+      _header = header;
+      _header?.addListener(_headerChanged);
+    }
+    _touch = DControlStyle.isTouch(context);
+    _compact = _touch && _header?.value == 1;
   }
+
+  void _headerChanged() {
+    final compact = _touch && _header?.value == 1;
+    if (compact != _compact) setState(() => _compact = compact);
+  }
+
+  @override
+  void dispose() {
+    _header?.removeListener(_headerChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _buildFilters(context, compact: _compact);
 
   Widget _buildFilters(BuildContext context, {required bool compact}) {
     final selectedTags = [
