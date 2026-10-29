@@ -70,6 +70,25 @@ Files:
 - `lib/src/internal/flattener.dart`
 - `test/flattener_span_order_test.dart`
 
+## Short asynchronous bodies
+
+`HtmlWidget` with `buildAsync: true` parses a document of at most
+`kShouldBuildAsync` characters in a microtask on the calling isolate, after
+the frame that built the widget, instead of in a `compute` isolate. Longer
+documents keep the upstream isolate parse. Conversion, yielding, mounting and
+error reporting are unchanged.
+
+The topic reader builds a reply's body this way when the reply first appears
+during a scroll toward the end of the stream, so the reply's chrome and its
+body land in separate frames. A short document parses faster than an isolate
+round trip, and the parse stays on the test clock, so widget tests observe
+the same frames the device does.
+
+Files:
+
+- `lib/src/core_html_widget.dart`
+- `test/cooperative_conversion_test.dart`
+
 ## Provenance metadata
 
 Files:

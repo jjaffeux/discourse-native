@@ -495,4 +495,18 @@ void main() {
     expect(probe.eventRanAtTail, isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a short asynchronous body leaves its frame but not the isolate',
+      (tester) async {
+    await tester.pumpWidget(_host(HtmlWidget(
+      '<p>short <b>reply</b></p>',
+      buildAsync: true,
+    )));
+    expect(find.text('short reply', findRichText: true), findsNothing);
+    // Only the test clock advances: work sent to another isolate would never
+    // come back under it.
+    await tester.pump();
+    expect(find.text('short reply', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

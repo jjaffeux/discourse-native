@@ -234,7 +234,11 @@ class HtmlWidgetState extends State<HtmlWidget> {
     }
 
     final generation = _buildGeneration;
-    final domNodes = await compute(_parseHtml, widget.html);
+    // A short document only has to leave the frame that asked for it, so it
+    // parses in a microtask after that frame instead of in an isolate.
+    final domNodes = widget.html.length > kShouldBuildAsync
+        ? await compute(_parseHtml, widget.html)
+        : await Future.microtask(() => _parseHtml(widget.html));
     // An obsolete parse must not reset the factory used by the current body.
     if (!mounted || generation != _buildGeneration) {
       return _sliverOrWidget0;
