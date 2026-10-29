@@ -274,7 +274,9 @@ void main() {
           find.descendant(of: controls, matching: find.byType(DButton)),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Unread').last);
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuRadioItem<bool>, 'Unread'),
+        );
         await tester.pumpAndSettle();
         expect(
           find.descendant(of: controls, matching: find.text('Unread')),
@@ -333,7 +335,7 @@ void main() {
       position.jumpTo(400);
       await tester.pumpAndSettle();
       final pinnedTop = tester.getTopLeft(controls).dy;
-      expect(pinnedTop, lessThan(initialTop));
+      expect(pinnedTop, closeTo(initialTop, .1));
       position.jumpTo(800);
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));

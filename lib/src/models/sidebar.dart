@@ -267,8 +267,8 @@ class SidebarSection {
   /// App-owned Native controls composed into the sidebar action slot.
   final WidgetBuilder? headerActionsBuilder;
 
-  /// Controls that pin above this section and the sections after it in the
-  /// sidebar's shared viewport. The builder returns a box, not a sliver.
+  /// Controls held above the sidebar's shared scrolling sections. The builder
+  /// returns a box; Native owns its spacing, surface, and viewport boundary.
   final WidgetBuilder? pinnedHeaderBuilder;
 
   /// A plugin-owned sliver drawn in place of the destination rows. The

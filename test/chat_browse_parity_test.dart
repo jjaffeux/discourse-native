@@ -936,12 +936,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pinned inbox filters preserve the continuous sidebar canvas', (
+  testWidgets('fixed inbox filters preserve the continuous sidebar canvas', (
     tester,
   ) async {
     final fixture = await _pump(tester);
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
     const canvas = Color(0xff153d99);
     {
       await fixture.show(
@@ -962,7 +960,6 @@ void main() {
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: _sidebarInbox(
-                        controller: scroll,
                         trailingSlivers: const [
                           SliverToBoxAdapter(child: SizedBox(height: 800)),
                         ],
@@ -975,7 +972,11 @@ void main() {
           ),
         ),
       );
-      scroll.jumpTo(0);
+      final viewport = find.descendant(
+        of: find.byKey(const ValueKey('inbox-filter-canvas')),
+        matching: find.byType(CustomScrollView),
+      );
+      final scroll = tester.widget<CustomScrollView>(viewport).controller!;
       await tester.pumpAndSettle();
       final bar = tester.getRect(find.byType(ChatInboxFilterBar));
       final kind = tester.getRect(
@@ -1001,11 +1002,6 @@ void main() {
       scroll.jumpTo(60);
       await tester.pumpAndSettle();
       expect(tester.getRect(find.byType(ChatInboxFilterBar)), bar);
-      final blur = find.descendant(
-        of: find.byType(PinnedHeaderSliver),
-        matching: find.byType(DGradientBlur),
-      );
-      expect(tester.getRect(blur).contains(bar.center), isTrue);
       expect(tester.takeException(), isNull);
     }
   });
@@ -1025,20 +1021,14 @@ void main() {
   });
 }
 
-Widget _sidebarInbox({
-  ScrollController? controller,
-  List<Widget> trailingSlivers = const [],
-}) => Builder(
+Widget _sidebarInbox({List<Widget> trailingSlivers = const []}) => Builder(
   builder: (context) {
     final section = const ChatPlugin()
         .sidebarSections(context)
         .singleWhere((section) => section.id == 'chat-inbox');
-    return CustomScrollView(
-      controller: controller,
+    return DSidebarContent.slivers(
+      header: Builder(builder: section.pinnedHeaderBuilder!),
       slivers: [
-        PinnedHeaderSliver(
-          child: Builder(builder: section.pinnedHeaderBuilder!),
-        ),
         Builder(builder: section.bodyBuilder!),
         ...trailingSlivers,
       ],

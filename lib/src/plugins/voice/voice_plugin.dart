@@ -265,7 +265,6 @@ final class VoicePlugin
         id: 'voice-rooms',
         title: appL10n.voiceRooms,
         showHeader: true,
-        collapsible: false,
         bodyBuilder: (_) => SliverList.list(
           children: [
             for (final room in rooms)
@@ -273,6 +272,9 @@ final class VoicePlugin
             if (createRoom != null)
               DButton(
                 variant: DButtonVariant.ghost,
+                size: DControlStyle.isTouch(context)
+                    ? DButtonSize.small
+                    : DButtonSize.regular,
                 icon: const DIcon(DIcons.plus),
                 label: const Text('New voice room'),
                 onPressed: () => unawaited(createRoom(context)),
