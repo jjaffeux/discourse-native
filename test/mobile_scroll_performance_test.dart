@@ -1,9 +1,11 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/mobile_page_title.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -91,9 +93,27 @@ void main() {
           final titleHeight = tester
               .getSize(find.byWidget(page.header!))
               .height;
-          final fixedHeader = _artwork(
-            find.byKey(const ValueKey('mobile-header')),
+          final header = find.byKey(const ValueKey('mobile-header'));
+          final title = find.descendant(
+            of: header,
+            matching: find.byType(MobilePageTitle),
           );
+          // The bar's title fades with the page heading, so it may paint as
+          // it appears or vanishes. Nothing else in the bar may.
+          final titleArtwork = _artwork(title);
+          final fixedHeader = _artwork(header).difference(titleArtwork);
+          final heading = tester.widget<MobilePageTitle>(title).header.value!;
+          bool titleShown() =>
+              heading.layout != DPageHeaderLayout.expanded && heading.value > 0;
+          var shown = titleShown();
+          var titleChanges = 0;
+          void headingMoved() {
+            if (titleShown() == shown) return;
+            shown = !shown;
+            titleChanges++;
+          }
+
+          final titleFrames = <Duration>{};
           final dock = find.byType(DMobileDock);
 
           final surface = find.byKey(const ValueKey('mobile-dock-surface'));
@@ -107,8 +127,12 @@ void main() {
             previous?.call(object);
             totalPaints++;
             if (fixedHeader.contains(object)) headerPaints++;
+            if (titleArtwork.contains(object)) {
+              titleFrames.add(SchedulerBinding.instance.currentFrameTimeStamp);
+            }
             if (dockArtwork.contains(object)) dockPaints++;
           };
+          heading.addListener(headingMoved);
           try {
             final gesture = await tester.startGesture(
               tester.getCenter(scrollable),
@@ -150,10 +174,17 @@ void main() {
             expect(tester.widget<DMobileDock>(dock).collapsed, isFalse);
             debugPrint(
               'MOBILE_SCROLL_PAINTS reader=$reader platform=$platform '
-              'material=flat total=$totalPaints header=$headerPaints',
+              'material=flat total=$totalPaints header=$headerPaints '
+              'title=${titleFrames.length}/$titleChanges',
             );
             expect(totalPaints, greaterThan(0));
             expect(headerPaints, 0);
+            expect(titleChanges, greaterThan(0));
+            expect(
+              titleFrames.length,
+              lessThanOrEqualTo(titleChanges),
+              reason: 'The title fades without repainting',
+            );
 
             // Keep the settled navigation control's artwork cached.
             await tester.pump(const Duration(milliseconds: 450));
@@ -169,8 +200,10 @@ void main() {
             }
             expect(dockPaints, 0);
             expect(headerPaints, 0);
+            expect(titleFrames.length, lessThanOrEqualTo(titleChanges));
             expect(tester.takeException(), isNull);
           } finally {
+            heading.removeListener(headingMoved);
             debugOnProfilePaint = previous;
           }
         },
