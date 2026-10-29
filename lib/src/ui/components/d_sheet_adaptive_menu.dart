@@ -481,19 +481,6 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (oldWidget.contentLoading && !widget.contentLoading) {
       _contentLayoutPending = true;
     }
-    if (_dismissOrigin == null &&
-        !_interacted &&
-        widget.sizeToContent &&
-        // The overlay can rebuild its content before build observes the first
-        // keyboard inset. Keep the measured detent: remeasuring as an initial
-        // layout would reset travel to zero and skip the keyboard animation.
-        MediaQuery.viewInsetsOf(context).bottom == 0 &&
-        !identical(
-          oldWidget.presentation.content,
-          widget.presentation.content,
-        )) {
-      _measured = false;
-    }
   }
 
   void _keyboardTransition() {

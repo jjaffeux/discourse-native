@@ -3,6 +3,7 @@ import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,61 @@ final _moreTrigger = find.descendant(
 );
 
 void main() {
+  for (final (filter, option) in [('activity', 'Unread'), ('sort', 'Newest')]) {
+    testWidgets(
+      'first $filter sheet stays visible during an inbox refresh',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        final shell = await pumpMobileShellFixture(tester);
+        shell.selectMobilePanel('chat');
+        await tester.pumpAndSettle();
+        final barBounds = tester.getRect(_bar);
+        await tester.tap(find.byKey(ValueKey('chat-inbox-$filter-filter')));
+        final sheet = find.byType(DSheetContent);
+        for (var frame = 0; frame < 10 && sheet.evaluate().isEmpty; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(sheet, findsOneWidget);
+        var previousTop = tester.getTopLeft(sheet).dy;
+        await shell.pluginSession
+            .require(chatControllerService)
+            .loadChannels('https://meta.discourse.org', force: true);
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            sheet,
+            findsOneWidget,
+            reason: 'the open sheet must stay painted',
+          );
+          final top = tester.getTopLeft(sheet).dy;
+          expect(top, lessThanOrEqualTo(previousTop + .01));
+          previousTop = top;
+          expect(tester.getRect(_bar), barBounds);
+        }
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(of: sheet, matching: find.text(option)),
+        );
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey('chat-inbox-$filter-filter')),
+            matching: find.text(option),
+          ),
+          findsOneWidget,
+        );
+        expect(_bar.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   for (final (label, pageType) in [
     ('Chats', ChatMobileSidebar),
     ('Channels', ChatBrowseChannelsView),
