@@ -19263,5 +19263,42 @@
   "searchChat": "Search chat",
   "@searchChat": {"description": "Drawer entry opening the shared forum search scoped to Chat or the current channel."},
   "voiceRoomDeleteFailed": "Couldn’t delete the room.",
-  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."}
+  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."},
+  "sidebarSelected": "Selected",
+  "@sidebarSelected": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarUnselected": "Unselected",
+  "@sidebarUnselected": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarResetDefault": "Reset to default",
+  "@sidebarResetDefault": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarSearchCategories": "Search categories",
+  "@sidebarSearchCategories": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarEditCategories": "Edit categories",
+  "@sidebarEditCategories": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarEditTags": "Edit tags",
+  "@sidebarEditTags": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "saveSidebarItem": "Save {name} to sidebar",
+  "@saveSidebarItem": {
+    "description": "Category and tag sidebar preference editor.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sidebarNoMatches": "No matches.",
+  "@sidebarNoMatches": {
+    "description": "Category and tag sidebar preference editor."
+  }
 }

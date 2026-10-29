@@ -5,6 +5,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'saved siblings survive expansion, with nested saved children and a transient active path',
+    () {
+      const categories = [
+        TopicCategory(id: 1, name: 'Product', color: '123456', position: 0),
+        TopicCategory(
+          id: 2,
+          name: 'Design',
+          color: '123456',
+          parentCategoryId: 1,
+          position: 0,
+        ),
+        TopicCategory(
+          id: 3,
+          name: 'Development',
+          color: '123456',
+          parentCategoryId: 1,
+          position: 1,
+        ),
+        TopicCategory(id: 4, name: 'Support', color: '123456', position: 1),
+        TopicCategory(
+          id: 5,
+          name: 'Help',
+          color: '123456',
+          parentCategoryId: 4,
+        ),
+      ];
+      final saved = <int>[];
+      final section = buildCategorySidebarSection(
+        categories: categories,
+        connected: true,
+        preferredCategoryIds: [1, 2],
+        scopeCategoryId: 5,
+        fixedCategoryPositions: true,
+        onSaveCategory: saved.add,
+      );
+      expect(section.destinations.map((d) => (d.label, d.indent)), [
+        ('Product', 0),
+        ('Design', 1),
+        ('Support', 0),
+        ('Help', 1),
+        ('Edit', 0),
+        ('All categories', 0),
+      ]);
+      section.destinations[3].onSecondaryTap!();
+      expect(saved, [5]);
+      final root = buildCategorySidebarSection(
+        categories: categories,
+        connected: true,
+        preferredCategoryIds: [1, 2],
+        fixedCategoryPositions: true,
+      );
+      expect(root.destinations.map((d) => d.label), [
+        'Product',
+        'Design',
+        'Edit',
+        'All categories',
+      ]);
+    },
+  );
+
   for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
     test(
       'unreadable escapes in a category slug remain a literal path segment: $slug',
@@ -49,6 +110,7 @@ void main() {
 
     expect(section.destinations.map((entry) => entry.id), [
       'category-1',
+      'edit-sidebar-categories',
       'all-categories',
     ]);
   });
@@ -113,11 +175,11 @@ void main() {
 
     expect(section.title, 'Categories');
     expect(section.destinations.map((destination) => destination.label), [
+      'Beta',
+      'Delta',
+      'Gamma',
       'Sixth',
       'Zulu',
-      'Beta',
-      'Gamma',
-      'Delta',
       'All categories',
     ]);
     expect(section.destinations.last.icon, DIcons.list);
@@ -145,6 +207,7 @@ void main() {
       'Epsilon',
       'Gamma',
       'Zulu',
+      'Edit',
       'All categories',
     ]);
   });
@@ -216,10 +279,12 @@ void main() {
 
     expect(hidden.destinations.map((destination) => destination.label), [
       'Support',
+      'Edit',
       'All categories',
     ]);
     expect(shown.destinations.map((destination) => destination.label), [
       'Uncategorized',
+      'Edit',
       'All categories',
     ]);
   });
@@ -263,6 +328,7 @@ void main() {
       'Announcements',
       'Emoji',
       'Child',
+      'Edit',
       'All categories',
     ]);
 

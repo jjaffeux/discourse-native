@@ -73,6 +73,48 @@ MockClient discourseServing({
 void main() {
   group('user preferences', () {
     test(
+      'sidebar preferences use flat server fields, preserve empty arrays and accept server normalization',
+      () async {
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response(
+              jsonEncode({
+                'user': {
+                  'sidebar_category_ids': [4],
+                  'sidebar_tags': [
+                    {'id': 9, 'name': 'normalized', 'slug': 'normalized'},
+                  ],
+                },
+              }),
+              200,
+            );
+          }),
+        );
+        addTearDown(api.close);
+        final result = await api.updateUserPreferences(
+          siteUrl: 'https://forum.example',
+          apiKey: 'key',
+          username: 'Reader',
+          fallback: const UserPreferences(username: 'Reader'),
+          values: {
+            'sidebar_category_ids': <int>[],
+            'sidebar_tag_names': ['Normalized'],
+          },
+        );
+        expect(requests.single.method, 'PUT');
+        expect(requests.single.url.path, '/u/reader.json');
+        expect(jsonDecode(requests.single.body), {
+          'sidebar_category_ids': <int>[],
+          'sidebar_tag_names': ['Normalized'],
+        });
+        expect(result.sidebarCategoryIds, [4]);
+        expect(result.sidebarTags.single.name, 'normalized');
+      },
+    );
+
+    test(
       'saves the nested core notification schedule and reads server normalization',
       () async {
         final schedule = NotificationSchedule(

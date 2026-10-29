@@ -52,7 +52,7 @@ final class PreferencesState {
     final confirmed = this.confirmed;
     return draft != null &&
         confirmed != null &&
-        !mapEquals(draft.payloadFor(section), confirmed.payloadFor(section));
+        !_samePayload(draft.payloadFor(section), confirmed.payloadFor(section));
   }
 
   PreferencesState copyWith({
@@ -176,7 +176,7 @@ final class PreferencesController extends FrameSafeNotifier {
     final after = draft.payloadFor(section);
     return Map.unmodifiable({
       for (final MapEntry(:key, :value) in after.entries)
-        if (before[key] != value) key: value,
+        if (!_sameValue(before[key], value)) key: value,
     });
   }
 
@@ -531,3 +531,12 @@ final class _AutomaticPreferenceSave {
   final SiteLease lease;
   final Completer<void> completion = Completer<void>();
 }
+
+bool _sameValue(Object? a, Object? b) =>
+    a is List && b is List ? listEquals(a, b) : a == b;
+bool _samePayload(Map<String, Object?> a, Map<String, Object?> b) =>
+    a.length == b.length &&
+    a.entries.every(
+      (entry) =>
+          b.containsKey(entry.key) && _sameValue(entry.value, b[entry.key]),
+    );

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'bookmark.dart';
 import 'json.dart';
 import 'notification_schedule.dart';
+import 'sidebar_tag.dart';
 
 /// Core sections have fixed identities; plugins declare their own namespace.
 @immutable
@@ -16,6 +17,8 @@ final class PreferenceSection {
     'notificationSchedule',
   );
   static const tracking = PreferenceSection._core('tracking');
+  static const sidebarCategories = PreferenceSection._core('sidebarCategories');
+  static const sidebarTags = PreferenceSection._core('sidebarTags');
   static const interface = PreferenceSection._core('interface');
   static const values = [profile, notifications, tracking, interface];
 
@@ -39,6 +42,8 @@ abstract interface class UserPreferenceValues {
 @immutable
 final class UserPreferences {
   static const Set<String> coreFields = {
+    'sidebar_category_ids',
+    'sidebar_tag_names',
     'timezone',
     'like_notification_frequency',
     'notify_on_linked_posts',
@@ -56,9 +61,12 @@ final class UserPreferences {
     'can_edit',
     'can_change_tracking_preferences',
     'user_option',
+    'sidebar_tags',
   };
 
   const UserPreferences({
+    this.sidebarCategoryIds = const [],
+    this.sidebarTags = const [],
     this.username = '',
     this.timezone = '',
     this.likeNotificationFrequency = 1,
@@ -82,6 +90,18 @@ final class UserPreferences {
     final options = jsonObject(json['user_option']);
 
     return UserPreferences(
+      sidebarCategoryIds: json.containsKey('sidebar_category_ids')
+          ? List.unmodifiable([
+              for (final id in jsonArray(json['sidebar_category_ids']))
+                ?jsonIntOrNull(id),
+            ])
+          : fallback.sidebarCategoryIds,
+      sidebarTags: json.containsKey('sidebar_tags')
+          ? List.unmodifiable([
+              for (final tag in jsonArray(json['sidebar_tags']))
+                ?SidebarTag.fromJson(tag),
+            ])
+          : fallback.sidebarTags,
       username: _string(json, 'username', fallback.username),
       timezone: _string(options, 'timezone', fallback.timezone),
       notificationSchedule:
@@ -145,6 +165,8 @@ final class UserPreferences {
   };
   static const Set<int> _replyNotificationLevels = {1, 2, 3};
 
+  final List<int> sidebarCategoryIds;
+  final List<SidebarTag> sidebarTags;
   final String username;
   final String timezone;
 
@@ -164,6 +186,12 @@ final class UserPreferences {
 
   Map<String, Object?> payloadFor(PreferenceSection section) =>
       Map.unmodifiable(switch (section) {
+        PreferenceSection.sidebarCategories => {
+          'sidebar_category_ids': sidebarCategoryIds,
+        },
+        PreferenceSection.sidebarTags => {
+          'sidebar_tag_names': [for (final tag in sidebarTags) tag.name],
+        },
         PreferenceSection.profile => {'timezone': timezone},
         PreferenceSection.notifications => {
           'like_notification_frequency': likeNotificationFrequency,
@@ -189,6 +217,12 @@ final class UserPreferences {
     PreferenceSection section,
     UserPreferences confirmed,
   ) => switch (section) {
+    PreferenceSection.sidebarCategories => copyWith(
+      sidebarCategoryIds: confirmed.sidebarCategoryIds,
+    ),
+    PreferenceSection.sidebarTags => copyWith(
+      sidebarTags: confirmed.sidebarTags,
+    ),
     PreferenceSection.notificationSchedule => copyWith(
       notificationSchedule: confirmed.notificationSchedule,
     ),
@@ -214,6 +248,8 @@ final class UserPreferences {
   };
 
   UserPreferences copyWith({
+    List<int>? sidebarCategoryIds,
+    List<SidebarTag>? sidebarTags,
     String? username,
     String? timezone,
     int? likeNotificationFrequency,
@@ -227,6 +263,10 @@ final class UserPreferences {
     bool? canEdit,
     bool? canChangeTrackingPreferences,
   }) => UserPreferences(
+    sidebarCategoryIds: List.unmodifiable(
+      sidebarCategoryIds ?? this.sidebarCategoryIds,
+    ),
+    sidebarTags: List.unmodifiable(sidebarTags ?? this.sidebarTags),
     username: username ?? this.username,
     timezone: timezone ?? this.timezone,
     likeNotificationFrequency:
@@ -253,6 +293,8 @@ final class UserPreferences {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is UserPreferences &&
+          listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
+          listEquals(other.sidebarTags, sidebarTags) &&
           other.username == username &&
           other.timezone == timezone &&
           other.likeNotificationFrequency == likeNotificationFrequency &&
@@ -269,6 +311,8 @@ final class UserPreferences {
 
   @override
   int get hashCode => Object.hash(
+    Object.hashAll(sidebarCategoryIds),
+    Object.hashAll(sidebarTags),
     username,
     timezone,
     likeNotificationFrequency,

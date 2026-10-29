@@ -23,6 +23,7 @@ import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
+import 'sidebar_taxonomy_editor.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
 
@@ -1255,12 +1256,46 @@ class _SectionState extends State<_Section> {
 
   void _selectDestination(SidebarDestination destination) {
     widget.onNavigate?.call();
+    if (destination.id == 'edit-sidebar-categories' ||
+        destination.id == 'edit-sidebar-tags') {
+      unawaited(
+        showSidebarTaxonomyEditor(
+          context: context,
+          controller: ShellScope.read(context),
+          siteUrl: widget.siteUrl,
+          categories: destination.id == 'edit-sidebar-categories',
+        ),
+      );
+      return;
+    }
     ComposerPresentationHost.redockForNavigation(context);
     final onTap = destination.onTap;
     if (onTap != null) {
       onTap();
     } else {
       widget.onSelect(destination);
+    }
+  }
+
+  Future<void> _saveTransient(SidebarDestination destination) async {
+    final controller = ShellScope.read(context);
+    final siteUrl = widget.siteUrl;
+    final lease = controller.lifecycle.capture(siteUrl);
+    final categoryId = destination.id.startsWith('category-')
+        ? int.tryParse(destination.id.substring('category-'.length))
+        : null;
+    final saved = categoryId != null
+        ? await controller.saveSidebarCategory(siteUrl, categoryId)
+        : await controller.saveSidebarTag(siteUrl, destination.label);
+    if (!saved && mounted && lease.isCurrent) {
+      DToast.show(
+        context,
+        controller.preferences.stateFor(siteUrl)?.error ??
+            context.l10n.couldnTUpdatePreferencesOn(
+              controller.instanceFor(siteUrl)?.host ?? siteUrl,
+            ),
+        type: DToastType.error,
+      );
     }
   }
 
@@ -1442,6 +1477,11 @@ class _SectionState extends State<_Section> {
           badge: widget.badgeFor(destination.id),
           iconSize: section.id.startsWith('custom-') ? 12 : 16,
           reorderable: reorderable,
+          onSecondaryTap:
+              (section.id == 'categories' || section.id == 'tags') &&
+                  destination.trailingIcon == DIcons.plus
+              ? () => unawaited(_saveTransient(destination))
+              : null,
           onTap: () => _selectDestination(destination),
         );
       }
@@ -1658,37 +1698,6 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final base = shell.sidebarCategoryBase;
-    if (section.id == 'categories' && base != null ||
-        section.id == 'tags' && shell.sidebarFilterRoute?.tagName != null) {
-      final categories = section.id == 'categories';
-      final parent = categories
-          ? shell.categoryFor(base?.parentCategoryId)
-          : null;
-      final label = categories
-          ? parent?.name ?? context.l10n.categories
-          : context.l10n.tags;
-      return DSidebarGroupLabel(
-        key: ValueKey('sidebar-${section.id}-up'),
-        semanticLabel: label,
-        onPressed: () => shell.changeSidebarScope(
-          categoryId: categories
-              ? parent?.id
-              : shell.sidebarFilterRoute?.categoryId,
-          tag: categories ? shell.sidebarFilterRoute?.tagName : null,
-        ),
-        child: _content(
-          context,
-          DIcons.arrowUp,
-          Text(
-            label,
-            maxLines: MediaQuery.textScalerOf(context).scale(14) > 14 ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      );
-    }
     final unreadDescription = section.unreadCount > 0
         ? context.l10n.unreadInstancesidebar(section.unreadCount)
         : '';
@@ -1781,6 +1790,7 @@ class SidebarDestinationTile extends StatelessWidget {
     this.iconSize = 16,
     this.reorderable = false,
     required this.onTap,
+    this.onSecondaryTap,
   });
   final SidebarDestination destination;
   final bool selected;
@@ -1793,6 +1803,7 @@ class SidebarDestinationTile extends StatelessWidget {
   /// the link context menu must then leave to the reorderable list.
   final bool reorderable;
   final VoidCallback onTap;
+  final VoidCallback? onSecondaryTap;
 
   Widget _prefixArt(BuildContext context) {
     final theme = Theme.of(context);
@@ -1888,7 +1899,7 @@ class SidebarDestinationTile extends StatelessWidget {
     final theme = Theme.of(context);
     final badge = destination.badge ?? this.badge;
     final trailingLabel = destination.trailingLabel;
-    final action = destination.onSecondaryTap;
+    final action = onSecondaryTap ?? destination.onSecondaryTap;
     final description = destination.semanticDescription;
     final count = badge.isVisible && !badge.dot ? badge.count : null;
     final dotLabel = badge.urgent
@@ -1944,9 +1955,9 @@ class SidebarDestinationTile extends StatelessWidget {
           (action == null
               ? null
               : DSidebarMenuAction(
-                  semanticLabel: context.l10n.openInstancesidebar(
-                    (destination.label).toString(),
-                  ),
+                  semanticLabel: destination.trailingIcon == DIcons.plus
+                      ? context.l10n.saveSidebarItem(destination.label)
+                      : context.l10n.openInstancesidebar(destination.label),
                   onPressed: destination.enabled ? action : null,
                   child: DIcon(
                     destination.trailingIcon ?? DIcons.chevronRight,

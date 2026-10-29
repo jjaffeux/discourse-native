@@ -8,6 +8,43 @@ import 'support/bundled_plugins.dart';
 
 void main() {
   test(
+    'sidebar sections parse top-level server fields and merge independently',
+    () {
+      final value = UserPreferences.fromJson(const {
+        'username': 'reader',
+        'can_edit': true,
+        'sidebar_category_ids': [3, 8],
+        'sidebar_tags': [
+          {'id': 7, 'name': 'release', 'slug': 'release', 'count': 10},
+        ],
+      });
+      expect(value.payloadFor(PreferenceSection.sidebarCategories), {
+        'sidebar_category_ids': [3, 8],
+      });
+      expect(value.payloadFor(PreferenceSection.sidebarTags), {
+        'sidebar_tag_names': ['release'],
+      });
+      final changed = value.copyWith(
+        sidebarCategoryIds: const [],
+        sidebarTags: const [],
+      );
+      expect(
+        changed
+            .withSectionFrom(PreferenceSection.sidebarCategories, value)
+            .sidebarTags,
+        isEmpty,
+      );
+      expect(
+        changed
+            .withSectionFrom(PreferenceSection.sidebarCategories, value)
+            .sidebarCategoryIds,
+        [3, 8],
+      );
+      expect(UserPreferences.fromJson(const {}, fallback: value), value);
+    },
+  );
+
+  test(
     'channel-list wire values round trip independently and preserve absence',
     () {
       for (final section in ChatChannelListSection.values) {

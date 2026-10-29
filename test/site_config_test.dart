@@ -506,6 +506,21 @@ void main() {
       );
     });
 
+    test(
+      'keeps default sidebar tags in live and persisted site configuration',
+      () {
+        final config = SiteConfig.fromSettings({
+          ...settings(),
+          'default_navigation_menu_tags': 'release|howto',
+        });
+        expect(config.defaultNavigationMenuTagNames, ['release', 'howto']);
+        expect(
+          SiteConfig.fromJson(config.toJson()).defaultNavigationMenuTagNames,
+          ['release', 'howto'],
+        );
+      },
+    );
+
     test('reads category navigation ordering and anonymous defaults', () {
       final config = SiteConfig.fromSettings(
         settings(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -73,11 +74,19 @@ class _TagsPageState extends State<TagsPage> {
       ),
       builder: (context, data, _) {
         final (session, feed) = data;
-        final tags = feed.tags
-            .where(
-              (tag) => searchWordsMatch(SearchWords.of(context), [tag.name]),
-            )
-            .toList();
+        final tags =
+            feed.tags
+                .where(
+                  (tag) =>
+                      searchWordsMatch(SearchWords.of(context), [tag.name]),
+                )
+                .toList()
+              ..sort((a, b) {
+                final count = b.count.compareTo(a.count);
+                return count != 0
+                    ? count
+                    : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+              });
         _scheduleRequest(session);
         if (feed.error != null && feed.tags.isEmpty) {
           return _TagPageState(
@@ -102,31 +111,50 @@ class _TagsPageState extends State<TagsPage> {
 
         return ContentReadingLane(
           basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          builder: (context, lane) => ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: lane.padding.add(
-              EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-            ),
-            itemCount: tags.length + (feed.error == null ? 0 : 1),
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              var tagIndex = index;
-              if (feed.error case final message?) {
-                if (tagIndex == 0) {
-                  return _TagErrorBanner(
-                    message: message,
-                    onRetry: () => _request(force: true),
-                  );
+          builder: (context, lane) {
+            final columns = math.max(
+              1,
+              (lane.width / MediaQuery.textScalerOf(context).scale(300))
+                  .floor(),
+            );
+            final rows = (tags.length / columns).ceil();
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: lane.padding.add(
+                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+              ),
+              itemCount: rows + (feed.error == null ? 0 : 1),
+              separatorBuilder: (_, _) => const SizedBox(height: DSpacing.md),
+              itemBuilder: (context, index) {
+                if (feed.error != null) {
+                  if (index == 0) {
+                    return _TagErrorBanner(
+                      message: feed.error!,
+                      onRetry: () => _request(force: true),
+                    );
+                  }
+                  index--;
                 }
-                tagIndex--;
-              }
-              final tag = tags[tagIndex];
-              return TagDirectoryRow(
-                tag: tag,
-                onTap: () => ShellScope.read(context).openTag(tag),
-              );
-            },
-          ),
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.md,
+                  children: [
+                    for (var column = 0; column < columns; column++)
+                      Expanded(
+                        child: index * columns + column < tags.length
+                            ? TagDirectoryRow(
+                                tag: tags[index * columns + column],
+                                onTap: () => ShellScope.read(
+                                  context,
+                                ).openTag(tags[index * columns + column]),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     ),
@@ -146,43 +174,30 @@ class TagDirectoryRow extends StatelessWidget {
     final noun = tag.pmOnly ? CountNoun.message : CountNoun.topic;
     final countText = countLabel(tag.count, noun);
 
-    return DItem(
+    return DCard(
       key: ValueKey('tag-directory-tag-${tag.id}'),
-      variant: DItemVariant.outline,
-      link: true,
-      onPressed: onTap,
-      children: [
-        DItemMedia(
-          variant: DItemMediaVariant.icon,
-          child: DIcon(
-            DIcons.tag,
-            size: 16,
-            color: theme.colorScheme.onSurfaceVariant,
+      variant: DCardVariant.well,
+      border: false,
+      spacing: 0,
+      child: DItem(
+        shape: DItemShape.card,
+        link: true,
+        onPressed: onTap,
+        children: [
+          DItemMedia(
+            variant: DItemMediaVariant.icon,
+            child: DIcon(DIcons.tag, color: theme.colorScheme.primary),
           ),
-        ),
-        DItemContent(
-          children: [
-            DItemTitle(child: Text(tag.name)),
-            if (description != null) DItemDescription(child: Text(description)),
-          ],
-        ),
-        DItemContent(
-          children: [
-            DItemDescription(
-              child: Semantics(
-                label: countText,
-                excludeSemantics: true,
-                child: Text(
-                  '${tag.count}',
-                  style: const TextStyle(
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+          DItemContent(
+            children: [
+              DItemTitle(child: Text(tag.name)),
+              if (description != null)
+                DItemDescription(child: Text(description)),
+              DItemDescription(child: Text(countText)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2572,6 +2572,12 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     var updated = switch (section) {
+      PreferenceSection.sidebarCategories => user.withPreferences(
+        sidebarCategoryIds: preferences.sidebarCategoryIds,
+      ),
+      PreferenceSection.sidebarTags => user.withPreferences(
+        sidebarTags: preferences.sidebarTags,
+      ),
       PreferenceSection.notifications => user.withPreferences(
         likesNotificationsDisabled: preferences.likeNotificationFrequency == 3,
       ),
@@ -3184,6 +3190,11 @@ class ShellController extends FrameSafeNotifier
 
   SidebarSection? tagSidebarSectionFor(String siteUrl) =>
       _taxonomy.tagSidebarSectionFor(siteUrl);
+
+  Future<bool> saveSidebarCategory(String siteUrl, int id) =>
+      _taxonomy.saveSidebarCategory(siteUrl, id);
+  Future<bool> saveSidebarTag(String siteUrl, String name) =>
+      _taxonomy.saveSidebarTag(siteUrl, name);
 
   TagDirectoryFeed tagDirectoryFeedFor(String siteUrl) =>
       _taxonomy.tagDirectoryFeedFor(siteUrl);

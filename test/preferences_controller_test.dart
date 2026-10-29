@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_schedule.dart';
+import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/preferences_controller.dart';
@@ -154,6 +155,70 @@ Future<void> _seed(PreferencesController controller) async {
 }
 
 void main() {
+  for (final section in [
+    PreferenceSection.sidebarCategories,
+    PreferenceSection.sidebarTags,
+  ]) {
+    test(
+      '${section.name} arrays compare by content and late saves cannot change a replacement account',
+      () async {
+        final response = Completer<UserPreferences>();
+        final started = Completer<void>();
+        final api = _PreferencesApi(
+          onUpdate: (call) {
+            started.complete();
+            return response.future;
+          },
+          onLoad: (call) async => _initial.copyWith(username: call.username),
+        );
+        final lifecycle = SiteLifecycle();
+        final saved = <String>[];
+        final controller = _controller(
+          api,
+          lifecycle: lifecycle,
+          onSaved: (site, section, value) => saved.add(value.username),
+        );
+        addTearDown(controller.dispose);
+        await _seed(controller);
+        expect(controller.stateFor(_siteUrl)!.dirty(section), isFalse);
+        controller.edit(
+          _siteUrl,
+          section,
+          (value) => value.copyWith(
+            sidebarCategoryIds: [3],
+            sidebarTags: const [
+              SidebarTag(id: 1, name: 'release', slug: 'release'),
+            ],
+          ),
+        );
+        final pending = controller.save(_accountA, section);
+        await started.future;
+        expect(
+          api.updates.single.values,
+          section == PreferenceSection.sidebarCategories
+              ? {
+                  'sidebar_category_ids': [3],
+                }
+              : {
+                  'sidebar_tag_names': ['release'],
+                },
+        );
+        lifecycle.invalidate(_siteUrl);
+        controller.forget(_siteUrl);
+        await controller.load(_accountB);
+        response.complete(api.updates.single.fallback);
+        expect(await pending, isFalse);
+        expect(controller.stateFor(_siteUrl)!.username, 'bob');
+        expect(
+          controller.stateFor(_siteUrl)!.draft!.sidebarCategoryIds,
+          isEmpty,
+        );
+        expect(controller.stateFor(_siteUrl)!.draft!.sidebarTags, isEmpty);
+        expect(saved, isEmpty);
+      },
+    );
+  }
+
   test(
     'schedule saves use their own transaction without saving another section draft',
     () async {

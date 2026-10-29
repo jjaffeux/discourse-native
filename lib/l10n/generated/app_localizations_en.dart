@@ -14624,4 +14624,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';
+
+  @override
+  String get sidebarSelected => 'Selected';
+
+  @override
+  String get sidebarUnselected => 'Unselected';
+
+  @override
+  String get sidebarResetDefault => 'Reset to default';
+
+  @override
+  String get sidebarSearchCategories => 'Search categories';
+
+  @override
+  String get sidebarEditCategories => 'Edit categories';
+
+  @override
+  String get sidebarEditTags => 'Edit tags';
+
+  @override
+  String saveSidebarItem(String name) {
+    return 'Save $name to sidebar';
+  }
+
+  @override
+  String get sidebarNoMatches => 'No matches.';
 }

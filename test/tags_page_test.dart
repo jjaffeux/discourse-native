@@ -188,7 +188,7 @@ void main() {
             .tagSidebarSectionFor(_siteUrl)!
             .destinations
             .map((destination) => destination.label),
-        ['selected-tag', 'All tags'],
+        ['selected-tag', 'Edit', 'All tags'],
       );
 
       final fallbackController = await _loadController(
@@ -207,7 +207,7 @@ void main() {
             .tagSidebarSectionFor(_siteUrl)!
             .destinations
             .map((destination) => destination.label),
-        ['site-top-tag', 'All tags'],
+        ['site-top-tag', 'Edit', 'All tags'],
       );
 
       final hiddenController = await _loadController(
@@ -298,7 +298,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: row, matching: find.text('3')),
+        find.descendant(of: row, matching: find.text('3 topics')),
         findsOneWidget,
       );
 

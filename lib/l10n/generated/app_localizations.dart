@@ -23024,6 +23024,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn’t delete the room.'**
   String get voiceRoomDeleteFailed;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get sidebarSelected;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Unselected'**
+  String get sidebarUnselected;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default'**
+  String get sidebarResetDefault;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Search categories'**
+  String get sidebarSearchCategories;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit categories'**
+  String get sidebarEditCategories;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit tags'**
+  String get sidebarEditTags;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Save {name} to sidebar'**
+  String saveSidebarItem(String name);
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches.'**
+  String get sidebarNoMatches;
 }
 
 class _AppLocalizationsDelegate
