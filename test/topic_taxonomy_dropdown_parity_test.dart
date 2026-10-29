@@ -368,7 +368,13 @@ void main() {
         final rects = [
           for (var i = 0; i < 4; i++) tester.getRect(toggles.at(i)),
         ];
-        expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
+        // A menu opened from the reference-sized filter row keeps that row's
+        // text scale, without the phone's reading-text uplift, so on a phone
+        // the four modes still share one row at 200 percent.
+        expect(
+          rects.map((rect) => rect.top).toSet().length,
+          platform == TargetPlatform.iOS ? 1 : greaterThan(1),
+        );
         final modes = tester.getRect(find.byType(DToggleGroup<String>));
         for (final rect in rects) {
           expect(rect.left, greaterThanOrEqualTo(modes.left));
