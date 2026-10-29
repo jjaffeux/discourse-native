@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/sidebar_taxonomy_editor.dart';
 import 'package:discourse_native/src/shell/tags_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,12 +121,13 @@ _fixture(
   bool phone = false,
   Completer<void>? writeGate,
   WriteException? writeFailure,
+  List<TopicCategory> categories = _categories,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final api =
       FakeDiscourseApi(
           user: _user,
-          categoryList: _categories,
+          categoryList: categories,
           tagList: _tags,
           userPreferencesWriteGate: writeGate,
           writeFailure: writeFailure,
@@ -438,6 +440,66 @@ void main() {
       expect(action, findsOneWidget);
       expect((await store.load()).single.user!.sidebarCategoryIds, [1, 2, 4]);
       expect(api.userPreferenceUpdates, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'phone taxonomy actions stay pinned while a long list scrolls and the keyboard opens',
+    (tester) async {
+      final (:shell, :api, :store) = await _fixture(
+        tester,
+        phone: true,
+        categories: [
+          ..._categories,
+          for (var index = 0; index < 40; index++)
+            TopicCategory(
+              id: 100 + index,
+              name: 'Additional category $index',
+              slug: 'additional-$index',
+              color: '4488CC',
+              position: 2 + index,
+            ),
+        ],
+      );
+      await tester.ensureVisible(_edit(true));
+      await tester.tap(_edit(true));
+      await tester.pumpAndSettle();
+      final actions = find.byKey(const ValueKey('sidebar-taxonomy-actions'));
+      final list = find.byKey(const ValueKey('sidebar-taxonomy-choices'));
+      final footerBefore = tester.getRect(actions);
+      final firstBefore = tester.getTopLeft(_choice(1));
+      await captureNativeUi(tester, 'phone-category-footer-partial');
+      expect(find.text('Reset to default').hitTestable(), findsOneWidget);
+      expect(find.text('Save').hitTestable(), findsOneWidget);
+      expect(footerBefore.bottom, lessThanOrEqualTo(844 - 34));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(list),
+          scrollDelta: const Offset(0, 180),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(actions), footerBefore);
+      expect(tester.getTopLeft(_choice(1)).dy, lessThan(firstBefore.dy));
+      await captureNativeUi(tester, 'phone-category-footer-scrolled');
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = const FakeViewPadding(top: 47);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      final footerWithKeyboard = tester.getRect(actions);
+      expect(footerWithKeyboard.bottom, lessThanOrEqualTo(544));
+      expect(find.text('Reset to default').hitTestable(), findsOneWidget);
+      expect(find.text('Save').hitTestable(), findsOneWidget);
+      await tester.drag(list, const Offset(0, -180));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(actions), footerWithKeyboard);
+      await captureNativeUi(tester, 'phone-category-footer-keyboard');
+      expect(api.userPreferenceUpdates, isEmpty);
+      expect((await store.load()).single.user!.sidebarCategoryIds, [1, 2, 4]);
+      expect(shell.currentUserFor(_site), isNotNull);
+      expect(tester.takeException(), isNull);
     },
   );
 
