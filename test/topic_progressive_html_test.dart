@@ -234,6 +234,98 @@ void main() {
       },
     );
   }
+
+  for (final towardEnd in [true, false]) {
+    testWidgets(
+      'replies dragged into the cache toward the end build their bodies '
+      'after that frame (towardEnd=$towardEnd)',
+      (tester) async {
+        final controller = await topicScrollController();
+        addTearDown(controller.dispose);
+        try {
+          await tester.pumpWidget(
+            TopicScrollFixture(controller: controller, inbox: false),
+          );
+          await _until(
+            tester,
+            () => _paragraphs('Post 1:').evaluate().isNotEmpty,
+          );
+          await tester.pumpAndSettle();
+          final list = topicPostList(tester);
+          list.listController!.jumpToItem(
+            index: 80,
+            scrollController: list.controller!,
+            alignment: 0,
+          );
+          await tester.pump();
+          expect(
+            _paragraphs('Post 41:'),
+            findsNWidgets(3),
+            reason: 'A jump lands on a reply whose body builds at once',
+          );
+          await tester.pumpAndSettle();
+
+          Set<int> builtReplies() => {
+            for (var id = 1; id <= 60; id++)
+              if (find
+                  .byKey(ValueKey(id), skipOffstage: false)
+                  .evaluate()
+                  .isNotEmpty)
+                id,
+          };
+          final before = builtReplies();
+          final anchor = find.byKey(const ValueKey(41), skipOffstage: false);
+          final gesture = await tester.startGesture(
+            tester.getCenter(topicPostListFinder()),
+          );
+          final direction = towardEnd ? -1.0 : 1.0;
+          await gesture.moveBy(Offset(0, direction * 20));
+          await tester.pump();
+          await gesture.moveBy(Offset(0, direction * 300));
+          await tester.pump();
+
+          final entered = builtReplies().difference(before);
+          expect(entered, isNotEmpty);
+          for (final id in entered) {
+            expect(
+              _paragraphs('Post $id:', skipOffstage: false),
+              towardEnd ? findsNothing : findsNWidgets(3),
+              reason: towardEnd
+                  ? 'Reply $id below builds its body after the frame it entered'
+                  : 'Reply $id above builds its body before anything moves',
+            );
+          }
+          final top = tester.getTopLeft(anchor).dy;
+          await _until(
+            tester,
+            () => entered.every(
+              (id) => _paragraphs(
+                'Post $id:',
+                skipOffstage: false,
+              ).evaluate().isNotEmpty,
+            ),
+          );
+          for (final id in entered) {
+            expect(
+              _paragraphs('Post $id:', skipOffstage: false),
+              findsNWidgets(3),
+            );
+          }
+          expect(
+            tester.getTopLeft(anchor).dy,
+            closeTo(top, 1),
+            reason: 'Bodies landing in the cache leave visible replies still',
+          );
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+        }
+      },
+    );
+  }
 }
 
 Finder _paragraphs(String prefix, {bool skipOffstage = true}) =>

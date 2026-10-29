@@ -4021,6 +4021,24 @@ class _PostTile extends StatefulWidget {
 class _PostTileState extends State<_PostTile> {
   bool _linksExpanded = false;
 
+  /// Whether this reply was first built while the reader dragged or flung
+  /// the stream toward its end, entering the scroll cache below the viewport.
+  /// Its HTML then builds after this frame: with the rest of the reply it
+  /// overruns a 120 Hz frame, and a body landing below moves nothing on
+  /// screen. Above the viewport it would push the visible replies down, and
+  /// jumps land on visible replies, so those build at once.
+  late final bool _bodyFollowsFrame;
+
+  @override
+  void initState() {
+    super.initState();
+    final position = context
+        .findAncestorStateOfType<ScrollableState>()
+        ?.position;
+    _bodyFollowsFrame =
+        position?.userScrollDirection == ScrollDirection.reverse;
+  }
+
   @override
   Widget build(BuildContext context) =>
       ShellSelector<({bool enabled, bool selected, bool busy})>(
@@ -4263,6 +4281,7 @@ class _PostTileState extends State<_PostTile> {
                                       html: displayedCooked,
                                       renderMode: const ProgressiveHtmlMode(),
                                       buildAsync:
+                                          _bodyFollowsFrame ||
                                           CookedHtml.buildsAsynchronously(
                                             post.cooked,
                                           ),
