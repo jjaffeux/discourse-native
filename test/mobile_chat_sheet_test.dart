@@ -216,7 +216,9 @@ void main() {
       final name =
           '${Theme.of(tester.element(_sheet)).platform.name}-${mode.name}-flat';
       await _capture(tester, '$name-open');
-      final drag = await tester.startGesture(tester.getCenter(_handle));
+      final drag = await tester.startGesture(
+        tester.getCenter(_handle).translate(0, 10),
+      );
       await drag.moveBy(const Offset(0, 20));
       await drag.moveBy(const Offset(0, 70));
       await tester.pump();

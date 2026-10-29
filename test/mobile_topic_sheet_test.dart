@@ -104,6 +104,45 @@ void main() {
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
+  for (final (origin, offset) in [
+    ('above the indicator', -10.0),
+    ('on the indicator', 0.0),
+    ('below the indicator', 10.0),
+  ]) {
+    testWidgets('a finger drag $origin dismisses a scrolled topic', (
+      tester,
+    ) async {
+      final shell = await _openTopic(tester);
+      final scroll = find
+          .descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(CustomScrollView),
+          )
+          .first;
+      await tester.drag(scroll, const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<CustomScrollView>(scroll).controller!.offset,
+        greaterThan(0),
+      );
+      final before = tester.getRect(_sheet);
+      final drag = await tester.startGesture(
+        tester.getCenter(_handle).translate(0, offset),
+      );
+      for (var step = 1; step <= 20; step++) {
+        await drag.moveBy(
+          const Offset(0, 10),
+          timeStamp: Duration(milliseconds: step * 20),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(tester.getRect(_sheet).top, greaterThan(before.top + 120));
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+    }, variant: _platforms);
+  }
+
   testWidgets('sliding dates keep a small clear gap below the sheet handle', (
     tester,
   ) async {

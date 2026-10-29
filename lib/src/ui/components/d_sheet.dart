@@ -14,6 +14,7 @@ import '../foundation/d_overlay_route.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_history_transition.dart';
@@ -2199,25 +2200,27 @@ class DSheetContent extends StatelessWidget {
     final page = variant == DSheetVariant.page;
     final menu =
         variant == DSheetVariant.menu || variant == DSheetVariant.adaptiveMenu;
-    final handle = Padding(
-      padding: EdgeInsets.only(top: page ? 7 : 8, bottom: page ? 9 : 10),
-      child: Center(
+    final handle = Center(
+      child: DTouchTarget(
         child: DSheetDragRegion(
-          child: ExcludeSemantics(
-            child: DecoratedBox(
-              key: const ValueKey('sheet-drag-handle'),
-              decoration: BoxDecoration(
-                color: overArtwork
-                    ? Colors.white.withValues(alpha: .9)
-                    : Color.lerp(
-                        tokens.background,
-                        tokens.foreground,
-                        .35,
-                      )!.withValues(alpha: .5),
-                borderRadius: BorderRadius.circular(3),
-                boxShadow: const [],
+          child: Padding(
+            padding: EdgeInsets.only(top: page ? 7 : 8, bottom: page ? 9 : 10),
+            child: ExcludeSemantics(
+              child: DecoratedBox(
+                key: const ValueKey('sheet-drag-handle'),
+                decoration: BoxDecoration(
+                  color: overArtwork
+                      ? Colors.white.withValues(alpha: .9)
+                      : Color.lerp(
+                          tokens.background,
+                          tokens.foreground,
+                          .35,
+                        )!.withValues(alpha: .5),
+                  borderRadius: BorderRadius.circular(3),
+                  boxShadow: const [],
+                ),
+                child: const SizedBox(width: 36, height: 5),
               ),
-              child: const SizedBox(width: 36, height: 5),
             ),
           ),
         ),
