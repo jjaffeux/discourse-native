@@ -202,6 +202,199 @@ void main() {
     });
   }
 
+  testWidgets('production view row remains reachable across available widths', (
+    tester,
+  ) async {
+    const support = TopicCategory(
+      id: 42,
+      name: 'Support',
+      slug: 'support',
+      color: '0088CC',
+    );
+    final setup = await _controller(
+      config: const SiteConfig(taggingEnabled: true),
+      categoryList: const [support],
+      trackingState: TopicTrackingState([
+        const TrackedTopicState(
+          topicId: 90,
+          categoryId: 99,
+          createdInNewPeriod: true,
+        ),
+        const TrackedTopicState(
+          topicId: 91,
+          categoryId: 99,
+          highestPostNumber: 2,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+        for (var id = 10; id <= 12; id++)
+          TrackedTopicState(
+            topicId: id,
+            categoryId: 42,
+            createdInNewPeriod: true,
+          ),
+        for (var id = 13; id <= 16; id++)
+          TrackedTopicState(
+            topicId: id,
+            categoryId: 42,
+            highestPostNumber: 2,
+            lastReadPostNumber: 1,
+            notificationLevel: 2,
+          ),
+      ]),
+      extraFeeds: const {
+        '/c/support/42.json': [_latestTopic],
+      },
+    );
+    addTearDown(setup.controller.dispose);
+    setup.controller.selectDestination(
+      buildCategoryDestination(support, categoriesById: const {42: support}),
+    );
+    addTearDown(tester.view.reset);
+    final directory = Platform.environment['TOPIC_LIST_CAPTURE_DIR'];
+    final name = Platform.environment['TOPIC_LIST_REVIEW_NAME'] ?? 'production';
+    final measurements = <String>[
+      'platform,viewport,row_max,switch_max,switch_width,views,category_y,tag_y,switch_y,one_row',
+    ];
+    for (final scenario in [
+      for (final width in [
+        1100.0,
+        760.0,
+        680.0,
+        600.0,
+        560.0,
+        520.0,
+        480.0,
+        440.0,
+        390.0,
+        340.0,
+      ])
+        (platform: TargetPlatform.macOS, width: width),
+      (platform: TargetPlatform.iOS, width: 390.0),
+    ]) {
+      final mobile = scenario.platform == TargetPlatform.iOS;
+      final size = Size(scenario.width, mobile ? 844 : 520);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = FakeViewPadding(
+        top: mobile ? 44 : 0,
+        bottom: mobile ? 34 : 0,
+      );
+      tester.view.viewPadding = FakeViewPadding(
+        top: mobile ? 44 : 0,
+        bottom: mobile ? 34 : 0,
+      );
+      final base = mobile ? AppTheme.dark : AppTheme.light;
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: const ValueKey('topic-list-production-review'),
+          child: ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: base.copyWith(
+                platform: scenario.platform,
+                textTheme: directory == null
+                    ? base.textTheme
+                    : base.textTheme.apply(fontFamily: 'TopicListReview'),
+              ),
+              home: DTouchTargets(
+                child: Scaffold(
+                  body: SafeArea(
+                    child: MainContent(
+                      layout: mobile
+                          ? ShellLayout.compact
+                          : ShellLayout.expanded,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bar = find.byType(TopicListFilterBar);
+      final switcher = find.byKey(const ValueKey('topic-list-view-switch'));
+      final category = find.byKey(const ValueKey('topic-list-category-filter'));
+      final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+      final switches = tester.getRect(switcher);
+      final categoryBounds = tester.getRect(category);
+      final tagBounds = tester.getRect(tag);
+      final row = tester.renderObject<RenderBox>(
+        find.descendant(of: bar, matching: find.byType(DFitRow)).first,
+      );
+      final layout = tester.renderObject<RenderBox>(
+        find
+            .descendant(
+              of: find.byType(TopicFeedMenu),
+              matching: find.byType(LayoutBuilder),
+            )
+            .first,
+      );
+      final toggles = find
+          .descendant(of: switcher, matching: find.byType(DToggle))
+          .evaluate()
+          .length;
+      final oneRow =
+          (switches.center.dy - categoryBounds.center.dy).abs() < 1 &&
+          (switches.center.dy - tagBounds.center.dy).abs() < 1;
+      measurements.add(
+        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout.constraints.maxWidth},${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
+      );
+      for (final rect in [switches, categoryBounds, tagBounds]) {
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(size.width));
+      }
+      expect(
+        find.byKey(const ValueKey('topic-list-view-latest')),
+        findsOneWidget,
+      );
+      if (toggles == 1) {
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-list-feed-menu')),
+            matching: find.text('7'),
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+      final filename =
+          '$name-${scenario.platform.name}-${scenario.width.toInt()}';
+      await _captureProductionRow(tester, directory, filename);
+      if (mobile) {
+        await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        for (final (entry, count) in [
+          ('new-all', '7'),
+          ('new-topics', '3'),
+          ('new-replies', '4'),
+          ('unread', '4'),
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byKey(ValueKey('topic-list-$entry')),
+              matching: find.text(count),
+            ),
+            findsOneWidget,
+          );
+        }
+        await _captureProductionRow(tester, directory, '$filename-overflow');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+    }
+    if (directory != null) {
+      await tester.runAsync(
+        () => File(
+          '$directory/$name-layout.csv',
+        ).writeAsString('${measurements.join('\n')}\n'),
+      );
+    }
+  });
+
   for (final (mode, display) in [
     for (final mode in [
       TopicListMode.latest,
@@ -2880,6 +3073,29 @@ void main() {
     addTearDown(setup.controller.dispose);
 
     expect(setup.controller.defaultTopTopicListMode, TopicListMode.topMonthly);
+  });
+}
+
+Future<void> _captureProductionRow(
+  WidgetTester tester,
+  String? directory,
+  String name,
+) async {
+  if (directory == null) return;
+  await tester.runAsync(() async {
+    final image = await tester
+        .renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('topic-list-production-review')),
+        )
+        .toImage(pixelRatio: 2);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('$directory/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
   });
 }
 
