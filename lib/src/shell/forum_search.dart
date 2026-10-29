@@ -628,14 +628,20 @@ class _ForumSearchState extends State<ForumSearch> {
                 : appL10n.searchThisForum,
             autocorrect: false,
             enableSuggestions: false,
-            textInputAction: TextInputAction.search,
+            textInputAction: widget.fullScreen
+                ? TextInputAction.done
+                : TextInputAction.search,
             onTap: _requestFocus,
             onChanged: (value) {
               _selectResult(null);
               _setQuery(value);
             },
             onSubmitted: (_) {
-              _apply();
+              if (widget.fullScreen) {
+                _focus.unfocus();
+              } else {
+                _apply();
+              }
             },
           ),
           if (width >= 140)

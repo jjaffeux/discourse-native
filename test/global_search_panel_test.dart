@@ -26,6 +26,44 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final scope in [GlobalSearchScope.all, GlobalSearchScope.forum]) {
+    testWidgets('pending ${scope.name} results show a skeleton until ready', (
+      tester,
+    ) async {
+      final api = _PendingPanelApi();
+      final controller = await _pump(tester, api: api, width: 300, height: 180);
+      controller.setScope(scope);
+      controller.setQuery('pending');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
+      expect(tester.takeException(), isNull);
+
+      api.gate.complete(
+        const GlobalSearchPage(
+          sections: [
+            GlobalSearchSection(
+              scope: GlobalSearchScope.forum,
+              results: [
+                GlobalSearchResult(
+                  id: 'loaded',
+                  scope: GlobalSearchScope.forum,
+                  title: 'Loaded search result',
+                  path: '/t/loaded/1',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(find.text('Loaded search result'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final leave in ['clear', 'replace controller', 'dispose']) {
     testWidgets('inline filter debounce stops on $leave', (tester) async {
       final api = _PanelApi();
@@ -1392,6 +1430,20 @@ class _PanelApi extends GlobalSearchApi {
           ]
         : filter.choices;
   }
+}
+
+class _PendingPanelApi extends _PanelApi {
+  final gate = Completer<GlobalSearchPage>();
+
+  @override
+  Future<GlobalSearchPage> search({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
+  }) => gate.future;
 }
 
 class _ProgressivePanelApi extends _PanelApi {

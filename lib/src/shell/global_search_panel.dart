@@ -927,7 +927,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     }
     final results = controller.results;
     if (phase == GlobalSearchPhase.loading && results.isEmpty) {
-      return const SizedBox.shrink();
+      return _loadingResults(context);
     }
     if (phase == GlobalSearchPhase.failed && results.isEmpty) {
       return _status(
@@ -1043,6 +1043,43 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       child: content,
     );
   }
+
+  Widget _loadingResults(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+    child: DSkeletonRegion(
+      semanticsLabel: context.l10n.loading,
+      color: skeletonFill(context, on: SkeletonSurface.floating),
+      child: Column(
+        children: [
+          for (var index = 0; index < 8; index++)
+            DItem(
+              size: DItemSize.sm,
+              children: [
+                if (widget.controller.scope.showAvatar)
+                  const DItemMedia(child: DSkeleton.circle(diameter: 32))
+                else
+                  const DItemMedia(child: SizedBox.square(dimension: 32)),
+                DItemContent(
+                  children: [
+                    FractionallySizedBox(
+                      widthFactor: index.isEven ? .75 : .6,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: const DSkeleton(height: 16),
+                    ),
+                    const DSkeleton(height: 14),
+                    const FractionallySizedBox(
+                      widthFactor: .45,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: DSkeleton(height: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+        ],
+      ),
+    ),
+  );
 
   Widget _sectionHeader(BuildContext context, GlobalSearchSection section) {
     void open() {

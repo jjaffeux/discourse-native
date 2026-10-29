@@ -12,6 +12,65 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/global_search_fixtures.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('mobile keyboard Done keeps search results open on $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final shell = createGlobalSearchFixtureController();
+      addTearDown(shell.dispose);
+      await shell.load();
+      shell.pushContent(ContentRoute.topicList(TopicListMode.latest));
+      final source = shell.currentContent;
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: const Scaffold(body: ForumSearch(fullScreen: true)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'keyboard');
+      // Done can arrive before the live-search debounce has fired.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.currentContent, same(source));
+      expect(shell.globalSearch.wordsQuery, 'keyboard');
+      expect(shell.globalSearch.results, isNotEmpty);
+      final editor = tester.widget<EditableText>(find.byType(EditableText));
+      expect(editor.textInputAction, TextInputAction.done);
+      expect(editor.focusNode.hasFocus, isFalse);
+
+      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+      // Also accept a Search action from a keyboard retaining its old layout.
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+      expect(shell.globalSearch.wordsQuery, 'design');
+      expect(shell.currentContent, same(source));
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final scope in [
     GlobalSearchScope.users,
     GlobalSearchScope.groups,
