@@ -139,15 +139,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       final feed = find.byKey(const ValueKey('topic-list-feed-menu'));
+      expect(tester.widget<DButton>(feed).variant, DButtonVariant.ghost);
       expect(
-        tester.widget<DButton>(feed).variant,
-        DButtonVariant.quietSelected,
+        tester
+            .widget<DToggle>(
+              find.byKey(const ValueKey('topic-list-view-latest')),
+            )
+            .pressed,
+        isTrue,
       );
-      expect(
-        buttonSurface(tester, of: feed).color,
-        DTokens.of(tester.element(feed)).raisedBackground,
-      );
-      expect(buttonSurface(tester, of: feed).borderColor.a, 0);
       expect(tester.getSize(feed).height, 30);
       final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
       expect(tester.widget<DButton>(tag).variant, DButtonVariant.quiet);
@@ -155,8 +155,11 @@ void main() {
         buttonSurface(tester, of: tag).color,
         DTokens.of(tester.element(tag)).foreground.withValues(alpha: .05),
       );
-      final group = find.byWidgetPredicate(
-        (widget) => widget is DButtonGroup && widget.quiet,
+      final group = find.ancestor(
+        of: find.byKey(const ValueKey('topic-list-category-filter')),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DButtonGroup && widget.quiet,
+        ),
       );
       expect(group, findsOneWidget);
       expect(tester.widget<DButtonGroup>(group).quietSelected, isTrue);
@@ -198,6 +201,199 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('production view row remains reachable across available widths', (
+    tester,
+  ) async {
+    const support = TopicCategory(
+      id: 42,
+      name: 'Support',
+      slug: 'support',
+      color: '0088CC',
+    );
+    final setup = await _controller(
+      config: const SiteConfig(taggingEnabled: true),
+      categoryList: const [support],
+      trackingState: TopicTrackingState([
+        const TrackedTopicState(
+          topicId: 90,
+          categoryId: 99,
+          createdInNewPeriod: true,
+        ),
+        const TrackedTopicState(
+          topicId: 91,
+          categoryId: 99,
+          highestPostNumber: 2,
+          lastReadPostNumber: 1,
+          notificationLevel: 2,
+        ),
+        for (var id = 10; id <= 12; id++)
+          TrackedTopicState(
+            topicId: id,
+            categoryId: 42,
+            createdInNewPeriod: true,
+          ),
+        for (var id = 13; id <= 16; id++)
+          TrackedTopicState(
+            topicId: id,
+            categoryId: 42,
+            highestPostNumber: 2,
+            lastReadPostNumber: 1,
+            notificationLevel: 2,
+          ),
+      ]),
+      extraFeeds: const {
+        '/c/support/42.json': [_latestTopic],
+      },
+    );
+    addTearDown(setup.controller.dispose);
+    setup.controller.selectDestination(
+      buildCategoryDestination(support, categoriesById: const {42: support}),
+    );
+    addTearDown(tester.view.reset);
+    final directory = Platform.environment['TOPIC_LIST_CAPTURE_DIR'];
+    final name = Platform.environment['TOPIC_LIST_REVIEW_NAME'] ?? 'production';
+    final measurements = <String>[
+      'platform,viewport,row_max,switch_max,switch_width,views,category_y,tag_y,switch_y,one_row',
+    ];
+    for (final scenario in [
+      for (final width in [
+        1100.0,
+        760.0,
+        680.0,
+        600.0,
+        560.0,
+        520.0,
+        480.0,
+        440.0,
+        390.0,
+        340.0,
+      ])
+        (platform: TargetPlatform.macOS, width: width),
+      (platform: TargetPlatform.iOS, width: 390.0),
+    ]) {
+      final mobile = scenario.platform == TargetPlatform.iOS;
+      final size = Size(scenario.width, mobile ? 844 : 520);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = FakeViewPadding(
+        top: mobile ? 44 : 0,
+        bottom: mobile ? 34 : 0,
+      );
+      tester.view.viewPadding = FakeViewPadding(
+        top: mobile ? 44 : 0,
+        bottom: mobile ? 34 : 0,
+      );
+      final base = mobile ? AppTheme.dark : AppTheme.light;
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: const ValueKey('topic-list-production-review'),
+          child: ShellScope(
+            controller: setup.controller,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: base.copyWith(
+                platform: scenario.platform,
+                textTheme: directory == null
+                    ? base.textTheme
+                    : base.textTheme.apply(fontFamily: 'TopicListReview'),
+              ),
+              home: DTouchTargets(
+                child: Scaffold(
+                  body: SafeArea(
+                    child: MainContent(
+                      layout: mobile
+                          ? ShellLayout.compact
+                          : ShellLayout.expanded,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bar = find.byType(TopicListFilterBar);
+      final switcher = find.byKey(const ValueKey('topic-list-view-switch'));
+      final category = find.byKey(const ValueKey('topic-list-category-filter'));
+      final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+      final switches = tester.getRect(switcher);
+      final categoryBounds = tester.getRect(category);
+      final tagBounds = tester.getRect(tag);
+      final row = tester.renderObject<RenderBox>(
+        find.descendant(of: bar, matching: find.byType(DFitRow)).first,
+      );
+      final layout = tester.renderObject<RenderBox>(
+        find
+            .descendant(
+              of: find.byType(TopicFeedMenu),
+              matching: find.byType(LayoutBuilder),
+            )
+            .first,
+      );
+      final toggles = find
+          .descendant(of: switcher, matching: find.byType(DToggle))
+          .evaluate()
+          .length;
+      final oneRow =
+          (switches.center.dy - categoryBounds.center.dy).abs() < 1 &&
+          (switches.center.dy - tagBounds.center.dy).abs() < 1;
+      measurements.add(
+        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout.constraints.maxWidth},${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
+      );
+      for (final rect in [switches, categoryBounds, tagBounds]) {
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(size.width));
+      }
+      expect(
+        find.byKey(const ValueKey('topic-list-view-latest')),
+        findsOneWidget,
+      );
+      if (toggles == 1) {
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-list-feed-menu')),
+            matching: find.text('7'),
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+      final filename =
+          '$name-${scenario.platform.name}-${scenario.width.toInt()}';
+      await _captureProductionRow(tester, directory, filename);
+      if (mobile) {
+        await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        for (final (entry, count) in [
+          ('new-all', '7'),
+          ('new-topics', '3'),
+          ('new-replies', '4'),
+          ('unread', '4'),
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byKey(ValueKey('topic-list-$entry')),
+              matching: find.text(count),
+            ),
+            findsOneWidget,
+          );
+        }
+        await _captureProductionRow(tester, directory, '$filename-overflow');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+    }
+    if (directory != null) {
+      await tester.runAsync(
+        () => File(
+          '$directory/$name-layout.csv',
+        ).writeAsString('${measurements.join('\n')}\n'),
+      );
+    }
+  });
 
   for (final (mode, display) in [
     for (final mode in [
@@ -1571,7 +1767,14 @@ void main() {
       'payload': {'last_read_post_number': 8},
     });
     await tester.pumpAndSettle();
-    expect(find.text('New · Replies'), findsOneWidget);
+    expect(
+      tester
+          .widget<DToggle>(
+            find.byKey(const ValueKey('topic-list-view-newActivity')),
+          )
+          .semanticLabel,
+      startsWith('New · Replies'),
+    );
     expect(controller.sidebarBadgeFor('latest').count, 3);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
@@ -1727,7 +1930,7 @@ void main() {
       find.byKey(const ValueKey('topic-list-category-filter')),
       findsOneWidget,
     );
-    expect(find.text('1059'), findsNothing);
+    expect(find.text('1059'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-feed-menu')), findsOneWidget);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
@@ -1784,10 +1987,8 @@ void main() {
       'message_type': 'unread',
       'payload': {'highest_post_number': 2, 'notification_level': 2},
     });
-    // A tracking run notifies the shell once, after the delivery's microtask,
-    // so the redraw lands in the frame after that notification.
-    await tester.pump();
-    await tester.pump();
+    // Tracking delivery and the adaptive switch both schedule their redraws.
+    await tester.pumpAndSettle();
 
     expect(find.text('1060'), findsOneWidget);
     await _openFeed(tester);
@@ -1819,7 +2020,7 @@ void main() {
     expect(find.text('Top this year'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-top-period')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+    await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
@@ -1890,7 +2091,7 @@ void main() {
 
         await pump(1);
         final tabs = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-menu')),
+          find.byKey(const ValueKey('topic-list-view-switch')),
         );
         expect(tabs.left, 16);
         expect(tabs.right, lessThanOrEqualTo(325 - 16));
@@ -1945,7 +2146,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+      final trigger = find.byKey(const ValueKey('topic-list-view-top'));
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       expect(find.text('Year'), findsOneWidget);
@@ -2176,11 +2377,11 @@ void main() {
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
           expect(
-            find.byKey(const ValueKey('topic-list-feed-menu')),
+            find.byKey(const ValueKey('topic-list-view-switch')),
             findsOneWidget,
           );
           expect(
-            find.byKey(const ValueKey('topic-list-feed-menu')),
+            find.byKey(const ValueKey('topic-list-view-latest')),
             findsOneWidget,
           );
           expect(find.text('More'), findsNothing);
@@ -2196,7 +2397,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
           expect(find.text('Top this year'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+          await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Week'));
           await tester.pumpAndSettle();
@@ -2875,6 +3076,29 @@ void main() {
   });
 }
 
+Future<void> _captureProductionRow(
+  WidgetTester tester,
+  String? directory,
+  String name,
+) async {
+  if (directory == null) return;
+  await tester.runAsync(() async {
+    final image = await tester
+        .renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('topic-list-production-review')),
+        )
+        .toImage(pixelRatio: 2);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('$directory/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
 Text _tabText(WidgetTester tester, String key) => tester.widget<Text>(
   find
       .descendant(of: find.byKey(ValueKey(key)), matching: find.byType(Text))
@@ -2973,9 +3197,22 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
 }
 
 Future<void> _selectFeed(WidgetTester tester, String key) async {
-  final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
-  await tester.tap(trigger);
-  await tester.pumpAndSettle();
+  final view = key.startsWith('topic-list-top')
+      ? 'top'
+      : key.contains('new')
+      ? 'newActivity'
+      : key.endsWith('popular')
+      ? 'trending'
+      : key.substring('topic-list-'.length);
+  final segment = find.byKey(ValueKey('topic-list-view-$view'));
+  if (segment.evaluate().isNotEmpty) {
+    await tester.tap(segment);
+    await tester.pumpAndSettle();
+    if (find.byType(DDropdownMenuContent).evaluate().isEmpty) return;
+  } else {
+    await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+    await tester.pumpAndSettle();
+  }
   if (key == 'topic-list-new' &&
       find.byKey(const ValueKey('topic-list-new-all')).evaluate().isNotEmpty) {
     key = 'topic-list-new-all';
@@ -2994,7 +3231,20 @@ Future<void> _selectFeed(WidgetTester tester, String key) async {
 }
 
 Future<void> _openFeed(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+  final fresh = find.byKey(const ValueKey('topic-list-view-newActivity'));
+  final mobile = switch (Theme.of(
+    tester.element(find.byType(TopicFeedMenu)),
+  ).platform) {
+    TargetPlatform.iOS ||
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
+  await tester.tap(
+    !mobile && fresh.evaluate().isNotEmpty
+        ? fresh
+        : find.byKey(const ValueKey('topic-list-feed-menu')),
+  );
   await tester.pumpAndSettle();
 }
 

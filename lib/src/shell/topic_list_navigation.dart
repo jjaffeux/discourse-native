@@ -4,20 +4,21 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../foundation/count_label.dart';
 import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_feed_menu.dart';
 import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
 import 'topic_list_filter_bar.dart';
+
+export 'topic_feed_menu.dart';
 
 typedef _TopicListNavigationSnapshot = ({
   TopicListMode? mode,
@@ -345,154 +346,6 @@ class _TopicListNavigationControls extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Shared feed menu with direct choices for New subsets and Top periods.
-class TopicFeedMenu extends StatelessWidget {
-  const TopicFeedMenu({
-    super.key,
-    required this.mode,
-    required this.onSelected,
-    this.signedIn = true,
-    this.unreadCount = 0,
-    this.newCount = 0,
-    this.unifiedNew = false,
-    this.topicCount = 0,
-    this.replyCount = 0,
-  });
-  final TopicListMode mode;
-  final ValueChanged<TopicListMode> onSelected;
-  final bool signedIn;
-  final bool unifiedNew;
-  final int unreadCount, newCount, topicCount, replyCount;
-
-  static String label(TopicListMode mode) => switch (mode) {
-    TopicListMode.latest => appL10n.latest,
-    TopicListMode.unread => appL10n.unread,
-    TopicListMode.newActivity => appL10n.messageNew,
-    TopicListMode.newTopics => appL10n.newTopics,
-    TopicListMode.newReplies => appL10n.newReplies,
-    TopicListMode.unseen => appL10n.unseen,
-    TopicListMode.popular => appL10n.trending,
-    _ => appL10n.top((mode.topPeriod!.label).toString()),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = mode;
-    String itemLabel(TopicListMode value) => switch (value) {
-      TopicListMode.newActivity when unifiedNew => context.l10n.all,
-      TopicListMode.newTopics => context.l10n.topics,
-      TopicListMode.newReplies => context.l10n.replies,
-      _ => value.isTop ? value.topPeriod!.label : label(value),
-    };
-    Widget item(TopicListMode value, {int count = 0}) => DDropdownMenuItem(
-      key: ValueKey(
-        value.isTop
-            ? 'topic-list-top-period-${value.topPeriod!.queryValue}'
-            : 'topic-list-${value == TopicListMode.newActivity
-                  ? (unifiedNew ? 'new-all' : 'new')
-                  : value == TopicListMode.newTopics
-                  ? 'new-topics'
-                  : value == TopicListMode.newReplies
-                  ? 'new-replies'
-                  : value == TopicListMode.popular
-                  ? 'popular'
-                  : value.name}',
-      ),
-      onPressed: () => onSelected(value),
-      semanticLabel:
-          '${itemLabel(value)}${count > 0 ? ', ${countLabel(count, CountNoun.topic)}' : ''}${selected == value ? context.l10n.selectedTopiclistnavigation : ''}',
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (selected == value) const DIcon(DIcons.check, size: 14),
-          if (count > 0) ...[
-            if (selected == value) const SizedBox(width: 8),
-            DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
-          ],
-        ],
-      ),
-      child: Text(itemLabel(value)),
-    );
-    final count = mode == TopicListMode.unread
-        ? unreadCount
-        : mode == TopicListMode.newTopics
-        ? topicCount
-        : mode == TopicListMode.newReplies
-        ? replyCount
-        : mode.isNew
-        ? newCount
-        : 0;
-    return DDropdownMenu(
-      sheetOnMobile: true,
-      mobileSheetVariant: DSheetVariant.adaptiveMenu,
-      content: DDropdownMenuContent(
-        width: 304,
-        semanticLabel: context.l10n.chooseTopicFeed,
-        children: [
-          item(TopicListMode.latest),
-          if (signedIn) ...[
-            item(TopicListMode.unread, count: unreadCount),
-            if (unifiedNew) ...[
-              DDropdownMenuLabel(child: Text(context.l10n.messageNew)),
-              DDropdownMenuGroup(
-                showGuide: true,
-                semanticLabel: context.l10n.newActivity,
-                children: [
-                  item(TopicListMode.newActivity, count: newCount),
-                  item(TopicListMode.newTopics, count: topicCount),
-                  item(TopicListMode.newReplies, count: replyCount),
-                ],
-              ),
-            ] else
-              item(TopicListMode.newActivity, count: newCount),
-            item(TopicListMode.unseen),
-          ],
-          DDropdownMenuLabel(child: Text(context.l10n.topTopiclistnavigation)),
-          DDropdownMenuGroup(
-            showGuide: true,
-            semanticLabel: context.l10n.topPeriods,
-            children: [
-              for (final period in [
-                TopPeriod.yearly,
-                TopPeriod.quarterly,
-                TopPeriod.monthly,
-                TopPeriod.weekly,
-                TopPeriod.daily,
-                TopPeriod.all,
-              ])
-                item(TopicListMode.top(period)),
-            ],
-          ),
-          item(TopicListMode.popular),
-        ],
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (context, trigger) => DButton(
-          key: const ValueKey('topic-list-feed-menu'),
-          size: DButtonSize.filter,
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(label(mode), overflow: TextOverflow.ellipsis),
-              ),
-              if (count > 0) ...[
-                const SizedBox(width: 6),
-                DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
-              ],
-            ],
-          ),
-          variant: DButtonVariant.quietSelected,
-          focusNode: trigger.focusNode,
-          hasPopup: true,
-          expanded: trigger.open,
-          onPressed: trigger.toggle,
-        ),
       ),
     );
   }
