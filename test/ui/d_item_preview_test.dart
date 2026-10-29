@@ -28,6 +28,70 @@ BoxDecoration _previewPaint(WidgetTester tester) =>
         as BoxDecoration;
 
 void main() {
+  for (final (platform, dimension, extent, markerHeight) in [
+    (TargetPlatform.iOS, 44.0, 52.0, 36.0),
+    (TargetPlatform.android, 44.0, 52.0, 36.0),
+    (TargetPlatform.macOS, 36.0, 48.0, 28.0),
+  ]) {
+    testWidgets('forum rail bounds and selection follow $platform', (
+      tester,
+    ) async {
+      for (final scale in [1.0, 2.0]) {
+        var selected = true;
+        var activations = 0;
+        await tester.pumpWidget(
+          _host(
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: 68,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatefulBuilder(
+                      builder: (context, setState) => DItemRail(
+                        selected: selected,
+                        markerColor: Colors.blue,
+                        markerKey: const ValueKey('forum-marker'),
+                        artwork: const DAvatar(
+                          fallback: DAvatarFallback(child: Text('A')),
+                        ),
+                        onPressed: () => setState(() {
+                          activations++;
+                          selected = !selected;
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            theme: AppTheme.light.copyWith(platform: platform),
+            scale: scale,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final target = find.byType(DItem);
+        final bounds = tester.getRect(target);
+        expect(bounds.size, Size.square(dimension));
+        expect(tester.getSize(find.byType(DAvatar)), bounds.size);
+        expect(tester.getSize(find.byType(DItemRail)), Size(68, extent));
+        final marker = find.byKey(const ValueKey('forum-marker'));
+        expect(tester.getSize(marker).height, markerHeight);
+        await tester.tapAt(Offset(bounds.left - 2, bounds.center.dy));
+        expect(activations, 0, reason: 'the row gap is not an action');
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+        expect(activations, 1);
+        expect(
+          tester.getSize(marker).height,
+          platform == TargetPlatform.macOS ? 8 : 0,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'nested preview retains hover focus and press in $brightness flat',

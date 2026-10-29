@@ -336,6 +336,21 @@ void main() {
             .first;
         expect(tester.getSize(avatar), const Size.square(44));
         expect(tester.getCenter(avatar).dx, rail.center.dx);
+        final forum = find.byType(DItemRail).first;
+        final mark = find.descendant(of: forum, matching: find.byType(DItem));
+        expect(tester.getSize(mark), const Size.square(44));
+        expect(tester.getSize(forum).height, 52);
+        expect(tester.getCenter(mark).dx, tester.getCenter(avatar).dx);
+        expect(
+          tester
+              .getSize(
+                find.byKey(
+                  const ValueKey('instance-rail-marker-https://meta.example'),
+                ),
+              )
+              .height,
+          36,
+        );
         await _capture(tester, '${platform.name}-drawer');
         await tester.tap(profile);
         await tester.pumpAndSettle();
