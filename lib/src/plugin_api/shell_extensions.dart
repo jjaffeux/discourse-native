@@ -15,6 +15,7 @@ import '../models/user_preferences.dart';
 import '../theme/d_icon.dart';
 import 'bookmark_host.dart';
 import 'composer_syntax.dart';
+import 'global_search.dart';
 import 'live_channels.dart';
 import 'plugin_manifest.dart';
 
@@ -140,6 +141,9 @@ abstract interface class PluginNavigationHost {
 
   /// Updates highlights only in the current site's current route and tab.
   void setPageSearchWords(String siteUrl, String routeId, String words);
+
+  /// Opens the shared search with removable defaults for the current site.
+  void openSearch(String siteUrl, GlobalSearchContext context);
   void showPluginContent();
 
   /// Saves the active forum tab and restores this plugin's last tab snapshot.

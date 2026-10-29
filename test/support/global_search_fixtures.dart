@@ -471,6 +471,7 @@ const _groupJson = {
 
 ShellController createGlobalSearchFixtureController({
   GlobalSearchFixtureApi? api,
+  bool mobileNavigationEnabled = false,
 }) => ShellController(
   plugins: installedPlugins,
   instanceStore: FakeInstanceStore(globalSearchFixtureSites),
@@ -483,6 +484,7 @@ ShellController createGlobalSearchFixtureController({
   drafts: FakeDraftStore(),
   forumTabs: FakeForumTabStore(),
   forumTabsEnabled: false,
+  mobileNavigationEnabled: mobileNavigationEnabled,
   trackers: FakeSiteTracker.reset(),
   updater: FakeUpdater(),
   updateStore: FakeUpdateStore(),

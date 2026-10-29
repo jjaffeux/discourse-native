@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/src/plugin_api/global_search.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -368,6 +369,9 @@ final class _NavigationHost implements PluginNavigationHost {
   bool _pluginPaneActive = false;
   bool _disposed = false;
   final pageSearchWords = <(String, String, String)>[];
+
+  @override
+  void openSearch(String siteUrl, GlobalSearchContext context) {}
 
   @override
   void setPageSearchWords(String siteUrl, String routeId, String words) {

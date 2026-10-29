@@ -12,6 +12,7 @@ import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_inbox_rooms.dart';
+import 'chat_search_entry.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
@@ -414,12 +415,19 @@ class ChatSidebarInboxHeader extends StatelessWidget {
       ),
       Padding(
         padding: const EdgeInsets.only(bottom: 14),
-        child: ChatInboxFilterBar(
-          siteUrl: siteUrl,
-          filters: PluginUiScope.require(
-            context,
-            chatControllerService,
-          ).inboxFilters,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DSpacing.sm,
+          children: [
+            ChatSearchEntry(siteUrl: siteUrl),
+            ChatInboxFilterBar(
+              siteUrl: siteUrl,
+              filters: PluginUiScope.require(
+                context,
+                chatControllerService,
+              ).inboxFilters,
+            ),
+          ],
         ),
       ),
     ],

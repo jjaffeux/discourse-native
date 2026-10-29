@@ -23013,6 +23013,12 @@ abstract class AppLocalizations {
   /// **'Delete this room? Everyone in the call will be disconnected. This cannot be undone.'**
   String get voiceRoomDeleteConfirm;
 
+  /// Drawer entry opening the shared forum search scoped to Chat or the current channel.
+  ///
+  /// In en, this message translates to:
+  /// **'Search chat'**
+  String get searchChat;
+
   /// Error when a Live room could not be deleted.
   ///
   /// In en, this message translates to:

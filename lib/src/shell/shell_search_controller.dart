@@ -3,9 +3,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/user_directory.dart';
+import 'global_search_models.dart';
 import 'recent_search_history.dart';
 
 enum SearchFocusMode { global, contextual }
+
+final class SearchFocusRequest {
+  const SearchFocusRequest({required this.mode, this.context});
+
+  final SearchFocusMode mode;
+  final GlobalSearchContext? context;
+}
 
 class ShellSearchController extends ChangeNotifier {
   ShellSearchController({required this.history});
@@ -16,7 +24,7 @@ class ShellSearchController extends ChangeNotifier {
   bool _authenticated = true;
   final Set<String> _anonymousSearchDenied = {};
   bool _panelOpen = false;
-  ValueChanged<SearchFocusMode>? _focusField;
+  ValueChanged<SearchFocusRequest>? _focusField;
   Object? _focusRegistration;
   Object? _activeField;
   bool _disposed = false;
@@ -179,7 +187,7 @@ class ShellSearchController extends ChangeNotifier {
 
   VoidCallback registerFocus(
     Object field,
-    ValueChanged<SearchFocusMode> focus,
+    ValueChanged<SearchFocusRequest> focus,
   ) {
     _focusRegistration = field;
     _focusField = focus;
@@ -207,9 +215,12 @@ class ShellSearchController extends ChangeNotifier {
     }
   }
 
-  void requestFocus({SearchFocusMode mode = SearchFocusMode.global}) {
+  void requestFocus({
+    SearchFocusMode mode = SearchFocusMode.global,
+    GlobalSearchContext? context,
+  }) {
     if (!canSearch) return;
-    _focusField?.call(mode);
+    _focusField?.call(SearchFocusRequest(mode: mode, context: context));
     openPanel();
   }
 
