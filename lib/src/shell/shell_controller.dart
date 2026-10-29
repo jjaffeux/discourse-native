@@ -8682,13 +8682,11 @@ class ShellController extends FrameSafeNotifier
             title: destination.label,
           )
         : ContentRoute.fromDestination(destination);
-    // Reselecting a root refreshes it, but repeated taps during its feed
-    // request share that load instead of queuing another server fetch.
+    // Reselecting a root refreshes it; returning from a reader stays a return.
     final refresh =
         refreshIfSelected &&
         destination.id == tab.rootDestinationId &&
-        tab.contentStack.length <= 1 &&
-        topicFeeds.feedFor(instance.url, content.id)?.loading != true;
+        tab.contentStack.length <= 1;
     final updated = tab.navigate(
       rootDestinationId: destination.id,
       contentStack: [content],
@@ -8699,13 +8697,20 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     final page = ContentPageContract.resolve(content);
+    final operation = page.loadOnSelection(refresh: refresh);
+    // Repeated selection taps reuse pending list work. Explicit refreshes
+    // still go through each feature's own invalidation policy.
+    final loading = switch (operation) {
+      PageLoad.feed =>
+        topicFeeds.feedFor(instance.url, content.id)?.loading == true,
+      PageLoad.categories => categoryFeedFor(instance.url).loading,
+      PageLoad.bookmarks =>
+        accountActivity.bookmarkListFor(instance.url).loading,
+      _ => false,
+    };
+    if (loading) return;
     unawaited(
-      _loadPage(
-        tabContext(updated.id),
-        content,
-        page.loadOnSelection(refresh: refresh),
-        force: refresh,
-      ),
+      _loadPage(tabContext(updated.id), content, operation, force: refresh),
     );
   }
 
