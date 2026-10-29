@@ -79,6 +79,7 @@ import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:discourse_native/src/plugins/voice/voice_agents.dart';
 
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
+import 'package:discourse_native/src/plugins/voice/voice_reactions.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -2530,6 +2531,16 @@ void main() {
         (config) => config.enabled,
       );
       probe(
+        'VoiceReactionSettings',
+        () => VoiceReactionSettings.fromJson(
+          withFields({
+            'live_reaction_emojis': gate(['heart', loose]),
+            'live_reactions_allow_any_emoji': loose,
+          }),
+        ),
+        (settings) => settings.supported,
+      );
+      probe(
         'VoiceAgentPermission',
         () => VoiceAgentPermission.read(
           withFields({'live_livekit_agent_bot_id': loose}),
@@ -2745,6 +2756,7 @@ void main() {
       'ForumTab',
       'ForumTabLocation',
       'ForumWorkspace',
+      'MobileNavigationState',
       '_RecentDestinations',
       'ChatCurrentUser.fromStored',
       'ChatSettings.fromStored',
