@@ -160,7 +160,8 @@ void main() {
         expect(add, canEditTags ? findsOneWidget : findsNothing);
         if (canEditTags) {
           expect(tester.getRect(add).right, lessThanOrEqualTo(width));
-          expect(tester.getSize(add).height, lessThan(50));
+          // The phone filter preset at 200% text.
+          expect(tester.getSize(add).height, 57);
         }
         expect(
           tester.takeException(),
@@ -217,7 +218,14 @@ void main() {
           final overflow = find.byKey(const ValueKey('topic-header-more-tags'));
           expect(overflow, findsOneWidget);
           expect(tester.getRect(overflow).right, lessThanOrEqualTo(width));
-          expect(tester.getSize(strip).height, lessThan(50));
+          // One line, one filter control tall: 30 on a desktop and 36 on a
+          // phone, 48.75 and 57 at 200% text.
+          expect(
+            tester.getSize(strip).height,
+            platform == TargetPlatform.macOS
+                ? (scale == 1 ? 30 : 48.75)
+                : (scale == 1 ? 36 : 57),
+          );
           final visible = tags
               .where(
                 (tag) => find
