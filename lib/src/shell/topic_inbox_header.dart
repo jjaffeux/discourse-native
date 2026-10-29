@@ -138,7 +138,6 @@ class TopicInboxHeader extends StatelessWidget {
       compactHeader: shell.mobileNavigationEnabled
           ? _morphHeader(context, compact: true, rows: rows)
           : null,
-      compactHeaderBand: shell.mobileNavigationEnabled,
       headerControls: headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),
     );
@@ -152,20 +151,20 @@ class TopicInboxHeader extends StatelessWidget {
     if (!ShellScope.read(context).mobileNavigationEnabled) {
       return Column(children: rows);
     }
-    // The rounded head shares the canvas fill while attached to the top.
-    // Pulling the page exposes its existing curves. Both states keep this
-    // box so the morph keeps its state.
-    return DecoratedBox(
-      key: const ValueKey('topic-header-band'),
-      decoration: compact
-          ? BoxDecoration(
-              color: DTokens.of(context).wellFill,
-              borderRadius: BorderRadius.circular(
-                DMobileDockGeometry.capsuleRadius,
-              ),
-            )
-          : const BoxDecoration(),
-      child: _morphBody(context, compact: compact, rows: rows),
+    return Padding(
+      padding: compact
+          ? const EdgeInsets.fromLTRB(8, 21, 8, 0)
+          : EdgeInsets.zero,
+      child: DCard(
+        key: const ValueKey('topic-header-band'),
+        spacing: 0,
+        border: false,
+        backgroundColor: compact
+            ? DTokens.of(context).wellFill
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        child: _morphBody(context, compact: compact, rows: rows),
+      ),
     );
   }
 

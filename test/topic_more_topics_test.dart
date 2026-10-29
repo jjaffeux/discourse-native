@@ -134,6 +134,23 @@ void main() {
       await tester.tap(related);
       await tester.pumpAndSettle();
       expect(find.text('Related discussion 1'), findsOneWidget);
+      final switcher = find.byKey(
+        const ValueKey('topic-recommendations-switch'),
+      );
+      expect(
+        find.descendant(of: switcher, matching: find.byType(DToggle)),
+        findsNWidgets(2),
+      );
+      await tester.tap(related);
+      await tester.pumpAndSettle();
+      expect(find.text('Related discussion 1'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('topic-recommendations-tab-core/suggested')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Suggested discussion 1'), findsOneWidget);
+      await tester.tap(related);
+      await tester.pumpAndSettle();
       expect(scroll.position.isScrollingNotifier.value, isFalse);
       await _render(tester, 'phone-${scale}x-dark');
       expect(tester.takeException(), isNull);

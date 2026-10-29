@@ -23,7 +23,10 @@ final buttonGroupExamples = ComponentExamples(
       'and Popover use their public component APIs. Group scoping applies only '
       'to composed controls and never themes detached overlay descendants. '
       'sharedOutline joins buttons and passive text under one outline without '
-      'internal rules; the separators retain passive hit areas.',
+      'internal rules; the separators retain passive hit areas. '
+      'inset draws the shared view-switch pill with 2px insets and gaps. '
+      'Its segment-sized Toggle children can keep independent dropdown triggers '
+      'and overflow actions; Toggle Group uses this same frame for selection-only switches.',
   examples: [
     StyleguideExample(
       title: 'Composition and independent actions',

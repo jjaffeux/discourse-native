@@ -163,18 +163,21 @@ class _DSheetAdaptiveMenuScope extends InheritedWidget {
     required this.menu,
     required this.expanded,
     required this.canCollapse,
+    required this.footerSafeInset,
     required super.child,
   });
 
   final _DSheetAdaptiveMenuState menu;
   final bool expanded;
   final bool canCollapse;
+  final double footerSafeInset;
 
   @override
   bool updateShouldNotify(_DSheetAdaptiveMenuScope oldWidget) =>
       menu != oldWidget.menu ||
       expanded != oldWidget.expanded ||
-      canCollapse != oldWidget.canCollapse;
+      canCollapse != oldWidget.canCollapse ||
+      footerSafeInset != oldWidget.footerSafeInset;
 }
 
 // SingleChildScrollView can retain its old metrics after a layout correction.
@@ -986,11 +989,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     // Over the keyboard there is no screen corner to follow; the foot eases
     // between the two rather than through the shrinking foot's room.
     final cornerRadius = DMobileDockGeometry(foot: screenFoot).endRadius(24);
+    final bodySafeInset = math.max(0, safeBottom - end.endLift) * _inset.value;
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
       menu: this,
       expanded: _expanded,
       canCollapse: _low > 0,
+      footerSafeInset: math.max(0, safeBottom - _lift) - bodySafeInset,
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: _inset.value > 0,
@@ -1003,9 +1008,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
           data: media.copyWith(
             // The viewport reaches the sheet's foot. Lifted at its end, the
             // sheet keeps inside it what of the foot's room the lift leaves.
-            padding: EdgeInsets.only(
-              bottom: math.max(0, safeBottom - end.endLift) * _inset.value,
-            ),
+            padding: EdgeInsets.only(bottom: bodySafeInset),
             viewInsets: EdgeInsets.zero,
           ),
           child: widget.presentation.content,
