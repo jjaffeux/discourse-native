@@ -67,7 +67,7 @@ void main() {
       final button = find.byKey(Key(key));
       expect(buttonSurface(tester, of: button).color.a, 0);
       expect(buttonSurface(tester, of: button).borderColor.a, 0);
-      expect(tester.getSize(button).height, 30);
+      expect(tester.getSize(button).height, 36);
       await tester.tap(button);
     }
     expect(presses, 2);
