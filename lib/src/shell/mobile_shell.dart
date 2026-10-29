@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -23,6 +24,7 @@ import 'message_create_button.dart';
 import 'mobile_dock_panel_scope.dart';
 import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
+import 'mobile_page_title.dart';
 import 'mobile_place_order.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
@@ -262,7 +264,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ?.panel
                   .mobileAction
             : null;
-        Widget frame(BuildContext context, Widget page) => Column(
+        Widget frameWithHeader(
+          BuildContext context,
+          ValueListenable<DPageHeader?> header,
+          Widget page,
+        ) => Column(
           key: const ValueKey('mobile-root'),
           children: [
             // Ancestor Material ink layers also repaint on scroll. Retain the
@@ -301,12 +307,25 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           Expanded(
                             child: Align(
                               alignment: AlignmentDirectional.centerStart,
-                              child: ForumIdentityHeader(
-                                size: 32,
-                                name: instance.title,
-                                iconUrl: instance.iconUrl,
-                                monogram: instance.monogram,
-                                accentColor: instance.accentColor,
+                              child: Row(
+                                children: [
+                                  ForumIdentityHeader(
+                                    size: 32,
+                                    name: instance.title,
+                                    iconUrl: instance.iconUrl,
+                                    monogram: instance.monogram,
+                                    accentColor: instance.accentColor,
+                                  ),
+                                  if (!sidebarOpen) ...[
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: MobilePageTitle(
+                                        header: header,
+                                        siteUrl: instance.url,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ),
@@ -438,6 +457,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
           ],
+        );
+        Widget frame(BuildContext context, Widget page) => DPageHeaderHost(
+          identity: (owner, shell.mobileNavigation.entryId, sidebarOpen),
+          builder: frameWithHeader,
+          child: page,
         );
         return MobileHistoryGestures(
           tab: (id: selected, index: tabOrder.indexOf(selected)),

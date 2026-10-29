@@ -1740,6 +1740,138 @@ void main() {
     }
   });
 
+  for (final reduced in [false, true]) {
+    _mobileTest(
+      'mobile titles follow foreground pages and topics (reduced: $reduced)',
+      (tester) async {
+        await _loadChromeCaptureFonts(tester);
+        const topicTitle = 'A long community discussion';
+        final shell = await pumpMobileShellFixture(
+          tester,
+          topics: [
+            const Topic(id: 7, title: topicTitle, slug: 'shared'),
+            for (var id = 8; id < 40; id++)
+              Topic(
+                id: id,
+                title: 'Community discussion $id',
+                slug: 'discussion-$id',
+              ),
+          ],
+          topic: topicPayload(
+            id: 7,
+            title: topicTitle,
+            posts: [
+              for (var id = 1; id <= 50; id++)
+                Post(
+                  id: id,
+                  postNumber: id,
+                  username: 'reader',
+                  createdAt: DateTime.utc(2026, 9, 1, 0, id),
+                  cooked:
+                      '<p>Post $id discusses mobile navigation, reading and the community.</p>',
+                ),
+            ],
+          ),
+        );
+        await shell.appSettings.setReduceMotion(reduced);
+        if (const bool.fromEnvironment('captureMobileChrome')) {
+          tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+          tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+          addTearDown(tester.view.resetPadding);
+          addTearDown(tester.view.resetViewPadding);
+          await shell.forumSettings.setShared(
+            shell.forumSettings.shared.copyWith(
+              font: ForumFont.lato,
+              interfaceFont: ForumFont.lato,
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        final barTitle = find.byKey(const ValueKey('mobile-page-title'));
+        expect(barTitle.hitTestable(), findsNothing);
+        final list = find.byType(TopicListView);
+        final listPosition = tester
+            .stateList<ScrollableState>(
+              find.descendant(of: list, matching: find.byType(Scrollable)),
+            )
+            .where((state) => state.position.axis == Axis.vertical)
+            .first
+            .position;
+        final pageTitle = tester
+            .widget<Text>(find.byKey(const ValueKey('topic-list-title')))
+            .data!;
+        await tester.drag(list, const Offset(0, -550));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsOneWidget);
+        expect(
+          find.descendant(of: _header, matching: find.text(pageTitle)),
+          findsOneWidget,
+        );
+        await _captureChrome(tester, 'item1-page-title-$reduced');
+        await tester.tap(barTitle);
+        await tester.pumpAndSettle();
+        expect(listPosition.pixels, 0);
+        expect(barTitle.hitTestable(), findsNothing);
+        // Retain a scrolled list behind the topic. Its title and scroll position
+        // must not become the topic bar's identity or target, even during swipes.
+        await tester.drag(list, const Offset(0, -400));
+        await tester.pumpAndSettle();
+        final retainedOffset = listPosition.pixels;
+        shell.openTopic(const Topic(id: 7, title: topicTitle, slug: 'shared'));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsNothing);
+        final reader = find.byType(TopicView);
+        final posts = find
+            .descendant(of: reader, matching: find.byType(CustomScrollView))
+            .first;
+        final topicScroll = tester.widget<CustomScrollView>(posts).controller!;
+        await tester.drag(posts, const Offset(0, -850));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsOneWidget);
+        expect(
+          find.descendant(of: _header, matching: find.text(topicTitle)),
+          findsOneWidget,
+        );
+        await _captureChrome(tester, 'item1-topic-title-$reduced');
+        final swipe = await tester.startGesture(
+          tester.getCenter(
+            find.byKey(const ValueKey('sheet-drag-handle')).last,
+          ),
+        );
+        await swipe.moveBy(const Offset(0, 80));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          find.descendant(of: _header, matching: find.text(topicTitle)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: _header, matching: find.text(pageTitle)),
+          findsNothing,
+        );
+        await swipe.cancel();
+        await tester.pumpAndSettle();
+        await tester.tap(barTitle);
+        await tester.pump();
+        expect(topicScroll.offset, reduced ? 0 : greaterThan(0));
+        await tester.pumpAndSettle();
+        expect(topicScroll.offset, 0);
+        expect(listPosition.pixels, retainedOffset);
+        expect(barTitle.hitTestable(), findsNothing);
+        await _tapDockTab(tester, 'panel/chat');
+        shell.openChatChannel(10);
+        await tester.pumpAndSettle();
+        expect(barTitle, findsNothing);
+        expect(
+          find
+              .byKey(const ValueKey('content-header-title-action'))
+              .hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _mobileTest(
     'reader compacts and reveals its header without changing topic or viewport',
     (tester) async {
@@ -1863,6 +1995,15 @@ void main() {
         tester.widget<DPageSurface>(sheetSurface).borderRadius,
         expandedPageRadius,
       );
+      expect(
+        find
+            .descendant(
+              of: _header,
+              matching: find.text('A long community discussion'),
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
       await capture('reader-folded');
       await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
       if (const bool.fromEnvironment('captureMobileChrome')) {
@@ -1883,6 +2024,10 @@ void main() {
       expect(
         find.byKey(const ValueKey('topic-more-actions')).hitTestable(),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
+        findsNothing,
       );
       await capture('reader-compact');
       await tester.tap(find.byKey(const ValueKey('topic-more-actions')));

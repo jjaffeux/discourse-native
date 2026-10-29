@@ -14650,4 +14650,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sidebarNoMatches => 'No matches.';
+
+  @override
+  String backToTopOf(String title) {
+    return 'Back to the top of $title';
+  }
 }

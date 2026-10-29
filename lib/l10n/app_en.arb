@@ -19300,5 +19300,7 @@
   "sidebarNoMatches": "No matches.",
   "@sidebarNoMatches": {
     "description": "Category and tag sidebar preference editor."
-  }
+  },
+  "backToTopOf": "Back to the top of {title}",
+  "@backToTopOf": {"description": "Accessible action for the visible mobile page title.", "placeholders": {"title": {"type": "String"}}}
 }

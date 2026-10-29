@@ -23072,6 +23072,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No matches.'**
   String get sidebarNoMatches;
+
+  /// Accessible action for the visible mobile page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the top of {title}'**
+  String backToTopOf(String title);
 }
 
 class _AppLocalizationsDelegate

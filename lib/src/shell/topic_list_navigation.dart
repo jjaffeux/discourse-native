@@ -142,7 +142,8 @@ class TopicListNavigation extends StatelessWidget {
       if (headingBuilder == null) {
         return DPageSurface(framed: false, header: controls, child: child);
       }
-      return DPageSurface.headed(
+      Widget page(String titleText) => DPageSurface.headed(
+        titleText: titleText,
         identity: state.filterOwner,
         title: KeyedSubtree(
           key: const ValueKey('topic-list-primary-row'),
@@ -150,6 +151,22 @@ class TopicListNavigation extends StatelessWidget {
         ),
         controls: controls,
         child: child,
+      );
+      final route = state.route;
+      final siteUrl = state.siteUrl;
+      if (route?.categoryId case final categoryId? when siteUrl != null) {
+        return ValueListenableBuilder<TopicCategory?>(
+          valueListenable: ShellScope.read(
+            context,
+          ).categoryRef(siteUrl, categoryId),
+          builder: (context, category, _) =>
+              page(category?.name ?? context.l10n.category),
+        );
+      }
+      return page(
+        state.mode == null
+            ? route?.title ?? context.l10n.topics
+            : context.l10n.topicsMaincontent(TopicFeedMenu.label(state.mode!)),
       );
     },
   );
