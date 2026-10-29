@@ -157,7 +157,6 @@ Listenable _sidebarPanelChanges(BuildContext context) => Listenable.merge([
 
 const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
-const double _sidebarRowGap = 2;
 
 SidebarDestination get _newTopicDestination => SidebarDestination(
   id: _newTopicDestinationId,
@@ -426,8 +425,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           SidebarSection(
             id: widget.mobile ? 'mobile-shortcuts' : 'community-shortcuts',
             title: section.title,
-            showHeader: !widget.mobile,
-            collapsible: !widget.mobile,
             destinations: section.moreDestinations
                 .where((destination) => destination.url != null)
                 .toList(),
@@ -438,7 +435,9 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         if (section.id == 'community')
           SidebarSection(
             id: section.id,
-            title: section.title,
+            title: widget.mobile
+                ? controller.currentInstance!.title
+                : section.title,
             destinations: section.destinations,
             moreDestinations: [
               SidebarDestination(
@@ -469,8 +468,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                   onTap: () => controller.openPreferences(sidebar.siteUrl!),
                 ),
             ],
-            showHeader: section.showHeader,
-            collapsible: section.collapsible,
+            showHeader: widget.mobile || section.showHeader,
+            collapsible: widget.mobile || section.collapsible,
           )
         else if (!section.id.startsWith('custom-'))
           section,
@@ -486,6 +485,15 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         }),
       ),
     );
+    final pinnedHeaders = [
+      if (!showShortcuts && (!widget.mobile || !showCoreSections))
+        for (final section in registry.sidebarSections(
+          context,
+          includeOwner: includePluginOwner,
+        ))
+          if (section.pinnedHeaderBuilder case final builder?)
+            Builder(builder: builder),
+    ];
 
     return DSidebar(
       backgroundColor: widget.backgroundColor,
@@ -522,7 +530,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!widget.mobile || showCoreSections && !showShortcuts) ...[
+                if (!widget.mobile) ...[
                   Padding(
                     padding: EdgeInsetsDirectional.only(
                       start: widget.communityHeaderLeadingInset,
@@ -543,14 +551,17 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 key: widget.mobile
                     ? ValueKey((activePanel?.owner, showShortcuts))
                     : null,
+                header: pinnedHeaders.isNotEmpty
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: pinnedHeaders,
+                      )
+                    : null,
                 slivers: [
-                  DSidebarGroup.sliver(
-                    padding: EdgeInsets.fromLTRB(
-                      8,
-                      widget.mobile && activePanel != null ? 0 : 2,
-                      8,
-                      8,
-                    ),
+                  SliverPadding(
+                    padding: widget.mobile
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.fromLTRB(8, 2, 8, 8),
                     sliver: SliverMainAxisGroup(
                       slivers: [
                         if (showCoreSections)
@@ -734,21 +745,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                 child: SliverMainAxisGroup(
                                   slivers: [
                                     for (final section in sections) ...[
-                                      if (section.pinnedHeaderBuilder
-                                          case final builder?)
-                                        PinnedHeaderSliver(
-                                          key: ValueKey((
-                                            sidebar.siteUrl,
-                                            section.id,
-                                            'pinned-header',
-                                          )),
-                                          child: Padding(
-                                            padding: EdgeInsets.only(
-                                              top: widget.mobile ? 8 : 0,
-                                            ),
-                                            child: Builder(builder: builder),
-                                          ),
-                                        ),
                                       _Section(
                                         key: ValueKey((
                                           sidebar.siteUrl,
@@ -1486,15 +1482,10 @@ class _SectionState extends State<_Section> {
         );
       }
 
-      final extent = scalable
-          ? null
-          : DControlStyle.height(
-              DSidebarMenuButtonSize.regular,
-              context: context,
-            );
+      final extent = scalable ? null : DSidebarMenuButton.rowHeightOf(context);
       Widget paddedRow(BuildContext context, int index) => Padding(
         key: ValueKey(run[index].id),
-        padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+        padding: EdgeInsets.only(bottom: DSidebarMenuButton.rowGapOf(context)),
         child: rowBuilder(context, index),
       );
       final menu = submenu
@@ -1508,7 +1499,9 @@ class _SectionState extends State<_Section> {
           ? DSidebarReorderableMenu.sliverBuilder(
               itemCount: run.length,
               itemBuilder: paddedRow,
-              itemExtent: extent == null ? null : extent + _sidebarRowGap,
+              itemExtent: extent == null
+                  ? null
+                  : extent + DSidebarMenuButton.rowGapOf(context),
               onReorder: _busy ? null : _reorder,
               sectionId: section,
               onMove: _busy ? null : _move,
@@ -1517,7 +1510,9 @@ class _SectionState extends State<_Section> {
           : DSidebarMenu.sliverBuilder(
               itemCount: run.length,
               itemBuilder: paddedRow,
-              itemExtent: extent == null ? null : extent + _sidebarRowGap,
+              itemExtent: extent == null
+                  ? null
+                  : extent + DSidebarMenuButton.rowGapOf(context),
               findChildIndexCallback: findIndex,
             );
       menus.add(
@@ -1545,7 +1540,9 @@ class _SectionState extends State<_Section> {
               final destination = section.moreDestinations[index];
               return Padding(
                 key: ValueKey(destination.id),
-                padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+                padding: EdgeInsets.only(
+                  bottom: DSidebarMenuButton.rowGapOf(context),
+                ),
                 child: SidebarDestinationTile(
                   destination: destination,
                   selected: destination.id == widget.selectedId,
@@ -1590,48 +1587,59 @@ class _SectionState extends State<_Section> {
       null => _destinationMenus(context, section, canEdit),
     };
     final header = _SectionHeader(section: section, collapsed: _collapsed);
-    final group = SliverMainAxisGroup(
-      slivers: [
-        if (section.actionAboveHeader && section.onAction != null)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: DSpacing.sm),
-              child: DButton(
-                key: ValueKey('sidebar-section-action-${section.id}'),
-                variant: DButtonVariant.primary,
-                label: Text(section.actionLabel ?? section.title),
-                icon: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
-                tooltip: section.actionLabel ?? section.title,
-                shortcut: section.actionShortcut == null
-                    ? null
-                    : DShortcut(section.actionShortcut!),
-                onPressed: section.onAction,
-              ),
+    final sectionAction = section.actionAboveHeader && section.onAction != null
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: DSpacing.sm),
+            child: DButton(
+              key: ValueKey('sidebar-section-action-${section.id}'),
+              variant: DButtonVariant.primary,
+              label: Text(section.actionLabel ?? section.title),
+              icon: DIcon(section.actionIcon ?? DIcons.plus, size: 16),
+              tooltip: section.actionLabel ?? section.title,
+              shortcut: section.actionShortcut == null
+                  ? null
+                  : DShortcut(section.actionShortcut!),
+              onPressed: section.onAction,
             ),
-          ),
-        if (section.showHeader)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: _sidebarRowGap),
-              child: section.remoteId == null
-                  ? header
-                  : DSidebarDropTarget(
-                      sectionId: section,
-                      index: section.destinations.length,
-                      append: true,
-                      onMove: canEdit && !_busy ? _move : null,
-                      canMove: _canMove,
-                      child: header,
-                    ),
+          )
+        : null;
+    final heading = section.showHeader
+        ? Padding(
+            padding: EdgeInsets.only(
+              bottom: DSidebarMenuButton.rowGapOf(context),
             ),
-          ),
-        if (section.collapsible)
-          DCollapsibleContent.sliver(sliver: content)
-        else
-          content,
-        if (section.moreDestinations.isNotEmpty)
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-      ],
+            child: section.remoteId == null
+                ? header
+                : DSidebarDropTarget(
+                    sectionId: section,
+                    index: section.destinations.length,
+                    append: true,
+                    onMove: canEdit && !_busy ? _move : null,
+                    canMove: _canMove,
+                    child: header,
+                  ),
+          )
+        : null;
+    final group = DSidebarGroup.sliver(
+      padding: EdgeInsets.zero,
+      header: !context.isTouch && sectionAction != null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [sectionAction, ?heading],
+            )
+          : heading,
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          if (context.isTouch && sectionAction != null)
+            SliverToBoxAdapter(child: sectionAction),
+          if (section.collapsible)
+            DCollapsibleContent.sliver(sliver: content)
+          else
+            content,
+          if (section.moreDestinations.isNotEmpty && !context.isTouch)
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        ],
+      ),
     );
     return section.collapsible
         ? DCollapsible(open: !_collapsed, onOpenChange: _setOpen, child: group)
@@ -1684,17 +1692,44 @@ class _SectionHeader extends StatelessWidget {
   final SidebarSection section;
   final bool collapsed;
 
-  Widget _content(BuildContext context, DIconData icon, Widget label) => Row(
-    spacing: DSpacing.sm,
-    children: [
-      DIcon(
-        icon,
-        size: context.isTouch ? 22 : 18,
-        color: DTokens.of(context).foreground.withValues(alpha: .7),
-      ),
-      Expanded(child: ExcludeSemantics(child: label)),
-    ],
-  );
+  Widget _content(BuildContext context, DIconData icon, Widget label) {
+    final instance = ShellScope.read(context).currentInstance;
+    if (context.isTouch && icon != DIcons.arrowUp) {
+      return Row(
+        spacing: DSpacing.sm,
+        children: [
+          if (section.id == 'community' && instance != null)
+            ForumIdentityHeader(
+              size: 18,
+              name: instance.title,
+              iconUrl: instance.iconUrl,
+              monogram: instance.monogram,
+              accentColor: instance.accentColor,
+            )
+          else
+            DIcon(
+              section.id == 'categories' || section.id == 'tags'
+                  ? DIcons.tag
+                  : DIcons.folder,
+              size: 16,
+            ),
+          Expanded(child: ExcludeSemantics(child: label)),
+          DIcon(icon, size: 10),
+        ],
+      );
+    }
+    return Row(
+      spacing: DSpacing.sm,
+      children: [
+        DIcon(
+          icon,
+          size: context.isTouch ? 22 : 18,
+          color: DTokens.of(context).foreground.withValues(alpha: .7),
+        ),
+        Expanded(child: ExcludeSemantics(child: label)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

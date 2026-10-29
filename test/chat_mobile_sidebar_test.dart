@@ -1,12 +1,16 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -27,7 +31,7 @@ final _title = find.descendant(
   of: _inbox,
   matching: find.byKey(const ValueKey('chat-inbox-title')),
 );
-final _navigation = find.byKey(const ValueKey('chat-browse-navigation'));
+final _navigation = find.byKey(const ValueKey('chat-inbox-activity-filter'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   name,
@@ -84,6 +88,14 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
       },
     ),
   );
+  final shell = ShellScope.read(tester.element(find.byType(Scaffold).first));
+  await shell.forumSettings.setShared(
+    const SharedAppearance(
+      font: ForumFont.openSans,
+      interfaceFont: ForumFont.openSans,
+    ),
+  );
+  await tester.pumpAndSettle();
   // Enlarged text on a narrow phone moves Chat into the dock's More menu.
   final dockTab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
   if (dockTab.evaluate().isEmpty) {
@@ -102,76 +114,48 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
   expect(_inbox, findsOneWidget);
 }
 
+Future<void> _scrollInboxTo(
+  WidgetTester tester,
+  Finder row,
+  double delta,
+) async {
+  for (
+    var attempt = 0;
+    attempt < 100 && row.hitTestable().evaluate().isEmpty;
+    attempt++
+  ) {
+    final viewport = find
+        .descendant(of: _inbox, matching: find.byType(Scrollable))
+        .last;
+    // The dock overlays the viewport's lower part. Swipe its visible top edge.
+    await tester.dragFrom(
+      tester.getTopLeft(viewport) + const Offset(10, 10),
+      Offset(0, delta),
+    );
+    await tester.pumpAndSettle();
+  }
+  expect(row.hitTestable(), findsOneWidget);
+}
+
 void main() {
-  _mobileTest(
-    'scrolling hides the chat title and keeps peer navigation and filters',
-    (tester) async {
-      await _pumpChatInbox(tester, phone);
-      final navigation = tester.getRect(_navigation);
-      final list = find.descendant(of: _inbox, matching: find.byType(ListView));
-      await tester.drag(list, const Offset(0, -160));
-      await tester.pumpAndSettle();
-      expect(_title.hitTestable(), findsNothing);
-      expect(_navigation.hitTestable(), findsOneWidget);
-      expect(tester.getRect(_navigation).top, lessThan(navigation.top));
-      expect(find.text('Channels'), findsOneWidget);
-      expect(find.text('Threads'), findsOneWidget);
-      expect(find.byType(DCardFooter), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _mobileTest(
-    'keyboard and large text keep navigation and conversations reachable',
-    (tester) async {
-      tester.platformDispatcher.textScaleFactorTestValue = 2;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await _pumpChatInbox(tester, const Size(320, 720));
-      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
-      addTearDown(tester.view.resetViewInsets);
-      await tester.pumpAndSettle();
-      final scrollable = find
-          .descendant(of: _inbox, matching: find.byType(Scrollable))
-          .first;
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('chat-inbox-channel-20')),
-        100,
-        scrollable: scrollable,
-      );
-      expect(
-        find.byKey(const ValueKey('chat-inbox-channel-20')).hitTestable(),
-        findsOneWidget,
-      );
-      await tester.scrollUntilVisible(_title, -100, scrollable: scrollable);
-      expect(_title.hitTestable(), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  _mobileTest('dismissing the keyboard fixes the title and navigation again', (
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('org.discourse.native/notification_opens'),
+          (_) async => null,
+        );
+  });
+  setUpAll(() async {
+    await (FontLoader(
+      'Open Sans',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+  });
+  _mobileTest('scrolling hides the chat title and keeps the activity filter', (
     tester,
   ) async {
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    // The enlarged Native chrome needs enough room to become fixed again.
-    await _pumpChatInbox(tester, const Size(320, 1000));
-    final list = find.descendant(of: _inbox, matching: find.byType(ListView));
-    expect(list, findsOneWidget);
-    final title = tester.getRect(_title);
+    await _pumpChatInbox(tester, phone);
     final navigation = tester.getRect(_navigation);
-    tester.view.viewInsets = const FakeViewPadding(bottom: 540);
-    addTearDown(tester.view.resetViewInsets);
-    await tester.pumpAndSettle();
-    expect(list, findsNothing);
-    await tester.drag(_title, const Offset(0, -150));
-    await tester.pumpAndSettle();
-    expect(tester.getRect(_title).top, lessThan(title.top));
-    tester.view.resetViewInsets();
-    await tester.pumpAndSettle();
-    expect(list, findsOneWidget);
-    expect(_title.hitTestable(), findsOneWidget);
-    expect(_navigation.hitTestable(), findsOneWidget);
-    await tester.pump(const Duration(milliseconds: 500));
+    final list = find.descendant(of: _inbox, matching: find.byType(ListView));
     await tester.drag(list, const Offset(0, -160));
     await tester.pumpAndSettle();
     expect(_title.hitTestable(), findsNothing);
@@ -179,4 +163,73 @@ void main() {
     expect(tester.getRect(_navigation).top, lessThan(navigation.top));
     expect(tester.takeException(), isNull);
   });
+
+  _mobileTest(
+    'keyboard and large text keep navigation and conversations reachable',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpChatInbox(tester, const Size(320, 720));
+      addTearDown(tester.view.resetViewInsets);
+      for (final bottom in [280.0, 340.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: bottom);
+        await tester.pumpAndSettle();
+        await _scrollInboxTo(
+          tester,
+          find.byKey(const ValueKey('chat-inbox-channel-20')),
+          -100,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-20')).hitTestable(),
+          findsOneWidget,
+        );
+        await _scrollInboxTo(
+          tester,
+          find.byKey(const ValueKey('chat-inbox-channel-1')),
+          100,
+        );
+        await _scrollInboxTo(tester, _title, 150);
+        expect(_title.hitTestable(), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest(
+    'dismissing the keyboard restores the title and filters after scrolling',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpChatInbox(tester, const Size(320, 1000));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 540);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      await _scrollInboxTo(
+        tester,
+        find.byKey(const ValueKey('chat-inbox-channel-20')),
+        -150,
+      );
+      expect(
+        find.byKey(const ValueKey('chat-inbox-channel-20')).hitTestable(),
+        findsOneWidget,
+      );
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      await _scrollInboxTo(
+        tester,
+        find.byKey(const ValueKey('chat-inbox-channel-1')),
+        150,
+      );
+      await _scrollInboxTo(tester, _title, 150);
+      expect(_title.hitTestable(), findsOneWidget);
+      expect(_navigation.hitTestable(), findsOneWidget);
+      final list = find.descendant(of: _inbox, matching: find.byType(ListView));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.drag(list, const Offset(0, -160));
+      await tester.pumpAndSettle();
+      expect(_title.hitTestable(), findsNothing);
+      expect(_navigation.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

@@ -10,7 +10,7 @@ final sidebarExamples = ComponentExamples(
       'Composable navigation with collapsible panels, groups, and menus.',
   status: ComponentStatus.implemented,
   notes:
-      'Sidebar ports base-nova geometry and native focus/navigation. Menu links use flat hover and distinct active fills; the navigation variant keeps top-level destinations flat under the pointer. Active rows use flat selection fills in every appearance. Rich inbox rows share this treatment with DItemSelectionStyle.sidebar and DItemShape.menu. Content scrolls with hidden scrollbar artwork and drag targets. Group labels can navigate up with onPressed while retaining the same heading typography and bounds. Its mobile panel, search, group disclosure, workspace/account menus and account identity compose the accepted Sheet, Input, Collapsible, Dropdown Menu and Avatar owners. Persistence and routing remain with the app.',
+      'Sidebar owns phone rows at 40px, rich rows at 56px, and card headings at 48px. Sliver group headings pin within their section and push one another away; held headings paint an opaque surface and a soft lower fade. Content.header keeps shared controls outside the scrolling rows. Desktop retains its compact geometry. Menu links use flat hover and active fills; rich inbox rows share this treatment with DItemSelectionStyle.sidebar and DItemShape.menu. Group labels can navigate up with onPressed. Persistence and routing remain with the app.',
   examples: [
     StyleguideExample(
       title: 'Application sidebar',
@@ -66,9 +66,9 @@ final sidebarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Lazy navigation',
       description:
-          '400 destinations share one scroll area. Collapse Channels, scroll to the end, increase the unread count, or open a row action. Headers and footer stay fixed. Large text grows rows and trailing counts reserve their actual width.',
+          '400 destinations share one scroll area. On phones the Channels card heading sticks while its rows scroll. Collapse it, scroll to the end, increase the unread count, or open a row action. Large text grows rows and trailing counts reserve their actual width.',
       code:
-          "DSidebarContent.slivers(slivers: [\n  DCollapsible(defaultOpen: true, child: DSidebarGroup.sliver(\n    \n    sliver: DCollapsibleContent.sliver(sliver:\n      DSidebarMenu.sliverBuilder(\n        itemCount: channels.length,\n        itemBuilder: buildChannel,\n        findChildIndexCallback: findChannelIndex,\n      )),\n  )),\n])",
+          "DSidebarContent.slivers(slivers: [\n  DCollapsible(defaultOpen: true, child: DSidebarGroup.sliver(\n    header: DCollapsibleTrigger(child: DSidebarGroupLabel(child: Text('Channels'))),\n    sliver: DCollapsibleContent.sliver(sliver:\n      DSidebarMenu.sliverBuilder(\n        itemCount: channels.length,\n        itemBuilder: buildChannel,\n        findChildIndexCallback: findChannelIndex,\n      )),\n  )),\n])",
       builder: (_) => const _LazySidebarDemo(),
     ),
     StyleguideExample(
@@ -160,10 +160,6 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
       mobileBreakpoint: 0,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final touch = switch (Theme.of(context).platform) {
-            TargetPlatform.iOS || TargetPlatform.android => true,
-            _ => false,
-          };
           final scalable = MediaQuery.textScalerOf(context).scale(14) > 14;
           return DSidebar(
             width: constraints.maxWidth,
@@ -187,84 +183,73 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
                   open: _open,
                   onOpenChange: (value) => setState(() => _open = value),
                   child: DSidebarGroup.sliver(
-                    sliver: SliverMainAxisGroup(
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: DCollapsibleTrigger(
-                            child: DSidebarGroupLabel(
-                              child: Row(
-                                children: [
-                                  const Expanded(child: Text('Channels')),
-                                  Icon(
-                                    _open
-                                        ? Icons.keyboard_arrow_down
-                                        : Icons.chevron_right,
-                                    size: 16,
+                    header: DCollapsibleTrigger(
+                      child: DSidebarGroupLabel(
+                        child: Row(
+                          children: [
+                            const Expanded(child: Text('Channels')),
+                            Icon(
+                              _open
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    sliver: DCollapsibleContent.sliver(
+                      sliver: DSidebarMenu.sliverBuilder(
+                        itemCount: 400,
+                        itemExtent: scalable
+                            ? null
+                            : DSidebarMenuButton.rowHeightOf(context),
+                        findChildIndexCallback: (key) =>
+                            key is ValueKey<int> ? key.value : null,
+                        itemBuilder: (context, index) => DSidebarMenuItem(
+                          key: ValueKey(index),
+                          badge: index < 2
+                              ? DSidebarMenuBadge(
+                                  child: Text(index == 0 ? '$_count' : 'muted'),
+                                )
+                              : null,
+                          action: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              side: DPopoverSide.bottom,
+                              align: DPopoverAlign.end,
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: () => setState(
+                                    () =>
+                                        _message = 'Actions for channel $index',
                                   ),
-                                ],
+                                  child: const Text('View channel details'),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (context, menu) => DSidebarMenuAction(
+                                semanticLabel: 'Channel $index actions',
+                                onPressed: menu.toggle,
+                                child: const Icon(Icons.more_horiz),
                               ),
                             ),
                           ),
-                        ),
-                        DCollapsibleContent.sliver(
-                          sliver: DSidebarMenu.sliverBuilder(
-                            itemCount: 400,
-                            itemExtent: scalable
-                                ? null
-                                : touch
-                                ? 48
-                                : 32,
-                            findChildIndexCallback: (key) =>
-                                key is ValueKey<int> ? key.value : null,
-                            itemBuilder: (context, index) => DSidebarMenuItem(
-                              key: ValueKey(index),
-                              badge: index < 2
-                                  ? DSidebarMenuBadge(
-                                      child: Text(
-                                        index == 0 ? '$_count' : 'muted',
-                                      ),
-                                    )
-                                  : null,
-                              action: DDropdownMenu(
-                                content: DDropdownMenuContent(
-                                  side: DPopoverSide.bottom,
-                                  align: DPopoverAlign.end,
-                                  children: [
-                                    DDropdownMenuItem(
-                                      onPressed: () => setState(
-                                        () => _message =
-                                            'Actions for channel $index',
-                                      ),
-                                      child: const Text('View channel details'),
-                                    ),
-                                  ],
-                                ),
-                                child: DDropdownMenuTrigger(
-                                  builder: (context, menu) =>
-                                      DSidebarMenuAction(
-                                        semanticLabel: 'Channel $index actions',
-                                        onPressed: menu.toggle,
-                                        child: const Icon(Icons.more_horiz),
-                                      ),
-                                ),
-                              ),
-                              child: DSidebarMenuButton(
-                                icon: const Icon(Icons.tag, size: 16),
-                                isActive: _selected == index,
-                                onPressed: () => setState(() {
-                                  _selected = index;
-                                  _message = 'Selected channel $index';
-                                }),
-                                child: Text(
-                                  index == 0
-                                      ? 'Announcements and community updates'
-                                      : 'Channel $index',
-                                ),
-                              ),
+                          child: DSidebarMenuButton(
+                            icon: const Icon(Icons.tag, size: 16),
+                            isActive: _selected == index,
+                            onPressed: () => setState(() {
+                              _selected = index;
+                              _message = 'Selected channel $index';
+                            }),
+                            child: Text(
+                              index == 0
+                                  ? 'Announcements and community updates'
+                                  : 'Channel $index',
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

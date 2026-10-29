@@ -42,7 +42,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Quiet page pickers',
       description:
-          '30px pills with 12.5px medium text and flat translucent fills. A category path shares one well; each segment keeps its own hover, focus and hit bounds.',
+          '30px desktop pills and 36px phone pills, with 12.5px/14px labels and flat translucent fills. A category path shares one well; each segment keeps its own hover, focus and hit bounds.',
       code:
           "DButton(variant: DButtonVariant.quiet, size: DButtonSize.filter, label: Text('Tags'), onPressed: openTags)",
       builder: (_) => Wrap(

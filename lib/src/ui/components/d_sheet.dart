@@ -18,6 +18,7 @@ import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_history_transition.dart';
 import 'd_mobile_dock_geometry.dart';
+import 'd_page_header.dart';
 import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
@@ -699,7 +700,9 @@ Widget _sheetLayout(
             ? const SizedBox.expand()
             : ExcludeFocus(
                 child: ExcludeSemantics(
-                  child: IgnorePointer(child: ClipRect(child: underlay)),
+                  child: DPageHeaderHost.exclude(
+                    child: IgnorePointer(child: ClipRect(child: underlay)),
+                  ),
                 ),
               ))
       : fillAvailableHeight
@@ -2322,13 +2325,29 @@ class DSheetBody extends StatelessWidget {
 }
 
 class DSheetFooter extends StatelessWidget {
-  const DSheetFooter({super.key, required this.children});
+  const DSheetFooter({
+    super.key,
+    required this.children,
+    this.padding = const EdgeInsets.all(DSpacing.lg),
+  });
 
   final List<Widget> children;
 
+  /// Visual content insets. Adaptive sheets add any remaining screen-safe
+  /// clearance below them, while the body can scroll through that area.
+  final EdgeInsetsGeometry padding;
+
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(DSpacing.lg),
+    padding: padding.add(
+      EdgeInsets.only(
+        bottom:
+            context
+                .dependOnInheritedWidgetOfExactType<_DSheetAdaptiveMenuScope>()
+                ?.footerSafeInset ??
+            0,
+      ),
+    ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

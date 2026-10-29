@@ -213,7 +213,8 @@ class DItem extends StatefulWidget {
   State<DItem> createState() => _DItemState();
 }
 
-/// A rail destination with a visible 36px action inside its 48px layout slot.
+/// A rail destination with a 44px phone action in a 52px layout slot, or a
+/// 36px desktop action in a 48px slot.
 /// The marker is decorative. Hover changes its Native-owned height.
 class DItemRail extends StatefulWidget {
   const DItemRail({
@@ -235,6 +236,25 @@ class DItemRail extends StatefulWidget {
   final MouseCursor? mouseCursor;
   final Widget Function(BuildContext, Widget)? controlWrapper;
 
+  /// Shared with the rail's image adapter and drag feedback.
+  static double artworkDimensionOf(BuildContext context) =>
+      DControlStyle.isTouch(context) ? 44 : 36;
+
+  /// Shared with the rail's lazy list and reorder insertion calculation.
+  static double itemExtentOf(BuildContext context) =>
+      DControlStyle.isTouch(context) ? 52 : 48;
+
+  static BorderRadius artworkBorderRadiusOf(
+    BuildContext context, {
+    required bool selected,
+  }) => BorderRadius.circular(
+    selected
+        ? DControlStyle.isTouch(context)
+              ? 14
+              : 12
+        : artworkDimensionOf(context) / 2,
+  );
+
   @override
   State<DItemRail> createState() => _DItemRailState();
 }
@@ -244,13 +264,15 @@ class _DItemRailState extends State<DItemRail> {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = DControlStyle.isTouch(context);
+    final dimension = DItemRail.artworkDimensionOf(context);
     final action = DItem(
       size: DItemSize.artwork,
       shape: DItemShape.pill,
       mouseCursor: widget.mouseCursor,
       onPressed: widget.onPressed,
       onHoverChanged: (hovered) => setState(() => _hovered = hovered),
-      children: [SizedBox.square(dimension: 36, child: widget.artwork)],
+      children: [SizedBox.square(dimension: dimension, child: widget.artwork)],
     );
     final control = widget.controlWrapper?.call(context, action) ?? action;
     return Stack(
@@ -263,7 +285,9 @@ class _DItemRailState extends State<DItemRail> {
             curve: Curves.easeOutCubic,
             width: 4,
             height: widget.selected
-                ? 28
+                ? dimension - 8
+                : mobile
+                ? 0
                 : _hovered
                 ? 16
                 : 8,
@@ -276,7 +300,10 @@ class _DItemRailState extends State<DItemRail> {
           ),
         ),
         Center(
-          child: SizedBox.square(dimension: 48, child: Center(child: control)),
+          child: SizedBox.square(
+            dimension: DItemRail.itemExtentOf(context),
+            child: Center(child: control),
+          ),
         ),
       ],
     );
@@ -372,9 +399,14 @@ class _DItemState extends State<DItem> {
             ),
           ];
     final tokens = DTokens.of(context);
+    final drawer =
+        widget.selectionStyle == DItemSelectionStyle.sidebar &&
+        DSidebarRowScope.drawerOf(context);
     final xs = widget.size == DItemSize.xs;
     final artwork = widget.size == DItemSize.artwork;
-    final gap = artwork
+    final gap = drawer
+        ? 8.0
+        : artwork
         ? 0.0
         : xs
         ? 8.0
@@ -438,6 +470,7 @@ class _DItemState extends State<DItem> {
     Widget result = _ItemScope(
       size: widget.size,
       described: described,
+      drawer: drawer,
       child: DefaultTextStyle.merge(
         style: artwork
             ? DefaultTextStyle.of(context).style
@@ -455,6 +488,11 @@ class _DItemState extends State<DItem> {
             radius,
           ),
           child: interactiveRowSurface(
+            constraints: drawer
+                ? const BoxConstraints(
+                    minHeight: DSidebarRowScope.tallRowHeight,
+                  )
+                : null,
             foregroundDecoration: widget.selected && leadingSelection
                 ? BoxDecoration(
                     border: BorderDirectional(
@@ -487,7 +525,9 @@ class _DItemState extends State<DItem> {
             ),
             padding:
                 widget.padding ??
-                (artwork
+                (drawer
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+                    : artwork
                     ? EdgeInsets.zero
                     : EdgeInsets.symmetric(
                         horizontal: xs
@@ -846,16 +886,22 @@ class _ItemScope extends InheritedWidget {
   const _ItemScope({
     required this.size,
     required this.described,
+    this.drawer = false,
     required super.child,
   });
   final DItemSize size;
   final bool described;
+  final bool drawer;
+  static bool drawerOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ItemScope>()?.drawer ?? false;
   static DItemSize sizeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ItemScope>()?.size ??
       DItemSize.standard;
   @override
   bool updateShouldNotify(_ItemScope oldWidget) =>
-      size != oldWidget.size || described != oldWidget.described;
+      size != oldWidget.size ||
+      described != oldWidget.described ||
+      drawer != oldWidget.drawer;
 }
 
 /// Eager composition for short lists. Keep application ListView.builder owners
@@ -954,10 +1000,12 @@ class DItemContent extends StatelessWidget {
           SizedBox(
             height:
                 spacing ??
-                (switch (_ItemScope.sizeOf(context)) {
-                  DItemSize.xs || DItemSize.artwork => 0,
-                  _ => 4,
-                }),
+                (_ItemScope.drawerOf(context)
+                    ? 2
+                    : (switch (_ItemScope.sizeOf(context)) {
+                        DItemSize.xs || DItemSize.artwork => 0,
+                        _ => 4,
+                      })),
           ),
         children[i],
       ],
@@ -978,9 +1026,13 @@ class DItemTitle extends StatelessWidget {
         : maxLines;
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
-        const TextStyle(
-          fontSize: DiscourseTypography.rowTitle,
-          height: DiscourseTypography.lineHeightRowTitle,
+        TextStyle(
+          fontSize: _ItemScope.drawerOf(context)
+              ? DiscourseTypography.sm
+              : DiscourseTypography.rowTitle,
+          height: _ItemScope.drawerOf(context)
+              ? 1.25
+              : DiscourseTypography.lineHeightRowTitle,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
         ),
@@ -1008,7 +1060,9 @@ class DItemDescription extends StatelessWidget {
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
           fontSize: DiscourseTypography.preview,
-          height: DiscourseTypography.lineHeightPreview,
+          height: _ItemScope.drawerOf(context)
+              ? 1.25
+              : DiscourseTypography.lineHeightPreview,
           fontWeight: FontWeight.w400,
           color: DTokens.of(context).mutedForeground,
           letterSpacing: 0,

@@ -14,7 +14,6 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_channels_view.dart';
-import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -201,7 +200,7 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await _pumpBrowse(tester, api);
         final navigation = tester.getRect(
-          find.byKey(const ValueKey('chat-browse-navigation')),
+          find.byKey(const ValueKey('chat-inbox-back')),
         );
         final controls = [_filter, _status, _joined].map(tester.getRect);
         for (final control in controls) {
@@ -844,6 +843,7 @@ void main() {
       (tester) async {
         final api = await _pumpShortBrowse(tester);
         final browse = tester.getRect(_browse);
+        final initialOffsets = _offsets(api).toList();
         final loadMore = find.widgetWithText(DButton, 'Load more');
         final lastChannel = _card(ChatChannelBrowsePage.pageSize);
 
@@ -869,11 +869,14 @@ void main() {
           expect(target.hitTestable(), findsOneWidget);
         }
         expect(tester.getRect(_filter).bottom, lessThan(browse.top));
-        expect(_offsets(api), [0]);
+        expect(_offsets(api), initialOffsets);
 
         await tester.tap(loadMore);
         await tester.pumpAndSettle();
-        expect(_offsets(api), [0, ChatChannelBrowsePage.pageSize]);
+        expect(_offsets(api), [
+          ...initialOffsets,
+          ChatChannelBrowsePage.pageSize,
+        ]);
         expect(_card(ChatChannelBrowsePage.pageSize + 1), findsOneWidget);
         expect(loadMore, findsNothing);
         expect(tester.takeException(), isNull);
@@ -1050,9 +1053,9 @@ Future<_BrowseApi> _pumpMobileBrowse(WidgetTester tester, Size size) async {
     await tester.tap(dockTab);
   }
   await tester.pumpAndSettle();
-  final channelsTab = find.byKey(
-    const ValueKey(('toggle-group-item', ChatBrowsePage.channels)),
-  );
+  // Inbox count discovery has its own request; these tests own the directory.
+  api.chatBrowseRequested.clear();
+  final channelsTab = find.byKey(const ValueKey('chat-inbox-channels-card'));
   await tester.ensureVisible(channelsTab);
   await tester.tap(channelsTab);
   await tester.pumpAndSettle();

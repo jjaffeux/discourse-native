@@ -227,6 +227,7 @@ void main() {
       await _capture(tester, 'phone-expanded');
       final filters = find.byKey(const ValueKey('topic-list-filter'));
       final initialTop = tester.getTopLeft(filters).dy;
+      expect(tester.getSize(filters).height, 36);
       await tester.drag(
         find.byKey(const ValueKey('responsive-filter-topics')),
         const Offset(0, -500),
@@ -238,10 +239,70 @@ void main() {
         find.descendant(of: filters, matching: find.textContaining('1')),
         findsOneWidget,
       );
+      final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+      for (final label in ['Categories', 'Tags']) {
+        expect(
+          find.descendant(of: bar, matching: find.text(label)),
+          findsNothing,
+        );
+      }
+      expect(
+        tester.getSize(find.byKey(const ValueKey('topic-list-tag-filter'))),
+        const Size.square(36),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        ),
+        const Size.square(36),
+      );
       await _capture(tester, 'phone-scrolled');
+      await tester.tap(filters);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsOneWidget);
+      await _capture(tester, 'phone-filter-menu');
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('a selected path retains its scope and count while compacted', (
+    tester,
+  ) async {
+    final shell = await _pump(tester, query: '=category:3 status:open');
+    await tester.drag(
+      find.byKey(const ValueKey('responsive-filter-topics')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+    expect(
+      find.descendant(of: bar, matching: find.text('Mobile')),
+      findsNothing,
+    );
+    expect(
+      shell.topicListFilterEditorQuery(shell.topicListContent!),
+      contains('=category:3'),
+    );
+    final leaf = find.byKey(const ValueKey('topic-list-subcategory-filter-2'));
+    expect(tester.widget<DButton>(leaf).semanticLabel, 'Mobile');
+    final filters = find.byKey(const ValueKey('topic-list-filter'));
+    expect(
+      find.descendant(of: filters, matching: find.text('2')),
+      findsOneWidget,
+    );
+    await _capture(tester, 'phone-scrolled-deep');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.drag(
+      find.byKey(const ValueKey('responsive-filter-topics')),
+      const Offset(0, 150),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: bar, matching: find.text('Mobile')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final scale in [1.0, 1.5]) {
     testWidgets(
@@ -254,6 +315,23 @@ void main() {
           query: '=category:3 status:open',
         );
         await _capture(tester, 'phone-narrow-deep-$scale');
+        final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+        expect(
+          tester.getSize(bar).height,
+          lessThanOrEqualTo(scale == 1 ? 80 : 105),
+        );
+        expect(
+          find.descendant(of: bar, matching: find.text('Product')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: bar, matching: find.text('Design')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: bar, matching: find.text('Mobile')),
+          findsOneWidget,
+        );
         for (var level = 0; level < 4; level++) {
           final key = level == 0
               ? 'topic-list-category-filter'

@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
@@ -10,6 +12,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_header_tags.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -135,7 +138,17 @@ void main() {
   const notificationOpens = MethodChannel(
     'org.discourse.native/notification_opens',
   );
-  setUpAll(() {
+  setUpAll(() async {
+    if (Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] != null) {
+      for (final (family, asset) in [
+        ('Lato', 'Lato-Regular.ttf'),
+        ('Open Sans', 'OpenSans.ttf'),
+      ]) {
+        await (FontLoader(
+          family,
+        )..addFont(rootBundle.load('assets/fonts/$asset'))).load();
+      }
+    }
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(notificationOpens, (_) async => null);
   });
@@ -267,13 +280,17 @@ void main() {
 
   testWidgets('the head controls are flat pills of a 5% fill', (tester) async {
     await _openTopic(tester);
-    final tokens = DTokens.of(tester.element(_actions));
-    final scaler = MediaQuery.textScalerOf(tester.element(_actions));
+    final context = tester.element(_actions);
+    final tokens = DTokens.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
     final fill = tokens.foreground.withValues(alpha: .05);
-    // BAND_H and the chips' 12.5px, before the phone's text baseline.
-    expect(DControlStyle.height(DControlSize.filter), 30);
-    expect(DControlStyle.fontSize(DControlSize.filter), 12.5);
-    final height = DControlStyle.scaledHeight(DControlSize.filter, scaler);
+    expect(DControlStyle.height(DControlSize.filter, context: context), 36);
+    expect(DControlStyle.fontSize(DControlSize.filter, context: context), 14);
+    final height = DControlStyle.scaledHeight(
+      DControlSize.filter,
+      scaler,
+      context: context,
+    );
     await tester.tap(_moreTags);
     await tester.pumpAndSettle();
     for (final control in [_actions, _tag(_tags.first.name)]) {
@@ -386,6 +403,14 @@ void main() {
     tester,
   ) async {
     final shell = await _openTopic(tester);
+    if (Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] != null) {
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          interfaceFont: ForumFont.lato,
+          font: ForumFont.openSans,
+        ),
+      );
+    }
     // A distinct canvas makes clipped corners visible even when a plain
     // phone's canvas and header normally share the same fill.
     await shell.forumSettings.setShared(
@@ -415,16 +440,12 @@ void main() {
 
     await wheel(900);
     await wheel(-120);
-    final band = tester.widget<DecoratedBox>(
+    final band = tester.widget<DCard>(
       find.byKey(const ValueKey('topic-header-band')),
     );
-    expect(
-      band.decoration,
-      BoxDecoration(
-        color: DTokens.of(tester.element(sheet)).wellFill,
-        borderRadius: BorderRadius.circular(31),
-      ),
-    );
+    expect(band.backgroundColor, DTokens.of(tester.element(sheet)).wellFill);
+    expect(band.borderRadius, BorderRadius.circular(24));
+    expect(band.border, isFalse);
     expect(
       tester.widget<DPageSurface>(sheet).borderRadius,
       const BorderRadius.vertical(
@@ -432,8 +453,23 @@ void main() {
         bottom: Radius.circular(22),
       ),
     );
-    expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
-    expect(tester.widget<DPageSurface>(sheet).depth, isNull);
+    final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
+    expect(grabber, findsOneWidget);
+    expect(tester.widget<DPageSurface>(sheet).depth, DSurfaceDepth.panel);
+    expect(
+      tester.getRect(find.byKey(const ValueKey('topic-header-band'))).top,
+      tester.getRect(sheet).top + 21,
+    );
+    expect(
+      tester.getRect(grabber).bottom,
+      lessThan(
+        tester.getRect(find.byKey(const ValueKey('topic-header-band'))).top,
+      ),
+    );
+    await _capturePolish(
+      tester,
+      'compact-header-${defaultTargetPlatform.name}',
+    );
 
     final bounds = tester.getRect(
       find.byKey(const ValueKey('topic-header-band')),
@@ -512,4 +548,24 @@ void main() {
     expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
+}
+
+Future<void> _capturePolish(WidgetTester tester, String name) async {
+  final path = Platform.environment['PRESENTATION_POLISH_RENDER_DIR'];
+  if (path == null) return;
+  await tester.runAsync(() async {
+    final view = tester.binding.renderViews.first;
+    final builder = ui.SceneBuilder();
+    view.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final image = await scene.toImage(
+      view.size.width.round(),
+      view.size.height.round(),
+    );
+    scene.dispose();
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    await Directory(path).create(recursive: true);
+    await File('$path/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
 }

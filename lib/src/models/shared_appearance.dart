@@ -47,22 +47,6 @@ final class SharedAppearance {
   ForumFont get readingFont => font;
   final ForumFont interfaceFont;
 
-  bool get usesOpenDyslexicForBoth =>
-      font == ForumFont.openDyslexic && interfaceFont == ForumFont.openDyslexic;
-
-  SharedAppearance withOpenDyslexicForBoth(bool enabled) => copyWith(
-    font: enabled
-        ? ForumFont.openDyslexic
-        : font == ForumFont.openDyslexic
-        ? ForumFont.system
-        : font,
-    interfaceFont: enabled
-        ? ForumFont.openDyslexic
-        : interfaceFont == ForumFont.openDyslexic
-        ? ForumFont.system
-        : interfaceFont,
-  );
-
   /// System reading follows the interface, as in the font chooser.
   String? get readingFamily => font.family ?? interfaceFont.family;
   final DIconSet iconSet;

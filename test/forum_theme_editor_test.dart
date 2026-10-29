@@ -368,17 +368,12 @@ void main() {
     await tapVisible(tester, find.text('Normal'));
     expect(shell.appSettings.limitContentSize, isTrue);
     await tapVisible(tester, find.text('Accessibility'));
-    final dyslexia = find.byKey(
-      const ValueKey('dyslexia-friendly-font-switch'),
-    );
     final animations = find.byKey(
       const ValueKey('disable-gif-animations-switch'),
     );
-    expect(tester.widget<DSwitchTile>(dyslexia).value, isFalse);
+    expect(find.text('Dyslexia-friendly font'), findsNothing);
     expect(tester.widget<DSwitchTile>(animations).value, isFalse);
     expect(tester.getSize(animations).height, lessThan(100));
-    await tapVisible(tester, dyslexia);
-    expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isTrue);
     await tapVisible(tester, animations);
     expect(shell.appSettings.disableGifAnimations, isTrue);
   });

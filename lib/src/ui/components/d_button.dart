@@ -14,6 +14,7 @@ import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_avatar.dart';
+import 'd_fit_row.dart';
 import 'd_kbd.dart';
 import 'd_link_interaction.dart';
 import 'd_spinner.dart';
@@ -666,6 +667,8 @@ class DButton extends StatelessWidget {
         ? 12.0
         : chrome
         ? 8.0
+        : effectiveSize == DControlSize.filter && DControlStyle.isTouch(context)
+        ? 7.0
         : DControlStyle.contentGap(effectiveSize);
     final standardDimension =
         DControlStyle.scaledHeight(
@@ -1045,7 +1048,15 @@ class DButton extends StatelessWidget {
             ? const EdgeInsets.symmetric(vertical: 1)
             : quiet
             ? EdgeInsets.symmetric(
-                horizontal: joined?.quiet == true ? 8 : 11,
+                horizontal:
+                    effectiveSize == DControlSize.filter &&
+                        DControlStyle.isTouch(context)
+                    ? DFitRow.tightOf(context)
+                          ? 10
+                          : 12
+                    : joined?.quiet == true
+                    ? 8
+                    : 11,
                 vertical: 1,
               )
             : DControlStyle.isApplicationSize(effectiveSize)

@@ -14,6 +14,55 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  test(
+    'By type extracts starred channels and DMs once; Newest keeps activity order',
+    () {
+      const channels = [
+        ChatChannel(
+          id: 1,
+          title: 'Newest DM',
+          kind: ChatChannelKind.directMessage,
+          membership: ChatMembership(starred: true),
+        ),
+        ChatChannel(id: 2, title: 'Public', kind: ChatChannelKind.category),
+        ChatChannel(
+          id: 3,
+          title: 'Starred public',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(starred: true),
+        ),
+        ChatChannel(
+          id: 4,
+          title: 'Older DM',
+          kind: ChatChannelKind.directMessage,
+        ),
+      ];
+      final grouped = chatInboxSections(channels, ChatInboxSort.byType);
+      expect(grouped.map((s) => s.kind), [
+        ChatInboxSectionKind.starred,
+        ChatInboxSectionKind.channels,
+        ChatInboxSectionKind.directMessages,
+      ]);
+      expect(grouped.map((s) => s.channels.map((c) => c.id).toList()), [
+        [1, 3],
+        [2],
+        [4],
+      ]);
+      final newest = chatInboxSections(channels, ChatInboxSort.newest);
+      expect(newest.single.kind, ChatInboxSectionKind.allChats);
+      expect(newest.single.channels.map((c) => c.id), [1, 2, 3, 4]);
+      expect(
+        chatInboxSections([
+          channels.first,
+        ], ChatInboxSort.byType).map((s) => s.kind),
+        [ChatInboxSectionKind.starred],
+      );
+      for (final sort in ChatInboxSort.values) {
+        expect(chatInboxSections([], sort), isEmpty);
+      }
+    },
+  );
+
   group('chatInboxConversations', () {
     test(
       'preserves activity, title and ID order across inbox filters',

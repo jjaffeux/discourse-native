@@ -149,11 +149,8 @@ Color _railSurface(BuildContext context) {
 }
 
 const double _railListPadding = 8;
-const double _railItemExtent = 48;
-const double _railVisualSize = 36;
 const double _railIconSize = 16;
 const double _railFooterIconSize = 24;
-const double _railAvatarSize = _railVisualSize;
 const double _railSourceOpacity = 0.3;
 const double _railInsertionHorizontalInset = 5;
 const double _railInsertionPinSize = 8;
@@ -183,6 +180,8 @@ class _InstanceRailListState extends State<_InstanceRailList> {
   int _dragGeneration = 0;
 
   bool get _canReorder => widget.state.instances.length > 1;
+  double get _itemExtent => DItemRail.itemExtentOf(context);
+  double get _avatarSize => DItemRail.artworkDimensionOf(context);
 
   @override
   void didUpdateWidget(covariant _InstanceRailList oldWidget) {
@@ -299,7 +298,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
     }
 
     final contentY = local.dy + scrollable.position.pixels - _railListPadding;
-    return ((contentY + _railItemExtent / 2) / _railItemExtent)
+    return ((contentY + _itemExtent / 2) / _itemExtent)
         .floor()
         .clamp(0, widget.state.instances.length)
         .toInt();
@@ -313,17 +312,13 @@ class _InstanceRailListState extends State<_InstanceRailList> {
         pointer == null ||
         _slotFor(pointer) == null ||
         renderObject is! RenderBox ||
-        renderObject.size.height < _railAvatarSize) {
+        renderObject.size.height < _avatarSize) {
       _autoScroller?.stopAutoScroll();
       return;
     }
     _createAutoScroller();
     _autoScroller?.startAutoScrollIfNecessary(
-      Rect.fromCenter(
-        center: pointer,
-        width: _railAvatarSize,
-        height: _railAvatarSize,
-      ),
+      Rect.fromCenter(center: pointer, width: _avatarSize, height: _avatarSize),
     );
   }
 
@@ -440,10 +435,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
               data: instance.url,
               enabled: _draggedUrl == null || _draggedUrl == instance.url,
               feedback: Transform.translate(
-                offset: const Offset(
-                  -_railAvatarSize / 2,
-                  -_railAvatarSize - 12,
-                ),
+                offset: Offset(-_avatarSize / 2, -_avatarSize - 12),
                 child: feedback,
               ),
               onDragStarted: () => _startDrag(
@@ -469,7 +461,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           : 0,
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
-        offset: const Offset(-_railAvatarSize / 2, -_railAvatarSize / 2),
+        offset: Offset(-_avatarSize / 2, -_avatarSize / 2),
         child: feedback,
       ),
       onDragStarted: () =>
@@ -510,7 +502,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           bottomExtent: 26,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: _railListPadding),
-            itemExtent: _railItemExtent,
+            itemExtent: _itemExtent,
             itemCount: widget.state.instances.length + 1,
             findChildIndexCallback: (key) {
               if (key is! ValueKey<String>) return null;
@@ -1107,16 +1099,13 @@ class _RailDragFeedback extends StatelessWidget {
       ],
     );
 
-    return Material(
-      type: MaterialType.transparency,
-      child: SizedBox.square(
-        dimension: _railVisualSize,
-        child: _InstanceIcon(
-          instance: instance,
-          foreground: foreground,
-          background: background,
-          selected: selected,
-        ),
+    return SizedBox.square(
+      dimension: DItemRail.artworkDimensionOf(context),
+      child: _InstanceIcon(
+        instance: instance,
+        foreground: foreground,
+        background: background,
+        selected: selected,
       ),
     );
   }
@@ -1185,6 +1174,7 @@ class _RailItem extends StatelessWidget {
       ],
     );
 
+    final dimension = DItemRail.artworkDimensionOf(context);
     return DItemRail(
       selected: selected,
       onPressed: onTap,
@@ -1208,7 +1198,7 @@ class _RailItem extends StatelessWidget {
         ),
       ),
       artwork: SizedBox.square(
-        dimension: _railVisualSize,
+        dimension: dimension,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1216,7 +1206,7 @@ class _RailItem extends StatelessWidget {
             // otherwise make the rail item an unnamed image, and
             // the monogram fallback an abbreviation.
             SizedBox.square(
-              dimension: _railVisualSize,
+              dimension: dimension,
               child: ExcludeSemantics(
                 child: _InstanceIcon(
                   instance: instance,
@@ -1231,9 +1221,7 @@ class _RailItem extends StatelessWidget {
                 right: -1.5,
                 bottom: -1.5,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: _railVisualSize + 4,
-                  ),
+                  constraints: BoxConstraints(maxWidth: dimension + 4),
                   child: DBadge.overlay(
                     key: ValueKey('instance-rail-badge-${instance.url}'),
                     backgroundColor: badgeBackground,
@@ -1348,49 +1336,33 @@ class _InstanceIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final monogram = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(
-          selected ? 12 : _railVisualSize / 2,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            instance.monogram,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-
+    final dimension = DItemRail.artworkDimensionOf(context);
+    final radius = DItemRail.artworkBorderRadiusOf(context, selected: selected);
     return DCard(
       spacing: 0,
       border: false,
       backgroundColor: selected ? background : Colors.transparent,
-      borderRadius: BorderRadius.circular(selected ? 12 : _railVisualSize / 2),
-      child: SizedBox.square(
-        dimension: _railVisualSize,
-        child: DAvatar.frame(
-          border: false,
-          borderRadius: BorderRadius.circular(8),
-          child: AvatarImage(
-            url: instance.iconUrl,
-            size: _railVisualSize,
-            fit: BoxFit.contain,
-            fallback: monogram,
+      borderRadius: radius,
+      child: DAvatar.frame(
+        border: false,
+        borderRadius: radius,
+        child: AvatarImage(
+          url: instance.iconUrl,
+          size: dimension,
+          fit: BoxFit.contain,
+          fallback: DAvatarFallback(
+            backgroundColor: background,
+            foregroundColor: foreground,
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  instance.monogram,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
           ),
         ),
       ),

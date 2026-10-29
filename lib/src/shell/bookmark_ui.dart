@@ -437,12 +437,20 @@ Future<void> _showBookmarkEditor({
   context: context,
   title: appL10n.editBookmark,
   dialogOnDesktop: true,
-  builder: (_) => _BookmarkEditor(
+  surfaceBuilder: (_, sheet) => _BookmarkEditor(
     controller: controller,
     siteUrl: siteUrl,
     bookmark: bookmark,
     cooked: cooked,
     now: now ?? DateTime.now,
+    sheet: sheet,
+  ),
+  builder: (context) =>
+      ShellSheetForm.of<_BookmarkEditorState>(context)._body(context),
+  footerBuilder: (context) => ShellSheetActions(
+    children: ShellSheetForm.of<_BookmarkEditorState>(
+      context,
+    )._actions(context),
   ),
 );
 
@@ -704,6 +712,7 @@ class _BookmarkEditor extends StatefulWidget {
     required this.bookmark,
     required this.now,
     this.cooked,
+    required this.sheet,
   });
 
   final _BookmarkUiHost controller;
@@ -711,6 +720,7 @@ class _BookmarkEditor extends StatefulWidget {
   final Bookmark bookmark;
   final DateTime Function() now;
   final String? cooked;
+  final Widget sheet;
 
   @override
   State<_BookmarkEditor> createState() => _BookmarkEditorState();
@@ -932,7 +942,10 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ShellSheetForm(state: this, child: widget.sheet);
+
+  Widget _body(BuildContext context) {
     final siteContext = widget.controller.session.siteContext;
     final environment = TimezoneEnvironment.instance;
     final zoneName = environment.readerTimezone(siteContext.timezone);
@@ -1112,30 +1125,23 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ],
-          const SizedBox(height: 20),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: DSpacing.controlGap,
-            runSpacing: DSpacing.controlGap,
-            children: [
-              DButton(
-                label: Text(context.l10n.cancel),
-                onPressed: _busy
-                    ? null
-                    : () => DDialogClose.close<void>(context),
-              ),
-              DButton(
-                label: Text(context.l10n.save),
-                onPressed: _nameError == null ? _save : null,
-                variant: DButtonVariant.primary,
-                loading: _busy,
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
+
+  List<Widget> _actions(BuildContext context) => [
+    DButton(
+      label: Text(context.l10n.cancel),
+      onPressed: _busy ? null : () => DDialogClose.close<void>(context),
+    ),
+    DButton(
+      label: Text(context.l10n.save),
+      onPressed: _nameError == null ? _save : null,
+      variant: DButtonVariant.primary,
+      loading: _busy,
+    ),
+  ];
 
   @override
   void dispose() {

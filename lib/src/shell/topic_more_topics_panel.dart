@@ -41,32 +41,20 @@ class TopicMoreTopicsHeading extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
         );
-        final stacked =
-            constraints.maxWidth <
-            600 * MediaQuery.textScalerOf(context).scale(1);
         return ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 64),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: stacked && tabs != null
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [title, const SizedBox(height: 8), tabs!],
-                  )
-                : Row(
-                    children: [
-                      Expanded(child: title),
-                      if (tabs != null) ...[
-                        const SizedBox(width: 8),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth / 2,
-                          ),
-                          child: IntrinsicWidth(child: tabs!),
-                        ),
-                      ],
-                    ],
-                  ),
+            child: OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              spacing: 8,
+              overflowSpacing: 8,
+              overflowAlignment: OverflowBarAlignment.start,
+              children: [
+                title,
+                if (tabs != null) IntrinsicWidth(child: tabs!),
+              ],
+            ),
           ),
         );
       },

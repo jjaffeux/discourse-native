@@ -172,6 +172,23 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
                   ),
                 ),
               ),
+            if (widget.mobile && MediaQuery.paddingOf(context).top > 0)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: MediaQuery.paddingOf(context).top,
+                child: IgnorePointer(
+                  child: DCard(
+                    key: const ValueKey('mobile-status-bar-ground'),
+                    spacing: 0,
+                    border: false,
+                    borderRadius: BorderRadius.zero,
+                    backgroundColor: _plainWindowColor(tokens, mobile: true),
+                    child: const Expanded(child: SizedBox.shrink()),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

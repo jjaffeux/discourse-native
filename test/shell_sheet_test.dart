@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -8,6 +11,104 @@ import 'package:flutter_test/flutter_test.dart';
 const _title = 'Sheet title';
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] == null) return;
+    for (final (family, asset) in [
+      ('Lato', 'Lato-Regular.ttf'),
+      ('Open Sans', 'OpenSans.ttf'),
+    ]) {
+      await (FontLoader(
+        family,
+      )..addFont(rootBundle.load('assets/fonts/$asset'))).load();
+    }
+  });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'edit footer stays at the visible foot through partial detents and keyboard on $platform',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        addTearDown(tester.view.reset);
+        final keyboard = ValueNotifier<double>(0);
+        addTearDown(keyboard.dispose);
+        await _pumpSurface(
+          tester,
+          dialog: true,
+          platform: platform,
+          keyboard: keyboard,
+          builder: (_) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const DLabel(child: Text('Bookmark notes')),
+              DTextarea(
+                hintText: 'Keep for our next sailing trip',
+                minLines: 3,
+              ),
+              for (final label in [
+                'Reminder',
+                'Tomorrow',
+                'Later this week',
+                'Next week',
+                'Next month',
+                'In three months',
+                'In six months',
+                'Next year',
+              ]) ...[
+                const SizedBox(height: 16),
+                DButton(label: Text(label), onPressed: () {}),
+              ],
+            ],
+          ),
+          footerBuilder: (context) => ShellSheetActions(
+            children: [
+              DButton(
+                label: const Text('Cancel'),
+                onPressed: () => DDialogClose.close<void>(context),
+              ),
+              DButton(
+                key: const ValueKey('pinned-save'),
+                label: const Text('Save'),
+                variant: DButtonVariant.primary,
+                onPressed: () => DDialogClose.close<void>(context),
+              ),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final surface = find.byType(DSheetContent);
+        final save = find.byKey(const ValueKey('pinned-save'));
+        final low = tester.getRect(surface);
+        expect(low.top, greaterThan(47));
+        expect(tester.getRect(save).bottom, lessThanOrEqualTo(844 - 34));
+        expect(tester.getRect(save).bottom, closeTo(low.bottom - 34 - 16, 1));
+        expect(save.hitTestable(), findsOneWidget);
+        await _capturePolish(tester, 'edit-partial-${platform.name}');
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -320),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(surface).top, lessThan(low.top));
+        expect(tester.getRect(save).bottom, closeTo(844 - 34 - 16, 1));
+        keyboard.value = 300;
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(save).bottom, lessThanOrEqualTo(544));
+        expect(save.hitTestable(), findsOneWidget);
+        await _capturePolish(tester, 'edit-keyboard-${platform.name}');
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(surface, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   testWidgets('non-draggable mobile editor stays above a live keyboard', (
     tester,
   ) async {
@@ -444,7 +545,14 @@ Future<FocusNode> _pumpSurface(
   addTearDown(trigger.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light.copyWith(platform: platform),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.forBrightness(
+        Brightness.light,
+        fontFamily:
+            Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] == null
+            ? null
+            : 'Lato',
+      ).copyWith(platform: platform),
       builder: (context, child) => keyboard == null
           ? MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: textScaler),
@@ -486,4 +594,24 @@ Future<FocusNode> _pumpSurface(
     ),
   );
   return trigger;
+}
+
+Future<void> _capturePolish(WidgetTester tester, String name) async {
+  final path = Platform.environment['PRESENTATION_POLISH_RENDER_DIR'];
+  if (path == null) return;
+  await tester.runAsync(() async {
+    final view = tester.binding.renderViews.first;
+    final builder = ui.SceneBuilder();
+    view.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final image = await scene.toImage(
+      view.size.width.round(),
+      view.size.height.round(),
+    );
+    scene.dispose();
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    await Directory(path).create(recursive: true);
+    await File('$path/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
 }

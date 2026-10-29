@@ -70,7 +70,7 @@ void main() {
       expect(
         sidebarDestination('Chats'),
         findsNothing,
-        reason: 'the open directory carries its own three-way switch',
+        reason: 'the open inbox owns the directory cards',
       );
       expect(tester.widget<DTabs<String>>(panels.tabs).value, 'chat');
       expect(tester.takeException(), isNull);
@@ -179,12 +179,17 @@ void main() {
       ('Channels', ChatPlugin.browseRouteId),
       ('Chats', ChatPlugin.inboxRouteId),
     ]) {
-      final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
-      await tester.tap(
-        label == 'Threads'
-            ? sidebarDestination(label)
-            : find.descendant(of: navigation, matching: find.text(label)).first,
-      );
+      if (label == 'Threads') {
+        await tester.tap(sidebarDestination(label));
+      } else {
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
+        await tester.pumpAndSettle();
+        if (label == 'Channels') {
+          await tester.tap(
+            find.byKey(const ValueKey('chat-inbox-channels-card')),
+          );
+        }
+      }
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, route);
       expect(shell.activeTabId, sourceTab);
@@ -269,7 +274,9 @@ void main() {
           find.descendant(of: controls, matching: find.byType(DButton)),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Unread').last);
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuRadioItem<bool>, 'Unread'),
+        );
         await tester.pumpAndSettle();
         expect(
           find.descendant(of: controls, matching: find.text('Unread')),
@@ -328,7 +335,7 @@ void main() {
       position.jumpTo(400);
       await tester.pumpAndSettle();
       final pinnedTop = tester.getTopLeft(controls).dy;
-      expect(pinnedTop, lessThan(initialTop));
+      expect(pinnedTop, closeTo(initialTop, .1));
       position.jumpTo(800);
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));

@@ -99,6 +99,71 @@ Widget _command({
 );
 
 void main() {
+  for (final count in [3, 80]) {
+    for (final direction in TextDirection.values) {
+      testWidgets(
+        'guided command choices retain activation and directional inset ($count, $direction)',
+        (tester) async {
+          final selections = <String>[];
+          final controller = DCommandController<String>();
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            _host(
+              DCommand<String>(
+                controller: controller,
+                onSelected: selections.add,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const DCommandInput<String>(),
+                    DCommandList<String>(
+                      maxHeight: 300,
+                      children: [
+                        const DCommandItem<String>(
+                          value: 'flat',
+                          child: Text('Flat'),
+                        ),
+                        DCommandGroup<String>(
+                          heading: const Text('Kinds'),
+                          showGuide: true,
+                          items: [
+                            for (var i = 0; i < count; i++)
+                              DCommandItem<String>(
+                                value: 'guide-$i',
+                                child: Text('Guided $i'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              direction: direction,
+            ),
+          );
+          await tester.pumpAndSettle();
+          final flat = tester.getRect(find.text('Flat'));
+          final guided = tester.getRect(find.text('Guided 0'));
+          expect(
+            direction == TextDirection.ltr
+                ? guided.left - flat.left
+                : flat.right - guided.right,
+            10,
+          );
+          await tester.tap(find.text('Guided 0'));
+          expect(selections, ['guide-0']);
+          await tester.tap(find.byType(DCommandInput<String>));
+          controller.highlight('guide-1');
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          expect(selections, ['guide-0', 'guide-1']);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('compact query fills remaining space and wraps at 90px', (
     tester,
   ) async {

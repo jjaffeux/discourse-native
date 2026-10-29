@@ -14,6 +14,7 @@ import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
+import 'd_page_header.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
 import 'd_scroll_chrome.dart';
@@ -37,6 +38,7 @@ class DPageSurface extends StatefulWidget {
   DPageSurface.headed({
     super.key,
     required Widget title,
+    String? titleText,
     DIconData? icon,
     Widget? controls,
     this.bodyBuilder,
@@ -52,6 +54,7 @@ class DPageSurface extends StatefulWidget {
                  (child != null ? 1 : 0) ==
              1,
        ),
+       titleText = titleText ?? (title is Text ? title.data : null),
        floatingFooter = false,
        header = _PageTitle(icon: icon, child: title),
        headerControls = _PageControls(child: controls),
@@ -72,6 +75,7 @@ class DPageSurface extends StatefulWidget {
 
   const DPageSurface({
     super.key,
+    this.titleText,
     this.header,
     this.compactHeader,
     this.initialCompactHeader,
@@ -104,6 +108,7 @@ class DPageSurface extends StatefulWidget {
   /// The viewport and spacer keep their sizes throughout header animations.
   const DPageSurface.scrollable({
     super.key,
+    this.titleText,
     this.header,
     this.compactHeader,
     this.initialCompactHeader,
@@ -133,6 +138,11 @@ class DPageSurface extends StatefulWidget {
   /// Directory indexes keep a compact title away from the top, including
   /// programmatic jumps; ordinary pages reveal their title on upward input.
   final bool foldTitleAtTop;
+
+  /// Plain heading text for surrounding chrome. Headed pages infer this from
+  /// a Text title; composite headings and specialized readers supply it.
+  /// A graphical identity or a persistent conversation header leaves it null.
+  final String? titleText;
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
@@ -220,8 +230,9 @@ class DPageSurface extends StatefulWidget {
   bodyBuilder;
 
   /// Keeps a directory lazy while the measured heading and footer fit. When
-  /// they leave less than 48px for rows, false asks for a natural-height body
-  /// and the whole page scrolls together. The same title and controls remain.
+  /// they and the floating dock leave less than 48px for rows, false asks for
+  /// a natural-height body and the whole page scrolls together. The same title
+  /// and controls remain.
   /// A bounded list may pass Clip.none to its viewport: the page then clips
   /// it, letting a raised first row paint into the controls' empty padding.
   final Widget Function(BuildContext context, bool bounded)?
@@ -237,7 +248,7 @@ class DPageSurface extends StatefulWidget {
     BuildContext context, {
     bool insideViewport = false,
   }) {
-    final scope = context.getInheritedWidgetOfExactType<_PageHeaderScope>();
+    final scope = context.getInheritedWidgetOfExactType<_PageGeometryScope>();
     if (scope == null) return null;
     var parent = Scrollable.maybeOf(context, axis: Axis.vertical);
     if (insideViewport && parent != null) {
@@ -245,7 +256,7 @@ class DPageSurface extends StatefulWidget {
     }
     if (parent != null &&
         identical(
-          parent.context.getInheritedWidgetOfExactType<_PageHeaderScope>(),
+          parent.context.getInheritedWidgetOfExactType<_PageGeometryScope>(),
           scope,
         )) {
       return null;
@@ -263,6 +274,8 @@ class _DPageSurfaceState extends State<DPageSurface>
   final _headerKey = GlobalKey();
   double? _measuredCompactHeight;
   final _headerGeometry = DPageHeaderGeometry._();
+  late final _pageHeader = DPageHeader(scrollToTop: _scrollToTop);
+  ScrollableState? _pageScrollable;
   Widget? _builtBody;
   ({bool bounded, Widget child})? _builtAdaptiveBody;
   late final HeaderMotion _motion = HeaderMotion(this)
@@ -308,6 +321,51 @@ class _DPageSurfaceState extends State<DPageSurface>
       ? _titleFold
       : (_chromeHeaderEnabled ? _scrollChrome : null) ?? _motion;
   double get _hiddenFraction => widget.hideHeaderOnScroll ? _progress.value : 0;
+
+  void _syncPageHeader() => _pageHeader.update(
+    titleText: widget.titleText,
+    retraction: math.max(_hiddenFraction, _suppression.value),
+    layout: widget.compactHeader == null
+        ? DPageHeaderLayout.standard
+        : _compact
+        ? DPageHeaderLayout.compact
+        : DPageHeaderLayout.expanded,
+  );
+
+  void _rememberScrollable(
+    int depth,
+    BuildContext? origin,
+    ScrollMetrics metrics,
+  ) {
+    if (metrics.axis != Axis.vertical ||
+        !_isPageScroll(depth, origin) ||
+        origin == null) {
+      return;
+    }
+    final scrollable = Scrollable.maybeOf(origin, axis: Axis.vertical);
+    if (scrollable != null) _pageScrollable = scrollable;
+  }
+
+  Future<void> _scrollToTop() async {
+    final scrollable = _pageScrollable;
+    if (!mounted || scrollable == null || !scrollable.mounted) return;
+    final position = scrollable.position;
+    final top = position.axisDirection == AxisDirection.up
+        ? position.maxScrollExtent
+        : position.minScrollExtent;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      position.jumpTo(top);
+    } else {
+      await position.animateTo(
+        top,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    if (!mounted) return;
+    _motion.reveal(fresh: true);
+    if (_chromeHeaderEnabled) _scrollChrome?.reveal();
+  }
 
   @override
   void initState() {
@@ -429,6 +487,7 @@ class _DPageSurfaceState extends State<DPageSurface>
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
         (oldWidget.header != null && _header == null)) {
+      _pageScrollable = null;
       _compactTimer?.cancel();
       _compact = widget.initialCompactHeader ?? false;
       _compactFollowsScroll = widget.initialCompactHeader == null;
@@ -475,6 +534,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   void _updateHeader() {
+    _syncPageHeader();
     _reportBand();
     // Only accessibility boundaries rebuild widgets. Motion goes straight to
     // the render objects, including the body mask and sticky-day geometry.
@@ -559,6 +619,11 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    _rememberScrollable(
+      notification.depth,
+      notification.context,
+      notification.metrics,
+    );
     _updateBodyAtTop(
       notification.metrics,
       notification.depth,
@@ -695,6 +760,11 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScroll(ScrollNotification notification) {
+    _rememberScrollable(
+      notification.depth,
+      notification.context,
+      notification.metrics,
+    );
     if (!_compactFollowsScroll &&
         notification.metrics.axis == Axis.vertical &&
         ((notification is UserScrollNotification &&
@@ -790,16 +860,24 @@ class _DPageSurfaceState extends State<DPageSurface>
     _motion.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
+    _pageHeader.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => widget.header is _PageTitle
-      ? LayoutBuilder(
-          builder: (context, viewport) =>
-              _buildPage(context, viewportExtent: viewport.maxHeight),
-        )
-      : _buildPage(context);
+  Widget build(BuildContext context) {
+    _syncPageHeader();
+    return DPageHeaderScope(
+      header: _pageHeader,
+      active: widget.header != null,
+      child: widget.header is _PageTitle
+          ? LayoutBuilder(
+              builder: (context, viewport) =>
+                  _buildPage(context, viewportExtent: viewport.maxHeight),
+            )
+          : _buildPage(context),
+    );
+  }
 
   Widget _buildPage(BuildContext context, {double? viewportExtent}) {
     final maxHeaderExtent =
@@ -917,6 +995,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                 primary: false,
                 child: _AdaptivePageLayout(
                   viewportExtent: viewportExtent!,
+                  floatingFooterExtent: DScrollChrome.bottomInsetOf(context),
                   naturalHeaderExtent: () =>
                       (_headerKey.currentContext?.findRenderObject()
                               as _RenderScrollHeaderExtent?)
@@ -1029,7 +1108,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                             ? _PageControls.bottomPadding
                             : 0,
                       ),
-                      child: _PageHeaderScope(
+                      child: _PageGeometryScope(
                         geometry: _headerGeometry,
                         child: body,
                       ),
@@ -1520,12 +1599,12 @@ class DPageHeaderGeometry extends ChangeNotifier {
       _HeaderInset(geometry: this, fullExtent: fullExtent, child: child);
 }
 
-class _PageHeaderScope extends InheritedWidget {
-  const _PageHeaderScope({required this.geometry, required super.child});
+class _PageGeometryScope extends InheritedWidget {
+  const _PageGeometryScope({required this.geometry, required super.child});
   final DPageHeaderGeometry geometry;
 
   @override
-  bool updateShouldNotify(_PageHeaderScope oldWidget) =>
+  bool updateShouldNotify(_PageGeometryScope oldWidget) =>
       geometry != oldWidget.geometry;
 }
 
@@ -1860,16 +1939,22 @@ class _DPageScrollInsetsState extends State<DPageScrollInsets> {
 class _AdaptivePageLayout extends MultiChildRenderObjectWidget {
   const _AdaptivePageLayout({
     required this.viewportExtent,
+    required this.floatingFooterExtent,
     required this.naturalHeaderExtent,
     required super.children,
   });
 
   final double viewportExtent;
+  final double floatingFooterExtent;
   final ValueGetter<double> naturalHeaderExtent;
 
   @override
   _RenderAdaptivePageLayout createRenderObject(BuildContext context) =>
-      _RenderAdaptivePageLayout(viewportExtent, naturalHeaderExtent);
+      _RenderAdaptivePageLayout(
+        viewportExtent,
+        floatingFooterExtent,
+        naturalHeaderExtent,
+      );
 
   @override
   void updateRenderObject(
@@ -1878,6 +1963,7 @@ class _AdaptivePageLayout extends MultiChildRenderObjectWidget {
   ) {
     renderObject
       ..viewportExtent = viewportExtent
+      ..floatingFooterExtent = floatingFooterExtent
       ..naturalHeaderExtent = naturalHeaderExtent
       ..markNeedsLayout();
   }
@@ -1889,10 +1975,21 @@ class _RenderAdaptivePageLayout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _AdaptivePageParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _AdaptivePageParentData> {
-  _RenderAdaptivePageLayout(this._viewportExtent, this.naturalHeaderExtent);
+  _RenderAdaptivePageLayout(
+    this._viewportExtent,
+    this._floatingFooterExtent,
+    this.naturalHeaderExtent,
+  );
 
   ValueGetter<double> naturalHeaderExtent;
   double _viewportExtent;
+  double _floatingFooterExtent;
+  set floatingFooterExtent(double value) {
+    if (value == _floatingFooterExtent) return;
+    _floatingFooterExtent = value;
+    markNeedsLayout();
+  }
+
   set viewportExtent(double value) {
     if (value == _viewportExtent) return;
     _viewportExtent = value;
@@ -1921,7 +2018,12 @@ class _RenderAdaptivePageLayout extends RenderBox
     final double listExtent;
     // Title motion must not switch the list between bounded and natural
     // height, which would reset the outer scroll position during the gesture.
-    final fits = _viewportExtent - naturalHeaderExtent() - footerExtent >= 48;
+    final fits =
+        _viewportExtent -
+            naturalHeaderExtent() -
+            footerExtent -
+            _floatingFooterExtent >=
+        48;
     if (fits) {
       list.layout(BoxConstraints.tightFor(width: width, height: room));
       listExtent = room;

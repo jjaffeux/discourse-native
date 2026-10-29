@@ -79,7 +79,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
               : exact
               ? context.l10n.filterNoSubcategories
               : context.l10n.subcategoryTopiccategoryselector);
-      final iconOnly = short && path.isNotEmpty && level != path.length - 1;
+      final iconOnly =
+          DFitRow.compactOf(context) ||
+          short && path.isNotEmpty && level != path.length - 1;
       final icon = category != null
           ? CategoryIcon(
               key: ValueKey(('$prefix-selected-icon', category.id)),
@@ -202,7 +204,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
             for (var level = 0; level < levels; level++) ...[
               if (level > 0)
                 DButtonGroupText(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: DControlStyle.isTouch(context) && short ? 2 : 5,
+                  ),
                   child: DIcon(
                     _pathSeparatorIcon,
                     size: 14,

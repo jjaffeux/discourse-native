@@ -17,6 +17,11 @@ abstract interface class ChatInboxRoomProvider implements Listenable {
   List<ChatInboxRoom> rooms(String siteUrl);
 }
 
+/// Optional capability; the Voice plugin owns permissions and the form.
+abstract interface class ChatInboxRoomCreator {
+  Future<void> Function(BuildContext context)? createRoom(String siteUrl);
+}
+
 final class ChatInboxRoom {
   const ChatInboxRoom({
     required this.id,
@@ -38,6 +43,12 @@ final class ChatInboxRooms extends FrameSafeNotifier {
   ChatInboxRoomProvider? _provider;
 
   bool available(String siteUrl) => _provider?.available(siteUrl) ?? false;
+
+  Future<void> Function(BuildContext context)? createRoom(String siteUrl) =>
+      switch (_provider) {
+        final ChatInboxRoomCreator creator => creator.createRoom(siteUrl),
+        _ => null,
+      };
 
   bool includesRooms(String siteUrl) =>
       switch (filters.filterFor(siteUrl).kind) {

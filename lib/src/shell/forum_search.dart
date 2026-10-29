@@ -616,7 +616,7 @@ class _ForumSearchState extends State<ForumSearch> {
       child: DInputGroup(
         size: widget.size,
         variant: DInputGroupVariant.search,
-        borderless: expanded,
+        borderless: expanded && !widget.fullScreen,
         children: [
           DInputGroupInput(
             key: ForumSearch.inputKey,

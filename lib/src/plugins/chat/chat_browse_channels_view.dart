@@ -143,10 +143,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
 
   Widget _buildControls(BuildContext context, BoxConstraints constraints) {
     final textScaler = MediaQuery.textScalerOf(context);
-    final navigation = ChatBrowseNavigation(
-      siteUrl: widget.siteUrl,
-      page: ChatBrowsePage.channels,
-    );
+    const navigation = ChatBrowseBack();
     final search = DInput(
       size: DControlSize.field,
       key: const ValueKey('chat-browse-filter'),
@@ -184,7 +181,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       },
       onChanged: _browse.changeMembership,
     );
-    // A desktop lane holds the directory switch, search and both filters in
+    // A desktop lane holds the inbox link, search and both filters in
     // the one bar the mockup draws; narrower lanes stack them.
     if (constraints.maxWidth >= textScaler.scale(760)) {
       return DControlWrap(

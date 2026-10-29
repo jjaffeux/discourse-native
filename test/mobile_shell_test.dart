@@ -251,6 +251,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool voice = false,
   bool events = false,
   bool chat = true,
+  bool chatSearch = false,
   DiscourseUser? user,
   int chatUnreadCount = 0,
   TopicPayload? topic,
@@ -277,6 +278,7 @@ Future<ShellController> pumpMobileShellFixture(
           chatSettingsDataKey,
           ChatSettings(
             chatEnabled: chat,
+            searchEnabled: chatSearch,
             publicChannelsEnabled: true,
             threadsEnabled: true,
           ),
@@ -456,8 +458,8 @@ void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
   }),
 );
 
-Future<void> _selectChatKind(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const ValueKey('chat-inbox-kind-filter')));
+Future<void> _selectChatOrder(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
@@ -1013,7 +1015,7 @@ void main() {
         ],
       );
       await _tapDockTab(tester, 'panel/chat');
-      await _selectChatKind(tester, 'Direct messages');
+      await _selectChatOrder(tester, 'Newest');
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();
       final messages = find.byType(DMessageScrollerViewport);
@@ -1197,14 +1199,13 @@ void main() {
 
     expect(find.byType(ChatMobileSidebar), findsOneWidget);
     expect(find.text('Recent'), findsOneWidget);
-    expect(find.text('All'), findsOneWidget);
-    expect(find.byKey(const ValueKey('user-presence-menu')), findsOneWidget);
+    expect(find.text('By type'), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
     // Compact presets grow with the mobile text baseline. Their hit areas
     // must still match the painted controls exactly.
     for (final (key, size) in [
       ('chat-inbox-activity-filter', DControlSize.filter),
-      ('chat-inbox-kind-filter', DControlSize.filter),
-      ('user-presence-menu', DControlSize.filter),
+      ('chat-inbox-sort-filter', DControlSize.filter),
     ]) {
       final control = find.byKey(ValueKey(key));
       final surface = find.descendant(
@@ -1230,8 +1231,9 @@ void main() {
     await _selectChatActivity(tester, 'Unread');
     expect(find.text('General'), findsOneWidget);
     expect(find.text('sam'), findsNothing);
-    await _selectChatKind(tester, 'Direct messages');
-    expect(find.text('No unread conversations.'), findsOneWidget);
+    await _selectChatOrder(tester, 'Newest');
+    expect(find.text('General'), findsOneWidget);
+    expect(find.text('All chats'), findsOneWidget);
     await _selectChatActivity(tester, 'Recent');
     expect(find.text('sam'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -1311,6 +1313,7 @@ void main() {
     await _tapDockTab(tester, 'panel/chat');
     await tester.pumpAndSettle();
     Finder row(int id) => find.byKey(ValueKey('chat-inbox-channel-$id'));
+    await _selectChatOrder(tester, 'Newest');
     final positions = [
       4,
       2,
@@ -1344,14 +1347,16 @@ void main() {
     for (final id in [1, 5]) {
       expect(row(id), findsNothing);
     }
-    await _selectChatKind(tester, 'Channels');
-    expect(row(2), findsOneWidget);
-    expect(row(3), findsOneWidget);
-    expect(row(4), findsNothing);
-    await _selectChatKind(tester, 'Direct messages');
-    expect(row(2), findsNothing);
-    expect(row(3), findsNothing);
-    expect(row(4), findsOneWidget);
+    await _selectChatOrder(tester, 'By type');
+    expect(find.text('Starred'), findsOneWidget);
+    for (final id in [2, 3, 4]) {
+      expect(row(id), findsOneWidget);
+    }
+    await _selectChatOrder(tester, 'Newest');
+    expect(find.text('All chats'), findsOneWidget);
+    for (final id in [2, 3, 4]) {
+      expect(row(id), findsOneWidget);
+    }
     FakeSiteTracker.built
         .singleWhere((tracker) => tracker.siteUrl == _site)
         .deliverPluginMessage('/chat/user-tracking-state/7', {
@@ -1363,11 +1368,12 @@ void main() {
         });
     await tester.pumpAndSettle();
     expect(row(4), findsNothing);
-    expect(find.text('No unread conversations.'), findsOneWidget);
+    expect(row(2), findsOneWidget);
+    expect(row(3), findsOneWidget);
     await _selectChatActivity(tester, 'Recent');
     expect(row(4), findsOneWidget);
     expect(row(5), findsOneWidget);
-    await _selectChatKind(tester, 'All');
+    await _selectChatOrder(tester, 'Newest');
     for (final id in [1, 2, 3, 4, 5]) {
       expect(row(id), findsOneWidget);
     }
@@ -1375,10 +1381,21 @@ void main() {
   });
 
   _mobileTest(
-    'chat status menu edits status, toggles presence and pauses notifications',
+    'standalone status menu edits status, toggles presence and pauses notifications',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       await _tapDockTab(tester, 'panel/chat');
+      await tester.pumpAndSettle();
+      final entry = OverlayEntry(
+        builder: (_) => ShellScope(
+          controller: shell,
+          child: const Align(
+            alignment: Alignment.topRight,
+            child: UserPresenceMenu(siteUrl: _site),
+          ),
+        ),
+      );
+      Overlay.of(tester.element(find.byType(ChatMobileSidebar))).insert(entry);
       await tester.pumpAndSettle();
       final trigger = find.byKey(const ValueKey('user-presence-menu'));
       expect(tester.widget<DButton>(trigger).size, DControlSize.filter);
@@ -1437,6 +1454,9 @@ void main() {
         findsWidgets,
       );
       expect(tester.takeException(), isNull);
+      entry.remove();
+      await tester.pumpAndSettle();
+      entry.dispose();
     },
   );
 
@@ -1446,7 +1466,7 @@ void main() {
     await pumpMobileShellFixture(tester, size: const Size(320, 740));
     await _tapDockTab(tester, 'panel/chat');
     await tester.pumpAndSettle();
-    await _selectChatKind(tester, 'Channels');
+    await _selectChatOrder(tester, 'By type');
     expect(tester.takeException(), isNull);
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -1723,6 +1743,138 @@ void main() {
     }
   });
 
+  for (final reduced in [false, true]) {
+    _mobileTest(
+      'mobile titles follow foreground pages and topics (reduced: $reduced)',
+      (tester) async {
+        await _loadChromeCaptureFonts(tester);
+        const topicTitle = 'A long community discussion';
+        final shell = await pumpMobileShellFixture(
+          tester,
+          topics: [
+            const Topic(id: 7, title: topicTitle, slug: 'shared'),
+            for (var id = 8; id < 40; id++)
+              Topic(
+                id: id,
+                title: 'Community discussion $id',
+                slug: 'discussion-$id',
+              ),
+          ],
+          topic: topicPayload(
+            id: 7,
+            title: topicTitle,
+            posts: [
+              for (var id = 1; id <= 50; id++)
+                Post(
+                  id: id,
+                  postNumber: id,
+                  username: 'reader',
+                  createdAt: DateTime.utc(2026, 9, 1, 0, id),
+                  cooked:
+                      '<p>Post $id discusses mobile navigation, reading and the community.</p>',
+                ),
+            ],
+          ),
+        );
+        await shell.appSettings.setReduceMotion(reduced);
+        if (const bool.fromEnvironment('captureMobileChrome')) {
+          tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+          tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+          addTearDown(tester.view.resetPadding);
+          addTearDown(tester.view.resetViewPadding);
+          await shell.forumSettings.setShared(
+            shell.forumSettings.shared.copyWith(
+              font: ForumFont.lato,
+              interfaceFont: ForumFont.lato,
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        final barTitle = find.byKey(const ValueKey('mobile-page-title'));
+        expect(barTitle.hitTestable(), findsNothing);
+        final list = find.byType(TopicListView);
+        final listPosition = tester
+            .stateList<ScrollableState>(
+              find.descendant(of: list, matching: find.byType(Scrollable)),
+            )
+            .where((state) => state.position.axis == Axis.vertical)
+            .first
+            .position;
+        final pageTitle = tester
+            .widget<Text>(find.byKey(const ValueKey('topic-list-title')))
+            .data!;
+        await tester.drag(list, const Offset(0, -550));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsOneWidget);
+        expect(
+          find.descendant(of: _header, matching: find.text(pageTitle)),
+          findsOneWidget,
+        );
+        await _captureChrome(tester, 'item1-page-title-$reduced');
+        await tester.tap(barTitle);
+        await tester.pumpAndSettle();
+        expect(listPosition.pixels, 0);
+        expect(barTitle.hitTestable(), findsNothing);
+        // Retain a scrolled list behind the topic. Its title and scroll position
+        // must not become the topic bar's identity or target, even during swipes.
+        await tester.drag(list, const Offset(0, -400));
+        await tester.pumpAndSettle();
+        final retainedOffset = listPosition.pixels;
+        shell.openTopic(const Topic(id: 7, title: topicTitle, slug: 'shared'));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsNothing);
+        final reader = find.byType(TopicView);
+        final posts = find
+            .descendant(of: reader, matching: find.byType(CustomScrollView))
+            .first;
+        final topicScroll = tester.widget<CustomScrollView>(posts).controller!;
+        await tester.drag(posts, const Offset(0, -850));
+        await tester.pumpAndSettle();
+        expect(barTitle.hitTestable(), findsOneWidget);
+        expect(
+          find.descendant(of: _header, matching: find.text(topicTitle)),
+          findsOneWidget,
+        );
+        await _captureChrome(tester, 'item1-topic-title-$reduced');
+        final swipe = await tester.startGesture(
+          tester.getCenter(
+            find.byKey(const ValueKey('sheet-drag-handle')).last,
+          ),
+        );
+        await swipe.moveBy(const Offset(0, 80));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          find.descendant(of: _header, matching: find.text(topicTitle)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: _header, matching: find.text(pageTitle)),
+          findsNothing,
+        );
+        await swipe.cancel();
+        await tester.pumpAndSettle();
+        await tester.tap(barTitle);
+        await tester.pump();
+        expect(topicScroll.offset, reduced ? 0 : greaterThan(0));
+        await tester.pumpAndSettle();
+        expect(topicScroll.offset, 0);
+        expect(listPosition.pixels, retainedOffset);
+        expect(barTitle.hitTestable(), findsNothing);
+        await _tapDockTab(tester, 'panel/chat');
+        shell.openChatChannel(10);
+        await tester.pumpAndSettle();
+        expect(barTitle, findsNothing);
+        expect(
+          find
+              .byKey(const ValueKey('content-header-title-action'))
+              .hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _mobileTest(
     'reader compacts and reveals its header without changing topic or viewport',
     (tester) async {
@@ -1846,6 +1998,15 @@ void main() {
         tester.widget<DPageSurface>(sheetSurface).borderRadius,
         expandedPageRadius,
       );
+      expect(
+        find
+            .descendant(
+              of: _header,
+              matching: find.text('A long community discussion'),
+            )
+            .hitTestable(),
+        findsOneWidget,
+      );
       await capture('reader-folded');
       await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
       if (const bool.fromEnvironment('captureMobileChrome')) {
@@ -1866,6 +2027,10 @@ void main() {
       expect(
         find.byKey(const ValueKey('topic-more-actions')).hitTestable(),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
+        findsNothing,
       );
       await capture('reader-compact');
       await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
@@ -2795,7 +2960,7 @@ void main() {
       final restore = find.byKey(const ValueKey('composer-restore'));
       expect(restore.hitTestable(), findsOneWidget);
       await _tapDockTab(tester, 'panel/chat');
-      await _selectChatKind(tester, 'Direct messages');
+      await _selectChatOrder(tester, 'Newest');
       expect(restore.hitTestable(), findsOneWidget);
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();
@@ -4460,7 +4625,7 @@ void main() {
       final shell = await pumpMobileShellFixture(tester);
       await _tapDockTab(tester, 'panel/chat');
       await tester.pumpAndSettle();
-      await _selectChatKind(tester, 'Direct messages');
+      await _selectChatOrder(tester, 'Newest');
       await tester.tap(find.text('sam').first);
       await tester.pumpAndSettle();
       final composer = tester
@@ -4516,64 +4681,63 @@ void main() {
     },
   );
 
-  _mobileTest(
-    'chat mixes conversations and restores the selected type filter',
-    (tester) async {
-      final shell = await pumpMobileShellFixture(tester);
-      await _tapDockTab(tester, 'panel/chat');
-      await tester.pumpAndSettle();
-      expect(find.byType(InstanceRail), findsNothing);
-      expect(find.byType(ChatMobileSidebar), findsOneWidget);
-      expect(find.text('sam'), findsOneWidget);
-      expect(find.text('General'), findsOneWidget);
-      await _selectChatKind(tester, 'Direct messages');
-      expect(find.text('sam'), findsWidgets);
-      await tester.tap(find.text('sam').first);
-      await tester.pumpAndSettle();
-      _expectPage();
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('chat-composer')),
-          matching: find.byKey(const ValueKey('chat-composer-send')),
-        ),
-        findsOneWidget,
-      );
-      expect(shell.currentContent?.id, contains('10'));
-      shell.pushContent(
-        ContentRoute.topic(
-          topicId: 7,
-          slug: 'shared',
-          title: 'Shared topic card',
-        ),
-      );
-      await tester.pumpAndSettle();
-      _expectPage();
-      expect(find.byKey(const ValueKey('chat-composer-send')), findsNothing);
-      expect(shell.handleBack(), isTrue);
-      await tester.pumpAndSettle();
-      _expectPage();
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('chat-composer')),
-          matching: find.byKey(const ValueKey('chat-composer-send')),
-        ),
-        findsOneWidget,
-      );
-      expect(shell.currentContent?.id, contains('10'));
-      shell.handleBack();
-      await tester.pumpAndSettle();
-      expect(_bar, findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('chat-inbox-kind-filter')),
-          matching: find.text('Direct messages'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('General'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  _mobileTest('chat mixes conversations and restores the selected order', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await _tapDockTab(tester, 'panel/chat');
+    await tester.pumpAndSettle();
+    expect(find.byType(InstanceRail), findsNothing);
+    expect(find.byType(ChatMobileSidebar), findsOneWidget);
+    expect(find.text('sam'), findsOneWidget);
+    expect(find.text('General'), findsOneWidget);
+    await _selectChatOrder(tester, 'Newest');
+    expect(find.text('sam'), findsWidgets);
+    await tester.tap(find.text('sam').first);
+    await tester.pumpAndSettle();
+    _expectPage();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-composer')),
+        matching: find.byKey(const ValueKey('chat-composer-send')),
+      ),
+      findsOneWidget,
+    );
+    expect(shell.currentContent?.id, contains('10'));
+    shell.pushContent(
+      ContentRoute.topic(
+        topicId: 7,
+        slug: 'shared',
+        title: 'Shared topic card',
+      ),
+    );
+    await tester.pumpAndSettle();
+    _expectPage();
+    expect(find.byKey(const ValueKey('chat-composer-send')), findsNothing);
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    _expectPage();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-composer')),
+        matching: find.byKey(const ValueKey('chat-composer-send')),
+      ),
+      findsOneWidget,
+    );
+    expect(shell.currentContent?.id, contains('10'));
+    shell.handleBack();
+    await tester.pumpAndSettle();
+    expect(_bar, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
+        matching: find.text('Newest'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('General'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest('chat retains Browse channels and Browse threads navigation', (
     tester,
@@ -4581,7 +4745,7 @@ void main() {
     final shell = await pumpMobileShellFixture(tester);
     await _tapDockTab(tester, 'panel/chat');
     await tester.pumpAndSettle();
-    final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
+    final navigation = find.byKey(const ValueKey('chat-inbox-navigation'));
     Finder peer(String label) =>
         find.descendant(of: navigation, matching: find.text(label));
     expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
@@ -5115,11 +5279,8 @@ void main() {
     expect(find.byType(UserMenuPanel), findsNothing);
     expect(shell.canPopContent, isFalse);
     await _tapDockTab(tester, 'panel/chat');
-    await _selectChatKind(tester, 'Direct messages');
-    expect(
-      find.byKey(const ValueKey('chat-browse-navigation')),
-      findsOneWidget,
-    );
+    await _selectChatOrder(tester, 'Newest');
+    expect(find.byKey(const ValueKey('chat-inbox-navigation')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();

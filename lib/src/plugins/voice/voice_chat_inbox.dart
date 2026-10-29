@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../chat/chat_contract.dart';
 import 'voice_controller.dart';
 import 'voice_join.dart';
+import 'voice_room_editor.dart';
 import 'voice_shell_service.dart';
 
 const voiceChatInboxService = PluginServiceKey<ChatInboxRooms>(
@@ -11,7 +12,8 @@ const voiceChatInboxService = PluginServiceKey<ChatInboxRooms>(
   name: 'chat-inbox',
 );
 
-final class VoiceChatInbox implements ChatInboxRoomProvider {
+final class VoiceChatInbox
+    implements ChatInboxRoomProvider, ChatInboxRoomCreator {
   const VoiceChatInbox(this.controller, this.shell);
   final VoiceController controller;
   final VoiceShellService shell;
@@ -30,6 +32,22 @@ final class VoiceChatInbox implements ChatInboxRoomProvider {
       shell.currentInstance?.isConnected == true &&
       shell.enabledFor(siteUrl) &&
       controller.directory(siteUrl) != null;
+
+  @override
+  Future<void> Function(BuildContext context)? createRoom(String siteUrl) =>
+      available(siteUrl) && controller.directory(siteUrl)?.canCreateRoom == true
+      ? (context) async {
+          if (!available(siteUrl) ||
+              controller.directory(siteUrl)?.canCreateRoom != true) {
+            return;
+          }
+          await showVoiceRoomEditor(
+            context,
+            siteUrl: siteUrl,
+            controller: controller,
+          );
+        }
+      : null;
 
   @override
   List<ChatInboxRoom> rooms(String siteUrl) => !available(siteUrl)

@@ -77,14 +77,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the filters wrap at full length when the glyph is not enough', (
+  testWidgets('crowded filters shorten before taking a third line', (
     tester,
   ) async {
     await pumpList(tester, 360, 'status:open');
-    expect(_labels(tester), ['Filters · 1']);
+    expect(_labels(tester), ['1']);
     expect(
-      top(tester, 'topic-list-filter'),
-      greaterThan(top(tester, 'topic-list-category-filter')),
+      tester
+          .getSize(find.byKey(const ValueKey('topic-list-filter-bar')))
+          .height,
+      lessThanOrEqualTo(80),
     );
     expect(tester.takeException(), isNull);
   });

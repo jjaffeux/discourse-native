@@ -10800,16 +10800,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lora => 'Lora';
 
   @override
-  String get openDyslexic => 'OpenDyslexic';
-
-  @override
-  String get dyslexiaFriendlyFont => 'Dyslexia-friendly font';
-
-  @override
-  String get dyslexiaFriendlyFontDescription =>
-      'Sets OpenDyslexic for the interface and for reading. Each can be changed on its own under Display.';
-
-  @override
   String get jetBrainsMono => 'JetBrains Mono';
 
   @override
@@ -14650,4 +14640,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sidebarNoMatches => 'No matches.';
+
+  @override
+  String backToTopOf(String title) {
+    return 'Back to the top of $title';
+  }
+
+  @override
+  String get chatOrderByType => 'By type';
+
+  @override
+  String get chatOrderNewest => 'Newest';
+
+  @override
+  String get chatOrder => 'Chat order';
+
+  @override
+  String get chatAllChats => 'All chats';
+
+  @override
+  String get newVoiceRoom => 'New voice room';
+
+  @override
+  String chatJoinedChannelCount(String number) {
+    return '$number joined';
+  }
+
+  @override
+  String chatThreadCountLowerBound(String number) {
+    return '$number+ threads';
+  }
+
+  @override
+  String get voiceRoomNameAlreadyExists =>
+      'A voice room with this name already exists.';
 }

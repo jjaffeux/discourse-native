@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
+import 'd_button_group.dart';
 import 'd_toggle.dart';
 import 'd_tooltip.dart';
 
@@ -448,6 +449,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     if (widget.slidingIndicator) _measureIndicator();
     final selected = _currentValues.toSet();
     final compactInset = widget.density == DToggleDensity.compactInset;
+    final viewSwitch =
+        widget.inset &&
+        widget.size == DToggleSize.segment &&
+        widget.density == DToggleDensity.standard;
     final gap = compactInset
         ? 2.0
         : widget.inset
@@ -489,7 +494,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
         borderRadius: widget.inset
-            ? BorderRadius.circular(compactInset ? 7 : 8)
+            ? BorderRadius.circular(
+                viewSwitch
+                    ? DRadius.pill
+                    : compactInset
+                    ? 7
+                    : 8,
+              )
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
         expandArtwork: widget.expanded,
@@ -633,20 +644,34 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     }
     if (widget.inset) {
       final tokens = DTokens.of(context);
-      final decoration = BoxDecoration(
-        color: Color.lerp(tokens.background, Colors.black, .14)!,
-        border: Border.all(
-          color: widget.density == DToggleDensity.tile
-              ? tokens.border
-              : Color.lerp(tokens.background, tokens.foreground, .12)!,
-        ),
-        borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
-      );
-      group = DecoratedBox(
-        key: compactInset ? const ValueKey('toggle-group-compact-frame') : null,
-        decoration: decoration,
-        child: Padding(padding: const EdgeInsets.all(3), child: group),
-      );
+      if (viewSwitch) {
+        group = DButtonGroup.inset(
+          mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            Flexible(
+              fit: widget.expanded ? FlexFit.tight : FlexFit.loose,
+              child: group,
+            ),
+          ],
+        );
+      } else {
+        final decoration = BoxDecoration(
+          color: Color.lerp(tokens.background, Colors.black, .14)!,
+          border: Border.all(
+            color: widget.density == DToggleDensity.tile
+                ? tokens.border
+                : Color.lerp(tokens.background, tokens.foreground, .12)!,
+          ),
+          borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
+        );
+        group = DecoratedBox(
+          key: compactInset
+              ? const ValueKey('toggle-group-compact-frame')
+              : null,
+          decoration: decoration,
+          child: Padding(padding: const EdgeInsets.all(3), child: group),
+        );
+      }
       group = Align(
         alignment: AlignmentDirectional.centerStart,
         widthFactor: 1,

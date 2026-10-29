@@ -31,10 +31,11 @@ Future<void> showPostFlagEditor({
     context: context,
     title: appL10n.thanksForKeepingOurCommunityCivil,
     dialogOnDesktop: true,
-    builder: (sheetContext) => PostFlagEditor(
+    surfaceBuilder: (sheetContext, sheet) => PostFlagEditor(
       siteUrl: siteUrl,
       post: post,
       flagTypes: flagTypes,
+      sheet: sheet,
       minimumMessageLength: minimum,
       save: (type, {message}) async {
         if (!lease.isCurrent) {
@@ -44,6 +45,10 @@ Future<void> showPostFlagEditor({
       },
       onComplete: () => DDialogClose.close<void>(sheetContext),
     ),
+    builder: (context) =>
+        ShellSheetForm.of<_PostFlagEditorState>(context)._body(context),
+    footerBuilder: (context) =>
+        ShellSheetForm.of<_PostFlagEditorState>(context)._submitButton(context),
   );
 }
 
@@ -66,11 +71,12 @@ Future<void> showTopicFlagEditor({
     context: context,
     title: appL10n.thanksForKeepingOurCommunityCivil,
     dialogOnDesktop: true,
-    builder: (sheetContext) => PostFlagEditor(
+    surfaceBuilder: (sheetContext, sheet) => PostFlagEditor(
       siteUrl: siteUrl,
       targetUsername: firstPost?.username ?? '',
       targetNoun: 'topic',
       flagTypes: flagTypes,
+      sheet: sheet,
       minimumMessageLength: minimum,
       save: (type, {message}) async {
         if (!lease.isCurrent) {
@@ -86,6 +92,10 @@ Future<void> showTopicFlagEditor({
       onComplete: () => DDialogClose.close<void>(sheetContext),
       submitLabel: appL10n.flagTopic,
     ),
+    builder: (context) =>
+        ShellSheetForm.of<_PostFlagEditorState>(context)._body(context),
+    footerBuilder: (context) =>
+        ShellSheetForm.of<_PostFlagEditorState>(context)._submitButton(context),
   );
 }
 
@@ -101,6 +111,7 @@ class PostFlagEditor extends StatefulWidget {
     required this.onComplete,
     this._submitLabel,
     this.targetNoun = 'post',
+    this.sheet,
   }) : assert(post != null || targetUsername != null);
 
   final String siteUrl;
@@ -113,6 +124,7 @@ class PostFlagEditor extends StatefulWidget {
   final String? _submitLabel;
   String get submitLabel => _submitLabel ?? appL10n.flagPost;
   final String targetNoun;
+  final Widget? sheet;
 
   @override
   State<PostFlagEditor> createState() => _PostFlagEditorState();
@@ -243,9 +255,6 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final selected = _selected;
-
     return PopScope(
       canPop: !_saving,
       child: CallbackShortcuts(
@@ -256,118 +265,133 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
         },
         child: FocusTraversalGroup(
           policy: WidgetOrderTraversalPolicy(),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                context.l10n.allFlagsAreReceivedByModeratorsAndWillBeReviewedAs,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              DRadioGroup<PostFlagType>.controlled(
-                groupValue: selected,
-                enabled: !_saving,
-                onChanged: _saving ? (_) {} : _select,
-                child: Column(
+          child: widget.sheet != null
+              ? ShellSheetForm(state: this, child: widget.sheet!)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final type in widget.flagTypes)
-                      _FlagReasonRow(
-                        key: ValueKey('post-flag-reason-${type.id}'),
-                        type: type,
-                        title: _title(type),
-                        description: _description(context, type),
-                        siteUrl: widget.siteUrl,
-                        enabled: !_saving,
-                      ),
+                    _body(context),
+                    const SizedBox(height: 20),
+                    _submitButton(context),
                   ],
                 ),
-              ),
-              if (selected?.requireMessage == true) ...[
-                const SizedBox(height: 12),
-                DTextarea(
-                  key: const ValueKey('post-flag-message'),
-                  controller: _message,
-                  focusNode: _messageFocus,
-                  enabled: !_saving,
-                  minLines: 3,
-                  maxLines: 6,
-                  maxLength: PostFlagType.maximumMessageLength,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  textCapitalization: TextCapitalization.sentences,
-                  labelText: _messageLabel,
-                  hintText: _messageHint,
-                ),
-                Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    _messageCounter,
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: _messageValid
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.error,
-                    ),
-                  ),
-                ),
-              ],
-              if (selected?.isIllegal == true) ...[
-                const SizedBox(height: 8),
-                DCheckbox(
-                  key: const ValueKey('post-flag-illegal-confirmation'),
-                  value: _accurateAndComplete,
-                  enabled: !_saving,
-                  onChanged: _saving
-                      ? null
-                      : (value) => setState(
-                          () => _accurateAndComplete = value == true,
-                        ),
-
-                  contentPadding: EdgeInsets.zero,
-                  title: DLabel(
-                    child: Text(
-                      context.l10n.whatIVeWrittenAboveIsAccurateAndComplete,
-                    ),
-                  ),
-                ),
-              ],
-              if (_error case final error?) ...[
-                const SizedBox(height: 12),
-                Semantics(
-                  container: true,
-                  liveRegion: true,
-                  child: Text(
-                    error,
-                    key: const ValueKey('post-flag-error'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: DButton(
-                  key: const ValueKey('post-flag-submit'),
-                  label: Text(
-                    selected?.requireMessage == true
-                        ? context.l10n.messageTopicmoveposts
-                        : widget.submitLabel,
-                  ),
-                  onPressed: _valid ? _submit : null,
-                  icon: const DIcon(DIcons.flag),
-                  variant: DButtonVariant.primary,
-                  loading: _saving,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
+
+  Widget _body(BuildContext context) {
+    final theme = Theme.of(context);
+    final selected = _selected;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.allFlagsAreReceivedByModeratorsAndWillBeReviewedAs,
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 16),
+        DRadioGroup<PostFlagType>.controlled(
+          groupValue: selected,
+          enabled: !_saving,
+          onChanged: _saving ? (_) {} : _select,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final type in widget.flagTypes)
+                _FlagReasonRow(
+                  key: ValueKey('post-flag-reason-${type.id}'),
+                  type: type,
+                  title: _title(type),
+                  description: _description(context, type),
+                  siteUrl: widget.siteUrl,
+                  enabled: !_saving,
+                ),
+            ],
+          ),
+        ),
+        if (selected?.requireMessage == true) ...[
+          const SizedBox(height: 12),
+          DTextarea(
+            key: const ValueKey('post-flag-message'),
+            controller: _message,
+            focusNode: _messageFocus,
+            enabled: !_saving,
+            minLines: 3,
+            maxLines: 6,
+            maxLength: PostFlagType.maximumMessageLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            textCapitalization: TextCapitalization.sentences,
+            labelText: _messageLabel,
+            hintText: _messageHint,
+          ),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _messageCounter,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: _messageValid
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.error,
+              ),
+            ),
+          ),
+        ],
+        if (selected?.isIllegal == true) ...[
+          const SizedBox(height: 8),
+          DCheckbox(
+            key: const ValueKey('post-flag-illegal-confirmation'),
+            value: _accurateAndComplete,
+            enabled: !_saving,
+            onChanged: _saving
+                ? null
+                : (value) =>
+                      setState(() => _accurateAndComplete = value == true),
+
+            contentPadding: EdgeInsets.zero,
+            title: DLabel(
+              child: Text(
+                context.l10n.whatIVeWrittenAboveIsAccurateAndComplete,
+              ),
+            ),
+          ),
+        ],
+        if (_error case final error?) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            container: true,
+            liveRegion: true,
+            child: Text(
+              error,
+              key: const ValueKey('post-flag-error'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _submitButton(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: DButton(
+      key: const ValueKey('post-flag-submit'),
+      label: Text(
+        _selected?.requireMessage == true
+            ? context.l10n.messageTopicmoveposts
+            : widget.submitLabel,
+      ),
+      onPressed: _valid ? _submit : null,
+      icon: const DIcon(DIcons.flag),
+      variant: DButtonVariant.primary,
+      loading: _saving,
+    ),
+  );
 }
 
 class _FlagReasonRow extends StatelessWidget {

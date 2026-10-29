@@ -6,7 +6,9 @@ Reference: `discourse-native-mockups` at `847614e` (branch
 `TopicActionsButton` and `TopicView`'s head in `App.tsx`, and the `--tool-*`
 tokens, `.topic-head-compact` and the card rules under
 `[data-variant="a"][data-touch]` in `app.css`.
-`test/topic_head_mockup_parity_test.dart` pins every value below.
+The compact tile follows `7bae9d2`'s final cumulative state through `f6b73c9`,
+`48f88c1`, `a6258d0`, `78d9948`, `fb0f715`, and `7bae9d2`.
+`test/topic_head_mockup_parity_test.dart` pins the current geometry.
 
 ## One line
 
@@ -69,23 +71,20 @@ geometry and elevation belong to the shared sheet work.
 | Part | Value |
 | --- | --- |
 | Page card (`ForumMobileSurface`) and topic sheet (`DSheetVariant.page`) | Top corners 31 (`DMobileDockGeometry.capsuleRadius`), as round as the bar. Bottom corners stay 22. |
-| Condensed head | A band of `wellFill` with 31px corners throughout its motion. Both header states keep the band's box so the morph keeps its state. |
-| Card under the band | Its top corners stay at 31px, including while the band rests at the top. The shared sheet clips the page and head to this outline. |
+| Condensed head | A Native `DCard` tile of `wellFill`, with 24px corners, inset 8px from each side and 21px from the sheet's top. Both header states retain the card and morph state. |
+| Card under the tile | Its top corners stay at 31px, including while the compact tile is visible. The shared sheet clips the page and head to this outline. |
 | Previous page | The live page or captured history frame has the same rounded outline while it recedes behind the sheet. |
-| Grabber | Drawn under the band while the band still covers its foot, 12 below the sheet's top. |
-| Card's depth | None while the head is drawn in, wherever the band is: the band runs on up into the screen's head, so the card has no rim, catch of light or shadow along its top. The panel depth returns with the full head. |
+| Grabber | Always visible above the tile, 7px below the sheet's top. The existing sheet gesture continues to own the pull. |
+| Card's depth | The page sheet retains Native panel depth while the compact tile is visible. |
 
 The outer `ForumMobileSurface` stays square and transparent while a page
 sheet covers it. The sheet owns the visible corners. Plain preset backgrounds
-use `wellFill` on phones too, so the head's upper curves blend into the canvas
-while attached to the top. Pulling the sheet reveals the same rounded shape.
+use `wellFill` on phones too. The compact tile sits inside the lighter page
+panel, with the grabber above it. Pulling the sheet preserves both outlines.
 
-`DPageSurface.scrollable(compactHeaderBand: true)` reports its compact state
-and how much of it is shown to the enclosing page sheet through
-`DSheetPageBand`. These reports control the grabber and depth, leaving the
-corners rounded. The sheet applies each report outside the frame's build. A
-head that has withdrawn is not heard from again, even if one of its reports
-was still waiting for the frame.
+The topic uses the regular `DPageSurface.scrollable` compact-header contract.
+It does not report a `compactHeaderBand`, so the tile leaves the sheet's grabber
+and panel depth visible. The shared page-sheet outline still owns its corners.
 
 ## Validation
 
@@ -93,7 +92,7 @@ was still waiting for the frame.
 At 390 and 1000 wide on iOS and Android it covers the line, the path
 collapsing, the opened run, the chip colours, corners, heights and split, the
 sheet's groups and order, Assign opening its drawer from the sheet, the card
-corners, and the band hiding the grabber while retaining its rounded outline.
+corners, and the compact tile below its visible grabber.
 A full-shell pixel check on a distinct canvas verifies both top curves during
 a pull. `test/ui/d_sheet_page_motion_test.dart` checks rounded live and captured
 backgrounds during entrance and dismissal. `test/forum_mobile_surface_test.dart`

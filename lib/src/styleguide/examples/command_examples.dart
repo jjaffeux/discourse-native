@@ -18,6 +18,7 @@ final commandExamples = ComponentExamples(
       'retains platform accessibility and app zoom without reading-text uplift. '
       'Use a transparent backgroundColor inside a containing sheet or menu; the results '
       'scrollbar shares that color. '
+      'DCommandGroup.showGuide indents kinds beneath a heading along a faint directional rule, in both short and lazy lists. '
       'Search uses case-insensitive ranked matching across value and keywords, '
       'or accepts a custom score/filtering opt-out for server-owned results. '
       'Arrow, Home/End, modified-arrow and Ctrl-N/P/J/K navigation keeps the '

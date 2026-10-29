@@ -56,13 +56,21 @@ Future<void> showNotificationScheduleSheet({
       maxHeight: 640,
     ),
     canDismiss: () => !saving || !ownsAccount(),
-    builder: (context) => _NotificationScheduleEditor(
+    surfaceBuilder: (_, sheet) => _NotificationScheduleEditor(
       siteUrl: siteUrl,
       controller: controller,
       ownsAccount: ownsAccount,
       onSaving: (value) => saving = value,
       onAttempt: (value) => attempted = value,
+      sheet: sheet,
     ),
+    builder: (context) => ShellSheetForm.of<_NotificationScheduleEditorState>(
+      context,
+    )._body(context),
+    footerBuilder: (context) =>
+        ShellSheetForm.of<_NotificationScheduleEditorState>(
+          context,
+        )._footer(context),
   );
   // Cancel also discards a failed save's shared draft, without retiring an edit
   // that a different preferences view made after this one.
@@ -100,8 +108,10 @@ class _NotificationScheduleEditor extends StatefulWidget {
     required this.ownsAccount,
     required this.onSaving,
     required this.onAttempt,
+    required this.sheet,
   });
   final String siteUrl;
+  final Widget sheet;
   final ShellController controller;
   final bool Function() ownsAccount;
   final ValueChanged<bool> onSaving;
@@ -312,7 +322,10 @@ class _NotificationScheduleEditorState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ShellSheetForm(state: this, child: widget.sheet);
+
+  Widget _body(BuildContext context) {
     if (_loading) {
       return Center(child: DSpinner(semanticLabel: context.l10n.loading));
     }
@@ -329,20 +342,7 @@ class _NotificationScheduleEditorState
         ],
       );
     }
-    final permitted =
-        widget.controller.preferences
-            .stateFor(widget.siteUrl)
-            ?.confirmed
-            ?.canEdit ==
-        true;
-    final active =
-        widget.controller.preferences
-            .stateFor(widget.siteUrl)
-            ?.confirmed
-            ?.notificationSchedule
-            ?.enabled ==
-        true;
-    final editable = _canAct && permitted && !active;
+    final editable = _canAct && _permitted && !_active;
     final locale = context.l10n.localeName;
     final dayLabels = [
       for (var i = 0; i < 7; i++)
@@ -473,44 +473,58 @@ class _NotificationScheduleEditorState
             const SizedBox(height: 12),
             DFieldError(errors: [error]),
           ],
-          const SizedBox(height: 18),
-          const DSeparator(),
-          const SizedBox(height: 12),
-          Row(
-            spacing: DSpacing.controlGap,
-            children: [
-              DButton(
-                label: Text(context.l10n.cancel),
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.action,
-                onPressed: _saving
-                    ? null
-                    : () => DDialogClose.close<bool>(context),
-              ),
-              Expanded(
-                child: DButton(
-                  key: const ValueKey('notification-schedule-save'),
-                  label: Text(
-                    active
-                        ? context.l10n.notificationScheduleCancel
-                        : context.l10n.notificationScheduleSave,
-                  ),
-                  variant: active
-                      ? DButtonVariant.destructive
-                      : DButtonVariant.primary,
-                  size: DButtonSize.action,
-                  loading: _saving,
-                  shape: DButtonShape.pill,
-                  onPressed:
-                      _canAct && permitted && (active || _validation == null)
-                      ? () => unawaited(_save(enabled: !active))
-                      : null,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
+    );
+  }
+
+  bool get _permitted =>
+      widget.controller.preferences
+          .stateFor(widget.siteUrl)
+          ?.confirmed
+          ?.canEdit ==
+      true;
+  bool get _active =>
+      widget.controller.preferences
+          .stateFor(widget.siteUrl)
+          ?.confirmed
+          ?.notificationSchedule
+          ?.enabled ==
+      true;
+
+  Widget _footer(BuildContext context) {
+    if (_loading || _draft == null) return const SizedBox.shrink();
+    final active = _active;
+    final permitted = _permitted;
+    return Row(
+      spacing: DSpacing.controlGap,
+      children: [
+        DButton(
+          label: Text(context.l10n.cancel),
+          variant: DButtonVariant.ghost,
+          size: DButtonSize.action,
+          onPressed: _saving ? null : () => DDialogClose.close<bool>(context),
+        ),
+        Expanded(
+          child: DButton(
+            key: const ValueKey('notification-schedule-save'),
+            label: Text(
+              active
+                  ? context.l10n.notificationScheduleCancel
+                  : context.l10n.notificationScheduleSave,
+            ),
+            variant: active
+                ? DButtonVariant.destructive
+                : DButtonVariant.primary,
+            size: DButtonSize.action,
+            loading: _saving,
+            shape: DButtonShape.pill,
+            onPressed: _canAct && permitted && (active || _validation == null)
+                ? () => unawaited(_save(enabled: !active))
+                : null,
+          ),
+        ),
+      ],
     );
   }
 }

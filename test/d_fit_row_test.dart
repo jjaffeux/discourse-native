@@ -23,6 +23,32 @@ class _Pill extends StatelessWidget {
   }
 }
 
+class _Views extends StatelessWidget {
+  const _Views();
+
+  @override
+  Widget build(BuildContext context) {
+    final room = DFitRow.availableWidthOf(context) ?? double.infinity;
+    final count = room >= 300
+        ? 3
+        : room >= 200
+        ? 2
+        : 1;
+    return SizedBox(
+      width: count * 100,
+      height: 30,
+      child: Text('$count views'),
+    );
+  }
+}
+
+void _desktopTest(String description, WidgetTesterCallback callback) =>
+    testWidgets(
+      description,
+      callback,
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
 void main() {
   // Three pills of 100, 100 and a Filters of 96 that drops to 31, 8 apart:
   // 312 at full length, 247 tight.
@@ -49,13 +75,78 @@ void main() {
   Rect pill(WidgetTester tester, String name) =>
       tester.getRect(find.byKey(ValueKey(name)));
 
-  testWidgets('keeps its full length while one line holds it', (tester) async {
+  _desktopTest(
+    'adaptive leading controls receive measured remaining row width',
+    (tester) async {
+      for (final (width, count) in [(560.0, 2), (520.0, 1)]) {
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: width,
+                child: const DFitRow(
+                  children: [
+                    DFitRowItem(leading: true, child: _Views()),
+                    _Pill('category', full: 140),
+                    _Pill('tag', full: 90),
+                    _Pill('filters', full: 90),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('$count views'), findsOneWidget);
+        expect(tester.getSize(find.byType(DFitRow)).height, 30);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  _desktopTest('shortens a third run then places the long control last', (
+    tester,
+  ) async {
+    for (final width in [300.0, 230.0]) {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              child: const DFitRow(
+                children: [
+                  DFitRowItem(leading: true, child: _Pill('views', full: 100)),
+                  DFitRowItem(
+                    last: true,
+                    child: _Pill('category', full: 220, tight: 140),
+                  ),
+                  _Pill('tag', full: 80, tight: 50),
+                  _Pill('filters', full: 100, tight: 50),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('category-tight'), findsOneWidget);
+      expect(tester.getSize(find.byType(DFitRow)).height, 68);
+      expect(pill(tester, 'category').top, 38);
+      expect(pill(tester, 'tag').top, width == 300 ? 38 : 0);
+      expect(pill(tester, 'filters').top, width == 300 ? 38 : 0);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  _desktopTest('keeps its full length while one line holds it', (tester) async {
     await pumpRow(tester, 312);
     expect(pill(tester, 'filters'), const Rect.fromLTWH(216, 0, 96, 30));
     expect(find.text('filters'), findsOneWidget);
   });
 
-  testWidgets('says less before it takes a second line', (tester) async {
+  _desktopTest('says less before it takes a second line', (tester) async {
     await pumpRow(tester, 311);
     expect(find.text('filters-tight'), findsOneWidget);
     expect(pill(tester, 'filters'), const Rect.fromLTWH(216, 0, 31, 30));
@@ -64,7 +155,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wraps at full length when saying less is not enough', (
+  _desktopTest('wraps at full length when saying less is not enough', (
     tester,
   ) async {
     await pumpRow(tester, 246);
@@ -75,7 +166,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('steps back once the row is as wide as each step needed', (
+  _desktopTest('steps back once the row is as wide as each step needed', (
     tester,
   ) async {
     await pumpRow(tester, 210);
@@ -107,7 +198,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('measures rebuilt children afresh', (tester) async {
+  _desktopTest('measures rebuilt children afresh', (tester) async {
     await pumpRow(tester, 290);
     expect(find.text('filters-tight'), findsOneWidget);
     await pumpRow(tester, 290, last: 70);
@@ -115,7 +206,7 @@ void main() {
     expect(pill(tester, 'filters'), const Rect.fromLTWH(216, 0, 70, 30));
   });
 
-  testWidgets('a child is measured at its own width, not what hangs past it', (
+  _desktopTest('a child is measured at its own width, not what hangs past it', (
     tester,
   ) async {
     await tester.pumpWidget(

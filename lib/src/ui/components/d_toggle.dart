@@ -267,6 +267,7 @@ class _DToggleState extends State<DToggle> {
     final dark = theme.brightness == Brightness.dark;
     final outlined = widget.variant == DToggleVariant.outline;
     final segmented = widget.variant == DToggleVariant.segmented;
+    final viewSegment = segmented && widget.size == DToggleSize.segment;
     final inline = widget.variant == DToggleVariant.inline;
     final outline = tokens.buttonTheme.outline;
 
@@ -301,6 +302,8 @@ class _DToggleState extends State<DToggle> {
         : segmented
         ? (_current
               ? tokens.foreground
+              : viewSegment
+              ? tokens.mutedForeground
               : Color.lerp(tokens.background, tokens.foreground, .5)!)
         : chatReaction
         ? Color.lerp(chatBackground, tokens.foreground, .62)!
@@ -393,7 +396,11 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  splitView || chatReaction || postReaction || menuFilter
+                  splitView ||
+                          chatReaction ||
+                          postReaction ||
+                          menuFilter ||
+                          viewSegment
                       ? 999
                       : outlined
                       ? tokens.buttonTheme.radius
@@ -435,7 +442,11 @@ class _DToggleState extends State<DToggle> {
               fontWeight: menuFilter
                   ? (_current ? FontWeight.w600 : FontWeight.w500)
                   : segmented
-                  ? (_current ? FontWeight.w600 : FontWeight.w400)
+                  ? (_current
+                        ? FontWeight.w600
+                        : viewSegment
+                        ? FontWeight.w500
+                        : FontWeight.w400)
                   : tile
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
                   : chatReaction
@@ -520,6 +531,12 @@ class _DToggleState extends State<DToggle> {
               : Colors.transparent
         : inline
         ? Colors.transparent
+        : viewSegment
+        ? _current
+              ? tokens.raisedBackground
+              : interacting
+              ? DControlStyle.rowHover(tokens)
+              : Colors.transparent
         : segmented
         ? activeSurface
               ? Color.lerp(

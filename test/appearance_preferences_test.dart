@@ -53,53 +53,28 @@ void main() {
     expect(chosen.copyWith(font: ForumFont.system).readingFamily, 'Open Sans');
   });
 
-  test(
-    'dyslexia-friendly mode preserves independent font choices on disable',
-    () {
-      for (final reading in ForumFont.values) {
-        for (final interface in ForumFont.values) {
-          final appearance = SharedAppearance(
-            font: reading,
-            interfaceFont: interface,
-            effects: const ForumBackground.appearance(transparency: .25),
-          );
-          expect(
-            appearance.usesOpenDyslexicForBoth,
-            reading == ForumFont.openDyslexic &&
-                interface == ForumFont.openDyslexic,
-          );
-          final enabled = appearance.withOpenDyslexicForBoth(true);
-          expect(
-            enabled,
-            appearance.copyWith(
-              font: ForumFont.openDyslexic,
-              interfaceFont: ForumFont.openDyslexic,
-            ),
-          );
-          expect(enabled.withOpenDyslexicForBoth(true), enabled);
-          final disabled = appearance.withOpenDyslexicForBoth(false);
-          expect(
-            disabled,
-            appearance.copyWith(
-              font: reading == ForumFont.openDyslexic
-                  ? ForumFont.system
-                  : reading,
-              interfaceFont: interface == ForumFont.openDyslexic
-                  ? ForumFont.system
-                  : interface,
-            ),
-          );
-          expect(disabled.usesOpenDyslexicForBoth, isFalse);
-          expect(disabled.withOpenDyslexicForBoth(false), disabled);
-          expect(SharedAppearance.fromJson(appearance.toJson()), appearance);
-        }
+  test('retired OpenDyslexic choices migrate independently to System', () {
+    for (final version in [1, 2, 3]) {
+      for (final role in ['font', 'readingFont', 'interfaceFont']) {
+        final migrated = SharedAppearance.fromJson({
+          'version': version,
+          'readingFont': 'lora',
+          'interfaceFont': 'openSans',
+          if (role == 'font') 'readingFont': null,
+          role: 'openDyslexic',
+        });
+        expect(
+          migrated.readingFont,
+          role == 'interfaceFont' ? ForumFont.lora : ForumFont.system,
+        );
+        expect(
+          migrated.interfaceFont,
+          role == 'interfaceFont' ? ForumFont.system : ForumFont.openSans,
+        );
+        expect(migrated.toJson().values, isNot(contains('openDyslexic')));
       }
-      const inherited = SharedAppearance(interfaceFont: ForumFont.openDyslexic);
-      expect(inherited.readingFamily, 'OpenDyslexic');
-      expect(inherited.usesOpenDyslexicForBoth, isFalse);
-      expect(ForumFont.fromName('unknown'), ForumFont.system);
-    },
-  );
+    }
+  });
 
   test('both font roles persist across a settings controller reload', () async {
     final store = ForumSettingsStore.memory();
@@ -108,20 +83,14 @@ void main() {
     await settings.setShared(
       const SharedAppearance(
         font: ForumFont.lora,
-        interfaceFont: ForumFont.openDyslexic,
+        interfaceFont: ForumFont.openSans,
       ),
     );
     final restored = ForumSettingsController(store: store);
     addTearDown(restored.dispose);
     await restored.loadShared([siteA, siteB]);
     expect(restored.shared.readingFont, ForumFont.lora);
-    expect(restored.shared.interfaceFont, ForumFont.openDyslexic);
-    expect(restored.shared.usesOpenDyslexicForBoth, isFalse);
-    await restored.setShared(restored.shared.withOpenDyslexicForBoth(true));
-    expect((await store.loadAppearance()).usesOpenDyslexicForBoth, isTrue);
-    await restored.setShared(restored.shared.withOpenDyslexicForBoth(false));
-    expect((await store.loadAppearance()).readingFont, ForumFont.system);
-    expect((await store.loadAppearance()).interfaceFont, ForumFont.system);
+    expect(restored.shared.interfaceFont, ForumFont.openSans);
   });
 
   test(

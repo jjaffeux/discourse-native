@@ -10,6 +10,86 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'segment preset matches the view-switch on $platform, dark $dark',
+        (tester) async {
+          final controller = DToggleGroupController<String>(
+            values: ['suggested'],
+          );
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.forBrightness(
+                dark ? Brightness.dark : Brightness.light,
+              ).copyWith(platform: platform),
+              home: Scaffold(
+                body: Center(
+                  child: DToggleGroup<String>(
+                    controller: controller,
+                    size: DControlSize.segment,
+                    inset: true,
+                    allowEmptySelection: false,
+                    items: const [
+                      DToggleGroupItem(
+                        value: 'suggested',
+                        child: Text('Suggested'),
+                      ),
+                      DToggleGroupItem(
+                        value: 'related',
+                        child: Text('Related'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+          final group = find.byType(DToggleGroup<String>);
+          final toggles = find.descendant(
+            of: group,
+            matching: find.byType(DToggle),
+          );
+          final touch = platform != TargetPlatform.macOS;
+          expect(tester.getSize(group).height, touch ? 36 : 30);
+          expect(tester.getSize(toggles.first).height, touch ? 32 : 26);
+          expect(
+            DefaultTextStyle.of(
+              tester.element(find.text('Suggested')),
+            ).style.fontSize,
+            touch ? 14 : 12.5,
+          );
+          final selectedSurface = find
+              .descendant(
+                of: toggles.first,
+                matching: find.byType(AnimatedContainer),
+              )
+              .first;
+          final decoration =
+              tester.widget<AnimatedContainer>(selectedSurface).decoration!
+                  as BoxDecoration;
+          expect(decoration.borderRadius, BorderRadius.circular(999));
+          expect(
+            decoration.color,
+            DTokens.of(tester.element(group)).raisedBackground,
+          );
+          await tester.tap(find.text('Related'));
+          await tester.pumpAndSettle();
+          expect(controller.values, ['related']);
+          await tester.tap(find.text('Related'));
+          await tester.pumpAndSettle();
+          expect(controller.values, ['related']);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'wrapped menu choices retain bounds and keyboard order in $direction',
@@ -404,6 +484,7 @@ void main() {
         'Wrapping menu choices',
         'Header menu filters',
         'Compact inset icon choices',
+        'View-switch segments',
         'Appearance mode segments',
         'Texture tiles',
         'Inset layout selector',

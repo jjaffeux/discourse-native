@@ -18498,24 +18498,6 @@ abstract class AppLocalizations {
   /// **'Lora'**
   String get lora;
 
-  /// Bundled OpenDyslexic font family name.
-  ///
-  /// In en, this message translates to:
-  /// **'OpenDyslexic'**
-  String get openDyslexic;
-
-  /// Accessibility switch setting OpenDyslexic for both font roles.
-  ///
-  /// In en, this message translates to:
-  /// **'Dyslexia-friendly font'**
-  String get dyslexiaFriendlyFont;
-
-  /// Explains the shared dyslexia-friendly font switch and independent font choices.
-  ///
-  /// In en, this message translates to:
-  /// **'Sets OpenDyslexic for the interface and for reading. Each can be changed on its own under Display.'**
-  String get dyslexiaFriendlyFontDescription;
-
   /// English UI message used by models/forum_font.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -23072,6 +23054,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No matches.'**
   String get sidebarNoMatches;
+
+  /// Accessible action for the visible mobile page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the top of {title}'**
+  String backToTopOf(String title);
+
+  /// Chat inbox and sidebar grouping option that separates starred conversations, channels and direct messages.
+  ///
+  /// In en, this message translates to:
+  /// **'By type'**
+  String get chatOrderByType;
+
+  /// Chat inbox and sidebar ordering option that combines conversations by latest activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get chatOrderNewest;
+
+  /// Accessible label for the Chat inbox and sidebar grouping menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat order'**
+  String get chatOrder;
+
+  /// Section heading for the combined conversation list when Chat is ordered by latest activity.
+  ///
+  /// In en, this message translates to:
+  /// **'All chats'**
+  String get chatAllChats;
+
+  /// Action in the Chat inbox or sidebar to open the Voice room creation form.
+  ///
+  /// In en, this message translates to:
+  /// **'New voice room'**
+  String get newVoiceRoom;
+
+  /// Complete count shown on the Channels navigation card in the Chat inbox. The number is already formatted for the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'{number} joined'**
+  String chatJoinedChannelCount(String number);
+
+  /// Thread navigation card count when more server pages remain. The plus means that the total may exceed the displayed lower bound. Keep the complete message translatable, including when the displayed number is one. The number is already formatted for the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'{number}+ threads'**
+  String chatThreadCountLowerBound(String number);
+
+  /// Validation error in the Voice room form when another room in the forum has the trimmed name.
+  ///
+  /// In en, this message translates to:
+  /// **'A voice room with this name already exists.'**
+  String get voiceRoomNameAlreadyExists;
 }
 
 class _AppLocalizationsDelegate

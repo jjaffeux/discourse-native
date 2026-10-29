@@ -89,6 +89,14 @@ shares its state through `ShellSheetForm`, and closes with `DDialogClose`
 so the same form serves the desktop dialog. Desktop keeps every dialog as
 it was.
 
+Fixed actions use `DSheetFooter`. At a partial detent, Native reserves the
+bottom safe area below the actions. As the sheet floats upward, the footer
+reserves only what the sheet's own lift and content inset have not covered.
+The scrolling body keeps its viewport through the safe area. With the keyboard
+visible, the footer follows the sheet above it. Bookmark, flag, fast-edit,
+notification-schedule, and edit-history sheets keep their actions outside the
+body's scrollable region.
+
 On touch the backdrop and the grabber dismiss, where the dialogs refused
 a barrier tap; `canDismiss` still refuses while a write is in flight. The
 touch sheet keeps the generic "Dismiss sheet" barrier label, so Assign's
