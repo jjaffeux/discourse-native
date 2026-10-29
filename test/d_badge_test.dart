@@ -247,6 +247,7 @@ void main() {
             DControlStyle.scaledHeight(
               DControlSize.filter,
               TextScaler.linear(scale),
+              context: tester.element(badge),
             ),
           );
           await tester.tap(find.text('Tag'));
@@ -747,7 +748,7 @@ void main() {
           DBadgeSize.compact => 16,
           DBadgeSize.regular => 22,
           DBadgeSize.featured => 26,
-          DBadgeSize.control => 30,
+          DBadgeSize.control => 36,
           DBadgeSize.unread => 19,
         },
       );
