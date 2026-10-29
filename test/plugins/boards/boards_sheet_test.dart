@@ -194,7 +194,9 @@ void main() {
     expect(tester.widget<DSheetContent>(_sheet).variant, DSheetVariant.page);
     expect(find.descendant(of: _sheet, matching: _title), findsOneWidget);
     final pull = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      tester
+          .getCenter(find.byKey(const ValueKey('sheet-drag-handle')))
+          .translate(0, 10),
     );
     await pull.moveBy(const Offset(0, 20));
     await pull.moveBy(const Offset(0, 220));
