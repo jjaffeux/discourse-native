@@ -485,7 +485,8 @@ void main() {
       expect(find.byType(DToggleGroup<ChatBrowsePage>), findsNothing);
       expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
       expect(find.text('2 joined'), findsOneWidget);
-      expect(find.text('2 threads'), findsOneWidget);
+      expect(find.text('Threads'), findsOneWidget);
+      expect(find.text('2 threads'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -890,18 +891,37 @@ void main() {
     },
   );
 
-  testWidgets('thread card marks a paginated count as a lower bound', (
-    tester,
-  ) async {
+  testWidgets('chats loads threads only after opening Threads', (tester) async {
     final fixture = await _pump(tester);
-    fixture.api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()] =
-        ChatChannelBrowsePage(
-          channels: [_channel(1, 'general'), _channel(2, 'workshop')],
-          hasMore: true,
-        );
-    await fixture.show(const ChatInboxNavigation(siteUrl: _site));
-    expect(find.text('2+ threads'), findsOneWidget);
-    expect(find.text('2 threads'), findsNothing);
+    final card = find.byKey(const ValueKey('chat-inbox-threads-card'));
+    expect(
+      find.descendant(of: card, matching: find.byType(Text)),
+      findsOneWidget,
+    );
+    expect(fixture.api.chatBrowseRequested, isEmpty);
+    expect(fixture.api.chatChannelThreadPagesRequested, isEmpty);
+    expect(fixture.api.chatThreadPagesRequested, isEmpty);
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(fixture.shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+    expect(fixture.api.chatBrowseRequested, isNotEmpty);
+    expect(
+      fixture.api.chatChannelThreadPagesRequested.map((r) => r.channelId),
+      containsAll([1, 2]),
+    );
+    expect(find.text('First thread'), findsOneWidget);
+    expect(find.text('Second thread'), findsOneWidget);
+
+    final browseRequests = fixture.api.chatBrowseRequested.length;
+    final threadRequests = fixture.api.chatChannelThreadPagesRequested.length;
+    await _tab(tester, ChatBrowsePage.chats);
+    expect(fixture.api.chatBrowseRequested, hasLength(browseRequests));
+    expect(
+      fixture.api.chatChannelThreadPagesRequested,
+      hasLength(threadRequests),
+    );
     expect(tester.takeException(), isNull);
   });
 

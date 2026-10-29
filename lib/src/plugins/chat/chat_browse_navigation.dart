@@ -1,16 +1,12 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
-import 'chat_thread_directory.dart';
 
 enum ChatBrowsePage { chats, channels, threads }
 
@@ -30,81 +26,28 @@ class ChatBrowseBack extends StatelessWidget {
   );
 }
 
-class ChatInboxNavigation extends StatefulWidget {
+class ChatInboxNavigation extends StatelessWidget {
   const ChatInboxNavigation({super.key, required this.siteUrl});
   final String siteUrl;
 
   @override
-  State<ChatInboxNavigation> createState() => _ChatInboxNavigationState();
-}
-
-class _ChatInboxNavigationState extends State<ChatInboxNavigation> {
-  ChatController? _chat;
-  ChatThreadDirectory? _directory;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _bind();
-  }
-
-  @override
-  void didUpdateWidget(ChatInboxNavigation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _bind();
-  }
-
-  void _bind() {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    if (identical(chat, _chat) &&
-        _directory?.siteUrl == widget.siteUrl &&
-        _directory?.isCurrent == true) {
-      return;
-    }
-    _directory?.dispose();
-    _chat = chat;
-    _directory = ChatThreadDirectory(chat, widget.siteUrl);
-    if (chat.siteConfigFor(widget.siteUrl).chatSettings.threadsEnabled) {
-      unawaited(_directory!.load());
-    }
-  }
-
-  @override
-  void dispose() {
-    _directory?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final chat = _chat!;
-    final directory = _directory!;
+    final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     return ListenableBuilder(
-      listenable: Listenable.merge([chat, directory]),
+      listenable: chat,
       builder: (context, _) {
-        final settings = chat.siteConfigFor(widget.siteUrl).chatSettings;
+        final settings = chat.siteConfigFor(siteUrl).chatSettings;
         final joined = chat
-            .publicChannels(widget.siteUrl)
+            .publicChannels(siteUrl)
             .where((c) => c.membership.following)
             .length;
         final numbers = NumberFormat('0', context.l10n.localeName);
-        final joinedNote = chat.channelsLoaded(widget.siteUrl)
+        final joinedNote = chat.channelsLoaded(siteUrl)
             ? context.l10n.chatJoinedChannelCount(numbers.format(joined))
-            : chat.channelsError(widget.siteUrl) != null
+            : chat.channelsError(siteUrl) != null
             ? context.l10n.couldNotLoadConversations
             : context.l10n.loading;
-        final count = directory.threads.length;
-        final moreThreads = directory.hasMore(null);
-        // The API supplies pages without a total. A plus names the lower bound
-        // rather than presenting the first page as the forum's complete count.
-        final threadNote = !directory.loaded && directory.loading
-            ? context.l10n.loading
-            : directory.error(null) != null
-            ? context.l10n.couldNotLoadConversations
-            : moreThreads
-            ? context.l10n.chatThreadCountLowerBound(numbers.format(count))
-            : countLabel(count, CountNoun.thread);
         return Padding(
           key: const ValueKey('chat-inbox-navigation'),
           padding: const EdgeInsets.only(top: DSpacing.xs, bottom: DSpacing.xs),
@@ -124,7 +67,7 @@ class _ChatInboxNavigationState extends State<ChatInboxNavigation> {
                     key: const ValueKey('chat-inbox-threads-card'),
                     leading: const DIcon(DIcons.comments),
                     title: Text(context.l10n.threads),
-                    footer: Text(threadNote),
+                    footer: const SizedBox.shrink(),
                     onPressed: () => shell.openMyThreads(),
                   ),
               ];
