@@ -866,7 +866,7 @@ void main() {
     },
   );
 
-  _mobileTest('a short channel swipe hides both its header and the tab bar', (
+  _mobileTest('a short channel swipe keeps its header and retracts the tab bar', (
     tester,
   ) async {
     final exportDirectory = Platform.environment['CHAT_HEADER_EXPORT_DIR'];
@@ -924,6 +924,10 @@ void main() {
       ],
     );
     if (exportDirectory != null) {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
       await shell.forumSettings.setShared(
         shell.forumSettings.shared.copyWith(
           font: ForumFont.openSans,
@@ -967,7 +971,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       title.hitTestable(),
-      findsNothing,
+      findsOneWidget,
       reason:
           'offset=${scroll.offset}, max=${scroll.position.maxScrollExtent}, chrome=${DScrollChrome.maybeOf(tester.element(messages))?.hiddenFraction}',
     );
@@ -983,7 +987,7 @@ void main() {
       find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
       findsOneWidget,
     );
-    await capture('hidden');
+    await capture('navigation-hidden');
     expect(tester.takeException(), isNull);
   });
 
@@ -1024,7 +1028,7 @@ void main() {
       expect(topics.hitTestable(), findsNothing);
       expect(
         find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
-        findsNothing,
+        findsOneWidget,
       );
       expect(send.hitTestable(), findsOneWidget);
       await tester.enterText(
@@ -1080,8 +1084,8 @@ void main() {
   for (final thread in [false, true]) {
     for (final readOnly in [false, true]) {
       _mobileTest(
-        '${thread ? 'thread' : 'public channel'} scrolling shares topic header '
-        'visibility (read only: $readOnly)',
+        '${thread ? 'thread' : 'public channel'} scrolling keeps its own header '
+        '(read only: $readOnly)',
         (tester) async {
           final shell = await pumpMobileShellFixture(
             tester,
@@ -1154,20 +1158,20 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(topics.hitTestable(), findsNothing);
-          expect(title.hitTestable(), findsNothing);
+          expect(title.hitTestable(), findsOneWidget);
           expect(send.hitTestable(), readOnly ? findsNothing : findsOneWidget);
           expect(tester.getRect(panel).bottom, originalPanel.bottom);
           expect(tester.element(messages), same(streamElement));
           await _chatWheel(tester, messages, -20);
           expect(topics.hitTestable(), findsNothing);
-          expect(title.hitTestable(), findsNothing);
+          expect(title.hitTestable(), findsOneWidget);
           await _chatWheel(tester, messages, -80);
           expect(topics.hitTestable(), findsOneWidget);
           expect(title.hitTestable(), findsOneWidget);
           expect(tester.getRect(_bar), originalBar);
           // The physical bottom reveals navigation even without reversing.
           await _chatWheel(tester, messages, 100);
-          expect(title.hitTestable(), findsNothing);
+          expect(title.hitTestable(), findsOneWidget);
           await _chatWheel(tester, messages, 2000);
           expect(scroll.offset, 0);
           expect(title.hitTestable(), findsOneWidget);

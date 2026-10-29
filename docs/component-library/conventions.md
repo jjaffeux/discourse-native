@@ -39,6 +39,7 @@ This option keeps the title hidden away from the top, including during programma
 Use the lower-level `header` slots only for specialized topic and conversation readers.
 Do not use them to create another route-heading layout.
 Channel readers use one compact header from their first loading frame.
-Set `minimumScrollExtent: 0` so the header and shared mobile tab bar can retract on short transcripts.
-Thread readers keep their existing full and compact layouts and scroll policy.
+On mobile, keep channel and thread headers visible with `hideHeaderOnScroll: false`.
+Set `minimumScrollExtent: 0` on channels so the shared mobile tab bar can retract on short transcripts.
+Thread readers keep their existing full and compact layouts.
 See the Page surface example in the styleguide and the route audit in [Page header parity](../page-header-mockup-parity.md).
