@@ -18,6 +18,7 @@ import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_history_transition.dart';
 import 'd_mobile_dock_geometry.dart';
+import 'd_page_header.dart';
 import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
@@ -699,7 +700,9 @@ Widget _sheetLayout(
             ? const SizedBox.expand()
             : ExcludeFocus(
                 child: ExcludeSemantics(
-                  child: IgnorePointer(child: ClipRect(child: underlay)),
+                  child: DPageHeaderHost.exclude(
+                    child: IgnorePointer(child: ClipRect(child: underlay)),
+                  ),
                 ),
               ))
       : fillAvailableHeight
