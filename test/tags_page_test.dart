@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
+import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/tags_page.dart';
@@ -115,6 +116,13 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         final page = find.byType(TagsPage);
         expect(page, findsOneWidget);
+        // The phone bar offers no All tags place, so the page is Topics'.
+        if (mobile) {
+          expect(
+            ShellScope.read(tester.element(page)).mobileNavigation.tab,
+            MobileTab.topics,
+          );
+        }
         expectSkeletonFillsViewport(
           tester,
           label: 'Loading tags',

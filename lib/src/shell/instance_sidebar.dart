@@ -177,6 +177,7 @@ class InstanceSidebar extends StatelessWidget {
     this.mobile = false,
     this.panelOwner,
     this.onNavigate,
+    this.mobilePlaceOf,
     this.communityHeaderLeadingInset = 0,
     this.footer,
   });
@@ -187,6 +188,11 @@ class InstanceSidebar extends StatelessWidget {
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
+
+  /// The phone bar's place for a forum destination chosen in the drawer. The
+  /// bar says which places a site offers; without it, pages open under Topics.
+  final MobileTab Function(SidebarDestination destination)? mobilePlaceOf;
+
   // Window buttons only overlap the community header, above the navigation.
   final double communityHeaderLeadingInset;
   final Widget? footer;
@@ -281,6 +287,7 @@ class InstanceSidebar extends StatelessWidget {
               mobile: mobile,
               panelOwner: panelOwner,
               onNavigate: onNavigate,
+              mobilePlaceOf: mobilePlaceOf,
               footer: footer,
               communityHeaderLeadingInset: communityHeaderLeadingInset,
               sectionStore:
@@ -302,6 +309,7 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.mobile,
     required this.panelOwner,
     required this.onNavigate,
+    required this.mobilePlaceOf,
     required this.communityHeaderLeadingInset,
     required this.footer,
   });
@@ -313,6 +321,7 @@ class _SidebarPanelBody extends StatefulWidget {
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
+  final MobileTab Function(SidebarDestination destination)? mobilePlaceOf;
   final double communityHeaderLeadingInset;
   final Widget? footer;
 
@@ -686,19 +695,11 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                 if (widget.mobile) {
                                                   controller
                                                       .selectMobileDestination(
-                                                        switch (destination
-                                                            .id) {
-                                                          'latest' =>
+                                                        widget.mobilePlaceOf
+                                                                ?.call(
+                                                                  destination,
+                                                                ) ??
                                                             MobileTab.topics,
-                                                          'messages' =>
-                                                            MobileTab.messages,
-                                                          'users' =>
-                                                            MobileTab.users,
-                                                          _ =>
-                                                            MobileTab.destination(
-                                                              destination.id,
-                                                            ),
-                                                        },
                                                         destination,
                                                       );
                                                 } else {
