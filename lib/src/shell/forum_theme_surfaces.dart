@@ -277,30 +277,23 @@ class ForumSidebarTheme extends StatelessWidget {
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
-/// Pages share the reading sheet's outline. The inset sidebar uses the Native
-/// panel radius, except for its outer foot corner.
+/// Pages share the reading sheet's outline. The inset sidebar rounds around
+/// its sections at the top and its view switch at the foot.
 class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
     required this.child,
     this.coveredBySheet = false,
-  }) : _sidebar = false,
-       foot = 0;
+  }) : _sidebar = false;
 
   /// The mockup's mobile SideNav is a rounded sheet on the window ground.
-  const ForumMobileSurface.sidebar({
-    super.key,
-    required this.child,
-    this.foot = 0,
-  }) : _sidebar = true,
-       coveredBySheet = false;
+  const ForumMobileSurface.sidebar({super.key, required this.child})
+    : _sidebar = true,
+      coveredBySheet = false;
 
   final bool _sidebar;
   final bool coveredBySheet;
 
-  /// The screen's foot the sidebar stands off. Its outer foot corner follows
-  /// the screen's, as a sheet at its end does.
-  final double foot;
   final Widget child;
   @override
   State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
@@ -316,13 +309,9 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     borderRadius: widget.coveredBySheet
         ? BorderRadius.zero
         : widget._sidebar
-        ? BorderRadiusDirectional.only(
-            topStart: const Radius.circular(DRadius.panel),
-            topEnd: const Radius.circular(DRadius.panel),
-            bottomStart: const Radius.circular(DRadius.panel),
-            bottomEnd: Radius.circular(
-              DMobileDockGeometry(foot: widget.foot).endRadius(DRadius.panel),
-            ),
+        ? const BorderRadius.vertical(
+            top: Radius.circular(18),
+            bottom: Radius.circular(26),
           )
         : DSheetViewport.pageBorderRadius,
     backgroundColor: widget.coveredBySheet
