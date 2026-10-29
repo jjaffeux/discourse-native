@@ -684,30 +684,7 @@ class ChatPlugin
     final shell = PluginUiScope.require(context, chatShellService);
     if (!shell.fullPageChatActive) return null;
     final siteUrl = shell.currentSiteUrl;
-    final available =
-        siteUrl != null &&
-        shell.isConnected(siteUrl) &&
-        shell.chat.siteConfigFor(siteUrl).chatSearchEnabled == true &&
-        shell.currentUser?.hasChatEnabled != false &&
-        shell.currentTotals?.hasChatEnabled == true;
-    if (!available) return null;
-
-    final route = shell.currentContent;
-    final channelId = route == null
-        ? null
-        : ChatRoute.parse(route.id)?.channelId;
-    return GlobalSearchContext(
-      scope: chatSearchScope,
-      condition: channelId == null
-          ? null
-          : GlobalSearchCondition(
-              filterId: 'chatChannel',
-              value: ['$channelId'],
-            ),
-      label: channelId == null
-          ? null
-          : shell.chat.channel(siteUrl, channelId)?.title,
-    );
+    return siteUrl == null ? null : shell.searchContextFor(siteUrl);
   }
 
   @override

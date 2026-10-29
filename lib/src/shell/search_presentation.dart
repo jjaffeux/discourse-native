@@ -140,7 +140,12 @@ final class SearchPresentation {
   void prepareOpening({
     required SearchPresentationSource source,
     SearchFocusMode? mode,
+    GlobalSearchContext? context,
   }) {
+    if (context != null) {
+      global.clearAllConditions();
+      global.setQuery('');
+    }
     _openingExpression = source.expression;
     final route = source.route;
     final preferred = route == null
@@ -160,6 +165,7 @@ final class SearchPresentation {
       topicTitle: route?.title,
     );
     final openingContext =
+        context ??
         source.pluginContext ??
         (route?.isTopic == true || route?.isTopicList == true
             ? GlobalSearchContext(

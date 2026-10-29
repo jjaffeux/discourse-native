@@ -258,11 +258,11 @@ class _ForumSearchState extends State<ForumSearch> {
     _requestEditorFocus();
   }
 
-  void _requestShortcutFocus(SearchFocusMode mode) {
+  void _requestShortcutFocus(SearchFocusRequest request) {
     if (!mounted) return;
 
     _search.activateField(_field);
-    _openSearch(mode: mode);
+    _openSearch(mode: request.mode, context: request.context);
     _requestEditorFocus();
   }
 
@@ -292,7 +292,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _syncText();
   }
 
-  void _openSearch({SearchFocusMode? mode}) {
+  void _openSearch({SearchFocusMode? mode, GlobalSearchContext? context}) {
     if (_presentation.isLeaving) _pageLeft();
     if (!_search.canSearch) return;
     if (!widget.fullScreen) _measureAnchor();
@@ -300,6 +300,7 @@ class _ForumSearchState extends State<ForumSearch> {
       _presentation.prepareOpening(
         source: _ForumSearchSource(this),
         mode: mode,
+        context: context,
       );
     }
     if (!_surfaceOpen) {
@@ -603,7 +604,9 @@ class _ForumSearchState extends State<ForumSearch> {
 
   Widget _editor(double width, {required bool expanded}) {
     final hasConditions = expanded
-        ? _global.conditions.isNotEmpty || _global.hasOrderFilter
+        ? _global.conditions.isNotEmpty ||
+              _global.hasOrderFilter ||
+              !_global.scope.isCore
         : _closedConditions.isNotEmpty;
     return Focus(
       key: _editorKey,
@@ -643,15 +646,14 @@ class _ForumSearchState extends State<ForumSearch> {
           if (hasConditions)
             DInputGroupAddon(
               alignment: DInputGroupAddonAlignment.inlineStart,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: width * .55),
-                child: DScrollArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) => DScrollArea(
                   axes: DScrollAxes.horizontal,
                   showScrollbar: false,
                   child: expanded
                       ? GlobalSearchChips(
                           controller: _global,
-                          maxWidth: width * .55,
+                          maxWidth: constraints.maxWidth,
                           onRefocus: _focus.requestFocus,
                         )
                       : Row(
@@ -662,7 +664,7 @@ class _ForumSearchState extends State<ForumSearch> {
                               SearchFilterChip(
                                 controller: _global,
                                 condition: condition,
-                                maxWidth: width * .55,
+                                maxWidth: constraints.maxWidth,
                                 onEdit: () {
                                   _requestFocus();
                                   _global.beginFilter(
@@ -949,18 +951,17 @@ class _ForumSearchState extends State<ForumSearch> {
             padding: const EdgeInsets.all(DSpacing.sm),
             child: Row(
               children: [
-                DButton.iconOnly(
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        _editor(constraints.maxWidth, expanded: true),
+                  ),
+                ),
+                DButton(
                   key: const ValueKey('mobile-search-back'),
-                  icon: const DIcon(DIcons.arrowLeft),
-                  tooltip: appL10n.back,
+                  label: Text(appL10n.cancel),
                   variant: DButtonVariant.ghost,
                   onPressed: _closeSearch,
-                ),
-                Expanded(
-                  child: _editor(
-                    MediaQuery.sizeOf(context).width - 64,
-                    expanded: true,
-                  ),
                 ),
               ],
             ),

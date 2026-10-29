@@ -1504,6 +1504,29 @@ class GlobalSearchChips extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     spacing: 4,
     children: [
+      if (!controller.scope.isCore && controller.conditions.isEmpty)
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: DButton(
+            key: const ValueKey('global-search-remove-scope'),
+            label: Text(
+              controller.scope.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            icon: const DIcon(DIcons.xmark),
+            iconPosition: DButtonIconPosition.end,
+            tooltip: context.l10n.removeCondition(controller.scope.label),
+            shape: DButtonShape.pill,
+            size: DButtonSize.small,
+            variant: DButtonVariant.secondary,
+            onPressed: () {
+              controller.setContext(null);
+              controller.setScope(GlobalSearchScope.all);
+              onRefocus?.call();
+            },
+          ),
+        ),
       for (final index in controller.orderedConditionIndices)
         SearchFilterChip(
           key: ValueKey('global-search-condition-$index'),

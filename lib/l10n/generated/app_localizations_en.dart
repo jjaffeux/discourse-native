@@ -14620,5 +14620,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Delete this room? Everyone in the call will be disconnected. This cannot be undone.';
 
   @override
+  String get searchChat => 'Search chat';
+
+  @override
   String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';
 }

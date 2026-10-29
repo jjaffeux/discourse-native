@@ -9099,6 +9099,18 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
+  void openSearch(String siteUrl, GlobalSearchContext context) {
+    if (isDisposed ||
+        currentInstance?.url != siteUrl ||
+        search.siteUrl != siteUrl ||
+        !search.canSearch) {
+      return;
+    }
+    closeMobileSidebar();
+    search.requestFocus(mode: SearchFocusMode.contextual, context: context);
+  }
+
+  @override
   void replaceCurrentContent(ContentRoute route) {
     final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
@@ -9689,6 +9701,11 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   @override
   void setPageSearchWords(String siteUrl, String routeId, String words) {
     if (!isDisposed) _shell.setPageSearchWords(siteUrl, routeId, words);
+  }
+
+  @override
+  void openSearch(String siteUrl, GlobalSearchContext context) {
+    if (!isDisposed) _shell.openSearch(siteUrl, context);
   }
 
   @override

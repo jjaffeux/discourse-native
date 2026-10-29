@@ -19260,6 +19260,8 @@
   "@voiceRoomDelete": {"description": "Action to delete a persistent Live room."},
   "voiceRoomDeleteConfirm": "Delete this room? Everyone in the call will be disconnected. This cannot be undone.",
   "@voiceRoomDeleteConfirm": {"description": "Confirmation before deleting a Live room."},
+  "searchChat": "Search chat",
+  "@searchChat": {"description": "Drawer entry opening the shared forum search scoped to Chat or the current channel."},
   "voiceRoomDeleteFailed": "Couldn’t delete the room.",
   "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."}
 }
