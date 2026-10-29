@@ -462,7 +462,7 @@ final class AssignPlugin
                   ),
                 ),
               ],
-        compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
+        compactAction: TopicPropertyHeaderAction(
           key: const Key('assign-topic-header'),
           icon: direct == null
               ? const DIcon(DIcons.userPlus)
@@ -470,21 +470,19 @@ final class AssignPlugin
                   assignee: direct.assignee,
                   size: DControlStyle.iconDimension(
                     DControlSize.regular,
-                    context: anchorContext,
+                    context: context,
                   ),
                 ),
-          tooltip: direct != null
+          label: direct != null
               ? appL10n.manageAssignmentTo(
                   (direct.assignee.displayName).toString(),
                 )
               : canAssign
               ? appL10n.assignTopic
               : appL10n.manageAssignments,
-          size: DButtonSize.filter,
-          variant: DButtonVariant.tool,
-          onPressed: direct != null || !canAssign
-              ? showDetails
-              : () => unawaited(
+          onSelected: direct != null || !canAssign
+              ? null
+              : (anchorContext) => unawaited(
                   showAssignmentEditor(
                     context: anchorContext,
                     siteUrl: siteUrl,

@@ -1737,14 +1737,17 @@ final class PluginRegistry
                   plugin,
                   section.header!(_uiContext(context, plugin), showDetails),
                 ),
-          compactHeader: section.compactHeader == null
+          compactAction: section.compactAction == null
               ? null
-              : (context, showDetails) => _owned(
-                  plugin,
-                  section.compactHeader!(
-                    _uiContext(context, plugin),
-                    showDetails,
-                  ),
+              : TopicPropertyHeaderAction(
+                  key: section.compactAction!.key,
+                  icon: _owned(plugin, section.compactAction!.icon),
+                  label: section.compactAction!.label,
+                  onSelected: section.compactAction!.onSelected == null
+                      ? null
+                      : (context) => section.compactAction!.onSelected!(
+                          _uiContext(context, plugin),
+                        ),
                 ),
           values: _ownedAll(plugin, section.values),
           layout: section.layout,

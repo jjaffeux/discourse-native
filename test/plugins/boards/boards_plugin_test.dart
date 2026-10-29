@@ -96,7 +96,8 @@ void main() {
             },
         ],
       }, boardsSite).detail;
-      var detailsOpened = 0;
+      late TopicPropertyHeaderAction action;
+      late BuildContext actionContext;
       await tester.pumpWidget(
         host.scope(
           child: MaterialApp(
@@ -111,7 +112,9 @@ void main() {
                         topic,
                       )
                       .single;
-                  return section.compactHeader!(context, () => detailsOpened++);
+                  action = section.compactAction!;
+                  actionContext = context;
+                  return action.icon;
                 },
               ),
             ),
@@ -124,14 +127,14 @@ void main() {
         (widget) => widget is DIcon && widget.icon == boardsIcon,
       );
       expect(button, findsOneWidget);
-      await tester.tap(button);
+      action.onSelected?.call(actionContext);
       await tester.pump();
       if (expectedRoute != null) {
         expect(host.currentContent?.id, expectedRoute);
-        expect(detailsOpened, 0);
+        expect(action.onSelected, isNotNull);
       } else {
         expect(host.currentContent, routeBefore);
-        expect(detailsOpened, 1);
+        expect(action.onSelected, isNull);
       }
       expect(fixture.transport.requests.length, requestsBefore);
       await tester.pumpWidget(const SizedBox.shrink());

@@ -432,6 +432,24 @@ final class TopicPropertyAction {
   final void Function(BuildContext context) onSelected;
 }
 
+/// A compact action rendered by the host beside bookmark and notification.
+@immutable
+final class TopicPropertyHeaderAction {
+  const TopicPropertyHeaderAction({
+    required this.icon,
+    required this.label,
+    this.key,
+    this.onSelected,
+  });
+
+  final Key? key;
+  final Widget icon;
+  final String label;
+
+  /// When absent, the host opens the section's details.
+  final void Function(BuildContext context)? onSelected;
+}
+
 @immutable
 final class TopicPropertySection {
   const TopicPropertySection({
@@ -440,22 +458,21 @@ final class TopicPropertySection {
     this.layout = TopicPropertySectionLayout.inline,
     this.showHeader = true,
     this.header,
-    this.compactHeader,
+    this.compactAction,
     this.actions = const [],
   });
 
   /// On a phone, these join the topic's actions sheet as a group of their
-  /// own in place of [compactHeader]. A section with none keeps its button.
+  /// own in place of [compactAction]. A section with none keeps its button.
   final List<TopicPropertyAction> actions;
 
   /// Compact presentation alongside the title. The host supplies a details
   /// action backed by the current topic and plugin state.
   final Widget Function(BuildContext context, VoidCallback showDetails)? header;
 
-  /// Icon-sized action for the single-line header shown while reading.
-  /// Without one, the host provides a button that opens this section's details.
-  final Widget Function(BuildContext context, VoidCallback showDetails)?
-  compactHeader;
+  /// The host owns this button's style, size and placement in the tool group.
+  /// Without one, it provides a button that opens this section's details.
+  final TopicPropertyHeaderAction? compactAction;
   final String label;
   final List<Widget> values;
   final TopicPropertySectionLayout layout;

@@ -149,16 +149,13 @@ final class BoardsPlugin
             TopicPropertySection(
               label: context.l10n.boardsTitle,
               values: values,
-              compactHeader: (anchorContext, showDetails) => DButton.iconOnly(
+              compactAction: TopicPropertyHeaderAction(
+                key: const ValueKey('boards-topic-header'),
                 icon: const DIcon(boardsIcon),
-                tooltip:
-                    directMembership?.name ?? anchorContext.l10n.boardsTitle,
-                size: DButtonSize.filter,
-                variant: DButtonVariant.ghost,
-                hasPopup: directMembership == null,
-                onPressed: directMembership == null
-                    ? showDetails
-                    : () =>
+                label: directMembership?.name ?? context.l10n.boardsTitle,
+                onSelected: directMembership == null
+                    ? null
+                    : (_) =>
                           navigation.openMembership(siteUrl, directMembership),
               ),
             ),

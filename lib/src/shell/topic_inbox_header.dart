@@ -667,11 +667,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
         final sections = registry.topicProperties(context, siteUrl, topic);
         bool gathered(TopicPropertySection section) =>
             mobile && section.actions.isNotEmpty;
+        final headerSections = sections.where((section) => !gathered(section));
         final toolChildren = <Widget>[
-          if (instance?.user != null || instance?.isConnected == true)
+          if (instance?.user != null ||
+              instance?.isConnected == true ||
+              headerSections.isNotEmpty)
             DButtonGroup.tool(
               backgroundColor: floating ? DTokens.of(context).wellFill : null,
-              semanticLabel: context.l10n.topicReminders,
+              semanticLabel: context.l10n.topicActionsMenu,
               children: [
                 if (instance?.user != null)
                   TopicBookmarkButton(
@@ -698,6 +701,17 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                       'topic-header-notification-button',
                     ),
                   ),
+                for (final section in headerSections)
+                  _TopicPropertyPopover(
+                    key: ValueKey(('topic-header-property', section.label)),
+                    siteUrl: siteUrl,
+                    topicId: topic.id,
+                    section: section,
+                    registry: registry,
+                    compact: true,
+                    floating: floating,
+                    navigationRevision: state.navigationRevision,
+                  ),
               ],
             ),
           if (mobile &&
@@ -713,21 +727,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 ),
               ],
             ),
-          for (final section in sections)
-            if (!gathered(section))
-              DButtonGroup(
-                key: ValueKey(('topic-header-property', section.label)),
-                children: [
-                  _TopicPropertyPopover(
-                    siteUrl: siteUrl,
-                    topicId: topic.id,
-                    section: section,
-                    registry: registry,
-                    compact: true,
-                    navigationRevision: state.navigationRevision,
-                  ),
-                ],
-              ),
           if (mobile)
             TopicActionsButton(
               floating: floating,
@@ -1061,11 +1060,13 @@ class _CategoryChip extends StatelessWidget {
 
 class _TopicPropertyPopover extends StatefulWidget {
   const _TopicPropertyPopover({
+    super.key,
     required this.siteUrl,
     required this.topicId,
     required this.section,
     required this.registry,
     required this.compact,
+    required this.floating,
     required this.navigationRevision,
   });
 
@@ -1074,6 +1075,7 @@ class _TopicPropertyPopover extends StatefulWidget {
   final TopicPropertySection section;
   final PluginRegistry registry;
   final bool compact;
+  final bool floating;
   final int navigationRevision;
 
   @override
@@ -1137,18 +1139,19 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     final section = widget.section;
     final floating = ShellScope.read(context).mobileNavigationEnabled;
     if (widget.compact) {
-      return section.compactHeader?.call(context, showDetails) ??
-          DButton.iconOnly(
-            icon: const DIcon(DIcons.ellipsis),
-            tooltip: section.label,
-            size: floating ? DButtonSize.floating : DButtonSize.filter,
-            backgroundColor: floating ? DTokens.of(context).wellFill : null,
-            variant: floating ? DButtonVariant.tool : DButtonVariant.ghost,
-            hasPopup: true,
-            expanded: expanded,
-            focusNode: focusNode,
-            onPressed: showDetails,
-          );
+      final action = section.compactAction;
+      final onSelected = action?.onSelected;
+      return DButton.iconOnly(
+        key: action?.key,
+        icon: action?.icon ?? const DIcon(DIcons.ellipsis),
+        tooltip: action?.label ?? section.label,
+        size: widget.floating ? DButtonSize.floating : DButtonSize.filter,
+        variant: DButtonVariant.tool,
+        hasPopup: onSelected == null,
+        expanded: onSelected == null && expanded,
+        focusNode: focusNode,
+        onPressed: onSelected == null ? showDetails : () => onSelected(context),
+      );
     }
     return section.header?.call(context, showDetails) ??
         DButton(
