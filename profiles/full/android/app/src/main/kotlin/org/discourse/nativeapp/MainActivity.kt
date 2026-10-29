@@ -1,12 +1,17 @@
 package org.discourse.nativeapp
 
+import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val pushNotifications = AndroidPushNotifications(this)
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        pushNotifications.attach(flutterEngine.dartExecutor.binaryMessenger)
+        pushNotifications.didOpen(intent)
         val credentials = CredentialStorage(applicationContext)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -31,5 +36,25 @@ class MainActivity : FlutterActivity() {
                 result.error("credential_storage", "Credential storage failed", null)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pushNotifications.didOpen(intent)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        pushNotifications.onRequestPermissionsResult(requestCode, grantResults)
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        pushNotifications.detach()
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 }

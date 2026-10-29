@@ -17,6 +17,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -24,6 +25,33 @@ import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'Android notification taps reach the existing navigation stream',
+    () async {
+      const channel = EventChannel('test.discourse.native/notification_opens');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockStreamHandler(
+        channel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            events.success('https://meta.discourse.org/t/android-push/42/3');
+            events.endOfStream();
+          },
+        ),
+      );
+      addTearDown(() => messenger.setMockStreamHandler(channel, null));
+      final opens = PlatformNotificationOpens(
+        channel: channel,
+        platform: TargetPlatform.android,
+      );
+
+      expect(await opens.urls.toList(), [
+        'https://meta.discourse.org/t/android-push/42/3',
+      ]);
+    },
+  );
 
   test('unsupported platforms expose no native notification opens', () async {
     final opens = PlatformNotificationOpens(platform: TargetPlatform.linux);

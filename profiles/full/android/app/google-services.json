@@ -1,0 +1,69 @@
+{
+  "project_info": {
+    "project_number": "257050134679",
+    "firebase_url": "https://discourse-mobile-app.firebaseio.com",
+    "project_id": "discourse-mobile-app",
+    "storage_bucket": "discourse-mobile-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257050134679:android:688a4f71f791768a1201d2",
+        "android_client_info": {
+          "package_name": "com.discourse"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "257050134679-v68lb5mg8fhah7he9u63vrhjfu7o3fbh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDV99xu_zNmCoF3dXpVU_-YNx3zps1uEb4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "257050134679-v68lb5mg8fhah7he9u63vrhjfu7o3fbh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:257050134679:android:db3077c2a1168b2c1201d2",
+        "android_client_info": {
+          "package_name": "org.discourse.native"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "257050134679-v68lb5mg8fhah7he9u63vrhjfu7o3fbh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDV99xu_zNmCoF3dXpVU_-YNx3zps1uEb4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "257050134679-v68lb5mg8fhah7he9u63vrhjfu7o3fbh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

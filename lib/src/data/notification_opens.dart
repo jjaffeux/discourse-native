@@ -20,7 +20,8 @@ final class PlatformNotificationOpens {
   Stream<String> get urls {
     if (_isWeb ||
         (_platform != TargetPlatform.iOS &&
-            _platform != TargetPlatform.macOS)) {
+            _platform != TargetPlatform.macOS &&
+            _platform != TargetPlatform.android)) {
       return const Stream<String>.empty();
     }
     return _urls ??= _channel

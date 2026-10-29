@@ -51,6 +51,37 @@ void main() {
     expect(registration?.pushUrl, PlatformPushRegistrationProvider.iosPushUrl);
   });
 
+  test('registers an Android FCM token with the existing publisher', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'registrationToken');
+          return 'android-fcm-token';
+        });
+    final provider = PlatformPushRegistrationProvider(
+      channel: channel,
+      platform: TargetPlatform.android,
+    );
+
+    final registration = await provider.registration();
+
+    expect(registration?.clientId, 'android-fcm-token');
+    expect(
+      registration?.pushUrl,
+      'https://api.discourse.org/api/publish_android',
+    );
+  });
+
+  test('Android permission denial still allows sign-in without push', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async => null);
+    final provider = PlatformPushRegistrationProvider(
+      channel: channel,
+      platform: TargetPlatform.android,
+    );
+
+    expect(await provider.registration(), isNull);
+  });
+
   test('does not ask the native bridge on unsupported platforms', () async {
     var calls = 0;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
