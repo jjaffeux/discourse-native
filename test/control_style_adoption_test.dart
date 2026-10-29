@@ -174,6 +174,9 @@ void main() {
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
+        // The mobile bar's page title is an inline action that reads as the
+        // page heading it replaces, in the heading's full foreground.
+        'lib/src/shell/mobile_page_title.dart': {'foregroundColor': 1},
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
         // Inline taxonomy edit actions are the same pill as the tag chips.
