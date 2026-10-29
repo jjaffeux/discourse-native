@@ -257,6 +257,7 @@ Future<ShellController> pumpMobileShellFixture(
   PluginManifest? pluginManifest,
   ChatChannels? conversations,
   List<Topic>? topics,
+  List<TopicCategory> sidebarCategories = const [],
   List<Topic> moreTopics = const [],
   Completer<void>? moreTopicsGate,
   List<ChatMessage>? chatMessages,
@@ -341,6 +342,7 @@ Future<ShellController> pumpMobileShellFixture(
       ],
       if (moreTopics.isNotEmpty) '/latest.json?page=1': moreTopics,
     },
+    feedCategoriesByPath: {'/latest.json': sidebarCategories},
     nextPages: {
       if (moreTopics.isNotEmpty) '/latest.json': '/latest.json?page=1',
     },
@@ -2170,9 +2172,9 @@ void main() {
         const Radius.circular(DRadius.panel),
       );
       expect(tester.widget<DPageSurface>(frame).border, isFalse);
-      expect(tester.getRect(list).left, panel.left + 12);
-      expect(tester.getRect(list).right, panel.right - 12);
-      expect(tester.getRect(list).top, panel.top + 10);
+      expect(tester.getRect(list).left, panel.left + 8);
+      expect(tester.getRect(list).right, panel.right - 8);
+      expect(tester.getRect(list).top, greaterThan(panel.center.dy));
       expect(find.text('Watercooler'), findsNothing);
 
       Future<void> capture(String state) async {
@@ -2331,7 +2333,7 @@ void main() {
   });
 
   _mobileTest(
-    'navigation page exposes Forum categories/tags and custom Shortcuts',
+    'navigation page exposes forum identity, destinations and custom Shortcuts',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
@@ -2356,11 +2358,12 @@ void main() {
           of: sidebar,
           matching: find.byType(ForumIdentityHeader),
         ),
-        findsNothing,
+        findsOneWidget,
       );
-      for (final label in ['Topics', 'Messages', 'Users', 'Handbook']) {
-        expect(sidebarDestination(label), findsNothing);
+      for (final label in ['Topics', 'Messages', 'Users']) {
+        expect(sidebarDestination(label), findsOneWidget);
       }
+      expect(sidebarDestination('Handbook'), findsNothing);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('mobile-navigation-page')),
