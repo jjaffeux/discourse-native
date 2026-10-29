@@ -170,7 +170,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                       final name = value?.trim() ?? '';
                       if (name.isEmpty) return context.l10n.enterARoomName;
                       if (widget.nameTaken(name)) {
-                        return 'A voice room with this name already exists.';
+                        return context.l10n.voiceRoomNameAlreadyExists;
                       }
                       if (name.runes.length > 80) {
                         return context.l10n.use80CharactersOrFewer;

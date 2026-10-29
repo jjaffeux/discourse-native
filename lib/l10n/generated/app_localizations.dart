@@ -23060,6 +23060,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back to the top of {title}'**
   String backToTopOf(String title);
+
+  /// Chat inbox and sidebar grouping option that separates starred conversations, channels and direct messages.
+  ///
+  /// In en, this message translates to:
+  /// **'By type'**
+  String get chatOrderByType;
+
+  /// Chat inbox and sidebar ordering option that combines conversations by latest activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get chatOrderNewest;
+
+  /// Accessible label for the Chat inbox and sidebar grouping menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat order'**
+  String get chatOrder;
+
+  /// Section heading for the combined conversation list when Chat is ordered by latest activity.
+  ///
+  /// In en, this message translates to:
+  /// **'All chats'**
+  String get chatAllChats;
+
+  /// Action in the Chat inbox or sidebar to open the Voice room creation form.
+  ///
+  /// In en, this message translates to:
+  /// **'New voice room'**
+  String get newVoiceRoom;
+
+  /// Complete count shown on the Channels navigation card in the Chat inbox. The number is already formatted for the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'{number} joined'**
+  String chatJoinedChannelCount(String number);
+
+  /// Thread navigation card count when more server pages remain. The plus means that the total may exceed the displayed lower bound. Keep the complete message translatable, including when the displayed number is one. The number is already formatted for the locale.
+  ///
+  /// In en, this message translates to:
+  /// **'{number}+ threads'**
+  String chatThreadCountLowerBound(String number);
+
+  /// Validation error in the Voice room form when another room in the forum has the trimmed name.
+  ///
+  /// In en, this message translates to:
+  /// **'A voice room with this name already exists.'**
+  String get voiceRoomNameAlreadyExists;
 }
 
 class _AppLocalizationsDelegate

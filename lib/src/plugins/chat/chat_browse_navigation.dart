@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
@@ -87,8 +88,9 @@ class _ChatInboxNavigationState extends State<ChatInboxNavigation> {
             .publicChannels(widget.siteUrl)
             .where((c) => c.membership.following)
             .length;
+        final numbers = NumberFormat('0', context.l10n.localeName);
         final joinedNote = chat.channelsLoaded(widget.siteUrl)
-            ? '$joined joined'
+            ? context.l10n.chatJoinedChannelCount(numbers.format(joined))
             : chat.channelsError(widget.siteUrl) != null
             ? context.l10n.couldNotLoadConversations
             : context.l10n.loading;
@@ -100,7 +102,9 @@ class _ChatInboxNavigationState extends State<ChatInboxNavigation> {
             ? context.l10n.loading
             : directory.error(null) != null
             ? context.l10n.couldNotLoadConversations
-            : '$count${moreThreads ? '+' : ''} ${count == 1 && !moreThreads ? 'thread' : 'threads'}';
+            : moreThreads
+            ? context.l10n.chatThreadCountLowerBound(numbers.format(count))
+            : countLabel(count, CountNoun.thread);
         return Padding(
           key: const ValueKey('chat-inbox-navigation'),
           padding: const EdgeInsets.only(top: DSpacing.xs, bottom: DSpacing.xs),

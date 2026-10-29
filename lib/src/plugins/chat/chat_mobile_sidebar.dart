@@ -70,7 +70,7 @@ class ChatMobileSidebar extends StatelessWidget {
             DButton(
               variant: DButtonVariant.ghost,
               icon: const DIcon(DIcons.plus),
-              label: const Text('New voice room'),
+              label: Text(context.l10n.newVoiceRoom),
               onPressed: () => unawaited(createRoom(context)),
             ),
           if (!loading && channels.isEmpty && rooms.isEmpty)

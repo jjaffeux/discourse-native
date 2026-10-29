@@ -69,12 +69,14 @@ class ChatInboxFilterBar extends StatelessWidget {
           ),
           ChatBrowseFilter<ChatInboxSort>(
             key: const ValueKey('chat-inbox-sort-filter'),
-            label: filter.sort == ChatInboxSort.byType ? 'By type' : 'Newest',
-            semanticLabel: 'Chat order',
+            label: filter.sort == ChatInboxSort.byType
+                ? context.l10n.chatOrderByType
+                : context.l10n.chatOrderNewest,
+            semanticLabel: context.l10n.chatOrder,
             value: filter.sort,
-            options: const {
-              ChatInboxSort.byType: 'By type',
-              ChatInboxSort.newest: 'Newest',
+            options: {
+              ChatInboxSort.byType: context.l10n.chatOrderByType,
+              ChatInboxSort.newest: context.l10n.chatOrderNewest,
             },
             onChanged: (value) =>
                 filters.update(siteUrl, filter.copyWith(sort: value)),
@@ -136,7 +138,7 @@ String _inboxSectionLabel(BuildContext context, ChatInboxSectionKind kind) =>
       ChatInboxSectionKind.starred => context.l10n.starred,
       ChatInboxSectionKind.channels => context.l10n.channels,
       ChatInboxSectionKind.directMessages => context.l10n.directMessages,
-      ChatInboxSectionKind.allChats => 'All chats',
+      ChatInboxSectionKind.allChats => context.l10n.chatAllChats,
     };
 
 class ChatInboxSectionHeading extends StatelessWidget {

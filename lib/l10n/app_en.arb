@@ -19290,5 +19290,47 @@
     "description": "Category and tag sidebar preference editor."
   },
   "backToTopOf": "Back to the top of {title}",
-  "@backToTopOf": {"description": "Accessible action for the visible mobile page title.", "placeholders": {"title": {"type": "String"}}}
+  "@backToTopOf": {"description": "Accessible action for the visible mobile page title.", "placeholders": {"title": {"type": "String"}}},
+  "chatOrderByType": "By type",
+  "@chatOrderByType": {
+    "description": "Chat inbox and sidebar grouping option that separates starred conversations, channels and direct messages."
+  },
+  "chatOrderNewest": "Newest",
+  "@chatOrderNewest": {
+    "description": "Chat inbox and sidebar ordering option that combines conversations by latest activity."
+  },
+  "chatOrder": "Chat order",
+  "@chatOrder": {
+    "description": "Accessible label for the Chat inbox and sidebar grouping menu."
+  },
+  "chatAllChats": "All chats",
+  "@chatAllChats": {
+    "description": "Section heading for the combined conversation list when Chat is ordered by latest activity."
+  },
+  "newVoiceRoom": "New voice room",
+  "@newVoiceRoom": {
+    "description": "Action in the Chat inbox or sidebar to open the Voice room creation form."
+  },
+  "chatJoinedChannelCount": "{number} joined",
+  "@chatJoinedChannelCount": {
+    "description": "Complete count shown on the Channels navigation card in the Chat inbox. The number is already formatted for the locale.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "chatThreadCountLowerBound": "{number}+ threads",
+  "@chatThreadCountLowerBound": {
+    "description": "Thread navigation card count when more server pages remain. The plus means that the total may exceed the displayed lower bound. Keep the complete message translatable, including when the displayed number is one. The number is already formatted for the locale.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceRoomNameAlreadyExists": "A voice room with this name already exists.",
+  "@voiceRoomNameAlreadyExists": {
+    "description": "Validation error in the Voice room form when another room in the forum has the trimmed name."
+  }
 }

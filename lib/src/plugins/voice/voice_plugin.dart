@@ -276,7 +276,7 @@ final class VoicePlugin
                     ? DButtonSize.small
                     : DButtonSize.regular,
                 icon: const DIcon(DIcons.plus),
-                label: const Text('New voice room'),
+                label: Text(context.l10n.newVoiceRoom),
                 onPressed: () => unawaited(createRoom(context)),
               ),
           ],
