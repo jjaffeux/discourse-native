@@ -142,31 +142,32 @@ class TopicListNavigation extends StatelessWidget {
       if (headingBuilder == null) {
         return DPageSurface(framed: false, header: controls, child: child);
       }
-      Widget page(String titleText) => DPageSurface.headed(
-        titleText: titleText,
-        identity: state.filterOwner,
-        title: KeyedSubtree(
-          key: const ValueKey('topic-list-primary-row'),
-          child: headingBuilder!(context, null),
-        ),
-        controls: controls,
-        child: child,
-      );
       final route = state.route;
       final siteUrl = state.siteUrl;
-      if (route?.categoryId case final categoryId? when siteUrl != null) {
-        return ValueListenableBuilder<TopicCategory?>(
-          valueListenable: ShellScope.read(
-            context,
-          ).categoryRef(siteUrl, categoryId),
-          builder: (context, category, _) =>
-              page(category?.name ?? context.l10n.category),
-        );
-      }
-      return page(
-        state.mode == null
-            ? route?.title ?? context.l10n.topics
-            : context.l10n.topicsMaincontent(TopicFeedMenu.label(state.mode!)),
+      final categoryId = route?.categoryId;
+      final category = categoryId == null || siteUrl == null
+          ? null
+          : ShellScope.read(context).categoryRef(siteUrl, categoryId);
+      // The page keeps one element shape whether or not a category scopes
+      // it, so changing scope never remounts the list or its open menus.
+      return ListenableBuilder(
+        listenable: category ?? Listenable.merge(const []),
+        builder: (context, _) => DPageSurface.headed(
+          titleText: category != null
+              ? category.value?.name ?? context.l10n.category
+              : state.mode == null
+              ? route?.title ?? context.l10n.topics
+              : context.l10n.topicsMaincontent(
+                  TopicFeedMenu.label(state.mode!),
+                ),
+          identity: state.filterOwner,
+          title: KeyedSubtree(
+            key: const ValueKey('topic-list-primary-row'),
+            child: headingBuilder!(context, null),
+          ),
+          controls: controls,
+          child: child,
+        ),
       );
     },
   );
