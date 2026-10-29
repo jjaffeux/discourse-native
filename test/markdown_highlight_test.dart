@@ -1192,6 +1192,39 @@ void main() {
       expect(markdownScanCount, scans + 1);
     });
 
+    test("an editor's latest scan is held until the editor releases it", () {
+      final pin = MarkdownScanPin();
+      final source = draft('`code`');
+      scanMarkdown(source, pin: pin);
+      for (var other = 0; other < 16; other += 1) {
+        scanMarkdown(draft('other'));
+      }
+      var scans = markdownScanCount;
+
+      markdownCodeRanges(source);
+      expect(markdownScanCount, scans);
+
+      pin.release();
+      scans = markdownScanCount;
+      markdownCodeRanges(source);
+      expect(markdownScanCount, scans + 1);
+    });
+
+    test('an editor rescans only the paragraph it edited since its scan', () {
+      final pin = MarkdownScanPin();
+      addTearDown(pin.release);
+      const paragraph = 'Typing here';
+      final source = draft('`code`\n\n$paragraph');
+      scanMarkdown(source, pin: pin);
+      for (var other = 0; other < 16; other += 1) {
+        scanMarkdown(draft('other'));
+      }
+      final units = markdownScannedCodeUnits;
+
+      scanMarkdown('${source}a', pin: pin);
+      expect(markdownScannedCodeUnits - units, '${paragraph}a'.length);
+    });
+
     test('no reader can change a scan it shares with the others', () {
       final source = draft('**bold** and `code`');
       final (:runs, :blocks) = sharedMarkdownScan(source);
