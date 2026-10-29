@@ -257,6 +257,10 @@ void main() {
         const Size.square(36),
       );
       await _capture(tester, 'phone-scrolled');
+      await tester.tap(filters);
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsOneWidget);
+      await _capture(tester, 'phone-filter-menu');
       expect(tester.takeException(), isNull);
     },
   );

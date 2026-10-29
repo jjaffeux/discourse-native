@@ -820,8 +820,9 @@ void main() {
         final position = tester.state<ScrollableState>(results.first).position;
         expect(
           tester.getRect(results.first).bottom,
-          closeTo(tester.getRect(sheet).bottom - 10 - DSpacing.xs, .1),
-          reason: 'Filters can scroll through the bottom safe area',
+          closeTo(tester.getRect(sheet).bottom - DSpacing.xs, .1),
+          reason:
+              'The result viewport reaches the sheet edge without a second bottom inset',
         );
         await tester.tap(field);
         await tester.pump();
@@ -889,8 +890,26 @@ void main() {
         final placed = tester.getRect(sheet);
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet), placed);
+        final lastChoice = find.textContaining('Sort', findRichText: true);
+        await tester.drag(results.first, const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        expect(lastChoice, findsOneWidget);
+        expect(
+          tester.getRect(lastChoice).top,
+          greaterThanOrEqualTo(tester.getRect(results.first).top),
+        );
+        expect(
+          tester.getRect(lastChoice).bottom,
+          lessThanOrEqualTo(tester.getRect(sheet).bottom),
+        );
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();
+        await tester.drag(results.first, const Offset(0, -1000));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(lastChoice).bottom,
+          lessThanOrEqualTo(phone.height - 34),
+        );
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
