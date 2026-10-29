@@ -125,6 +125,7 @@ class TopicInboxHeader extends StatelessWidget {
               topic?.resumePostNumber ??
               row?.lastUnreadPostNumber;
     return DPageSurface.scrollable(
+      titleText: title,
       headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,

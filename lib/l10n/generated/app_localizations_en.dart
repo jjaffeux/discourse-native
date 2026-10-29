@@ -14624,4 +14624,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceRoomDeleteFailed => 'Couldn’t delete the room.';
+
+  @override
+  String backToTopOf(String title) {
+    return 'Back to the top of $title';
+  }
 }

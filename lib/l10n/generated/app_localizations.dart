@@ -23024,6 +23024,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn’t delete the room.'**
   String get voiceRoomDeleteFailed;
+
+  /// Accessible action for the visible mobile page title.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the top of {title}'**
+  String backToTopOf(String title);
 }
 
 class _AppLocalizationsDelegate

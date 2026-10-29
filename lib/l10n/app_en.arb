@@ -19263,5 +19263,7 @@
   "searchChat": "Search chat",
   "@searchChat": {"description": "Drawer entry opening the shared forum search scoped to Chat or the current channel."},
   "voiceRoomDeleteFailed": "Couldn’t delete the room.",
-  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."}
+  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."},
+  "backToTopOf": "Back to the top of {title}",
+  "@backToTopOf": {"description": "Accessible action for the visible mobile page title.", "placeholders": {"title": {"type": "String"}}}
 }
