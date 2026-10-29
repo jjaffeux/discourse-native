@@ -213,7 +213,8 @@ class DItem extends StatefulWidget {
   State<DItem> createState() => _DItemState();
 }
 
-/// A rail destination with a visible 36px action inside its 48px layout slot.
+/// A rail destination with a 44px phone action in a 52px layout slot, or a
+/// 36px desktop action in a 48px slot.
 /// The marker is decorative. Hover changes its Native-owned height.
 class DItemRail extends StatefulWidget {
   const DItemRail({
@@ -235,6 +236,25 @@ class DItemRail extends StatefulWidget {
   final MouseCursor? mouseCursor;
   final Widget Function(BuildContext, Widget)? controlWrapper;
 
+  /// Shared with the rail's image adapter and drag feedback.
+  static double artworkDimensionOf(BuildContext context) =>
+      DControlStyle.isTouch(context) ? 44 : 36;
+
+  /// Shared with the rail's lazy list and reorder insertion calculation.
+  static double itemExtentOf(BuildContext context) =>
+      DControlStyle.isTouch(context) ? 52 : 48;
+
+  static BorderRadius artworkBorderRadiusOf(
+    BuildContext context, {
+    required bool selected,
+  }) => BorderRadius.circular(
+    selected
+        ? DControlStyle.isTouch(context)
+              ? 14
+              : 12
+        : artworkDimensionOf(context) / 2,
+  );
+
   @override
   State<DItemRail> createState() => _DItemRailState();
 }
@@ -244,13 +264,15 @@ class _DItemRailState extends State<DItemRail> {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = DControlStyle.isTouch(context);
+    final dimension = DItemRail.artworkDimensionOf(context);
     final action = DItem(
       size: DItemSize.artwork,
       shape: DItemShape.pill,
       mouseCursor: widget.mouseCursor,
       onPressed: widget.onPressed,
       onHoverChanged: (hovered) => setState(() => _hovered = hovered),
-      children: [SizedBox.square(dimension: 36, child: widget.artwork)],
+      children: [SizedBox.square(dimension: dimension, child: widget.artwork)],
     );
     final control = widget.controlWrapper?.call(context, action) ?? action;
     return Stack(
@@ -263,7 +285,9 @@ class _DItemRailState extends State<DItemRail> {
             curve: Curves.easeOutCubic,
             width: 4,
             height: widget.selected
-                ? 28
+                ? dimension - 8
+                : mobile
+                ? 0
                 : _hovered
                 ? 16
                 : 8,
@@ -276,7 +300,10 @@ class _DItemRailState extends State<DItemRail> {
           ),
         ),
         Center(
-          child: SizedBox.square(dimension: 48, child: Center(child: control)),
+          child: SizedBox.square(
+            dimension: DItemRail.itemExtentOf(context),
+            child: Center(child: control),
+          ),
         ),
       ],
     );

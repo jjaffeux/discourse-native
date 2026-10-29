@@ -18,6 +18,8 @@ final itemExamples = ComponentExamples(
       'media and group sizing. Native large text reflows and removes clamps. '
       'At narrow widths content and actions stack. fitContent sizes an item to '
       'its content under loose constraints, retaining its visible hit and drag bounds. '
+      'DItemRail adapts its artwork/row to 44/52px on phones and 36/48px on '
+      'desktop; its geometry queries also size image adapters and drag feedback. '
       'All artwork is bundled from '
       'the reference sources. Actions use final Button outline/ghost variants '
       'and accessible round icon buttons. The Dropdown example composes accepted '
@@ -188,8 +190,59 @@ final itemExamples = ComponentExamples(
         highlightOnInteraction: false,
       ),
     ),
+    StyleguideExample(
+      title: 'Forum rail',
+      description:
+          'Phone marks are 44px in 52px rows; desktop marks remain 36px in '
+          '48px rows. Selection owns the edge marker and artwork corners.',
+      code:
+          'DItemRail(selected: selected, markerColor: tokens.foreground, '
+          'onPressed: selectForum, artwork: forumAvatar)',
+      builder: (_) => const _ForumRailExample(),
+    ),
   ],
 );
+
+class _ForumRailExample extends StatefulWidget {
+  const _ForumRailExample();
+
+  @override
+  State<_ForumRailExample> createState() => _ForumRailExampleState();
+}
+
+class _ForumRailExampleState extends State<_ForumRailExample> {
+  int _selected = 0;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 68,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < 3; index++)
+          DItemRail(
+            selected: _selected == index,
+            markerColor: DTokens.of(context).foreground,
+            onPressed: () => setState(() => _selected = index),
+            controlWrapper: (_, control) => Semantics(
+              label: 'Community ${index + 1}',
+              selected: _selected == index,
+              child: control,
+            ),
+            artwork: DAvatar(
+              dimension: DItemRail.artworkDimensionOf(context),
+              decorative: true,
+              borderRadius: DItemRail.artworkBorderRadiusOf(
+                context,
+                selected: _selected == index,
+              ),
+              fallback: DAvatarFallback(child: Text('${index + 1}')),
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
 class _WholeRowDragExample extends StatefulWidget {
   const _WholeRowDragExample();
