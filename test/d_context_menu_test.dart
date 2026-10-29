@@ -2,6 +2,7 @@ import 'dart:ui' show CheckedState, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -346,10 +347,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final chevron = find.byWidgetPredicate(
-      (widget) =>
-          widget is CustomPaint &&
-          widget.size == const Size.square(16) &&
-          widget.painter.runtimeType.toString() == '_ChevronPainter',
+      (widget) => widget is DIcon && widget.icon == DIcons.chevronLeft,
     );
     expect(chevron, findsOneWidget);
     expect(Directionality.of(tester.element(chevron)), TextDirection.rtl);
