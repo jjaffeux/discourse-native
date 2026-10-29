@@ -63,7 +63,7 @@ void main() {
         await tester.pumpAndSettle();
         if (label != 'Chats') {
           final destination = find.descendant(
-            of: find.byKey(const ValueKey('chat-browse-navigation')),
+            of: find.byKey(const ValueKey('chat-inbox-navigation')),
             matching: find.text(label),
           );
           await tester.ensureVisible(destination);

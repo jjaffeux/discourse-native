@@ -41,7 +41,6 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
-import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -1965,7 +1964,7 @@ void _registerChatShellTests() {
           findsOneWidget,
         );
         expect(
-          find.byKey(const ValueKey('chat-inbox-kind-filter')),
+          find.byKey(const ValueKey('chat-inbox-sort-filter')),
           findsOneWidget,
         );
 
@@ -2265,6 +2264,10 @@ void _registerChatShellTests() {
           ],
         );
 
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Newest').last);
+        await tester.pumpAndSettle();
         for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
           expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
         }
@@ -2313,6 +2316,12 @@ void _registerChatShellTests() {
             ],
           );
 
+          await tester.tap(
+            find.byKey(const ValueKey('chat-inbox-sort-filter')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Newest').last);
+          await tester.pumpAndSettle();
           final emptyRow = find.byKey(const ValueKey('chat-inbox-channel-10'));
           expect(
             find.descendant(
@@ -2391,12 +2400,12 @@ void _registerChatShellTests() {
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsNothing);
 
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-kind-filter')));
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Direct messages').last);
+        await tester.tap(find.text('Newest').last);
         await tester.pumpAndSettle();
-        expect(sidebarDestination('Bugs'), findsNothing);
-        expect(find.text('No unread conversations.'), findsOneWidget);
+        expect(sidebarDestination('Bugs'), findsOneWidget);
+        expect(find.text('All chats'), findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('marks the open conversation in the inbox', (tester) async {
@@ -2422,7 +2431,7 @@ void _registerChatShellTests() {
 
       for (final directMessage in [false, true]) {
         testWidgets(
-          'opens ${directMessage ? 'DM' : 'channel'} menu on right click without hover dots',
+          'opens ${directMessage ? 'DM' : 'channel'} menu on right click alongside hover options',
           (tester) async {
             final previous = debugDefaultTargetPlatformOverride;
             debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -2444,7 +2453,7 @@ void _registerChatShellTests() {
 
               expect(
                 find.byKey(const ValueKey('chat-channel-menu-button-9')),
-                findsNothing,
+                findsOneWidget,
               );
               expect(find.byType(DContextMenuContent), findsNothing);
               final shell = ShellScope.read(

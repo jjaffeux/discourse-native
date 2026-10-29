@@ -162,6 +162,81 @@ void main() {
     },
   );
 
+  testWidgets(
+    'new room rejects blank and duplicate names and submits a trimmed name',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(760, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await prepareNativeUiEvidence(tester);
+      var rooms = [_room()];
+      transport.responders['GET /live/rooms.json'] = (_) => {
+        'rooms': rooms,
+        'can_create_room': true,
+      };
+      transport.responders['POST /live/rooms.json'] = (request) {
+        final draft = request.body['room']! as Map<String, dynamic>;
+        final created = {..._room(), ...draft, 'id': 8, 'slug': 'planning'};
+        rooms = [...rooms, created];
+        return {'room': created};
+      };
+      await controller.ensureLoaded(_site);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          builder: nativeUiEvidenceBuilder,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('New voice room'),
+                onPressed: () => showVoiceRoomEditor(
+                  context,
+                  siteUrl: _site,
+                  controller: controller,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('New voice room'));
+      await tester.pumpAndSettle();
+      final name = find.descendant(
+        of: find.byType(DInput).first,
+        matching: find.byType(EditableText),
+      );
+      DButton create() =>
+          tester.widget<DButton>(find.widgetWithText(DButton, 'Create room'));
+      expect(create().onPressed, isNull);
+      await tester.enterText(name, '   ');
+      await tester.pumpAndSettle();
+      expect(create().onPressed, isNull);
+      await tester.enterText(name, ' Lounge ');
+      await tester.pumpAndSettle();
+      expect(create().onPressed, isNull);
+      expect(
+        find.text('A voice room with this name already exists.'),
+        findsOneWidget,
+      );
+      await captureNativeUi(tester, 'voice-room-duplicate');
+      expect(transport.writes, isEmpty);
+      await tester.enterText(name, '  Planning  ');
+      await tester.pumpAndSettle();
+      expect(create().onPressed, isNotNull);
+      await captureNativeUi(tester, 'voice-room-form');
+      await tester.tap(find.text('Create room'));
+      await tester.pumpAndSettle();
+      expect(transport.writes.single.path, '/live/rooms.json');
+      expect(
+        (transport.writes.single.body['room']! as Map)['name'],
+        'Planning',
+      );
+      expect(controller.room(_site, 8)?.name, 'Planning');
+      expect(find.byType(DDialogContent), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('delete action confirms and cancel keeps the room', (
     tester,
   ) async {

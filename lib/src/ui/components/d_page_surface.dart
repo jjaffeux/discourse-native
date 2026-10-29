@@ -220,8 +220,9 @@ class DPageSurface extends StatefulWidget {
   bodyBuilder;
 
   /// Keeps a directory lazy while the measured heading and footer fit. When
-  /// they leave less than 48px for rows, false asks for a natural-height body
-  /// and the whole page scrolls together. The same title and controls remain.
+  /// they and the floating dock leave less than 48px for rows, false asks for
+  /// a natural-height body and the whole page scrolls together. The same title
+  /// and controls remain.
   /// A bounded list may pass Clip.none to its viewport: the page then clips
   /// it, letting a raised first row paint into the controls' empty padding.
   final Widget Function(BuildContext context, bool bounded)?
@@ -917,6 +918,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                 primary: false,
                 child: _AdaptivePageLayout(
                   viewportExtent: viewportExtent!,
+                  floatingFooterExtent: DScrollChrome.bottomInsetOf(context),
                   naturalHeaderExtent: () =>
                       (_headerKey.currentContext?.findRenderObject()
                               as _RenderScrollHeaderExtent?)
@@ -1860,16 +1862,22 @@ class _DPageScrollInsetsState extends State<DPageScrollInsets> {
 class _AdaptivePageLayout extends MultiChildRenderObjectWidget {
   const _AdaptivePageLayout({
     required this.viewportExtent,
+    required this.floatingFooterExtent,
     required this.naturalHeaderExtent,
     required super.children,
   });
 
   final double viewportExtent;
+  final double floatingFooterExtent;
   final ValueGetter<double> naturalHeaderExtent;
 
   @override
   _RenderAdaptivePageLayout createRenderObject(BuildContext context) =>
-      _RenderAdaptivePageLayout(viewportExtent, naturalHeaderExtent);
+      _RenderAdaptivePageLayout(
+        viewportExtent,
+        floatingFooterExtent,
+        naturalHeaderExtent,
+      );
 
   @override
   void updateRenderObject(
@@ -1878,6 +1886,7 @@ class _AdaptivePageLayout extends MultiChildRenderObjectWidget {
   ) {
     renderObject
       ..viewportExtent = viewportExtent
+      ..floatingFooterExtent = floatingFooterExtent
       ..naturalHeaderExtent = naturalHeaderExtent
       ..markNeedsLayout();
   }
@@ -1889,10 +1898,21 @@ class _RenderAdaptivePageLayout extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _AdaptivePageParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _AdaptivePageParentData> {
-  _RenderAdaptivePageLayout(this._viewportExtent, this.naturalHeaderExtent);
+  _RenderAdaptivePageLayout(
+    this._viewportExtent,
+    this._floatingFooterExtent,
+    this.naturalHeaderExtent,
+  );
 
   ValueGetter<double> naturalHeaderExtent;
   double _viewportExtent;
+  double _floatingFooterExtent;
+  set floatingFooterExtent(double value) {
+    if (value == _floatingFooterExtent) return;
+    _floatingFooterExtent = value;
+    markNeedsLayout();
+  }
+
   set viewportExtent(double value) {
     if (value == _viewportExtent) return;
     _viewportExtent = value;
@@ -1921,7 +1941,12 @@ class _RenderAdaptivePageLayout extends RenderBox
     final double listExtent;
     // Title motion must not switch the list between bounded and natural
     // height, which would reset the outer scroll position during the gesture.
-    final fits = _viewportExtent - naturalHeaderExtent() - footerExtent >= 48;
+    final fits =
+        _viewportExtent -
+            naturalHeaderExtent() -
+            footerExtent -
+            _floatingFooterExtent >=
+        48;
     if (fits) {
       list.layout(BoxConstraints.tightFor(width: width, height: room));
       listExtent = room;

@@ -144,7 +144,7 @@ void main() {
       final filters = find.byKey(const ValueKey('chat-browse-joined'));
       final controlsGap = viewport.top - tester.getRect(filters).bottom;
       final header = _artwork(find.byKey(const ValueKey('chat-browse-filter')))
-        ..addAll(_artwork(find.byKey(const ValueKey('chat-browse-navigation'))))
+        ..addAll(_artwork(find.byKey(const ValueKey('chat-inbox-back'))))
         ..addAll(_artwork(find.byKey(const ValueKey('chat-browse-status'))))
         ..addAll(_artwork(find.byKey(const ValueKey('chat-browse-joined'))));
       // Rows entering the viewport need their first paint. Track only

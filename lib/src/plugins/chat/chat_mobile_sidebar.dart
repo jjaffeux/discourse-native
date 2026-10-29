@@ -47,17 +47,45 @@ class ChatMobileSidebar extends StatelessWidget {
         );
         // Rows are ruled within their own section; the rooms heading stands
         // between the two sections without a rule on either side.
+        final createRoom = roomService?.createRoom(siteUrl);
         final entries = <Widget>[
-          for (final (index, channel) in channels.indexed) ...[
-            if (index > 0) DSeparator(color: colors.border),
-            row(channel),
+          ChatInboxNavigation(
+            key: ValueKey(('chat-navigation', siteUrl)),
+            siteUrl: siteUrl,
+          ),
+          for (final section in chatInboxSections(channels, filter.sort)) ...[
+            ChatInboxSectionHeading(kind: section.kind),
+            for (final (index, channel) in section.channels.indexed) ...[
+              if (index > 0) DSeparator(color: colors.border),
+              row(channel),
+            ],
           ],
-          if (rooms.isNotEmpty && channels.isNotEmpty)
+          if (rooms.isNotEmpty || createRoom != null)
             const _VoiceRoomsHeading(),
           for (final (index, room) in rooms.indexed) ...[
             if (index > 0) DSeparator(color: colors.border),
             ChatInboxRoomRow(room: room),
           ],
+          if (createRoom != null)
+            DButton(
+              variant: DButtonVariant.ghost,
+              icon: const DIcon(DIcons.plus),
+              label: const Text('New voice room'),
+              onPressed: () => unawaited(createRoom(context)),
+            ),
+          if (!loading && channels.isEmpty && rooms.isEmpty)
+            error != null
+                ? ChatInboxError(
+                    onRetry: () =>
+                        unawaited(chat.loadChannels(siteUrl, force: true)),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(DSpacing.lg),
+                    child: Text(
+                      chatInboxEmptyMessage(filter),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
         ];
         return DPageSurface.headed(
           title: Text(
@@ -66,32 +94,11 @@ class ChatMobileSidebar extends StatelessWidget {
           ),
           controls: ContentReadingLaneBox(
             padding: EdgeInsets.zero,
-            child: ChatInboxFilterBar(
-              siteUrl: siteUrl,
-              filters: filters,
-              leading: ChatBrowseNavigation(
-                siteUrl: siteUrl,
-                page: ChatBrowsePage.chats,
-              ),
-            ),
+            child: ChatInboxFilterBar(siteUrl: siteUrl, filters: filters),
           ),
           adaptiveBodyBuilder: (context, lazy) => ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(horizontal: 16),
             builder: (context, lane) {
-              final empty = error != null
-                  ? ChatInboxError(
-                      onRetry: () =>
-                          unawaited(chat.loadChannels(siteUrl, force: true)),
-                    )
-                  : Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(DSpacing.lg),
-                        child: Text(
-                          chatInboxEmptyMessage(filter),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
               final content = loading
                   ? ChatBrowseSkeleton(
                       page: ChatBrowsePage.chats,
@@ -102,18 +109,6 @@ class ChatMobileSidebar extends StatelessWidget {
                         ),
                       ),
                     )
-                  : channels.isEmpty && rooms.isEmpty
-                  ? lazy
-                        ? CustomScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            slivers: [
-                              SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: empty,
-                              ),
-                            ],
-                          )
-                        : empty
                   : lazy
                   ? ListView.builder(
                       key: PageStorageKey((

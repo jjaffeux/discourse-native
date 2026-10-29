@@ -555,6 +555,57 @@ void main() {
   });
 
   testWidgets(
+    'adaptive directory stays touch-scrollable above a floating dock',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final dock = ValueNotifier(0.0);
+      addTearDown(dock.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DScrollChrome(
+            identity: 'adaptive-dock',
+            floatingFooter: true,
+            enabled: false,
+            footerBuilder: (_) => ValueListenableBuilder(
+              valueListenable: dock,
+              builder: (_, height, _) => SizedBox(height: height),
+            ),
+            child: DPageSurface.headed(
+              title: const Text('Directory'),
+              controls: const SizedBox(height: 200),
+              adaptiveBodyBuilder: (context, bounded) {
+                final rows = [
+                  for (var i = 0; i < 10; i++)
+                    SizedBox(height: 100, child: Text('Entry $i')),
+                ];
+                final padding = EdgeInsets.only(
+                  bottom: DScrollChrome.bottomInsetOf(context),
+                );
+                return bounded
+                    ? ListView(padding: padding, children: rows)
+                    : Padding(
+                        padding: padding,
+                        child: Column(children: rows),
+                      );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      dock.value = 200;
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 8; i++) {
+        await tester.dragFrom(const Offset(20, 30), const Offset(0, -160));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Entry 9').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'title motion preserves the short-page fallback and scroll position',
     (tester) async {
       final layouts = <bool>[];
