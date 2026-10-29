@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../theme/discourse_typography.dart';
 import 'site_emoji_text.dart';
 
 /// The foreground page's name taking over as its own heading retracts.
@@ -54,7 +55,7 @@ class MobilePageTitle extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: DiscourseTypography.lg,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
