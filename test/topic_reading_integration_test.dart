@@ -4793,23 +4793,17 @@ void _registerTopicReadingTests() {
       final nearbyTab = find.byKey(
         const ValueKey('topic-recommendations-tab-test/nearby'),
       );
-      expect(
-        tester
-            .widget<DTabList<TopicRecommendationSourceId>>(
-              find.ancestor(
-                of: relatedTab,
-                matching: find.byType(DTabList<TopicRecommendationSourceId>),
-              ),
-            )
-            .variant,
-        DTabListVariant.pill,
+      final switcher = tester.widget<DToggleGroup<TopicRecommendationSourceId>>(
+        find.ancestor(
+          of: relatedTab,
+          matching: find.byType(DToggleGroup<TopicRecommendationSourceId>),
+        ),
       );
+      expect(switcher.size, DToggleSize.segment);
+      expect(switcher.inset, isTrue);
       bool focused(Finder tab) => tester
-          .widget<FocusableActionDetector>(
-            find.descendant(
-              of: tab,
-              matching: find.byType(FocusableActionDetector),
-            ),
+          .widget<DToggle>(
+            find.ancestor(of: tab, matching: find.byType(DToggle)).first,
           )
           .focusNode!
           .hasPrimaryFocus;
