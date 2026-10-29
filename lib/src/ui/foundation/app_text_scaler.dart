@@ -55,9 +55,28 @@ class DReferenceTextScale extends StatelessWidget {
         : scaler;
   }
 
+  /// The scaler outside the outermost reference scope, or null outside any.
+  /// A surface that reference chrome opens, such as a popover's phone sheet,
+  /// is reading content and takes this scaler back.
+  static TextScaler? readingScalerOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ReadingTextScale>()?.scaler;
+
   @override
-  Widget build(BuildContext context) => MediaQuery(
-    data: MediaQuery.of(context).copyWith(textScaler: scalerOf(context)),
-    child: child,
+  Widget build(BuildContext context) => _ReadingTextScale(
+    scaler: readingScalerOf(context) ?? MediaQuery.textScalerOf(context),
+    child: MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: scalerOf(context)),
+      child: child,
+    ),
   );
+}
+
+class _ReadingTextScale extends InheritedWidget {
+  const _ReadingTextScale({required this.scaler, required super.child});
+
+  final TextScaler scaler;
+
+  @override
+  bool updateShouldNotify(_ReadingTextScale oldWidget) =>
+      scaler != oldWidget.scaler;
 }

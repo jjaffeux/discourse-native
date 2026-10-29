@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/surface_depth.dart';
@@ -875,6 +876,10 @@ class _DPopoverState extends State<DPopover>
       final view = View.of(context);
       return MediaQuery(
         data: media.copyWith(
+          // The sheet reads like every other sheet, even when reference-sized
+          // chrome opens it. The trigger below keeps its own scale.
+          textScaler:
+              DReferenceTextScale.readingScalerOf(context) ?? media.textScaler,
           viewInsets: media.viewInsets.copyWith(
             bottom: math.max(
               media.viewInsets.bottom,

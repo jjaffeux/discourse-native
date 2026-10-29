@@ -95,6 +95,64 @@ void popoverBackdropTests() {
 void main() {
   popoverBackdropTests();
 
+  testWidgets(
+    'a phone sheet opened from reference-sized chrome reads at the app scale',
+    (tester) async {
+      const platform = TextScaler.linear(2);
+      const reading = AppTextScaler(
+        platformScaler: platform,
+        appScale: 1.25,
+        baselineScale: 17 / 14,
+      );
+      TextScaler? trigger;
+      TextScaler? content;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: reading),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: DReferenceTextScale(
+              child: DPopover(
+                sheetOnMobile: true,
+                content: DPopoverContent(
+                  child: Builder(
+                    builder: (context) {
+                      content = MediaQuery.textScalerOf(context);
+                      return const Text('Menu');
+                    },
+                  ),
+                ),
+                child: DPopoverTrigger(
+                  builder: (context, state) {
+                    trigger = MediaQuery.textScalerOf(context);
+                    return DButton(
+                      label: const Text('Open menu'),
+                      onPressed: state.toggle,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('Menu'), findsOneWidget);
+      // The control keeps reference geometry; the sheet it opens is a reading
+      // surface like every other sheet, with the phone's baseline uplift.
+      expect(
+        trigger,
+        const AppTextScaler(platformScaler: platform, appScale: 1.25),
+      );
+      expect(content, reading);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets('editor can consume Escape before dismissal on $platform', (
       tester,
