@@ -1,8 +1,8 @@
 # Adaptive topic views
 
-Feed selection and counts are implemented. Full mockup parity is pending the
-production row allocation described below. The Native selection treatment is
-integrated.
+Feed selection, scoped counts, remaining-width allocation and the shared Native
+selection treatment are integrated. Production checks cover desktop widths down
+to 340px and phone overflow, including keyboard focus and count deduplication.
 
 `TopicFeedMenu` presents up to three Native segmented toggles beside the list's
 filters. The current view always stays visible. Actual Native control widths,
