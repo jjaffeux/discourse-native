@@ -27,6 +27,8 @@ void main() {
       }
       final phoneFilter =
           size == DControlSize.filter && platform != TargetPlatform.macOS;
+      // Touch sidebars are drawer rows with their own 40pt geometry.
+      final drawerRows = platform != TargetPlatform.macOS;
       final controlFontSize = phoneFilter ? 14.0 : fontSize;
       final height = scale == 1
           ? (phoneFilter ? 36.0 : baseHeight)
@@ -208,7 +210,7 @@ void main() {
             'combobox',
             'page',
             'menubar',
-            'sidebar',
+            if (!drawerRows) 'sidebar',
           ]) {
             expect(
               tester.getSize(find.byKey(Key(key))).height,
@@ -216,13 +218,29 @@ void main() {
               reason: key,
             );
           }
-          for (final label in ['Button', 'Toggle', 'Sidebar']) {
+          for (final label in [
+            'Button',
+            'Toggle',
+            if (!drawerRows) 'Sidebar',
+          ]) {
             expect(
               DefaultTextStyle.of(
                 tester.element(find.text(label)),
               ).style.fontSize,
               controlFontSize,
               reason: '$label inherits the ${size.name} typography preset',
+            );
+          }
+          if (drawerRows) {
+            expect(
+              tester.getSize(find.byKey(const Key('sidebar'))).height,
+              scale == 1 ? 40 : greaterThan(40),
+            );
+            expect(
+              DefaultTextStyle.of(
+                tester.element(find.text('Sidebar')),
+              ).style.fontSize,
+              14,
             );
           }
           // Tabs inset their triggers; the list owns the shared minimum height.
