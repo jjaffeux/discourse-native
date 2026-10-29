@@ -1219,7 +1219,11 @@ void main() {
       final context = tester.element(control);
       expect(
         tester.getSize(surface).height,
-        DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)),
+        DControlStyle.scaledHeight(
+          size,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ),
         reason: key,
       );
       expect(tester.getRect(control), tester.getRect(surface));
