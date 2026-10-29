@@ -70,6 +70,18 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
 
   @override
   Widget build(BuildContext context) {
+    final header = DPageHeaderScope.maybeOf(context);
+    if (header == null) return _buildFilters(context, compact: false);
+    return ValueListenableBuilder<double>(
+      valueListenable: header,
+      builder: (context, progress, _) => _buildFilters(
+        context,
+        compact: DControlStyle.isTouch(context) && progress == 1,
+      ),
+    );
+  }
+
+  Widget _buildFilters(BuildContext context, {required bool compact}) {
     final selectedTags = [
       for (final value in widget.selectedTagNames ?? [?widget.selectedTagName])
         _selectedTag(widget.knownTags, value),
@@ -231,6 +243,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     // not all fit, and wrapped at full length when even that is too wide.
     final controls = widget.wrap
         ? DFitRow(
+            compact: compact,
             runSpacing: 8,
             children: [
               if (widget.leading != null)

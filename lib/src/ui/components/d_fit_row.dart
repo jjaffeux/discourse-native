@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_control_wrap.dart';
@@ -55,35 +56,37 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
       (context, info) => _DFitRowScope(
         step: info.step,
         compact: compact,
-        child: Builder(
-          builder: (context) => DControlWrap(
-            wrap: info.step.index >= DFitRowStep.wrapped.index,
-            spacing: DControlStyle.isTouch(context) && tightOf(context)
-                ? 6
-                : spacing,
-            runSpacing: runSpacing,
-            children: [
-              for (final child in children)
-                DControlWrapItem(
-                  remaining: child is DFitRowItem && child.leading,
-                  breakAfter:
-                      child is DFitRowItem &&
-                      child.leading &&
-                      info.step.index >= DFitRowStep.wrapped.index &&
-                      info.step != DFitRowStep.isolated,
-                  breakBefore:
-                      child is DFitRowItem &&
-                      child.last &&
-                      info.step == DFitRowStep.isolated,
-                  order:
-                      child is DFitRowItem &&
-                          child.last &&
-                          info.step == DFitRowStep.isolated
-                      ? 1
-                      : 0,
-                  child: child,
-                ),
-            ],
+        child: DReferenceTextScale(
+          child: Builder(
+            builder: (context) => DControlWrap(
+              wrap: info.step.index >= DFitRowStep.wrapped.index,
+              spacing: DControlStyle.isTouch(context) && tightOf(context)
+                  ? 6
+                  : spacing,
+              runSpacing: runSpacing,
+              children: [
+                for (final child in children)
+                  DControlWrapItem(
+                    remaining: child is DFitRowItem && child.leading,
+                    breakAfter:
+                        child is DFitRowItem &&
+                        child.leading &&
+                        info.step.index >= DFitRowStep.wrapped.index &&
+                        info.step != DFitRowStep.isolated,
+                    breakBefore:
+                        child is DFitRowItem &&
+                        child.last &&
+                        info.step == DFitRowStep.isolated,
+                    order:
+                        child is DFitRowItem &&
+                            child.last &&
+                            info.step == DFitRowStep.isolated
+                        ? 1
+                        : 0,
+                    child: child,
+                  ),
+              ],
+            ),
           ),
         ),
       );
