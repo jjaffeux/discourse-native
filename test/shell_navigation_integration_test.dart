@@ -64,6 +64,13 @@ final Finder _verticalScrollable = find.byWidgetPredicate(
       axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
 );
 
+// More discloses the community's further destinations in place; it is a
+// toggle rather than a destination of its own.
+Finder get _sidebarMore => find.ancestor(
+  of: find.text('More'),
+  matching: find.byKey(const ValueKey('sidebar-more-toggle')),
+);
+
 // The content header's refresh-tab control shares the glyph; the update
 // button is the one in the rail.
 Finder get _railUpdateButton => find.descendant(
@@ -576,9 +583,9 @@ void _registerShellNavigationTests() {
     expect(sidebarDestination('Groups'), findsNothing);
     expect(sidebarDestination('Users'), findsOneWidget);
     expect(sidebarDestination('Filter'), findsNothing);
-    expect(sidebarDestination('More'), findsOneWidget);
+    expect(_sidebarMore, findsOneWidget);
 
-    await tester.tap(sidebarDestination('More'));
+    await tester.tap(_sidebarMore);
     await tester.pumpAndSettle();
 
     expect(sidebarDestination('Groups'), findsOneWidget);
@@ -602,9 +609,9 @@ void _registerShellNavigationTests() {
       findsOneWidget,
     );
     expect(sidebarDestination('Groups'), findsOneWidget);
-    expect(sidebarDestination('More'), findsOneWidget);
+    expect(_sidebarMore, findsOneWidget);
 
-    await tester.tap(sidebarDestination('More'));
+    await tester.tap(_sidebarMore);
     await tester.pumpAndSettle();
 
     expect(sidebarDestination('Groups'), findsNothing);
@@ -661,9 +668,9 @@ void _registerShellNavigationTests() {
           authenticator: auth,
         );
 
-        expect(sidebarDestination('More'), findsOneWidget);
+        expect(_sidebarMore, findsOneWidget);
         expect(sidebarDestination('Roadmap'), findsNothing);
-        await tester.tap(sidebarDestination('More'));
+        await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
 
         expect(
@@ -761,7 +768,7 @@ void _registerShellNavigationTests() {
           tester.getRect(forum).centerRight - const Offset(8, 0),
         );
         await tester.pumpAndSettle();
-        await tester.tap(sidebarDestination('More'));
+        await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
         expect(
           tester
