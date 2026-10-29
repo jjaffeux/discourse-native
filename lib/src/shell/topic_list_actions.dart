@@ -52,7 +52,7 @@ class TopicListFilterMenu extends StatefulWidget {
     this.label,
     this.filterKey,
     this.triggerKey,
-    this.icon = const DIcon(DIcons.filter, size: 11),
+    this.icon = const DIcon(DIcons.filter),
     this.dimLabel = false,
     this.iconOnly = false,
     this.categoryParentId,

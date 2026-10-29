@@ -142,7 +142,10 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                     ? CategoryIcon(
                         category: category,
                         siteUrl: widget.siteUrl,
-                        size: 12,
+                        size: DControlStyle.iconDimension(
+                          DControlSize.filter,
+                          context: context,
+                        ),
                         squareSize: 10,
                       )
                     : level == 0
@@ -164,7 +167,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
               widget.filterQuery!,
               context.l10n.tags,
             ),
-            icon: const DIcon(DIcons.tag, size: 12),
+            icon: const DIcon(DIcons.tag),
           ),
       ],
       if (widget.filterQuery == null)
@@ -229,7 +232,13 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     final controls = widget.wrap
         ? DFitRow(
             runSpacing: 8,
-            children: [?widget.leading, ...controlChildren, ?widget.trailing],
+            children: [
+              if (widget.leading != null)
+                DFitRowItem(leading: true, child: widget.leading!),
+              for (final (index, control) in controlChildren.indexed)
+                DFitRowItem(last: index == 0, child: control),
+              ?widget.trailing,
+            ],
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
