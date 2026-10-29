@@ -165,7 +165,25 @@ void main() {
     await _open(tester, 'topic-list-subcategory-filter-1');
     await tester.tap(_choice('Product only, not its subcategories'));
     await tester.pumpAndSettle();
-    expect(find.text('No subcategories'), findsOneWidget);
+    // Shortened beside the other filters, the exact scope shows its
+    // prohibited glyph and keeps its name for assistive technology.
+    final exactLevel = find.byKey(
+      const ValueKey('topic-list-subcategory-filter-1'),
+    );
+    expect(find.text('No subcategories'), findsNothing);
+    expect(
+      tester.widget<DButton>(exactLevel).semanticLabel,
+      'No subcategories',
+    );
+    expect(
+      find.descendant(
+        of: exactLevel,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == noSubcategoriesIcon,
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(data.shell.topicListContent!.topicFilterQuery, '=category:1');
     await _open(tester, 'topic-list-subcategory-filter-1');
     await tester.tap(_choice('Design'));
