@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
@@ -28,15 +29,26 @@ void main() {
     }
   });
 
-  for (final source in ['forum', 'channel', 'thread']) {
-    testWidgets('$source drawer opens the shared focused phone search', (
+  for (final (source, width, scale) in [
+    for (final source in ['forum', 'channel', 'thread'])
+      for (final (width, scale) in const [
+        (320.0, 1.0),
+        (390.0, 1.0),
+        (320.0, 2.0),
+        (390.0, 2.0),
+      ])
+        (source, width, scale),
+  ]) {
+    testWidgets('$source drawer opens focused search at $width and ${scale}x', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(390, 844);
+      tester.view.physicalSize = Size(width, 844);
       tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
       tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
       addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final wire = GlobalSearchFixtureApi();
       final shell = createGlobalSearchFixtureController(
         api: wire,
@@ -76,6 +88,24 @@ void main() {
       expect(find.byType(ForumSearch, skipOffstage: false), findsOneWidget);
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+      final field = find.byType(DInputGroup);
+      expect(
+        tester.widget<DInputGroup>(field).variant,
+        DInputGroupVariant.search,
+      );
+      expect(tester.widget<DInputGroup>(field).borderless, isFalse);
+      final fieldBounds = tester.getRect(field);
+      final cancelBounds = tester.getRect(
+        find.byKey(const ValueKey('mobile-search-back')),
+      );
+      expect(fieldBounds.left, 8);
+      expect(fieldBounds.top, greaterThanOrEqualTo(55));
+      expect(fieldBounds.center.dy, cancelBounds.center.dy);
+      expect(fieldBounds.height, 48);
+      expect(fieldBounds.width, greaterThan(0));
+      expect(fieldBounds.right, lessThanOrEqualTo(cancelBounds.left));
+      expect(cancelBounds.right, lessThanOrEqualTo(width - 8));
+      expect(find.text('Cancel').hitTestable(), findsOneWidget);
       expect(find.byKey(const ValueKey('global-search-footer')), findsNothing);
       expect(_editor(tester).focusNode.hasFocus, isTrue);
       expect(shell.globalSearch.scope, chatSearchScope);
@@ -113,7 +143,13 @@ void main() {
       );
       expect(request.uri.queryParameters, isNot(contains('thread_id')));
       if (source != 'thread') {
-        await _capture(tester, boundary, '$source-scoped-phone');
+        await _capture(
+          tester,
+          boundary,
+          width == 390 && scale == 1
+              ? '$source-scoped-phone'
+              : '$source-scoped-phone-${width.toInt()}-${scale.toInt()}x',
+        );
       }
 
       // Insets change while the editor and its native keyboard connection stay.
