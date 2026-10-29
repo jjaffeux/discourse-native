@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../theme/d_icons.dart';
+import '../../site_emoji_text.dart';
 import '../block_selection.dart';
 import '../markdown_highlight.dart';
 import '../markdown_style.dart';
@@ -15,6 +16,7 @@ List<InlineSpan> buildComposerQuoteSpans({
   required String source,
   required ComposerQuoteBlock block,
   required String contents,
+  required String? siteUrl,
   required TextStyle baseStyle,
   required Key quoteKey,
   required GlobalKey removeKey,
@@ -33,6 +35,7 @@ List<InlineSpan> buildComposerQuoteSpans({
             block: block,
             onRemove: onRemove,
             contents: contents,
+            siteUrl: siteUrl,
             baseStyle: baseStyle,
             removeKey: removeKey,
           ),
@@ -288,11 +291,13 @@ class ComposerQuotePreview extends StatefulWidget {
     required this.baseStyle,
     this.removeKey,
     this.onRemove,
+    this.siteUrl,
   });
 
   final ComposerQuoteBlock block;
   final String contents;
   final TextStyle baseStyle;
+  final String? siteUrl;
   final Key? removeKey;
   final VoidCallback? onRemove;
 
@@ -327,24 +332,26 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
         ?.merge(baseStyle)
         .copyWith(color: muted);
     final quoteBodyStyle = bodyStyle ?? baseStyle.copyWith(color: muted);
-    final quoteBody = Text.rich(
-      TextSpan(
-        children: [
-          for (final run in _contentRuns)
-            if (!run.has(Md.marker))
-              TextSpan(
-                text: contents.substring(run.start, run.end),
-                style: markdownStyle(
-                  run.mask,
-                  run.detail,
-                  quoteBodyStyle,
-                  theme,
-                ),
-              ),
-        ],
-      ),
-      style: quoteBodyStyle,
-    );
+    final runs = [
+      for (final run in _contentRuns)
+        if (!run.has(Md.marker))
+          SiteEmojiTextRun(
+            contents.substring(run.start, run.end),
+            literal: run.has(Md.code) || run.has(Md.codeBlock),
+            style: markdownStyle(run.mask, run.detail, quoteBodyStyle, theme),
+          ),
+    ];
+    final quoteBody = widget.siteUrl == null
+        ? Text.rich(
+            TextSpan(
+              children: [
+                for (final run in runs)
+                  TextSpan(text: run.text, style: run.style),
+              ],
+            ),
+            style: quoteBodyStyle,
+          )
+        : SiteEmojiText(runs, siteUrl: widget.siteUrl!, style: quoteBodyStyle);
 
     return Semantics(
       container: true,

@@ -305,6 +305,7 @@ class ComposerListBodyController extends ComposerController {
         search: parent.autocomplete.search,
         onEmojiAccepted: parent.onEmojiAccepted,
         resolveEmoji: parent.text.resolveEmoji,
+        emojiChanges: parent.text.emojiChanges,
         pills: parent.text.pills,
         pluginHashtagPresentation: parent.text.pluginHashtagPresentation,
         formatQuoteContents: parent.text.formatQuoteContents,

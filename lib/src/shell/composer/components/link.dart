@@ -10,6 +10,7 @@ import '../../../plugin_api/composer_syntax.dart';
 import '../../pdf_attachment.dart';
 import '../../platform.dart';
 import '../../shell_sheet.dart';
+import '../../site_emoji_text.dart';
 import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import '../markdown_tokens.dart';
@@ -654,20 +655,30 @@ class ComposerLinkPill extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
         ),
-        child: Text(
-          anchor,
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          softWrap: false,
-          style: baseStyle.copyWith(
-            color: primary,
-            decoration: hovered ? TextDecoration.underline : null,
-            decorationColor: primary,
-          ),
-        ),
+        child: siteUrl == null
+            ? Text(
+                anchor,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                style: _labelStyle(primary),
+              )
+            : SiteEmojiText.plain(
+                anchor,
+                siteUrl: siteUrl!,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: _labelStyle(primary),
+              ),
       ),
     );
   }
+
+  TextStyle _labelStyle(Color primary) => baseStyle.copyWith(
+    color: primary,
+    decoration: hovered ? TextDecoration.underline : null,
+    decorationColor: primary,
+  );
 }
 
 /// Turns selected prose into a link when the clipboard contains one web URL.

@@ -107,6 +107,29 @@ final class SitePresentationController extends FrameSafeNotifier {
   static final Object _unchangedPresentation = Object();
   final Map<String, Object> _presentationTokens = {};
 
+  final Map<String, FrameSafeValueNotifier<int>> _emojiChanges = {};
+  final Map<String, Map<String, String>> _shortcodeAliases = {};
+
+  /// Catalog and alias changes only rebuild consumers of emoji presentation.
+  Listenable emojiChangesFor(String siteUrl) => _emojiChangesFor(siteUrl);
+
+  FrameSafeValueNotifier<int> _emojiChangesFor(String siteUrl) =>
+      _emojiChanges.putIfAbsent(siteUrl, () => FrameSafeValueNotifier(0));
+
+  void _notifyEmojiChanged(String siteUrl) {
+    _shortcodeAliases.remove(siteUrl);
+    final changes = _emojiChanges[siteUrl];
+    if (changes != null) changes.value++;
+  }
+
+  @override
+  void dispose() {
+    for (final changes in _emojiChanges.values) {
+      changes.dispose();
+    }
+    super.dispose();
+  }
+
   bool get _isDisposed => isDisposed;
 
   Object presentationTokenFor(String siteUrl) =>
@@ -162,9 +185,35 @@ final class SitePresentationController extends FrameSafeNotifier {
 
     final catalog = _emojiCatalogs[siteUrl];
     if (catalog == null) return null;
+    final normalized = base.toLowerCase();
     if (catalog.byName.containsKey(base)) return name;
+    if (catalog.byName.containsKey(normalized)) {
+      return '$normalized${tone?.group(0) ?? ''}';
+    }
 
-    final canonical = discourseEmojiAliases[base];
+    final canonical =
+        _shortcodeAliases.putIfAbsent(siteUrl, () {
+          final resolved = <String, String>{};
+          final aliases = _emojiSearchAliases[siteUrl] ?? const {};
+          // Preserve canonical names; site data uses both canonical -> aliases and
+          // alias -> canonical names. Build this index once per metadata change.
+          for (final entry in aliases.entries) {
+            if (!catalog.byName.containsKey(entry.key)) continue;
+            for (final alias in entry.value) {
+              resolved.putIfAbsent(alias.toLowerCase(), () => entry.key);
+            }
+          }
+          for (final entry in aliases.entries) {
+            final canonical = entry.value
+                .where(catalog.byName.containsKey)
+                .firstOrNull;
+            if (canonical != null) {
+              resolved.putIfAbsent(entry.key.toLowerCase(), () => canonical);
+            }
+          }
+          return resolved;
+        })[normalized] ??
+        discourseEmojiAliases[normalized];
     if (canonical == null || !catalog.byName.containsKey(canonical)) {
       return null;
     }
@@ -248,6 +297,8 @@ final class SitePresentationController extends FrameSafeNotifier {
     refresh: refresh,
     load: (apiKey, clientId) =>
         loadEmojiCatalog(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId),
+    hasChanged: (catalog) => catalog != _emojiCatalogs[siteUrl],
+    onChanged: () => _notifyEmojiChanged(siteUrl),
   );
 
   Future<Map<String, List<String>>?> ensureEmojiSearchAliases(String siteUrl) =>
@@ -263,6 +314,15 @@ final class SitePresentationController extends FrameSafeNotifier {
   }) => _emojiSearchAliases.request(
     siteUrl,
     refresh: refresh,
+    hasChanged: (aliases) {
+      final previous = _emojiSearchAliases[siteUrl];
+      return previous == null ||
+          previous.length != aliases.length ||
+          aliases.entries.any(
+            (entry) => !listEquals(previous[entry.key], entry.value),
+          );
+    },
+    onChanged: () => _notifyEmojiChanged(siteUrl),
     load: (apiKey, clientId) async => _immutableAliases(
       await loadEmojiSearchAliases(
         siteUrl: siteUrl,
@@ -367,6 +427,7 @@ final class SitePresentationController extends FrameSafeNotifier {
     _emojiCatalogs.forget(siteUrl);
     _emojiSearchAliases.forget(siteUrl);
     _presentationTokens.remove(siteUrl);
+    _notifyEmojiChanged(siteUrl);
 
     if (oldAppearance != appearanceFor(siteUrl) ||
         oldConfig != configFor(siteUrl) ||
@@ -377,6 +438,7 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   void _notifyPresentationChanged(String siteUrl) {
     _presentationTokens[siteUrl] = Object();
+    _notifyEmojiChanged(siteUrl);
     notifySafely();
   }
 
@@ -417,6 +479,7 @@ final class _PresentationResource<T extends Object> {
     bool refresh = false,
     bool Function()? isWarm,
     bool Function(T value)? hasChanged,
+    VoidCallback? onChanged,
     Future<void> Function(T value)? persist,
     bool persistOnlyChanges = false,
   }) {
@@ -452,7 +515,13 @@ final class _PresentationResource<T extends Object> {
           changed = hasChanged?.call(value) ?? false;
           entry.value = value;
           entry.failed = false;
-          if (changed) owner._notifyPresentationChanged(siteUrl);
+          if (changed) {
+            if (onChanged != null) {
+              onChanged();
+            } else {
+              owner._notifyPresentationChanged(siteUrl);
+            }
+          }
         });
         if (!accepted || !lease.isCurrent || owner._isDisposed) return null;
         if (persist != null && (!persistOnlyChanges || changed)) {

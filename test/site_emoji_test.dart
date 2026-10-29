@@ -2,6 +2,22 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('plain shortcodes exclude code and Unicode word-adjacent tokens', () {
+    const source =
+        ':cat: :dog:t3: :unknown: word:cat: 9:dog: é:cat: '
+        'e\u0301:dog: 𐐀:cat: `:cat:` ``:dog:`` ```\n:cat:\n``` '
+        '(:cat:) —:dog: :cat::dog:';
+    expect(siteEmojiShortcodeMatches(source).map((match) => match.group(1)), [
+      'cat',
+      'dog:t3',
+      'unknown',
+      'cat',
+      'dog',
+      'cat',
+      'dog',
+    ]);
+  });
+
   group('EmojiSkinTone', () {
     test('maps the web picker t1 sentinel to an empty suffix', () {
       expect(EmojiSkinTone.fromCode('t1'), EmojiSkinTone.neutral);

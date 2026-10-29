@@ -5937,7 +5937,13 @@ class ShellController extends FrameSafeNotifier
           emoji: code,
         ),
       ),
-      resolveEmoji: (name) => emojiUrlFor(target.siteUrl, name),
+      resolveEmoji: (name) {
+        final canonical = emojiNameFor(target.siteUrl, name);
+        return canonical == null
+            ? null
+            : emojiUrlFor(target.siteUrl, canonical);
+      },
+      emojiChanges: _presentation.emojiChangesFor(target.siteUrl),
       pills: _composerPills(target),
       pluginHashtagPresentation: plugins.registry.pluginHashtagPresentation,
       formatQuoteContents: (block) =>
@@ -6814,6 +6820,7 @@ class ShellController extends FrameSafeNotifier
   ComposerSearch _composerSearch(ComposerTarget target) {
     if (siteConfigFor(target.siteUrl).emojiEnabled) {
       unawaited(ensureEmojiCatalog(target.siteUrl));
+      unawaited(ensureEmojiSearchAliases(target.siteUrl));
     }
 
     final mentionTopicId = target.mentionTopicId;
@@ -7952,6 +7959,9 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return;
     await topicFeeds.loadMore(instance: instance, destinationId: destinationId);
   }
+
+  Listenable emojiChangesFor(String siteUrl) =>
+      _presentation.emojiChangesFor(siteUrl);
 
   SiteEmojiCatalog? emojiCatalogFor(String siteUrl) =>
       _presentation.emojiCatalogFor(siteUrl);

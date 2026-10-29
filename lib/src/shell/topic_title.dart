@@ -124,7 +124,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   bool _editing = false;
   final _triggerFocus = FocusNode(debugLabel: 'edit topic title');
   bool _skipBlurSave = false;
-  String? _catalogRequestSite;
+  Listenable? _emojiChanges;
 
   @override
   void initState() {
@@ -152,7 +152,8 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       _requestEditingFocus();
     }
     if (oldWidget.siteUrl != widget.siteUrl) {
-      _catalogRequestSite = null;
+      _emojiChanges?.removeListener(_emojiArtworkChanged);
+      _emojiChanges = null;
       final oldController = _controller;
       _savedTitle = widget.title;
       _originalTitle = null;
@@ -187,17 +188,19 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   void _ensureEmojiCatalog() {
-    if (!SiteEmojiText.shortcodePattern.hasMatch(_controller.text) ||
-        _catalogRequestSite == widget.siteUrl) {
-      return;
+    final shell = ShellScope.identityOf(context);
+    final changes = shell.emojiChangesFor(widget.siteUrl);
+    if (!identical(changes, _emojiChanges)) {
+      _emojiChanges?.removeListener(_emojiArtworkChanged);
+      _emojiChanges = changes..addListener(_emojiArtworkChanged);
     }
-    _catalogRequestSite = widget.siteUrl;
-    final shell = ShellScope.read(context);
-    unawaited(
-      shell.ensureEmojiCatalog(widget.siteUrl).then((_) {
-        if (mounted) _controller.artworkArrived();
-      }),
-    );
+    if (SiteEmojiText.shortcodeMatches(_controller.text).isEmpty) return;
+    unawaited(shell.ensureEmojiCatalog(widget.siteUrl));
+    unawaited(shell.ensureEmojiSearchAliases(widget.siteUrl));
+  }
+
+  void _emojiArtworkChanged() {
+    if (mounted) _controller.artworkArrived();
   }
 
   void _focusChanged() {
@@ -315,6 +318,7 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     _focus
       ..removeListener(_focusChanged)
       ..dispose();
+    _emojiChanges?.removeListener(_emojiArtworkChanged);
     _controller.dispose();
     _triggerFocus.dispose();
     super.dispose();
@@ -491,7 +495,7 @@ class _TopicTitleEditingController extends TextEditingController {
       offset = end;
     }
 
-    for (final match in SiteEmojiText.shortcodePattern.allMatches(source)) {
+    for (final match in SiteEmojiText.shortcodeMatches(source)) {
       final name = shell.emojiNameFor(siteUrl, match.group(1)!);
       final selectionTouches =
           value.selection.isValid &&

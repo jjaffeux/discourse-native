@@ -9,7 +9,6 @@ import '../../../plugin_api/core_plugin_host.dart';
 import '../../../plugin_api/emoji_usage.dart';
 import '../../../theme/discourse_typography.dart';
 import '../../emoji.dart';
-import '../../emoji_picker.dart';
 import '../../shell_scope.dart';
 import '../controller.dart';
 import '../source_projection.dart';
@@ -28,10 +27,11 @@ final class ComposerEmojiArtwork {
     required String source,
     required TextRange range,
     required String name,
-    required String Function(String) resolve,
+    required String? Function(String) resolve,
     required TextStyle baseStyle,
   }) {
     final url = resolve(name);
+    if (url == null) return null;
     final cache = MediaPipeline.instance.emoji;
     if (!cache.isCached(url)) {
       if (_loading.add(url)) {
