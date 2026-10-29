@@ -260,8 +260,12 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 : context.l10n.presenceUnavailable;
             final rail =
                 widget.presentation == UserMenuPresentation.profileRail;
+            final drawer = widget.drawerBuilder != null;
+            final avatarDimension = drawer
+                ? 44.0
+                : DAvatarSize.standard.dimension;
             final avatar = DAvatar(
-              dimension: DAvatarSize.standard.dimension,
+              dimension: avatarDimension,
               border: !rail,
               ring: rail && (paused || account.hidePresence == false),
               ringStyle: DAvatarRingStyle.outside,
@@ -271,17 +275,27 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 avatarUrl: account.avatarUrl,
                 initial: account.username?.characters.first.toUpperCase(),
                 connecting: connecting,
+                dimension: avatarDimension,
               ),
             );
             Widget card(Widget profile, Widget? presence) => DCard(
               key: const ValueKey('user-profile-card'),
               border: false,
               spacing: 0,
-              backgroundColor: rail || widget.drawerBuilder != null
+              backgroundColor: rail
                   ? Colors.transparent
                   : tokens.primary.withValues(alpha: .10),
+              borderRadius: drawer
+                  ? BorderRadius.circular(
+                      DMobileDockGeometry.of(context).endRadius(DRadius.panel),
+                    )
+                  : null,
               child: Padding(
-                padding: EdgeInsets.all(rail ? 0 : 4),
+                padding: rail
+                    ? EdgeInsets.zero
+                    : drawer
+                    ? const EdgeInsets.symmetric(horizontal: 6, vertical: 5)
+                    : const EdgeInsets.all(4),
                 child: Row(
                   children: [
                     Expanded(child: Align(child: profile)),
@@ -299,6 +313,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   ? null
                   : ValueKey(_menuGeneration),
               presentation: widget.presentation,
+              drawer: drawer,
               isCurrent: isCurrentMenu,
               controller: _profile,
               onOpen: _notifications.close,
@@ -506,6 +521,7 @@ class _AccountMenuPopover extends StatelessWidget {
     this.notificationSurface,
     this.presentation = UserMenuPresentation.combined,
     this.profileLabel,
+    this.drawer = false,
     this.triggerWrapper,
     this.contentKey,
   });
@@ -524,6 +540,7 @@ class _AccountMenuPopover extends StatelessWidget {
   final Color? notificationSurface;
   final UserMenuPresentation presentation;
   final Widget? profileLabel;
+  final bool drawer;
   final Widget Function(BuildContext, Widget)? triggerWrapper;
   final Key? contentKey;
 
@@ -544,8 +561,9 @@ class _AccountMenuPopover extends StatelessWidget {
           label: profileLabel!,
           tooltip: connecting ? context.l10n.connecting : tooltip,
           semanticLabel: semanticLabel,
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.large,
+          variant: drawer ? DButtonVariant.inline : DButtonVariant.ghost,
+          size: drawer ? DButtonSize.regular : DButtonSize.large,
+          shape: drawer ? DButtonShape.pill : DButtonShape.rounded,
           alignment: AlignmentDirectional.centerStart,
           hasPopup: true,
           expanded: trigger.open,

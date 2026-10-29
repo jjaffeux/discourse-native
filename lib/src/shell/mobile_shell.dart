@@ -38,7 +38,7 @@ typedef _DockDestination = ({
   VoidCallback onPressed,
 });
 
-const double _mobileRailWidth = 53;
+const double _mobileRailWidth = 68;
 
 /// Persistent mobile chrome around one live feature renderer.
 class MobileForumRoot extends StatefulWidget {
@@ -132,40 +132,43 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           },
           child: Focus(
             autofocus: sidebarOpen,
-            // The panel stands off the screen's foot as a sheet at its end
-            // does, and the rail beside it runs down to the foot, keeping its
-            // last control level a little lower.
             child: MediaQuery.removePadding(
               context: context,
               removeBottom: true,
-              child: Row(
+              child: Padding(
                 key: const ValueKey('mobile-navigation-page'),
-                children: [
-                  SizedBox(
-                    width: _mobileRailWidth,
-                    child: InstanceRail(footRoom: foot / 2 + 10),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        6,
-                        6,
-                        6,
-                        DMobileDockGeometry(foot: foot).endLift,
-                      ),
-                      child: ForumMobileSurface.sidebar(
-                        foot: foot,
-                        key: const ValueKey('mobile-navigation-panel'),
-                        child: InstanceSidebar(
-                          key: ValueKey(('mobile-navigation', owner)),
-                          mobile: true,
-                          onNavigate: shell.closeMobileSidebar,
-                          footer: const _ProfileFooterSlot(),
-                        ),
+                padding: EdgeInsets.only(
+                  bottom: DMobileDockGeometry(foot: foot).endLift,
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(
+                            width: _mobileRailWidth,
+                            child: InstanceRail(),
+                          ),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 6, right: 6),
+                              child: ForumMobileSurface.sidebar(
+                                key: const ValueKey('mobile-navigation-panel'),
+                                child: InstanceSidebar(
+                                  key: ValueKey(('mobile-navigation', owner)),
+                                  mobile: true,
+                                  onNavigate: shell.closeMobileSidebar,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const _ProfileFooterSlot(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -281,7 +284,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                 icon: const DIconGlyphTheme(
                                   scale: 1,
                                   naturalWidth: true,
-                                  child: DIcon(DNativeIcons.bars, size: 18),
+                                  child: DIcon(DNativeIcons.bars, size: 20),
                                 ),
                                 tooltip: sidebarOpen
                                     ? context.l10n.closeNavigation
@@ -299,7 +302,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             child: Align(
                               alignment: AlignmentDirectional.centerStart,
                               child: ForumIdentityHeader(
-                                size: 28,
+                                size: 32,
                                 name: instance.title,
                                 iconUrl: instance.iconUrl,
                                 monogram: instance.monogram,
@@ -930,7 +933,7 @@ class _ProfileFooterScope extends InheritedWidget {
       !identical(footer, oldWidget.footer);
 }
 
-/// Where the sidebar shows the profile card; nothing without an account.
+/// The account card spans beneath both drawer columns.
 class _ProfileFooterSlot extends StatelessWidget {
   const _ProfileFooterSlot();
 
@@ -938,13 +941,9 @@ class _ProfileFooterSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     final footer = _ProfileFooterScope.of(context);
     if (footer == null) return const SizedBox.shrink();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const DSeparator(),
-        Padding(padding: const EdgeInsets.all(6), child: footer),
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+      child: footer,
     );
   }
 }

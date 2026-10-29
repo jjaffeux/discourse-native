@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/account_menu_scope.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -301,13 +302,40 @@ void main() {
         final navigation = find.byKey(const ValueKey('mobile-navigation-page'));
         expect(profile, findsNothing);
         expect(find.byKey(UserMenuButton.bellKey), findsOneWidget);
+        expect(
+          tester.getSize(find.byKey(const ValueKey('forum-identity-logo'))),
+          const Size.square(32),
+        );
+        final headerIcons = tester.widgetList<DIcon>(
+          find.descendant(
+            of: find.byKey(const ValueKey('mobile-header')),
+            matching: find.byType(DIcon),
+          ),
+        );
+        expect(headerIcons, isNotEmpty);
+        expect(headerIcons.map((icon) => icon.size), everyElement(20));
+        await _capture(tester, '${platform.name}-header');
         await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
         await tester.pumpAndSettle();
         expect(profile, findsOneWidget);
         final sidebar = tester.getRect(find.byType(InstanceSidebar));
         final profileBounds = tester.getRect(profile);
-        expect(profileBounds.bottom, lessThanOrEqualTo(sidebar.bottom));
-        expect(profileBounds.bottom, greaterThan(sidebar.bottom - 30));
+        final card = tester.getRect(
+          find.byKey(const ValueKey('user-profile-card')),
+        );
+        final rail = tester.getRect(find.byType(InstanceRail));
+        expect(card.left, 6);
+        expect(card.right, phone.width - 6);
+        expect(card.height, 56);
+        expect(card.top, sidebar.bottom + 6);
+        expect(rail.bottom, sidebar.bottom);
+        expect(profileBounds.left, lessThan(rail.right));
+        expect(profileBounds.right, greaterThan(rail.right));
+        final avatar = find
+            .descendant(of: profile, matching: find.byType(DAvatar))
+            .first;
+        expect(tester.getSize(avatar), const Size.square(44));
+        expect(tester.getCenter(avatar).dx, rail.center.dx);
         await _capture(tester, '${platform.name}-drawer');
         await tester.tap(profile);
         await tester.pumpAndSettle();
@@ -335,6 +363,54 @@ void main() {
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
+  for (final (width, scale) in [(390.0, 1.0), (320.0, 2.0)]) {
+    testWidgets(
+      'drawer account keeps live status and safe-area clearance at $width/$scale',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final shell = await _pumpProduction(
+          tester,
+          Size(width, 844),
+          dark: true,
+          otherForums: true,
+        );
+        await _capture(tester, 'mobile-header-safe-$width-$scale');
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+        const status = UserStatus(
+          description: 'Sailing with the team',
+          emoji: 'sailboat',
+        );
+        shell.userStatuses.record(_site, 7, status);
+        await tester.pumpAndSettle();
+        expect(find.text(status.description), findsOneWidget);
+        expect(find.text('@tynaut'), findsNothing);
+        final cardFinder = find.byKey(const ValueKey('user-profile-card'));
+        final card = tester.getRect(cardFinder);
+        final profile = tester.getRect(find.byKey(UserMenuButton.avatarKey));
+        final statusBounds = tester.getRect(find.text(status.description));
+        expect(card.left, 6);
+        expect(card.right, width - 6);
+        expect(card.bottom, 844 - 23);
+        expect(
+          tester.widget<DCard>(cardFinder).borderRadius,
+          BorderRadius.circular(32),
+        );
+        expect(statusBounds.left, greaterThanOrEqualTo(profile.left));
+        expect(statusBounds.right, lessThanOrEqualTo(profile.right));
+        await _capture(tester, 'mobile-drawer-safe-$width-$scale');
+        shell.userStatuses.record(_site, 7, null);
+        await tester.pumpAndSettle();
+        expect(find.text('@tynaut'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
   }
 
@@ -546,12 +622,19 @@ Future<ShellController> _pumpProduction(
   Size size, {
   DiscourseUser user = _user,
   bool dark = false,
+  bool otherForums = false,
 }) async {
   const config = SiteConfig(userStatusEnabled: true);
   await pumpShell(
     tester,
     size,
-    instances: [instance('meta.example').copyWith(user: user, config: config)],
+    instances: [
+      instance('meta.example').copyWith(user: user, config: config),
+      if (otherForums) ...[
+        instance('team.example', title: 'Discourse Team'),
+        instance('community.example', title: 'Community'),
+      ],
+    ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     api: FakeDiscourseApi(
       user: user,

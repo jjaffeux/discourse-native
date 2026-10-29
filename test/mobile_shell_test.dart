@@ -1983,8 +1983,8 @@ void main() {
         find.byKey(const ValueKey('mobile-search-button')),
       );
       final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-      expect(menu.center.dx, 53 / 2);
-      expect(identity.left, 53 + 10);
+      expect(menu.center.dx, 68 / 2);
+      expect(identity.left, 68 + 10);
       expect(bell.left - search.right, closeTo(10, .001));
       expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
       final menuIcon = tester.getRect(
@@ -1998,7 +1998,7 @@ void main() {
       expect(menuIcon.center.dx, menu.center.dx);
       expect(
         tester.getSize(find.byKey(const ValueKey('forum-identity-logo'))),
-        const Size.square(28),
+        const Size.square(32),
       );
       expect(tester.takeException(), isNull);
     },
@@ -2160,10 +2160,9 @@ void main() {
           )
           .first;
       expect(
-        (tester.widget<DPageSurface>(frame).borderRadius!
-                as BorderRadiusDirectional)
-            .topStart,
-        const Radius.circular(DRadius.panel),
+        (tester.widget<DPageSurface>(frame).borderRadius! as BorderRadius)
+            .topLeft,
+        const Radius.circular(18),
       );
       expect(tester.widget<DPageSurface>(frame).border, isFalse);
       expect(tester.getRect(list).left, panel.left + 12);
@@ -2509,24 +2508,26 @@ void main() {
               matching: find.byType(DPageSurface),
             )
             .first;
-        // As low as a sheet at its end: 6 past half the foot, the outer
-        // foot corner following the screen's 55 curve, 32 at a foot of 34.
+        // Both drawer columns end above the account card, which clears the
+        // home indicator by the same lift as a sheet at its end.
         final lift = 6 + bottom / 2;
         expect(
           tester.widget<DPageSurface>(frame).borderRadius,
-          BorderRadiusDirectional.only(
-            topStart: const Radius.circular(DRadius.panel),
-            topEnd: const Radius.circular(DRadius.panel),
-            bottomStart: const Radius.circular(DRadius.panel),
-            bottomEnd: Radius.circular(bottom > 0 ? 55 - lift : DRadius.panel),
+          const BorderRadius.vertical(
+            top: Radius.circular(18),
+            bottom: Radius.circular(26),
           ),
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
-        expect(page.bottom - panel.bottom, lift);
+        final account = tester.getRect(
+          find.byKey(const ValueKey('user-profile-card')),
+        );
+        expect(page.bottom - account.bottom, lift);
+        expect(account.top - panel.bottom, 6);
         expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 2 : 0));
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
-        expect(rail.bottom, page.bottom, reason: 'the rail runs to the foot');
+        expect(rail.bottom, panel.bottom);
         final railColumn = tester.getRect(
           find
               .descendant(
@@ -2535,8 +2536,8 @@ void main() {
               )
               .first,
         );
-        expect(rail.bottom - railColumn.bottom, bottom / 2 + 10);
-        expect(panel.left - rail.right, 6);
+        expect(rail.bottom, railColumn.bottom);
+        expect(panel.left, rail.right);
         expect(page.right - panel.right, 6);
         final menuBounds = tester.getRect(menu);
         expect(menuBounds.center.dx, closeTo(rail.center.dx, .001));
@@ -2580,7 +2581,7 @@ void main() {
       expect(navigation.width, width);
       final rail = tester.getRect(find.byType(InstanceRail));
       expect(rail.left, 0);
-      expect(rail.width, 53);
+      expect(rail.width, 68);
       final menu = tester.getRect(
         find.byKey(const ValueKey('mobile-menu-button')),
       );
@@ -2588,10 +2589,14 @@ void main() {
       final navigationPanel = tester.getRect(
         find.byKey(const ValueKey('mobile-navigation-panel')),
       );
-      expect(navigationPanel.left, rail.right + 6);
+      expect(navigationPanel.left, rail.right);
       expect(navigationPanel.right, width - 6);
       expect(navigationPanel.top, navigation.top + 6);
-      expect(navigationPanel.bottom, navigation.bottom - 6);
+      final account = tester.getRect(
+        find.byKey(const ValueKey('user-profile-card')),
+      );
+      expect(navigationPanel.bottom, account.top - 6);
+      expect(account.bottom, navigation.bottom - 6);
       final addButton = tester.getRect(
         find.byKey(const ValueKey('add-instance-rail-button')),
       );
@@ -4357,7 +4362,7 @@ void main() {
           find.descendant(of: _header, matching: identity),
           findsOneWidget,
         );
-        expect(tester.getSize(logo), const Size.square(28));
+        expect(tester.getSize(logo), const Size.square(32));
         expect(
           find.descendant(of: identity, matching: find.text('Meta')),
           findsNothing,
