@@ -316,7 +316,7 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
     if (_scanned == widget.contents) return _runs;
     _scanned = widget.contents;
     ComposerQuotePreview.scans += 1;
-    return _runs = scanMarkdown(widget.contents);
+    return _runs = scanMarkdown(widget.contents, shared: false);
   }
 
   @override

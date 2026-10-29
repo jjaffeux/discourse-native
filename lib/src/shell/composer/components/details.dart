@@ -197,6 +197,7 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
     resolveEmoji: widget.composer.text.resolveEmoji,
     emojiChanges: widget.composer.text.emojiChanges,
     enableMarkdownLinkify: false,
+    shareScans: false,
   );
   final _summaryFocus = FocusNode();
   bool _open = true;

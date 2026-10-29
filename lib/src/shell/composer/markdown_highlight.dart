@@ -277,10 +277,17 @@ bool _isWordCharacter(int unit) =>
     (unit >= 0x61 && unit <= 0x7A) ||
     unit == 0x5F;
 
+/// [scanMarkdownBlocks]'s runs.
+///
+/// A reader that keeps its own scan of a text no parser reads, such as an
+/// embedded field or a quote preview, passes [shared] false. A draft holds any
+/// number of those, and remembering them would evict the draft's own scan
+/// before its next keystroke's parsers read it back.
 List<MarkdownRun> scanMarkdown(
   String source, {
   DeferredFenceHighlight? deferHighlight,
-}) => scanMarkdownBlocks(source, deferHighlight: deferHighlight).runs;
+  bool shared = true,
+}) => _scan(source, deferHighlight, shared: shared).runs;
 
 /// [scanMarkdown], with the blocks its inline passes paired delimiters within:
 /// paragraphs, minus any fence inside them.
@@ -297,14 +304,18 @@ scanMarkdownBlocks(String source, {DeferredFenceHighlight? deferHighlight}) {
   return (runs: scan.runs, blocks: scan.blocks);
 }
 
-_RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
+_RecentScan _scan(
+  String source,
+  DeferredFenceHighlight? deferHighlight, {
+  bool shared = true,
+}) {
   if (source.isEmpty) return _RecentScan.empty;
 
   markdownScanCount += 1;
   for (final previous in _recentScans) {
     final incremental = _tryIncremental(previous, source);
     if (incremental == null) continue;
-    _remember(incremental);
+    if (shared) _remember(incremental);
     return incremental;
   }
 
@@ -328,7 +339,7 @@ _RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
     highlighted: !deferred,
     cuts: Set.unmodifiable(scan._cuts),
   );
-  _remember(recent);
+  if (shared) _remember(recent);
   return recent;
 }
 
