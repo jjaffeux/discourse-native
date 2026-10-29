@@ -747,8 +747,9 @@ void main() {
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         expect(tester.getRect(_sheet).bottom, 844);
         // The bar reaches the screen's bottom; what it shows of its row
-        // keeps 30 over the foot.
-        expect(tester.getRect(_dock).bottom, 844);
+        // keeps 30 over the foot. Large text gives the header a height in
+        // fourteenths, so the dock's offsets sum to 844 only within rounding.
+        expect(tester.getRect(_dock).bottom, moreOrLessEquals(844));
         expect(
           tester
               .getRect(
