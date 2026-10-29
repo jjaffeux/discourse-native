@@ -115,7 +115,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           exact: exact,
           onSelected: widget.onCategorySelected,
           maxCategoryNesting: widget.maxCategoryNesting,
-          segmentBuilder: (context, level, category, label) =>
+          segmentBuilder: (context, level, category, label, iconOnly) =>
               TopicListFilterMenu(
                 key: _categoryMenuKeys.putIfAbsent(
                   level == activeLevel ? _openCategoryLevel! : level,
@@ -136,6 +136,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                       : 'topic-list-subcategory-filter-$level',
                 ),
                 label: label,
+                iconOnly: iconOnly,
                 dimLabel: category == null && level > 0 && !exact,
                 icon: category != null
                     ? CategoryIcon(
@@ -146,7 +147,11 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                       )
                     : level == 0
                     ? const CategorySquare(color: null, size: 10)
-                    : null,
+                    : !iconOnly
+                    ? null
+                    : exact
+                    ? const DIcon(noSubcategoriesIcon)
+                    : const DIcon(DIcons.plus),
               ),
         ),
         if (widget.taggingEnabled)
