@@ -121,13 +121,11 @@ final class ChatShellService
   bool get chatActive => fullPageChatActive;
 
   GlobalSearchContext? searchContextFor(String siteUrl) {
-    final settings = chat.siteConfigFor(siteUrl).chatSettings;
     if (_disposed ||
         !isConnected(siteUrl) ||
-        !settings.chatEnabled ||
-        !settings.searchEnabled ||
-        currentUser?.hasChatEnabled != true ||
-        currentUser?.canChat != true) {
+        !_currentSiteCanUseChat ||
+        !chat.siteConfigFor(siteUrl).chatSettings.searchEnabled ||
+        currentUser?.canChat == false) {
       return null;
     }
     final channelId = fullPageChatActive
