@@ -457,7 +457,7 @@ void main() {
     variant: _platforms,
   );
 
-  testWidgets('reading scrolls normally and a pull at the top dismisses', (
+  testWidgets('reading needs a fresh pull after scrolling to the top', (
     tester,
   ) async {
     final shell = await _openTopic(tester);
@@ -478,8 +478,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.currentContent?.topicId, 7);
     expect(tester.getRect(_sheet), origin);
-    controller.jumpTo(0);
+    controller.jumpTo(100);
     await tester.pumpAndSettle();
+    final scrollToTop = await tester.startGesture(const Offset(180, 300));
+    await scrollToTop.moveBy(const Offset(0, 20));
+    await scrollToTop.moveBy(const Offset(0, 180));
+    await scrollToTop.moveBy(const Offset(0, 180));
+    await tester.pump();
+    expect(tester.getRect(_sheet), origin);
+    await scrollToTop.up();
+    await tester.pumpAndSettle();
+    expect(controller.offset, closeTo(0, .01));
+    expect(shell.currentContent?.topicId, 7);
     final drag = await tester.startGesture(const Offset(180, 500));
     await drag.moveBy(const Offset(0, 20));
     await drag.moveBy(const Offset(0, 170));

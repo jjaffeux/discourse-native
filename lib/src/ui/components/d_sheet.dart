@@ -1555,6 +1555,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   PointerEvent? _contentSignal;
   VelocityTracker? _velocity;
   BuildContext? _scrollOrigin;
+  bool _scrolledBeforePull = false;
   bool _dragging = false;
   bool _exiting = false;
   bool _swipeIntercepted = false;
@@ -1644,6 +1645,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   void _onPanZoomStart(PointerPanZoomStartEvent event) {
     if (_exiting || _pointer != null) return;
     _pointer = event.pointer;
+    _scrolledBeforePull = false;
     _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = VelocityTracker.withKind(PointerDeviceKind.trackpad)
       ..addPosition(event.timeStamp, Offset.zero);
@@ -1842,7 +1844,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     // easier to dismiss; velocity only determines how an accepted exit moves.
     if (!cancelled &&
         (widget.page
-            ? _travel.value > 120 || (_travel.value > 8 && velocity > 500)
+            ? _travel.value > 120
             : _travel.value >= _swipeExtent * _sheetDismissFraction)) {
       if (widget.retained && widget.onDismiss != null) {
         _dismissRetained(velocity);
@@ -1909,6 +1911,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       return;
     }
     _pointer = event.pointer;
+    _scrolledBeforePull = false;
     _pointerOwner = _DSheetPointerOwner.sheet;
     _velocity = VelocityTracker.withKind(event.kind)
       ..addPosition(event.timeStamp, event.position);
@@ -1947,6 +1950,14 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         notification.metrics.axisDirection != AxisDirection.down ||
         (_scrollOrigin != null && _scrollOrigin != notification.context)) {
       return false;
+    }
+    if (widget.page && _scrollOrigin == null) {
+      // A gesture that scrolls the reader stays a scroll until release,
+      // even after it reaches the top. Headers and handles drag directly.
+      if (notification.metrics.pixels > notification.metrics.minScrollExtent) {
+        _scrolledBeforePull = true;
+      }
+      if (_scrolledBeforePull) return false;
     }
     final details = switch (notification) {
       OverscrollNotification(:final dragDetails) => dragDetails,

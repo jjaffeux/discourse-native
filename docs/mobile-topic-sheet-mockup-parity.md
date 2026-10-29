@@ -20,11 +20,13 @@ clear of the bottom safe area and their existing screen positions.
 
 The inbox topic source list stays mounted but unpainted, unfocusable, and
 absent from semantics at rest. Pulling the sheet reveals that same list without
-allowing input to it; the sheet becomes opaque during the pull. Releasing below 120px
-restores the sheet unless there is a downward flick above 500px/s. Cancellation
-always restores it. Accepted dismissals finish moving off screen before going
+allowing input to it; the sheet becomes opaque during the pull. Dismissal requires
+a pull beyond 120 logical pixels, regardless of release speed. Shorter pulls and cancellation
+always restore it. Accepted dismissals finish moving off screen before going
 Back. The handle, downward overscroll at the top of the reader, wheel input,
-and native trackpad pans share dismissal. Ordinary reading continues to scroll.
+and native trackpad pans share dismissal. A touch or native trackpad gesture that
+scrolls the reader stays a scroll until release, even after reaching the top.
+Pulling the reader down to dismiss requires a fresh gesture at the top.
 Reduced motion completes an accepted dismissal immediately.
 
 The fixed mobile header also pulls the active content sheet down, including
