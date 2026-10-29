@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
@@ -60,9 +61,14 @@ Widget categoryGridHost(ShellController controller, double width) {
             alignment: Alignment.topLeft,
             child: SizedBox(
               width: width,
-              child: CategoriesPage(
-                siteUrl: siteUrl,
-                feed: controller.categoryFeedFor(siteUrl),
+              // The content panel carries the app's reading-width setting to
+              // the page, as main content does.
+              child: DPageContentSettings(
+                limitContentSize: controller.appSettings.limitContentSize,
+                child: CategoriesPage(
+                  siteUrl: siteUrl,
+                  feed: controller.categoryFeedFor(siteUrl),
+                ),
               ),
             ),
           ),

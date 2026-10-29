@@ -45,7 +45,8 @@ void main() {
         capture();
       }
       expect(geometry.length, categories.length);
-      final laneWidth = math.min(width - 32, ContentReadingLane.maxWidth);
+      // The reading lane, then the page's own 16-point row insets.
+      final laneWidth = math.min(width, ContentReadingLane.maxWidth) - 32;
       final columns = math.max(1, ((laneWidth + 10) / 246).floor());
       final expectedWidth = (laneWidth - (columns - 1) * 10) / columns;
       for (final rect in geometry.values) {
