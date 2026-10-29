@@ -2845,6 +2845,15 @@ void main() {
       VoiceRoom? room,
       double scale = 1,
     }) async {
+      if (room == null) {
+        // Creating a room needs the site's permission from its directory.
+        harness.transport.responses['GET /voice/rooms.json'] = {
+          'rooms': <Object?>[],
+          'can_create_room': true,
+        };
+        await harness.controller.ensureLoaded(_siteUrl);
+        expect(harness.controller.directory(_siteUrl)?.canCreateRoom, isTrue);
+      }
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(

@@ -190,7 +190,18 @@ void main() {
         if (!mobile) {
           expect(
             tester.getTopLeft(upcoming).dy,
-            lessThan(tester.getTopLeft(sidebarDestination('More')).dy),
+            lessThan(
+              tester
+                  .getTopLeft(
+                    find.ancestor(
+                      of: find.text('More'),
+                      matching: find.byKey(
+                        const ValueKey('sidebar-more-toggle'),
+                      ),
+                    ),
+                  )
+                  .dy,
+            ),
           );
         }
 

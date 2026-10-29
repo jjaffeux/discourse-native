@@ -706,6 +706,7 @@ class _CellEditing {
         resolveEmoji: composer.text.resolveEmoji,
         emojiChanges: composer.text.emojiChanges,
         enableMarkdownLinkify: false,
+        shareScans: false,
       );
   String source;
   // Keep authored spacing separate from whitespace entered in the field,

@@ -144,9 +144,18 @@ void main() {
       await tester.tap(related);
       await tester.pumpAndSettle();
       expect(find.text('Related discussion 1'), findsOneWidget);
-      await tester.tap(
-        find.byKey(const ValueKey('topic-recommendations-tab-core/suggested')),
+      final suggested = find.byKey(
+        const ValueKey('topic-recommendations-tab-core/suggested'),
       );
+      // At 2x the touch segments are wider than the panel, so the switch
+      // scrolls, and revealing Related took Suggested out of view.
+      expect(
+        suggested.hitTestable(),
+        scale > 1 ? findsNothing : findsOneWidget,
+      );
+      await tester.ensureVisible(suggested);
+      await tester.pumpAndSettle();
+      await tester.tap(suggested);
       await tester.pumpAndSettle();
       expect(find.text('Suggested discussion 1'), findsOneWidget);
       await tester.tap(related);

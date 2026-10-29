@@ -1356,7 +1356,11 @@ void _expectSuggestionSemantics(
   required String label,
   required bool selected,
 }) {
-  final semantics = tester.getSemantics(row);
+  // A grouped choice draws its guide around its own node, so the row's
+  // node is the first one beneath its key rather than above it.
+  final semantics = tester.getSemantics(
+    find.descendant(of: row, matching: find.byType(Semantics)).first,
+  );
   expect(
     semantics.flagsCollection.isSelected,
     selected ? Tristate.isTrue : Tristate.isFalse,

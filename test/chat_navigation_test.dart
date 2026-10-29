@@ -1696,6 +1696,10 @@ void main() {
           const ValueKey('chat-inbox-activity-filter'),
         );
         expect(filters, findsOneWidget);
+        final conversation = find.byKey(const ValueKey('chat-inbox-channel-9'));
+        expect(conversation, findsOneWidget);
+        // The inbox controls are held above every scrolling section, so the
+        // directories sit between them and the inbox's conversations.
         for (final routeId in [
           ChatPlugin.inboxRouteId,
           ChatPlugin.browseRouteId,
@@ -1704,8 +1708,12 @@ void main() {
           final destination = find.byKey(ValueKey(routeId));
           expect(destination, findsOneWidget);
           expect(
+            tester.getTopLeft(destination).dy,
+            greaterThanOrEqualTo(tester.getBottomLeft(filters).dy),
+          );
+          expect(
             tester.getBottomLeft(destination).dy,
-            lessThanOrEqualTo(tester.getTopLeft(filters).dy),
+            lessThanOrEqualTo(tester.getTopLeft(conversation).dy),
           );
         }
       });

@@ -1523,7 +1523,6 @@ class GlobalSearchChips extends StatelessWidget {
             icon: const DIcon(DIcons.xmark),
             iconPosition: DButtonIconPosition.end,
             tooltip: context.l10n.removeCondition(controller.scope.label),
-            shape: DButtonShape.pill,
             size: DButtonSize.small,
             variant: DButtonVariant.secondary,
             onPressed: () {

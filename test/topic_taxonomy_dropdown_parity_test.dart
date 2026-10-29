@@ -165,7 +165,25 @@ void main() {
     await _open(tester, 'topic-list-subcategory-filter-1');
     await tester.tap(_choice('Product only, not its subcategories'));
     await tester.pumpAndSettle();
-    expect(find.text('No subcategories'), findsOneWidget);
+    // Shortened beside the other filters, the exact scope shows its
+    // prohibited glyph and keeps its name for assistive technology.
+    final exactLevel = find.byKey(
+      const ValueKey('topic-list-subcategory-filter-1'),
+    );
+    expect(find.text('No subcategories'), findsNothing);
+    expect(
+      tester.widget<DButton>(exactLevel).semanticLabel,
+      'No subcategories',
+    );
+    expect(
+      find.descendant(
+        of: exactLevel,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == noSubcategoriesIcon,
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(data.shell.topicListContent!.topicFilterQuery, '=category:1');
     await _open(tester, 'topic-list-subcategory-filter-1');
     await tester.tap(_choice('Design'));
@@ -350,7 +368,13 @@ void main() {
         final rects = [
           for (var i = 0; i < 4; i++) tester.getRect(toggles.at(i)),
         ];
-        expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
+        // A menu opened from the reference-sized filter row keeps that row's
+        // text scale, without the phone's reading-text uplift, so on a phone
+        // the four modes still share one row at 200 percent.
+        expect(
+          rects.map((rect) => rect.top).toSet().length,
+          platform == TargetPlatform.iOS ? 1 : greaterThan(1),
+        );
         final modes = tester.getRect(find.byType(DToggleGroup<String>));
         for (final rect in rects) {
           expect(rect.left, greaterThanOrEqualTo(modes.left));

@@ -708,11 +708,15 @@ class DButton extends StatelessWidget {
         : resume
         ? resumeHeight(context)
         : chrome
-        ? DControlStyle.scaledHeight(
-            DControlSize.segment,
-            MediaQuery.textScalerOf(context),
-            context: context,
-          )
+        ? 28 +
+              math.max(
+                    0,
+                    MediaQuery.textScalerOf(
+                          context,
+                        ).scale(DControlStyle.labelFontSize) -
+                        DControlStyle.labelFontSize,
+                  ) *
+                  DiscourseTypography.lineHeightSmall
         : rail
         ? 32.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : searchClear

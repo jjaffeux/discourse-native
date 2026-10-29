@@ -18,6 +18,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
+import 'package:discourse_native/src/shell/category_icon.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -62,6 +63,13 @@ final Finder _verticalScrollable = find.byWidgetPredicate(
   (widget) =>
       widget is Scrollable &&
       axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+);
+
+// More discloses the community's further destinations in place; it is a
+// toggle rather than a destination of its own.
+Finder get _sidebarMore => find.ancestor(
+  of: find.text('More'),
+  matching: find.byKey(const ValueKey('sidebar-more-toggle')),
 );
 
 // The content header's refresh-tab control shares the glyph; the update
@@ -576,9 +584,9 @@ void _registerShellNavigationTests() {
     expect(sidebarDestination('Groups'), findsNothing);
     expect(sidebarDestination('Users'), findsOneWidget);
     expect(sidebarDestination('Filter'), findsNothing);
-    expect(sidebarDestination('More'), findsOneWidget);
+    expect(_sidebarMore, findsOneWidget);
 
-    await tester.tap(sidebarDestination('More'));
+    await tester.tap(_sidebarMore);
     await tester.pumpAndSettle();
 
     expect(sidebarDestination('Groups'), findsOneWidget);
@@ -602,9 +610,9 @@ void _registerShellNavigationTests() {
       findsOneWidget,
     );
     expect(sidebarDestination('Groups'), findsOneWidget);
-    expect(sidebarDestination('More'), findsOneWidget);
+    expect(_sidebarMore, findsOneWidget);
 
-    await tester.tap(sidebarDestination('More'));
+    await tester.tap(_sidebarMore);
     await tester.pumpAndSettle();
 
     expect(sidebarDestination('Groups'), findsNothing);
@@ -661,9 +669,9 @@ void _registerShellNavigationTests() {
           authenticator: auth,
         );
 
-        expect(sidebarDestination('More'), findsOneWidget);
+        expect(_sidebarMore, findsOneWidget);
         expect(sidebarDestination('Roadmap'), findsNothing);
-        await tester.tap(sidebarDestination('More'));
+        await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
 
         expect(
@@ -761,7 +769,7 @@ void _registerShellNavigationTests() {
           tester.getRect(forum).centerRight - const Offset(8, 0),
         );
         await tester.pumpAndSettle();
-        await tester.tap(sidebarDestination('More'));
+        await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
         expect(
           tester
@@ -1334,8 +1342,15 @@ void _registerShellNavigationTests() {
     );
     expect(parentFilter, findsOneWidget);
     expect(subcategoryFilter, findsOneWidget);
+    // Shortened to fit the panel, the ancestor keeps its mark and its name
+    // for assistive technology, and the selected leaf keeps its own name.
     expect(
       find.descendant(of: parentFilter, matching: find.text('Parent')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(parentFilter).semanticLabel, 'Parent');
+    expect(
+      find.descendant(of: parentFilter, matching: find.byType(CategoryIcon)),
       findsOneWidget,
     );
     expect(
@@ -1374,7 +1389,10 @@ void _registerShellNavigationTests() {
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+    // The saved category keeps its place while it scopes the list, and
+    // pressing it again returns the list to every category.
+    expect(sidebarDestination('Parent'), findsNothing);
+    await tester.tap(sidebarDestination('Child'));
     await tester.pumpAndSettle();
     expect(controller.topicListContent?.categoryId, isNull);
     expect(sidebarDestination('Child'), findsOneWidget);
@@ -1665,11 +1683,18 @@ void _registerShellNavigationTests() {
       find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
       findsOneWidget,
     );
+    // Shortened to fit the panel, the unchosen level is a plus that keeps
+    // its name for assistive technology.
+    final unchosen = find.byKey(
+      const ValueKey('topic-list-subcategory-filter-1'),
+    );
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
-        matching: find.text('Subcategory'),
-      ),
+      find.descendant(of: unchosen, matching: find.text('Subcategory')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(unchosen).semanticLabel, 'Subcategory');
+    expect(
+      find.descendant(of: unchosen, matching: find.dIcon(DIcons.plus)),
       findsOneWidget,
     );
     expect(

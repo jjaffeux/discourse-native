@@ -1782,6 +1782,16 @@ void main() {
       );
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+        emojiCatalog: SiteEmojiCatalog(
+          groups: [
+            SiteEmojiGroup(
+              id: 'smileys_&_emotion',
+              emojis: const [
+                SiteEmoji(name: 'smile', url: 'https://cdn.example/smile.png'),
+              ],
+            ),
+          ],
+        ),
       );
       addTearDown(fixture.shell.dispose);
       await pipeline.emoji.load(fixture.shell.emojiUrlFor(_site, 'smile'));

@@ -2251,7 +2251,10 @@ class _ComposerEditorState extends State<ComposerEditor> {
         !value.composing.isCollapsed ||
         !value.selection.isValid ||
         !value.selection.isCollapsed ||
-        render == null) {
+        render == null ||
+        // An edit the field has not built yet leaves the render laid out for
+        // the previous value. Flutter's own vertical action measures that one.
+        render.selection != value.selection) {
       return false;
     }
     final root = _listNavigationRoot;

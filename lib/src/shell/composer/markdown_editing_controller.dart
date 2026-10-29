@@ -54,6 +54,7 @@ class MarkdownEditingController extends TextEditingController {
     this.enableTodos = true,
     this.enableBlockSeparators = false,
     this.protectComponentSource = false,
+    this.shareScans = true,
     @visibleForTesting
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
@@ -91,6 +92,11 @@ class MarkdownEditingController extends TextEditingController {
   /// native selection and IME composition. Explicit raw Markdown mode bypasses
   /// this protection.
   final bool protectComponentSource;
+
+  /// Remembers this text's scans for the parsers that read it too, as a
+  /// composer's input formatters and syntax policies do. A field that none of
+  /// them read, such as a table cell, passes false. See [scanMarkdown].
+  final bool shareScans;
 
   bool _rawMarkdown = false;
 
@@ -1537,6 +1543,7 @@ class MarkdownEditingController extends TextEditingController {
       source,
       deferHighlight: (body, language) =>
           deferred.add((body: body, language: language)),
+      shared: shareScans,
     );
     final mentionStarts = {
       for (final run in runs)

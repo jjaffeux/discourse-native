@@ -1219,7 +1219,11 @@ void main() {
       final context = tester.element(control);
       expect(
         tester.getSize(surface).height,
-        DControlStyle.scaledHeight(size, MediaQuery.textScalerOf(context)),
+        DControlStyle.scaledHeight(
+          size,
+          MediaQuery.textScalerOf(context),
+          context: context,
+        ),
         reason: key,
       );
       expect(tester.getRect(control), tester.getRect(surface));
@@ -2781,7 +2785,7 @@ void main() {
     });
   }
 
-  _mobileTest('Forum destinations return from Chat to the Topics tab', (
+  _mobileTest('Forum destinations leave Chat for their own place', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
@@ -2789,10 +2793,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
     await tester.pumpAndSettle();
+    // The drawer opens on the foreground's side; the forum is one switch
+    // away at its foot.
+    final sides = find.byKey(const ValueKey('sidebar-panel-tabs'));
+    expect(tester.widget<DTabs<String>>(sides).value, 'chat');
+    expect(sidebarDestination('All categories'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-main')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DTabs<String>>(sides).value, 'forum');
+    await tester.ensureVisible(sidebarDestination('All categories'));
+    await tester.pumpAndSettle();
     await tester.tap(sidebarDestination('All categories'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'all-categories');
-    expect(shell.mobileNavigation.tab, MobileTab.topics);
+    // A forum page leaves Chat for its own place, the one the dock's
+    // Categories item selects.
+    expect(
+      shell.mobileNavigation.tab,
+      const MobileTab.destination('all-categories'),
+    );
     expect(shell.canPopContent, isFalse);
     expect(find.byType(InstanceRail), findsNothing);
     expect(tester.takeException(), isNull);
@@ -3360,9 +3379,15 @@ void main() {
       await tester.pumpAndSettle();
       final bell = tester.getRect(find.byType(CategoryNotificationLevelButton));
       expect(bell.right, tester.getRect(row).right);
+      // The bell shares the view switch's track; the switch's own segments,
+      // its overflow among them, sit 2 points inside that track.
+      final track = tester.getRect(
+        find.byKey(const ValueKey('topic-list-view-switch')),
+      );
+      expect(bell.top, track.top);
       expect(
-        bell.top,
         tester.getRect(find.byKey(const ValueKey('topic-list-feed-menu'))).top,
+        track.top + 2,
       );
       expectFiltersFollowTags();
       expect(tester.getRect(filters).right, lessThan(bell.left));
@@ -4367,6 +4392,14 @@ void main() {
       expect(find.byType(InstanceRail), findsNothing);
       expect(voice.call, isNull);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      // The drawer opens on the foreground's side, Chat, with its rooms;
+      // the forum side lists none.
+      final sides = find.byKey(const ValueKey('sidebar-panel-tabs'));
+      expect(tester.widget<DTabs<String>>(sides).value, 'chat');
+      expect(find.text('Voice rooms'), findsOneWidget);
+      expect(find.text('Watercooler'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-main')));
       await tester.pumpAndSettle();
       expect(find.text('Voice rooms'), findsNothing);
       expect(find.text('Watercooler'), findsNothing);

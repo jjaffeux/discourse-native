@@ -253,7 +253,7 @@ Future<void> _edit(WidgetTester tester, int id) async {
         ),
       );
       await _pump(tester);
-      await tester.tap(find.text('Edit'));
+      await tester.tap(find.byKey(ValueKey('chat-message-edit-$id')));
       await _pump(tester);
     } finally {
       await pointer.removePointer();

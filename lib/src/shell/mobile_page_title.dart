@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../theme/discourse_typography.dart';
 import 'site_emoji_text.dart';
 
 /// The foreground page's name taking over as its own heading retracts.
@@ -34,33 +35,36 @@ class MobilePageTitle extends StatelessWidget {
                   ? 0.0
                   : page.value;
               final shown = opacity >= .5;
-              return IgnorePointer(
-                ignoring: !shown,
-                child: ExcludeSemantics(
-                  excluding: !shown,
-                  child: ExcludeFocus(
+              // The fade follows every scroll frame, so it must not repaint
+              // the rest of the bar. The gates below hide the action; a
+              // disabled button would dim and rebuild halfway through it.
+              return RepaintBoundary(
+                child: IgnorePointer(
+                  ignoring: !shown,
+                  child: ExcludeSemantics(
                     excluding: !shown,
-                    child: Opacity(
-                      opacity: opacity,
-                      child: DButton(
-                        key: const ValueKey('mobile-page-title'),
-                        variant: DButtonVariant.inline,
-                        foregroundColor: DTokens.of(context).foreground,
-                        alignment: AlignmentDirectional.centerStart,
-                        semanticLabel: context.l10n.backToTopOf(title),
-                        label: SiteEmojiText.plain(
-                          title,
-                          siteUrl: siteUrl,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
+                    child: ExcludeFocus(
+                      excluding: !shown,
+                      child: Opacity(
+                        opacity: opacity,
+                        child: DButton(
+                          key: const ValueKey('mobile-page-title'),
+                          variant: DButtonVariant.inline,
+                          foregroundColor: DTokens.of(context).foreground,
+                          alignment: AlignmentDirectional.centerStart,
+                          semanticLabel: context.l10n.backToTopOf(title),
+                          label: SiteEmojiText.plain(
+                            title,
+                            siteUrl: siteUrl,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: DiscourseTypography.lg,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
+                          onPressed: () => unawaited(page.scrollToTop()),
                         ),
-                        onPressed: shown
-                            ? () => unawaited(page.scrollToTop())
-                            : null,
                       ),
                     ),
                   ),

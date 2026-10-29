@@ -1063,9 +1063,8 @@ void main() {
           .focusNode;
       final periodMenu = find.text('Today');
       final columnsMenu = find.byType(DDropdownMenuCheckboxItem);
-      // Application presets paint the same artwork on touch and pointer
-      // platforms, and each control answers exactly where it is painted. A
-      // page's fields are drawn 44 tall on a phone.
+      // Each control answers exactly where it is painted. On a phone a page's
+      // fields are drawn 44 tall and its filters 36 tall.
       for (final (control, surface, height, opened) in [
         (
           search,
@@ -1081,7 +1080,7 @@ void main() {
             of: period,
             matching: find.byKey(const Key('d-select-trigger-visual')),
           ),
-          30,
+          platform == TargetPlatform.macOS ? 30 : 36,
           () => periodMenu.evaluate().isNotEmpty,
         ),
         (
@@ -1094,7 +1093,7 @@ void main() {
                   widget.decoration is DButtonDecoration,
             ),
           ),
-          30,
+          platform == TargetPlatform.macOS ? 30 : 36,
           () => columnsMenu.evaluate().isNotEmpty,
         ),
       ]) {

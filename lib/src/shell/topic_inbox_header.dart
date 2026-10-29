@@ -1237,7 +1237,7 @@ class _CategoryChip extends StatelessWidget {
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (category != null) ...[
+                  if (category != null)
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
@@ -1247,13 +1247,18 @@ class _CategoryChip extends StatelessWidget {
                         context: context,
                       ),
                     ),
-                    const SizedBox(width: DSpacing.controlGap),
-                  ],
+                  // The gap shrinks with the name, so a chip squeezed to its
+                  // mark still holds the mark.
                   Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        start: category == null ? 0 : DSpacing.controlGap,
+                      ),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],

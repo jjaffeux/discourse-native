@@ -1405,7 +1405,7 @@ void main() {
       _expectReadableRailMonogram(tester, title: 'B', host: 'b.example');
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-    testWidgets('presents site logos with only a small corner radius', (
+    testWidgets('clips site logos to the rail selection corners', (
       tester,
     ) async {
       installTestMediaPipeline(
@@ -1437,7 +1437,7 @@ void main() {
       final clip = tester.widget<ClipRRect>(
         find.ancestor(of: logo, matching: find.byType(ClipRRect)).first,
       );
-      expect(clip.borderRadius, BorderRadius.circular(8));
+      expect(clip.borderRadius, BorderRadius.circular(12));
       expect(
         find.ancestor(of: logo, matching: find.byType(AnimatedContainer)),
         findsNothing,
@@ -1511,14 +1511,16 @@ DBadge _railBadge(WidgetTester tester, {required String host}) {
 }
 
 Color _railAvatarBackground(WidgetTester tester, {required String host}) {
-  final container = find.descendant(
+  final fallback = find.descendant(
     of: _railItem(host: host),
-    matching: find.byType(AnimatedContainer),
+    matching: find.byType(DAvatarFallback),
   );
-  expect(container, findsOneWidget);
-  final decoration = tester.widget<AnimatedContainer>(container).decoration;
-  expect(decoration, isA<BoxDecoration>());
-  return (decoration! as BoxDecoration).color!;
+  expect(fallback, findsOneWidget);
+  return tester
+      .widget<ColoredBox>(
+        find.descendant(of: fallback, matching: find.byType(ColoredBox)).first,
+      )
+      .color;
 }
 
 void _expectReadableRailMonogram(
@@ -1529,7 +1531,13 @@ void _expectReadableRailMonogram(
   final item = _railItem(host: host);
   final monogram = find.descendant(of: item, matching: find.text(title));
   expect(monogram, findsOneWidget);
-  final foreground = tester.widget<Text>(monogram).style!.color!;
+  final foreground = tester
+      .widget<RichText>(
+        find.descendant(of: monogram, matching: find.byType(RichText)),
+      )
+      .text
+      .style!
+      .color!;
   final theme = Theme.of(tester.element(find.byType(InstanceRail)));
   final canvas = theme.brightness == Brightness.dark
       ? Colors.black

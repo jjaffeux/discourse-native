@@ -85,9 +85,10 @@ void main() {
         // notification menu the sheet opens from.
         'lib/src/shell/notification_schedule_sheet.dart': {'shape': 1},
         // The avatar trigger uses the mockup's 22% outline around the avatar,
-        // with no fill of its own at rest or on hover.
+        // with no fill of its own at rest or on hover. In the drawer, the
+        // profile action is a pill inside the footer card's rounded end.
         'lib/src/shell/user_menu_button.dart': {
-          'shape': 2,
+          'shape': 3,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
           'borderColor': 1,
@@ -119,6 +120,9 @@ void main() {
           'foregroundColor': 1,
           'borderColor': 1,
         },
+        // The Chat drawer's search entry stands in for the shared search
+        // field it opens, so its prompt keeps that field's muted hint color.
+        'lib/src/plugins/chat/chat_search_entry.dart': {'foregroundColor': 1},
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
         // Chat's jump-to-latest action shares the floating stream chip palette.
@@ -170,6 +174,9 @@ void main() {
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
+        // The mobile bar's page title is an inline action that reads as the
+        // page heading it replaces, in the heading's full foreground.
+        'lib/src/shell/mobile_page_title.dart': {'foregroundColor': 1},
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
         // Inline taxonomy edit actions are the same pill as the tag chips.

@@ -159,15 +159,30 @@ void main() {
 
         if (other == 'Topics') {
           final panel = find.byKey(const ValueKey('desktop-panel-secondary'));
+          Finder inPanel(String key) =>
+              find.descendant(of: panel, matching: find.byKey(ValueKey(key)));
           for (final mode in [TopicListMode.popular, TopicListMode.latest]) {
-            await tester.tap(
-              find.descendant(
-                of: panel,
-                matching: find.byKey(const ValueKey('topic-list-feed-menu')),
-              ),
-            );
-            await tester.pumpAndSettle();
-            await tester.tap(find.byKey(ValueKey('topic-list-${mode.name}')));
+            // Trending is under the overflow; Latest stays a visible segment
+            // beside the current view, so the overflow does not repeat it.
+            if (mode == TopicListMode.popular) {
+              await tester.tap(inPanel('topic-list-feed-menu'));
+              await tester.pumpAndSettle();
+              expect(
+                find.byKey(const ValueKey('topic-list-latest')),
+                findsNothing,
+              );
+              await tester.tap(
+                find.byKey(const ValueKey('topic-list-popular')),
+              );
+            } else {
+              expect(
+                tester
+                    .widget<DToggle>(inPanel('topic-list-view-trending'))
+                    .pressed,
+                isTrue,
+              );
+              await tester.tap(inPanel('topic-list-view-latest'));
+            }
             await tester.pumpAndSettle();
             expect(shell.currentTopicListMode, mode);
             expect(shell.activeTabId, otherTab);

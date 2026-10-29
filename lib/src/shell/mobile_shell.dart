@@ -126,6 +126,32 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
         final foot = MediaQuery.paddingOf(context).bottom;
+        final panels = registry
+            .sidebarPanels(context)
+            .where((entry) => entry.panel.showSwitch)
+            .toList();
+        final selected = shell.mobileNavigation.tab;
+        final places = _mobilePlaces(
+          context,
+          shell: shell,
+          registry: registry,
+          instance: instance,
+          panels: panels,
+          selected: selected,
+          order: placeOrder?.order ?? const [],
+        );
+        final tabOrder = [for (final place in places) place.tab];
+        // A drawer page the bar offers no place for belongs to Topics.
+        MobileTab placeOf(SidebarDestination destination) {
+          final tab = switch (destination.id) {
+            'latest' => MobileTab.topics,
+            'messages' => MobileTab.messages,
+            'users' => MobileTab.users,
+            _ => MobileTab.destination(destination.id),
+          };
+          return tabOrder.contains(tab) ? tab : MobileTab.topics;
+        }
+
         final navigationPage = CallbackShortcuts(
           key: _navigationPageKey,
           bindings: {
@@ -161,6 +187,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                   key: ValueKey(('mobile-navigation', owner)),
                                   mobile: true,
                                   onNavigate: shell.closeMobileSidebar,
+                                  mobilePlaceOf: placeOf,
                                 ),
                               ),
                             ),
@@ -175,21 +202,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ),
           ),
         );
-        final panels = registry
-            .sidebarPanels(context)
-            .where((entry) => entry.panel.showSwitch)
-            .toList();
-        final selected = shell.mobileNavigation.tab;
-        final places = _mobilePlaces(
-          context,
-          shell: shell,
-          registry: registry,
-          instance: instance,
-          panels: panels,
-          selected: selected,
-          order: placeOrder?.order ?? const [],
-        );
-        final tabOrder = [for (final place in places) place.tab];
         if (!tabOrder.contains(selected)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && shell.mobileNavigation.tab == selected) {
