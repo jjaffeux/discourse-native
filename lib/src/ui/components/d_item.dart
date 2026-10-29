@@ -399,9 +399,14 @@ class _DItemState extends State<DItem> {
             ),
           ];
     final tokens = DTokens.of(context);
+    final drawer =
+        widget.selectionStyle == DItemSelectionStyle.sidebar &&
+        DSidebarRowScope.drawerOf(context);
     final xs = widget.size == DItemSize.xs;
     final artwork = widget.size == DItemSize.artwork;
-    final gap = artwork
+    final gap = drawer
+        ? 8.0
+        : artwork
         ? 0.0
         : xs
         ? 8.0
@@ -465,6 +470,7 @@ class _DItemState extends State<DItem> {
     Widget result = _ItemScope(
       size: widget.size,
       described: described,
+      drawer: drawer,
       child: DefaultTextStyle.merge(
         style: artwork
             ? DefaultTextStyle.of(context).style
@@ -482,6 +488,11 @@ class _DItemState extends State<DItem> {
             radius,
           ),
           child: interactiveRowSurface(
+            constraints: drawer
+                ? const BoxConstraints(
+                    minHeight: DSidebarRowScope.tallRowHeight,
+                  )
+                : null,
             foregroundDecoration: widget.selected && leadingSelection
                 ? BoxDecoration(
                     border: BorderDirectional(
@@ -514,7 +525,9 @@ class _DItemState extends State<DItem> {
             ),
             padding:
                 widget.padding ??
-                (artwork
+                (drawer
+                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+                    : artwork
                     ? EdgeInsets.zero
                     : EdgeInsets.symmetric(
                         horizontal: xs
@@ -873,16 +886,22 @@ class _ItemScope extends InheritedWidget {
   const _ItemScope({
     required this.size,
     required this.described,
+    this.drawer = false,
     required super.child,
   });
   final DItemSize size;
   final bool described;
+  final bool drawer;
+  static bool drawerOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_ItemScope>()?.drawer ?? false;
   static DItemSize sizeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_ItemScope>()?.size ??
       DItemSize.standard;
   @override
   bool updateShouldNotify(_ItemScope oldWidget) =>
-      size != oldWidget.size || described != oldWidget.described;
+      size != oldWidget.size ||
+      described != oldWidget.described ||
+      drawer != oldWidget.drawer;
 }
 
 /// Eager composition for short lists. Keep application ListView.builder owners
@@ -981,10 +1000,12 @@ class DItemContent extends StatelessWidget {
           SizedBox(
             height:
                 spacing ??
-                (switch (_ItemScope.sizeOf(context)) {
-                  DItemSize.xs || DItemSize.artwork => 0,
-                  _ => 4,
-                }),
+                (_ItemScope.drawerOf(context)
+                    ? 2
+                    : (switch (_ItemScope.sizeOf(context)) {
+                        DItemSize.xs || DItemSize.artwork => 0,
+                        _ => 4,
+                      })),
           ),
         children[i],
       ],
@@ -1005,9 +1026,13 @@ class DItemTitle extends StatelessWidget {
         : maxLines;
     return DefaultTextStyle(
       style: DefaultTextStyle.of(context).style.merge(
-        const TextStyle(
-          fontSize: DiscourseTypography.rowTitle,
-          height: DiscourseTypography.lineHeightRowTitle,
+        TextStyle(
+          fontSize: _ItemScope.drawerOf(context)
+              ? DiscourseTypography.sm
+              : DiscourseTypography.rowTitle,
+          height: _ItemScope.drawerOf(context)
+              ? 1.25
+              : DiscourseTypography.lineHeightRowTitle,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
         ),
@@ -1035,7 +1060,9 @@ class DItemDescription extends StatelessWidget {
       style: DefaultTextStyle.of(context).style.merge(
         TextStyle(
           fontSize: DiscourseTypography.preview,
-          height: DiscourseTypography.lineHeightPreview,
+          height: _ItemScope.drawerOf(context)
+              ? 1.25
+              : DiscourseTypography.lineHeightPreview,
           fontWeight: FontWeight.w400,
           color: DTokens.of(context).mutedForeground,
           letterSpacing: 0,

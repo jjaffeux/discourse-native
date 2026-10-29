@@ -442,29 +442,16 @@ class ChatSidebarInboxHeader extends StatelessWidget {
   final String siteUrl;
 
   @override
-  Widget build(BuildContext context) => Stack(
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Positioned.fill(
-        child: LayoutBuilder(
-          builder: (context, bounds) =>
-              DGradientBlur(fullStrengthExtent: bounds.maxHeight - 14),
-        ),
-      ),
-      Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ChatSearchEntry(siteUrl: siteUrl),
-            ChatInboxFilterBar(
-              siteUrl: siteUrl,
-              filters: PluginUiScope.require(
-                context,
-                chatControllerService,
-              ).inboxFilters,
-            ),
-          ],
-        ),
+      ChatSearchEntry(siteUrl: siteUrl),
+      ChatInboxFilterBar(
+        siteUrl: siteUrl,
+        filters: PluginUiScope.require(
+          context,
+          chatControllerService,
+        ).inboxFilters,
       ),
     ],
   );

@@ -333,7 +333,7 @@ void main() {
       position.jumpTo(400);
       await tester.pumpAndSettle();
       final pinnedTop = tester.getTopLeft(controls).dy;
-      expect(pinnedTop, lessThan(initialTop));
+      expect(pinnedTop, closeTo(initialTop, .1));
       position.jumpTo(800);
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));

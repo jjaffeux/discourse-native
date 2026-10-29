@@ -251,6 +251,7 @@ Future<ShellController> pumpMobileShellFixture(
   bool voice = false,
   bool events = false,
   bool chat = true,
+  bool chatSearch = false,
   DiscourseUser? user,
   int chatUnreadCount = 0,
   TopicPayload? topic,
@@ -277,6 +278,7 @@ Future<ShellController> pumpMobileShellFixture(
           chatSettingsDataKey,
           ChatSettings(
             chatEnabled: chat,
+            searchEnabled: chatSearch,
             publicChannelsEnabled: true,
             threadsEnabled: true,
           ),

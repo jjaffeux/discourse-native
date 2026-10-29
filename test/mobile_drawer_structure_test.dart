@@ -201,6 +201,8 @@ void main() {
     }
     final shell = await pumpMobileShellFixture(
       tester,
+      chatSearch: true,
+      voice: true,
       user: DiscourseUser(
         id: 7,
         username: 'reader',
@@ -209,7 +211,11 @@ void main() {
         sidebarCategoryIds: [for (var id = 1; id <= 15; id++) id],
         plugins: PluginData.none.withValue(
           chatCurrentUserDataKey,
-          const ChatCurrentUser(hasChatEnabled: true, canDirectMessage: true),
+          const ChatCurrentUser(
+            hasChatEnabled: true,
+            canDirectMessage: true,
+            canChat: true,
+          ),
         ),
       ),
       conversations: ChatChannels(
@@ -277,7 +283,7 @@ void main() {
     await _capture(tester, 'forum-drawer');
     Finder list() =>
         find.descendant(of: _panel, matching: find.byType(CustomScrollView));
-    await tester.drag(list(), const Offset(0, -250));
+    await tester.drag(list(), const Offset(0, -450));
     await tester.pumpAndSettle();
     expect(sidebarDestination('Topics').hitTestable(), findsNothing);
     await _capture(tester, 'forum-drawer-scrolled');
@@ -295,10 +301,23 @@ void main() {
     expect(filters.hitTestable(), findsOneWidget);
     expect(tester.getRect(filters).left, atRest.left);
     expect(tester.getRect(filters).top, atRest.top);
-    expect(atRest.top - tester.getRect(_panel).top, 8);
-    expect(atRest.left - tester.getRect(_panel).left, 8);
+    final search = find.byKey(const ValueKey('chat-search-entry'));
+    expect(tester.getRect(search).top - tester.getRect(_panel).top, 6);
+    expect(atRest.left - tester.getRect(_panel).left, 6);
     expect(_tabs.hitTestable(), findsOneWidget);
     await _capture(tester, 'chat-drawer-scrolled');
+    final scroll = tester.widget<CustomScrollView>(list()).controller!;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(find.text('Voice rooms'), findsOneWidget);
+    expect(
+      tester
+          .getRect(_panel)
+          .contains(tester.getCenter(find.text('Voice rooms'))),
+      isTrue,
+    );
+    expect(tester.getRect(filters), atRest);
+    await _capture(tester, 'chat-drawer-voice-section');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }

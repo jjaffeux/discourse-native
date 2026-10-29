@@ -735,9 +735,9 @@ void main() {
         expect(
           bounds.height,
           type == DSidebarMenuButton
-              ? 30
+              ? 40
               : type == DSidebarTrigger
-              ? 30
+              ? 40
               : 20,
         );
         expect(bounds.width, greaterThan(0));

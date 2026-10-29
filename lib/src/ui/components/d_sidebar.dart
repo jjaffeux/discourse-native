@@ -11,8 +11,10 @@ import '../foundation/control_style.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
+import 'd_gradient_blur.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
+import 'd_scroll_behavior.dart';
 import 'd_separator.dart';
 import 'd_sheet.dart';
 import 'd_skeleton.dart';
@@ -203,6 +205,7 @@ class DSidebar extends StatefulWidget {
 
   final DSidebarCollapsible collapsible;
   final Color? backgroundColor;
+
   final String? _semanticLabel;
   String get semanticLabel => _semanticLabel ?? appL10n.sidebar;
   @override
@@ -259,33 +262,36 @@ class _DSidebarState extends State<DSidebar> {
         icon: icon,
 
         background: background,
-        child: Semantics(
-          container: !mobile,
-          label: mobile ? null : widget.semanticLabel,
-          child: Container(
-            decoration: BoxDecoration(
-              color: background,
-              borderRadius: null,
-              boxShadow: null,
-            ),
-            foregroundDecoration: null,
-            child: DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                color: t.foreground,
-                fontSize: DiscourseTypography.sm,
-                height: 20 / 14,
+        child: DSidebarRowScope(
+          drawer: mobile || DControlStyle.isTouch(context),
+          child: Semantics(
+            container: !mobile,
+            label: mobile ? null : widget.semanticLabel,
+            child: Container(
+              decoration: BoxDecoration(
+                color: background,
+                borderRadius: null,
+                boxShadow: null,
               ),
-              child: Stack(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.header != null) widget.header!,
-                      Expanded(child: widget.child),
-                      if (widget.footer != null) widget.footer!,
-                    ],
-                  ),
-                ],
+              foregroundDecoration: null,
+              child: DefaultTextStyle(
+                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                  color: t.foreground,
+                  fontSize: DiscourseTypography.sm,
+                  height: 20 / 14,
+                ),
+                child: Stack(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.header != null) widget.header!,
+                        Expanded(child: widget.child),
+                        if (widget.footer != null) widget.footer!,
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -401,20 +407,28 @@ class DSidebarFooter extends DSidebarHeader {
 
 /// A scrollable sidebar body with hidden scrollbar artwork and drag targets.
 class DSidebarContent extends StatelessWidget {
-  const DSidebarContent({super.key, required this.children}) : _slivers = false;
+  const DSidebarContent({super.key, required this.children})
+    : header = null,
+      _slivers = false;
 
   /// One viewport for lazy groups and menus. Slivers share this controller;
   /// they must not introduce their own scroll views.
-  const DSidebarContent.slivers({super.key, required List<Widget> slivers})
-    : children = slivers,
-      _slivers = true;
+  const DSidebarContent.slivers({
+    super.key,
+    required List<Widget> slivers,
+    this.header,
+  }) : children = slivers,
+       _slivers = true;
 
   final List<Widget> children;
+
+  /// Controls pinned above the scrolling rows. Card headings stack below them.
+  final Widget? header;
   final bool _slivers;
 
   @override
   Widget build(BuildContext context) => _slivers
-      ? _SidebarSliverContent(slivers: children)
+      ? _SidebarSliverContent(slivers: children, header: header)
       : DScrollArea(
           controller: null,
           showScrollbar: false,
@@ -426,8 +440,9 @@ class DSidebarContent extends StatelessWidget {
 }
 
 class _SidebarSliverContent extends StatefulWidget {
-  const _SidebarSliverContent({required this.slivers});
+  const _SidebarSliverContent({required this.slivers, this.header});
   final List<Widget> slivers;
+  final Widget? header;
 
   @override
   State<_SidebarSliverContent> createState() => _SidebarSliverContentState();
@@ -445,10 +460,54 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
   @override
   Widget build(BuildContext context) {
     final controller = (_ownedController);
-    return DScrollBar(
-      controller: controller,
-      showScrollbar: false,
-      child: CustomScrollView(controller: controller, slivers: widget.slivers),
+    return DScrollFadeScope(
+      topExtent: DSidebarRowScope.drawerOf(context) ? 0 : 14,
+      child: DScrollBar(
+        controller: controller,
+        showScrollbar: false,
+        child: CustomScrollView(
+          controller: controller,
+          slivers: [
+            if (widget.header case final header?)
+              PinnedHeaderSliver(child: _SidebarControls(child: header)),
+            ...widget.slivers,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarControls extends StatelessWidget {
+  const _SidebarControls({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final drawer = DSidebarRowScope.drawerOf(context);
+    final controls = Padding(
+      padding: drawer
+          ? const EdgeInsets.all(6)
+          : const EdgeInsets.fromLTRB(8, 2, 8, 14),
+      child: child,
+    );
+    if (drawer) {
+      return ColoredBox(
+        color: DTokens.of(context).panelBackground,
+        child: controls,
+      );
+    }
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, bounds) => DGradientBlur(
+              fullStrengthExtent: math.max(0, bounds.maxHeight - 14),
+            ),
+          ),
+        ),
+        controls,
+      ],
     );
   }
 }
@@ -459,12 +518,14 @@ class DSidebarGroup extends StatelessWidget {
     required this.child,
 
     this.padding = const EdgeInsets.all(8),
-  }) : _sliver = false;
+  }) : _sliver = false,
+       header = null;
 
   /// Keeps the group label eager while its content can build rows lazily.
   const DSidebarGroup.sliver({
     super.key,
     required Widget sliver,
+    this.header,
 
     this.padding = const EdgeInsets.all(8),
   }) : child = sliver,
@@ -472,14 +533,40 @@ class DSidebarGroup extends StatelessWidget {
 
   final Widget child;
 
+  /// A section heading. Drawer headings pin until this group's end.
+  final Widget? header;
+
   final EdgeInsetsGeometry padding;
   final bool _sliver;
   @override
   Widget build(BuildContext context) {
     if (_sliver) {
+      final drawer = DSidebarRowScope.drawerOf(context);
       return SliverPadding(
         padding: padding,
-        sliver: SliverMainAxisGroup(slivers: [child]),
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            if (header case final heading?)
+              if (drawer)
+                SliverLayoutBuilder(
+                  builder: (context, constraints) => PinnedHeaderSliver(
+                    child: _SidebarCardHeading(
+                      pinned: constraints.scrollOffset > 0,
+                      child: heading,
+                    ),
+                  ),
+                )
+              else
+                SliverToBoxAdapter(child: heading),
+            SliverPadding(
+              padding: drawer
+                  ? const EdgeInsets.symmetric(horizontal: 6)
+                  : EdgeInsets.zero,
+              sliver: child,
+            ),
+            if (drawer) const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          ],
+        ),
       );
     }
     return Padding(
@@ -517,7 +604,11 @@ class DSidebarGroupLabel extends StatelessWidget {
       : Semantics(
           header: true,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 32),
+            constraints: BoxConstraints(
+              minHeight: DSidebarRowScope.drawerOf(context)
+                  ? DSidebarRowScope.headingHeight
+                  : 32,
+            ),
             alignment: AlignmentDirectional.centerStart,
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: DefaultTextStyle.merge(
@@ -528,10 +619,83 @@ class DSidebarGroupLabel extends StatelessWidget {
         );
 }
 
+class _SidebarCardHeading extends StatelessWidget {
+  const _SidebarCardHeading({required this.pinned, required this.child});
+  final bool pinned;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _SidebarCardPaint(
+      DTokens.of(context).panelBackground,
+      DTokens.of(context).border,
+      pinned,
+    ),
+    child: ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: DSidebarRowScope.headingHeight,
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
+class _SidebarCardPaint extends CustomPainter {
+  const _SidebarCardPaint(this.fill, this.border, this.pinned);
+  final Color fill, border;
+  final bool pinned;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    const corners = BorderRadius.vertical(top: Radius.circular(12));
+    final paint = Paint()..color = fill;
+    if (pinned) {
+      canvas.drawRect(rect, paint);
+    }
+    canvas.drawRRect(corners.toRRect(rect), paint);
+    if (pinned) {
+      final fade = Rect.fromLTWH(0, size.height, size.width, 16);
+      canvas.drawRect(
+        fade,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [fill, fill.withValues(alpha: 0)],
+          ).createShader(fade),
+      );
+    }
+    canvas.drawPath(
+      Path()
+        ..moveTo(.5, size.height)
+        ..lineTo(.5, 12)
+        ..quadraticBezierTo(.5, .5, 12, .5)
+        ..lineTo(size.width - 12, .5)
+        ..quadraticBezierTo(size.width - .5, .5, size.width - .5, 12)
+        ..lineTo(size.width - .5, size.height),
+      Paint()
+        ..color = border
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SidebarCardPaint old) =>
+      fill != old.fill || border != old.border || pinned != old.pinned;
+}
+
 TextStyle _sidebarGroupLabelStyle(BuildContext context) => TextStyle(
-  fontSize: DiscourseTypography.xs,
-  height: 16 / 12,
-  fontWeight: FontWeight.w500,
+  fontSize: DSidebarRowScope.drawerOf(context)
+      ? DiscourseTypography.sm
+      : DiscourseTypography.xs,
+  height: DSidebarRowScope.drawerOf(context) ? 20 / 14 : 16 / 12,
+  fontWeight: DSidebarRowScope.drawerOf(context)
+      ? FontWeight.w600
+      : FontWeight.w500,
   color: DTokens.of(context).foreground.withValues(alpha: .7),
 );
 
@@ -1049,6 +1213,14 @@ class _RenderSidebarTrailingInset extends RenderShiftedBox {
 /// minimum: native text scaling can grow rows. Expanded rows whose artwork fills
 /// the preset row height retain 8px vertical padding around their rich content.
 class DSidebarMenuButton extends StatefulWidget {
+  static double rowHeightOf(BuildContext context) =>
+      DSidebarRowScope.drawerOf(context)
+      ? DSidebarRowScope.rowHeight
+      : DControlStyle.height(DSidebarMenuButtonSize.regular, context: context);
+
+  static double rowGapOf(BuildContext context) =>
+      DSidebarRowScope.drawerOf(context) ? 0 : 2;
+
   const DSidebarMenuButton({
     super.key,
     required this.child,
@@ -1163,8 +1335,15 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
     final t = DTokens.of(context);
     final iconOnly = _PanelScope.iconOf(context);
     final enabled = widget.onPressed != null;
-    final fontSize = DControlStyle.fontSize(widget.size, context: context);
-    final minHeight = widget._groupLabel
+    final drawer = DSidebarRowScope.drawerOf(context);
+    final fontSize = drawer
+        ? DiscourseTypography.sm
+        : DControlStyle.fontSize(widget.size, context: context);
+    final minHeight = drawer
+        ? widget._groupLabel
+              ? DSidebarRowScope.headingHeight
+              : DSidebarRowScope.rowHeight
+        : widget._groupLabel
         ? 32.0
         : DControlStyle.scaledHeight(
             widget.size,
@@ -1275,10 +1454,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                                 ).textTheme.bodyMedium!.copyWith(
                                   fontSize: fontSize,
                                   height:
-                                      DControlStyle.lineHeight(
-                                        widget.size,
-                                        context: context,
-                                      ) /
+                                      (drawer
+                                          ? 20
+                                          : DControlStyle.lineHeight(
+                                              widget.size,
+                                              context: context,
+                                            )) /
                                       fontSize,
                                   color: widget.isActive
                                       ? t.foreground
