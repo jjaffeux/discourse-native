@@ -1150,19 +1150,25 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           if (controller.recentSearches.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: DSpacing.sm,
+                runSpacing: DSpacing.sm,
                 children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.recentSearches,
-                      style: TextStyle(
-                        color: DTokens.of(context).mutedForeground,
-                      ),
+                  Text(
+                    context.l10n.recentSearches,
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
                     ),
                   ),
                   DButton(
                     key: const ValueKey('global-search-clear-history'),
-                    label: Text(context.l10n.clearHistory),
+                    label: Text(
+                      context.l10n.clearHistory,
+                      softWrap: true,
+                      maxLines: 2,
+                    ),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                     onPressed: controller.clearHistory,

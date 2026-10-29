@@ -417,7 +417,6 @@ class ChatSidebarInboxHeader extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: DSpacing.sm,
           children: [
             ChatSearchEntry(siteUrl: siteUrl),
             ChatInboxFilterBar(
