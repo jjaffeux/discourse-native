@@ -139,15 +139,15 @@ void main() {
       );
       await tester.pumpAndSettle();
       final feed = find.byKey(const ValueKey('topic-list-feed-menu'));
+      expect(tester.widget<DButton>(feed).variant, DButtonVariant.ghost);
       expect(
-        tester.widget<DButton>(feed).variant,
-        DButtonVariant.quietSelected,
+        tester
+            .widget<DToggle>(
+              find.byKey(const ValueKey('topic-list-view-latest')),
+            )
+            .pressed,
+        isTrue,
       );
-      expect(
-        buttonSurface(tester, of: feed).color,
-        DTokens.of(tester.element(feed)).raisedBackground,
-      );
-      expect(buttonSurface(tester, of: feed).borderColor.a, 0);
       expect(tester.getSize(feed).height, 30);
       final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
       expect(tester.widget<DButton>(tag).variant, DButtonVariant.quiet);
@@ -155,8 +155,11 @@ void main() {
         buttonSurface(tester, of: tag).color,
         DTokens.of(tester.element(tag)).foreground.withValues(alpha: .05),
       );
-      final group = find.byWidgetPredicate(
-        (widget) => widget is DButtonGroup && widget.quiet,
+      final group = find.ancestor(
+        of: find.byKey(const ValueKey('topic-list-category-filter')),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DButtonGroup && widget.quiet,
+        ),
       );
       expect(group, findsOneWidget);
       expect(tester.widget<DButtonGroup>(group).quietSelected, isTrue);
@@ -1571,7 +1574,14 @@ void main() {
       'payload': {'last_read_post_number': 8},
     });
     await tester.pumpAndSettle();
-    expect(find.text('New · Replies'), findsOneWidget);
+    expect(
+      tester
+          .widget<DToggle>(
+            find.byKey(const ValueKey('topic-list-view-newActivity')),
+          )
+          .semanticLabel,
+      startsWith('New · Replies'),
+    );
     expect(controller.sidebarBadgeFor('latest').count, 3);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
@@ -1727,7 +1737,7 @@ void main() {
       find.byKey(const ValueKey('topic-list-category-filter')),
       findsOneWidget,
     );
-    expect(find.text('1059'), findsNothing);
+    expect(find.text('1059'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-feed-menu')), findsOneWidget);
     expect(
       tester.widget<TopicFeedMenu>(find.byType(TopicFeedMenu)).newCount,
@@ -1784,10 +1794,8 @@ void main() {
       'message_type': 'unread',
       'payload': {'highest_post_number': 2, 'notification_level': 2},
     });
-    // A tracking run notifies the shell once, after the delivery's microtask,
-    // so the redraw lands in the frame after that notification.
-    await tester.pump();
-    await tester.pump();
+    // Tracking delivery and the adaptive switch both schedule their redraws.
+    await tester.pumpAndSettle();
 
     expect(find.text('1060'), findsOneWidget);
     await _openFeed(tester);
@@ -1819,7 +1827,7 @@ void main() {
     expect(find.text('Top this year'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-top-period')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+    await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
@@ -1890,7 +1898,7 @@ void main() {
 
         await pump(1);
         final tabs = tester.getRect(
-          find.byKey(const ValueKey('topic-list-feed-menu')),
+          find.byKey(const ValueKey('topic-list-view-switch')),
         );
         expect(tabs.left, 16);
         expect(tabs.right, lessThanOrEqualTo(325 - 16));
@@ -1945,7 +1953,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+      final trigger = find.byKey(const ValueKey('topic-list-view-top'));
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       expect(find.text('Year'), findsOneWidget);
@@ -2176,11 +2184,11 @@ void main() {
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
           expect(
-            find.byKey(const ValueKey('topic-list-feed-menu')),
+            find.byKey(const ValueKey('topic-list-view-switch')),
             findsOneWidget,
           );
           expect(
-            find.byKey(const ValueKey('topic-list-feed-menu')),
+            find.byKey(const ValueKey('topic-list-view-latest')),
             findsOneWidget,
           );
           expect(find.text('More'), findsNothing);
@@ -2196,7 +2204,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
           expect(find.text('Top this year'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+          await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
           await tester.pumpAndSettle();
           await tester.tap(find.text('Week'));
           await tester.pumpAndSettle();
@@ -2973,9 +2981,22 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
 }
 
 Future<void> _selectFeed(WidgetTester tester, String key) async {
-  final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
-  await tester.tap(trigger);
-  await tester.pumpAndSettle();
+  final view = key.startsWith('topic-list-top')
+      ? 'top'
+      : key.contains('new')
+      ? 'newActivity'
+      : key.endsWith('popular')
+      ? 'trending'
+      : key.substring('topic-list-'.length);
+  final segment = find.byKey(ValueKey('topic-list-view-$view'));
+  if (segment.evaluate().isNotEmpty) {
+    await tester.tap(segment);
+    await tester.pumpAndSettle();
+    if (find.byType(DDropdownMenuContent).evaluate().isEmpty) return;
+  } else {
+    await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+    await tester.pumpAndSettle();
+  }
   if (key == 'topic-list-new' &&
       find.byKey(const ValueKey('topic-list-new-all')).evaluate().isNotEmpty) {
     key = 'topic-list-new-all';
@@ -2994,7 +3015,20 @@ Future<void> _selectFeed(WidgetTester tester, String key) async {
 }
 
 Future<void> _openFeed(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('topic-list-feed-menu')));
+  final fresh = find.byKey(const ValueKey('topic-list-view-newActivity'));
+  final mobile = switch (Theme.of(
+    tester.element(find.byType(TopicFeedMenu)),
+  ).platform) {
+    TargetPlatform.iOS ||
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
+  await tester.tap(
+    !mobile && fresh.evaluate().isNotEmpty
+        ? fresh
+        : find.byKey(const ValueKey('topic-list-feed-menu')),
+  );
   await tester.pumpAndSettle();
 }
 

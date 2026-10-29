@@ -70,6 +70,7 @@ void main() {
                             alignment: Alignment.topLeft,
                             child: TopicFeedMenu(
                               mode: mode,
+                              maxVisibleViews: 1,
                               unifiedNew: true,
                               unreadCount: 2589,
                               newCount: 2677,
@@ -172,7 +173,7 @@ void main() {
             expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
           }
 
-          await tester.tap(trigger);
+          await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
           await tester.pumpAndSettle();
           final check = find.descendant(
             of: allTime,
