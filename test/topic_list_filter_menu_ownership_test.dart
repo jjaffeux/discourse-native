@@ -90,9 +90,12 @@ void main() {
               menu == 'category' ? 1 : 2,
             );
           }
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(find.byType(DCommandList<String>), findsNothing);
           expect(
-            fixture.observer.pops,
-            platform == TargetPlatform.android ? 2 : 0,
+            fixture.navigator.currentState!.canPop(),
+            isFalse,
+            reason: 'The owned menu closes without leaving a route behind',
           );
         },
       );

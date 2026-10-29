@@ -79,7 +79,6 @@ const _unseenTopic = Topic(
 
 void main() {
   setUpAll(() async {
-    if (Platform.environment['TOPIC_LIST_CAPTURE_DIR'] == null) return;
     await (FontLoader('TopicListReview')
           ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
@@ -254,7 +253,7 @@ void main() {
     final directory = Platform.environment['TOPIC_LIST_CAPTURE_DIR'];
     final name = Platform.environment['TOPIC_LIST_REVIEW_NAME'] ?? 'production';
     final measurements = <String>[
-      'platform,viewport,row_max,switch_max,switch_width,views,category_y,tag_y,switch_y,one_row',
+      'platform,viewport,row_max,switch_max,remaining,switch_width,views,category_y,tag_y,switch_y,one_row',
     ];
     for (final scenario in [
       for (final width in [
@@ -294,9 +293,7 @@ void main() {
               debugShowCheckedModeBanner: false,
               theme: base.copyWith(
                 platform: scenario.platform,
-                textTheme: directory == null
-                    ? base.textTheme
-                    : base.textTheme.apply(fontFamily: 'TopicListReview'),
+                textTheme: base.textTheme.apply(fontFamily: 'TopicListReview'),
               ),
               home: DTouchTargets(
                 child: Scaffold(
@@ -339,8 +336,20 @@ void main() {
       final oneRow =
           (switches.center.dy - categoryBounds.center.dy).abs() < 1 &&
           (switches.center.dy - tagBounds.center.dy).abs() < 1;
+      final remaining = DFitRow.availableWidthOf(
+        tester.element(find.byType(TopicFeedMenu)),
+      );
+      if (!mobile && (scenario.width == 560 || scenario.width == 520)) {
+        expect(
+          oneRow,
+          isTrue,
+          reason:
+              'At ${scenario.width}: remaining=$remaining, views=$toggles, switch=$switches, category=$categoryBounds, tag=$tagBounds',
+        );
+        expect(switches.width, lessThanOrEqualTo(remaining! + 1));
+      }
       measurements.add(
-        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout.constraints.maxWidth},${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
+        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout.constraints.maxWidth},$remaining,${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
       );
       for (final rect in [switches, categoryBounds, tagBounds]) {
         expect(rect.left, greaterThanOrEqualTo(0));
@@ -1127,7 +1136,7 @@ void main() {
     final feedRect = tester.getRect(
       find.byKey(const ValueKey('topic-list-feed-menu')),
     );
-    expect(parentRect.top, greaterThanOrEqualTo(feedRect.top));
+    expect(parentRect.center.dy, greaterThanOrEqualTo(feedRect.center.dy));
     expect(parentRect.overlaps(feedRect), isFalse);
     expect(tagRect.overlaps(parentRect), isFalse);
     expect(tagRect.overlaps(feedRect), isFalse);
@@ -2235,7 +2244,13 @@ void main() {
           );
           await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
-          expect(find.text('Top · Week'), findsOneWidget);
+          final currentTop = find.byKey(const ValueKey('topic-list-view-top'));
+          expect(currentTop, findsOneWidget);
+          expect(
+            tester.widget<DToggle>(currentTop).semanticLabel,
+            'Top · Week',
+          );
+          expect(tester.widget<DToggle>(currentTop).pressed, isTrue);
           final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
           await tester.tap(trigger);
           await tester.pumpAndSettle();

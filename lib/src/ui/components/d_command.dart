@@ -983,6 +983,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
                   child: _DCommandItemSurface<T>(
                     key: _itemKeys.putIfAbsent(item.identity, GlobalKey.new),
                     item: item,
+                    showGuide: node.group.showGuide,
                     scope: scope,
                   ),
                 ),
@@ -1273,6 +1274,7 @@ class _DGroupNode<T> extends _DResultNode<T> {
             child: _DCommandItemSurface<T>(
               key: keys.putIfAbsent(item.item.identity, GlobalKey.new),
               item: item.item,
+              showGuide: group.showGuide,
               scope: scope,
             ),
           ),
@@ -1381,8 +1383,16 @@ class _DCommandEntry<T> {
 
 /// A labelled result group. Filtering hides empty groups unless [forceMount].
 class DCommandGroup<T> extends StatelessWidget {
-  const DCommandGroup({super.key, required this.items, this.heading});
+  const DCommandGroup({
+    super.key,
+    required this.items,
+    this.heading,
+    this.showGuide = false,
+  });
   final Widget? heading;
+
+  /// Indents choices beneath their heading along a faint directional guide.
+  final bool showGuide;
   final List<DCommandItem<T>> items;
 
   @override
@@ -1431,8 +1441,10 @@ class _DCommandItemSurface<T> extends StatefulWidget {
     super.key,
     required this.item,
     required this.scope,
+    this.showGuide = false,
   });
   final DCommandItem<T> item;
+  final bool showGuide;
   final _DCommandScope<T> scope;
   @override
   State<_DCommandItemSurface<T>> createState() =>
@@ -1488,7 +1500,12 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
       builder: (context, _) {
         final selected = _selected.value;
         final interactive = item.enabled && selected;
-        final radius = BorderRadius.circular(DControlStyle.rowRadius);
+        final radius = widget.showGuide
+            ? const BorderRadiusDirectional.only(
+                topEnd: Radius.circular(DControlStyle.rowRadius),
+                bottomEnd: Radius.circular(DControlStyle.rowRadius),
+              ).resolve(Directionality.of(context))
+            : BorderRadius.circular(DControlStyle.rowRadius);
         Widget row = interactiveRowSurface(
           constraints: const BoxConstraints(minHeight: 32),
           padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
@@ -1539,7 +1556,7 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
           ),
         );
 
-        return Semantics(
+        final control = Semantics(
           button: true,
           selected: selected,
           checked: item.checked ? true : null,
@@ -1594,6 +1611,26 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
             ),
           ),
         );
+        return widget.showGuide
+            ? Padding(
+                padding: const EdgeInsetsDirectional.only(start: 10),
+                child: DecoratedBox(
+                  position: DecorationPosition.foreground,
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(
+                        color: Color.lerp(
+                          tokens.surface,
+                          tokens.foreground,
+                          .12,
+                        )!,
+                      ),
+                    ),
+                  ),
+                  child: control,
+                ),
+              )
+            : control;
       },
     );
   }

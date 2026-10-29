@@ -12,21 +12,27 @@ void main() {
     ])
       for (final scale in [1.0, 2.0]) (platform, scale),
   ]) {
-    for (final (size, baseHeight, fontSize) in [
-      (DControlSize.small, 24.0, 12.5),
-      (DControlSize.regular, 30.0, 12.5),
-      (DControlSize.large, 40.0, 14.0),
-      (DControlSize.filter, 30.0, 12.5),
-      (DControlSize.field, 35.5, 13.0),
-      (DControlSize.preference, 40.25, 13.5),
+    for (final (size, baseHeight, fontSize, doubledHeight) in [
+      (DControlSize.small, 24.0, 12.5, 40.0),
+      (DControlSize.regular, 30.0, 12.5, 48.75),
+      (DControlSize.large, 40.0, 14.0, 44.0),
+      (DControlSize.filter, 30.0, 12.5, 48.75),
+      (DControlSize.field, 35.5, 13.0, 55.0),
+      (DControlSize.preference, 40.25, 13.5, 60.5),
     ]) {
       if (platform != TargetPlatform.macOS &&
           size != DControlSize.regular &&
           size != DControlSize.filter) {
         continue;
       }
-      final height = DControlStyle.scaledHeight(size, TextScaler.linear(scale));
-      assert(scale != 1 || height == baseHeight);
+      final phoneFilter =
+          size == DControlSize.filter && platform != TargetPlatform.macOS;
+      final controlFontSize = phoneFilter ? 14.0 : fontSize;
+      final height = scale == 1
+          ? (phoneFilter ? 36.0 : baseHeight)
+          : phoneFilter
+          ? 57.0
+          : doubledHeight;
       testWidgets(
         '${size.name} on $platform at $scale has the same height across controls',
         (tester) async {
@@ -215,7 +221,7 @@ void main() {
               DefaultTextStyle.of(
                 tester.element(find.text(label)),
               ).style.fontSize,
-              fontSize,
+              controlFontSize,
               reason: '$label inherits the ${size.name} typography preset',
             );
           }

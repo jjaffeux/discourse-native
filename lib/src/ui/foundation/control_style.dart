@@ -14,7 +14,8 @@ enum DControlSize {
   regular,
   large,
 
-  /// Secondary controls: 30px artwork, 12.5px text and a 1px border.
+  /// Page filters: 30px artwork and 12.5px text on desktop; 36px and
+  /// 14px text/icons on phones, with kit-owned touch targets.
   filter,
 
   /// Search fields: 13px text, 7px vertical padding and 1px border.
@@ -100,7 +101,7 @@ abstract final class DControlStyle {
         DControlSize.small => isTouch(context) ? 40 : smallHeight,
         DControlSize.regular => regularHeight,
         DControlSize.large => isTouch(context) ? 48 : largeHeight,
-        DControlSize.filter => regularHeight,
+        DControlSize.filter => isTouch(context) ? 36 : regularHeight,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
@@ -115,8 +116,9 @@ abstract final class DControlStyle {
       };
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
+        DControlSize.filter =>
+          isTouch(context) ? 14 : DiscourseTypography.preview,
         DControlSize.small ||
-        DControlSize.filter ||
         DControlSize.regular ||
         DControlSize.chip => DiscourseTypography.preview,
         DControlSize.field ||
@@ -132,11 +134,11 @@ abstract final class DControlStyle {
         DControlSize.preference => DiscourseTypography.compact,
       };
   static double lineHeight(DControlSize size, {BuildContext? context}) =>
-      fontSize(size) * DiscourseTypography.lineHeightSmall;
+      fontSize(size, context: context) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
+        DControlSize.filter => isTouch(context) ? 14 : 12,
         DControlSize.small ||
-        DControlSize.filter ||
         DControlSize.regular ||
         DControlSize.chip ||
         DControlSize.action => 12,

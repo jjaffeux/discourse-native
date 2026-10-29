@@ -70,6 +70,18 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
 
   @override
   Widget build(BuildContext context) {
+    final header = DPageHeaderScope.maybeOf(context);
+    if (header == null) return _buildFilters(context, compact: false);
+    return ValueListenableBuilder<double>(
+      valueListenable: header,
+      builder: (context, progress, _) => _buildFilters(
+        context,
+        compact: DControlStyle.isTouch(context) && progress == 1,
+      ),
+    );
+  }
+
+  Widget _buildFilters(BuildContext context, {required bool compact}) {
     final selectedTags = [
       for (final value in widget.selectedTagNames ?? [?widget.selectedTagName])
         _selectedTag(widget.knownTags, value),
@@ -142,7 +154,10 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                     ? CategoryIcon(
                         category: category,
                         siteUrl: widget.siteUrl,
-                        size: 12,
+                        size: DControlStyle.iconDimension(
+                          DControlSize.filter,
+                          context: context,
+                        ),
                         squareSize: 10,
                       )
                     : level == 0
@@ -164,7 +179,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
               widget.filterQuery!,
               context.l10n.tags,
             ),
-            icon: const DIcon(DIcons.tag, size: 12),
+            icon: const DIcon(DIcons.tag),
           ),
       ],
       if (widget.filterQuery == null)
@@ -228,8 +243,15 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     // not all fit, and wrapped at full length when even that is too wide.
     final controls = widget.wrap
         ? DFitRow(
+            compact: compact,
             runSpacing: 8,
-            children: [?widget.leading, ...controlChildren, ?widget.trailing],
+            children: [
+              if (widget.leading != null)
+                DFitRowItem(leading: true, child: widget.leading!),
+              for (final (index, control) in controlChildren.indexed)
+                DFitRowItem(last: index == 0, child: control),
+              ?widget.trailing,
+            ],
           )
         : Row(
             mainAxisSize: MainAxisSize.min,

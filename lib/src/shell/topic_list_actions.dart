@@ -52,7 +52,7 @@ class TopicListFilterMenu extends StatefulWidget {
     this.label,
     this.filterKey,
     this.triggerKey,
-    this.icon = const DIcon(DIcons.filter, size: 11),
+    this.icon = const DIcon(DIcons.filter),
     this.dimLabel = false,
     this.iconOnly = false,
     this.categoryParentId,
@@ -221,7 +221,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     final tight =
         DFitRow.tightOf(context) &&
         (widget.filterKey == null ||
-            widget.filterKey == 'tag' && _scopeQuery.isEmpty);
+            widget.filterKey == 'tag' &&
+                (_scopeQuery.isEmpty || DFitRow.compactOf(context)));
     final iconOnly = widget.iconOnly || tight && count == null;
     final variant = widget.filterKey != 'category' && _scopeQuery.isNotEmpty
         ? DButtonVariant.quietSelected

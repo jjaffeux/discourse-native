@@ -365,7 +365,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     _measure();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final room = constraints.maxWidth;
+        final room = math.min(
+          constraints.maxWidth,
+          DFitRow.availableWidthOf(context) ?? double.infinity,
+        );
         var shown = _fit(room, _widths['bare'] ?? 0);
         if (_hiddenCount(_views.where((view) => !shown.contains(view))) > 0) {
           shown = _fit(room, _widths['counted'] ?? 0);
@@ -405,7 +408,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
           children: [
             SizedBox(
               width: room.isFinite && _widths.isNotEmpty
-                  ? math.min(room, naturalWidth)
+                  ? math.min(constraints.maxWidth, naturalWidth)
                   : null,
               child: DButtonGroup.inset(
                 key: const ValueKey('topic-list-view-switch'),
@@ -416,7 +419,9 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
                       Flexible(child: segment(view))
                     else
                       ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: room),
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth,
+                        ),
                         child: segment(view),
                       ),
                   if (hidden.isNotEmpty)

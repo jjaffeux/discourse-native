@@ -67,8 +67,74 @@ class DControlExpanded extends ParentDataWidget<DControlWrapParentData> {
   Type get debugTypicalAncestorWidgetClass => DControlWrap;
 }
 
+/// Controls run breaks and visual order without remounting a control.
+/// The defaults retain the ordinary wrapping policy and source order.
+class DControlWrapItem extends ParentDataWidget<DControlWrapParentData> {
+  const DControlWrapItem({
+    super.key,
+    required super.child,
+    this.breakBefore = false,
+    this.breakAfter = false,
+    this.order = 0,
+    this.remaining = false,
+  });
+
+  final bool breakBefore;
+  final bool breakAfter;
+  final int order;
+  final bool remaining;
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final data = renderObject.parentData! as DControlWrapParentData;
+    if (data.breakBefore == breakBefore &&
+        data.breakAfter == breakAfter &&
+        data.order == order &&
+        data.remaining == remaining) {
+      return;
+    }
+    data
+      ..breakBefore = breakBefore
+      ..breakAfter = breakAfter
+      ..order = order
+      ..remaining = remaining;
+    renderObject.parent?.markNeedsLayout();
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => DControlWrap;
+}
+
+/// Ordinary box constraints plus the measured room for adaptive content.
+/// A control may report a larger minimum within the ordinary box constraints.
+class DControlWrapConstraints extends BoxConstraints {
+  DControlWrapConstraints(
+    BoxConstraints constraints, {
+    required this.availableMain,
+  }) : super(
+         minWidth: constraints.minWidth,
+         maxWidth: constraints.maxWidth,
+         minHeight: constraints.minHeight,
+         maxHeight: constraints.maxHeight,
+       );
+
+  final double availableMain;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DControlWrapConstraints &&
+      super == other &&
+      availableMain == other.availableMain;
+  @override
+  int get hashCode => Object.hash(super.hashCode, availableMain);
+}
+
 class DControlWrapParentData extends WrapParentData {
   bool expanded = false;
+  bool breakBefore = false;
+  bool breakAfter = false;
+  int order = 0;
+  bool remaining = false;
 }
 
 class _ControlRun {
@@ -110,6 +176,9 @@ class RenderDControlWrap extends RenderWrap {
   double get naturalMain => _naturalMain;
   double _naturalMain = 0;
 
+  int get runCount => _runCount;
+  int _runCount = 0;
+
   bool get _horizontal => direction == Axis.horizontal;
   double _main(Size value) => _horizontal ? value.width : value.height;
   double _cross(Size value) => _horizontal ? value.height : value.width;
@@ -123,6 +192,7 @@ class RenderDControlWrap extends RenderWrap {
     _surfaces.clear();
     if (firstChild == null) {
       _naturalMain = 0;
+      _runCount = 0;
       size = constraints.smallest;
       return;
     }
@@ -139,21 +209,70 @@ class RenderDControlWrap extends RenderWrap {
             minHeight: main ?? 0,
             maxHeight: main ?? double.infinity,
           );
+    final ordered =
+        [
+          for (var child = firstChild; child != null; child = childAfter(child))
+            child,
+        ].indexed.toList()..sort((a, b) {
+          final order = (a.$2.parentData! as DControlWrapParentData).order
+              .compareTo((b.$2.parentData! as DControlWrapParentData).order);
+          return order != 0 ? order : a.$1.compareTo(b.$1);
+        });
+    final groups = <RenderBox, int>{};
+    final groupCounts = <int, int>{};
+    final fixedByGroup = <int, double>{};
+    var group = 0;
+    var breakAfter = false;
+    for (final (_, child) in ordered) {
+      final data = child.parentData! as DControlWrapParentData;
+      if (_wrap && (breakAfter || data.breakBefore)) group++;
+      groups[child] = group;
+      groupCounts.update(group, (count) => count + 1, ifAbsent: () => 1);
+      breakAfter = data.breakAfter;
+    }
     final expanded = <RenderBox>[];
+    final remaining = <RenderBox>[];
     var fixedMain = 0.0;
-    for (var child = firstChild; child != null; child = childAfter(child)) {
-      if ((child.parentData! as DControlWrapParentData).expanded) {
+    for (final (_, child) in ordered) {
+      final data = child.parentData! as DControlWrapParentData;
+      if (data.expanded) {
         assert(
           !_wrap && maxMain.isFinite,
           'DControlExpanded needs a bounded, non-wrapping axis.',
         );
         expanded.add(child);
+      } else if (data.remaining) {
+        remaining.add(child);
       } else {
         child.layout(childConstraints(), parentUsesSize: true);
         final surface = _surfaceOf(child);
         _surfaces[child] = surface;
         fixedMain += _main(surface.size);
+        fixedByGroup.update(
+          groups[child]!,
+          (width) => width + _main(surface.size),
+          ifAbsent: () => _main(surface.size),
+        );
       }
+    }
+    for (final child in remaining) {
+      final group = groups[child]!;
+      final peers = remaining.where((item) => groups[item] == group).length;
+      final room = math.max(
+        0.0,
+        (maxMain -
+                (fixedByGroup[group] ?? 0) -
+                spacing * (groupCounts[group]! - 1)) /
+            peers,
+      );
+      // Adapt to the budget, but report real minimum bounds if it cannot fit.
+      child.layout(
+        DControlWrapConstraints(childConstraints(), availableMain: room),
+        parentUsesSize: true,
+      );
+      final surface = _surfaceOf(child);
+      _surfaces[child] = surface;
+      fixedMain += _main(surface.size);
     }
     if (expanded.isNotEmpty) {
       final extent = math.max(
@@ -163,7 +282,6 @@ class RenderDControlWrap extends RenderWrap {
       for (final child in expanded) {
         child.layout(childConstraints(main: extent), parentUsesSize: true);
         final surface = _surfaceOf(child);
-        // The empty portion of a flexible slot also belongs to that slot.
         _surfaces[child] = _horizontal
             ? Rect.fromLTWH(0, surface.top, extent, surface.height)
             : Rect.fromLTWH(surface.left, 0, surface.width, extent);
@@ -172,21 +290,27 @@ class RenderDControlWrap extends RenderWrap {
     final available = maxMain;
     final runs = <_ControlRun>[];
     var run = _ControlRun();
-    for (var child = firstChild; child != null; child = childAfter(child)) {
+    breakAfter = false;
+    for (final (_, child) in ordered) {
+      final data = child.parentData! as DControlWrapParentData;
       final surface = _surfaces[child]!;
       final gap = run.children.isEmpty ? 0.0 : spacing;
       if (_wrap &&
           run.children.isNotEmpty &&
-          run.main + gap + _main(surface.size) >
-              available + precisionErrorTolerance) {
+          (breakAfter ||
+              data.breakBefore ||
+              run.main + gap + _main(surface.size) >
+                  available + precisionErrorTolerance)) {
         runs.add(run);
         run = _ControlRun();
       }
       run.main += (run.children.isEmpty ? 0 : spacing) + _main(surface.size);
       run.cross = math.max(run.cross, _cross(surface.size));
       run.children.add(child);
+      breakAfter = data.breakAfter;
     }
     runs.add(run);
+    _runCount = runs.length;
     _naturalMain =
         _surfaces.values.fold(
           0.0,

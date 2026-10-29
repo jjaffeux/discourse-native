@@ -542,6 +542,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                     ),
                     DCommandGroup<String>(
                       heading: Text(context.l10n.searchFilterMatch),
+                      showGuide: true,
                       items: [
                         DCommandItem<String>(
                           value: '@tag-mode',
@@ -554,6 +555,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   for (final group in groups.entries)
                     DCommandGroup<String>(
                       heading: group.key.isEmpty ? null : Text(group.key),
+                      showGuide: group.key.isNotEmpty,
                       items: [
                         for (final suggestion in group.value)
                           DCommandItem<String>(
