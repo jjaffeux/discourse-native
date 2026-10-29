@@ -14,7 +14,8 @@ Widget? cookedDetailsWidgetBuilder(
 }) {
   if (element.localName != 'details') return null;
   final summary = childWhere(element, (child) => child.localName == 'summary');
-  final title = _summaryLabel(summary);
+  final visibleSummary = _visibleSummary(summary);
+  final title = _summaryLabel(visibleSummary);
   final body = dom.Element.tag('div');
   for (final node in element.nodes) {
     if (!identical(node, summary)) body.append(node.clone(true));
@@ -32,7 +33,14 @@ Widget? cookedDetailsWidgetBuilder(
           children: [
             DAccordionHeader(
               child: DAccordionTrigger(
-                child: Text(title.isEmpty ? appL10n.details : title),
+                child: visibleSummary?.querySelector('img.emoji') == null
+                    ? Text(title.isEmpty ? appL10n.details : title)
+                    : IgnorePointer(
+                        child: Builder(
+                          builder: (context) =>
+                              content(context, _summaryHtml(visibleSummary!)),
+                        ),
+                      ),
               ),
             ),
             DAccordionContent(
@@ -47,10 +55,10 @@ Widget? cookedDetailsWidgetBuilder(
   );
 }
 
-// The trigger uses plain text. Flattening concealed descendants would expose
-// content before its disclosure, including through the accessibility label.
-String _summaryLabel(dom.Element? summary) {
-  if (summary == null) return '';
+// Only visible text and server-cooked emoji belong in the trigger. Concealed
+// descendants must not leak through its appearance or accessibility label.
+dom.Element? _visibleSummary(dom.Element? summary) {
+  if (summary == null) return null;
   final visible = summary.clone(true);
   for (final hidden in visible.querySelectorAll('div.hidden, span.hidden')) {
     hidden.remove();
@@ -59,5 +67,28 @@ String _summaryLabel(dom.Element? summary) {
       in visible.querySelectorAll('div.spoiler, span.spoiler').reversed) {
     spoiler.replaceWith(dom.Text(appL10n.spoiler));
   }
-  return visible.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  return visible;
+}
+
+String _summaryLabel(dom.Element? summary) =>
+    summary?.text.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
+
+String _summaryHtml(dom.Element summary) {
+  final inline = dom.Element.tag('span');
+  void append(dom.Node node) {
+    if (node is dom.Text) {
+      inline.append(node.clone(true));
+    } else if (node is dom.Element) {
+      if (node.localName == 'img' && node.classes.contains('emoji')) {
+        inline.append(node.clone(true)..attributes['class'] = 'emoji');
+      } else {
+        for (final child in node.nodes) {
+          append(child);
+        }
+      }
+    }
+  }
+
+  append(summary);
+  return inline.outerHtml;
 }

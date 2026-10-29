@@ -10,6 +10,7 @@ import '../block_selection.dart';
 import '../block_surface.dart';
 import '../controller.dart';
 import '../embedded_editor.dart';
+import '../markdown_editing_controller.dart';
 import '../panel.dart';
 import 'details_body_controller.dart';
 import 'details_source.dart';
@@ -190,7 +191,13 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor> {
     widget.block,
   );
   ComposerDetailsBlock get _block => _body.block;
-  late final _summary = TextEditingController(text: widget.block.summary);
+  late final _summary = MarkdownEditingController(
+    text: widget.block.summary,
+    imageSiteUrl: widget.composer.target.siteUrl,
+    resolveEmoji: widget.composer.text.resolveEmoji,
+    emojiChanges: widget.composer.text.emojiChanges,
+    enableMarkdownLinkify: false,
+  );
   final _summaryFocus = FocusNode();
   bool _open = true;
   String? _error;

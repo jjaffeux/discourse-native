@@ -864,6 +864,72 @@ void main() {
         expect(controller.knowsEmoji('https://other.example', 'tada'), isFalse);
       });
 
+      test(
+        'resolves both alias orientations without replacing canonical animals',
+        () async {
+          final api = _PresentationApi()
+            ..emojis = const [
+              SiteEmoji(name: 'cat', url: 'cat.png'),
+              SiteEmoji(name: 'cat_face', url: 'cat-face.png'),
+              SiteEmoji(name: 'dog', url: 'dog.png'),
+              SiteEmoji(name: 'dog_face', url: 'dog-face.png'),
+              SiteEmoji(name: 'cheese_wedge', url: 'cheese.png'),
+              SiteEmoji(name: 'waving_hand', url: 'wave.png', tonable: true),
+            ]
+            ..emojiAliases = const {
+              'cat_face': ['cat', 'kitty'],
+              'waving_hand': ['hello'],
+              'cheese': ['cheese_wedge'],
+            };
+          final controller = _controller(api);
+          await controller.ensureEmojiCatalog(site);
+          expect(controller.emojiNameFor(site, 'kitty'), isNull);
+          await controller.ensureEmojiSearchAliases(site);
+          for (final name in ['cat', 'cat_face', 'dog', 'dog_face']) {
+            expect(controller.emojiNameFor(site, name), name);
+          }
+          expect(controller.emojiNameFor(site, 'CHEESE'), 'cheese_wedge');
+          expect(controller.emojiNameFor(site, 'kitty'), 'cat_face');
+          expect(controller.emojiNameFor(site, 'hello:t5'), 'waving_hand:t5');
+          expect(controller.emojiNameFor(site, 'wave:t3'), 'waving_hand:t3');
+          expect(controller.emojiNameFor(site, 'does_not_exist'), isNull);
+        },
+      );
+
+      test(
+        'emoji listeners see metadata refresh and retirement without presentation churn',
+        () async {
+          final api = _PresentationApi()
+            ..emojis = const [SiteEmoji(name: 'cat', url: 'cat.png')];
+          final controller = _controller(api);
+          var changes = 0;
+          var presentationChanges = 0;
+          final token = controller.presentationTokenFor(site);
+          controller.emojiChangesFor(site).addListener(() => changes++);
+          controller.addListener(() => presentationChanges++);
+          await controller.ensureEmojiCatalog(site);
+          expect(changes, 1);
+          await controller.refreshEmojiCatalog(site);
+          expect(changes, 1);
+          await controller.ensureEmojiSearchAliases(site);
+          expect(changes, 2);
+          await controller.refreshEmojiSearchAliases(site);
+          expect(changes, 2);
+          expect(controller.emojiNameFor(site, 'kitten'), isNull);
+          api.emojiAliases = const {
+            'cat': ['kitten'],
+          };
+          await controller.refreshEmojiSearchAliases(site);
+          expect(changes, 3);
+          expect(controller.emojiNameFor(site, 'kitten'), 'cat');
+          controller.forget(site);
+          expect(changes, 4);
+          expect(controller.emojiNameFor(site, 'kitten'), isNull);
+          expect(controller.presentationTokenFor(site), same(token));
+          expect(presentationChanges, 0);
+        },
+      );
+
       test('the index shares one request without presentation churn', () async {
         final api = _PresentationApi();
         final gate = Completer<List<SiteEmoji>>();

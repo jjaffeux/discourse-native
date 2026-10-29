@@ -40,6 +40,7 @@ class MarkdownEditingController extends TextEditingController {
     super.text,
     this.imageSiteUrl,
     this.resolveEmoji,
+    this.emojiChanges,
     this.pills,
     this.pluginHashtagPresentation,
     this.formatQuoteContents,
@@ -57,11 +58,14 @@ class MarkdownEditingController extends TextEditingController {
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
   }) : _backgroundSyntaxHighlighter = backgroundSyntaxHighlighterForTesting,
-       _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds);
+       _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds) {
+    emojiChanges?.addListener(artworkArrived);
+  }
 
   final String? imageSiteUrl;
 
-  final String Function(String name)? resolveEmoji;
+  final String? Function(String name)? resolveEmoji;
+  final Listenable? emojiChanges;
 
   final ComposerPills? pills;
 
@@ -2254,6 +2258,7 @@ class MarkdownEditingController extends TextEditingController {
     source: text,
     block: block,
     contents: displayedContents,
+    siteUrl: imageSiteUrl,
     baseStyle: base,
     quoteKey: _quoteKeys.putIfAbsent(
       block.start,
@@ -2597,6 +2602,7 @@ class MarkdownEditingController extends TextEditingController {
   @override
   void dispose() {
     _disposed = true;
+    emojiChanges?.removeListener(artworkArrived);
     _emojiArtwork.dispose();
     _fenceHighlightGeneration++;
     _fenceHighlightTimer?.cancel();

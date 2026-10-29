@@ -9,6 +9,7 @@ import '../../../theme/d_icons.dart';
 import '../block_selection.dart';
 import '../controller.dart';
 import '../embedded_editor.dart';
+import '../markdown_editing_controller.dart';
 import '../marks.dart';
 import 'table_source.dart';
 
@@ -204,7 +205,13 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
   @override
   void didUpdateWidget(ComposerTableEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.composer != widget.composer) _invalidateContent();
+    if (oldWidget.composer != widget.composer) {
+      for (final cell in _cells.values) {
+        cell.dispose();
+      }
+      _cells.clear();
+      _invalidateContent();
+    }
     if (oldWidget.selected != widget.selected) _content = null;
     if (_table.source == widget.table.source &&
         _table.start == widget.table.start) {
@@ -355,6 +362,7 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
     final cell = _cells.putIfAbsent(
       id,
       () => _CellEditing(
+        widget.composer,
         _table.cell(row, column),
         _table.cellPadding(row, column),
       ),
@@ -691,8 +699,14 @@ class _ComposerTableEditorState extends State<ComposerTableEditor> {
 }
 
 class _CellEditing {
-  _CellEditing(this.source, this.padding)
-    : controller = TextEditingController(text: source);
+  _CellEditing(ComposerController composer, this.source, this.padding)
+    : controller = MarkdownEditingController(
+        text: source,
+        imageSiteUrl: composer.target.siteUrl,
+        resolveEmoji: composer.text.resolveEmoji,
+        emojiChanges: composer.text.emojiChanges,
+        enableMarkdownLinkify: false,
+      );
   String source;
   // Keep authored spacing separate from whitespace entered in the field,
   // including when deletion makes the source's content boundary ambiguous.

@@ -6,19 +6,19 @@ import '../models/site_emoji.dart';
 import '../theme/discourse_typography.dart';
 import 'emoji.dart';
 import 'search_words.dart';
-import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 
 @immutable
 class SiteEmojiTextRun {
-  const SiteEmojiTextRun(this.text, {this.style});
+  const SiteEmojiTextRun(this.text, {this.style, this.literal = false});
 
   final String text;
   final TextStyle? style;
+  final bool literal;
 }
 
-class SiteEmojiText extends StatefulWidget {
+class SiteEmojiText extends StatelessWidget {
   const SiteEmojiText(
     this.runs, {
     super.key,
@@ -54,65 +54,48 @@ class SiteEmojiText extends StatefulWidget {
   final List<Widget> leading;
   final List<Widget> trailing;
 
-  static final RegExp shortcodePattern = RegExp(
-    ':($siteEmojiNameCharacterClass+(?::t[1-6])?):',
-    unicode: true,
-  );
-
-  @override
-  State<SiteEmojiText> createState() => _SiteEmojiTextState();
-}
-
-class _SiteEmojiTextState extends State<SiteEmojiText> {
-  ShellController? _askedController;
-  String? _askedSite;
+  static final shortcodePattern = siteEmojiShortcodePattern;
+  static Iterable<RegExpMatch> shortcodeMatches(String text) =>
+      siteEmojiShortcodeMatches(text);
 
   @override
   Widget build(BuildContext context) {
-    final text = widget.runs.map((run) => run.text).join();
-    if (!SiteEmojiText.shortcodePattern.hasMatch(text)) {
-      return _resolved(context, text, const []);
+    final text = runs.map((run) => run.text).join();
+    var offset = 0;
+    final literalRanges = <TextRange>[];
+    for (final run in runs) {
+      if (run.literal) {
+        literalRanges.add(
+          TextRange(start: offset, end: offset + run.text.length),
+        );
+      }
+      offset += run.text.length;
     }
+    final matches = shortcodeMatches(text)
+        .where(
+          (match) => !literalRanges.any(
+            (range) => range.start < match.end && range.end > match.start,
+          ),
+        )
+        .toList(growable: false);
+    if (matches.isEmpty) return _resolved(context, text, const []);
 
-    // The catalog deliberately loads without presentation churn — see
-    // `presentationTokenFor` — so its arrival rebuilds through this state's
-    // own request below, while custom uploads and settings changes arrive
-    // through the token like every other presentation dependency.
-    return ShellSelector<Object>(
-      select: (controller) => controller.presentationTokenFor(widget.siteUrl),
-      builder: (context, _, _) {
-        final controller = ShellScope.read(context);
-        if (controller.emojiCatalogFor(widget.siteUrl) == null) {
-          _requestCatalog(controller);
+    final controller = ShellScope.maybeIdentityOf(context);
+    if (controller == null) return _resolved(context, text, const []);
+    return ListenableBuilder(
+      listenable: controller.emojiChangesFor(siteUrl),
+      builder: (context, _) {
+        if (controller.emojiCatalogFor(siteUrl) == null) {
+          unawaited(controller.ensureEmojiCatalog(siteUrl));
         }
+        unawaited(controller.ensureEmojiSearchAliases(siteUrl));
         return _resolved(context, text, [
-          for (final match in SiteEmojiText.shortcodePattern.allMatches(text))
-            if (controller.emojiNameFor(widget.siteUrl, match.group(1)!)
+          for (final match in matches)
+            if (controller.emojiNameFor(siteUrl, match.group(1)!)
                 case final name?)
               (match: match, name: name),
         ]);
       },
-    );
-  }
-
-  void _requestCatalog(ShellController controller) {
-    if (identical(_askedController, controller) &&
-        _askedSite == widget.siteUrl) {
-      return;
-    }
-    _askedController = controller;
-    _askedSite = widget.siteUrl;
-    unawaited(
-      controller.ensureEmojiCatalog(widget.siteUrl).then((catalog) {
-        if (!mounted) return;
-        if (catalog != null) {
-          setState(() {});
-        } else if (identical(_askedController, controller) &&
-            _askedSite == widget.siteUrl) {
-          _askedController = null;
-          _askedSite = null;
-        }
-      }),
     );
   }
 
@@ -123,9 +106,9 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
   ) {
     final query = SearchWords.of(context);
     final runs = query.isEmpty
-        ? widget.runs
+        ? this.runs
         : [
-            for (final run in widget.runs)
+            for (final run in this.runs)
               for (final span in searchTextSpans(
                 run.text,
                 query,
@@ -139,22 +122,20 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     if (emoji.isEmpty &&
         runs.length == 1 &&
         runs.single.style == null &&
-        widget.leading.isEmpty &&
-        widget.trailing.isEmpty) {
+        leading.isEmpty &&
+        trailing.isEmpty) {
       return Text(
         text,
-        maxLines: widget.maxLines,
-        overflow: widget.overflow,
-        style: widget.style,
-        textAlign: widget.textAlign,
+        maxLines: maxLines,
+        overflow: overflow,
+        style: style,
+        textAlign: textAlign,
       );
     }
 
-    final effectiveStyle = DefaultTextStyle.of(
-      context,
-    ).style.merge(widget.style);
+    final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
     final spans = <InlineSpan>[
-      for (final marker in widget.leading)
+      for (final marker in leading)
         _MarkerWidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: marker,
@@ -170,7 +151,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: SiteEmojiImage(
-            siteUrl: widget.siteUrl,
+            siteUrl: siteUrl,
             name: resolved.name,
             size: (emojiStyle.fontSize ?? DiscourseTypography.sm) * emojiScale,
             alt: match.group(0)!,
@@ -182,7 +163,7 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
     }
     cursor.appendText(spans, text.length);
     spans.addAll(
-      widget.trailing.map(
+      trailing.map(
         (marker) => _MarkerWidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: marker,
@@ -192,16 +173,16 @@ class _SiteEmojiTextState extends State<SiteEmojiText> {
 
     final richText = Text.rich(
       TextSpan(children: spans),
-      maxLines: widget.maxLines,
-      overflow: widget.overflow,
-      style: widget.style,
-      textAlign: widget.textAlign,
+      maxLines: maxLines,
+      overflow: overflow,
+      style: style,
+      textAlign: textAlign,
     );
 
     // Inline markers carry meaningful semantics of their own. Keep
     // those descendants exposed; ordinary emoji-only prose still gets one
     // clean label rather than being announced as several fragments.
-    if (widget.leading.isNotEmpty || widget.trailing.isNotEmpty) {
+    if (leading.isNotEmpty || trailing.isNotEmpty) {
       return richText;
     }
 

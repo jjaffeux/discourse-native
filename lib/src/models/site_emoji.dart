@@ -3,6 +3,37 @@ import 'package:flutter/foundation.dart';
 const siteEmojiNameCharacterClass =
     r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}_+\-]';
 
+final siteEmojiShortcodePattern = RegExp(
+  ':($siteEmojiNameCharacterClass+(?::t[1-6])?):',
+  unicode: true,
+);
+
+final _emojiWordEnd = RegExp(
+  r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}]$',
+  unicode: true,
+);
+final _emojiLiteralCode = RegExp(r'(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)');
+
+/// Shortcodes in plain presentation text share the composer's word boundary
+/// and leave backtick-delimited code literal, including multiline fences.
+Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
+  final code = _emojiLiteralCode.allMatches(text).iterator;
+  var hasCode = code.moveNext();
+  for (final match in siteEmojiShortcodePattern.allMatches(text)) {
+    if (match.start > 0 &&
+        _emojiWordEnd.hasMatch(
+          text.substring((match.start - 2).clamp(0, match.start), match.start),
+        )) {
+      continue;
+    }
+    while (hasCode && code.current.end <= match.start) {
+      hasCode = code.moveNext();
+    }
+    if (hasCode && code.current.start < match.end) continue;
+    yield match;
+  }
+}
+
 enum EmojiSkinTone {
   neutral(null),
   t2(2),

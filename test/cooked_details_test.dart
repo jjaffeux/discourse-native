@@ -73,6 +73,45 @@ void main() {
     }
   });
 
+  testWidgets(
+    'summary preserves cooked emoji and concealment without expanding raw shortcodes',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pump(
+          tester,
+          '<details><summary>Visible <img class="emoji" src="/emoji/cat.png" alt=":cat:"> '
+          ':dog: <span class="hidden"><img class="emoji" src="/private.png" alt="PRIVATE"></span>'
+          '<span class="spoiler"><img class="emoji" src="/secret.png" alt="SECRET"></span>'
+          '</summary><p>Body</p></details>',
+        );
+        final artwork = tester.widgetList<EmojiImage>(find.byType(EmojiImage));
+        expect(artwork.map((image) => image.url), [
+          'https://example.test/emoji/cat.png',
+        ]);
+        expect(
+          find.textContaining(':dog:', findRichText: true),
+          findsOneWidget,
+        );
+        final tree = tester
+            .binding
+            .renderViews
+            .single
+            .owner!
+            .semanticsOwner!
+            .rootSemanticsNode!
+            .toStringDeep();
+        expect(tree, isNot(contains('PRIVATE')));
+        expect(tree, isNot(contains('SECRET')));
+        await tester.tap(find.byType(DAccordionTrigger));
+        await tester.pumpAndSettle();
+        expect(find.text('Body', findRichText: true), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   testWidgets('details collapse, expand and keep rich body and site context', (
     tester,
   ) async {

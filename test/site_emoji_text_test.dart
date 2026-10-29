@@ -261,6 +261,31 @@ void main() {
       expect(artworkRequests, isEmpty);
     });
 
+    testWidgets(
+      'leaves code and word-adjacent tokens literal across styled runs',
+      (tester) async {
+        await _pump(
+          tester,
+          runs: const [
+            SiteEmojiTextRun('A :sparkles: word'),
+            SiteEmojiTextRun(':sparkles: é:wave: 2:wave: `:spark'),
+            SiteEmojiTextRun('les:` ``:wave:`` :wave:t4:'),
+          ],
+        );
+        expect(
+          tester
+              .widgetList<SiteEmojiImage>(find.byType(SiteEmojiImage))
+              .map((image) => image.name),
+          ['sparkles', 'wave:t4'],
+        );
+        final text = tester.widget<Text>(find.byType(Text).first);
+        expect(
+          text.textSpan!.toPlainText(includePlaceholders: false),
+          'A  word:sparkles: é:wave: 2:wave: `:sparkles:` ``:wave:`` ',
+        );
+      },
+    );
+
     testWidgets('resolves a site custom emoji', (tester) async {
       await _pump(tester, runs: const [SiteEmojiTextRun('Hi :partyparrot:!')]);
 
