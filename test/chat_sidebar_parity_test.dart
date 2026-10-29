@@ -274,7 +274,9 @@ void main() {
           find.descendant(of: controls, matching: find.byType(DButton)),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Unread').last);
+        await tester.tap(
+          find.widgetWithText(DDropdownMenuRadioItem<bool>, 'Unread'),
+        );
         await tester.pumpAndSettle();
         expect(
           find.descendant(of: controls, matching: find.text('Unread')),

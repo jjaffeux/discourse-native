@@ -265,7 +265,6 @@ final class VoicePlugin
         id: 'voice-rooms',
         title: appL10n.voiceRooms,
         showHeader: true,
-        collapsible: false,
         bodyBuilder: (_) => SliverList.list(
           children: [
             for (final room in rooms)

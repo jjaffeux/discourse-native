@@ -124,45 +124,39 @@ List<ChatInboxSection> chatInboxSections(
   ],
 ].where((section) => section.channels.isNotEmpty).toList();
 
+DIconData _inboxSectionIcon(ChatInboxSectionKind kind) => switch (kind) {
+  ChatInboxSectionKind.starred => DIcons.star,
+  ChatInboxSectionKind.channels => DIcons.hashtag,
+  ChatInboxSectionKind.directMessages => DIcons.user,
+  ChatInboxSectionKind.allChats => DIcons.comments,
+};
+
+String _inboxSectionLabel(BuildContext context, ChatInboxSectionKind kind) =>
+    switch (kind) {
+      ChatInboxSectionKind.starred => context.l10n.starred,
+      ChatInboxSectionKind.channels => context.l10n.channels,
+      ChatInboxSectionKind.directMessages => context.l10n.directMessages,
+      ChatInboxSectionKind.allChats => 'All chats',
+    };
+
 class ChatInboxSectionHeading extends StatelessWidget {
-  const ChatInboxSectionHeading({
-    super.key,
-    required this.kind,
-    this.compact = false,
-  });
+  const ChatInboxSectionHeading({super.key, required this.kind});
   final ChatInboxSectionKind kind;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsetsDirectional.fromSTEB(
-      compact ? 10 : 0,
-      18,
-      compact ? 10 : 0,
-      2,
-    ),
+    padding: const EdgeInsets.only(top: 18, bottom: 2),
     child: Row(
       spacing: DSpacing.xs,
       children: [
         DIcon(
-          switch (kind) {
-            ChatInboxSectionKind.starred => DIcons.star,
-            ChatInboxSectionKind.channels => DIcons.hashtag,
-            ChatInboxSectionKind.directMessages => DIcons.user,
-            ChatInboxSectionKind.allChats => DIcons.comments,
-          },
+          _inboxSectionIcon(kind),
           size: 11,
           color: DTokens.of(context).mutedForeground,
         ),
         Flexible(
           child: Text(
-            switch (kind) {
-              ChatInboxSectionKind.starred => context.l10n.starred,
-              ChatInboxSectionKind.channels => context.l10n.channels,
-              ChatInboxSectionKind.directMessages =>
-                context.l10n.directMessages,
-              ChatInboxSectionKind.allChats => 'All chats',
-            },
+            _inboxSectionLabel(context, kind),
             style: TextStyle(
               fontSize: DiscourseTypography.xs,
               fontWeight: FontWeight.w600,
@@ -587,20 +581,6 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     final sections = chatInboxSections([
       for (final id in layout.channelIds) ?chat.channel(siteUrl, id),
     ], layout.filter.sort);
-    final entries = <({ChatInboxSectionKind? heading, int? id})>[
-      for (final section in sections) ...[
-        (heading: section.kind, id: null),
-        for (final channel in section.channels) (heading: null, id: channel.id),
-      ],
-    ];
-    Key entryKey(({ChatInboxSectionKind? heading, int? id}) entry) =>
-        switch (entry.id) {
-          final id? => ValueKey(id),
-          null => ValueKey(entry.heading),
-        };
-    final indexes = {
-      for (final (index, entry) in entries.indexed) entryKey(entry): index,
-    };
     return SliverMainAxisGroup(
       slivers: [
         if (layout.loading)
@@ -616,26 +596,51 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
             child: _ChatSidebarInboxEmpty(filter: layout.filter),
           )
         else
-          SliverList.builder(
-            itemCount: entries.length,
-            findChildIndexCallback: (key) => indexes[key],
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              if (entry.heading case final heading?) {
-                return ChatInboxSectionHeading(
-                  key: entryKey(entry),
-                  kind: heading,
-                  compact: true,
-                );
-              }
-              return _ChatSidebarInboxEntry(
-                key: entryKey(entry),
-                siteUrl: siteUrl,
-                channelId: entry.id!,
-              );
-            },
-          ),
+          for (final section in sections) _section(section),
       ],
+    );
+  }
+
+  Widget _section(ChatInboxSection section) {
+    final indexes = {
+      for (final (index, channel) in section.channels.indexed)
+        channel.id: index,
+    };
+    return DCollapsible(
+      key: ValueKey(section.kind),
+      defaultOpen: true,
+      child: DSidebarGroup.sliver(
+        padding: EdgeInsets.zero,
+        header: DCollapsibleTrigger(
+          builder: (context, state) => DSidebarGroupLabel(
+            child: Row(
+              spacing: DSpacing.sm,
+              children: [
+                DIcon(_inboxSectionIcon(section.kind), size: 16),
+                Expanded(
+                  child: Text(_inboxSectionLabel(context, section.kind)),
+                ),
+                DIcon(
+                  state.open ? DIcons.chevronDown : DIcons.chevronRight,
+                  size: 10,
+                ),
+              ],
+            ),
+          ),
+        ),
+        sliver: DCollapsibleContent.sliver(
+          sliver: SliverList.builder(
+            itemCount: section.channels.length,
+            findChildIndexCallback: (key) =>
+                key is ValueKey<int> ? indexes[key.value] : null,
+            itemBuilder: (context, index) => _ChatSidebarInboxEntry(
+              key: ValueKey(section.channels[index].id),
+              siteUrl: widget.siteUrl,
+              channelId: section.channels[index].id,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

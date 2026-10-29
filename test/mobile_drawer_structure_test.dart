@@ -233,8 +233,19 @@ void main() {
                   ][(id - 1) % 5] +
                   (id > 5 ? ' $id' : ''),
               kind: ChatChannelKind.category,
-              membership: const ChatMembership(following: true),
+              membership: ChatMembership(following: true, starred: id <= 2),
               lastMessagePreview: 'The latest updates from the community',
+            ),
+        ],
+        direct: [
+          for (final (id, name) in ['sam', 'alex', 'jules'].indexed)
+            ChatChannel(
+              id: id + 31,
+              title: name,
+              kind: ChatChannelKind.directMessage,
+              users: [ChatUser(id: id + 40, username: name)],
+              membership: const ChatMembership(following: true),
+              lastMessagePreview: 'See you at the next community meetup',
             ),
         ],
       ),
@@ -280,6 +291,23 @@ void main() {
     }
     await tester.tap(_menu);
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(
+            find.ancestor(
+              of: sidebarDestination('Topics'),
+              matching: find.byType(DSidebarMenuButton),
+            ),
+          )
+          .height,
+      40,
+    );
+    expect(
+      tester
+          .getSize(find.widgetWithText(DSidebarGroupLabel, 'Categories'))
+          .height,
+      48,
+    );
     await _capture(tester, 'forum-drawer');
     Finder list() =>
         find.descendant(of: _panel, matching: find.byType(CustomScrollView));
@@ -294,6 +322,26 @@ void main() {
       findsOneWidget,
     );
     await _capture(tester, 'chat-drawer');
+    expect(
+      tester.getSize(find.byKey(const ValueKey('chat-inbox-channel-1'))).height,
+      56,
+    );
+    final starredHeading = find.ancestor(
+      of: find.text('Starred'),
+      matching: find.byType(DCollapsibleTrigger),
+    );
+    await tester.tap(starredHeading);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-inbox-channel-1')).hitTestable(),
+      findsNothing,
+    );
+    await tester.tap(starredHeading);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-inbox-channel-1')).hitTestable(),
+      findsOneWidget,
+    );
     final filters = find.byKey(const ValueKey('chat-inbox-activity-filter'));
     final atRest = tester.getRect(filters);
     await tester.drag(list(), const Offset(0, -260));

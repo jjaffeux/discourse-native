@@ -542,6 +542,7 @@ class DSidebarGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     if (_sliver) {
       final drawer = DSidebarRowScope.drawerOf(context);
+      final card = drawer && header != null;
       return SliverPadding(
         padding: padding,
         sliver: SliverMainAxisGroup(
@@ -559,12 +560,12 @@ class DSidebarGroup extends StatelessWidget {
               else
                 SliverToBoxAdapter(child: heading),
             SliverPadding(
-              padding: drawer
+              padding: card
                   ? const EdgeInsets.symmetric(horizontal: 6)
                   : EdgeInsets.zero,
               sliver: child,
             ),
-            if (drawer) const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            if (card) const SliverToBoxAdapter(child: SizedBox(height: 8)),
           ],
         ),
       );
