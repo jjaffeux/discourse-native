@@ -360,6 +360,17 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     return true;
   }
 
+  /// The extent the list measured for [postId]'s row the last time it was laid
+  /// out, or null while the list only estimates it.
+  double? measuredExtentFor(int postId) {
+    final list = _list;
+    if (list == null || !list.isAttached) return null;
+    final childIndex = window.childIndexForPost(postId);
+    if (childIndex == null || childIndex >= list.numberOfItems) return null;
+    final (extent, estimated) = list.extentForIndex(childIndex);
+    return estimated ? null : extent;
+  }
+
   bool rememberPostExtent(
     int postId, {
     required Post post,

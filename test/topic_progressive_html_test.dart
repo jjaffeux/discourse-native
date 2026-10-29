@@ -326,6 +326,114 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'released replies dragged back in above hold their measured height until '
+    'their bodies land',
+    (tester) async {
+      final controller = await topicScrollController();
+      addTearDown(controller.dispose);
+      try {
+        await tester.pumpWidget(
+          TopicScrollFixture(controller: controller, inbox: false),
+        );
+        await _until(
+          tester,
+          () => _paragraphs('Post 1:').evaluate().isNotEmpty,
+        );
+        await tester.pumpAndSettle();
+        final list = topicPostList(tester);
+        Future<void> jump(int index) async {
+          list.listController!.jumpToItem(
+            index: index,
+            scrollController: list.controller!,
+            alignment: 0,
+          );
+          await tester.pumpAndSettle();
+        }
+
+        Map<int, double> builtHeights() => {
+          for (var id = 1; id <= 60; id++)
+            if (find
+                .byKey(ValueKey(id), skipOffstage: false)
+                .evaluate()
+                .isNotEmpty)
+              id: tester
+                  .getSize(find.byKey(ValueKey(id), skipOffstage: false))
+                  .height,
+        };
+
+        // Lay out the replies around 45, then visit enough short replies
+        // elsewhere that the reader stops keeping them alive. Posts 1 and 20
+        // are long enough to parse in an isolate, so the visits avoid them.
+        await jump(86);
+        final measured = builtHeights();
+        for (final index in [
+          for (var index = 44; index <= 78; index += 2) index,
+          for (var index = 94; index <= 118; index += 2) index,
+        ]) {
+          await jump(index);
+        }
+        await jump(92);
+        final before = builtHeights().keys.toSet();
+
+        final anchor = find.byKey(const ValueKey(47), skipOffstage: false);
+        final gesture = await tester.startGesture(
+          tester.getCenter(topicPostListFinder()),
+        );
+        await gesture.moveBy(const Offset(0, 20));
+        await tester.pump();
+        await gesture.moveBy(const Offset(0, 300));
+        await tester.pump();
+
+        final entered = builtHeights().keys.toSet().difference(before);
+        final remeasured = entered.intersection(measured.keys.toSet());
+        expect(remeasured, isNotEmpty);
+        for (final id in remeasured) {
+          expect(
+            _paragraphs('Post $id:', skipOffstage: false),
+            findsNothing,
+            reason: 'Reply $id builds its body after the frame it entered',
+          );
+          expect(
+            tester
+                .getSize(find.byKey(ValueKey(id), skipOffstage: false))
+                .height,
+            closeTo(measured[id]!, 0.5),
+            reason: 'Reply $id holds its measured height meanwhile',
+          );
+        }
+        final top = tester.getTopLeft(anchor).dy;
+        await _until(
+          tester,
+          () => remeasured.every(
+            (id) => _paragraphs(
+              'Post $id:',
+              skipOffstage: false,
+            ).evaluate().isNotEmpty,
+          ),
+        );
+        await tester.pump();
+        for (final id in remeasured) {
+          expect(
+            _paragraphs('Post $id:', skipOffstage: false),
+            findsNWidgets(3),
+          );
+        }
+        expect(
+          tester.getTopLeft(anchor).dy,
+          closeTo(top, 1),
+          reason: 'Bodies landing above leave the visible replies still',
+        );
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
+    },
+  );
 }
 
 Finder _paragraphs(String prefix, {bool skipOffstage = true}) =>

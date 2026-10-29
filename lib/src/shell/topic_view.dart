@@ -593,6 +593,29 @@ class _TopicViewState extends State<TopicView>
     _viewport.scheduleLook();
   }
 
+  /// How a reply first built now builds its HTML. During a drag or fling the
+  /// reply enters the scroll cache offscreen, and its HTML builds a frame
+  /// later: with the rest of the reply it overruns a 120 Hz frame. Toward the
+  /// end the late body grows the reply below the viewport, so nothing on
+  /// screen moves. Toward the start the reply holds the height the list last
+  /// measured for it until the body lands, so the replies below it stay put;
+  /// one the list never measured builds at once. Jumps and keys land on
+  /// visible replies, which also build at once.
+  _PostBodyStaging _bodyStaging(BuildContext item, int postId) {
+    // The item's own scrollable: the reader's controller can briefly be
+    // attached to a second scroll view while a page moves.
+    final position = item.findAncestorStateOfType<ScrollableState>()?.position;
+    if (position == null) return _bodyAtOnce;
+    return switch (position.userScrollDirection) {
+      ScrollDirection.reverse => (followsFrame: true, reservedHeight: null),
+      ScrollDirection.forward => switch (_reader.measuredExtentFor(postId)) {
+        final height? => (followsFrame: true, reservedHeight: height),
+        null => _bodyAtOnce,
+      },
+      ScrollDirection.idle => _bodyAtOnce,
+    };
+  }
+
   void _inspectViewport(
     TopicViewportSnapshot snapshot, {
     required bool saveAnchor,
@@ -1786,6 +1809,7 @@ class _TopicViewState extends State<TopicView>
           onAttach: _registerPostContext,
           onDetach: _unregisterPostContext,
           onBodyComplete: _scheduleLook,
+          bodyStaging: _bodyStaging(context, postId),
           child: _StoredPost(
             keyboardSelection: _interaction.selection,
             siteUrl: siteUrl,
@@ -3531,6 +3555,30 @@ class _MoreTopics extends StatelessWidget {
   }
 }
 
+/// Whether a reply's HTML builds after the frame that first builds the reply,
+/// and the height the reply holds until then. See `_bodyStaging`.
+typedef _PostBodyStaging = ({bool followsFrame, double? reservedHeight});
+
+const _PostBodyStaging _bodyAtOnce = (
+  followsFrame: false,
+  reservedHeight: null,
+);
+
+/// Carries a reply's latched [_PostBodyStaging.followsFrame] to the tile that
+/// builds its HTML.
+class _PostBodyTiming extends InheritedWidget {
+  const _PostBodyTiming({required this.followsFrame, required super.child});
+
+  final bool followsFrame;
+
+  static bool followsFrameOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_PostBodyTiming>()?.followsFrame ??
+      false;
+
+  @override
+  bool updateShouldNotify(_PostBodyTiming oldWidget) => false;
+}
+
 class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
@@ -3554,6 +3602,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.onAttach,
     required this.onDetach,
     required this.onBodyComplete,
+    required this.bodyStaging,
     required this.child,
   });
 
@@ -3578,6 +3627,9 @@ class _TopicPostItem extends StatefulWidget {
   final void Function(int postId, BuildContext context, bool bodyComplete)
   onDetach;
   final VoidCallback onBodyComplete;
+
+  /// Read once, when the reply is first built.
+  final _PostBodyStaging bodyStaging;
   final Widget child;
 
   @override
@@ -3591,6 +3643,8 @@ class _TopicPostItemState extends State<_TopicPostItem>
   bool _keepAliveUpdateScheduled = false;
   final _mountingBodies = <Future<void>>{};
   final _mountingLayouts = <Future<void>>{};
+  late final bool _bodyFollowsFrame;
+  bool _releaseHeightWithBody = false;
 
   bool get bodyComplete => _mountingBodies.isEmpty;
 
@@ -3627,6 +3681,11 @@ class _TopicPostItemState extends State<_TopicPostItem>
     widget.retention.addListener(_scheduleKeepAliveUpdate);
     widget.post.addListener(_updateRetention);
     _retainedMinimumHeight = widget.retainedMinimumHeight;
+    _bodyFollowsFrame = widget.bodyStaging.followsFrame;
+    if (widget.bodyStaging.reservedHeight case final height?) {
+      _retainedMinimumHeight = math.max(_retainedMinimumHeight ?? 0, height);
+      _releaseHeightWithBody = true;
+    }
     widget.onAttach(widget.postId, context);
   }
 
@@ -3728,7 +3787,10 @@ class _TopicPostItemState extends State<_TopicPostItem>
           ),
         ValueListenableBuilder<Set<int>>(
           valueListenable: widget.animatedPostIds,
-          child: widget.child,
+          child: _PostBodyTiming(
+            followsFrame: _bodyFollowsFrame,
+            child: widget.child,
+          ),
           builder: (context, visible, child) => TickerMode(
             enabled: visible.contains(widget.postId),
             child: child!,
@@ -3752,7 +3814,14 @@ class _TopicPostItemState extends State<_TopicPostItem>
           completion.whenComplete(() {
             _mountingBodies.remove(completion);
             _mountingLayouts.remove(completion);
-            if (mounted && bodyComplete) widget.onBodyComplete();
+            if (!mounted || !bodyComplete) return;
+            widget.onBodyComplete();
+            // A remeasured body may differ from the height it held, as after
+            // an edit; it takes its own height once it has landed.
+            if (_releaseHeightWithBody) {
+              _releaseHeightWithBody = false;
+              _releaseRetainedMinimumHeight();
+            }
           }),
         );
         return true;
@@ -4021,22 +4090,12 @@ class _PostTile extends StatefulWidget {
 class _PostTileState extends State<_PostTile> {
   bool _linksExpanded = false;
 
-  /// Whether this reply was first built while the reader dragged or flung
-  /// the stream toward its end, entering the scroll cache below the viewport.
-  /// Its HTML then builds after this frame: with the rest of the reply it
-  /// overruns a 120 Hz frame, and a body landing below moves nothing on
-  /// screen. Above the viewport it would push the visible replies down, and
-  /// jumps land on visible replies, so those build at once.
   late final bool _bodyFollowsFrame;
 
   @override
   void initState() {
     super.initState();
-    final position = context
-        .findAncestorStateOfType<ScrollableState>()
-        ?.position;
-    _bodyFollowsFrame =
-        position?.userScrollDirection == ScrollDirection.reverse;
+    _bodyFollowsFrame = _PostBodyTiming.followsFrameOf(context);
   }
 
   @override

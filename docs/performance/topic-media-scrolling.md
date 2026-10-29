@@ -50,18 +50,22 @@ notification between frames.
 
 ## Change
 
-`_PostTileState` records, once, whether its reply was first built during a
-user drag or fling toward the end of the stream. Such a reply is entering the
-scroll cache below the viewport, so its `CookedHtml` uses the asynchronous
-build. The vendored `HtmlWidget` parses such a short document in a microtask
+The reader decides, once per reply, whether a reply first built during a
+user drag or fling builds its HTML in a later frame. Toward the end of the
+stream, the reply is entering the scroll cache below the viewport, so its
+`CookedHtml` uses the asynchronous build. The vendored `HtmlWidget` parses such a short document in a microtask
 after the frame instead of in an isolate (see its `PATCHES.md`), and mounts
 the body in a later frame. The reply reports the pending body through
 `HtmlBodyMountingNotification`, as long replies already do, and initial
 positioning never happens during a user scroll.
 
-Replies entering above the viewport still build at once: a widget test showed
-a body landing there moves the visible replies down. Jumps and keyboard
-navigation land on visible replies and also build at once.
+Toward the start, a reply enters above the viewport, and a body landing late
+there would push the visible replies down; a widget test showed 252 px. Such
+a reply is staged only when the list has measured it before, as when the
+reader scrolls back over replies it released. It then holds that measured
+height until its body lands, so nothing moves; a reply the list never
+measured builds at once. Jumps and keyboard navigation land on visible
+replies and also build at once.
 
 ## Results
 
@@ -89,18 +93,29 @@ budget instead of 63, and the HTML widget's parse and tree fell from 11.5% to
 16 ms, held 3 to 11 samples each where 4 kHz sampling takes about 60: the UI
 thread spent them outside Dart code, in collection or descheduled.
 
-The warm phase scrolls toward the start and takes the unchanged path. It
-varied from 9 to 33 frames over budget across these six runs, with or without
-the change.
+Those rounds staged replies toward the end only. A second change staged
+remeasured replies toward the start, measured on the warm phase, which reads
+back up over replies the reader has released:
+
+| Run | Frames | p50 | p99 | Max | Frames over 8.3 ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Toward the end only, round 1 | 5,464 | 0.39 | 6.94 | 9.97 | 17 |
+| Both directions, round 1 | 5,482 | 0.39 | 4.20 | 15.41 | 2 |
+| Toward the end only, round 2 | 5,470 | 0.39 | 6.98 | 15.46 | 23 |
+| Both directions, round 2 | 5,483 | 0.40 | 4.19 | 7.92 | 0 |
+
+The cold phase stayed between 0 and 4 frames over budget in all four runs.
+The first run with the change had 4 of those, up to 14.9 ms, in its cold
+phase, which both builds handle alike; its warm-phase maximum is likely the
+same disturbance.
 
 The per-run summaries are in
 [data/topic-media-scrolling.json](data/topic-media-scrolling.json).
 
 ## Not changed
 
-- Scrolling back over released replies still builds each one in one frame.
-  Staging those would need a reserved height for replies whose extent the
-  reader does not remember, because their bodies grow above the viewport.
+- Scrolling toward the start over replies the list never measured, as after
+  opening a topic at its last post, still builds each one in one frame.
 - A reply's UI-kit chrome (buttons, tooltips, hover cards) is most of its
   elements and most of the remaining frame time.
 - `RenderObject.attach` computes semantics configurations with semantics
