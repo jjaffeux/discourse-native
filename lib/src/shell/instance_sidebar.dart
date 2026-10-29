@@ -17,7 +17,6 @@ import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'composer/presentation.dart';
-import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_theme_surfaces.dart';
 import 'mobile_navigation.dart';
@@ -184,7 +183,7 @@ class InstanceSidebar extends StatelessWidget {
 
   final SidebarSectionStore? sectionStore;
 
-  /// Mobile navigation omits the community header; panel roots use the dock.
+  /// Mobile panel roots use the dock; the drawer includes forum identity.
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
@@ -352,8 +351,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
             navigationOpen:
                 widget.mobile &&
                     widget.panelOwner == null &&
-                    controller.mobileNavigationEnabled &&
-                    controller.mobileNavigation.canGoBack
+                    controller.mobileNavigationEnabled
                 ? controller.mobileNavigation.sidebarOpen
                 : null,
             contentId:
@@ -377,20 +375,24 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     final controller = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
-    final routedPanel = panels.where((panel) => panel.panel.active).firstOrNull;
+    final routedPanel = panels.where((panel) {
+      if (widget.mobile && controller.mobileNavigation.atRoot) {
+        return panel.owner.value == controller.mobileNavigation.tab.panelOwner;
+      }
+      return panel.panel.active;
+    }).firstOrNull;
     final navigation = (
       sidebar.siteUrl,
       controller.activeTabId,
       controller.currentContent?.id,
       routedPanel?.owner,
-      // A retained preview reselects the route's panel when reopened from a
-      // deeper page, as the previously unmounted sidebar did.
+      // The retained preview reselects the foreground side on every opening.
       state.navigationOpen,
     );
     if (_navigation != navigation) {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
-      if (routedPanel != null) _shortcuts = false;
+      if (widget.mobile || routedPanel != null) _shortcuts = false;
     }
     final mobileRoot = widget.mobile && widget.panelOwner != null;
     if (mobileRoot) _selectedOwner = widget.panelOwner;
@@ -430,52 +432,59 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 .toList(),
           ),
     ];
-    final forumSections = widget.mobile
-        ? <SidebarSection>[]
-        : [
-            for (final section in sidebar.sections)
-              if (section.id == 'community')
-                SidebarSection(
-                  id: section.id,
-                  title: section.title,
-                  destinations: section.destinations,
-                  moreDestinations: [
-                    SidebarDestination(
-                      id: 'all-categories',
-                      label: context.l10n.categories,
-                      icon: DIcons.tag,
-                    ),
-                    ...section.moreDestinations.where(
-                      (destination) => destination.url == null,
-                    ),
-                    if (controller.currentInstance?.isConnected == true)
-                      SidebarDestination(
-                        id: 'user-bookmarks',
-                        label: context.l10n.bookmarks,
-                        icon: DIcons.bookmark,
-                      ),
-                    SidebarDestination(
-                      id: 'appearance',
-                      label: context.l10n.interface,
-                      icon: DIcons.gear,
-                      onTap: () =>
-                          controller.openForumSettings(sidebar.siteUrl!),
-                    ),
-                    if (controller.currentInstance?.isConnected == true)
-                      SidebarDestination(
-                        id: 'preferences',
-                        label: context.l10n.preferences,
-                        icon: DNativeIcons.sliders,
-                        onTap: () =>
-                            controller.openPreferences(sidebar.siteUrl!),
-                      ),
-                  ],
-                  showHeader: section.showHeader,
-                  collapsible: section.collapsible,
-                )
-              else if (!section.id.startsWith('custom-'))
-                section,
-          ];
+    final forumSections = [
+      for (final section in sidebar.sections)
+        if (section.id == 'community')
+          SidebarSection(
+            id: section.id,
+            title: section.title,
+            destinations: section.destinations,
+            moreDestinations: [
+              SidebarDestination(
+                id: 'all-categories',
+                label: context.l10n.categories,
+                icon: DIcons.tag,
+              ),
+              ...section.moreDestinations.where(
+                (destination) => destination.url == null,
+              ),
+              if (controller.currentInstance?.isConnected == true)
+                SidebarDestination(
+                  id: 'user-bookmarks',
+                  label: context.l10n.bookmarks,
+                  icon: DIcons.bookmark,
+                ),
+              SidebarDestination(
+                id: 'appearance',
+                label: context.l10n.interface,
+                icon: DIcons.gear,
+                onTap: () => controller.openForumSettings(sidebar.siteUrl!),
+              ),
+              if (controller.currentInstance?.isConnected == true)
+                SidebarDestination(
+                  id: 'preferences',
+                  label: context.l10n.preferences,
+                  icon: DNativeIcons.sliders,
+                  onTap: () => controller.openPreferences(sidebar.siteUrl!),
+                ),
+            ],
+            showHeader: section.showHeader,
+            collapsible: section.collapsible,
+          )
+        else if (!section.id.startsWith('custom-'))
+          section,
+    ];
+
+    final panelTabs = DSidebarHeader(
+      child: _SidebarPanelTabs(
+        selectedOwner: selectedPanel?.owner.value,
+        shortcutsSelected: _shortcuts,
+        onSelected: (owner) => setState(() {
+          _shortcuts = owner == 'shortcuts';
+          _selectedOwner = owner == 'forum' || _shortcuts ? null : owner;
+        }),
+      ),
+    );
 
     return DSidebar(
       backgroundColor: widget.backgroundColor,
@@ -490,23 +499,29 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                 : '')
             .toString(),
       ),
-      footer:
-          widget.footer ??
-          switch (activePanel) {
-            final panel?
-                when !widget.mobile && panel.panel.footerBuilder != null =>
-              PluginUiScope.own(
-                panel.owner,
-                Builder(builder: panel.panel.footerBuilder!),
-              ),
-            _ => null,
-          },
+      footer: widget.mobile && !mobileRoot
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [panelTabs, ?widget.footer],
+            )
+          : widget.footer ??
+                switch (activePanel) {
+                  final panel?
+                      when !widget.mobile &&
+                          panel.panel.footerBuilder != null =>
+                    PluginUiScope.own(
+                      panel.owner,
+                      Builder(builder: panel.panel.footerBuilder!),
+                    ),
+                  _ => null,
+                },
       header: mobileRoot
           ? null
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!widget.mobile) ...[
+                if (!widget.mobile || showCoreSections && !showShortcuts) ...[
                   Padding(
                     padding: EdgeInsetsDirectional.only(
                       start: widget.communityHeaderLeadingInset,
@@ -514,24 +529,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                     child: const _SidebarCommunityHeader(),
                   ),
                 ],
-                Padding(
-                  // Mobile SideNav has no community header above the switch.
-                  padding: widget.mobile
-                      ? const EdgeInsets.fromLTRB(4, 2, 4, 0)
-                      : EdgeInsets.zero,
-                  child: DSidebarHeader(
-                    child: _SidebarPanelTabs(
-                      selectedOwner: selectedPanel?.owner.value,
-                      shortcutsSelected: _shortcuts,
-                      onSelected: (owner) => setState(() {
-                        _shortcuts = owner == 'shortcuts';
-                        _selectedOwner = owner == 'forum' || _shortcuts
-                            ? null
-                            : owner;
-                      }),
-                    ),
-                  ),
-                ),
+                if (!widget.mobile) panelTabs,
               ],
             ),
       child: Column(
@@ -541,9 +539,17 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
             child: DSidebarReorderScope(
               key: ValueKey(sidebar.siteUrl),
               child: DSidebarContent.slivers(
+                key: widget.mobile
+                    ? ValueKey((activePanel?.owner, showShortcuts))
+                    : null,
                 slivers: [
                   DSidebarGroup.sliver(
-                    padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
+                    padding: EdgeInsets.fromLTRB(
+                      8,
+                      widget.mobile && activePanel != null ? 0 : 2,
+                      8,
+                      8,
+                    ),
                     sliver: SliverMainAxisGroup(
                       slivers: [
                         if (showCoreSections)
@@ -636,8 +642,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                 : null,
                                             insertAfterDestinationId:
                                                 'messages',
+                                            onNavigate: widget.onNavigate,
                                             onSelect: (destination) {
-                                              widget.onNavigate?.call();
                                               if (destination.id ==
                                                   _newTopicDestinationId) {
                                                 unawaited(
@@ -668,7 +674,19 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                 if (widget.mobile) {
                                                   controller
                                                       .selectMobileDestination(
-                                                        MobileTab.topics,
+                                                        switch (destination
+                                                            .id) {
+                                                          'latest' =>
+                                                            MobileTab.topics,
+                                                          'messages' =>
+                                                            MobileTab.messages,
+                                                          'users' =>
+                                                            MobileTab.users,
+                                                          _ =>
+                                                            MobileTab.destination(
+                                                              destination.id,
+                                                            ),
+                                                        },
                                                         destination,
                                                       );
                                                 } else {
@@ -723,7 +741,12 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                             section.id,
                                             'pinned-header',
                                           )),
-                                          child: Builder(builder: builder),
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                              top: widget.mobile ? 8 : 0,
+                                            ),
+                                            child: Builder(builder: builder),
+                                          ),
                                         ),
                                       _Section(
                                         key: ValueKey((
@@ -740,6 +763,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                       .selectedDestinationId ??
                                                   sidebar.destinationId,
                                         badgeFor: controller.sidebarBadgeFor,
+                                        onNavigate: widget.onNavigate,
                                         onSelect: controller.selectDestination,
                                       ),
                                     ],
@@ -1038,6 +1062,7 @@ class _Section extends StatefulWidget {
     required this.selectedId,
     required this.badgeFor,
     required this.onSelect,
+    this.onNavigate,
     this.loadingDestinationId,
     this.linkEdit,
     this.insertedDestination,
@@ -1053,6 +1078,7 @@ class _Section extends StatefulWidget {
   final String? loadingDestinationId;
   final SidebarBadge Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
+  final VoidCallback? onNavigate;
   final SidebarDestination? insertedDestination;
   final String? insertAfterDestinationId;
   final List<SidebarDestination> appendedDestinations;
@@ -1228,6 +1254,7 @@ class _SectionState extends State<_Section> {
   }
 
   void _selectDestination(SidebarDestination destination) {
+    widget.onNavigate?.call();
     ComposerPresentationHost.redockForNavigation(context);
     final onTap = destination.onTap;
     if (onTap != null) {
