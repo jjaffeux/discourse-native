@@ -365,6 +365,10 @@ void main() {
       isTrue,
     );
     expect(tester.getRect(filters), atRest);
+    expect(
+      tester.getSize(find.widgetWithText(DButton, 'New voice room')).height,
+      40,
+    );
     await _capture(tester, 'chat-drawer-voice-section');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));

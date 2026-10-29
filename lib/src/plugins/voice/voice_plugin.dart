@@ -272,6 +272,9 @@ final class VoicePlugin
             if (createRoom != null)
               DButton(
                 variant: DButtonVariant.ghost,
+                size: DControlStyle.isTouch(context)
+                    ? DButtonSize.small
+                    : DButtonSize.regular,
                 icon: const DIcon(DIcons.plus),
                 label: const Text('New voice room'),
                 onPressed: () => unawaited(createRoom(context)),
