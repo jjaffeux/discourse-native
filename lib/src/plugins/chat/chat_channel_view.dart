@@ -323,7 +323,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
           floatingFooter: context.isTouch,
-          hideHeaderOnScroll: true,
+          hideHeaderOnScroll: !context.isTouch,
           minimumScrollExtent: 0,
           identity: (widget.siteUrl, widget.channelId, widget.chat),
           // Large text or pinned content can crowd a short page. Keep the
