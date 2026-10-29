@@ -22,6 +22,10 @@ final pageSurfaceExamples = ComponentExamples(
       'a 120ms settling pause. DHeaderMotionSettings supplies account preferences. '
       'Nested and horizontal scrolling do not retract the heading. Identity changes '
       'reset it. Hidden titles leave focus, semantics and pointer hit testing together. '
+      'DPageHeaderScope exposes the actual retraction and owning scrollToTop action '
+      'to headings, controls and bodies. DPageHeaderHost shares the foreground '
+      'header with surrounding chrome. Plain Text headings infer titleText; '
+      'composite titles supply it. Graphical identities leave it null. '
       'Specialized readers use DPageSurface.scrollable for custom compact headers '
       'or headerSuppressed. Their full spacer stays reserved and their existing '
       'two-viewport short-content policy remains. '
@@ -34,6 +38,53 @@ final pageSurfaceExamples = ComponentExamples(
       'DPageSurface also supplies the outer frame, tabs and footer. Its width policy '
       'centers the heading and content together. Tabs and the viewport stay full width.',
   examples: [
+    StyleguideExample(
+      title: 'Header contract',
+      description:
+          'A control reads its page’s retraction and returns only its own content to the top.',
+      states: const ['Visible', 'Retracted', 'Reduced motion'],
+      code: """final header = DPageHeaderScope.maybeOf(context)!;
+ListenableBuilder(
+  listenable: header,
+  builder: (_, _) => DButton(
+    label: Text('Back to top'),
+    onPressed: header.value >= .5 ? header.scrollToTop : null,
+  ),
+)""",
+      builder: (_) => SizedBox(
+        height: 320,
+        child: DPageSurface.headed(
+          title: const Text('Community guidelines'),
+          controls: Builder(
+            builder: (context) {
+              final header = DPageHeaderScope.maybeOf(context)!;
+              return ListenableBuilder(
+                listenable: header,
+                builder: (_, _) => DButton(
+                  variant: DButtonVariant.inline,
+                  label: Text(
+                    'Back to top · ${(header.value * 100).round()}% retracted',
+                  ),
+                  onPressed: header.value >= .5 ? header.scrollToTop : null,
+                ),
+              );
+            },
+          ),
+          bodyBuilder: (_, geometry) => CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: geometry.spacer),
+              SliverList.builder(
+                itemCount: 40,
+                itemBuilder: (_, index) => Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Guideline ${index + 1}'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Yield the header',
       description:

@@ -9,6 +9,19 @@ The kit supplies the title style and the space around the heading.
 It hides the title during downward scroll input.
 It shows the title during upward scroll input and at the top.
 The controls stay visible.
+`DPageHeaderScope.maybeOf(context)` exposes the owning page's `DPageHeader`
+inside its heading, controls, and body. Listen to its `value` for retraction
+from zero to one and call `scrollToTop()` to return only that page to its
+physical top. The action honors reduced motion. Unlike header geometry,
+this listenable supports widget builders and does not notify during layout.
+Its `layout` distinguishes ordinary headings from expanded and compact reader
+headings; a topic's bar title waits for the compact layout before fading in.
+Headed pages infer `titleText` from a plain `Text` title. Supply `titleText`
+for composite headings and specialized topic readers; graphical identities
+and persistent conversation headers leave it null.
+`DPageHeaderHost` shares the innermost foreground header with surrounding
+chrome. Its identity follows the navigation entry. Native sheets exclude
+their retained underlays, and inactive pages cannot publish through the host.
 Do not add a divider, a background fill, or a local shadow below the controls.
 The Native scroll fade supplies the soft edge when content continues above the viewport.
 
