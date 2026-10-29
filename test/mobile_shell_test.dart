@@ -3360,9 +3360,15 @@ void main() {
       await tester.pumpAndSettle();
       final bell = tester.getRect(find.byType(CategoryNotificationLevelButton));
       expect(bell.right, tester.getRect(row).right);
+      // The bell shares the view switch's track; the switch's own segments,
+      // its overflow among them, sit 2 points inside that track.
+      final track = tester.getRect(
+        find.byKey(const ValueKey('topic-list-view-switch')),
+      );
+      expect(bell.top, track.top);
       expect(
-        bell.top,
         tester.getRect(find.byKey(const ValueKey('topic-list-feed-menu'))).top,
+        track.top + 2,
       );
       expectFiltersFollowTags();
       expect(tester.getRect(filters).right, lessThan(bell.left));
