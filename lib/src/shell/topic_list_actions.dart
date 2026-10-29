@@ -312,7 +312,6 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
                 semanticLabel: label,
                 tooltip: label,
                 icon: widget.icon!,
-                shape: DButtonShape.pill,
                 size: DButtonSize.filter,
                 variant: variant,
                 focusNode: trigger.focusNode,

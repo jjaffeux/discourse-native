@@ -148,7 +148,6 @@ class TopicCategoryPathSelector extends StatelessWidget {
                   ? DButton.iconOnly(
                       size: DButtonSize.filter,
                       variant: DButtonVariant.quiet,
-                      shape: DButtonShape.pill,
                       icon: icon,
                       tooltip: label,
                       semanticLabel: semanticLabel,
