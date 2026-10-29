@@ -1529,7 +1529,7 @@ void main() {
       expect(moves, isEmpty);
       // A second finger on the panel meanwhile moves nothing: the lifted
       // place has the panel's drag suspended.
-      final second = await tester.createGesture(pointer: 2);
+      final second = await tester.createGesture();
       await second.down(
         Offset(panel.center.dx, panel.top + 8),
         timeStamp: const Duration(milliseconds: 580),
