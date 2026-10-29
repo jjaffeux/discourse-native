@@ -3286,7 +3286,12 @@ void _registerChatShellTests() {
         await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
         await tester.pumpAndSettle();
         await tester.longPress(
-          find.byKey(const ValueKey<String>('https://meta.discourse.org')),
+          find.descendant(
+            of: find.byType(InstanceRail),
+            matching: find.byKey(
+              const ValueKey<String>('https://meta.discourse.org'),
+            ),
+          ),
         );
         await tester.pumpAndSettle();
         await tester.tap(find.text('More Options'));
