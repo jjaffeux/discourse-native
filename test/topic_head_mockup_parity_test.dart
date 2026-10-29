@@ -280,13 +280,17 @@ void main() {
 
   testWidgets('the head controls are flat pills of a 5% fill', (tester) async {
     await _openTopic(tester);
-    final tokens = DTokens.of(tester.element(_actions));
-    final scaler = MediaQuery.textScalerOf(tester.element(_actions));
+    final context = tester.element(_actions);
+    final tokens = DTokens.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
     final fill = tokens.foreground.withValues(alpha: .05);
-    // BAND_H and the chips' 12.5px, before the phone's text baseline.
-    expect(DControlStyle.height(DControlSize.filter), 30);
-    expect(DControlStyle.fontSize(DControlSize.filter), 12.5);
-    final height = DControlStyle.scaledHeight(DControlSize.filter, scaler);
+    expect(DControlStyle.height(DControlSize.filter, context: context), 36);
+    expect(DControlStyle.fontSize(DControlSize.filter, context: context), 14);
+    final height = DControlStyle.scaledHeight(
+      DControlSize.filter,
+      scaler,
+      context: context,
+    );
     await tester.tap(_moreTags);
     await tester.pumpAndSettle();
     for (final control in [_actions, _tag(_tags.first.name)]) {

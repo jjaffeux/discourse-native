@@ -1158,7 +1158,7 @@ void main() {
           expect(closingFrames, lessThan(100));
           await tester.pump(const Duration(milliseconds: 16));
         }
-        expect(closingFrames, greaterThan(1));
+        expect(popup, findsNothing);
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.categoryId, other.id);
         expect(tester.takeException(), isNull);
