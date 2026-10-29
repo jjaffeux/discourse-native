@@ -1389,7 +1389,10 @@ void _registerShellNavigationTests() {
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(find.text('A category topic'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('sidebar-categories-up')));
+    // The saved category keeps its place while it scopes the list, and
+    // pressing it again returns the list to every category.
+    expect(sidebarDestination('Parent'), findsNothing);
+    await tester.tap(sidebarDestination('Child'));
     await tester.pumpAndSettle();
     expect(controller.topicListContent?.categoryId, isNull);
     expect(sidebarDestination('Child'), findsOneWidget);
