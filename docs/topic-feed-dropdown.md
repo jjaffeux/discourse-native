@@ -1,7 +1,8 @@
 # Adaptive topic views
 
 Feed selection and counts are implemented. Full mockup parity is pending the
-production row allocation described below and a Native selection treatment.
+production row allocation described below. The Native selection treatment is
+integrated.
 
 `TopicFeedMenu` presents up to three Native segmented toggles beside the list's
 filters. The current view always stays visible. Actual Native control widths,
@@ -49,16 +50,14 @@ fallback; a production experiment overflowed at a narrower width. Item 3's row
 layout needs to supply a bounded remaining width while preserving the minimum
 current-view-plus-overflow control and its wrapping fallback.
 
-The current `DToggleVariant.segmented` renders a full-height, small-radius
-selected surface. The mockup instead calls for a round raised segment inside a
-round track: 30px track / 26px segment with a 2px inset on desktop, 36px / 32px
-on a phone. Existing `DToggleVisualStyle` can change the radius but has no
-raised-fill or inset preset; `DToggleGroup.inset` uses a different frame and
-selection treatment. Exact selection geometry and surface therefore depend on item 10's shared
-Native presentation. The user has authorized necessary kit changes; item 3 owns
-the remaining-width layout and item 10 owns the shared segmented preset. This
-branch has not added a parallel presentation or an application-level surface
-workaround.
+`DButtonGroup.inset` supplies the same raised round presentation used by topic
+recommendations. Child toggles and the ellipsis action use the existing
+`segment` size, with `DToggleVariant.segmented` for selectable views. Native owns
+the 30px/26px desktop and 36px/32px phone outer/inner geometry, the 2px inset,
+shared gaps, raised fill, focus treatment and touch targets. New and Top retain
+their independently focusable dropdown triggers. Fitting measures the actual
+Native frame and children, including the frame's insets and spacing, without
+copying those metrics into application styles.
 
 The `production view row remains reachable across available widths` case in
 `test/topic_list_navigation_test.dart` captures actual `MainContent`,
