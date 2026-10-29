@@ -133,7 +133,8 @@ void main({bool profile = false}) {
       expect(tester.getRect(reader).bottom, 844);
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
       await tester.pump();
-      expect(tester.getRect(reader).bottom, 844 - 240);
+      // The shell keeps two pixels between its pages and the keyboard.
+      expect(tester.getRect(reader).bottom, 844 - 240 - 2);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
