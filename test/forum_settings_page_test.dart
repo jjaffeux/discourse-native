@@ -4,13 +4,11 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
-import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
-import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
@@ -62,173 +60,48 @@ void main() {
     );
   });
 
-  testWidgets(
-    'offline font roles and the accessibility switch share persisted choices',
-    (tester) async {
-      final store = ForumSettingsStore.memory();
-      final shell = controller(forumSettingsStore: store);
-      addTearDown(shell.dispose);
-      await pumpSettings(tester, shell);
-      await _openSection(tester, 'Display');
-      for (final (font, role) in [
-        ('lora', 'interface'),
-        ('openDyslexic', 'reading'),
-      ]) {
-        final choice = find.byKey(ValueKey('display-font-$font-$role'));
-        await tester.ensureVisible(choice);
-        await tester.pumpAndSettle();
-        await tester.tap(choice);
-        await tester.pumpAndSettle();
-        expect(tester.widget<DToggle>(choice).pressed, isTrue);
-      }
-      expect(shell.forumSettings.shared.interfaceFont, ForumFont.lora);
-      expect(shell.forumSettings.shared.readingFont, ForumFont.openDyslexic);
-      final theme = Theme.of(tester.element(find.byType(ForumSettingsPage)));
-      expect(theme.textTheme.bodyMedium!.fontFamily, 'Lora');
-      expect(theme.textTheme.bodyLarge!.fontFamily, 'OpenDyslexic');
-
-      final restored = controller(forumSettingsStore: store);
-      addTearDown(restored.dispose);
-      await restored.forumSettings.loadShared(['https://a.example']);
-      expect(restored.forumSettings.shared, shell.forumSettings.shared);
-      await _openSection(tester, 'Accessibility');
-      final toggle = find.byKey(
-        const ValueKey('dyslexia-friendly-font-switch'),
-      );
-      expect(tester.widget<DSwitchTile>(toggle).value, isFalse);
-      await tester.tap(toggle);
+  testWidgets('offline font roles persist without the retired font shortcut', (
+    tester,
+  ) async {
+    final store = ForumSettingsStore.memory();
+    final shell = controller(forumSettingsStore: store);
+    addTearDown(shell.dispose);
+    await pumpSettings(tester, shell);
+    await _openSection(tester, 'Display');
+    expect(
+      find.byKey(const ValueKey('display-font-openDyslexic')),
+      findsNothing,
+    );
+    for (final (font, role) in [
+      ('lora', 'interface'),
+      ('openSans', 'reading'),
+    ]) {
+      final choice = find.byKey(ValueKey('display-font-$font-$role'));
+      await tester.ensureVisible(choice);
       await tester.pumpAndSettle();
-      expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isTrue);
-      expect((await store.loadAppearance()).usesOpenDyslexicForBoth, isTrue);
-      expect(
-        Theme.of(tester.element(toggle)).textTheme.bodyMedium!.fontFamily,
-        'OpenDyslexic',
-      );
-      expect(
-        Theme.of(tester.element(toggle)).textTheme.bodyLarge!.fontFamily,
-        'OpenDyslexic',
-      );
-      await tester.tap(toggle);
+      await tester.tap(choice);
       await tester.pumpAndSettle();
-      expect(shell.forumSettings.shared.interfaceFont, ForumFont.system);
-      expect(shell.forumSettings.shared.readingFont, ForumFont.system);
-      expect((await store.loadAppearance()).usesOpenDyslexicForBoth, isFalse);
-
-      for (final role in ['interface', 'reading']) {
-        await tester.tap(toggle);
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('dyslexia-friendly-font-display')),
-        );
-        await tester.pumpAndSettle();
-        final lora = find.byKey(ValueKey('display-font-lora-$role'));
-        await tester.ensureVisible(lora);
-        await tester.pumpAndSettle();
-        await tester.tap(lora);
-        await tester.pumpAndSettle();
-        await _openSection(tester, 'Accessibility');
-        expect(tester.widget<DSwitchTile>(toggle).value, isFalse);
-        expect(
-          shell.forumSettings.shared.interfaceFont,
-          role == 'interface' ? ForumFont.lora : ForumFont.openDyslexic,
-        );
-        expect(
-          shell.forumSettings.shared.readingFont,
-          role == 'reading' ? ForumFont.lora : ForumFont.openDyslexic,
-        );
-      }
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'dyslexia-friendly font has one switch target and keyboard activation',
-    (tester) async {
-      final shell = controller();
-      addTearDown(shell.dispose);
-      final semantics = tester.ensureSemantics();
-      try {
-        await pumpSettings(tester, shell, disableAnimations: true);
-        await _openSection(tester, 'Accessibility');
-        final toggle = find.byKey(
-          const ValueKey('dyslexia-friendly-font-switch'),
-        );
-        final display = find.byKey(
-          const ValueKey('dyslexia-friendly-font-display'),
-        );
-        final node = tester.getSemantics(toggle);
-        expect(node.label, contains('Dyslexia-friendly font'));
-        expect(
-          node.getSemanticsData().flagsCollection.isToggled,
-          ui.Tristate.isFalse,
-        );
-        expect(
-          node.getSemanticsData().hasAction(ui.SemanticsAction.tap),
-          isTrue,
-        );
-        expect(
-          find.descendant(of: toggle, matching: find.byType(DButton)),
-          findsNothing,
-        );
-        expect(
-          tester
-              .getSemantics(display)
-              .getSemanticsData()
-              .flagsCollection
-              .isButton,
-          isTrue,
-        );
-        await tester.tap(toggle);
-        await tester.pumpAndSettle();
-        expect(
-          tester
-              .getSemantics(toggle)
-              .getSemanticsData()
-              .flagsCollection
-              .isToggled,
-          ui.Tristate.isTrue,
-        );
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pumpAndSettle();
-        expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isFalse);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isTrue);
-        for (final animated in tester.widgetList<AnimatedContainer>(
-          find.descendant(of: toggle, matching: find.byType(AnimatedContainer)),
-        )) {
-          expect(animated.duration, Duration.zero);
-        }
-        expect(tester.takeException(), isNull);
-      } finally {
-        semantics.dispose();
-      }
-    },
-  );
-
-  testWidgets(
-    'failed dyslexia-friendly font writes restore the switch and show a toast',
-    (tester) async {
-      final persistence = _FontPersistence();
-      final shell = controller(
-        forumSettingsStore: ForumSettingsStore(persistence: persistence),
-      );
-      addTearDown(shell.dispose);
-      await shell.forumSettings.loadShared(['https://a.example']);
-      await pumpSettings(tester, shell);
-      await _openSection(tester, 'Accessibility');
-      persistence.failWrites = true;
-      final toggle = find.byKey(
-        const ValueKey('dyslexia-friendly-font-switch'),
-      );
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(tester.widget<DSwitchTile>(toggle).value, isFalse);
-      expect(shell.forumSettings.shared, SharedAppearance.defaults);
-      expect(find.text('Could not save the font.'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      expect(tester.widget<DToggle>(choice).pressed, isTrue);
+    }
+    expect(shell.forumSettings.shared.interfaceFont, ForumFont.lora);
+    expect(shell.forumSettings.shared.readingFont, ForumFont.openSans);
+    final restored = controller(forumSettingsStore: store);
+    addTearDown(restored.dispose);
+    await restored.forumSettings.loadShared(['https://a.example']);
+    expect(restored.forumSettings.shared, shell.forumSettings.shared);
+    await _openSection(tester, 'Accessibility');
+    expect(find.text('Dyslexia-friendly font'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('dyslexia-friendly-font-display')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('disable-gif-animations-switch')),
+      findsOneWidget,
+    );
+    await _captureFonts(tester, 'accessibility');
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (name, width, panelWidth, scale, direction) in [
     ('desktop', 1200.0, 620.0, 1.0, TextDirection.ltr),
@@ -240,6 +113,11 @@ void main() {
       tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
       final shell = controller();
       addTearDown(shell.dispose);
+      if (Platform.environment['OFFLINE_FONTS_RENDER_DIR'] != null) {
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
+        );
+      }
       await pumpSettings(
         tester,
         shell,
@@ -250,24 +128,10 @@ void main() {
         disableAnimations: true,
       );
       await _openSection(tester, 'Accessibility');
-      final toggle = find.byKey(
-        const ValueKey('dyslexia-friendly-font-switch'),
-      );
-      await tester.ensureVisible(toggle);
-      await tester.pumpAndSettle();
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isTrue);
-      expect(toggle.hitTestable(), findsOneWidget);
+      expect(find.text('Dyslexia-friendly font'), findsNothing);
       await _captureFonts(tester, '$name-accessibility');
-      final display = find.byKey(
-        const ValueKey('dyslexia-friendly-font-display'),
-      );
-      await tester.ensureVisible(display);
-      await tester.pumpAndSettle();
-      await tester.tap(display);
-      await tester.pumpAndSettle();
-      for (final font in ['lora', 'openDyslexic']) {
+      await _openSection(tester, 'Display');
+      for (final font in ['lora', 'openSans']) {
         final choice = find.byKey(ValueKey('display-font-$font-interface'));
         await tester.ensureVisible(choice);
         await tester.pumpAndSettle();
@@ -278,7 +142,7 @@ void main() {
         );
         expect(
           tester.widget<Text>(preview).style!.fontFamily,
-          font == 'lora' ? 'Lora' : 'OpenDyslexic',
+          font == 'lora' ? 'Lora' : 'Open Sans',
         );
         await tester.tap(choice);
         await tester.pumpAndSettle();
@@ -357,21 +221,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Accessibility'));
         await tester.pumpAndSettle();
-        final dyslexiaFont = find.byKey(
-          const ValueKey('dyslexia-friendly-font-switch'),
-        );
-        await tester.ensureVisible(dyslexiaFont);
-        await tester.pumpAndSettle();
-        final fontViewport = find
-            .ancestor(of: dyslexiaFont, matching: find.byType(Scrollable))
-            .first;
-        final visibleFontRow = tester
-            .getRect(dyslexiaFont)
-            .intersect(tester.getRect(fontViewport));
-        expect(visibleFontRow.height, greaterThan(0));
-        await tester.tapAt(visibleFontRow.center);
-        await tester.pumpAndSettle();
-        expect(shell.forumSettings.shared.usesOpenDyslexicForBoth, isTrue);
+        expect(find.text('Dyslexia-friendly font'), findsNothing);
         final disableGifs = find.byKey(
           const ValueKey('disable-gif-animations-switch'),
         );
@@ -849,19 +699,4 @@ Future<void> _captureFonts(WidgetTester tester, String name) async {
     await File('$path/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
   });
-}
-
-class _FontPersistence implements ScalarPreferencePersistence<String> {
-  final _values = <String, String>{};
-  bool failWrites = false;
-
-  @override
-  Future<String?> read(String key) async => _values[key];
-
-  @override
-  Future<bool> write(String key, String value) async {
-    if (failWrites) return false;
-    _values[key] = value;
-    return true;
-  }
 }

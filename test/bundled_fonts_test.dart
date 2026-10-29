@@ -32,7 +32,7 @@ void main() {
         final faces = (entry['fonts'] as List<dynamic>)
             .cast<Map<String, dynamic>>();
         expect(faces, isNotEmpty);
-        if (font == ForumFont.lora || font == ForumFont.openDyslexic) {
+        if (font == ForumFont.lora) {
           expect(
             {
               for (final face in faces)
@@ -61,11 +61,7 @@ void main() {
               reason: face['asset'] as String,
             );
             final weight = face['weight'] as int;
-            expect(
-              metadata.weight,
-              font == ForumFont.openDyslexic && weight == 700 ? 800 : weight,
-              reason: face['asset'] as String,
-            );
+            expect(metadata.weight, weight, reason: face['asset'] as String);
           }
         }
         final loader = FontLoader(entry['family'] as String);

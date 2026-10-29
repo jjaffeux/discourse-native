@@ -6,8 +6,7 @@ enum ForumFont {
   openSans('Open Sans'),
   lato('Lato'),
   lora('Lora'),
-  jetBrainsMono('JetBrains Mono'),
-  openDyslexic('OpenDyslexic');
+  jetBrainsMono('JetBrains Mono');
 
   const ForumFont(this.family);
 
@@ -17,7 +16,6 @@ enum ForumFont {
     lato => appL10n.lato,
     lora => appL10n.lora,
     jetBrainsMono => appL10n.jetBrainsMono,
-    openDyslexic => appL10n.openDyslexic,
   };
   final String? family;
 

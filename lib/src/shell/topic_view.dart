@@ -3463,67 +3463,63 @@ class _MoreTopics extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding, bottom: showTitle ? 8 : 16),
-      child: DTabs<TopicRecommendationSourceId>.controlled(
-        value: selection.id,
-        onChanged: (value) {
-          if (value != null) onSelected(value);
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showTitle || available.length > 1)
             TopicMoreTopicsHeading(
               showTitle: showTitle,
               tabs: available.length <= 1
                   ? null
-                  : DTabList<TopicRecommendationSourceId>(
-                      variant: showTitle
-                          ? DTabListVariant.pill
-                          : DTabListVariant.line,
-                      children: [
+                  : DToggleGroup<TopicRecommendationSourceId>(
+                      key: const ValueKey('topic-recommendations-switch'),
+                      values: [selection.id],
+                      onChanged: (values) => onSelected(values.single),
+                      allowEmptySelection: false,
+                      inset: true,
+                      size: DToggleSize.segment,
+                      semanticLabel: context.l10n.moreTopics,
+                      items: [
                         for (final source in available)
-                          DTabTrigger(
-                            key: ValueKey(
-                              'topic-recommendations-tab-${source.id.value}',
-                            ),
+                          DToggleGroupItem(
                             value: source.id,
-                            child: Text(source.label),
+                            child: Text(
+                              source.label,
+                              key: ValueKey(
+                                'topic-recommendations-tab-${source.id.value}',
+                              ),
+                            ),
                           ),
                       ],
                     ),
             ),
-          DTabPanel(
-            value: selection.id,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (
-                  var index = 0;
-                  index < selection.topics.length;
-                  index++
-                ) ...[
-                  TopicListRow(
-                    topic: selection.topics[index],
-                    siteUrl: siteUrl,
-                    onTap: inbox
-                        ? () => ShellScope.read(
-                            context,
-                          ).openTopicFromList(selection.topics[index])
-                        : null,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var index = 0; index < selection.topics.length; index++) ...[
+                TopicListRow(
+                  topic: selection.topics[index],
+                  siteUrl: siteUrl,
+                  onTap: inbox
+                      ? () => ShellScope.read(
+                          context,
+                        ).openTopicFromList(selection.topics[index])
+                      : null,
+                ),
+                if (index < selection.topics.length - 1)
+                  LayoutBuilder(
+                    builder: (context, constraints) =>
+                        constraints.maxWidth < 600
+                        ? const TopicListSeparator()
+                        : DSeparator(
+                            space: 1,
+                            indent: inbox ? 16 : 0,
+                            endIndent: inbox ? 16 : 0,
+                            color: theme.shell.divider,
+                          ),
                   ),
-                  if (index < selection.topics.length - 1)
-                    LayoutBuilder(
-                      builder: (context, constraints) =>
-                          constraints.maxWidth < 600
-                          ? const TopicListSeparator()
-                          : DSeparator(
-                              space: 1,
-                              indent: inbox ? 16 : 0,
-                              endIndent: inbox ? 16 : 0,
-                              color: theme.shell.divider,
-                            ),
-                    ),
-                ],
               ],
-            ),
+            ],
           ),
         ],
       ),

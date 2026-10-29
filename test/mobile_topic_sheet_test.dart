@@ -645,10 +645,7 @@ void main() {
       controller.jumpTo(0);
       await tester.pump();
       final band = find.byKey(const ValueKey('topic-header-band'));
-      expect(
-        tester.widget<DecoratedBox>(band).decoration,
-        const BoxDecoration(),
-      );
+      expect(tester.widget<DCard>(band).backgroundColor, Colors.transparent);
       final drag = await tester.startGesture(const Offset(180, 500));
       await drag.moveBy(const Offset(0, 20));
       await drag.moveBy(const Offset(0, 170));
@@ -656,8 +653,8 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
         if (band.evaluate().isNotEmpty) {
           expect(
-            tester.widget<DecoratedBox>(band).decoration,
-            const BoxDecoration(),
+            tester.widget<DCard>(band).backgroundColor,
+            Colors.transparent,
             reason: 'dismissal frame $frame',
           );
         }

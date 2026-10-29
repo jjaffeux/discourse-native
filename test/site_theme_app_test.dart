@@ -733,25 +733,17 @@ void main() {
     await controller.forumSettings.setShared(
       controller.forumSettings.shared.copyWith(
         interfaceFont: ForumFont.lora,
-        font: ForumFont.openDyslexic,
+        font: ForumFont.jetBrainsMono,
       ),
     );
     await tester.pumpAndSettle();
     expect(_activeTheme(tester).textTheme.bodyMedium!.fontFamily, 'Lora');
-    expect(family(), 'OpenDyslexic');
+    expect(family(), 'JetBrains Mono');
     await controller.forumSettings.setShared(
-      controller.forumSettings.shared.withOpenDyslexicForBoth(true),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      _activeTheme(tester).textTheme.bodyMedium!.fontFamily,
-      'OpenDyslexic',
-    );
-    expect(family(), 'OpenDyslexic');
-    await controller.forumSettings.setShared(
-      controller.forumSettings.shared
-          .withOpenDyslexicForBoth(false)
-          .copyWith(font: ForumFont.lora),
+      controller.forumSettings.shared.copyWith(
+        interfaceFont: ForumFont.system,
+        font: ForumFont.lora,
+      ),
     );
     await tester.pumpAndSettle();
     expect(

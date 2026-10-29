@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
@@ -45,6 +47,69 @@ void main() {
   TimezoneEnvironment.instance.ensureDatabase();
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUpAll(() async {
+    if (Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] == null) return;
+    await (FontLoader(
+      'Lato',
+    )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+  });
+
+  testWidgets('phone bookmark editor pins Save outside the scrolling form', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+    addTearDown(tester.view.reset);
+    final api = await _openEditor(
+      tester,
+      now: DateTime.utc(2026, 10, 29, 12),
+      platform: TargetPlatform.iOS,
+    );
+    final save = find.widgetWithText(DButton, 'Save');
+    expect(save.hitTestable(), findsOneWidget);
+    expect(
+      find.ancestor(of: save, matching: find.byType(SingleChildScrollView)),
+      findsNothing,
+    );
+    final path = Platform.environment['PRESENTATION_POLISH_RENDER_DIR'];
+    if (path != null) {
+      await tester.runAsync(() async {
+        final view = tester.binding.renderViews.first;
+        final builder = ui.SceneBuilder();
+        view.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(390, 844);
+        scene.dispose();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory(path).create(recursive: true);
+        await File(
+          '$path/bookmark-partial-iOS.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+    final before = tester.getRect(save);
+    final body = find
+        .descendant(
+          of: find.byType(DSheetContent),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
+    final scrollable = find
+        .descendant(of: body, matching: find.byType(Scrollable))
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(save).bottom, lessThanOrEqualTo(before.bottom));
+    expect(save.hitTestable(), findsOneWidget);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(api.updatedBookmarks, hasLength(1));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   for (final width in [320.0, 1000.0]) {
     testWidgets(
@@ -1065,7 +1130,13 @@ Widget _host(
 ) => ShellScope(
   controller: controller,
   child: MaterialApp(
-    theme: AppTheme.light.copyWith(platform: platform),
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.forBrightness(
+      Brightness.light,
+      fontFamily: Platform.environment['PRESENTATION_POLISH_RENDER_DIR'] == null
+          ? null
+          : 'Lato',
+    ).copyWith(platform: platform),
     home: Scaffold(body: Center(child: child)),
   ),
 );
@@ -1092,6 +1163,7 @@ Future<FakeDiscourseApi> _openEditor(
   DateTime Function()? clock,
   DateTime? reminder,
   String timezone = 'Europe/Paris',
+  TargetPlatform platform = TargetPlatform.macOS,
 }) async {
   final bookmark = Bookmark(
     id: 81,
@@ -1109,7 +1181,7 @@ Future<FakeDiscourseApi> _openEditor(
   await tester.pumpWidget(
     _host(
       controller,
-      TargetPlatform.macOS,
+      platform,
       Builder(
         builder: (context) => DButton(
           onPressed: () => unawaited(

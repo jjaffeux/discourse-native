@@ -87,7 +87,8 @@ Future<T?> showShellSheet<T>({
       ? DSheetVariant.adaptiveMenu
       : DSheetVariant.menu;
   final adaptive = variant == DSheetVariant.adaptiveMenu;
-  final sizeToContent = !(adaptive && fillAvailableHeight);
+  final pinnedFooter = adaptive && footerBuilder != null;
+  final sizeToContent = !(adaptive && (fillAvailableHeight || pinnedFooter));
   return showDSheet<T>(
     context: context,
     side: DSheetSide.bottom,
@@ -127,6 +128,7 @@ Future<T?> showShellSheet<T>({
                   footerBuilder: footerBuilder,
                   nested: nested,
                   grabbed: adaptive,
+                  expandBody: pinnedFooter,
                   scrollBody: scrollBody,
                   showHeaderDivider: showHeaderDivider,
                   padding: padding,
@@ -148,6 +150,7 @@ class _SheetBody extends StatelessWidget {
     required this.footerBuilder,
     required this.nested,
     this.grabbed = false,
+    this.expandBody = false,
     required this.scrollBody,
     required this.showHeaderDivider,
     required this.padding,
@@ -161,6 +164,7 @@ class _SheetBody extends StatelessWidget {
 
   /// Put away by its grabber, so its title stands alone as the heading.
   final bool grabbed;
+  final bool expandBody;
   final bool scrollBody;
   final bool showHeaderDivider;
   final EdgeInsetsGeometry padding;
@@ -211,6 +215,7 @@ class _SheetBody extends StatelessWidget {
         ),
         if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(
+          fit: expandBody ? FlexFit.tight : FlexFit.loose,
           child: scrollBody
               ? SingleChildScrollView(
                   child: Padding(padding: padding, child: builder(context)),

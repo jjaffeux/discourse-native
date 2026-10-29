@@ -10800,16 +10800,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lora => 'Lora';
 
   @override
-  String get openDyslexic => 'OpenDyslexic';
-
-  @override
-  String get dyslexiaFriendlyFont => 'Dyslexia-friendly font';
-
-  @override
-  String get dyslexiaFriendlyFontDescription =>
-      'Sets OpenDyslexic for the interface and for reading. Each can be changed on its own under Display.';
-
-  @override
   String get jetBrainsMono => 'JetBrains Mono';
 
   @override
