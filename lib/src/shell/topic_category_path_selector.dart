@@ -144,43 +144,48 @@ class TopicCategoryPathSelector extends StatelessWidget {
             },
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),
-              child: iconOnly
-                  ? DButton.iconOnly(
-                      size: DButtonSize.filter,
-                      variant: DButtonVariant.quiet,
-                      icon: icon,
-                      tooltip: label,
-                      semanticLabel: semanticLabel,
-                      onPressed: onSelected == null ? null : trigger.toggle,
-                      focusNode: trigger.focusNode,
-                      expanded: trigger.open,
-                      hasPopup: true,
-                    )
-                  : DButton(
-                      size: DButtonSize.filter,
-                      variant: DButtonVariant.quiet,
-                      alignment: AlignmentDirectional.centerStart,
-                      label: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: category == null && level > 0
-                            ? TextStyle(
-                                color: Color.lerp(
-                                  DTokens.of(context).background,
-                                  DTokens.of(context).foreground,
-                                  .40,
-                                ),
-                              )
-                            : null,
+              // A reflow between the two forms replaces the button instead of
+              // tweening its corners; the trigger's focus node lives above it.
+              child: KeyedSubtree(
+                key: ValueKey(iconOnly),
+                child: iconOnly
+                    ? DButton.iconOnly(
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.quiet,
+                        icon: icon,
+                        tooltip: label,
+                        semanticLabel: semanticLabel,
+                        onPressed: onSelected == null ? null : trigger.toggle,
+                        focusNode: trigger.focusNode,
+                        expanded: trigger.open,
+                        hasPopup: true,
+                      )
+                    : DButton(
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.quiet,
+                        alignment: AlignmentDirectional.centerStart,
+                        label: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: category == null && level > 0
+                              ? TextStyle(
+                                  color: Color.lerp(
+                                    DTokens.of(context).background,
+                                    DTokens.of(context).foreground,
+                                    .40,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        icon: category != null || level == 0 ? icon : null,
+                        semanticLabel: semanticLabel,
+                        onPressed: onSelected == null ? null : trigger.toggle,
+                        focusNode: trigger.focusNode,
+                        expanded: trigger.open,
+                        hasPopup: true,
                       ),
-                      icon: category != null || level == 0 ? icon : null,
-                      semanticLabel: semanticLabel,
-                      onPressed: onSelected == null ? null : trigger.toggle,
-                      focusNode: trigger.focusNode,
-                      expanded: trigger.open,
-                      hasPopup: true,
-                    ),
+              ),
             ),
           ),
         ),
