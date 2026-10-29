@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
 import 'package:discourse_native/src/shell/composer/components/quote.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/composer/pills.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -488,6 +489,24 @@ void main() {
 
     expect(controller.scans, greaterThan(before));
     expect(styleAt(tester, 'say **hi**', 6).fontWeight, FontWeight.w700);
+  });
+
+  test('a disposed editor stops holding its latest scan for readers', () {
+    const source = 'A draft only this editor scans, with `code` in it';
+    final editor = MarkdownEditingController(text: source);
+    expect(editor.syntaxBlocks, isEmpty);
+    for (var other = 0; other < 16; other += 1) {
+      scanMarkdown('An unrelated draft $other');
+    }
+    var scans = markdownScanCount;
+
+    markdownCodeRanges(source);
+    expect(markdownScanCount, scans);
+
+    editor.dispose();
+    scans = markdownScanCount;
+    markdownCodeRanges(source);
+    expect(markdownScanCount, scans + 1);
   });
 
   group('Markdown between projected components', () {

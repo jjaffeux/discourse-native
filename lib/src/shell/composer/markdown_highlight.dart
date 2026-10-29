@@ -283,11 +283,14 @@ bool _isWordCharacter(int unit) =>
 /// embedded field or a quote preview, passes [shared] false. A draft holds any
 /// number of those, and remembering them would evict the draft's own scan
 /// before its next keystroke's parsers read it back.
+///
+/// An editor whose own parsers read its text passes its [pin] as well.
 List<MarkdownRun> scanMarkdown(
   String source, {
   DeferredFenceHighlight? deferHighlight,
   bool shared = true,
-}) => _scan(source, deferHighlight, shared: shared).runs;
+  MarkdownScanPin? pin,
+}) => _scan(source, deferHighlight, shared: shared, pin: pin).runs;
 
 /// [scanMarkdown], with the blocks its inline passes paired delimiters within:
 /// paragraphs, minus any fence inside them.
@@ -304,19 +307,53 @@ scanMarkdownBlocks(String source, {DeferredFenceHighlight? deferHighlight}) {
   return (runs: scan.runs, blocks: scan.blocks);
 }
 
+/// Holds an editor's latest scan for every reader of its text, however many
+/// other texts are scanned after it, until the editor [release]s it.
+///
+/// Only a few recent scans are remembered, and a draft holds editors of its
+/// own: each list item is one, whose parsers read its scan back just as the
+/// draft's read the draft's. Painting a handful of them would otherwise evict
+/// the draft's scan before its next keystroke's formatters read it again.
+final class MarkdownScanPin {
+  MarkdownScanPin() {
+    _pins.add(this);
+  }
+
+  _RecentScan? _scan;
+
+  void release() {
+    _pins.remove(this);
+    _scan = null;
+  }
+}
+
+final Set<MarkdownScanPin> _pins = {};
+
 _RecentScan _scan(
   String source,
   DeferredFenceHighlight? deferHighlight, {
   bool shared = true,
+  MarkdownScanPin? pin,
 }) {
+  final scan = _scanSource(source, deferHighlight, pin?._scan);
+  if (shared && source.isNotEmpty) _remember(scan);
+  pin?._scan = scan;
+  return scan;
+}
+
+// An editor's next text is nearly always an edit of its latest scan, even
+// once other texts have evicted that scan from the recent ones.
+_RecentScan _scanSource(
+  String source,
+  DeferredFenceHighlight? deferHighlight,
+  _RecentScan? latest,
+) {
   if (source.isEmpty) return _RecentScan.empty;
 
   markdownScanCount += 1;
-  for (final previous in _recentScans) {
+  for (final previous in [?latest, ..._recentScans]) {
     final incremental = _tryIncremental(previous, source);
-    if (incremental == null) continue;
-    if (shared) _remember(incremental);
-    return incremental;
+    if (incremental != null) return incremental;
   }
 
   var deferred = false;
@@ -332,15 +369,13 @@ _RecentScan _scan(
   scan.blocks();
   final blocks = scan._blocks();
   scan.inlines(blocks);
-  final recent = _RecentScan(
+  return _RecentScan(
     source,
     List.unmodifiable(scan.runs()),
     List.unmodifiable(blocks),
     highlighted: !deferred,
     cuts: Set.unmodifiable(scan._cuts),
   );
-  if (shared) _remember(recent);
-  return recent;
 }
 
 /// How many times [scanMarkdownBlocks] has actually scanned a source.
@@ -371,8 +406,9 @@ CodeRanges markdownCodeRanges(String source) => _recentScan(source).code;
 CodeRanges markdownFenceRanges(String source) => _recentScan(source).fences;
 
 // A keystroke reads the text before and after its edit, and an embedded
-// editor (a table cell, a list item) reads its own text and its parent's.
-// Only the newest are held: each keeps its whole draft reachable.
+// editor (a list item) reads its own text and its parent's. Only the newest
+// are held: each keeps its whole draft reachable. An editor's latest scan
+// outlives them in its pin.
 const int _recentScanCapacity = 4;
 
 final List<_RecentScan> _recentScans = [];
@@ -579,6 +615,15 @@ _RecentScan _recentScan(String source, {bool highlightedOnly = false}) {
         ..removeAt(index)
         ..insert(0, recent);
       return recent;
+    }
+  }
+  for (final pin in _pins) {
+    final pinned = pin._scan;
+    if (pinned == null || (highlightedOnly && !pinned.highlighted)) continue;
+    final held = pinned.source;
+    if (identical(held, source) ||
+        (held.length == source.length && held == source)) {
+      return pinned;
     }
   }
   return _scan(source, null);

@@ -59,7 +59,8 @@ class MarkdownEditingController extends TextEditingController {
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
   }) : _backgroundSyntaxHighlighter = backgroundSyntaxHighlighterForTesting,
-       _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds) {
+       _markdownLinkifyTlds = List.unmodifiable(markdownLinkifyTlds),
+       _scanPin = shareScans ? MarkdownScanPin() : null {
     emojiChanges?.addListener(artworkArrived);
   }
 
@@ -94,9 +95,11 @@ class MarkdownEditingController extends TextEditingController {
   final bool protectComponentSource;
 
   /// Remembers this text's scans for the parsers that read it too, as a
-  /// composer's input formatters and syntax policies do. A field that none of
-  /// them read, such as a table cell, passes false. See [scanMarkdown].
+  /// composer's input formatters and syntax policies do, and pins the latest
+  /// until [dispose]. A field that none of them read, such as a table cell,
+  /// passes false. See [scanMarkdown].
   final bool shareScans;
+  final MarkdownScanPin? _scanPin;
 
   bool _rawMarkdown = false;
 
@@ -1544,6 +1547,7 @@ class MarkdownEditingController extends TextEditingController {
       deferHighlight: (body, language) =>
           deferred.add((body: body, language: language)),
       shared: shareScans,
+      pin: _scanPin,
     );
     final mentionStarts = {
       for (final run in runs)
@@ -2609,6 +2613,7 @@ class MarkdownEditingController extends TextEditingController {
   @override
   void dispose() {
     _disposed = true;
+    _scanPin?.release();
     emojiChanges?.removeListener(artworkArrived);
     _emojiArtwork.dispose();
     _fenceHighlightGeneration++;

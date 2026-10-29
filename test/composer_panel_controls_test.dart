@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.da
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/list.dart';
 import 'package:discourse_native/src/shell/composer/components/table.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
@@ -1346,63 +1347,78 @@ void main() {
       );
     });
 
-    testWidgets('a keystroke scans the draft once for every parser', (
-      tester,
-    ) async {
-      // The editor scans each text to paint it. The input formatters read the
-      // text before the edit, and the syntax policies the text after it; each
-      // needs to know where code is, and a site's local-date policy asks on
-      // every draft whether it has a date or not. One scan answers them all.
-      const draft =
-          '[quote="sam, post:5, topic:7, username:sam"]\n'
-          'Quoted, with [a link](https://example.com/q) inside.\n'
-          '[/quote]\n\n'
-          'See [the docs](https://example.com/docs) and `code [x]`.\n\n'
-          '| Name | Value |\n| --- | --- |\n| a | 1 |\n\n'
-          'Typing here';
-      final composer = ComposerController(
-        _replyTarget,
-        syntaxPolicies: [
-          LocalDateComposerSyntaxPolicy(
-            environment: LocalDateEnvironment.instance,
-          ),
-        ],
-      );
-      final shell = await _shell();
-      addTearDown(composer.dispose);
-      addTearDown(shell.dispose);
-      composer.text.value = const TextEditingValue(
-        text: draft,
-        selection: TextSelection.collapsed(offset: draft.length),
-      );
-      await _pumpPanel(tester, shell, composer);
-      composer.focus.requestFocus();
-      await tester.pump();
-      expect(composer.text.quoteBlocks, hasLength(1));
-      expect(
-        composer.text.syntaxBlocks.map((block) => block.kind),
-        containsAll([composerLinkSyntaxKind, composerTableSyntaxKind]),
-      );
-
-      for (final typed in ['a', 'b']) {
-        final before = composer.text.value;
-        final scans = markdownScanCount;
-        tester.testTextInput.updateEditingValue(
-          TextEditingValue(
-            text: '${before.text}$typed',
-            selection: TextSelection.collapsed(offset: before.text.length + 1),
-          ),
+    for (final (name, markup, kind) in [
+      (
+        'a keystroke scans the draft once for every parser',
+        '| Name | Value |\n| --- | --- |\n| a | 1 |',
+        composerTableSyntaxKind,
+      ),
+      // Each item is a whole composer editor whose own parsers read its scan.
+      (
+        'a keystroke beside list items scans the draft once for every parser',
+        '- one\n- two\n- three\n- four\n- five',
+        composerListSyntaxKind,
+      ),
+    ]) {
+      testWidgets(name, (tester) async {
+        // The editor scans each text to paint it. The input formatters read
+        // the text before the edit, and the syntax policies the text after
+        // it; each needs to know where code is, and a site's local-date policy
+        // asks on every draft whether it has a date or not. One scan answers
+        // them all.
+        final draft =
+            '[quote="sam, post:5, topic:7, username:sam"]\n'
+            'Quoted, with [a link](https://example.com/q) inside.\n'
+            '[/quote]\n\n'
+            'See [the docs](https://example.com/docs) and `code [x]`.\n\n'
+            '$markup\n\n'
+            'Typing here';
+        final composer = ComposerController(
+          _replyTarget,
+          syntaxPolicies: [
+            LocalDateComposerSyntaxPolicy(
+              environment: LocalDateEnvironment.instance,
+            ),
+          ],
         );
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        composer.text.value = TextEditingValue(
+          text: draft,
+          selection: TextSelection.collapsed(offset: draft.length),
+        );
+        await _pumpPanel(tester, shell, composer);
+        composer.focus.requestFocus();
         await tester.pump();
-
+        expect(composer.text.quoteBlocks, hasLength(1));
         expect(
-          markdownScanCount - scans,
-          1,
-          reason: 'typing "$typed" rescanned the draft',
+          composer.text.syntaxBlocks.map((block) => block.kind),
+          containsAll([composerLinkSyntaxKind, kind]),
         );
-      }
-      expect(composer.text.text, '${draft}ab');
-    });
+
+        for (final typed in ['a', 'b']) {
+          final before = composer.text.value;
+          final scans = markdownScanCount;
+          tester.testTextInput.updateEditingValue(
+            TextEditingValue(
+              text: '${before.text}$typed',
+              selection: TextSelection.collapsed(
+                offset: before.text.length + 1,
+              ),
+            ),
+          );
+          await tester.pump();
+
+          expect(
+            markdownScanCount - scans,
+            1,
+            reason: 'typing "$typed" rescanned the draft',
+          );
+        }
+        expect(composer.text.text, '${draft}ab');
+      });
+    }
 
     testWidgets('shows working formatting controls only for selected text', (
       tester,
