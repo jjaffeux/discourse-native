@@ -2256,11 +2256,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return false;
     }
     final root = _listNavigationRoot;
-    if (!root._nestedEditors.any(
-      (editor) => editor.widget.composer is ComposerListBodyController,
-    )) {
-      return false;
-    }
     final blocks = root._caretBlocks().toList();
     final caret = value.selection.extent;
     final index = blocks.indexWhere(
@@ -2280,10 +2275,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
     var target = blocks[index];
     final run = render.startVerticalCaretMovement(caret);
     final moved = forward ? run.moveNext() : run.movePrevious();
-    TextPosition position;
-    if (moved &&
+    final withinBlock =
+        moved &&
         run.current.offset >= target.start &&
-        run.current.offset <= target.end) {
+        run.current.offset <= target.end;
+    TextPosition position;
+    if (withinBlock) {
       position = run.current;
     } else {
       final next = index + (forward ? 1 : -1);
@@ -2308,27 +2305,26 @@ class _ComposerEditorState extends State<ComposerEditor> {
       return true;
     }
     final destination = editable.renderEditable;
-    final y = destination
-        .localToGlobal(destination.getLocalRectForCaret(position).center)
-        .dy;
-    final hit = destination.getPositionForPoint(Offset(x, y));
-    final selection = TextSelection.fromPosition(
-      TextPosition(
+    if (withinBlock) {
+      final y = destination
+          .localToGlobal(destination.getLocalRectForCaret(position).center)
+          .dy;
+      final hit = destination.getPositionForPoint(Offset(x, y));
+      position = TextPosition(
         offset: hit.offset.clamp(target.start, target.end),
         affinity: hit.affinity,
-      ),
-    );
+      );
+    }
+    final selection = TextSelection.fromPosition(position);
     editable.userUpdateTextEditingValue(
       editor.widget.composer.value.copyWith(selection: selection),
       SelectionChangedCause.keyboard,
     );
     editor.widget.composer.requestFocus();
     editable.bringIntoView(selection.extent);
-    root._verticalCaret = (
-      editor: editor,
-      value: editor.widget.composer.value,
-      x: x,
-    );
+    root._verticalCaret = withinBlock
+        ? (editor: editor, value: editor.widget.composer.value, x: x)
+        : null;
     return true;
   }
 

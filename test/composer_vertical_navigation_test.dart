@@ -58,6 +58,84 @@ Future<void> lineEnd(WidgetTester tester, {bool extend = false}) async {
 }
 
 void main() {
+  testWidgets('arrows enter adjacent paragraphs at their boundaries', (
+    tester,
+  ) async {
+    const first = 'this is a good day\nto do something';
+    const second = 'what do you want\nto do';
+    const source = '$first\n\n$second';
+    final root = await pumpEditor(
+      tester,
+      source,
+      platform: defaultTargetPlatform,
+      width: 420,
+    );
+    await focusAt(tester, root, first.indexOf('day'));
+    final start = caretPosition(tester, root);
+    await arrow(tester, LogicalKeyboardKey.arrowDown);
+    expect(caretPosition(tester, root).dx, closeTo(start.dx, 1));
+    expect(caretPosition(tester, root).dy, greaterThan(start.dy));
+    expect(root.text.selection.extentOffset, first.length);
+
+    await focusAt(tester, root, first.length);
+    await arrow(tester, LogicalKeyboardKey.arrowDown);
+    expect(root.text.selection.extentOffset, first.length + 2);
+    await arrow(tester, LogicalKeyboardKey.arrowDown);
+    expect(root.text.selection.extentOffset, source.lastIndexOf('to do'));
+    await focusAt(tester, root, first.length + 2 + second.indexOf('want'));
+    await arrow(tester, LogicalKeyboardKey.arrowUp);
+    expect(root.text.selection.extentOffset, first.length);
+    final end = caretPosition(tester, root);
+    await arrow(tester, LogicalKeyboardKey.arrowUp);
+    expect(caretPosition(tester, root).dx, closeTo(end.dx, 1));
+    expect(caretPosition(tester, root).dy, lessThan(end.dy));
+    expect(root.text.text, source);
+  }, variant: desktopPlatforms);
+
+  testWidgets('arrows retain their column across short lines within a block', (
+    tester,
+  ) async {
+    const source = 'A long first line\nx\nA long final line\n\nNext paragraph';
+    final root = await pumpEditor(
+      tester,
+      source,
+      platform: defaultTargetPlatform,
+    );
+    await focusAt(tester, root, 8);
+    await arrow(tester, LogicalKeyboardKey.arrowDown);
+    expect(root.text.selection.extentOffset, source.indexOf('\nx') + 2);
+    await arrow(tester, LogicalKeyboardKey.arrowDown);
+    expect(
+      root.text.selection.extentOffset,
+      source.indexOf('A long final') + 8,
+    );
+    await arrow(tester, LogicalKeyboardKey.arrowUp);
+    expect(root.text.selection.extentOffset, source.indexOf('\nx') + 2);
+    await arrow(tester, LogicalKeyboardKey.arrowUp);
+    expect(root.text.selection.extentOffset, 8);
+    expect(root.text.text, source);
+  }, variant: desktopPlatforms);
+
+  testWidgets('native macOS selectors enter adjacent paragraph boundaries', (
+    tester,
+  ) async {
+    const first = 'this is a good day\nto do something';
+    final root = await pumpEditor(
+      tester,
+      '$first\n\nwhat do you want\nto do',
+      platform: TargetPlatform.macOS,
+    );
+    await focusAt(tester, root, first.length);
+    final state = tester.state<EditableTextState>(editable(root));
+    state.performSelector('moveDown:');
+    await tester.pumpAndSettle();
+    expect(root.text.selection.extentOffset, first.length + 2);
+    state.performSelector('moveUp:');
+    await tester.pumpAndSettle();
+    expect(root.text.selection.extentOffset, first.length);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('native macOS selectors cross the tasks created by Return', (
     tester,
   ) async {
@@ -77,14 +155,14 @@ void main() {
         .performSelector('moveUp:');
     await tester.pumpAndSettle();
     expect(items.first.focus.hasPrimaryFocus, isTrue);
-    expect(items.first.text.selection.extentOffset, 0);
+    expect(items.first.text.selection.extentOffset, 'First'.length);
     await focusAt(tester, items.first, 3);
     tester
         .state<EditableTextState>(editable(items.first))
         .performSelector('moveDown:');
     await tester.pumpAndSettle();
     expect(items.last.focus.hasPrimaryFocus, isTrue);
-    expect(items.last.text.selection.extentOffset, 3);
+    expect(items.last.text.selection.extentOffset, 0);
     expect(root.text.text, '- [ ] First\r\n- [ ] Second\r\n  Continued');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -105,24 +183,24 @@ void main() {
     expect(root.text.selection.extentOffset, 0);
     await arrow(tester, LogicalKeyboardKey.arrowDown);
     expect(items.first.focus.hasPrimaryFocus, isTrue);
-    expect(items.first.text.selection.extentOffset, 4);
+    expect(items.first.text.selection.extentOffset, 0);
     await arrow(tester, LogicalKeyboardKey.arrowDown);
     expect(root.focus.hasPrimaryFocus, isTrue);
     expect(root.text.selection.extentOffset, source.indexOf('\n\n\n') + 2);
     await arrow(tester, LogicalKeyboardKey.arrowDown);
     expect(items.last.focus.hasPrimaryFocus, isTrue);
-    expect(items.last.text.selection.extentOffset, 4);
+    expect(items.last.text.selection.extentOffset, 0);
     await arrow(tester, LogicalKeyboardKey.arrowDown);
     expect(root.focus.hasPrimaryFocus, isTrue);
     expect(root.text.selection.extentOffset, source.length);
     await arrow(tester, LogicalKeyboardKey.arrowUp);
     expect(items.last.focus.hasPrimaryFocus, isTrue);
-    expect(items.last.text.selection.extentOffset, 4);
+    expect(items.last.text.selection.extentOffset, 'Final text'.length);
     expect(root.text.text, source);
   }, variant: desktopPlatforms);
 
   testWidgets(
-    'arrows cross task, list and paragraph boundaries at the same column',
+    'arrows cross task, list and paragraph boundaries at the destination block edges',
     (tester) async {
       const source =
           'Before text\n\n- [ ] First text\n- Other text\n1. Third text\n\nAfter text';
@@ -133,20 +211,19 @@ void main() {
       );
       final items = bodies(tester);
       await focusAt(tester, items.first, 4);
-      final x = caretPosition(tester, items.first).dx;
-      for (final (key, target) in [
-        (LogicalKeyboardKey.arrowDown, items[1]),
-        (LogicalKeyboardKey.arrowDown, items.last),
-        (LogicalKeyboardKey.arrowDown, root),
-        (LogicalKeyboardKey.arrowUp, items.last),
-        (LogicalKeyboardKey.arrowUp, items[1]),
-        (LogicalKeyboardKey.arrowUp, items.first),
-        (LogicalKeyboardKey.arrowUp, root),
-        (LogicalKeyboardKey.arrowDown, items.first),
+      for (final (key, target, offset) in [
+        (LogicalKeyboardKey.arrowDown, items[1], 0),
+        (LogicalKeyboardKey.arrowDown, items.last, 0),
+        (LogicalKeyboardKey.arrowDown, root, source.indexOf('After text')),
+        (LogicalKeyboardKey.arrowUp, items.last, 'Third text'.length),
+        (LogicalKeyboardKey.arrowUp, items[1], 'Other text'.length),
+        (LogicalKeyboardKey.arrowUp, items.first, 'First text'.length),
+        (LogicalKeyboardKey.arrowUp, root, 'Before text'.length),
+        (LogicalKeyboardKey.arrowDown, items.first, 0),
       ]) {
         await arrow(tester, key);
         expect(target.focus.hasPrimaryFocus, isTrue);
-        expect(caretPosition(tester, target).dx, closeTo(x, 9));
+        expect(target.text.selection.extentOffset, offset);
       }
       expect(root.text.text, source);
     },
@@ -154,7 +231,7 @@ void main() {
   );
 
   testWidgets(
-    'held arrows preserve the desired column across short and empty tasks',
+    'held arrows enter destination block boundaries across short and empty tasks',
     (tester) async {
       const source =
           '- [ ] Long first text\n- [ ] \n- [ ] x\n- [ ] Long final text';
@@ -165,7 +242,6 @@ void main() {
       );
       final items = bodies(tester);
       await focusAt(tester, items.first, 8);
-      final x = caretPosition(tester, items.first).dx;
       await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(items[1].focus.hasPrimaryFocus, isTrue);
@@ -174,14 +250,14 @@ void main() {
         await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
         expect(target.focus.hasPrimaryFocus, isTrue);
+        expect(target.text.selection.extentOffset, 0);
       }
       await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
-      expect(caretPosition(tester, items.last).dx, closeTo(x, 1));
       for (final target in items.reversed.skip(1)) {
         await arrow(tester, LogicalKeyboardKey.arrowUp);
         expect(target.focus.hasPrimaryFocus, isTrue);
+        expect(target.text.selection.extentOffset, target.text.text.length);
       }
-      expect(items.first.text.selection.extentOffset, 8);
       expect(root.text.text, source);
       expect(tester.takeException(), isNull);
     },
@@ -221,7 +297,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await arrow(tester, LogicalKeyboardKey.arrowDown);
-      expect(root.text.selection.extentOffset, first.length);
+      expect(root.text.selection.extentOffset, first.length + 2);
 
       final end = render.localToGlobal(
         render
@@ -274,10 +350,13 @@ void main() {
       final last = caretPosition(tester, items.first);
       await arrow(tester, LogicalKeyboardKey.arrowDown);
       expect(items.last.focus.hasPrimaryFocus, isTrue);
-      expect(caretPosition(tester, items.last).dx, closeTo(last.dx, 1));
+      expect(items.last.text.selection.extentOffset, 0);
       await arrow(tester, LogicalKeyboardKey.arrowUp);
       expect(items.first.focus.hasPrimaryFocus, isTrue);
-      expect(caretPosition(tester, items.first).dx, closeTo(last.dx, 1));
+      expect(
+        items.first.text.selection.extentOffset,
+        items.first.text.text.length,
+      );
       expect(caretPosition(tester, items.first).dy, closeTo(last.dy, 1));
       expect(root.text.text, source);
     },
@@ -297,8 +376,12 @@ void main() {
     final items = bodies(tester);
     expect(items, hasLength(4));
     await focusAt(tester, items.first, 8);
-    final x = caretPosition(tester, items.first).dx;
-    for (final target in [items[1], items[2], items.first, items.last]) {
+    for (final (target, offset) in [
+      (items[1], 0),
+      (items[2], 0),
+      (items.first, items.first.text.text.indexOf('Tail text')),
+      (items.last, 0),
+    ]) {
       await arrow(tester, LogicalKeyboardKey.arrowDown);
       expect(
         target.focus.hasPrimaryFocus,
@@ -306,19 +389,18 @@ void main() {
         reason:
             'Expected ${target.text.text}; active: ${root.activeEditor.text.value}',
       );
-      expect(caretPosition(tester, target).dx, closeTo(x, 9));
-      if (identical(target, items.first)) {
-        expect(
-          target.text.selection.extentOffset,
-          greaterThanOrEqualTo(target.text.text.indexOf('Tail')),
-        );
-      }
+      expect(target.text.selection.extentOffset, offset);
     }
-    for (final target in [items.first, items[2], items[1], items.first]) {
+    for (final (target, offset) in [
+      (items.first, items.first.text.text.length),
+      (items[2], 'Grand text'.length),
+      (items[1], 'Child text'.length),
+      (items.first, 'Parent text'.length),
+    ]) {
       await arrow(tester, LogicalKeyboardKey.arrowUp);
       expect(target.focus.hasPrimaryFocus, isTrue);
+      expect(target.text.selection.extentOffset, offset);
     }
-    expect(items.first.text.selection.extentOffset, 8);
     expect(root.text.text, source);
   }, variant: desktopPlatforms);
 
