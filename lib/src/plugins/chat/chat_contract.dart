@@ -4,6 +4,7 @@ export 'chat_inbox_rooms.dart'
     show
         ChatInboxRooms,
         ChatInboxRoomProvider,
+        ChatInboxRoomCreator,
         ChatInboxRoom,
         ChatInboxRoomRow,
         chatInboxRoomsService;

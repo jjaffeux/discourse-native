@@ -70,7 +70,7 @@ void main() {
       expect(
         sidebarDestination('Chats'),
         findsNothing,
-        reason: 'the open directory carries its own three-way switch',
+        reason: 'the open inbox owns the directory cards',
       );
       expect(tester.widget<DTabs<String>>(panels.tabs).value, 'chat');
       expect(tester.takeException(), isNull);
@@ -179,12 +179,17 @@ void main() {
       ('Channels', ChatPlugin.browseRouteId),
       ('Chats', ChatPlugin.inboxRouteId),
     ]) {
-      final navigation = find.byKey(const ValueKey('chat-browse-navigation'));
-      await tester.tap(
-        label == 'Threads'
-            ? sidebarDestination(label)
-            : find.descendant(of: navigation, matching: find.text(label)).first,
-      );
+      if (label == 'Threads') {
+        await tester.tap(sidebarDestination(label));
+      } else {
+        await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
+        await tester.pumpAndSettle();
+        if (label == 'Channels') {
+          await tester.tap(
+            find.byKey(const ValueKey('chat-inbox-channels-card')),
+          );
+        }
+      }
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, route);
       expect(shell.activeTabId, sourceTab);

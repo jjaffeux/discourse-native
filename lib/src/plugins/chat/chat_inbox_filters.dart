@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
 
+enum ChatInboxSort { byType, newest }
+
 enum ChatInboxKind { all, channels, directMessages, voiceRooms }
 
 enum ChatChannelJoinedFilter { all, joined, notJoined }
@@ -20,25 +22,32 @@ final class ChatInboxFilter {
   const ChatInboxFilter({
     this.kind = ChatInboxKind.all,
     this.unreadOnly = false,
+    this.sort = ChatInboxSort.byType,
   });
 
   final ChatInboxKind kind;
   final bool unreadOnly;
+  final ChatInboxSort sort;
 
-  ChatInboxFilter copyWith({ChatInboxKind? kind, bool? unreadOnly}) =>
-      ChatInboxFilter(
-        kind: kind ?? this.kind,
-        unreadOnly: unreadOnly ?? this.unreadOnly,
-      );
+  ChatInboxFilter copyWith({
+    ChatInboxKind? kind,
+    bool? unreadOnly,
+    ChatInboxSort? sort,
+  }) => ChatInboxFilter(
+    kind: kind ?? this.kind,
+    unreadOnly: unreadOnly ?? this.unreadOnly,
+    sort: sort ?? this.sort,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is ChatInboxFilter &&
       other.kind == kind &&
-      other.unreadOnly == unreadOnly;
+      other.unreadOnly == unreadOnly &&
+      other.sort == sort;
 
   @override
-  int get hashCode => Object.hash(kind, unreadOnly);
+  int get hashCode => Object.hash(kind, unreadOnly, sort);
 }
 
 /// The inbox filters a reader chose for each forum. Held beside the chat

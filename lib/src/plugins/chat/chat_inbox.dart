@@ -35,119 +35,144 @@ String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
         ChatInboxKind.voiceRooms => appL10n.noVoiceRoomsYet,
       };
 
-/// The activity and conversation-type dropdowns, plus the reader's presence.
-///
-/// A [leading] control shares the bar when the width allows and otherwise
-/// takes a row of its own; presence stays at the end of the filters' row.
+/// Shared activity and grouping choices for the inbox and sidebar.
 class ChatInboxFilterBar extends StatelessWidget {
   const ChatInboxFilterBar({
     super.key,
     required this.siteUrl,
     required this.filters,
-    this.leading,
   });
 
   final String siteUrl;
   final ChatInboxFilters filters;
-  final Widget? leading;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    // Voice rooms become a choice once Voice attaches its directory.
-    listenable: Listenable.merge([
-      filters,
-      PluginUiScope.optional(context, chatInboxRoomsService),
-    ]),
+    listenable: filters,
     builder: (context, _) {
       final filter = filters.filterFor(siteUrl);
-      final dropdowns = <Widget>[
-        ChatBrowseFilter<bool>(
-          key: const ValueKey('chat-inbox-activity-filter'),
-          label: filter.unreadOnly ? context.l10n.unread : context.l10n.recent,
-          emphasized: true,
-          semanticLabel: context.l10n.chatActivity,
-          mobileSheetVariant: DSheetVariant.adaptiveMenu,
-          value: filter.unreadOnly,
-          options: {false: context.l10n.recent, true: context.l10n.unread},
-          onChanged: (value) =>
-              filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
-        ),
-        ChatBrowseFilter<ChatInboxKind>(
-          key: const ValueKey('chat-inbox-kind-filter'),
-          mobileSheetVariant: DSheetVariant.adaptiveMenu,
-          label: switch (filter.kind) {
-            ChatInboxKind.all => context.l10n.all,
-            ChatInboxKind.channels => context.l10n.channels,
-            ChatInboxKind.directMessages => context.l10n.directMessages,
-            ChatInboxKind.voiceRooms => context.l10n.voiceRooms,
-          },
-          icon: _kindIcon(filter.kind),
-          optionIcons: {
-            for (final kind in ChatInboxKind.values) kind: _kindIcon(kind),
-          },
-          semanticLabel: context.l10n.conversationType,
-          value: filter.kind,
-          options: {
-            ChatInboxKind.all: context.l10n.all,
-            ChatInboxKind.channels: context.l10n.channels,
-            ChatInboxKind.directMessages: context.l10n.directMessages,
-            if (PluginUiScope.optional(
-                  context,
-                  chatInboxRoomsService,
-                )?.available(siteUrl) ==
-                true)
-              ChatInboxKind.voiceRooms: context.l10n.voiceRooms,
-          },
-          onChanged: (value) =>
-              filters.update(siteUrl, filter.copyWith(kind: value)),
-        ),
-      ];
-      final row = Row(
+      return Wrap(
         spacing: DSpacing.controlGap,
+        runSpacing: DSpacing.controlGap,
         children: [
-          Expanded(
-            child: Wrap(
-              spacing: DSpacing.controlGap,
-              runSpacing: DSpacing.controlGap,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: dropdowns,
-            ),
+          ChatBrowseFilter<bool>(
+            key: const ValueKey('chat-inbox-activity-filter'),
+            label: filter.unreadOnly
+                ? context.l10n.unread
+                : context.l10n.recent,
+            emphasized: true,
+            semanticLabel: context.l10n.chatActivity,
+            value: filter.unreadOnly,
+            options: {false: context.l10n.recent, true: context.l10n.unread},
+            onChanged: (value) =>
+                filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
           ),
-          UserPresenceMenu(siteUrl: siteUrl),
+          ChatBrowseFilter<ChatInboxSort>(
+            key: const ValueKey('chat-inbox-sort-filter'),
+            label: filter.sort == ChatInboxSort.byType ? 'By type' : 'Newest',
+            semanticLabel: 'Chat order',
+            value: filter.sort,
+            options: const {
+              ChatInboxSort.byType: 'By type',
+              ChatInboxSort.newest: 'Newest',
+            },
+            onChanged: (value) =>
+                filters.update(siteUrl, filter.copyWith(sort: value)),
+          ),
         ],
-      );
-      final leading = this.leading;
-      if (leading == null) return row;
-      return LayoutBuilder(
-        builder: (context, constraints) =>
-            constraints.maxWidth >= MediaQuery.textScalerOf(context).scale(600)
-            ? Row(
-                spacing: DSpacing.sm,
-                children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth / 2,
-                    ),
-                    child: leading,
-                  ),
-                  Expanded(child: row),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.sm,
-                children: [leading, row],
-              ),
       );
     },
   );
+}
 
-  static Widget _kindIcon(ChatInboxKind kind) => switch (kind) {
-    ChatInboxKind.all => const DIcon(DIcons.asterisk),
-    ChatInboxKind.channels => const Text('#'),
-    ChatInboxKind.directMessages => const DIcon(DIcons.user),
-    ChatInboxKind.voiceRooms => const DIcon(DIcons.microphoneLines),
-  };
+enum ChatInboxSectionKind { starred, channels, directMessages, allChats }
+
+typedef ChatInboxSection = ({
+  ChatInboxSectionKind kind,
+  List<ChatChannel> channels,
+});
+
+/// [channels] already follows actual message and unread-thread activity.
+List<ChatInboxSection> chatInboxSections(
+  List<ChatChannel> channels,
+  ChatInboxSort sort,
+) => [
+  if (sort == ChatInboxSort.newest)
+    (kind: ChatInboxSectionKind.allChats, channels: channels)
+  else ...[
+    (
+      kind: ChatInboxSectionKind.starred,
+      channels: [
+        for (final c in channels)
+          if (c.membership.starred) c,
+      ],
+    ),
+    (
+      kind: ChatInboxSectionKind.channels,
+      channels: [
+        for (final c in channels)
+          if (!c.membership.starred && !c.isDirectMessage) c,
+      ],
+    ),
+    (
+      kind: ChatInboxSectionKind.directMessages,
+      channels: [
+        for (final c in channels)
+          if (!c.membership.starred && c.isDirectMessage) c,
+      ],
+    ),
+  ],
+].where((section) => section.channels.isNotEmpty).toList();
+
+class ChatInboxSectionHeading extends StatelessWidget {
+  const ChatInboxSectionHeading({
+    super.key,
+    required this.kind,
+    this.compact = false,
+  });
+  final ChatInboxSectionKind kind;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsetsDirectional.fromSTEB(
+      compact ? 10 : 0,
+      18,
+      compact ? 10 : 0,
+      2,
+    ),
+    child: Row(
+      spacing: DSpacing.xs,
+      children: [
+        DIcon(
+          switch (kind) {
+            ChatInboxSectionKind.starred => DIcons.star,
+            ChatInboxSectionKind.channels => DIcons.hashtag,
+            ChatInboxSectionKind.directMessages => DIcons.user,
+            ChatInboxSectionKind.allChats => DIcons.comments,
+          },
+          size: 11,
+          color: DTokens.of(context).mutedForeground,
+        ),
+        Flexible(
+          child: Text(
+            switch (kind) {
+              ChatInboxSectionKind.starred => context.l10n.starred,
+              ChatInboxSectionKind.channels => context.l10n.channels,
+              ChatInboxSectionKind.directMessages =>
+                context.l10n.directMessages,
+              ChatInboxSectionKind.allChats => 'All chats',
+            },
+            style: TextStyle(
+              fontSize: DiscourseTypography.xs,
+              fontWeight: FontWeight.w600,
+              color: DTokens.of(context).mutedForeground,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// The inbox's error state: nothing to show and a way to ask again.
@@ -235,6 +260,13 @@ class ChatInboxRow extends StatelessWidget {
             : null,
         size: compact ? DItemSize.sm : DItemSize.standard,
         selected: selected,
+        cornerAction: compact && !context.isTouch
+            ? ChatChannelMenu(
+                siteUrl: siteUrl,
+                channelId: channel.id,
+                channel: channel,
+              )
+            : null,
         selectionStyle: compact
             ? DItemSelectionStyle.sidebar
             : DItemSelectionStyle.leadingAccent,
@@ -253,46 +285,51 @@ class ChatInboxRow extends StatelessWidget {
           DItemContent(
             children: [
               DItemTitle(
-                child: LayoutBuilder(
-                  builder: (context, constraints) => Row(
-                    spacing: DSpacing.sm,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          channel.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: unread
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (status != null)
-                        UserStatusMessage(
-                          siteUrl: siteUrl,
-                          userId: directUser!.id,
-                          status: status,
-                          size: 14,
-                        ),
-                      if (channel.readRestricted)
-                        const DIcon(DIcons.lock, size: 12),
-                      if (at != null)
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth * .45,
-                          ),
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    end: compact && !context.isTouch ? DSpacing.xl : 0,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Row(
+                      spacing: DSpacing.sm,
+                      children: [
+                        Expanded(
                           child: Text(
-                            _activityLabel(context, at),
+                            channel.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: tokens.mutedForeground,
+                            style: TextStyle(
+                              fontWeight: unread
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                         ),
-                    ],
+                        if (status != null)
+                          UserStatusMessage(
+                            siteUrl: siteUrl,
+                            userId: directUser!.id,
+                            status: status,
+                            size: 14,
+                          ),
+                        if (channel.readRestricted)
+                          const DIcon(DIcons.lock, size: 12),
+                        if (at != null)
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth * .45,
+                            ),
+                            child: Text(
+                              _activityLabel(context, at),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: tokens.mutedForeground,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -454,6 +491,7 @@ final class _ChatSidebarInboxLayout {
   const _ChatSidebarInboxLayout({
     required this.filter,
     required this.channelIds,
+    required this.starredIds,
     required this.loading,
     required this.failed,
     required this.empty,
@@ -461,6 +499,7 @@ final class _ChatSidebarInboxLayout {
 
   final ChatInboxFilter filter;
   final List<int> channelIds;
+  final List<int> starredIds;
   final bool loading;
   final bool failed;
   final bool empty;
@@ -472,11 +511,18 @@ final class _ChatSidebarInboxLayout {
       loading == other.loading &&
       failed == other.failed &&
       empty == other.empty &&
-      listEquals(channelIds, other.channelIds);
+      listEquals(channelIds, other.channelIds) &&
+      listEquals(starredIds, other.starredIds);
 
   @override
-  int get hashCode =>
-      Object.hash(filter, loading, failed, empty, Object.hashAll(channelIds));
+  int get hashCode => Object.hash(
+    filter,
+    loading,
+    failed,
+    empty,
+    Object.hashAll(channelIds),
+    Object.hashAll(starredIds),
+  );
 }
 
 class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
@@ -519,6 +565,10 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     return _ChatSidebarInboxLayout(
       filter: filter,
       channelIds: [for (final channel in channels) channel.id],
+      starredIds: [
+        for (final channel in channels)
+          if (channel.membership.starred) channel.id,
+      ],
       loading: !chat.channelsLoaded(siteUrl) && error == null,
       failed: error != null && channels.isEmpty,
       empty: channels.isEmpty && (_rooms?.rooms(siteUrl).isEmpty ?? true),
@@ -547,9 +597,22 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     final chat = _chat!;
     final siteUrl = widget.siteUrl;
     final layout = _layout;
-    final channelIds = layout.channelIds;
+    final sections = chatInboxSections([
+      for (final id in layout.channelIds) ?chat.channel(siteUrl, id),
+    ], layout.filter.sort);
+    final entries = <({ChatInboxSectionKind? heading, int? id})>[
+      for (final section in sections) ...[
+        (heading: section.kind, id: null),
+        for (final channel in section.channels) (heading: null, id: channel.id),
+      ],
+    ];
+    Key entryKey(({ChatInboxSectionKind? heading, int? id}) entry) =>
+        switch (entry.id) {
+          final id? => ValueKey(id),
+          null => ValueKey(entry.heading),
+        };
     final indexes = {
-      for (final (index, channelId) in channelIds.indexed) channelId: index,
+      for (final (index, entry) in entries.indexed) entryKey(entry): index,
     };
     return SliverMainAxisGroup(
       slivers: [
@@ -567,14 +630,23 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
           )
         else
           SliverList.builder(
-            itemCount: channelIds.length,
-            findChildIndexCallback: (key) =>
-                key is ValueKey<int> ? indexes[key.value] : null,
-            itemBuilder: (context, index) => _ChatSidebarInboxEntry(
-              key: ValueKey(channelIds[index]),
-              siteUrl: siteUrl,
-              channelId: channelIds[index],
-            ),
+            itemCount: entries.length,
+            findChildIndexCallback: (key) => indexes[key],
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              if (entry.heading case final heading?) {
+                return ChatInboxSectionHeading(
+                  key: entryKey(entry),
+                  kind: heading,
+                  compact: true,
+                );
+              }
+              return _ChatSidebarInboxEntry(
+                key: entryKey(entry),
+                siteUrl: siteUrl,
+                channelId: entry.id!,
+              );
+            },
           ),
       ],
     );

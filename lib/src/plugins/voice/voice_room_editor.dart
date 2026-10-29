@@ -26,6 +26,15 @@ Future<void> showVoiceRoomEditor(
     builder: (context, dialog) => _VoiceRoomEditorDialog(
       room: room,
       dialog: dialog,
+      nameTaken: (name) =>
+          originController
+              .directory(siteUrl)
+              ?.rooms
+              .any(
+                (existing) =>
+                    existing.id != room?.id && existing.name.trim() == name,
+              ) ??
+          false,
       onDelete: room == null || !room.canDelete || room.ephemeral
           ? null
           : () async {
@@ -44,10 +53,21 @@ Future<void> showVoiceRoomEditor(
     ),
   );
   if (result == null || !context.mounted || !ownsAccount()) return;
-  await (controllerResolver?.call() ??
-          controller ??
-          PluginUiScope.require(context, voiceControllerService))
-      .saveRoom(siteUrl: siteUrl, draft: result, roomId: room?.id);
+  final current = controllerResolver?.call() ?? controller ?? originController;
+  if (room == null && current.directory(siteUrl)?.canCreateRoom != true) return;
+  final saved = await current.saveRoom(
+    siteUrl: siteUrl,
+    draft: result,
+    roomId: room?.id,
+  );
+  if (saved == null && context.mounted && ownsAccount()) {
+    DToast.maybeOf(context)?.add(
+      DToastOptions(
+        description: context.l10n.couldnTSaveTheVoiceRoom,
+        type: DToastType.error,
+      ),
+    );
+  }
 }
 
 /// A `showDialog` future completes when the route is popped, before its exit
@@ -57,11 +77,13 @@ class _VoiceRoomEditorDialog extends StatefulWidget {
   const _VoiceRoomEditorDialog({
     required this.room,
     required this.dialog,
+    required this.nameTaken,
     this.onDelete,
   });
 
   final VoiceRoom? room;
   final DDialogController<VoiceRoomDraft> dialog;
+  final bool Function(String) nameTaken;
   final Future<bool> Function()? onDelete;
 
   @override
@@ -147,6 +169,9 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
                     validator: (value) {
                       final name = value?.trim() ?? '';
                       if (name.isEmpty) return context.l10n.enterARoomName;
+                      if (widget.nameTaken(name)) {
+                        return 'A voice room with this name already exists.';
+                      }
                       if (name.runes.length > 80) {
                         return context.l10n.use80CharactersOrFewer;
                       }
@@ -339,7 +364,13 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
             ),
           ),
           DButton(
-            onPressed: _deleting || _name.text.trim().isEmpty ? null : _save,
+            onPressed:
+                _deleting ||
+                    _name.text.trim().isEmpty ||
+                    widget.nameTaken(_name.text.trim()) ||
+                    _name.text.trim().runes.length > 80
+                ? null
+                : _save,
             label: Text(
               _room == null
                   ? context.l10n.createRoom

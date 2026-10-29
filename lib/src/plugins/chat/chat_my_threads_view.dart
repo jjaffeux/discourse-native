@@ -160,10 +160,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             runSpacing: DSpacing.sm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              ChatBrowseNavigation(
-                siteUrl: widget.siteUrl,
-                page: ChatBrowsePage.threads,
-              ),
+              const ChatBrowseBack(),
               ChatThreadChannelFilter(
                 key: ObjectKey(_directory),
                 chat: _chat,

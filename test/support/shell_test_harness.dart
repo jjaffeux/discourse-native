@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DDropdownMenuItem, DSpinner;
+    show DDropdownMenuItem, DItem, DSpinner;
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -155,11 +155,16 @@ Finder sidebarDestination(String label) => find.byElementPredicate((element) {
   if (widget is! Text || widget.data != label) return false;
 
   var inSidebar = false;
+  var inDestination = false;
   element.visitAncestorElements((ancestor) {
     inSidebar |= ancestor.widget is InstanceSidebar;
+    inDestination |=
+        ancestor.widget is SidebarDestinationTile ||
+        (ancestor.widget is DItem &&
+            (ancestor.widget as DItem).onPressed != null);
     return true;
   });
-  return inSidebar;
+  return inSidebar && inDestination;
 }, description: 'sidebar destination labelled "$label"');
 
 Finder contentText(String label) => find.byElementPredicate((element) {

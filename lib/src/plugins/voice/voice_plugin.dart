@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart' hide DIcon;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -255,9 +257,8 @@ final class VoicePlugin
     if (directory == null) return const [];
     final inbox = PluginUiScope.require(context, voiceChatInboxService);
     final rooms = inbox.rooms(instance.url);
-    if (rooms.isEmpty) {
-      return const [];
-    }
+    final createRoom = inbox.createRoom(instance.url);
+    if (rooms.isEmpty && createRoom == null) return const [];
 
     return [
       SidebarSection(
@@ -269,6 +270,13 @@ final class VoicePlugin
           children: [
             for (final room in rooms)
               ChatInboxRoomRow(room: room, compact: true),
+            if (createRoom != null)
+              DButton(
+                variant: DButtonVariant.ghost,
+                icon: const DIcon(DIcons.plus),
+                label: const Text('New voice room'),
+                onPressed: () => unawaited(createRoom(context)),
+              ),
           ],
         ),
         destinations: [
