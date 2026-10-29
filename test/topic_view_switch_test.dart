@@ -24,6 +24,94 @@ void main() {
         .load();
   });
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'feed consumes Native inset segment geometry ($platform, dark $dark)',
+        (tester) async {
+          final fixture = _Fixture(
+            platform: platform,
+            dark: dark,
+            mode: TopicListMode.newTopics,
+          );
+          await fixture.pump(tester);
+          final touch = platform != TargetPlatform.macOS;
+          final selected = _segment('newActivity');
+          expect(tester.widget<DButtonGroup>(_switch).inset, isTrue);
+          expect(tester.getSize(_switch).height, touch ? 36 : 30);
+          expect(tester.getSize(selected).height, touch ? 32 : 26);
+          expect(
+            tester.getTopLeft(selected).dy - tester.getTopLeft(_switch).dy,
+            2,
+          );
+          final artwork = tester.widget<AnimatedContainer>(
+            find
+                .descendant(
+                  of: selected,
+                  matching: find.byType(AnimatedContainer),
+                )
+                .first,
+          );
+          final surface = artwork.decoration! as BoxDecoration;
+          expect(surface.borderRadius, BorderRadius.circular(999));
+          expect(
+            surface.color,
+            DTokens.of(tester.element(selected)).raisedBackground,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('New, Top and overflow keep independent keyboard menu focus', (
+    tester,
+  ) async {
+    final fixture = _Fixture();
+    await fixture.pump(tester);
+    final fresh = _segment('newActivity');
+    tester.widget<DToggle>(fresh).focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(fixture.mode, TopicListMode.newTopics);
+    expect(tester.widget<DToggle>(fresh).focusNode!.hasFocus, isTrue);
+
+    await tester.tap(_more);
+    await tester.pumpAndSettle();
+    await tester.tap(_entry('top-period-yearly'));
+    await tester.pumpAndSettle();
+    final top = _segment('top');
+    tester.widget<DToggle>(top).focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(fixture.mode, TopicListMode.topWeekly);
+    expect(tester.widget<DToggle>(top).focusNode!.hasFocus, isTrue);
+
+    tester.widget<DButton>(_more).focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(fixture.mode, TopicListMode.popular);
+    expect(tester.widget<DButton>(_more).focusNode!.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop shows three views and only hidden views in overflow', (
     tester,
   ) async {

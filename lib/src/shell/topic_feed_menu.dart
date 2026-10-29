@@ -69,6 +69,7 @@ class TopicFeedMenu extends StatefulWidget {
 
 class _TopicFeedMenuState extends State<TopicFeedMenu> {
   final _measureKeys = <Object, GlobalKey>{};
+  final _measurementFrameKey = GlobalKey();
   final _menuKeys = <Object, GlobalKey>{};
   final _toggleKeys = <_View, GlobalKey>{};
   Map<Object, double> _widths = {};
@@ -147,7 +148,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     final toggle = DToggle(
       key: ValueKey('topic-list-view-${view.name}'),
       pressed: view == _current,
-      size: DToggleSize.filter,
+      size: DToggleSize.segment,
       variant: DToggleVariant.segmented,
       semanticLabel: _semantics(label, count),
       focusNode: focusNode,
@@ -168,7 +169,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
       return DButton.iconOnly(
         tooltip: context.l10n.chooseTopicFeed,
         key: const ValueKey('topic-list-feed-menu'),
-        size: DButtonSize.filter,
+        size: DButtonSize.segment,
         variant: DButtonVariant.ghost,
         semanticLabel: name,
         focusNode: trigger?.focusNode,
@@ -180,7 +181,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     }
     return DButton(
       key: const ValueKey('topic-list-feed-menu'),
-      size: DButtonSize.filter,
+      size: DButtonSize.segment,
       variant: DButtonVariant.ghost,
       semanticLabel: name,
       focusNode: trigger?.focusNode,
@@ -286,18 +287,18 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
   List<_View> _fit(double room, double overflowWidth) {
     if (_views.any((view) => !_widths.containsKey(view))) return [_current];
     if (_views.length <= widget.maxVisibleViews &&
-        _views.fold<double>(0, (sum, view) => sum + _widths[view]!) <= room) {
+        _groupWidth(_views) <= room) {
       return _views;
     }
     final keep = {_current};
-    var used = (_widths[_current] ?? room) + overflowWidth;
+    var used = _groupWidth([_current], overflow: overflowWidth);
     for (final view in _views) {
       if (view == _current) continue;
       if (keep.length >= widget.maxVisibleViews ||
-          used + (_widths[view] ?? room) > room) {
+          used + _widths['gap']! + _widths[view]! > room) {
         break;
       }
-      used += _widths[view]!;
+      used += _widths['gap']! + _widths[view]!;
       keep.add(view);
     }
     return [
@@ -306,15 +307,37 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     ];
   }
 
+  double _groupWidth(Iterable<_View> views, {double? overflow}) {
+    final count = views.length + (overflow == null ? 0 : 1);
+    return (_widths['edges'] ?? 0) +
+        views.fold<double>(
+          overflow ?? 0,
+          (sum, view) => sum + (_widths[view] ?? 0),
+        ) +
+        (_widths['gap'] ?? 0) * (count - 1);
+  }
+
   void _measure() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final widths = <Object, double>{
+      final boxes = <Object, RenderBox>{
         for (final entry in _measureKeys.entries)
           if (entry.value.currentContext?.findRenderObject() case RenderBox box
               when box.hasSize)
-            entry.key: box.size.width,
+            entry.key: box,
       };
+      final widths = {
+        for (final entry in boxes.entries) entry.key: entry.value.size.width,
+      };
+      final frame = _measurementFrameKey.currentContext?.findRenderObject();
+      if (frame is! RenderBox || !frame.hasSize || boxes.length < 2) return;
+      final bounds = [
+        for (final box in boxes.values)
+          box.localToGlobal(Offset.zero, ancestor: frame) & box.size,
+      ]..sort((a, b) => a.left.compareTo(b.left));
+      widths['edges'] =
+          frame.size.width - (bounds.last.right - bounds.first.left);
+      widths['gap'] = bounds[1].left - bounds[0].right;
       if (!mapEquals(widths, _widths)) setState(() => _widths = widths);
     });
   }
@@ -352,9 +375,9 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
         final overflowWidth = hidden.isEmpty
             ? 0.0
             : _widths[overflowCount > 0 ? 'counted' : 'bare'] ?? 0;
-        final naturalWidth = shown.fold<double>(
-          overflowWidth,
-          (sum, view) => sum + (_widths[view] ?? 0),
+        final naturalWidth = _groupWidth(
+          shown,
+          overflow: hidden.isEmpty ? null : overflowWidth,
         );
         Widget measured(Object id, Widget child) => KeyedSubtree(
           key: _measureKeys.putIfAbsent(id, GlobalKey.new),
@@ -384,13 +407,13 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
               width: room.isFinite && _widths.isNotEmpty
                   ? math.min(room, naturalWidth)
                   : null,
-              child: DButtonGroup.quiet(
+              child: DButtonGroup.inset(
                 key: const ValueKey('topic-list-view-switch'),
                 semanticLabel: context.l10n.topicLists,
                 children: [
                   for (final view in shown)
-                    if (view == _current && room.isFinite && _widths.isNotEmpty)
-                      DButtonGroupExpanded(child: segment(view))
+                    if (view == _current && room.isFinite)
+                      Flexible(child: segment(view))
                     else
                       ConstrainedBox(
                         constraints: BoxConstraints(maxWidth: room),
@@ -415,7 +438,8 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
                 child: OverflowBox(
                   maxWidth: double.infinity,
                   fit: OverflowBoxFit.deferToChild,
-                  child: DButtonGroup.quiet(
+                  child: DButtonGroup.inset(
+                    key: _measurementFrameKey,
                     children: [
                       for (final view in _views) measured(view, _toggle(view)),
                       measured('bare', _overflow(0)),

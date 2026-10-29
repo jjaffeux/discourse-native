@@ -148,7 +148,7 @@ void main() {
             .pressed,
         isTrue,
       );
-      expect(tester.getSize(feed).height, 30);
+      expect(tester.getSize(feed).height, 26);
       final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
       expect(tester.widget<DButton>(tag).variant, DButtonVariant.quiet);
       expect(
@@ -359,7 +359,11 @@ void main() {
           findsOneWidget,
         );
       }
-      expect(tester.takeException(), isNull);
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '${scenario.platform} at ${scenario.width}px',
+      );
       final filename =
           '$name-${scenario.platform.name}-${scenario.width.toInt()}';
       await _captureProductionRow(tester, directory, filename);
@@ -2284,7 +2288,14 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(setup.controller.currentTopicListMode, TopicListMode.newTopics);
-        expect(find.text('New · Topics'), findsOneWidget);
+        expect(
+          tester
+              .widget<DToggle>(
+                find.byKey(const ValueKey('topic-list-view-newActivity')),
+              )
+              .semanticLabel,
+          startsWith('New · Topics'),
+        );
         await _openFeed(tester);
         expect(
           tester.getSemantics(topics).label,
@@ -2297,7 +2308,14 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(setup.controller.currentTopicListMode, TopicListMode.newReplies);
-        expect(find.text('New · Replies'), findsOneWidget);
+        expect(
+          tester
+              .widget<DToggle>(
+                find.byKey(const ValueKey('topic-list-view-newActivity')),
+              )
+              .semanticLabel,
+          startsWith('New · Replies'),
+        );
         await _openFeed(tester);
         expect(
           tester.getSemantics(replies).label,
