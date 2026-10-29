@@ -265,6 +265,26 @@ void main() {
     },
   );
 
+  testWidgets('swiping preserves filter buttons between layout changes', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+    final list = find.byKey(const ValueKey('responsive-filter-topics'));
+    for (final delta in [12.0, -12.0]) {
+      final element = tester.element(tag);
+      final gesture = await tester.startGesture(tester.getCenter(list));
+      for (var frame = 0; frame < 6; frame++) {
+        await gesture.moveBy(Offset(0, delta));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.element(tag), same(element), reason: 'frame $frame');
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a selected path retains its scope and count while compacted', (
     tester,
   ) async {
