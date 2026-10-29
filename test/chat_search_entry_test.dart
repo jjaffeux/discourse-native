@@ -260,6 +260,10 @@ void main() {
     shell.selectInstance(1);
     await _finishSearch(tester);
     expect(find.byKey(const ValueKey('chat-search-entry')), findsNothing);
+    expect(
+      tester.getTopLeft(find.byType(ChatInboxFilterBar)).dy,
+      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy,
+    );
     chat.openGlobalSearch(globalSearchFixtureSite);
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.panelKey), findsNothing);
@@ -269,6 +273,10 @@ void main() {
     expect(await shell.disconnectInstance(globalSearchFixtureSite), isTrue);
     await _finishSearch(tester);
     expect(find.byKey(const ValueKey('chat-search-entry')), findsNothing);
+    expect(
+      tester.getTopLeft(find.byType(ChatInboxFilterBar)).dy,
+      tester.getTopLeft(find.byType(ChatSidebarInboxHeader)).dy,
+    );
     chat.openGlobalSearch(globalSearchFixtureSite);
     await tester.pumpAndSettle();
     expect(find.byKey(ForumSearch.panelKey), findsNothing);

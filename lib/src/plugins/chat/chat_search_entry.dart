@@ -18,15 +18,18 @@ class ChatSearchEntry extends StatelessWidget {
       listenable: shell,
       builder: (context, _) => shell.searchContextFor(siteUrl) == null
           ? const SizedBox.shrink()
-          : DButton(
-              key: const ValueKey('chat-search-entry'),
-              variant: DButtonVariant.quiet,
-              size: DButtonSize.field,
-              alignment: AlignmentDirectional.centerStart,
-              foregroundColor: DTokens.of(context).mutedForeground,
-              icon: const DIcon(DIcons.magnifyingGlass),
-              label: Text(context.l10n.searchChat),
-              onPressed: () => shell.openGlobalSearch(siteUrl),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: DSpacing.sm),
+              child: DButton(
+                key: const ValueKey('chat-search-entry'),
+                variant: DButtonVariant.quiet,
+                size: DButtonSize.field,
+                alignment: AlignmentDirectional.centerStart,
+                foregroundColor: DTokens.of(context).mutedForeground,
+                icon: const DIcon(DIcons.magnifyingGlass),
+                label: Text(context.l10n.searchChat),
+                onPressed: () => shell.openGlobalSearch(siteUrl),
+              ),
             ),
     );
   }
