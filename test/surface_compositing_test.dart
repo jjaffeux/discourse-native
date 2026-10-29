@@ -176,8 +176,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 32));
       expect(find.byType(RawImage), findsOneWidget);
+      // The incoming page fades in over an opaque snapshot of the outgoing
+      // one: fading both would expose the canvas between them.
       final snapshot = find.byType(RawImage);
-      expect(_fractionalOpacityAbove(tester, snapshot), isNotEmpty);
+      expect(_fractionalOpacityAbove(tester, snapshot), isEmpty);
+      _expectFading(tester, find.text('Tab 1'));
       await tester.pumpAndSettle();
       expect(find.byType(RawImage), findsNothing);
       expect(find.text('Tab 1'), findsOneWidget);
