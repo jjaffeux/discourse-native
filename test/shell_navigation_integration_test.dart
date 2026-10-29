@@ -18,6 +18,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/categories_page.dart';
+import 'package:discourse_native/src/shell/category_icon.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
@@ -1341,8 +1342,15 @@ void _registerShellNavigationTests() {
     );
     expect(parentFilter, findsOneWidget);
     expect(subcategoryFilter, findsOneWidget);
+    // Shortened to fit the panel, the ancestor keeps its mark and its name
+    // for assistive technology, and the selected leaf keeps its own name.
     expect(
       find.descendant(of: parentFilter, matching: find.text('Parent')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(parentFilter).semanticLabel, 'Parent');
+    expect(
+      find.descendant(of: parentFilter, matching: find.byType(CategoryIcon)),
       findsOneWidget,
     );
     expect(
@@ -1672,11 +1680,18 @@ void _registerShellNavigationTests() {
       find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
       findsOneWidget,
     );
+    // Shortened to fit the panel, the unchosen level is a plus that keeps
+    // its name for assistive technology.
+    final unchosen = find.byKey(
+      const ValueKey('topic-list-subcategory-filter-1'),
+    );
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
-        matching: find.text('Subcategory'),
-      ),
+      find.descendant(of: unchosen, matching: find.text('Subcategory')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(unchosen).semanticLabel, 'Subcategory');
+    expect(
+      find.descendant(of: unchosen, matching: find.dIcon(DIcons.plus)),
       findsOneWidget,
     );
     expect(
