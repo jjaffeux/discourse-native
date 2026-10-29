@@ -85,9 +85,10 @@ void main() {
         // notification menu the sheet opens from.
         'lib/src/shell/notification_schedule_sheet.dart': {'shape': 1},
         // The avatar trigger uses the mockup's 22% outline around the avatar,
-        // with no fill of its own at rest or on hover.
+        // with no fill of its own at rest or on hover. In the drawer, the
+        // profile action is a pill inside the footer card's rounded end.
         'lib/src/shell/user_menu_button.dart': {
-          'shape': 2,
+          'shape': 3,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
           'borderColor': 1,
