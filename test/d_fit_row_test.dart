@@ -5,15 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// A pill [full] wide that drops to [tight] while its row asks it to.
 class _Pill extends StatelessWidget {
-  const _Pill(this.name, {required this.full, this.tight});
+  const _Pill(
+    this.name, {
+    required this.full,
+    this.tight,
+    this.compactOnly = false,
+  });
 
   final String name;
   final double full;
   final double? tight;
+  final bool compactOnly;
 
   @override
   Widget build(BuildContext context) {
-    final short = tight != null && DFitRow.tightOf(context);
+    final short =
+        tight != null &&
+        (compactOnly ? DFitRow.compactOf(context) : DFitRow.tightOf(context));
     return SizedBox(
       key: ValueKey(name),
       width: short ? tight : full,
@@ -236,4 +244,104 @@ void main() {
     );
     expect(tester.getSize(find.byType(DFitRow)), const Size(208, 30));
   });
+  _desktopTest('compact rows ease their pills without remounting controls', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    var compact = false;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 340,
+                  child: DFitRow(
+                    compact: compact,
+                    children: const [
+                      _Pill('sort', full: 100, tight: 40),
+                      _Pill('category', full: 100, tight: 40),
+                      _Pill('filters', full: 100, tight: 40),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final sort = find.byKey(const ValueKey('sort'));
+    final element = tester.element(sort);
+    Rect painted() {
+      final box = tester.renderObject<RenderBox>(sort);
+      return Rect.fromPoints(
+        box.localToGlobal(Offset.zero),
+        box.localToGlobal(box.size.bottomRight(Offset.zero)),
+      );
+    }
+
+    final before = painted();
+    rebuild(() => compact = true);
+    await tester.pump();
+    final initial = painted();
+    expect(initial.width, closeTo(before.width, .01));
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.element(sort), same(element));
+    expect(painted().width, inExclusiveRange(40, before.width));
+    await tester.pumpAndSettle();
+    expect(painted().width, 40);
+    expect(tester.element(sort), same(element));
+    expect(tester.takeException(), isNull);
+  });
+
+  _desktopTest(
+    'a compact row eases its height when its second line goes away',
+    (tester) async {
+      late StateSetter rebuild;
+      var compact = false;
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 220,
+                    child: DFitRow(
+                      compact: compact,
+                      children: const [
+                        _Pill('one', full: 100, tight: 40, compactOnly: true),
+                        _Pill('two', full: 100, tight: 40, compactOnly: true),
+                        _Pill('three', full: 100, tight: 40, compactOnly: true),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      final row = find.byType(DFitRow);
+      expect(tester.getSize(row).height, 68);
+      rebuild(() => compact = true);
+      await tester.pump();
+      expect(tester.getSize(row).height, 68);
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(tester.getSize(row).height, inExclusiveRange(30, 68));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(row).height, 30);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

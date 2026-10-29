@@ -113,257 +113,51 @@ class TopicInboxHeader extends StatelessWidget {
     final tab = ForumTabScope.tabOf(context);
     final route = this.route ?? tab.currentContent;
     final topicId = topic?.id ?? route?.topicId ?? preview?.id;
-    final row =
-        preview ??
-        (siteUrl != null && topicId != null
-            ? shell.store.read<Topic>(siteUrl, topicId)
-            : null);
-    final openingPostNumber = topicId == null
-        ? null
-        : shell.topicScrollPostNumber(topicId, tabId: tab.tabId) ??
-              route?.postNumber ??
-              topic?.resumePostNumber ??
-              row?.lastUnreadPostNumber;
     return DPageSurface.scrollable(
       titleText: title,
       headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,
       identity: (siteUrl, topicId),
-      initialCompactHeader: shell.mobileNavigationEnabled
-          ? (openingPostNumber ?? 1) > 1
-          : null,
       // The mockups draw every topic header control flat in either material.
-      header: _morphHeader(context, compact: false, rows: rows),
-      compactHeader: shell.mobileNavigationEnabled
-          ? _morphHeader(context, compact: true, rows: rows)
-          : null,
+      header: _morphHeader(context, rows: rows),
+      fadeHeaderOnScroll: shell.mobileNavigationEnabled,
+      titleLeading: _barStatus(),
       headerControls: headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),
     );
   }
 
-  Widget _morphHeader(
-    BuildContext context, {
-    required bool compact,
-    required List<Widget> rows,
-  }) {
+  Widget? _barStatus() {
+    final icons = [
+      if (topic?.deletedAt != null) DIcons.trashCan,
+      if ((topic?.closed ?? preview?.closed) == true) DIcons.lock,
+      if (topic?.archived == true) DIcons.folder,
+      if (topic?.visible == false) DIcons.farEyeSlash,
+      if ((topic?.pinned ?? preview?.pinned) == true) DIcons.thumbtack,
+    ];
+    return icons.isEmpty
+        ? null
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: [for (final icon in icons) DIcon(icon, size: 13)],
+          );
+  }
+
+  Widget _morphHeader(BuildContext context, {required List<Widget> rows}) {
     if (!ShellScope.read(context).mobileNavigationEnabled) {
       return Column(children: rows);
     }
-    return Padding(
-      padding: compact
-          ? const EdgeInsets.fromLTRB(8, 21, 8, 0)
-          : EdgeInsets.zero,
-      child: DCard(
-        key: const ValueKey('topic-header-band'),
-        spacing: 0,
-        border: false,
-        backgroundColor: compact
-            ? DTokens.of(context).wellFill
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
-        child: _morphBody(context, compact: compact, rows: rows),
-      ),
-    );
-  }
-
-  Widget _morphBody(
-    BuildContext context, {
-    required bool compact,
-    required List<Widget> rows,
-  }) {
     return DHeaderMorph(
       key: const ValueKey('topic-header-morph'),
-      compact: compact,
-      builder: (context, compact, part) {
-        if (loading || topic == null) {
-          if (!compact) return Column(children: rows);
-          final instance = siteUrl == null
-              ? null
-              : ShellScope.read(context).instanceFor(siteUrl!);
-          final style = Theme.of(
-            context,
-          ).textTheme.labelSmall!.copyWith(fontSize: DiscourseTypography.micro);
-          return ContentReadingLaneBox(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
-                key: const ValueKey('topic-header-compact-layout'),
-                spacing: 10,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 3,
-                      children: [
-                        part(
-                          'title',
-                          _TopicHeaderTitle(header: this, compact: true),
-                        ),
-                        part(
-                          'meta',
-                          SizedBox(
-                            height:
-                                MediaQuery.textScalerOf(
-                                  context,
-                                ).scale(DiscourseTypography.micro) *
-                                (style.height ?? 1),
-                            child: TopicSkeletonReveal(
-                              child: DSkeletonRegion(
-                                semanticsLabel:
-                                    context.l10n.loadingTopicDetails,
-                                color: skeletonFill(context),
-                                child: const Align(
-                                  alignment: AlignmentDirectional.centerStart,
-                                  child: DSkeleton(width: 130, height: 8),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  part(
-                    'tools',
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: math.max(0, constraints.maxWidth - 90),
-                      ),
-                      child: DControlWrap(
-                        key: const ValueKey('topic-header-tools'),
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (instance?.user != null ||
-                              instance?.isConnected == true)
-                            DButtonGroup.tool(
-                              children: [
-                                if (instance?.user != null)
-                                  const TopicBookmarkButtonPlaceholder(
-                                    variant: DButtonVariant.tool,
-                                    size: DButtonSize.filter,
-                                  ),
-                                if (instance?.isConnected == true)
-                                  const TopicNotificationLevelPlaceholder(
-                                    showChevron: true,
-                                    variant: DButtonVariant.tool,
-                                    size: DButtonSize.filter,
-                                  ),
-                              ],
-                            ),
-                          const _TopicActionsPlaceholder(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        final shell = ShellScope.read(context);
-        final detail = topic!;
-        final category = shell.categoryFor(detail.categoryId, siteUrl: siteUrl);
-        final parent = shell.categoryFor(
-          category?.parentCategoryId,
-          siteUrl: siteUrl,
-        );
-        if (!compact) {
-          return Column(
-            children: [
-              part(
-                'title',
-                _TopicHeaderReadingLane(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _TopicHeaderTitle(header: this),
-                  ),
-                ),
-              ),
-              if (rows.length > 1) part('meta', rows[1]),
-            ],
-          );
-        }
-        return ContentReadingLaneBox(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: LayoutBuilder(
-            builder: (context, constraints) => Row(
-              key: const ValueKey('topic-header-compact-layout'),
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 3,
-                    children: [
-                      part(
-                        'title',
-                        _TopicHeaderTitle(header: this, compact: true),
-                      ),
-                      part(
-                        'meta',
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final names = [
-                              if (parent != null) parent.name,
-                              if (category != null) category.name,
-                              for (final tag in detail.tags) '#${tag.name}',
-                            ];
-                            final style = Theme.of(context)
-                                .textTheme
-                                .labelSmall!
-                                .copyWith(fontSize: DiscourseTypography.micro);
-                            var shown = names.length;
-                            String line(int count) =>
-                                '${names.take(count).join('  ›  ')}${count < names.length ? '  +${names.length - count}' : ''}';
-                            while (shown > 0) {
-                              final painter = TextPainter(
-                                text: TextSpan(text: line(shown), style: style),
-                                textDirection: Directionality.of(context),
-                                textScaler: MediaQuery.textScalerOf(context),
-                              )..layout();
-                              final fits =
-                                  painter.width <= constraints.maxWidth;
-                              painter.dispose();
-                              if (fits) break;
-                              shown--;
-                            }
-                            return Text(
-                              line(shown),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: style,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                part(
-                  'tools',
-                  ConstrainedBox(
-                    // Keep the mockup's tools beside the compact title. At
-                    // large text sizes, wrap groups within the available space.
-                    constraints: BoxConstraints(
-                      maxWidth: math.max(0, constraints.maxWidth - 90),
-                    ),
-                    child: _TopicHeaderTaxonomy(
-                      siteUrl: siteUrl!,
-                      topic: detail,
-                      keepTopicListOpen: keepTopicListOpen,
-                      registry: registry,
-                      showTaxonomy: false,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      compact: false,
+      builder: (context, _, part) => Column(
+        children: [
+          part('title', rows.first),
+          if (rows.length > 1) part('meta', rows[1]),
+        ],
+      ),
     );
   }
 }
@@ -408,9 +202,7 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
             children: [
               if (categories) ...[chip(112), chip(88)],
               chip(104),
-              if (ShellScope.read(context).mobileNavigationEnabled)
-                const _TopicActionsPlaceholder()
-              else
+              if (!ShellScope.read(context).mobileNavigationEnabled)
                 const TopicStatusButtonPlaceholder(
                   variant: DButtonVariant.tool,
                   size: DButtonSize.filter,
@@ -421,20 +213,6 @@ class _TopicHeaderTaxonomyPlaceholder extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The phone's one actions button, disabled while its topic loads.
-class _TopicActionsPlaceholder extends StatelessWidget {
-  const _TopicActionsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => DButton.iconOnly(
-    icon: const DIcon(DIcons.ellipsis),
-    tooltip: context.l10n.topicActionsMenu,
-    variant: DButtonVariant.tool,
-    size: DButtonSize.filter,
-    onPressed: null,
-  );
 }
 
 /// Placeholder rows for [TopicActivitySummary]: its avatar row, and its
@@ -541,20 +319,14 @@ class _TopicHeaderToolbar extends StatelessWidget {
 }
 
 class _TopicHeaderTitle extends StatelessWidget {
-  const _TopicHeaderTitle({required this.header, this.compact = false});
+  const _TopicHeaderTitle({required this.header});
   final TopicInboxHeader header;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final topic = header.topic;
     final siteUrl = header.siteUrl;
-    final style = compact
-        ? Theme.of(context).textTheme.titleSmall!.copyWith(
-            fontSize: DiscourseTypography.sm,
-            fontWeight: FontWeight.w700,
-          )
-        : Theme.of(context).textTheme.headlineSmall;
+    final style = Theme.of(context).textTheme.headlineSmall;
     final lineHeight =
         MediaQuery.textScalerOf(
           context,
@@ -580,14 +352,6 @@ class _TopicHeaderTitle extends StatelessWidget {
             ),
           ),
         ),
-      );
-    } else if (compact) {
-      title = Text(
-        known ?? topic?.displayTitle ?? '',
-        key: const ValueKey('topic-header-compact-title'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: style,
       );
     } else if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(
@@ -878,12 +642,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.keepTopicListOpen,
     required this.registry,
     this.showTaxonomy = true,
+    this.floating = false,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
   final bool showTaxonomy;
+  final bool floating;
 
   @override
   Widget build(
@@ -904,6 +670,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
         final toolChildren = <Widget>[
           if (instance?.user != null || instance?.isConnected == true)
             DButtonGroup.tool(
+              backgroundColor: floating ? DTokens.of(context).wellFill : null,
               semanticLabel: context.l10n.topicReminders,
               children: [
                 if (instance?.user != null)
@@ -917,7 +684,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                       targetId: topic.id,
                     ),
                     variant: DButtonVariant.tool,
-                    size: DButtonSize.filter,
+                    size: floating ? DButtonSize.floating : DButtonSize.filter,
                     buttonKey: const ValueKey('topic-header-bookmark-button'),
                   ),
                 if (instance?.isConnected == true)
@@ -926,7 +693,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                     siteUrl: siteUrl,
                     topic: topic,
                     variant: DButtonVariant.tool,
-                    size: DButtonSize.filter,
+                    size: floating ? DButtonSize.floating : DButtonSize.filter,
                     buttonKey: const ValueKey(
                       'topic-header-notification-button',
                     ),
@@ -963,6 +730,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               ),
           if (mobile)
             TopicActionsButton(
+              floating: floating,
               siteUrl: siteUrl,
               topic: topic,
               topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
@@ -979,7 +747,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                   topic: topic,
                   topicFlags: shell.availableTopicFlagTypes(siteUrl, topic),
                   variant: DButtonVariant.tool,
-                  size: DButtonSize.filter,
+                  size: floating ? DButtonSize.floating : DButtonSize.filter,
                 ),
               ],
             ),
@@ -1009,7 +777,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
             topic: topic,
             editOnTap: mobile,
             path: _path(context, shell),
-            tools: tools,
+            tools: mobile ? null : tools,
             onTagNavigate: (tag, {newTab = false, panel}) => shell.openTopicTag(
               tag,
               siteUrl: siteUrl,
@@ -1367,13 +1135,15 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     bool expanded = false,
   }) {
     final section = widget.section;
+    final floating = ShellScope.read(context).mobileNavigationEnabled;
     if (widget.compact) {
       return section.compactHeader?.call(context, showDetails) ??
           DButton.iconOnly(
             icon: const DIcon(DIcons.ellipsis),
             tooltip: section.label,
-            size: DButtonSize.filter,
-            variant: DButtonVariant.ghost,
+            size: floating ? DButtonSize.floating : DButtonSize.filter,
+            backgroundColor: floating ? DTokens.of(context).wellFill : null,
+            variant: floating ? DButtonVariant.tool : DButtonVariant.ghost,
             hasPopup: true,
             expanded: expanded,
             focusNode: focusNode,
@@ -1383,7 +1153,8 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
     return section.header?.call(context, showDetails) ??
         DButton(
           label: Text(section.label),
-          size: DButtonSize.filter,
+          size: floating ? DButtonSize.floating : DButtonSize.filter,
+          backgroundColor: floating ? DTokens.of(context).wellFill : null,
           hasPopup: true,
           expanded: expanded,
           focusNode: focusNode,
@@ -1506,5 +1277,29 @@ class _TopicPropertyDetails extends StatelessWidget {
         },
       );
     },
+  );
+}
+
+/// The topic's existing actions gathered beside its floating timeline.
+class TopicHeaderTools extends StatelessWidget {
+  const TopicHeaderTools({
+    super.key,
+    required this.siteUrl,
+    required this.topic,
+    required this.registry,
+    this.keepTopicListOpen = false,
+  });
+  final String siteUrl;
+  final TopicDetail topic;
+  final PluginRegistry registry;
+  final bool keepTopicListOpen;
+  @override
+  Widget build(BuildContext context) => _TopicHeaderTaxonomy(
+    siteUrl: siteUrl,
+    topic: topic,
+    registry: registry,
+    keepTopicListOpen: keepTopicListOpen,
+    showTaxonomy: false,
+    floating: true,
   );
 }

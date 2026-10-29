@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
+import 'package:discourse_native/src/shell/topic_inbox_header.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -28,7 +29,7 @@ const _mobile = TargetPlatformVariant({
   TargetPlatform.android,
 });
 const _foot = 34.0;
-final _compact = find.byKey(const ValueKey('topic-header-compact-layout'));
+final _tools = find.byType(TopicHeaderTools);
 final _more = find.byKey(const ValueKey('topic-more-actions'));
 final _menu = find.byType(DDropdownMenuContent);
 Finder get _menuSheet =>
@@ -205,19 +206,19 @@ void topicCompactActionsSheetTests({
               .controller!;
           final offset = scroll.offset;
           expect(
-            find.byKey(const ValueKey('topic-header-taxonomy')),
+            find.byKey(const ValueKey('topic-header-taxonomy')).hitTestable(),
             findsNothing,
           );
           expect(
             find.descendant(
-              of: _compact,
+              of: _tools,
               matching: find.byType(TopicBookmarkButton),
             ),
             findsOneWidget,
           );
           expect(
             find.descendant(
-              of: _compact,
+              of: _tools,
               matching: find.byType(TopicNotificationLevelButton),
             ),
             findsOneWidget,
@@ -472,7 +473,7 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
     ),
   );
   await tester.pumpAndSettle();
-  expect(_compact, findsOneWidget);
+  expect(_tools.hitTestable(), findsOneWidget);
   return (shell, api);
 }
 

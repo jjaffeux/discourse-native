@@ -155,6 +155,23 @@ class DSheet<T> extends StatelessWidget {
 /// [DSheetContent.showCloseButton] or compose a close action with
 /// the host's close action; route-owned [DSheetClose] is unavailable here.
 class DSheetViewport extends StatefulWidget {
+  /// Keeps a containing page's paint and hit bounds on its reading sheet's edge.
+  static Widget clipPage(
+    BuildContext context, {
+    required bool enabled,
+    required Widget child,
+  }) => ClipPath(
+    clipBehavior: enabled ? Clip.antiAlias : Clip.none,
+    clipper: _DSheetRiseClipper(
+      context
+              .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+              ?.owner
+              ._pageEdge ??
+          const AlwaysStoppedAnimation<double>(0),
+    ),
+    child: child,
+  );
+
   /// The reading page's outline, shared by its card and previous-page surface.
   static const pageBorderRadius = BorderRadius.vertical(
     top: Radius.circular(DMobileDockGeometry.capsuleRadius),
@@ -169,8 +186,11 @@ class DSheetViewport extends StatefulWidget {
     this.onSwipeDismissRequested,
     this.underlay,
     this.covering,
+    this.riseWithScroll = false,
   });
 
+  /// Opens over the top bar and lowers its rounded edge as its reader scrolls.
+  final bool riseWithScroll;
   final DSheetContent content;
 
   /// The previous page, painted during entrance and while pulled down.
@@ -210,10 +230,24 @@ class _DSheetViewportState extends State<DSheetViewport>
     duration: const Duration(milliseconds: 280),
   );
   bool _started = false;
+  final _edge = ValueNotifier(0.0);
+  _DSheetDragScopeState? _edgeHost;
+  void _syncEdge() {
+    final host = _edgeHost;
+    if (widget.riseWithScroll && host != null && host.mounted) {
+      host._pageEdge.value = _edge.value;
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _edge.removeListener(_syncEdge);
+    _edgeHost = context
+        .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+        ?.owner;
+    _edge.addListener(_syncEdge);
+    _syncEdge();
     if (widget.content.variant != DSheetVariant.page ||
         MediaQuery.disableAnimationsOf(context) ||
         !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
@@ -226,6 +260,7 @@ class _DSheetViewportState extends State<DSheetViewport>
 
   @override
   void dispose() {
+    _edge.dispose();
     _entrance.dispose();
     super.dispose();
   }
@@ -234,40 +269,94 @@ class _DSheetViewportState extends State<DSheetViewport>
   Widget build(BuildContext context) {
     final content = widget.content;
     assert((!content.showCloseButton));
-    return FocusScope(
-      child: _sheetPresentation(
-        context,
-        DDialogPresentation(
-          content: content,
-          animation: _entrance,
-          barrierLabel: context.l10n.sheetBackground,
-          dismissOnBarrier: false,
-          onBarrierDismiss: () {},
+    final overlap = widget.riseWithScroll
+        ? math.max(
+            0.0,
+            (context
+                        .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+                        ?.owner
+                        ._barExtent ??
+                    8) -
+                8 +
+                6,
+          )
+        : 0.0;
+    final sheet = _DSheetRiseScope(
+      edge: _edge,
+      overlap: overlap,
+      child: FocusScope(
+        child: _sheetPresentation(
+          context,
+          DDialogPresentation(
+            content: content,
+            animation: _entrance,
+            barrierLabel: context.l10n.sheetBackground,
+            dismissOnBarrier: false,
+            onBarrierDismiss: () {},
+          ),
+          content.side,
+          content.sidePanelMaxWidth,
+          content.sidePanelWidth,
+          content.inset,
+          false,
+          content.fillAvailableHeight,
+          content.extendBehindKeyboard,
+          widget.onDismiss != null || widget.onSwipeDismissRequested != null,
+          variant: content.variant,
+          sizeToContent: content.sizeToContent,
+          contentLoading: content.contentLoading,
+          retainKeyboardInsets: true,
+          onRetainedDismiss: widget.onDismiss,
+          onRetainedSwipeDismissRequested: widget.onSwipeDismissRequested,
+          underlay: overlap > 0 && widget.underlay != null
+              ? Padding(
+                  padding: EdgeInsets.only(top: overlap),
+                  child: widget.underlay,
+                )
+              : widget.underlay,
+          covering: widget.covering,
         ),
-        content.side,
-        content.sidePanelMaxWidth,
-        content.sidePanelWidth,
-        content.inset,
-        false,
-        content.fillAvailableHeight,
-        content.extendBehindKeyboard,
-        widget.onDismiss != null || widget.onSwipeDismissRequested != null,
-        variant: content.variant,
-        sizeToContent: content.sizeToContent,
-        contentLoading: content.contentLoading,
-        retainKeyboardInsets: true,
-        onRetainedDismiss: widget.onDismiss,
-        onRetainedSwipeDismissRequested: widget.onSwipeDismissRequested,
-        underlay: widget.underlay,
-        covering: widget.covering,
       ),
     );
+    return widget.riseWithScroll
+        ? ClipPath(clipper: _DSheetRiseClipper(_edge), child: sheet)
+        : sheet;
   }
+}
+
+class _DSheetRiseScope extends InheritedWidget {
+  const _DSheetRiseScope({
+    required this.edge,
+    required this.overlap,
+    required super.child,
+  });
+  final ValueNotifier<double> edge;
+  final double overlap;
+  @override
+  bool updateShouldNotify(_DSheetRiseScope oldWidget) =>
+      overlap != oldWidget.overlap;
 }
 
 /// Where the content of a page sheet says what its condensed head is doing
 /// over the sheet's top edge, inside the card's rounded outline.
 abstract interface class DSheetPageBand {
+  void scrollTo(double offset);
+
+  static ValueListenable<double>? edgeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>()?.edge;
+
+  static Widget followEdge(BuildContext context, {required Widget child}) {
+    final edge = edgeOf(context);
+    return edge == null
+        ? child
+        : ValueListenableBuilder<double>(
+            valueListenable: edge,
+            builder: (_, value, child) =>
+                Transform.translate(offset: Offset(0, value), child: child),
+            child: child,
+          );
+  }
+
   /// [owner] is the head reporting; a later report from it replaces this one.
   /// [condensed]: the head is drawn in to its band. [coversGrabber]: enough is
   /// still there to cover the grabber.
@@ -317,6 +406,12 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   Object? _owner;
   bool _condensed = false;
   bool _coversGrabber = false;
+
+  @override
+  void scrollTo(double offset) {
+    final rise = context.getInheritedWidgetOfExactType<_DSheetRiseScope>();
+    if (rise != null) rise.edge.value = offset.clamp(0, rise.overlap);
+  }
 
   // A head's reports can still be waiting for the frame when it withdraws.
   final _withdrawn = Expando<bool>();
@@ -374,7 +469,8 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
 
   @override
   Widget build(BuildContext context) {
-    return _DSheetPageBandScope(
+    final rise = context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>();
+    final card = _DSheetPageBandScope(
       band: this,
       child: DPageSurface(
         border: false,
@@ -388,21 +484,73 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: widget.children,
             ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Visibility(
-                visible: !_coversGrabber,
-                maintainState: true,
-                child: widget.handle,
+            ValueListenableBuilder<double>(
+              valueListenable:
+                  rise?.edge ?? const AlwaysStoppedAnimation<double>(0),
+              builder: (context, edge, child) => Positioned(
+                top: edge,
+                left: 0,
+                right: 0,
+                child: Visibility(
+                  visible: !_coversGrabber,
+                  maintainState: true,
+                  child: child!,
+                ),
               ),
+              child: widget.handle,
             ),
           ],
         ),
       ),
     );
+    return rise == null
+        ? card
+        : ClipPath(
+            clipper: _DSheetRiseClipper(rise.edge),
+            child: CustomPaint(
+              foregroundPainter: _DSheetRiseRim(
+                DSurfaceEdges.resolve(
+                  context,
+                  DSurfaceDepth.panel,
+                ).insetPainter(DSheetViewport.pageBorderRadius),
+                rise.edge,
+              ),
+              child: card,
+            ),
+          );
   }
+}
+
+class _DSheetRiseRim extends CustomPainter {
+  _DSheetRiseRim(this.rim, this.edge) : super(repaint: edge);
+  final CustomPainter? rim;
+  final ValueListenable<double> edge;
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, edge.value, size.width, 31));
+    canvas.translate(0, edge.value);
+    rim?.paint(canvas, Size(size.width, math.max(0, size.height - edge.value)));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_DSheetRiseRim oldDelegate) =>
+      rim != oldDelegate.rim || edge != oldDelegate.edge;
+}
+
+class _DSheetRiseClipper extends CustomClipper<Path> {
+  _DSheetRiseClipper(this.edge) : super(reclip: edge);
+  final ValueListenable<double> edge;
+  @override
+  Path getClip(Size size) => Path()
+    ..addRRect(
+      DSheetViewport.pageBorderRadius.toRRect(
+        Rect.fromLTRB(0, edge.value, size.width, size.height),
+      ),
+    );
+  @override
+  bool shouldReclip(_DSheetRiseClipper oldClipper) => edge != oldClipper.edge;
 }
 
 class _DSheetPageMotionScope extends InheritedWidget {
@@ -1107,11 +1255,47 @@ class DSheetDragScope extends StatefulWidget {
 
   final Widget child;
 
+  static void reportTopBar(BuildContext context, double extent) => context
+      .getInheritedWidgetOfExactType<_DSheetDragHost>()
+      ?.owner
+      ._reportTopBar(extent);
+
+  static ValueListenable<double>? dismissProgressOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+          ?.owner
+          ._pullProgress;
+
   @override
   State<DSheetDragScope> createState() => _DSheetDragScopeState();
 }
 
 class _DSheetDragScopeState extends State<DSheetDragScope> {
+  double _barExtent = 0;
+  double _pendingBarExtent = 0;
+  bool _barScheduled = false;
+  void _reportTopBar(double extent) {
+    _pendingBarExtent = extent;
+    if (_barScheduled || _barExtent == extent) return;
+    _barScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _barScheduled = false;
+      if (mounted && _barExtent != _pendingBarExtent) {
+        setState(() => _barExtent = _pendingBarExtent);
+      }
+    });
+  }
+
+  final _pullProgress = ValueNotifier(0.0);
+  final _pageEdge = ValueNotifier(0.0);
+
+  @override
+  void dispose() {
+    _pageEdge.dispose();
+    _pullProgress.dispose();
+    super.dispose();
+  }
+
   _DSheetSwipeDismissState? _swipe;
   bool _scheduled = false;
 
@@ -1133,29 +1317,40 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     // Sheets attach during build and detach during unmounting.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
-      if (mounted) setState(() {});
+      if (mounted) {
+        if (_swipe == null) _pullProgress.value = 0;
+        setState(() {});
+      }
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
-  Widget build(BuildContext context) =>
-      _DSheetDragHost(owner: this, swipe: _swipe, child: widget.child);
+  Widget build(BuildContext context) => _DSheetDragHost(
+    owner: this,
+    swipe: _swipe,
+    barExtent: _barExtent,
+    child: widget.child,
+  );
 }
 
 class _DSheetDragHost extends InheritedWidget {
   const _DSheetDragHost({
     required this.owner,
     required this.swipe,
+    required this.barExtent,
     required super.child,
   });
 
+  final double barExtent;
   final _DSheetDragScopeState owner;
   final _DSheetSwipeDismissState? swipe;
 
   @override
   bool updateShouldNotify(_DSheetDragHost oldWidget) =>
-      owner != oldWidget.owner || swipe != oldWidget.swipe;
+      owner != oldWidget.owner ||
+      swipe != oldWidget.swipe ||
+      barExtent != oldWidget.barExtent;
 }
 
 /// A visible sheet region that drags the sheet independently of body scrolling.
@@ -1480,6 +1675,12 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   void _syncBackdrop() {
     widget.swipeProgress.value = (_offset / _swipeExtent).clamp(0, 1);
+    if (_externalDragEnabled) {
+      _dragOwner?._pullProgress.value = (_offset / (_swipeExtent * .4)).clamp(
+        0,
+        1,
+      );
+    }
   }
 
   Simulation _beginDismissal(double velocity) {

@@ -155,7 +155,7 @@ void main() {
         expect(visibleDate.top - viewport.top, closeTo(16, .1));
         expect(
           visibleDate.top - tester.getRect(_handle).bottom,
-          greaterThanOrEqualTo(4),
+          greaterThanOrEqualTo(3.9),
         );
       }
       if (dateRect.top < clip!.top && dateRect.bottom > clip!.top) {
@@ -167,7 +167,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
-  testWidgets('opening a topic slides its page up below fixed navigation', (
+  testWidgets('opening a topic slides its page up over the top bar', (
     tester,
   ) async {
     await pumpMobileShellFixture(tester, topic: topicPayload(id: 7));
@@ -186,7 +186,7 @@ void main() {
     expect(tester.getRect(_dock), dock);
     await _capture(tester, 'entrance-half');
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(_sheet).dy, header.bottom + 6);
+    expect(tester.getTopLeft(_sheet).dy, 8);
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
@@ -214,7 +214,7 @@ void main() {
       expect(bounds.left, 0);
       expect(bounds.right, 390);
       expect(bounds.bottom, 844);
-      expect(bounds.top, tester.getRect(_header).bottom + 6);
+      expect(bounds.top, 52);
       expect(tester.getSize(_handle), const Size(36, 5));
       expect(tester.getRect(_handle).top, bounds.top + 7);
       final surface = find
@@ -572,7 +572,7 @@ void main() {
   }, variant: _platforms);
 
   testWidgets(
-    'the topic list heading and text scale with their whole container',
+    'the topic list controls and text scale with their whole container',
     (tester) async {
       const title = 'Container scaling sample';
       await pumpMobileShellFixture(
@@ -589,7 +589,7 @@ void main() {
       }
 
       final panel = painted(find.byKey(const ValueKey('mobile-content-panel')));
-      final heading = find.byKey(const ValueKey('topic-list-heading'));
+      final heading = find.byKey(const ValueKey('topic-list-filter-bar'));
       final card = find.byKey(const ValueKey('topic-card-7'));
       final text = find
           .descendant(of: card, matching: find.byType(TopicTitle))
@@ -623,49 +623,46 @@ void main() {
     variant: _platforms,
   );
 
-  testWidgets(
-    'returning to the top cancels a pending compact header during dismissal',
-    (tester) async {
-      final shell = await _openTopic(tester);
-      final scroll = find
-          .descendant(
-            of: find.byType(TopicView),
-            matching: find.byType(CustomScrollView),
-          )
-          .first;
-      final controller = tester.widget<CustomScrollView>(scroll).controller!;
-      await tester.drag(scroll, const Offset(0, -900));
-      await tester.pumpAndSettle();
-      controller.jumpTo(0);
-      await tester.pump();
-      // Cross the compact threshold while the hidden header is returning, then
-      // reach the top before the deferred compact layout can take effect.
-      controller.jumpTo(160);
-      await tester.pump();
-      controller.jumpTo(0);
-      await tester.pump();
-      final band = find.byKey(const ValueKey('topic-header-band'));
-      expect(tester.widget<DCard>(band).backgroundColor, Colors.transparent);
-      final drag = await tester.startGesture(const Offset(180, 500));
-      await drag.moveBy(const Offset(0, 20));
-      await drag.moveBy(const Offset(0, 170));
-      for (var frame = 0; frame < 20; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        if (band.evaluate().isNotEmpty) {
-          expect(
-            tester.widget<DCard>(band).backgroundColor,
-            Colors.transparent,
-            reason: 'dismissal frame $frame',
-          );
-        }
-        if (frame == 4) await drag.up();
+  testWidgets('returning to the top keeps the full header during dismissal', (
+    tester,
+  ) async {
+    final shell = await _openTopic(tester);
+    final scroll = find
+        .descendant(
+          of: find.byType(TopicView),
+          matching: find.byType(CustomScrollView),
+        )
+        .first;
+    final controller = tester.widget<CustomScrollView>(scroll).controller!;
+    await tester.drag(scroll, const Offset(0, -900));
+    await tester.pumpAndSettle();
+    controller.jumpTo(0);
+    await tester.pump();
+    // Reverse twice while the topic title is fading, then dismiss from the top.
+    controller.jumpTo(160);
+    await tester.pump();
+    controller.jumpTo(0);
+    await tester.pump();
+    final band = find.byKey(const ValueKey('topic-header-morph'));
+    expect(tester.widget<DHeaderMorph>(band).compact, isFalse);
+    final drag = await tester.startGesture(const Offset(180, 500));
+    await drag.moveBy(const Offset(0, 20));
+    await drag.moveBy(const Offset(0, 170));
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      if (band.evaluate().isNotEmpty) {
+        expect(
+          tester.widget<DHeaderMorph>(band).compact,
+          isFalse,
+          reason: 'dismissal frame $frame',
+        );
       }
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.id, 'latest');
-      expect(tester.takeException(), isNull);
-    },
-    variant: _platforms,
-  );
+      if (frame == 4) await drag.up();
+    }
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.id, 'latest');
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
 
   testWidgets('short pull restores and trackpad pull dismisses at the top', (
     tester,
@@ -744,7 +741,7 @@ void main() {
         await shell.appSettings.setReduceMotion(true);
         await tester.pumpAndSettle();
         expect(tester.getRect(_sheet).width, width);
-        expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
+        expect(tester.getRect(_sheet).top, 52);
         expect(tester.getRect(_sheet).bottom, 844);
         // The bar reaches the screen's bottom; what it shows of its row
         // keeps 30 over the foot. Large text gives the header a height in

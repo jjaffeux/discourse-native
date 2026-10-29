@@ -6,19 +6,22 @@ Put filters, menus, selectors, and actions in `controls`.
 Use Native components for these controls.
 
 The kit supplies the title style and the space around the heading.
-It hides the title during downward scroll input.
-It shows the title during upward scroll input and at the top.
-The controls stay visible.
+On phones, `DPageHeaderHost(titlesInBar: true)` keeps ordinary page names in
+the top bar from the first frame and leaves only controls in the page heading.
+On desktop, the title hides during downward input and returns during upward
+input or at the top. The controls stay visible.
 `DPageHeaderScope.maybeOf(context)` exposes the owning page's `DPageHeader`
 inside its heading, controls, and body. Listen to its `value` for retraction
 from zero to one and call `scrollToTop()` to return only that page to its
 physical top. The action honors reduced motion. Unlike header geometry,
 this listenable supports widget builders and does not notify during layout.
-Its `layout` distinguishes ordinary headings from expanded and compact reader
-headings; a topic's bar title waits for the compact layout before fading in.
+Its `barOpacity` supplies the surrounding title visibility independently of
+header retraction. Phone topics use `fadeHeaderOnScroll`: `DHeaderMorph` parts
+fade as the first post approaches them, and the topic name enters the bar as
+its title fades. The full header keeps one layout.
 Headed pages infer `titleText` from a plain `Text` title. Supply `titleText`
-for composite headings and specialized topic readers; graphical identities
-and persistent conversation headers leave it null.
+for composite headings and specialized topic readers; graphical identities without a page name leave it null. Channels supply
+their name and marker through `titleText` and `titleLeading`.
 `DPageHeaderHost` shares the innermost foreground header with surrounding
 chrome. Its identity follows the navigation entry. Native sheets exclude
 their retained underlays, and inactive pages cannot publish through the host.
@@ -52,7 +55,7 @@ This option keeps the title hidden away from the top, including during programma
 Use the lower-level `header` slots only for specialized topic and conversation readers.
 Do not use them to create another route-heading layout.
 Channel readers use one compact header from their first loading frame.
-On mobile, keep channel and thread headers visible with `hideHeaderOnScroll: false`.
+On phones, channel names stay in the bar with `holdTitleInBar: true`, while
+their own header may retract. Thread readers retain their existing layouts.
 Set `minimumScrollExtent: 0` on channels so the shared mobile tab bar can retract on short transcripts.
-Thread readers keep their existing full and compact layouts.
 See the Page surface example in the styleguide and the route audit in [Page header parity](../page-header-mockup-parity.md).

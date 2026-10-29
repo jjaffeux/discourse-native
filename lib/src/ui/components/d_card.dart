@@ -41,6 +41,7 @@ class DCard extends ImplicitlyAnimatedWidget {
     this.variant = DCardVariant.standard,
     this.spacing,
     this.backgroundColor,
+    this.clipBehavior = Clip.antiAlias,
     this.border = true,
     this.borderColor,
     this.dashedBorder = false,
@@ -54,6 +55,9 @@ class DCard extends ImplicitlyAnimatedWidget {
 
   /// Full-surface composition, useful for an InkWell with caller-owned padding.
   final Widget? child;
+
+  /// An enclosing Native sheet may own clipping while this card keeps its state.
+  final Clip clipBehavior;
 
   /// Resolved fill for passive artwork such as overlapping avatar rings.
   static Color surfaceColorOf(BuildContext context) =>
@@ -237,7 +241,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
               animationDuration: Duration.zero,
               color: surfaceColor,
               borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
+              clipBehavior: widget.clipBehavior,
               textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
                 fontSize: DiscourseTypography.sm,
                 height: 20 / 14,

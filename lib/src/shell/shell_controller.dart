@@ -9236,6 +9236,24 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
+  /// Opens unfiltered Latest from the forum mark, regardless of homepage settings.
+  void openMobileHome() {
+    if (!mobileNavigationEnabled || currentInstance == null) return;
+    mobileNavigation.selectTab(MobileTab.topics);
+    final route = ContentRoute.topicList(TopicListMode.latest);
+    _workspace.preparePluginPaneForRoute(route);
+    final tab = activeTab;
+    if (tab == null) return;
+    _rootMode = ShellRootMode.forum;
+    _workspace.replaceActiveTab(
+      tab.navigate(rootDestinationId: 'latest', contentStack: [route]),
+    );
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    unawaited(loadFeed(route.id));
+  }
+
   /// Starts a tab's journey using the same route and permission owners as desktop.
   void selectMobileDestination(MobileTab tab, SidebarDestination destination) {
     if (!mobileNavigationEnabled || !destination.enabled) return;

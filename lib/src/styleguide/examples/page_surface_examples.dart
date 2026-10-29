@@ -9,7 +9,10 @@ final pageSurfaceExamples = ComponentExamples(
   notes:
       'Use DPageSurface.headed for route titles and persistent controls. '
       'The kit owns 22px title typography, platform spacing and the 14px soft scroll edge. '
-      'Titles retract on downward input and return on upward input or at the top. '
+      'Desktop titles retract on downward input and return on upward input or at the top. '
+      'DPageHeaderHost(titlesInBar: true) moves phone page names into the bar from the first frame. '
+      'Reader fadeHeaderOnScroll fades DHeaderMorph parts before posts reach them; '
+      'barOpacity carries the topic title into surrounding chrome. holdTitleInBar keeps channel names there. '
       'The first 48px and pages with less than 120px of overflow keep their title. '
       'foldTitleAtTop keeps indexed directories compact away from the top. '
       'bodyBuilder retains a fixed viewport. Reserve header.spacer in its content, '

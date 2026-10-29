@@ -412,7 +412,7 @@ void main() {
         Brightness.dark,
         host(
           const ForumMobileSurface(
-            coveredBySheet: true,
+            sheet: ForumMobileSheet.page,
             child: SizedBox.expand(),
           ),
         ),

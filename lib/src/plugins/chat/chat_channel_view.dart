@@ -322,8 +322,26 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       child: LayoutBuilder(
         builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
+          titleText: channel?.title ?? appL10n.chat,
+          holdTitleInBar: context.isTouch,
+          titleLeading: context.isTouch
+              ? DAvatar(
+                  dimension: 11,
+                  border: false,
+                  decorative: true,
+                  borderRadius: BorderRadius.circular(
+                    channel?.isDirectMessage == true ? 6 : 3,
+                  ),
+                  fallback: DAvatarFallback(
+                    backgroundColor:
+                        channel?.categoryColor ??
+                        DTokens.of(context).mutedForeground,
+                    child: const SizedBox.shrink(),
+                  ),
+                )
+              : null,
           floatingFooter: context.isTouch,
-          hideHeaderOnScroll: !context.isTouch,
+          hideHeaderOnScroll: true,
           minimumScrollExtent: 0,
           identity: (widget.siteUrl, widget.channelId, widget.chat),
           // Large text or pinned content can crowd a short page. Keep the

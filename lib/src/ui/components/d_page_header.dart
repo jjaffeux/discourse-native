@@ -18,11 +18,15 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
   String? _titleText;
   DPageHeaderLayout _layout = DPageHeaderLayout.standard;
   double _value = 0;
+  double _barOpacity = 0;
+  Widget? _leading;
   bool _scheduled = false;
   bool _disposed = false;
 
   String? get titleText => _titleText;
   DPageHeaderLayout get layout => _layout;
+  double get barOpacity => _barOpacity;
+  Widget? get leading => _leading;
   @override
   double get value => _value;
 
@@ -31,11 +35,21 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
     required String? titleText,
     required double retraction,
     required DPageHeaderLayout layout,
+    double? barOpacity,
+    Widget? leading,
   }) {
     assert(retraction >= 0 && retraction <= 1);
-    if (_titleText == titleText && _value == retraction && _layout == layout) {
+    final opacity =
+        barOpacity ?? (layout == DPageHeaderLayout.expanded ? 0.0 : retraction);
+    if (_titleText == titleText &&
+        _value == retraction &&
+        _layout == layout &&
+        _barOpacity == opacity &&
+        _leading == leading) {
       return;
     }
+    _barOpacity = opacity;
+    _leading = leading;
     _titleText = titleText;
     _value = retraction;
     _layout = layout;
@@ -134,10 +148,24 @@ class DPageHeaderHost extends StatefulWidget {
   const DPageHeaderHost({
     super.key,
     required this.identity,
+    this.previousIdentity,
     required this.builder,
     required this.child,
+    this.titlesInBar = false,
   });
 
+  final bool titlesInBar;
+  static ({String title, Widget? leading})? previousTitleOf(
+    BuildContext context,
+  ) => context
+      .dependOnInheritedWidgetOfExactType<_HostScope>()
+      ?.host
+      ?._previousTitle;
+  static bool titlesInBarOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_HostScope>()?.titlesInBar ??
+      false;
+
+  final Object? previousIdentity;
   final Object identity;
   final Widget child;
   final Widget Function(
@@ -147,8 +175,14 @@ class DPageHeaderHost extends StatefulWidget {
   )
   builder;
 
-  static Widget exclude({required Widget child}) =>
-      _HostScope(host: null, identity: null, child: child);
+  static Widget exclude({required Widget child}) => Builder(
+    builder: (context) => _HostScope(
+      host: null,
+      identity: null,
+      titlesInBar: titlesInBarOf(context),
+      child: child,
+    ),
+  );
 
   @override
   State<DPageHeaderHost> createState() => _DPageHeaderHostState();
@@ -156,6 +190,9 @@ class DPageHeaderHost extends StatefulWidget {
 
 class _DPageHeaderHostState extends State<DPageHeaderHost> {
   final _active = ValueNotifier<DPageHeader?>(null);
+  final _titles = <Object, ({String title, Widget? leading})>{};
+  ({String title, Widget? leading})? get _previousTitle =>
+      _titles[widget.previousIdentity];
   final _headers = <Object, ({DPageHeader header, int depth})>{};
   bool _scheduled = false;
 
@@ -190,6 +227,16 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
   void didUpdateWidget(DPageHeaderHost oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.identity != widget.identity) {
+      final previous = _active.value;
+      if (previous?.titleText case final title?) {
+        _titles[oldWidget.identity] = (
+          title: title,
+          leading: previous?.leading,
+        );
+        while (_titles.length > 8) {
+          _titles.remove(_titles.keys.first);
+        }
+      }
       _headers.clear();
       _active.value = null;
     }
@@ -205,6 +252,7 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
   Widget build(BuildContext context) => _HostScope(
     host: this,
     identity: widget.identity,
+    titlesInBar: widget.titlesInBar,
     child: widget.builder(context, _active, widget.child),
   );
 }
@@ -213,11 +261,15 @@ class _HostScope extends InheritedWidget {
   const _HostScope({
     required this.host,
     required this.identity,
+    required this.titlesInBar,
     required super.child,
   });
+  final bool titlesInBar;
   final _DPageHeaderHostState? host;
   final Object? identity;
   @override
   bool updateShouldNotify(_HostScope oldWidget) =>
-      host != oldWidget.host || identity != oldWidget.identity;
+      host != oldWidget.host ||
+      identity != oldWidget.identity ||
+      titlesInBar != oldWidget.titlesInBar;
 }

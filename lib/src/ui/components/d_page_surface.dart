@@ -14,6 +14,7 @@ import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
+import 'd_header_morph.dart';
 import 'd_page_header.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
@@ -56,6 +57,10 @@ class DPageSurface extends StatefulWidget {
        ),
        titleText = titleText ?? (title is Text ? title.data : null),
        floatingFooter = false,
+       clipBehavior = Clip.antiAlias,
+       fadeHeaderOnScroll = false,
+       holdTitleInBar = false,
+       titleLeading = null,
        header = _PageTitle(icon: icon, child: title),
        headerControls = _PageControls(child: controls),
        compactHeader = null,
@@ -76,6 +81,9 @@ class DPageSurface extends StatefulWidget {
   const DPageSurface({
     super.key,
     this.titleText,
+    this.titleLeading,
+    this.holdTitleInBar = false,
+    this.fadeHeaderOnScroll = false,
     this.header,
     this.compactHeader,
     this.initialCompactHeader,
@@ -86,6 +94,7 @@ class DPageSurface extends StatefulWidget {
     this.framed = true,
     this.border = true,
     this.backgroundColor,
+    this.clipBehavior = Clip.antiAlias,
     this.borderRadius,
     this.depth,
     this.hideHeaderOnScroll = false,
@@ -109,6 +118,9 @@ class DPageSurface extends StatefulWidget {
   const DPageSurface.scrollable({
     super.key,
     this.titleText,
+    this.titleLeading,
+    this.holdTitleInBar = false,
+    this.fadeHeaderOnScroll = false,
     this.header,
     this.compactHeader,
     this.initialCompactHeader,
@@ -120,6 +132,7 @@ class DPageSurface extends StatefulWidget {
     this.framed = true,
     this.border = true,
     this.backgroundColor,
+    this.clipBehavior = Clip.antiAlias,
     this.borderRadius,
     this.depth,
     this.hideHeaderOnScroll = false,
@@ -141,8 +154,15 @@ class DPageSurface extends StatefulWidget {
 
   /// Plain heading text for surrounding chrome. Headed pages infer this from
   /// a Text title; composite headings and specialized readers supply it.
-  /// A graphical identity or a persistent conversation header leaves it null.
+  /// A graphical identity without a page name leaves it null.
   final String? titleText;
+  final Widget? titleLeading;
+
+  /// Keeps a conversation name in surrounding chrome while its full head scrolls.
+  final bool holdTitleInBar;
+
+  /// Fades reader parts as the first body row reaches them, without a compact band.
+  final bool fadeHeaderOnScroll;
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
@@ -214,6 +234,9 @@ class DPageSurface extends StatefulWidget {
 
   /// Optional fill for the enclosing Card. Ignored when [framed] is false.
   final Color? backgroundColor;
+
+  /// Lets an enclosing Native sheet clip a framed page at its moving edge.
+  final Clip clipBehavior;
 
   /// Optional outline and clip for the enclosing Card; ignored when unframed.
   final BorderRadiusGeometry? borderRadius;
@@ -293,8 +316,16 @@ class _DPageSurfaceState extends State<DPageSurface>
   bool _compactFollowsScroll = true;
   double _compactHeight = 76;
   Timer? _compactTimer;
-  Widget? get _header =>
-      _compact ? widget.compactHeader ?? widget.header : widget.header;
+  bool _titlesInBar = false;
+  bool get _titleInBar =>
+      widget.header is _PageTitle && widget.titleText != null && _titlesInBar;
+  final _readerScroll = ValueNotifier(0.0);
+  final _readerTitleOpacity = ValueNotifier(1.0);
+  Widget? get _header => _titleInBar
+      ? const SizedBox.shrink()
+      : _compact
+      ? widget.compactHeader ?? widget.header
+      : widget.header;
 
   // Until the edge fade engages, the body is wholly below the header, so the
   // first row's lift and shadow may paint into the controls' empty padding.
@@ -320,10 +351,19 @@ class _DPageSurfaceState extends State<DPageSurface>
   ValueListenable<double> get _progress => widget.foldTitleAtTop
       ? _titleFold
       : (_chromeHeaderEnabled ? _scrollChrome : null) ?? _motion;
-  double get _hiddenFraction => widget.hideHeaderOnScroll ? _progress.value : 0;
+  double get _hiddenFraction =>
+      widget.hideHeaderOnScroll && !widget.fadeHeaderOnScroll
+      ? _progress.value
+      : 0;
 
   void _syncPageHeader() => _pageHeader.update(
     titleText: widget.titleText,
+    leading: widget.titleLeading,
+    barOpacity: _titleInBar || widget.holdTitleInBar
+        ? 1
+        : widget.fadeHeaderOnScroll
+        ? 1 - _readerTitleOpacity.value
+        : null,
     retraction: math.max(_hiddenFraction, _suppression.value),
     layout: widget.compactHeader == null
         ? DPageHeaderLayout.standard
@@ -341,6 +381,14 @@ class _DPageSurfaceState extends State<DPageSurface>
         !_isPageScroll(depth, origin) ||
         origin == null) {
       return;
+    }
+    if (widget.fadeHeaderOnScroll) {
+      _readerScroll.value = math.max(
+        0,
+        metrics.pixels - metrics.minScrollExtent,
+      );
+      DSheetPageBand.maybeOf(context)?.scrollTo(_readerScroll.value);
+      _headerGeometry._readerMoved();
     }
     final scrollable = Scrollable.maybeOf(origin, axis: Axis.vertical);
     if (scrollable != null) _pageScrollable = scrollable;
@@ -373,6 +421,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     _compact = widget.initialCompactHeader ?? false;
     _compactFollowsScroll = widget.initialCompactHeader == null;
     _headerFocus.addListener(_revealFocusedHeader);
+    _readerTitleOpacity.addListener(_syncPageHeader);
     widget.headerSuppressed?.addListener(_syncSuppression);
     _suppression.value = widget.headerSuppressed?.value == true ? 1 : 0;
   }
@@ -399,6 +448,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _titlesInBar = DPageHeaderHost.titlesInBarOf(context);
     final band = widget.compactHeaderBand
         ? DSheetPageBand.maybeOf(context)
         : null;
@@ -860,6 +910,8 @@ class _DPageSurfaceState extends State<DPageSurface>
     _motion.dispose();
     _headerFocus.dispose();
     _headerGeometry.dispose();
+    _readerTitleOpacity.dispose();
+    _readerScroll.dispose();
     _pageHeader.dispose();
     super.dispose();
   }
@@ -870,12 +922,17 @@ class _DPageSurfaceState extends State<DPageSurface>
     return DPageHeaderScope(
       header: _pageHeader,
       active: widget.header != null,
-      child: widget.header is _PageTitle
-          ? LayoutBuilder(
-              builder: (context, viewport) =>
-                  _buildPage(context, viewportExtent: viewport.maxHeight),
-            )
-          : _buildPage(context),
+      child: DHeaderMorph.scrollFade(
+        scroll: widget.fadeHeaderOnScroll ? _readerScroll : null,
+        extent: () => _headerGeometry.naturalExtent,
+        titleOpacity: _readerTitleOpacity,
+        child: widget.header is _PageTitle
+            ? LayoutBuilder(
+                builder: (context, viewport) =>
+                    _buildPage(context, viewportExtent: viewport.maxHeight),
+              )
+            : _buildPage(context),
+      ),
     );
   }
 
@@ -886,6 +943,10 @@ class _DPageSurfaceState extends State<DPageSurface>
         : null;
     _headerGeometry._maxExtent = maxHeaderExtent ?? double.infinity;
     _headerGeometry._retainNaturalExtent = _compact;
+    final sheetEdge = DSheetPageBand.edgeOf(context);
+    _headerGeometry._visibleOverride = widget.fadeHeaderOnScroll
+        ? () => sheetEdge?.value ?? 0
+        : null;
     final limited =
         widget.limitContentSize ?? DPageContentSettings.limitOf(context);
     Widget fixedContent(Widget child) => Align(
@@ -932,7 +993,8 @@ class _DPageSurfaceState extends State<DPageSurface>
                     key: _headerKey,
                     progress: _progress,
                     suppression: _suppression,
-                    enabled: widget.hideHeaderOnScroll,
+                    enabled:
+                        widget.hideHeaderOnScroll && !widget.fadeHeaderOnScroll,
                     floating: (widget.bodyBuilder != null),
                     releaseSpace: widget.header is _PageTitle,
                     geometry: _headerGeometry,
@@ -948,7 +1010,10 @@ class _DPageSurfaceState extends State<DPageSurface>
                             width: double.infinity,
                             child: Focus(
                               focusNode: _headerFocus,
-                              child: RepaintBoundary(child: _header!),
+                              child: DSheetPageBand.followEdge(
+                                context,
+                                child: RepaintBoundary(child: _header!),
+                              ),
                             ),
                           ),
                         ),
@@ -1094,7 +1159,9 @@ class _DPageSurfaceState extends State<DPageSurface>
                     header: header == null
                         ? null
                         : ClipRect(
-                            clipper: _HeaderHitClipper(_headerGeometry),
+                            clipper: widget.fadeHeaderOnScroll
+                                ? null
+                                : _HeaderHitClipper(_headerGeometry),
                             child: header,
                           ),
                     footer: overlaidFooter
@@ -1102,7 +1169,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                         : null,
                     body: ClipRect(
                       clipper: _HeaderBodyClipper(
-                        _headerGeometry,
+                        widget.fadeHeaderOnScroll ? null : _headerGeometry,
                         _bodyAtTop,
                         widget.headerControls is _PageControls
                             ? _PageControls.bottomPadding
@@ -1128,6 +1195,7 @@ class _DPageSurfaceState extends State<DPageSurface>
               border: widget.border,
               spacing: 0,
               backgroundColor: widget.backgroundColor,
+              clipBehavior: widget.clipBehavior,
               borderRadius: widget.borderRadius,
               depth: widget.depth,
               child: Expanded(child: page),
@@ -1338,10 +1406,18 @@ class _PageControls extends StatelessWidget {
   static const bottomPadding = 14.0;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
-    child: DTouchFields(child: child ?? const SizedBox.shrink()),
-  );
+  Widget build(BuildContext context) =>
+      DPageHeaderHost.titlesInBarOf(context) && child == null
+      ? const SizedBox(height: 12)
+      : Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            DPageHeaderHost.titlesInBarOf(context) ? 12 : 16,
+            16,
+            bottomPadding,
+          ),
+          child: DTouchFields(child: child ?? const SizedBox.shrink()),
+        );
 }
 
 // Keep the header at its natural height while animating the visible fraction.
@@ -1570,8 +1646,10 @@ class DPageHeaderGeometry extends ChangeNotifier {
   double _maxExtent = double.infinity;
   bool _retainNaturalExtent = false;
   double get naturalExtent => _naturalExtent;
-  double get visibleExtent => _visibleExtent;
-  double _readVisibleExtent() => _visibleExtent;
+  double Function()? _visibleOverride;
+  double get visibleExtent => _visibleOverride?.call() ?? _visibleExtent;
+  double _readVisibleExtent() => visibleExtent;
+  void _readerMoved() => notifyListeners();
 
   void _update(double natural, double visible) {
     natural = math.min(natural, _maxExtent);

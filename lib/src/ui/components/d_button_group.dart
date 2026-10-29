@@ -29,6 +29,7 @@ class DButtonGroup extends StatefulWidget {
   }) : inset = false,
        quiet = false,
        quietSelected = false,
+       backgroundColor = null,
        split = false,
        spacedSize = null,
        assert(semanticLabel == null || semanticLabel != '');
@@ -47,6 +48,7 @@ class DButtonGroup extends StatefulWidget {
        inset = false,
        quiet = false,
        quietSelected = false,
+       backgroundColor = null,
        split = false,
        spacedSize = size,
        assert(semanticLabel == null || semanticLabel != '');
@@ -60,6 +62,7 @@ class DButtonGroup extends StatefulWidget {
   }) : inset = false,
        quiet = true,
        quietSelected = selected,
+       backgroundColor = null,
        split = false,
        orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
@@ -73,6 +76,7 @@ class DButtonGroup extends StatefulWidget {
     super.key,
     required this.children,
     this.semanticLabel,
+    this.backgroundColor,
   }) : inset = false,
        quiet = true,
        quietSelected = false,
@@ -93,11 +97,13 @@ class DButtonGroup extends StatefulWidget {
   }) : inset = true,
        quiet = false,
        quietSelected = false,
+       backgroundColor = null,
        split = false,
        orientation = DButtonGroupOrientation.horizontal,
        sharedOutline = false,
        spacedSize = null;
 
+  final Color? backgroundColor;
   final bool inset;
   final List<Widget> children;
   final DButtonGroupOrientation orientation;
@@ -259,9 +265,11 @@ class _DButtonGroupState extends State<DButtonGroup> {
     if (widget.quiet) {
       content = DecoratedBox(
         decoration: BoxDecoration(
-          color: DTokens.of(
-            context,
-          ).quietControlSurface(selected: widget.quietSelected).background,
+          color:
+              widget.backgroundColor ??
+              DTokens.of(
+                context,
+              ).quietControlSurface(selected: widget.quietSelected).background,
           borderRadius: BorderRadius.circular(DRadius.pill),
         ),
         child: content,

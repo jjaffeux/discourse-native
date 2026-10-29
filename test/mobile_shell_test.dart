@@ -622,7 +622,7 @@ void main() {
   });
 
   _mobileTest(
-    'scrolling Topics hides the tab bar and gives the page its space',
+    'scrolling Topics retracts the tab bar while its page title stays in the top bar',
     (tester) async {
       final shell = await pumpMobileShellFixture(
         tester,
@@ -640,7 +640,7 @@ void main() {
       final originalPanel = tester.getRect(panel);
       final originalHeader = tester.getRect(_header);
       final list = find.byType(TopicListView);
-      final title = find.byKey(const ValueKey('topic-list-title'));
+      final title = find.byKey(const ValueKey('mobile-page-title'));
       expect(title.hitTestable(), findsOneWidget);
       await tester.timedDrag(
         list,
@@ -648,7 +648,7 @@ void main() {
         const Duration(milliseconds: 300),
       );
       await tester.pumpAndSettle();
-      expect(title.hitTestable(), findsNothing);
+      expect(title.hitTestable(), findsOneWidget);
       expect(
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
@@ -901,7 +901,7 @@ void main() {
     },
   );
 
-  _mobileTest('a short channel swipe keeps its header and retracts the tab bar', (
+  _mobileTest('a short channel swipe keeps its bar title and retracts navigation', (
     tester,
   ) async {
     final exportDirectory = Platform.environment['CHAT_HEADER_EXPORT_DIR'];
@@ -995,7 +995,7 @@ void main() {
     expect(scroll.position.maxScrollExtent, closeTo(100, .01));
     scroll.jumpTo(scroll.position.maxScrollExtent - 10);
     await tester.pumpAndSettle();
-    final title = find.byKey(const ValueKey('content-header-title-action'));
+    final title = find.byKey(const ValueKey('mobile-page-title'));
     expect(title.hitTestable(), findsOneWidget);
     await capture('shown');
     await tester.timedDrag(
@@ -1062,7 +1062,7 @@ void main() {
       await _chatWheel(tester, messages, 160);
       expect(topics.hitTestable(), findsNothing);
       expect(
-        find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
+        find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
         findsOneWidget,
       );
       expect(send.hitTestable(), findsOneWidget);
@@ -1103,7 +1103,7 @@ void main() {
       await _chatWheel(tester, messages, -80);
       expect(topics.hitTestable(), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
+        find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
         findsOneWidget,
       );
       final restoredSend = tester.getRect(send);
@@ -1178,7 +1178,9 @@ void main() {
           final topics = find.byKey(const ValueKey('mobile-mode-topics'));
           final panel = find.byKey(const ValueKey('mobile-content-panel'));
           final originalBar = tester.getRect(_bar);
-          final title = find.text(thread ? 'Support thread' : 'Support');
+          final title = thread
+              ? find.text('Support thread')
+              : find.byKey(const ValueKey('mobile-page-title'));
           final originalPanel = tester.getRect(panel);
           final send = find.byKey(const ValueKey('chat-composer-send'));
           expect(send, readOnly ? findsNothing : findsOneWidget);
@@ -1826,7 +1828,7 @@ void main() {
         }
         await tester.pumpAndSettle();
         final barTitle = find.byKey(const ValueKey('mobile-page-title'));
-        expect(barTitle.hitTestable(), findsNothing);
+        expect(barTitle.hitTestable(), findsOneWidget);
         final list = find.byType(TopicListView);
         final listPosition = tester
             .stateList<ScrollableState>(
@@ -1835,9 +1837,7 @@ void main() {
             .where((state) => state.position.axis == Axis.vertical)
             .first
             .position;
-        final pageTitle = tester
-            .widget<Text>(find.byKey(const ValueKey('topic-list-title')))
-            .data!;
+        const pageTitle = 'Latest topics';
         await tester.drag(list, const Offset(0, -550));
         await tester.pumpAndSettle();
         expect(barTitle.hitTestable(), findsOneWidget);
@@ -1849,7 +1849,7 @@ void main() {
         await tester.tap(barTitle);
         await tester.pumpAndSettle();
         expect(listPosition.pixels, 0);
-        expect(barTitle.hitTestable(), findsNothing);
+        expect(barTitle.hitTestable(), findsOneWidget);
         // Retain a scrolled list behind the topic. Its title and scroll position
         // must not become the topic bar's identity or target, even during swipes.
         await tester.drag(list, const Offset(0, -400));
@@ -1876,6 +1876,7 @@ void main() {
             find.byKey(const ValueKey('sheet-drag-handle')).last,
           ),
         );
+        await swipe.moveBy(const Offset(0, 20));
         await swipe.moveBy(const Offset(0, 80));
         await tester.pump(const Duration(milliseconds: 16));
         expect(
@@ -1884,7 +1885,7 @@ void main() {
         );
         expect(
           find.descendant(of: _header, matching: find.text(pageTitle)),
-          findsNothing,
+          findsOneWidget,
         );
         await swipe.cancel();
         await tester.pumpAndSettle();
@@ -1898,7 +1899,7 @@ void main() {
         await _tapDockTab(tester, 'panel/chat');
         shell.openChatChannel(10);
         await tester.pumpAndSettle();
-        expect(barTitle, findsNothing);
+        expect(barTitle.hitTestable(), findsOneWidget);
         expect(
           find
               .byKey(const ValueKey('content-header-title-action'))
@@ -1910,225 +1911,225 @@ void main() {
     );
   }
 
-  _mobileTest(
-    'reader compacts and reveals its header without changing topic or viewport',
-    (tester) async {
-      await _loadChromeCaptureFonts(tester);
+  _mobileTest('reader fades its header without changing topic or viewport', (
+    tester,
+  ) async {
+    await _loadChromeCaptureFonts(tester);
 
-      final shell = await pumpMobileShellFixture(
-        tester,
-        topics: const bool.fromEnvironment('captureMobileChrome')
-            ? [
-                const Topic(
-                  id: 7,
-                  title: 'A long community discussion',
-                  slug: 'shared',
-                ),
-                for (var id = 8; id < 30; id++)
-                  Topic(
-                    id: id,
-                    title: 'Community discussion $id',
-                    slug: 'discussion-$id',
-                  ),
-              ]
-            : null,
-        topic: topicPayload(
-          id: 7,
-          title: 'A long community discussion',
-          canCreatePost: true,
-          tags: const [
-            TopicTag(id: 1, name: 'support'),
-            TopicTag(id: 2, name: 'design'),
-            TopicTag(id: 3, name: 'mobile'),
-          ],
-          posts: [
-            for (var id = 1; id <= 50; id++)
-              Post(
-                id: id,
-                postNumber: id,
-                username: 'reader',
-                createdAt: DateTime.utc(2026, 9, 1, 0, id),
-                cooked:
-                    '<p>Post $id discusses mobile navigation, reading and the community.</p>',
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topics: const bool.fromEnvironment('captureMobileChrome')
+          ? [
+              const Topic(
+                id: 7,
+                title: 'A long community discussion',
+                slug: 'shared',
               ),
-          ],
+              for (var id = 8; id < 30; id++)
+                Topic(
+                  id: id,
+                  title: 'Community discussion $id',
+                  slug: 'discussion-$id',
+                ),
+            ]
+          : null,
+      topic: topicPayload(
+        id: 7,
+        title: 'A long community discussion',
+        canCreatePost: true,
+        tags: const [
+          TopicTag(id: 1, name: 'support'),
+          TopicTag(id: 2, name: 'design'),
+          TopicTag(id: 3, name: 'mobile'),
+        ],
+        posts: [
+          for (var id = 1; id <= 50; id++)
+            Post(
+              id: id,
+              postNumber: id,
+              username: 'reader',
+              createdAt: DateTime.utc(2026, 9, 1, 0, id),
+              cooked:
+                  '<p>Post $id discusses mobile navigation, reading and the community.</p>',
+            ),
+        ],
+      ),
+    );
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          font: ForumFont.lato,
+          interfaceFont: ForumFont.lato,
         ),
       );
-      if (const bool.fromEnvironment('captureMobileChrome')) {
-        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
-        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
-        addTearDown(tester.view.resetPadding);
-        addTearDown(tester.view.resetViewPadding);
-        await shell.forumSettings.setShared(
-          shell.forumSettings.shared.copyWith(
-            font: ForumFont.lato,
-            interfaceFont: ForumFont.lato,
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
-      Future<void> capture(String name) => _captureChrome(tester, name);
+      await tester.pumpAndSettle();
+    }
+    Future<void> capture(String name) => _captureChrome(tester, name);
 
-      await capture('root');
-      final controls = tester.getRect(
-        find.byKey(const ValueKey('topic-list-feed-row')),
-      );
-      expect(
-        tester.getRect(find.byKey(const ValueKey('topic-card-7'))).top,
-        closeTo(controls.bottom + 14, 1),
-      );
-      final mobileSurface = find
-          .descendant(
-            of: find.byKey(const ValueKey('mobile-content-panel')),
-            matching: find.byType(DPageSurface),
-          )
-          .first;
-      expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
-      _expectPageRadius(
-        tester.widget<DPageSurface>(mobileSurface).borderRadius,
-      );
-      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
-      await tester.pumpAndSettle();
-      expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
-      expect(
-        tester.widget<DPageSurface>(mobileSurface).backgroundColor,
-        Colors.transparent,
-      );
-      final sheetSurface = find
-          .descendant(
-            of: find.byType(DSheetContent),
-            matching: find.byType(DPageSurface),
-          )
-          .first;
-      _expectPageRadius(tester.widget<DPageSurface>(sheetSurface).borderRadius);
-      final reader = find.byType(TopicView);
-      final element = tester.element(reader);
-      final viewport = tester.getRect(reader);
-      final expandedPageRadius = tester
-          .widget<DPageSurface>(sheetSurface)
-          .borderRadius;
-      await capture('reader-full');
-      final list = find
-          .descendant(of: reader, matching: find.byType(CustomScrollView))
-          .first;
-      await tester.drag(list, const Offset(0, -850));
-      if (const bool.fromEnvironment('captureMobileChrome')) {
-        for (var frame = 0; frame < 24; frame++) {
-          await tester.pump(const Duration(milliseconds: 33));
-          await capture('fold-${frame.toString().padLeft(2, '0')}');
-        }
+    await capture('root');
+    final controls = tester.getRect(
+      find.byKey(const ValueKey('topic-list-feed-row')),
+    );
+    expect(
+      tester.getRect(find.byKey(const ValueKey('topic-card-7'))).top,
+      closeTo(controls.bottom + 14, 1),
+    );
+    final mobileSurface = find
+        .descendant(
+          of: find.byKey(const ValueKey('mobile-content-panel')),
+          matching: find.byType(DPageSurface),
+        )
+        .first;
+    expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
+    _expectPageRadius(tester.widget<DPageSurface>(mobileSurface).borderRadius);
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
+    expect(
+      tester.widget<DPageSurface>(mobileSurface).backgroundColor,
+      Colors.transparent,
+    );
+    final sheetSurface = find
+        .descendant(
+          of: find.byType(DSheetContent),
+          matching: find.byType(DPageSurface),
+        )
+        .first;
+    _expectPageRadius(tester.widget<DPageSurface>(sheetSurface).borderRadius);
+    final reader = find.byType(TopicView);
+    final element = tester.element(reader);
+    final viewport = tester.getRect(reader);
+    final expandedPageRadius = tester
+        .widget<DPageSurface>(sheetSurface)
+        .borderRadius;
+    await capture('reader-full');
+    final list = find
+        .descendant(of: reader, matching: find.byType(CustomScrollView))
+        .first;
+    await tester.drag(list, const Offset(0, -850));
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      for (var frame = 0; frame < 24; frame++) {
+        await tester.pump(const Duration(milliseconds: 33));
+        await capture('fold-${frame.toString().padLeft(2, '0')}');
       }
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-header-compact-layout')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
-        findsOneWidget,
-      );
-      final controller = tester.widget<CustomScrollView>(list).controller!;
-      final offset = controller.offset;
-      expect(
-        tester.widget<DPageSurface>(sheetSurface).borderRadius,
-        expandedPageRadius,
-      );
-      expect(
-        find
-            .descendant(
-              of: _header,
-              matching: find.text('A long community discussion'),
-            )
-            .hitTestable(),
-        findsOneWidget,
-      );
-      await capture('reader-folded');
-      await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
-      if (const bool.fromEnvironment('captureMobileChrome')) {
-        for (var frame = 0; frame < 24; frame++) {
-          await tester.pump(const Duration(milliseconds: 33));
-          await capture('unfold-${frame.toString().padLeft(2, '0')}');
-        }
-      }
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-header-compact-layout')),
-        findsOneWidget,
-      );
-      expect(controller.offset, offset);
-      expect(tester.getRect(reader), viewport);
-      expect(tester.element(reader), same(element));
-      expect(shell.currentContent?.topicId, 7);
-      expect(
-        find.byKey(const ValueKey('topic-more-actions')).hitTestable(),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
-        findsNothing,
-      );
-      await capture('reader-compact');
-      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
-      await tester.pumpAndSettle();
-      final menuSheet = find
-          .ancestor(
-            of: find.byType(DDropdownMenuContent),
-            matching: find.byType(DSheetContent),
+    }
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-header-compact-layout')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
+      findsOneWidget,
+    );
+    final controller = tester.widget<CustomScrollView>(list).controller!;
+    final offset = controller.offset;
+    expect(
+      tester.widget<DPageSurface>(sheetSurface).borderRadius,
+      expandedPageRadius,
+    );
+    expect(
+      find
+          .descendant(
+            of: _header,
+            matching: find.text('A long community discussion'),
           )
-          .first;
-      expect(
-        tester.widget<DSheetContent>(menuSheet).variant,
-        DSheetVariant.adaptiveMenu,
-      );
-      final menuBounds = tester.getRect(menuSheet);
-      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-      // A sheet at its end keeps to the screen's sides.
-      expect(menuBounds.left, 0);
-      expect(menuBounds.right, screen.width);
-      expect(menuBounds.top, greaterThan(screen.height / 2));
-      expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
-      expect(
-        find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
-        findsNothing,
-      );
-      expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
-      expect(find.text('Share topic').hitTestable(), findsOneWidget);
-      expect(find.text('Mark unread').hitTestable(), findsOneWidget);
-      expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
-      expect(controller.offset, offset);
-      expect(shell.currentContent?.topicId, 7);
-      await capture('reader-compact-menu-sheet');
-      expect(tester.takeException(), isNull);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(DDropdownMenuContent), findsNothing);
-      expect(controller.offset, offset);
-      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
-      await tester.pumpAndSettle();
-      final menuHandle = find.descendant(
-        of: menuSheet,
-        matching: find.byKey(const ValueKey('sheet-drag-handle')),
-      );
-      expect(tester.getSize(menuHandle), const Size(36, 5));
-      await tester.drag(menuHandle, const Offset(0, 220));
-      await tester.pumpAndSettle();
-      expect(find.byType(DDropdownMenuContent), findsNothing);
-      expect(controller.offset, offset);
-      expect(shell.currentContent?.topicId, 7);
-      // Dismissal restores focus to More. Leave the header before restoring the
-      // full layout, so a keyboard user's focused control is not replaced.
-      FocusManager.instance.primaryFocus?.unfocus();
-      await tester.pump();
-      controller.jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-header-compact-layout')),
-        findsNothing,
-      );
-      expect(tester.getRect(reader), viewport);
-      expect(tester.takeException(), isNull);
-    },
-  );
+          .hitTestable(),
+      findsOneWidget,
+    );
+    await capture('reader-folded');
+    await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      for (var frame = 0; frame < 24; frame++) {
+        await tester.pump(const Duration(milliseconds: 33));
+        await capture('unfold-${frame.toString().padLeft(2, '0')}');
+      }
+    }
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-header-compact-layout')),
+      findsNothing,
+    );
+    expect(controller.offset, offset);
+    expect(tester.getRect(reader), viewport);
+    expect(tester.element(reader), same(element));
+    expect(shell.currentContent?.topicId, 7);
+    expect(
+      find.byKey(const ValueKey('topic-more-actions')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
+      findsOneWidget,
+    );
+    await capture('reader-compact');
+    await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+    await tester.pumpAndSettle();
+    final menuSheet = find
+        .ancestor(
+          of: find.byType(DDropdownMenuContent),
+          matching: find.byType(DSheetContent),
+        )
+        .first;
+    expect(
+      tester.widget<DSheetContent>(menuSheet).variant,
+      DSheetVariant.adaptiveMenu,
+    );
+    final menuBounds = tester.getRect(menuSheet);
+    final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+    // A sheet at its end keeps to the screen's sides.
+    expect(menuBounds.left, 0);
+    expect(menuBounds.right, screen.width);
+    expect(menuBounds.top, greaterThan(screen.height / 2));
+    expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
+    expect(
+      find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
+    expect(find.text('Share topic').hitTestable(), findsOneWidget);
+    expect(find.text('Mark unread').hitTestable(), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('topic-header-taxonomy')).hitTestable(),
+      findsNothing,
+    );
+    expect(controller.offset, offset);
+    expect(shell.currentContent?.topicId, 7);
+    await capture('reader-compact-menu-sheet');
+    expect(tester.takeException(), isNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(controller.offset, offset);
+    await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+    await tester.pumpAndSettle();
+    final menuHandle = find.descendant(
+      of: menuSheet,
+      matching: find.byKey(const ValueKey('sheet-drag-handle')),
+    );
+    expect(tester.getSize(menuHandle), const Size(36, 5));
+    await tester.drag(menuHandle, const Offset(0, 220));
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(controller.offset, offset);
+    expect(shell.currentContent?.topicId, 7);
+    // Dismissal restores focus to More. Leave the header before restoring the
+    // full layout, so a keyboard user's focused control is not replaced.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    controller.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('topic-header-compact-layout')),
+      findsNothing,
+    );
+    expect(tester.getRect(reader), viewport);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
     'persistent header and independent buttons surround the content',
@@ -2654,7 +2655,7 @@ void main() {
     final visit = shell.mobileNavigation.entryId;
     expect(shell.currentContent?.topicId, 7);
     expect(shell.canPopContent, isTrue);
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.dragFrom(const Offset(12, 35), const Offset(180, 0));
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -3375,7 +3376,7 @@ void main() {
     'Topics is titled by its feed and Filters flows with the other filters',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
-      final title = find.byKey(const ValueKey('topic-list-title'));
+      final title = find.byKey(const ValueKey('mobile-page-title'));
       final row = find.byKey(const ValueKey('topic-list-feed-row'));
       final tags = find.byKey(const ValueKey('topic-list-tag-filter'));
       final filters = find.byWidgetPredicate(
@@ -3392,12 +3393,18 @@ void main() {
         );
       }
 
-      expect(tester.widget<Text>(title).data, 'Latest topics');
+      expect(
+        find.descendant(of: title, matching: find.text('Latest topics')),
+        findsOneWidget,
+      );
       expectFiltersFollowTags();
 
       await shell.selectTopicListMode(TopicListMode.newActivity);
       await tester.pumpAndSettle();
-      expect(tester.widget<Text>(title).data, 'New topics');
+      expect(
+        find.descendant(of: title, matching: find.text('New topics')),
+        findsOneWidget,
+      );
 
       shell.openCategory(
         const TopicCategory(
@@ -3674,10 +3681,7 @@ void main() {
         expect(shell.currentContent?.id, id);
         expect(shell.mobileNavigation.tab, MobileTab.destination(id));
         expect(
-          find.descendant(
-            of: find.byType(MainContent),
-            matching: find.text(label),
-          ),
+          find.descendant(of: _header, matching: find.text(label)),
           findsOneWidget,
         );
         _expectPage();
@@ -4205,7 +4209,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('users and events keep their own page headings', (tester) async {
+  _mobileTest('users and events publish their names in the top bar', (
+    tester,
+  ) async {
     await pumpMobileShellFixture(tester, events: true);
     for (final (tab, heading) in [
       ('users', 'Users'),
@@ -4213,10 +4219,7 @@ void main() {
     ]) {
       await _tapDockTab(tester, tab);
       expect(
-        find.descendant(
-          of: find.byType(MainContent),
-          matching: find.text(heading),
-        ),
+        find.descendant(of: _header, matching: find.text(heading)),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -4584,7 +4587,7 @@ void main() {
     }
   });
 
-  _mobileTest('forum identity stays logo-only and inert across mobile widths', (
+  _mobileTest('forum identity stays logo-only and goes home at mobile widths', (
     tester,
   ) async {
     final semantics = tester.ensureSemantics();
@@ -4594,7 +4597,7 @@ void main() {
       final identity = find.byType(ForumIdentityHeader);
       final logo = find.byKey(const ValueKey('forum-identity-logo'));
 
-      void expectStaticLogo() {
+      void expectHomeLogo() {
         expect(
           find.descendant(of: _header, matching: identity),
           findsOneWidget,
@@ -4616,10 +4619,12 @@ void main() {
           find.descendant(of: identity, matching: find.byType(Tooltip)),
           findsNothing,
         );
-        expect(
-          tester.getSemantics(find.bySemanticsLabel('Meta')),
-          matchesSemantics(label: 'Meta', isImage: true),
-        );
+        final action = tester
+            .getSemantics(find.byKey(const ValueKey('mobile-home-button')))
+            .getSemanticsData();
+        expect(action.label, 'Latest topics');
+        expect(action.flagsCollection.isButton, isTrue);
+        expect(action.hasAction(ui.SemanticsAction.tap), isTrue);
       }
 
       for (final size in [const Size(320, 720), phone, const Size(1024, 768)]) {
@@ -4627,7 +4632,7 @@ void main() {
         for (final scale in [1.0, 2.0]) {
           tester.platformDispatcher.textScaleFactorTestValue = scale;
           await tester.pumpAndSettle();
-          expectStaticLogo();
+          expectHomeLogo();
           final content = shell.currentContent;
           await tester.tap(logo);
           await tester.pumpAndSettle();
@@ -4646,13 +4651,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expectStaticLogo();
-      await tester.tap(logo);
-      await tester.pumpAndSettle();
+      expectHomeLogo();
+      expect(
+        find.byKey(const ValueKey('mobile-home-button')).hitTestable(),
+        findsNothing,
+      );
       expect(shell.currentContent?.topicId, 7);
       expect(shell.handleBack(), isTrue);
       await tester.pumpAndSettle();
-      expectStaticLogo();
+      expectHomeLogo();
       expect(tester.takeException(), isNull);
     } finally {
       semantics.dispose();
@@ -4812,7 +4819,11 @@ void main() {
     final navigation = find.byKey(const ValueKey('chat-inbox-navigation'));
     Finder peer(String label) =>
         find.descendant(of: navigation, matching: find.text(label));
-    expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-inbox-title')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
+      findsOneWidget,
+    );
     expect(peer('Channels'), findsOneWidget);
     expect(peer('Threads'), findsOneWidget);
     await tester.ensureVisible(peer('Channels'));
@@ -5212,7 +5223,7 @@ void main() {
     expect(shell.mobileNavigation.entryId, same(topic));
     expect(shell.currentContent?.topicId, 7);
 
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.dragFrom(const Offset(12, 35), const Offset(180, 0));
     await tester.pumpAndSettle();
     await swipe(true);
     expect(shell.mobileNavigation.sidebarOpen, isFalse);
@@ -5350,7 +5361,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
     await tester.pumpAndSettle();
-    expect(shell.mobileNavigation.panelOwner, 'chat');
+    expect(shell.mobileNavigation.tab, MobileTab.topics);
     await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
     await tester.pumpAndSettle();
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);

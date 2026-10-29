@@ -177,22 +177,10 @@ void main() {
             ),
           ),
         );
-        final initiallyCompact = [
-          'route',
-          'anchor',
-          'row',
-          'detail',
-        ].contains(source);
-        void expectOpeningLayout() =>
-            expect(_compact, initiallyCompact ? findsOneWidget : findsNothing);
+        void expectOpeningLayout() => expect(_compact, findsNothing);
         expectOpeningLayout();
         await _frames(tester, 12);
         expectOpeningLayout();
-        final openingTitle = initiallyCompact
-            ? tester.getRect(
-                find.byKey(const ValueKey('topic-header-compact-title')),
-              )
-            : null;
         await _export(tester, '$source-loading');
 
         gate.complete();
@@ -202,14 +190,6 @@ void main() {
           expectOpeningLayout();
         }
         expect(topicPostListFinder(), findsOneWidget);
-        if (openingTitle != null) {
-          expect(
-            tester.getRect(
-              find.byKey(const ValueKey('topic-header-compact-title')),
-            ),
-            openingTitle,
-          );
-        }
         final position = topicPostList(tester).controller!.position;
         if (source == 'route' || source == 'anchor') {
           expect(find.byKey(const ValueKey(12)), findsOneWidget);
@@ -228,8 +208,8 @@ void main() {
         position.jumpTo(600);
         await _frames(tester);
         expectOpeningLayout();
-        // Actual wheel input releases the initial choice, including when the
-        // chrome controller owns header motion.
+        // Scrolling uses the same full header while its parts fade, including
+        // restored readers whose first visible post is deep in the topic.
         await tester.sendEventToBinding(
           PointerScrollEvent(
             position: topicReadingViewportRect(tester).center,
@@ -237,7 +217,7 @@ void main() {
           ),
         );
         await _frames(tester);
-        expect(_compact, findsOneWidget);
+        expect(_compact, findsNothing);
 
         position.jumpTo(0);
         await _frames(tester);

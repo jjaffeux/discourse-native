@@ -1226,48 +1226,79 @@ class _TopicViewState extends State<TopicView>
     top: _floatingDayTopInset,
     child: TopicChromeVisibility(
       covered: _moreTopicsCovered,
-      child: header.inset(
-        ListenableBuilder(
-          listenable: _viewportState.floatingDayListenable,
-          builder: (context, _) {
-            final floatingDay = _floatingDay;
-            if (floatingDay == null) return const SizedBox.shrink();
-            if (context.isTouch) {
-              return StreamDaySeparator(
-                key: ValueKey(('topic-floating-day', floatingDay)),
-                day: floatingDay,
-                floating: true,
-                onTap: () => _interaction.jumpToDayStart(floatingDay),
-                dateWrapper: (date) => ListenableBuilder(
-                  listenable: _viewportState.floatingDayOverlayListenable,
-                  builder: (context, child) => ClipRect(
-                    child: Transform.translate(
-                      offset: Offset(0, _floatingDayOffset),
+      child: Builder(
+        builder: (context) {
+          final page = DPageHeaderScope.maybeOf(context);
+          final day = ListenableBuilder(
+            listenable: _viewportState.floatingDayListenable,
+            builder: (context, _) {
+              final floatingDay = _floatingDay;
+              if (floatingDay == null) return const SizedBox.shrink();
+              if (context.isTouch) {
+                return StreamDaySeparator(
+                  key: ValueKey(('topic-floating-day', floatingDay)),
+                  day: floatingDay,
+                  floating: true,
+                  onTap: () => _interaction.jumpToDayStart(floatingDay),
+                  dateWrapper: (date) => ListenableBuilder(
+                    listenable: _viewportState.floatingDayOverlayListenable,
+                    builder: (context, child) => ClipRect(
+                      child: Transform.translate(
+                        offset: Offset(0, _floatingDayOffset),
+                        child: child,
+                      ),
+                    ),
+                    child: date,
+                  ),
+                );
+              }
+              return ListenableBuilder(
+                listenable: _viewportState.floatingDayOverlayListenable,
+                builder: (context, child) => ClipRect(
+                  // Stack clips layout overflow, but this translation only affects paint.
+                  child: Transform.translate(
+                    offset: Offset(0, _floatingDayOffset),
+                    child: child,
+                  ),
+                ),
+                child: StreamDaySeparator(
+                  key: ValueKey(('topic-floating-day', floatingDay)),
+                  day: floatingDay,
+                  floating: true,
+                  onTap: () => _interaction.jumpToDayStart(floatingDay),
+                ),
+              );
+            },
+          );
+          if (!ShellScope.read(context).mobileNavigationEnabled ||
+              page == null) {
+            return header.inset(day);
+          }
+          return DSheetPageBand.followEdge(
+            context,
+            child: ListenableBuilder(
+              listenable: page,
+              builder: (context, child) => IgnorePointer(
+                ignoring: page.barOpacity < 1,
+                child: ExcludeSemantics(
+                  excluding: page.barOpacity < 1,
+                  child: ExcludeFocus(
+                    excluding: page.barOpacity < 1,
+                    child: AnimatedOpacity(
+                      opacity: page.barOpacity == 1 ? 1 : 0,
+                      duration: DMotion.duration(
+                        context,
+                        const Duration(milliseconds: 200),
+                      ),
                       child: child,
                     ),
                   ),
-                  child: date,
-                ),
-              );
-            }
-            return ListenableBuilder(
-              listenable: _viewportState.floatingDayOverlayListenable,
-              builder: (context, child) => ClipRect(
-                // Stack clips layout overflow, but this translation only affects paint.
-                child: Transform.translate(
-                  offset: Offset(0, _floatingDayOffset),
-                  child: child,
                 ),
               ),
-              child: StreamDaySeparator(
-                key: ValueKey(('topic-floating-day', floatingDay)),
-                day: floatingDay,
-                floating: true,
-                onTap: () => _interaction.jumpToDayStart(floatingDay),
-              ),
-            );
-          },
-        ),
+              child: day,
+            ),
+          );
+        },
       ),
     ),
   );
@@ -2013,7 +2044,6 @@ class _TopicViewState extends State<TopicView>
                   start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
                   end: folded ? corner : DSpacing.sm,
                   bottom: folded ? foldedBottom : DSpacing.sm + dock,
-                  height: height,
                   duration: duration,
                   curve: curve,
                   child: Align(
@@ -2029,14 +2059,31 @@ class _TopicViewState extends State<TopicView>
                     listenable: _viewportState.progressPositionListenable,
                     builder: (context, _) {
                       final position = _progressPosition;
-                      if (position == null || snapshot.progressTotal <= 1) {
+                      if (position == null ||
+                          (!controller.mobileNavigationEnabled &&
+                              snapshot.progressTotal <= 1)) {
                         return const SizedBox.shrink();
                       }
-                      return TopicProgressPopover(
-                        controller: controller,
-                        position: position,
-                        total: snapshot.progressTotal,
-                        floating: true,
+                      return DReferenceTextScale(
+                        child: DControlWrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (controller.mobileNavigationEnabled)
+                              TopicHeaderTools(
+                                siteUrl: siteUrl,
+                                topic: snapshot.topic!,
+                                registry: widget.registry,
+                                keepTopicListOpen: widget.keepTopicListOpen,
+                              ),
+                            TopicProgressPopover(
+                              controller: controller,
+                              position: position,
+                              total: snapshot.progressTotal,
+                              floating: true,
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -3734,7 +3781,9 @@ class _TopicPostItemState extends State<_TopicPostItem>
             count: widget.gapBefore.length,
             onExpand: widget.expandGapBefore,
           ),
-        if (day != null)
+        if (day != null &&
+            (widget.showDayDivider ||
+                !ShellScope.read(context).mobileNavigationEnabled))
           ListenableBuilder(
             listenable: widget.viewportState.floatingDayListenable,
             child: StreamDaySeparator(

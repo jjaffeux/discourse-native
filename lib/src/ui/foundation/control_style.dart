@@ -18,6 +18,9 @@ enum DControlSize {
   /// 14px text/icons on phones, with kit-owned touch targets.
   filter,
 
+  /// Floating reader tools: 40px surfaces, 14px text and 15px icons.
+  floating,
+
   /// Search fields: 13px text, 7px vertical padding and 1px border.
   field,
 
@@ -102,6 +105,7 @@ abstract final class DControlStyle {
         DControlSize.regular => regularHeight,
         DControlSize.large => isTouch(context) ? 48 : largeHeight,
         DControlSize.filter => isTouch(context) ? 36 : regularHeight,
+        DControlSize.floating => 40,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
@@ -118,6 +122,7 @@ abstract final class DControlStyle {
       switch (size) {
         DControlSize.filter =>
           isTouch(context) ? 14 : DiscourseTypography.preview,
+        DControlSize.floating => 14,
         DControlSize.small ||
         DControlSize.regular ||
         DControlSize.chip => DiscourseTypography.preview,
@@ -138,6 +143,7 @@ abstract final class DControlStyle {
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.filter => isTouch(context) ? 14 : 12,
+        DControlSize.floating => 15,
         DControlSize.small ||
         DControlSize.regular ||
         DControlSize.chip ||
@@ -162,6 +168,7 @@ abstract final class DControlStyle {
   /// Insets include the CSS border, which Native paints inside the surface.
   static double horizontalInset(DControlSize size) => switch (size) {
     DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,
+    DControlSize.floating => 12,
     DControlSize.field => 11,
     DControlSize.preference => 12,
     DControlSize.chrome => 7,

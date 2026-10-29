@@ -153,6 +153,53 @@ class RenderDControlWrap extends RenderWrap {
     required super.alignment,
   });
 
+  Map<RenderBox, Rect>? _fromRects;
+  Size? _fromSize;
+  double _progress = 1;
+
+  /// The painted positions, including an interrupted fit-row transition.
+  Map<RenderBox, Rect> get paintedRects => {
+    for (var child = firstChild; child != null; child = childAfter(child))
+      child: _paintRect(child),
+  };
+
+  /// Fits against the destination layout while easing artwork and hit bounds.
+  void transitionFrom(
+    Map<RenderBox, Rect>? rects,
+    Size? fromSize,
+    double progress,
+  ) {
+    if (identical(rects, _fromRects) &&
+        fromSize == _fromSize &&
+        progress == _progress) {
+      return;
+    }
+    _fromRects = rects;
+    _fromSize = fromSize;
+    _progress = progress;
+    markNeedsLayout();
+    markNeedsSemanticsUpdate();
+  }
+
+  Rect _paintRect(RenderBox child) {
+    final target =
+        (child.parentData! as DControlWrapParentData).offset & child.size;
+    final from = _fromRects?[child];
+    return from == null ? target : Rect.lerp(from, target, _progress)!;
+  }
+
+  Matrix4 _paintTransform(RenderBox child) {
+    final rect = _paintRect(child);
+    return Matrix4.identity()
+      ..translateByDouble(rect.left, rect.top, 0, 1)
+      ..scaleByDouble(
+        child.size.width == 0 ? 1 : rect.width / child.size.width,
+        child.size.height == 0 ? 1 : rect.height / child.size.height,
+        1,
+        1,
+      );
+  }
+
   @override
   void setupParentData(RenderBox child) {
     if (child.parentData is! DControlWrapParentData) {
@@ -322,7 +369,12 @@ class RenderDControlWrap extends RenderWrap {
         runs.fold(0.0, (value, run) => value + run.cross) +
         runSpacing * (runs.length - 1);
     final fillMain = alignment != WrapAlignment.start && maxMain.isFinite;
-    size = constraints.constrain(_size(fillMain ? maxMain : main, cross));
+    final targetSize = constraints.constrain(
+      _size(fillMain ? maxMain : main, cross),
+    );
+    size = _fromSize == null
+        ? targetSize
+        : constraints.constrain(Size.lerp(_fromSize, targetSize, _progress)!);
     var crossPosition = 0.0;
     for (final run in runs) {
       final free = math.max(0.0, _main(size) - run.main);
@@ -360,10 +412,53 @@ class RenderDControlWrap extends RenderWrap {
   }
 
   @override
-  void paint(PaintingContext context, Offset offset) =>
+  void paint(PaintingContext context, Offset offset) {
+    if (_fromRects == null) {
       defaultPaint(context, offset);
+      return;
+    }
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final item = child;
+      void paintItem(PaintingContext context, Offset offset) =>
+          context.pushTransform(
+            needsCompositing,
+            offset,
+            _paintTransform(item),
+            (context, offset) => context.paintChild(item, offset),
+          );
+      if (_fromRects!.containsKey(item)) {
+        paintItem(context, offset);
+      } else {
+        context.pushOpacity(offset, (_progress * 255).round(), paintItem);
+      }
+    }
+  }
 
   @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    if (_fromRects == null) {
+      super.applyPaintTransform(child, transform);
+    } else {
+      transform.multiply(_paintTransform(child));
+    }
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    if (_fromRects == null) {
+      return defaultHitTestChildren(result, position: position);
+    }
+    for (var child = lastChild; child != null; child = childBefore(child)) {
+      if (!_fromRects!.containsKey(child) && _progress < .5) continue;
+      final item = child;
+      if (result.addWithPaintTransform(
+        transform: _paintTransform(item),
+        position: position,
+        hitTest: (result, position) => item.hitTest(result, position: position),
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

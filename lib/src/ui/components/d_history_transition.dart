@@ -696,16 +696,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       scale: switching || _back
                           ? 1
                           : 1 - (1 - _previewScale) * p,
-                      child: DecoratedBox(
-                        decoration: _back ? elevation : const BoxDecoration(),
-                        child: ColorFiltered(
-                          colorFilter: _back ? clear : dim,
-                          child: IgnorePointer(
-                            ignoring: _dragging || _settling || switching,
-                            child: Opacity(
-                              opacity: switching ? p : 1,
-                              child: child,
-                            ),
+                      child: ColorFiltered(
+                        colorFilter: _back ? clear : dim,
+                        child: IgnorePointer(
+                          ignoring: _dragging || _settling || switching,
+                          child: Opacity(
+                            opacity: switching ? p : 1,
+                            child: child,
                           ),
                         ),
                       ),

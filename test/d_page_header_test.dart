@@ -126,4 +126,48 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('a returning sheet previews its own previous visit title', (
+    tester,
+  ) async {
+    Future<void> show(String id, String title, String? previous) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DPageHeaderHost(
+            identity: id,
+            previousIdentity: previous,
+            titlesInBar: true,
+            builder: (_, active, child) => Column(
+              children: [
+                Builder(
+                  builder: (context) => Text(
+                    DPageHeaderHost.previousTitleOf(context)?.title ??
+                        'No previous page',
+                    key: const ValueKey('previous-title'),
+                  ),
+                ),
+                Expanded(child: child),
+              ],
+            ),
+            child: DPageSurface.headed(
+              key: ValueKey(id),
+              title: Text(title),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    String previousTitle() =>
+        tester.widget<Text>(find.byKey(const ValueKey('previous-title'))).data!;
+    await show('list', 'Latest topics', null);
+    await show('one', 'First topic', 'list');
+    expect(previousTitle(), 'Latest topics');
+    await show('two', 'Second topic', 'one');
+    expect(previousTitle(), 'First topic');
+    await show('one', 'First topic', 'list');
+    expect(previousTitle(), 'Latest topics');
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -35,8 +35,10 @@ class TopicProgressButton extends StatelessWidget {
   /// The floating control's height, for whoever settles it into a corner.
   static double floatingHeightOf(BuildContext context) =>
       DControlStyle.scaledHeight(
-        DButtonSize.chip,
-        MediaQuery.textScalerOf(context),
+        context.isTouch ? DButtonSize.floating : DButtonSize.chip,
+        context.isTouch
+            ? DReferenceTextScale.scalerOf(context)
+            : MediaQuery.textScalerOf(context),
         context: context,
       );
 
@@ -44,8 +46,20 @@ class TopicProgressButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final boundedTotal = total < 1 ? 1 : total;
     final boundedPosition = position.clamp(1, boundedTotal);
-    return StreamChip.of(context, floating: floating).button(
+    final mobile = floating && context.isTouch;
+    final chip = StreamChip.of(context, floating: floating);
+    return DButton(
       key: const ValueKey('topic-progress-button'),
+      variant: mobile ? DButtonVariant.tool : DButtonVariant.outline,
+      density: !mobile && floating
+          ? DButtonDensity.floatingDate
+          : DButtonDensity.standard,
+      size: mobile ? DButtonSize.floating : DButtonSize.chip,
+      shape: DButtonShape.pill,
+      backgroundColor: mobile ? DTokens.of(context).wellFill : chip.background,
+      interactiveBackgroundColor: chip.hover,
+      foregroundColor: chip.foreground,
+      borderColor: mobile ? Colors.transparent : chip.border,
       onPressed: onPressed,
       focusNode: focusNode,
       expanded: expanded ?? false,
@@ -55,14 +69,21 @@ class TopicProgressButton extends StatelessWidget {
         (boundedPosition).toString(),
         (boundedTotal).toString(),
       ),
-      label: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          '$boundedPosition / $boundedTotal',
-          textDirection: TextDirection.ltr,
-          maxLines: 1,
-          softWrap: false,
-          style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+      label: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontWeight: mobile ? FontWeight.w400 : FontWeight.w600,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '$boundedPosition / $boundedTotal',
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            softWrap: false,
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ),
       ),
     );

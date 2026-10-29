@@ -20,8 +20,8 @@ class MessageArchiveButton extends StatefulWidget {
   final String siteUrl;
   final TopicDetail topic;
 
-  /// Draws an icon-only chip so it sits among the mobile topic header's
-  /// compact actions instead of beside the reader's Reply button.
+  /// Draws an icon-only chip so it sits among the mobile reader's
+  /// floating actions instead of beside the reader's Reply button.
   final bool compact;
 
   @override
@@ -97,7 +97,8 @@ class _MessageArchiveButtonState extends State<MessageArchiveButton> {
         tooltip: tooltip,
         loading: _busy,
         variant: DButtonVariant.tool,
-        size: DButtonSize.filter,
+        size: DButtonSize.floating,
+        backgroundColor: DTokens.of(context).wellFill,
       );
     }
     return DButton(

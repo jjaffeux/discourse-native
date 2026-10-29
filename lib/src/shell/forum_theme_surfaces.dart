@@ -293,6 +293,9 @@ class ForumSidebarTheme extends StatelessWidget {
   }
 }
 
+/// How a Native reading sheet covers the forum page.
+enum ForumMobileSheet { none, page, raised }
+
 /// Phone pages paint the mockup's panel below the floating window chrome.
 /// Pages share the reading sheet's outline. The inset sidebar rounds around
 /// its sections at the top and its view switch at the foot.
@@ -300,16 +303,16 @@ class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
     required this.child,
-    this.coveredBySheet = false,
+    this.sheet = ForumMobileSheet.none,
   }) : _sidebar = false;
 
   /// The mockup's mobile SideNav is a rounded sheet on the window ground.
   const ForumMobileSurface.sidebar({super.key, required this.child})
     : _sidebar = true,
-      coveredBySheet = false;
+      sheet = ForumMobileSheet.none;
 
   final bool _sidebar;
-  final bool coveredBySheet;
+  final ForumMobileSheet sheet;
 
   final Widget child;
   @override
@@ -319,29 +322,33 @@ class ForumMobileSurface extends StatefulWidget {
 class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
   final _content = GlobalKey();
   @override
-  Widget build(BuildContext context) => DPageSurface(
-    framed: true,
-    border: false,
-    // A covering sheet owns its clip; other pages follow the dock's corners.
-    borderRadius: widget.coveredBySheet
-        ? BorderRadius.zero
-        : widget._sidebar
-        ? const BorderRadius.vertical(
-            top: Radius.circular(18),
-            bottom: Radius.circular(26),
-          )
-        : DSheetViewport.pageBorderRadius,
-    backgroundColor: widget.coveredBySheet
-        ? Colors.transparent
-        : ForumWindowBackground.panelColor(context),
-    // A drawer's sidebar casts no shadow: the rail over its edge would cut it
-    // short. Under a page sheet, the sheet and its underlay carry the depth.
-    depth: widget._sidebar
-        ? DSurfaceDepth.rim
-        : widget.coveredBySheet
-        ? null
-        : DSurfaceDepth.panel,
-    child: _MobileSurfaceScope(key: _content, child: widget.child),
+  Widget build(BuildContext context) => DSheetViewport.clipPage(
+    context,
+    enabled: widget.sheet == ForumMobileSheet.raised,
+    child: DPageSurface(
+      framed: true,
+      border: false,
+      clipBehavior: widget.sheet == ForumMobileSheet.raised
+          ? Clip.none
+          : Clip.antiAlias,
+      borderRadius: widget.sheet != ForumMobileSheet.none
+          ? BorderRadius.zero
+          : widget._sidebar
+          ? const BorderRadius.vertical(
+              top: Radius.circular(18),
+              bottom: Radius.circular(26),
+            )
+          : DSheetViewport.pageBorderRadius,
+      backgroundColor: widget.sheet != ForumMobileSheet.none
+          ? Colors.transparent
+          : ForumWindowBackground.panelColor(context),
+      depth: widget._sidebar
+          ? DSurfaceDepth.rim
+          : widget.sheet != ForumMobileSheet.none
+          ? null
+          : DSurfaceDepth.panel,
+      child: _MobileSurfaceScope(key: _content, child: widget.child),
+    ),
   );
 }
 

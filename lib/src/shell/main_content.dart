@@ -451,6 +451,7 @@ class _MainContentBody extends StatelessWidget {
           registry.ownsContentChrome(context, previous) &&
           !registry.usesMobilePageSheet(context, previous);
       return DSheetViewport(
+        riseWithScroll: route.isTopic,
         key: ValueKey((
           route.isTopic ? 'mobile-topic-sheet' : 'mobile-plugin-page-sheet',
           entry,
@@ -763,6 +764,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         if (mobileSheet && readerPane != null) {
           final entry = controller.mobileNavigation.entryId;
           return DSheetViewport(
+            riseWithScroll: true,
             key: ValueKey(('mobile-topic-sheet', entry)),
             onDismiss: () {
               if (controller.mobileNavigation.entryId == entry) {

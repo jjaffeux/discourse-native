@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -280,198 +281,221 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           BuildContext context,
           ValueListenable<DPageHeader?> header,
           Widget page,
-        ) => Column(
+        ) => _MobileFrame(
+          raised: pageSheetOpen && shell.currentContent?.isTopic == true,
           key: const ValueKey('mobile-root'),
-          children: [
-            // Ancestor Material ink layers also repaint on scroll. Retain the
-            // fixed header independently of the moving page and dock.
-            RepaintBoundary(
-              child: DSheetDragRegion(
-                child: ForumSidebarTheme(
-                  child: Padding(
-                    key: const ValueKey('mobile-header'),
-                    padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 14, 4),
-                    child: Builder(
-                      builder: (context) {
-                        final navigation = <Widget>[
-                          SizedBox(
-                            width: _mobileRailWidth,
-                            child: Center(
-                              child: DButton.iconOnly(
-                                key: const ValueKey('mobile-menu-button'),
-                                icon: const DIconGlyphTheme(
-                                  scale: 1,
-                                  naturalWidth: true,
-                                  child: DIcon(DNativeIcons.bars, size: 20),
-                                ),
-                                tooltip: sidebarOpen
-                                    ? context.l10n.closeNavigation
-                                    : context.l10n.openNavigation,
-                                variant: DButtonVariant.inline,
-                                expanded: sidebarOpen,
-                                onPressed: () {
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  shell.toggleMobileSidebar();
-                                },
+          // Ancestor Material ink layers also repaint on scroll. Retain the
+          // fixed header independently of the moving page and dock.
+          header: RepaintBoundary(
+            child: DSheetDragRegion(
+              child: ForumSidebarTheme(
+                child: Padding(
+                  key: const ValueKey('mobile-header'),
+                  padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 14, 4),
+                  child: Builder(
+                    builder: (context) {
+                      final navigation = <Widget>[
+                        SizedBox(
+                          width: _mobileRailWidth,
+                          child: Center(
+                            child: DButton.iconOnly(
+                              key: const ValueKey('mobile-menu-button'),
+                              icon: const DIconGlyphTheme(
+                                scale: 1,
+                                naturalWidth: true,
+                                child: DIcon(DNativeIcons.bars, size: 20),
                               ),
+                              tooltip: sidebarOpen
+                                  ? context.l10n.closeNavigation
+                                  : context.l10n.openNavigation,
+                              variant: DButtonVariant.inline,
+                              expanded: sidebarOpen,
+                              onPressed: () {
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                shell.toggleMobileSidebar();
+                              },
                             ),
                           ),
-                          Expanded(
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Row(
-                                children: [
-                                  ForumIdentityHeader(
-                                    size: 32,
-                                    name: instance.title,
-                                    iconUrl: instance.iconUrl,
-                                    monogram: instance.monogram,
-                                    accentColor: instance.accentColor,
-                                  ),
-                                  if (!sidebarOpen) ...[
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: MobilePageTitle(
-                                        header: header,
-                                        siteUrl: instance.url,
-                                      ),
+                        ),
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Row(
+                              children: [
+                                DReferenceTextScale(
+                                  child: DButton.iconOnly(
+                                    key: const ValueKey('mobile-home-button'),
+                                    tooltip: context.l10n.latestTopics,
+                                    variant: DButtonVariant.inline,
+                                    size: DButtonSize.segment,
+                                    onPressed: () {
+                                      final route = shell.currentContent;
+                                      if (!sidebarOpen &&
+                                          selected == MobileTab.topics &&
+                                          route?.isTopicList == true &&
+                                          route?.id == 'latest' &&
+                                          route!.topicFilterQuery.isEmpty) {
+                                        unawaited(header.value?.scrollToTop());
+                                      } else {
+                                        shell.openMobileHome();
+                                      }
+                                    },
+                                    icon: ForumIdentityHeader(
+                                      size: 32,
+                                      name: instance.title,
+                                      iconUrl: instance.iconUrl,
+                                      monogram: instance.monogram,
+                                      accentColor: instance.accentColor,
                                     ),
-                                  ],
+                                  ),
+                                ),
+                                if (!sidebarOpen) ...[
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: MobilePageTitle(
+                                      header: header,
+                                      siteUrl: instance.url,
+                                    ),
+                                  ),
                                 ],
-                              ),
+                              ],
                             ),
                           ),
-                          const ForumSearch(fullScreen: true),
-                        ];
-                        final actions = <Widget>[
-                          ...registry.shellHeaderActions(
+                        ),
+                        const ForumSearch(fullScreen: true),
+                      ];
+                      final actions = <Widget>[
+                        ...registry.shellHeaderActions(
+                          context,
+                          surface: PluginHeaderSurface.content,
+                          compact: true,
+                          ringColor: ForumWindowBackground.chromeColor(
                             context,
-                            surface: PluginHeaderSurface.content,
-                            compact: true,
-                            ringColor: ForumWindowBackground.chromeColor(
-                              context,
-                              Theme.of(context).shell.sidebar,
-                            ),
+                            Theme.of(context).shell.sidebar,
                           ),
-                          const UserMenuButton(
-                            compact: true,
-                            presentation: UserMenuPresentation.notifications,
-                          ),
-                        ];
-                        final largeText =
-                            MediaQuery.textScalerOf(context).scale(12) > 18;
-                        if (largeText) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(spacing: 10, children: navigation),
-                              const SizedBox(height: DSpacing.controlGap),
-                              Wrap(
-                                alignment: WrapAlignment.end,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                runSpacing: DSpacing.controlGap,
-                                children: actions,
-                              ),
-                            ],
-                          );
-                        }
-                        return Row(
-                          spacing: 10,
+                        ),
+                        const UserMenuButton(
+                          compact: true,
+                          presentation: UserMenuPresentation.notifications,
+                        ),
+                      ];
+                      final largeText =
+                          MediaQuery.textScalerOf(context).scale(12) > 18;
+                      if (largeText) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            ...navigation,
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                            Row(spacing: 10, children: navigation),
+                            const SizedBox(height: DSpacing.controlGap),
+                            Wrap(
+                              alignment: WrapAlignment.end,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              runSpacing: DSpacing.controlGap,
                               children: actions,
                             ),
                           ],
                         );
-                      },
-                    ),
+                      }
+                      return Row(
+                        spacing: 10,
+                        children: [
+                          ...navigation,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: actions,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
             ),
-            Expanded(
-              // The page runs under the home indicator; only the floating dock
-              // keeps clear of it, and pages pad their last row by its height.
-              // A route without a dock keeps an empty footer of that clearance.
-              child: ListenableBuilder(
-                listenable: _footerAction,
-                child: page,
-                builder: (context, content) {
-                  final swipe = DHistoryTransition.swipeOf(context);
-                  final sidebarEntry = (
-                    shell.mobileNavigation.historyId,
-                    'sidebar',
-                  );
-                  final hidden = sidebarOpen
-                      ? 1.0 - (swipe?.progress ?? 0.0)
-                      : swipe?.entry == sidebarEntry
-                      ? swipe!.progress
-                      : 0.0;
-                  return MobileScrollDock(
-                    identity: (
-                      owner,
-                      selected,
-                      preserveListChrome
-                          ? shell.mobileNavigation.previousEntryId
-                          : shell.mobileNavigation.entryId,
-                      widget.boundary,
-                    ),
-                    visible: hidden < 1,
-                    hiddenFraction: hidden,
-                    hideOnScroll: !hideDock || preserveListChrome,
-                    keepActionVisible: _footerAction.action != null,
-                    body: NotificationListener<ScrollNotification>(
-                      onNotification: (_) => preserveListChrome,
-                      child: content!,
-                    ),
-                    dockBuilder: (hidden) {
-                      // A parked draft waits over the bar, which keeps pages
-                      // clear of both.
-                      final parked = ComposerDock.parkedDraftRoomOf(context);
-                      if (hideDock) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom:
-                                parked + MediaQuery.paddingOf(context).bottom,
-                          ),
-                        );
-                      }
-                      final geometry = DMobileDockGeometry.of(context);
-                      return ForumSidebarTheme(
-                        child: Padding(
-                          padding: geometry.margin.add(
-                            EdgeInsets.only(top: parked),
-                          ),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) => _buildBottomBar(
-                              context,
-                              constraints,
-                              geometry: geometry,
-                              destinations: places,
-                              selected: selected,
-                              instance: instance,
-                              showReply: showReply,
-                              showNewMessage: showNewMessage,
-                              panelAction: panelAction,
-                              showNewTopic: showNewTopic,
-                              shell: shell,
-                              placeOrder: placeOrder,
-                              hideDestinations: hidden,
-                            ),
-                          ),
+          ),
+          // The page runs under the home indicator; only the floating dock
+          // keeps clear of it, and pages pad their last row by its height.
+          // A route without a dock keeps an empty footer of that clearance.
+          page: ListenableBuilder(
+            listenable: _footerAction,
+            child: page,
+            builder: (context, content) {
+              final swipe = DHistoryTransition.swipeOf(context);
+              final sidebarEntry = (
+                shell.mobileNavigation.historyId,
+                'sidebar',
+              );
+              final hidden = sidebarOpen
+                  ? 1.0 - (swipe?.progress ?? 0.0)
+                  : swipe?.entry == sidebarEntry
+                  ? swipe!.progress
+                  : 0.0;
+              return MobileScrollDock(
+                identity: (
+                  owner,
+                  selected,
+                  preserveListChrome
+                      ? shell.mobileNavigation.previousEntryId
+                      : shell.mobileNavigation.entryId,
+                  widget.boundary,
+                ),
+                visible: hidden < 1,
+                hiddenFraction: hidden,
+                hideOnScroll: !hideDock || preserveListChrome,
+                keepActionVisible: _footerAction.action != null,
+                body: NotificationListener<ScrollNotification>(
+                  onNotification: (_) => preserveListChrome,
+                  child: content!,
+                ),
+                dockBuilder: (hidden) {
+                  // A parked draft waits over the bar, which keeps pages
+                  // clear of both.
+                  final parked = ComposerDock.parkedDraftRoomOf(context);
+                  if (hideDock) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: parked + MediaQuery.paddingOf(context).bottom,
+                      ),
+                    );
+                  }
+                  final geometry = DMobileDockGeometry.of(context);
+                  return ForumSidebarTheme(
+                    child: Padding(
+                      padding: geometry.margin.add(
+                        EdgeInsets.only(top: parked),
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => _buildBottomBar(
+                          context,
+                          constraints,
+                          geometry: geometry,
+                          destinations: places,
+                          selected: selected,
+                          instance: instance,
+                          showReply: showReply,
+                          showNewMessage: showNewMessage,
+                          panelAction: panelAction,
+                          showNewTopic: showNewTopic,
+                          shell: shell,
+                          placeOrder: placeOrder,
+                          hideDestinations: hidden,
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   );
                 },
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         );
         Widget frame(BuildContext context, Widget page) => DPageHeaderHost(
+          key: ValueKey(('mobile-page-header', owner)),
           identity: (owner, shell.mobileNavigation.entryId, sidebarOpen),
+          previousIdentity: (
+            owner,
+            shell.mobileNavigation.previousEntryId,
+            false,
+          ),
+          titlesInBar: true,
           builder: frameWithHeader,
           child: page,
         );
@@ -489,10 +513,20 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: EdgeInsets.only(
+                        top:
+                            pageSheetOpen &&
+                                shell.currentContent?.isTopic == true
+                            ? 0
+                            : 6,
+                      ),
                       child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
-                        coveredBySheet: pageSheetOpen,
+                        sheet: !pageSheetOpen
+                            ? ForumMobileSheet.none
+                            : shell.currentContent?.isTopic == true
+                            ? ForumMobileSheet.raised
+                            : ForumMobileSheet.page,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -982,4 +1016,54 @@ class _ProfileFooterSlot extends StatelessWidget {
       child: footer,
     );
   }
+}
+
+enum _MobileFrameSlot { header, page }
+
+class _MobileFrame extends StatelessWidget {
+  const _MobileFrame({
+    super.key,
+    required this.header,
+    required this.page,
+    required this.raised,
+  });
+  final Widget header;
+  final Widget page;
+  final bool raised;
+  @override
+  Widget build(BuildContext context) => CustomMultiChildLayout(
+    delegate: _MobileFrameLayout(
+      raised,
+      (extent) => DSheetDragScope.reportTopBar(context, extent),
+    ),
+    children: [
+      LayoutId(id: _MobileFrameSlot.header, child: header),
+      LayoutId(id: _MobileFrameSlot.page, child: page),
+    ],
+  );
+}
+
+class _MobileFrameLayout extends MultiChildLayoutDelegate {
+  _MobileFrameLayout(this.raised, this.report);
+  final bool raised;
+  final ValueChanged<double> report;
+  @override
+  void performLayout(Size size) {
+    final header = layoutChild(
+      _MobileFrameSlot.header,
+      BoxConstraints.tightFor(width: size.width),
+    );
+    positionChild(_MobileFrameSlot.header, Offset.zero);
+    report(header.height);
+    final top = raised ? 8.0 : header.height;
+    layoutChild(
+      _MobileFrameSlot.page,
+      BoxConstraints.tight(Size(size.width, math.max(0, size.height - top))),
+    );
+    positionChild(_MobileFrameSlot.page, Offset(0, top));
+  }
+
+  @override
+  bool shouldRelayout(_MobileFrameLayout oldDelegate) =>
+      raised != oldDelegate.raised;
 }

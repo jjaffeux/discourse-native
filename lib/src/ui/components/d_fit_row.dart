@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../foundation/app_text_scaler.dart';
@@ -93,11 +94,15 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
 
   @override
   RenderAbstractLayoutBuilderMixin<DFitRowLayout, RenderObject>
-  createRenderObject(BuildContext context) => _RenderDFitRow();
+  createRenderObject(BuildContext context) => _RenderDFitRow(compact);
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) =>
-      (renderObject as _RenderDFitRow).reset();
+      (renderObject as _RenderDFitRow).update(
+        compact,
+        TickerMode.valuesOf(context).enabled &&
+            !(MediaQuery.maybeOf(context)?.disableAnimations ?? false),
+      );
 }
 
 /// Marks a view switch that gets its own row when wrapping, or the long control
@@ -181,6 +186,48 @@ class _RenderDFitRow extends RenderProxyBox
     with
         RenderObjectWithLayoutCallbackMixin,
         RenderAbstractLayoutBuilderMixin<DFitRowLayout, RenderBox> {
+  _RenderDFitRow(this._compact);
+  bool _compact;
+  Map<RenderBox, Rect>? _fromRects;
+  Size? _fromSize;
+  RenderDControlWrap? _controls;
+  double _elapsed = 0;
+  double? _width;
+  late final Ticker _ticker = Ticker((elapsed) {
+    _elapsed =
+        (elapsed.inMicroseconds /
+                const Duration(milliseconds: 260).inMicroseconds)
+            .clamp(0, 1);
+    if (_elapsed == 1) {
+      _ticker.stop();
+      _fromRects = null;
+      _fromSize = null;
+    }
+    markNeedsLayout();
+  });
+
+  void update(bool compact, bool animate) {
+    if (_compact != compact && animate && hasSize) {
+      _fromRects = _controls?.paintedRects;
+      _fromSize = _controls?.size;
+      _elapsed = 0;
+      _ticker.stop();
+      _ticker.start();
+    } else if (!animate) {
+      _fromRects = null;
+      _fromSize = null;
+      _ticker.stop();
+    }
+    _compact = compact;
+    reset();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
   var _step = DFitRowStep.full;
   final _need = List.filled(DFitRowStep.values.length - 1, 0.0);
 
@@ -195,6 +242,16 @@ class _RenderDFitRow extends RenderProxyBox
 
   @override
   void performLayout() {
+    if (_width != constraints.maxWidth) {
+      _fromRects = null;
+      _fromSize = null;
+      _ticker.stop();
+    }
+    _width = constraints.maxWidth;
+    _layoutControls();
+  }
+
+  void _layoutControls() {
     final width = constraints.maxWidth;
     for (var pass = 0; pass < DFitRowStep.values.length + 1; pass++) {
       runLayoutCallback();
@@ -203,19 +260,31 @@ class _RenderDFitRow extends RenderProxyBox
         size = constraints.smallest;
         return;
       }
+      final wrap = line is RenderDControlWrap ? line : null;
+      _controls = wrap;
+      invokeLayoutCallback<BoxConstraints>(
+        (_) => wrap?.transitionFrom(
+          _fromRects,
+          _fromSize,
+          _fromRects == null
+              ? 1
+              : const Cubic(.2, .8, .2, 1).transform(_elapsed),
+        ),
+      );
       line.layout(constraints, parentUsesSize: true);
       size = line.size;
-      if (line is! RenderDControlWrap || !width.isFinite) return;
+      if (wrap == null || !width.isFinite) return;
+      final controls = wrap;
       final index = _step.index;
       if (index > 0 && width >= _need[index - 1]) {
         _step = DFitRowStep.values[index - 1];
       } else if (index < DFitRowStep.wrapped.index &&
-          line.naturalMain > width + precisionErrorTolerance) {
-        _need[index] = line.naturalMain;
+          controls.naturalMain > width + precisionErrorTolerance) {
+        _need[index] = controls.naturalMain;
         _step = DFitRowStep.values[index + 1];
       } else if ((_step == DFitRowStep.wrapped ||
               _step == DFitRowStep.wrappedTight) &&
-          line.runCount > 2) {
+          controls.runCount > 2) {
         _need[index] = width + 1;
         _step = DFitRowStep.values[index + 1];
       } else {

@@ -31,14 +31,12 @@ class MobilePageTitle extends StatelessWidget {
               if (title == null || title.isEmpty) {
                 return const SizedBox.shrink();
               }
-              final opacity = page.layout == DPageHeaderLayout.expanded
-                  ? 0.0
-                  : page.value;
+              final opacity = page.barOpacity;
               final shown = opacity >= .5;
               // The fade follows every scroll frame, so it must not repaint
               // the rest of the bar. The gates below hide the action; a
               // disabled button would dim and rebuild halfway through it.
-              return RepaintBoundary(
+              final current = RepaintBoundary(
                 child: IgnorePointer(
                   ignoring: !shown,
                   child: ExcludeSemantics(
@@ -53,6 +51,7 @@ class MobilePageTitle extends StatelessWidget {
                           foregroundColor: DTokens.of(context).foreground,
                           alignment: AlignmentDirectional.centerStart,
                           semanticLabel: context.l10n.backToTopOf(title),
+                          icon: page.leading,
                           label: SiteEmojiText.plain(
                             title,
                             siteUrl: siteUrl,
@@ -69,6 +68,51 @@ class MobilePageTitle extends StatelessWidget {
                     ),
                   ),
                 ),
+              );
+              final progress = DSheetDragScope.dismissProgressOf(context);
+              final previous = DPageHeaderHost.previousTitleOf(context);
+              if (progress == null || previous == null) return current;
+              return ValueListenableBuilder<double>(
+                valueListenable: progress,
+                builder: (context, pull, child) => Stack(
+                  alignment: AlignmentDirectional.centerStart,
+                  children: [
+                    IgnorePointer(
+                      ignoring: pull >= .5,
+                      child: ExcludeSemantics(
+                        excluding: pull >= .5,
+                        child: ExcludeFocus(
+                          excluding: pull >= .5,
+                          child: Opacity(opacity: 1 - pull, child: child),
+                        ),
+                      ),
+                    ),
+                    if (pull > 0)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ExcludeSemantics(
+                            child: Opacity(
+                              opacity: pull,
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: SiteEmojiText.plain(
+                                  previous.title,
+                                  siteUrl: siteUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: DiscourseTypography.lg,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                child: current,
               );
             },
           ),

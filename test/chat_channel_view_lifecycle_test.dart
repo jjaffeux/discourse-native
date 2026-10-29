@@ -2176,10 +2176,8 @@ void main() {
     });
 
     testWidgets(
-      'a short channel hides its entire header on an upward swipe on desktop '
-      'and keeps it on touch',
+      'a short channel retracts its own header on an upward swipe',
       (tester) async {
-        final touch = defaultTargetPlatform == TargetPlatform.iOS;
         final api = _ChatApi(
           openPages: {
             firstSite: [_messagesPage(1, 14)],
@@ -2214,7 +2212,7 @@ void main() {
         expect(position.pixels, 0);
         expect(
           geometry.visibleExtent,
-          touch ? geometry.naturalExtent : 0,
+          0,
           reason:
               'offset=${position.pixels} max=${position.maxScrollExtent} viewport=${position.viewportDimension}',
         );
@@ -2222,7 +2220,7 @@ void main() {
           find
               .byKey(const ValueKey('content-header-title-action'))
               .hitTestable(),
-          touch ? findsOneWidget : findsNothing,
+          findsNothing,
         );
         expect(tester.takeException(), isNull);
       },
@@ -2233,8 +2231,7 @@ void main() {
     );
 
     testWidgets(
-      'pinned bar follows chat scroll direction and top edge on desktop and '
-      'stays in place on touch',
+      'pinned bar follows chat scroll direction and the top edge',
       (tester) async {
         final api = _ChatApi(
           openPages: {
@@ -2271,20 +2268,8 @@ void main() {
         position.jumpTo(700);
         await tester.pumpAndSettle();
         expect(bar.hitTestable(), findsOneWidget);
-        final shown = tester.getRect(bar);
-        // Touch readers keep the channel header, and the pinned row in it.
-        final touch = defaultTargetPlatform == TargetPlatform.iOS;
-        void expectBar({required bool onDesktop}) {
-          if (touch) {
-            expect(bar.hitTestable(), findsOneWidget);
-            expect(tester.getRect(bar), shown);
-          } else {
-            expect(
-              bar.hitTestable(),
-              onDesktop ? findsOneWidget : findsNothing,
-            );
-          }
-        }
+        void expectBar({required bool visible}) =>
+            expect(bar.hitTestable(), visible ? findsOneWidget : findsNothing);
 
         Future<void> wheel(double delta) async {
           // The floating header shares the viewport's upper area; send input
@@ -2300,7 +2285,7 @@ void main() {
         }
 
         await wheel(200);
-        expectBar(onDesktop: false);
+        expectBar(visible: false);
         final hiddenBottom = tester.getBottomLeft(bar).dy;
         expect(
           find.byKey(const ValueKey('chat-channel-header')),
@@ -2312,23 +2297,21 @@ void main() {
         // The channel identity is revealed before the pinned row below it.
         await tester.pump(const Duration(milliseconds: 401));
         await wheel(-headerHeight - 60);
-        if (!touch) {
-          expect(tester.getBottomLeft(bar).dy, greaterThan(hiddenBottom + 20));
-        }
-        expectBar(onDesktop: true);
+        expect(tester.getBottomLeft(bar).dy, greaterThan(hiddenBottom + 20));
+        expectBar(visible: true);
         await wheel(-headerHeight - tester.getSize(bar).height);
-        expectBar(onDesktop: true);
+        expectBar(visible: true);
         await tester.pump(const Duration(milliseconds: 401));
         await wheel(2000);
         expect(position.pixels, 0);
-        expectBar(onDesktop: false);
+        expectBar(visible: false);
         // Lay out the oldest rows before using the virtual list's final extent.
         position.jumpTo(position.maxScrollExtent);
         await tester.pumpAndSettle();
         position.jumpTo(position.maxScrollExtent - 40);
         await tester.pumpAndSettle();
         await wheel(-40);
-        expectBar(onDesktop: true);
+        expectBar(visible: true);
         expect(
           tester.element(find.byType(ChatMessageStream)),
           same(streamElement),

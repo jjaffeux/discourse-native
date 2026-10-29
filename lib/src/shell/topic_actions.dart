@@ -663,9 +663,11 @@ class TopicActionsButton extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     this.topicFlags = const [],
+    this.floating = false,
     this.sectionActions = const [],
   });
 
+  final bool floating;
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
@@ -732,7 +734,10 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
             loading: busy,
             onPressed: busy ? null : state.toggle,
             variant: DButtonVariant.tool,
-            size: DButtonSize.filter,
+            size: widget.floating ? DButtonSize.floating : DButtonSize.filter,
+            backgroundColor: widget.floating
+                ? DTokens.of(context).wellFill
+                : null,
             tooltip: context.l10n.topicActionsMenu,
             icon: const DIcon(DIcons.ellipsis),
           ),

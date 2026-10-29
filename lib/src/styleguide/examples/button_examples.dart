@@ -162,7 +162,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'An opaque floating pill and compact endpoints. Pinned dates and topic progress share a flat chip. Hit bounds follow each control on desktop and touch.',
+          'Desktop timelines and pinned dates use flat chips. Phone reader tools and timelines use the 40px floating size on the chrome fill.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(
@@ -183,6 +183,15 @@ final buttonExamples = ComponentExamples(
               ),
               onPressed: () {},
             ),
+          Builder(
+            builder: (context) => DButton(
+              size: DButtonSize.floating,
+              variant: DButtonVariant.tool,
+              backgroundColor: DTokens.of(context).wellFill,
+              label: const Text('25 / 120'),
+              onPressed: () {},
+            ),
+          ),
           DButton(
             density: DButtonDensity.floatingDate,
             variant: DButtonVariant.outline,
