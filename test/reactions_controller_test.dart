@@ -19,7 +19,6 @@ import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.da
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
