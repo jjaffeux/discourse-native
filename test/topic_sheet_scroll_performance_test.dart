@@ -68,9 +68,24 @@ void main() {
         }
 
         var handlePaints = 0;
-        final handle = tester.renderObject(
-          find.byKey(const ValueKey('sheet-drag-handle')),
+        final handleFinder = find.byKey(
+          const ValueKey('sheet-drag-handle'),
+          skipOffstage: false,
         );
+        final handle = tester.renderObject(handleFinder);
+        final grabber = find
+            .ancestor(
+              of: handleFinder,
+              matching: find.byType(Visibility, skipOffstage: false),
+            )
+            .first;
+        bool grabberShown() => tester.widget<Visibility>(grabber).visible;
+        // Frames in which the frame had a reason to repaint: the condensed
+        // head covered or uncovered the grabber, or the shell changed.
+        var frame = 0;
+        final changes = <int>{};
+        void shellChanged() => changes.add(frame);
+        final handleFrames = <int>[];
         final previousPaint = debugOnProfilePaint;
         final previousBuild = debugOnRebuildDirtyWidget;
         final dateArtwork = find
@@ -111,7 +126,10 @@ void main() {
               );
             }
           }
-          if (identical(object, handle)) handlePaints++;
+          if (identical(object, handle)) {
+            handlePaints++;
+            handleFrames.add(frame);
+          }
           if (dateArtwork.contains(object)) datePaints++;
           if (progressArtwork.contains(object)) progressPaints++;
         };
@@ -124,12 +142,20 @@ void main() {
           );
           buildOwners.update(owner(element), (v) => v + 1, ifAbsent: () => 1);
         };
+        shell.addListener(shellChanged);
         try {
-          for (var frame = 0; frame < 80; frame++) {
+          var shown = grabberShown();
+          for (frame = 0; frame < 80; frame++) {
             position.pointerScroll(frame < 40 ? 6 : -6);
             await tester.pump(const Duration(milliseconds: 16));
+            if (grabberShown() != shown) {
+              shown = !shown;
+              // The head reports during one frame and applies after it.
+              changes.addAll([frame, frame + 1]);
+            }
           }
         } finally {
+          shell.removeListener(shellChanged);
           debugOnProfilePaint = previousPaint;
           debugOnRebuildDirtyWidget = previousBuild;
         }
@@ -141,8 +167,8 @@ void main() {
         );
         expect(position.pixels, closeTo(1200, 1));
         expect(
-          handlePaints,
-          lessThanOrEqualTo(1),
+          handleFrames.where((frame) => !changes.contains(frame)),
+          isEmpty,
           reason: 'Header motion must not repaint the sheet frame each tick',
         );
         expect(
