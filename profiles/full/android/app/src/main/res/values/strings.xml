@@ -1,0 +1,3 @@
+<resources>
+    <string name="notification_channel_name">Discourse notifications</string>
+</resources>

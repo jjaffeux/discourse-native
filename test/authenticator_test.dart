@@ -26,6 +26,8 @@ const _macosRegistration = PushRegistration(
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('discovery to authorization', () {
     for (final redirected in [false, true]) {
       test(

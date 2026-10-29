@@ -29,6 +29,7 @@ final class PlatformPushRegistrationProvider
   static const macosPushUrl =
       'https://api.discourse.org/api/publish_native_macos';
   static const iosPushUrl = 'https://api.discourse.org/api/publish_native_ios';
+  static const androidPushUrl = 'https://api.discourse.org/api/publish_android';
 
   final MethodChannel _channel;
   final TargetPlatform _platform;
@@ -39,6 +40,7 @@ final class PlatformPushRegistrationProvider
     final pushUrl = switch (_platform) {
       TargetPlatform.iOS => iosPushUrl,
       TargetPlatform.macOS => macosPushUrl,
+      TargetPlatform.android => androidPushUrl,
       _ => null,
     };
     if (pushUrl == null) return null;

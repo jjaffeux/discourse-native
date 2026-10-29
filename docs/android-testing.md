@@ -49,6 +49,46 @@ export ANDROID_KEY_PROPERTIES=/absolute/path/to/key.properties
 
 Release builds require this configuration and never use the debug signing key.
 
+## Configure push notifications
+
+Native uses the existing `discourse-mobile-app` Firebase project and Mothership's
+`/api/publish_android` publisher.
+
+1. Open [Firebase project settings](https://console.firebase.google.com/project/discourse-mobile-app/settings/general).
+2. Under **Your apps**, add an Android app with package name `org.discourse.native`.
+   If that package is already registered, select the existing app.
+3. Download its `google-services.json` file to
+   `profiles/full/android/app/google-services.json`.
+4. In **Project settings > Cloud Messaging**, confirm that **Firebase Cloud
+   Messaging API (V1)** is enabled. Keep Mothership's existing service account and
+   `gcm-notifications-key` secret. App signing and Play publishing credentials are
+   separate from FCM credentials.
+5. Include the same configuration file on machines that build Android releases.
+   The file contains public app configuration and can be committed. Keep
+   service-account private keys outside the app.
+
+Follow [Firebase's Android setup instructions](https://firebase.google.com/docs/android/setup)
+if you need to download the configuration again. The package name must match
+the application ID, including case. The Kotlin namespace `org.discourse.nativeapp`
+is not the Firebase package name.
+
+Install the build on a device with Google Play services. Connect or reconnect a
+site and allow notifications when Android asks. Reconnection associates the FCM
+token with the site's user API key. As on Apple platforms, token changes require
+new authorization; ordinary requests do not migrate a key to a new push token.
+
+Trigger a mention or private-message notification from another account. Check
+delivery with the app in the foreground, in the background, and closed. Tap each
+notification and check that it opens the correct site and post. A force-stopped
+app must be opened again before FCM can deliver messages.
+
+For a Firebase Console test message, add a `discourse_url` custom data field with
+an absolute HTTPS site URL. Mothership supplies this URL inside its JSON `payload`
+data field. Native accepts both forms.
+
+The Google services Gradle plugin processes the configuration file. No FlutterFire
+CLI setup or Apple Firebase configuration is needed for this Android integration.
+
 ## Upload the first build
 
 From the repository root, build a signed Android App Bundle:
@@ -124,6 +164,12 @@ The upload lane targets internal testing and skips store metadata, images, and s
 
 ## Verify Android changes
 
+From `profiles/full/android`, run the native push tests:
+
+```sh
+./gradlew :app:testDebugUnitTest --tests 'org.discourse.nativeapp.*'
+```
+
 Run the storage and draft tests by file path. On an Android emulator or test
 device, run the native smoke test from `profiles/full`:
 
@@ -133,4 +179,4 @@ flutter test integration_test/android_smoke_test.dart -d emulator-5554
 
 The Android host stores credentials with Android Keystore-backed AES-GCM and
 disables app backup. Drafts use the application-support private file store.
-Android push notifications and native call integration need separate platform work.
+Native call integration needs separate platform work.
