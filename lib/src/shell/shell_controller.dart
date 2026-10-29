@@ -8672,15 +8672,6 @@ class ShellController extends FrameSafeNotifier
     if (instance == null) return;
     final workspace = _workspace.ensure(instance);
     final tab = workspace.activeTab;
-    // Tapping what you are already looking at asks for it again — the cache
-    // otherwise holds a list for the life of the session, and a mouse cannot
-    // pull to refresh. Only at the destination's root: a tap that is busy
-    // returning from a topic stays a return.
-    final refresh =
-        refreshIfSelected &&
-        destination.id == tab.rootDestinationId &&
-        tab.contentStack.length <= 1;
-
     final content = destination.id == 'latest'
         ? _homepageFor(instance)
         : destination.id == 'groups'
@@ -8691,6 +8682,13 @@ class ShellController extends FrameSafeNotifier
             title: destination.label,
           )
         : ContentRoute.fromDestination(destination);
+    // Reselecting a root refreshes it, but repeated taps during its feed
+    // request share that load instead of queuing another server fetch.
+    final refresh =
+        refreshIfSelected &&
+        destination.id == tab.rootDestinationId &&
+        tab.contentStack.length <= 1 &&
+        topicFeeds.feedFor(instance.url, content.id)?.loading != true;
     final updated = tab.navigate(
       rootDestinationId: destination.id,
       contentStack: [content],

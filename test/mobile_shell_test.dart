@@ -766,6 +766,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('rapid Topics tab taps share the pending feed request', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    await pumpMobileShellFixture(tester, onApi: (value) => api = value);
+    const path = '/latest.json';
+    api.feedGates[path] = gate;
+    final requests = api.feedPaths.length;
+
+    await _tapDockTab(tester, 'topics', settle: false);
+    await tester.pump();
+    for (var tap = 0; tap < 5; tap++) {
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(api.feedPaths.sublist(requests), [path]);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(api.feedPaths.sublist(requests), [path]);
+    expect(find.text('Shared topic card'), findsOneWidget);
+
+    await _tapDockTab(tester, 'topics');
+    expect(api.feedPaths.sublist(requests), [path, path]);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('Topics keeps the dock compact across a delayed infinite page', (
     tester,
   ) async {
