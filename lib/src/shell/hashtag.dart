@@ -10,7 +10,6 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'composer/autocomplete.dart';
-import 'emoji.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';

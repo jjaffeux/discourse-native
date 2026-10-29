@@ -350,6 +350,9 @@ class _DMobileDockState extends State<DMobileDock>
   int _landing = 0;
   final _portal = OverlayPortalController();
   final _barKey = GlobalKey(debugLabel: 'mobile-dock-bar');
+  // The surface drops its decoration while the panel is out, which changes
+  // the tree above its content; the key carries the content's state across.
+  final _surfaceContentKey = GlobalKey(debugLabel: 'mobile-dock-surface');
   final _moreFocus = FocusNode(debugLabel: 'mobile-dock-more');
   final _panelFocus = FocusScopeNode(debugLabel: 'mobile-dock-panel');
   final _firstTile = FocusNode(debugLabel: 'mobile-dock-first-tile');
@@ -1444,6 +1447,7 @@ class _DMobileDockState extends State<DMobileDock>
                         : geometry.borderRadius,
                   ),
             child: Stack(
+              key: _surfaceContentKey,
               children: [
                 AnimatedPadding(
                   key: const ValueKey('mobile-dock-controls'),

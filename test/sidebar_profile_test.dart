@@ -130,7 +130,9 @@ void main() {
   ) async {
     final shell = await _pumpProduction(tester, phone);
     final profile = find.byKey(UserMenuButton.avatarKey);
-    final open = await tester.startGesture(const Offset(8, 400));
+    // The sidebar opens from the header corner; elsewhere a swipe goes Back.
+    final header = tester.getRect(find.byKey(const ValueKey('mobile-header')));
+    final open = await tester.startGesture(Offset(8, header.top + 12));
     await open.moveBy(
       const Offset(120, 0),
       timeStamp: const Duration(milliseconds: 200),

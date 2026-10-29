@@ -8,8 +8,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../theme/app_theme.dart';
 import '../anchored_layout.dart';
 import '../avatar_image.dart';
-import '../emoji.dart';
-import '../emoji_picker.dart';
 import '../shell_metrics.dart';
 import '../skeleton_fill.dart';
 import '../user_status.dart';

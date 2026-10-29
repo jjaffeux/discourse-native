@@ -319,6 +319,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   int? _anchorRestorePostId;
   double _anchorRestoreViewportOffset = 0;
   double _anchorRestoreTopInset = 0;
+  bool _anchorRestoreKeepsInsidePost = false;
   _TopicViewportAnchorBoundary? _anchorRestoreBoundary;
   bool _anchorCorrectionScheduled = false;
   bool _restored = false;
@@ -391,15 +392,17 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   // Convert that frozen position back to the current readable-area coordinates
   // for both layout-time and post-frame corrections.
   double get anchorRestoreViewportOffset {
-    final offset =
-        _anchorRestoreViewportOffset +
+    final postId = _anchorRestorePostId;
+    final held = postId == null || !_anchorRestoreKeepsInsidePost
+        ? _anchorRestoreViewportOffset
+        : _geometry.constrainPostViewportOffset(
+            postId,
+            _anchorRestoreViewportOffset,
+          );
+    return held +
         (_anchorRestoreToken == null
             ? 0
             : _anchorRestoreTopInset - _geometry.viewportTopInset);
-    final postId = _anchorRestorePostId;
-    return postId == null
-        ? offset
-        : _geometry.constrainPostViewportOffset(postId, offset);
   }
 
   int get generation => _generation;
@@ -561,12 +564,21 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       final postId = postIndex >= 0 && postIndex < current.postIds.length
           ? current.postIds[postIndex]
           : null;
-      _jumpTo(position.itemIndex, viewportOffset: position.viewportOffset);
+      _jumpTo(
+        position.itemIndex,
+        viewportOffset: postId == null
+            ? position.viewportOffset
+            : _geometry.constrainPostViewportOffset(
+                postId,
+                position.viewportOffset,
+              ),
+      );
       if (postId != null) {
         holdViewportAnchor(
           postId,
           position.viewportOffset,
           token: _anchorRestoreToken ?? Object(),
+          keepInsidePost: true,
         );
       }
     }
@@ -709,14 +721,22 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _restoring = false;
   }
 
+  /// Holds [postId] at [viewportOffset] while layout changes around it.
+  ///
+  /// [keepInsidePost] is for a saved reading position, which can lie deeper
+  /// than the post's estimated or shortened extent; it is kept within that
+  /// extent until layout reaches it. An anchor captured from layout keeps its
+  /// offset as measured, even past the post's end behind the header.
   void holdViewportAnchor(
     int postId,
     double viewportOffset, {
     required Object token,
+    bool keepInsidePost = false,
   }) {
     _anchorRestoreToken = token;
     _anchorRestorePostId = postId;
     _anchorRestoreViewportOffset = viewportOffset;
+    _anchorRestoreKeepsInsidePost = keepInsidePost;
     _anchorRestoreTopInset = _geometry.viewportTopInset;
     _anchorRestoreBoundary = null;
 

@@ -354,7 +354,11 @@ void main() {
               )
               .first,
         );
-        expect(surface.backgroundColor!.a, closeTo(.73, .001));
+        expect(
+          surface.backgroundColor!.a,
+          0,
+          reason: 'Desktop panels sit flush on a decorated window',
+        );
       }
       expect(
         _activeTheme(tester).extension<ForumThemeEffects>()!.background,

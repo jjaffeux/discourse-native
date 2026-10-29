@@ -1645,7 +1645,8 @@ void main() {
           expect(tester.getSize(button).height, before.buttonHeight);
           expect(tester.getSize(label), before.labelSize);
           expect(tester.getSize(glyph), before.glyphSize);
-          _expectPageRadius(bodyRadius());
+          // The chat sheet covers the body now and owns the rounded clip.
+          expect(bodyRadius(), BorderRadius.zero);
           final sheet = find
               .descendant(
                 of: find.byType(DSheetContent),

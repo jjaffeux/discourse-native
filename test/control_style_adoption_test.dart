@@ -81,6 +81,9 @@ void main() {
           'shape': 2,
           'foregroundColor': 1,
         },
+        // The schedule's full-width save action keeps the pill of the
+        // notification menu the sheet opens from.
+        'lib/src/shell/notification_schedule_sheet.dart': {'shape': 1},
         // The avatar trigger uses the mockup's 22% outline around the avatar,
         // with no fill of its own at rest or on hover.
         'lib/src/shell/user_menu_button.dart': {

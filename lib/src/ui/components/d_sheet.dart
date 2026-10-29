@@ -1278,6 +1278,10 @@ class _DSheetDragHandleState extends State<_DSheetDragHandle> {
       onPointerPanZoomEnd: _release,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        // Dragging the header is a pointer shortcut for the sheet's own back
+        // action. As semantics it would add scroll actions to whatever the
+        // header shows, such as the forum's logo.
+        excludeFromSemantics: true,
         supportedDevices: page
             ? const {
                 PointerDeviceKind.touch,

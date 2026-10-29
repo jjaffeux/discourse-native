@@ -23,7 +23,6 @@ import '../../plugin_api/plugin_scope.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
 import '../app_settings_controller.dart';
-import '../emoji_picker.dart';
 import '../forum_theme_surfaces.dart';
 import '../platform.dart';
 import '../shell_metrics.dart';

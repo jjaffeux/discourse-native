@@ -193,23 +193,31 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
   @override
   void jumpToPixels(double pixels) => _scroll!.jumpTo(pixels);
 
+  /// The scroll offset that puts a saved reading position [viewportOffset]
+  /// into item [itemIndex], kept inside the item's current extent.
   double? offsetForItem(
     int itemIndex, {
     required double viewportOffset,
     bool startsAtBeginning = false,
   }) {
     if (itemIndex == 0 && viewportOffset == 0 && startsAtBeginning) return 0;
+    return _offsetForItem(
+      itemIndex,
+      _constrainItemViewportOffset(itemIndex, viewportOffset),
+    );
+  }
+
+  double? _offsetForItem(int itemIndex, double viewportOffset) {
     final render = sliverKey.currentContext?.findRenderObject();
     if (render is! _TopicPostRenderSliver || render.geometry == null) {
       return null;
     }
-    final offset = _constrainItemViewportOffset(itemIndex, viewportOffset);
     return render.getOffsetToReveal(
           window.childIndexForItem(itemIndex),
           0,
           estimationOnly: true,
         ) -
-        offset -
+        viewportOffset -
         viewportTopInset;
   }
 
@@ -239,14 +247,12 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
         .toDouble();
   }
 
+  /// The scroll offset that puts post [postId] at [viewportOffset], as given.
   double? offsetForPost(int postId, {required double viewportOffset}) {
     final index = window[postId];
     return index == null
         ? null
-        : offsetForItem(
-            index + window.leadingItems,
-            viewportOffset: viewportOffset,
-          );
+        : _offsetForItem(index + window.leadingItems, viewportOffset);
   }
 
   @override
@@ -272,8 +278,7 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
         alignment: 0,
       );
     }
-    final targetInset =
-        _constrainItemViewportOffset(index, viewportOffset) + viewportTopInset;
+    final targetInset = viewportOffset + viewportTopInset;
     if (targetInset == 0 || !scroll.hasClients) {
       return;
     }
@@ -353,6 +358,17 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     }
 
     return true;
+  }
+
+  /// The extent the list measured for [postId]'s row the last time it was laid
+  /// out, or null while the list only estimates it.
+  double? measuredExtentFor(int postId) {
+    final list = _list;
+    if (list == null || !list.isAttached) return null;
+    final childIndex = window.childIndexForPost(postId);
+    if (childIndex == null || childIndex >= list.numberOfItems) return null;
+    final (extent, estimated) = list.extentForIndex(childIndex);
+    return estimated ? null : extent;
   }
 
   bool rememberPostExtent(

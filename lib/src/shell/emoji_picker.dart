@@ -13,7 +13,6 @@ import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
-import 'emoji.dart';
 import 'emoji_picker_controller.dart';
 import 'platform.dart';
 

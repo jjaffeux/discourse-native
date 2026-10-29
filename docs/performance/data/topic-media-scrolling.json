@@ -3,7 +3,7 @@
  "baseCommit": "7c99db78f",
  "device": "iPhone 15 Pro Max, iOS 27.0.1, profile mode, 1290x2796 at 3x, 120 Hz",
  "workload": "integration_test/topic_media_scroll_profile_test.dart",
- "notes": "Rounds alternate builds with and without the change, CPU sampling off. Rounds 1 and 2 used larger AVIF fixtures than the committed ones. The two cpu-sampled runs sample at 4 kHz, which adds frame time.",
+ "notes": "Rounds alternate builds with and without the change, CPU sampling off. Rounds 1 and 2 used larger AVIF fixtures than the committed ones. The two cpu-sampled runs sample at 4 kHz, which adds frame time. The toward-end-only and both-directions runs compare staging replies scrolled in toward the end against staging remeasured replies toward the start as well.",
  "runs": {
   "without-r1": {
    "phases": {
@@ -596,6 +596,306 @@
       "over16ms": 1
      },
      "cpuSamples": 15310
+    }
+   },
+   "served": {
+    "image/png": 36,
+    "image/gif": 30,
+    "image/avif": 41,
+    "image/jpeg": 40
+   },
+   "semantics": false
+  },
+  "toward-end-only-r1": {
+   "phases": {
+    "coldDown": {
+     "legs": 45,
+     "seconds": 45.764829,
+     "frames": 5480,
+     "build": {
+      "meanMs": 0.6070536496350375,
+      "p50Ms": 0.379,
+      "p90Ms": 1.238,
+      "p99Ms": 4.108,
+      "maxMs": 12.145,
+      "over8ms": 1,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.0270485401459892,
+      "p50Ms": 1.086,
+      "p90Ms": 1.394,
+      "p99Ms": 1.951,
+      "maxMs": 3.331,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 1.8958868613138677,
+      "p50Ms": 1.813,
+      "p90Ms": 2.722,
+      "p99Ms": 6.094,
+      "maxMs": 14.254,
+      "over8ms": 2,
+      "over16ms": 0
+     }
+    },
+    "warmUp": {
+     "legs": 45,
+     "seconds": 45.777747,
+     "frames": 5464,
+     "build": {
+      "meanMs": 0.6250461200585652,
+      "p50Ms": 0.39,
+      "p90Ms": 1.201,
+      "p99Ms": 6.937,
+      "maxMs": 9.967,
+      "over8ms": 17,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.130128660322109,
+      "p50Ms": 1.152,
+      "p90Ms": 1.48,
+      "p99Ms": 2.53,
+      "maxMs": 6.118,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 2.0304282576866797,
+      "p50Ms": 1.88,
+      "p90Ms": 2.82,
+      "p99Ms": 8.921,
+      "maxMs": 11.663,
+      "over8ms": 69,
+      "over16ms": 0
+     }
+    }
+   },
+   "served": {
+    "image/png": 36,
+    "image/gif": 30,
+    "image/avif": 41,
+    "image/jpeg": 40
+   },
+   "semantics": false
+  },
+  "both-directions-r1": {
+   "phases": {
+    "coldDown": {
+     "legs": 45,
+     "seconds": 45.821877,
+     "frames": 5484,
+     "build": {
+      "meanMs": 0.611697301239971,
+      "p50Ms": 0.377,
+      "p90Ms": 1.22,
+      "p99Ms": 4.153,
+      "maxMs": 14.891,
+      "over8ms": 4,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.0219079139314409,
+      "p50Ms": 1.076,
+      "p90Ms": 1.367,
+      "p99Ms": 1.875,
+      "maxMs": 3.748,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 1.9092716994894257,
+      "p50Ms": 1.809,
+      "p90Ms": 2.721,
+      "p99Ms": 6.183,
+      "maxMs": 16.465,
+      "over8ms": 8,
+      "over16ms": 0
+     }
+    },
+    "warmUp": {
+     "legs": 45,
+     "seconds": 45.770857,
+     "frames": 5482,
+     "build": {
+      "meanMs": 0.6038489602334903,
+      "p50Ms": 0.386,
+      "p90Ms": 1.22,
+      "p99Ms": 4.195,
+      "maxMs": 15.408,
+      "over8ms": 2,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.1221107260124068,
+      "p50Ms": 1.178,
+      "p90Ms": 1.45,
+      "p99Ms": 1.892,
+      "maxMs": 3.382,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 2.0185384896023355,
+      "p50Ms": 1.936,
+      "p90Ms": 2.794,
+      "p99Ms": 6.152,
+      "maxMs": 17.449,
+      "over8ms": 6,
+      "over16ms": 1
+     }
+    }
+   },
+   "served": {
+    "image/png": 36,
+    "image/gif": 30,
+    "image/avif": 41,
+    "image/jpeg": 40
+   },
+   "semantics": false
+  },
+  "toward-end-only-r2": {
+   "phases": {
+    "coldDown": {
+     "legs": 45,
+     "seconds": 45.781926,
+     "frames": 5487,
+     "build": {
+      "meanMs": 0.6094964461454347,
+      "p50Ms": 0.379,
+      "p90Ms": 1.26,
+      "p99Ms": 4.051,
+      "maxMs": 7.233,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.0590404592673581,
+      "p50Ms": 1.133,
+      "p90Ms": 1.432,
+      "p99Ms": 1.958,
+      "maxMs": 3.8,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 1.929021505376348,
+      "p50Ms": 1.852,
+      "p90Ms": 2.804,
+      "p99Ms": 6.017,
+      "maxMs": 9.322,
+      "over8ms": 3,
+      "over16ms": 0
+     }
+    },
+    "warmUp": {
+     "legs": 45,
+     "seconds": 45.794691,
+     "frames": 5470,
+     "build": {
+      "meanMs": 0.6269325411334575,
+      "p50Ms": 0.392,
+      "p90Ms": 1.218,
+      "p99Ms": 6.976,
+      "maxMs": 15.457,
+      "over8ms": 23,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.192994698354663,
+      "p50Ms": 1.241,
+      "p90Ms": 1.528,
+      "p99Ms": 2.765,
+      "maxMs": 5.055,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 2.1035952468007304,
+      "p50Ms": 1.971,
+      "p90Ms": 2.881,
+      "p99Ms": 8.972,
+      "maxMs": 17.601,
+      "over8ms": 74,
+      "over16ms": 1
+     }
+    }
+   },
+   "served": {
+    "image/png": 36,
+    "image/gif": 30,
+    "image/avif": 41,
+    "image/jpeg": 40
+   },
+   "semantics": false
+  },
+  "both-directions-r2": {
+   "phases": {
+    "coldDown": {
+     "legs": 45,
+     "seconds": 45.797967,
+     "frames": 5490,
+     "build": {
+      "meanMs": 0.6125271402550094,
+      "p50Ms": 0.383,
+      "p90Ms": 1.269,
+      "p99Ms": 4.177,
+      "maxMs": 7.165,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.0572295081967202,
+      "p50Ms": 1.127,
+      "p90Ms": 1.428,
+      "p99Ms": 1.916,
+      "maxMs": 3.096,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 1.9281688524590166,
+      "p50Ms": 1.846,
+      "p90Ms": 2.801,
+      "p99Ms": 6.134,
+      "maxMs": 8.697,
+      "over8ms": 2,
+      "over16ms": 0
+     }
+    },
+    "warmUp": {
+     "legs": 45,
+     "seconds": 45.787955,
+     "frames": 5483,
+     "build": {
+      "meanMs": 0.6122144811234727,
+      "p50Ms": 0.396,
+      "p90Ms": 1.218,
+      "p99Ms": 4.192,
+      "maxMs": 7.923,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "raster": {
+      "meanMs": 1.145290899142804,
+      "p50Ms": 1.214,
+      "p90Ms": 1.496,
+      "p99Ms": 1.908,
+      "maxMs": 2.534,
+      "over8ms": 0,
+      "over16ms": 0
+     },
+     "total": {
+      "meanMs": 2.0330815247127454,
+      "p50Ms": 1.958,
+      "p90Ms": 2.828,
+      "p99Ms": 6.364,
+      "maxMs": 10.018,
+      "over8ms": 7,
+      "over16ms": 0
+     }
     }
    },
    "served": {

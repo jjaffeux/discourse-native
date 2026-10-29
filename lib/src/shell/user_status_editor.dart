@@ -13,7 +13,6 @@ import '../models/user_status.dart';
 import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/emoji_usage.dart';
 import '../theme/discourse_typography.dart';
-import 'emoji_picker.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';

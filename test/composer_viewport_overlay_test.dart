@@ -156,10 +156,11 @@ void main() {
         );
 
         final panelContext = tester.element(find.byType(ComposerPanel));
-        final background = Theme.of(panelContext).shell.content;
+        // The sheet reaches the keyboard; the shell paints no backdrop of its
+        // own around the keyboard's corners.
         expect(
           tester.widget<Scaffold>(find.byType(Scaffold).first).backgroundColor,
-          background,
+          Colors.transparent,
         );
         final footer = tester.widget<Container>(
           find.byKey(const ValueKey('composer-footer')),
