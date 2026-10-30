@@ -154,6 +154,38 @@ Future<void> _selectScope(WidgetTester tester, String label) async {
 }
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('directory controls use reference scaling on $platform', (
+      tester,
+    ) async {
+      final controller = await _loadCategories(FakeDiscourseApi());
+      for (final (appScale, platformScale, height, textSize) in [
+        (AppTextScale.percent100, 1.0, 44.0, 16.0),
+        (AppTextScale.percent125, 2.0, 80.0, 40.0),
+      ]) {
+        await controller.appSettings.setTextScale(appScale);
+        tester.platformDispatcher.textScaleFactorTestValue = platformScale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pumpPage(tester, controller);
+        final filter = find.byKey(
+          const ValueKey(('category-scope', 'https://meta.discourse.org')),
+        );
+        expect(tester.getSize(filter).height, height);
+        final label = find
+            .descendant(of: filter, matching: find.byType(Text))
+            .first;
+        final context = tester.element(label);
+        expect(
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(DefaultTextStyle.of(context).style.fontSize!),
+          textSize,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
   group('loading', () {
     for (final (size, platform, layout) in [
       (const Size(390, 844), TargetPlatform.iOS, ShellLayout.compact),

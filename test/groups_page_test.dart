@@ -37,6 +37,52 @@ const _members = [
 ];
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('directory controls use reference scaling on $platform', (
+      tester,
+    ) async {
+      for (final (appScale, platformScale, height, textSize) in [
+        (1.0, 1.0, 44.0, 16.0),
+        (1.25, 2.0, 80.0, 40.0),
+      ]) {
+        await _pump(
+          tester,
+          const GroupsPage(
+            siteUrl: 'https://example.com',
+            data: GroupsPageData(loaded: true),
+          ),
+          platform: platform,
+          textScaler: AppTextScaler(
+            platformScaler: TextScaler.linear(platformScale),
+            appScale: appScale,
+            baselineScale: 17 / 14,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final filter = find.byKey(const ValueKey('groups-type-filter'));
+        expect(tester.getSize(filter).height, height);
+        final label = find
+            .descendant(of: filter, matching: find.byType(Text))
+            .first;
+        final context = tester.element(label);
+        expect(
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(DefaultTextStyle.of(context).style.fontSize!),
+          textSize,
+        );
+        final count = tester.element(
+          find.byKey(const ValueKey('groups-count')),
+        );
+        expect(
+          MediaQuery.textScalerOf(count).scale(14),
+          17 * platformScale * appScale,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   setUpAll(() async {
     await (FontLoader(
       'PageHeaderReview',
@@ -596,6 +642,7 @@ Future<void> _pump(
   Size size = const Size(1000, 760),
   TargetPlatform platform = TargetPlatform.macOS,
   String? fontFamily,
+  TextScaler? textScaler,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -608,6 +655,12 @@ Future<void> _pump(
             ? null
             : AppTheme.light.textTheme.apply(fontFamily: fontFamily),
       ),
+      builder: textScaler == null
+          ? null
+          : (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+              child: child!,
+            ),
       home: Scaffold(body: child),
     ),
   );

@@ -63,6 +63,57 @@ const _hawk = UserDirectoryItem(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('directory controls use reference scaling on $platform', (
+      tester,
+    ) async {
+      for (final (appScale, platformScale, height, textSize) in [
+        (1.0, 1.0, 44.0, 16.0),
+        (1.25, 2.0, 80.0, 40.0),
+      ]) {
+        await _pump(
+          tester,
+          const UsersPage(
+            siteUrl: 'https://example.com',
+            data: UsersPageData(loaded: true),
+          ),
+          theme: AppTheme.light.copyWith(platform: platform),
+          textScaler: AppTextScaler(
+            platformScaler: TextScaler.linear(platformScale),
+            appScale: appScale,
+            baselineScale: 17 / 14,
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final key in [
+          'users-period-filter',
+          'users-group-filter',
+          'users-columns',
+        ]) {
+          expect(
+            tester.getSize(find.byKey(ValueKey(key))).height,
+            height,
+            reason: key,
+          );
+        }
+        final label = find
+            .descendant(
+              of: find.byKey(const ValueKey('users-period-filter')),
+              matching: find.byType(Text),
+            )
+            .first;
+        final context = tester.element(label);
+        expect(
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(DefaultTextStyle.of(context).style.fontSize!),
+          textSize,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
     testWidgets('user skeleton fills the page at $size', (tester) async {
       final semantics = tester.ensureSemantics();
@@ -1428,6 +1479,7 @@ Future<void> _pump(
   Widget child, {
   Size size = const Size(1000, 760),
   ThemeData? theme,
+  TextScaler? textScaler,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -1435,6 +1487,12 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: theme ?? AppTheme.light,
+      builder: textScaler == null
+          ? null
+          : (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+              child: child!,
+            ),
       home: Scaffold(body: child),
     ),
   );

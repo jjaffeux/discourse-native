@@ -17,6 +17,41 @@ import 'support/skeleton_expectations.dart';
 const _site = 'https://example.com';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('directory controls use reference scaling on $platform', (
+      tester,
+    ) async {
+      for (final (appScale, platformScale, height, textSize) in [
+        (1.0, 1.0, 44.0, 16.0),
+        (1.25, 2.0, 80.0, 40.0),
+      ]) {
+        await _pump(
+          tester,
+          BadgesState(catalog: BadgeCatalog(const []), loaded: true),
+          platform: platform,
+          textScaler: AppTextScaler(
+            platformScaler: TextScaler.linear(platformScale),
+            appScale: appScale,
+            baselineScale: 17 / 14,
+          ),
+        );
+        final filter = find.byKey(const ValueKey('badge-filter'));
+        expect(tester.getSize(filter).height, height);
+        final label = find
+            .descendant(of: filter, matching: find.byType(Text))
+            .first;
+        final context = tester.element(label);
+        expect(
+          MediaQuery.textScalerOf(
+            context,
+          ).scale(DefaultTextStyle.of(context).style.fontSize!),
+          textSize,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
     for (final route in [const BadgeRoute.directory(), BadgeRoute.detail(1)]) {
       testWidgets('badge skeleton fills ${route.path} at $size', (
@@ -371,6 +406,8 @@ Future<void> _pump(
   BadgesState state, {
   Size size = const Size(825, 1000),
   double scale = 1,
+  TargetPlatform? platform,
+  TextScaler? textScaler,
   BadgeRoute route = const BadgeRoute.directory(),
   ValueChanged<DiscourseBadge>? onOpenBadge,
   ValueChanged<String>? onOpenUrl,
@@ -383,12 +420,14 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: platform == null
+          ? AppTheme.light
+          : AppTheme.light.copyWith(platform: platform),
       home: Scaffold(
         body: MediaQuery(
           data: MediaQueryData(
             size: size,
-            textScaler: TextScaler.linear(scale),
+            textScaler: textScaler ?? TextScaler.linear(scale),
           ),
           child: BadgesPage(
             siteUrl: _site,
