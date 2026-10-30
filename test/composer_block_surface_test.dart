@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -10,10 +11,13 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+
+const _captureKey = ValueKey('block-surface-capture');
 
 void main() {
   late ComposerController composer;
@@ -78,6 +82,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
+        builder: (_, child) => RepaintBoundary(key: _captureKey, child: child!),
         home: Directionality(
           textDirection: direction,
           child: MediaQuery(
@@ -1446,6 +1451,128 @@ void main() {
       expect(add().onPressed, isNull);
     },
   );
+
+  testWidgets(
+    'mobile drop indicator paints its full thickness at document edges',
+    (tester) async {
+      await mount(tester, mobile: true, dark: true);
+      final surface = tester.widget<ComposerBlockSurface>(
+        find.byType(ComposerBlockSurface),
+      );
+      final blocks = composer.blocks.index.blocks;
+      final first = surface.blockRect(blocks.first)!;
+      final middle = surface.blockRect(blocks[1])!;
+      final last = surface.blockRect(blocks.last)!;
+      final gesture = await tester.startGesture(middle.center);
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+      await tester.pump();
+      expect(find.byType(DDragHighlight), findsOneWidget);
+      final paintedRows = <String, double>{};
+      for (final (name, destination) in [
+        ('between', Offset(first.center.dx, (first.bottom + middle.top) / 2)),
+        ('first', first.topCenter),
+        ('last', last.bottomCenter - const Offset(0, 1)),
+      ]) {
+        await gesture.moveTo(destination);
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(DDropIndicator), findsOneWidget, reason: name);
+        final indicator = tester.getRect(find.byType(DDropIndicator));
+        final primary = DTokens.of(
+          tester.element(find.byType(DDropIndicator)),
+        ).primary;
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_captureKey),
+        );
+        final rows = await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            final point = boundary.globalToLocal(indicator.center);
+            final x = point.dx.floor();
+            final background = bytes.getUint8(
+              ((point.dy.floor() - 4) * image.width + x) * 4 + 2,
+            );
+            final blue = primary.toARGB32() & 0xff;
+            var coverage = 0.0;
+            for (var y = point.dy.floor() - 3; y <= point.dy.ceil() + 3; y++) {
+              final pixel = bytes.getUint8((y * image.width + x) * 4 + 2);
+              coverage += ((pixel - background) / (blue - background)).clamp(
+                0,
+                1,
+              );
+            }
+            return coverage;
+          } finally {
+            image.dispose();
+          }
+        });
+        paintedRows[name] = rows!;
+      }
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(paintedRows, {
+        'between': closeTo(2, .02),
+        'first': closeTo(2, .02),
+        'last': closeTo(2, .02),
+      });
+    },
+  );
+
+  for (final above in [true, false]) {
+    testWidgets(
+      'mobile block drag keeps its destination ${above ? 'above' : 'below'} the composer',
+      (tester) async {
+        await mount(tester, mobile: true);
+        final original = composer.text.value;
+        final surface = tester.widget<ComposerBlockSurface>(
+          find.byType(ComposerBlockSurface),
+        );
+        final blocks = composer.blocks.index.blocks;
+        final first = surface.blockRect(blocks.first)!;
+        final middle = surface.blockRect(blocks[1])!;
+        final last = surface.blockRect(blocks.last)!;
+        final bounds = tester.getRect(find.byType(ComposerBlockSurface));
+        final edge = above ? first.top : last.bottom;
+        final gesture = await tester.startGesture(middle.center);
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump();
+        await gesture.moveTo(Offset(first.center.dx, edge + (above ? 1 : -1)));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          tester.getCenter(find.byType(DDropIndicator)).dy,
+          closeTo(edge, .01),
+        );
+        await gesture.moveTo(
+          Offset(first.center.dx, above ? bounds.top - 12 : bounds.bottom + 12),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(DDropIndicator), findsOneWidget);
+        expect(
+          tester.getCenter(find.byType(DDropIndicator)).dy,
+          closeTo(edge, .01),
+        );
+        expect(composer.text.value, original);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(composer.blocks.index.blocks.map((block) => block.source), [
+          if (above) '## A heading',
+          'First paragraph',
+          'Last paragraph',
+          if (!above) '## A heading',
+        ]);
+        expect(find.byType(DDropIndicator), findsNothing);
+        composer.history.undo();
+        await tester.pumpAndSettle();
+        expect(composer.text.value, original);
+        expect(composer.history.canUndo, isFalse);
+      },
+    );
+  }
 
   testWidgets('desktop handle drag moves a paragraph as one undoable edit', (
     tester,
