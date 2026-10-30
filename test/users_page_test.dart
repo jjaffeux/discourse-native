@@ -102,6 +102,12 @@ void main() {
               matching: find.byType(Text),
             )
             .first;
+        expect(
+          tester
+              .getSize(find.byKey(const ValueKey('users-group-filter')))
+              .width,
+          126 * appScale * platformScale,
+        );
         final context = tester.element(label);
         expect(
           MediaQuery.textScalerOf(
