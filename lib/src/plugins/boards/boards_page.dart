@@ -229,7 +229,7 @@ class _BoardsPageState extends State<BoardsPage> {
               padding: EdgeInsets.only(
                 top: DSheetPageBand.maybeOf(context) == null ? 0 : DSpacing.sm,
               ),
-              child: controls,
+              child: DReferenceTextScale(child: controls),
             ),
       limitContentSize: false,
       bodyBuilder: (context, header) => CustomScrollView(

@@ -618,6 +618,85 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final (appScale, accessibility, height, textSize) in [
+      (1.0, 1.0, 44.0, 16.0),
+      (1.25, 2.0, 80.0, 40.0),
+    ]) {
+      testWidgets(
+        'board header excludes reading uplift on $platform at $appScale/$accessibility',
+        (tester) async {
+          if (!nativeView) {
+            tester.view.physicalSize = const Size(900, 1200);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.reset);
+          }
+          final json = boardFixtureJson(archived: true);
+          (json['board'] as Map)
+            ..['tag_names'] = ['roadmap']
+            ..['category_ids'] = [5];
+          final fixture = BoardsFixture(
+            json: json,
+            categories: {
+              5: const TopicCategory(id: 5, name: 'Support', color: '12b5d8'),
+            },
+          );
+          addTearDown(fixture.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: AppTextScaler(
+                    platformScaler: TextScaler.linear(accessibility),
+                    appScale: appScale,
+                    baselineScale: 17 / 14,
+                  ),
+                ),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: BoardsPage(
+                  site: boardsSite,
+                  route: const BoardsRoute(boardId: 1),
+                  controller: fixture.controller,
+                  navigation: fixture.navigation,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final tag = find.byKey(
+            const ValueKey(('board-header-tag', 'roadmap')),
+          );
+          expect(tester.getSize(tag).height, height);
+          final tagText = find.descendant(of: tag, matching: find.byType(Text));
+          final tagContext = tester.element(tagText);
+          final fontSize = DefaultTextStyle.of(tagContext).style.fontSize!;
+          expect(MediaQuery.textScalerOf(tagContext).scale(fontSize), textSize);
+          for (final label in ['Support', 'Archived']) {
+            expect(
+              MediaQuery.textScalerOf(
+                tester.element(find.text(label)),
+              ).scale(14),
+              14 * appScale * accessibility,
+            );
+          }
+          for (final text in [
+            find.byKey(const ValueKey('board-title')),
+            find.text('Improve search'),
+          ]) {
+            expect(
+              MediaQuery.textScalerOf(tester.element(text)).scale(14),
+              17 * appScale * accessibility,
+            );
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
   testWidgets('board header tags open their associated topic lists', (
     tester,
   ) async {

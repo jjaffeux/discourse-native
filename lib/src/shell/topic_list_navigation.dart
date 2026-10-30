@@ -337,16 +337,18 @@ class _TopicListNavigationControls extends StatelessWidget {
                       ),
                     ?trailing,
                   ];
-                  return Row(
-                    key: const ValueKey('topic-list-feed-row'),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: primary),
-                      for (final action in actions) ...[
-                        const SizedBox(width: DSpacing.sm),
-                        action,
+                  return DReferenceTextScale(
+                    child: Row(
+                      key: const ValueKey('topic-list-feed-row'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: primary),
+                        for (final action in actions) ...[
+                          const SizedBox(width: DSpacing.sm),
+                          action,
+                        ],
                       ],
-                    ],
+                    ),
                   );
                 },
               ),

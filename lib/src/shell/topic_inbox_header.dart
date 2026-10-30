@@ -97,7 +97,7 @@ class TopicInboxHeader extends StatelessWidget {
         _TopicHeaderReadingLane(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: taxonomy,
+            child: DReferenceTextScale(child: taxonomy),
           ),
         ),
     ];
