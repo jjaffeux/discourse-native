@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart' show DSkeleton;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
@@ -141,10 +140,7 @@ class _EmojiImageState extends State<EmojiImage> {
       ? _placeholder()
       : Text(widget.alt, style: widget.style);
 
-  Widget _placeholder() => TickerMode(
-    enabled: false,
-    child: DSkeleton(width: widget.size, height: widget.size),
-  );
+  Widget _placeholder() => SizedBox.square(dimension: widget.size);
 }
 
 const double emojiScale = 1;

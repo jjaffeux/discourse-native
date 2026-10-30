@@ -54,7 +54,7 @@ void main() {
   });
 
   for (final available in [true, false]) {
-    testWidgets('picker artwork stays square when available=$available', (
+    testWidgets('picker reserves empty artwork space when available=$available', (
       tester,
     ) async {
       final response = Completer<http.Response>();
@@ -72,12 +72,22 @@ void main() {
       final cell = find.byKey(
         const ValueKey('emoji-picker-cell-smileys_&_emotion-0-wave'),
       );
-      final placeholder = find.descendant(
+      final artwork = find.descendant(
+        of: cell,
+        matching: find.byType(EmojiImage),
+      );
+      final skeleton = find.descendant(
         of: cell,
         matching: find.byType(DSkeleton),
       );
-      expect(placeholder, findsOneWidget);
-      expect(tester.getSize(placeholder), const Size.square(25));
+      final cellBounds = tester.getRect(cell);
+      final artworkBounds = tester.getRect(artwork);
+      expect(artworkBounds.size, const Size.square(25));
+      expect(skeleton, findsNothing);
+      expect(
+        find.descendant(of: cell, matching: find.byType(Image)),
+        findsNothing,
+      );
       expect(find.text(':wave:'), findsNothing);
 
       response.complete(
@@ -100,7 +110,6 @@ void main() {
           () => precacheImage(image.image, tester.element(cell)),
         );
         await tester.pumpAndSettle();
-        expect(placeholder, findsNothing);
         expect(
           tester.getSize(
             find.descendant(of: cell, matching: find.byType(Image)),
@@ -108,9 +117,14 @@ void main() {
           const Size.square(25),
         );
       } else {
-        expect(placeholder, findsOneWidget);
-        expect(tester.getSize(placeholder), const Size.square(25));
+        expect(
+          find.descendant(of: cell, matching: find.byType(Image)),
+          findsNothing,
+        );
       }
+      expect(skeleton, findsNothing);
+      expect(tester.getRect(cell), cellBounds);
+      expect(tester.getRect(artwork), artworkBounds);
       expect(find.text(':wave:'), findsNothing);
       await tester.tap(cell);
       expect(selected, 'wave');
