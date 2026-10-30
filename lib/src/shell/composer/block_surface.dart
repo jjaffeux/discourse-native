@@ -14,10 +14,11 @@ import 'controller.dart';
 import 'drop_geometry.dart';
 
 class _BlockDrag {
-  const _BlockDrag(this.composer, this.id, this.revision);
+  const _BlockDrag(this.composer, this.id, this.revision, this.sourceGap);
   final ComposerController composer;
   final int id;
   final int revision;
+  final int sourceGap;
 }
 
 /// Adds structural controls around a single, continuously mounted text editor.
@@ -229,11 +230,13 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   ComposerDropTarget? _targetAt(Offset position) {
     final drag = _drag;
     if (drag == null || !_accepts(drag)) return null;
-    final candidate = _dropGeometry.targetAt(
-      position,
-      previousTarget: _dropTarget,
-      touch: context.isTouch,
-    );
+    final candidate = context.isTouch
+        ? _dropGeometry.blockTargetAt(
+            position,
+            sourceGap: drag.sourceGap,
+            previousTarget: _dropTarget,
+          )
+        : _dropGeometry.targetAt(position, previousTarget: _dropTarget);
     if (candidate == null) return null;
     // The drag revision is unchanged, so a previously accepted destination
     // needs only fresh geometry, not another parse of the entire draft.
@@ -241,11 +244,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
         candidate.offset == _dropTarget?.offset) {
       return candidate;
     }
-    final source = composer.blocks.index.blocks.indexWhere(
-      (block) => block.id == drag.id,
-    );
-    return candidate.gap == source ||
-            candidate.gap == source + 1 ||
+    return candidate.gap == drag.sourceGap ||
+            candidate.gap == drag.sourceGap + 1 ||
             composer.blocks.index.move(
                   drag.id,
                   candidate.gap,
@@ -338,11 +338,16 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   _BlockDrag? _touchDataAt(Offset position) {
     if (!composer.blocks.enabled || _drag != null) return null;
-    for (final block in composer.blocks.index.blocks) {
+    for (final (sourceGap, block) in composer.blocks.index.blocks.indexed) {
       final rect = widget.blockRect(block);
       if (block.movable && rect != null && rect.contains(position)) {
         if (_longPressOwnedAt(position)) return null;
-        return _BlockDrag(composer, block.id, composer.blocks.revision);
+        return _BlockDrag(
+          composer,
+          block.id,
+          composer.blocks.revision,
+          sourceGap,
+        );
       }
     }
     return null;
@@ -436,7 +441,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final active = composer.blocks.selected?.id == block.id;
     final drag = _drag?.id == block.id
         ? _drag!
-        : _BlockDrag(composer, block.id, composer.blocks.revision);
+        : _BlockDrag(composer, block.id, composer.blocks.revision, position);
     return DDropdownMenu(
       sheetOnMobile: true,
       content: DDropdownMenuContent(

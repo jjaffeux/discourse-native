@@ -22,6 +22,24 @@ class ComposerDropGeometry {
     Offset position, {
     ComposerDropTarget? previousTarget,
     bool touch = false,
+  }) => _queryAt(position, previousTarget: previousTarget, touch: touch);
+
+  ComposerDropTarget? blockTargetAt(
+    Offset position, {
+    required int sourceGap,
+    ComposerDropTarget? previousTarget,
+  }) => _queryAt(
+    position,
+    previousTarget: previousTarget,
+    touch: true,
+    sourceGap: sourceGap,
+  );
+
+  ComposerDropTarget? _queryAt(
+    Offset position, {
+    ComposerDropTarget? previousTarget,
+    required bool touch,
+    int? sourceGap,
   }) {
     final rects = <ComposerBodyBlock, Rect?>{};
     final query = ComposerDropGeometry(
@@ -33,6 +51,7 @@ class ComposerDropGeometry {
       position,
       previousTarget: previousTarget,
       touch: touch,
+      sourceGap: sourceGap,
     );
   }
 
@@ -40,8 +59,9 @@ class ComposerDropGeometry {
     Offset position, {
     ComposerDropTarget? previousTarget,
     required bool touch,
+    int? sourceGap,
   }) {
-    final target = _targetAt(position);
+    final target = _targetAt(position, sourceGap: sourceGap);
     if (target == null ||
         previousTarget == null ||
         _sameDestination(target, previousTarget)) {
@@ -62,15 +82,20 @@ class ComposerDropGeometry {
         : emptyLineAt?.call(position)?.rect.height;
     // A large gap around a short block must not make its outer edge
     // unreachable, especially at the beginning or end of a mobile editor.
+    int destinationOrder(int gap) =>
+        sourceGap != null && gap > sourceGap ? gap - 1 : gap;
     final crossedBlock =
         touch &&
             target.offset == null &&
             previousTarget.offset == null &&
-            (target.gap - previousTarget.gap).abs() == 1
+            (destinationOrder(target.gap) -
+                        destinationOrder(previousTarget.gap))
+                    .abs() ==
+                1
         ? blockRect(
             blocks[target.gap > previousTarget.gap
-                ? previousTarget.gap
-                : target.gap],
+                ? target.gap - 1
+                : previousTarget.gap - 1],
           )
         : null;
     final distance = (lineHeight ?? (target.y - previousY).abs()).clamp(
@@ -86,6 +111,7 @@ class ComposerDropGeometry {
         (previousTarget.offset ?? offsetAt(previousTarget.gap));
     final retained = _targetAt(
       position.translate(0, forward ? -tolerance : tolerance),
+      sourceGap: sourceGap,
     );
     return retained != null && _sameDestination(retained, previousTarget)
         ? retained
@@ -95,8 +121,8 @@ class ComposerDropGeometry {
   bool _sameDestination(ComposerDropTarget a, ComposerDropTarget b) =>
       a.gap == b.gap && a.offset == b.offset;
 
-  ComposerDropTarget? _targetAt(Offset position) {
-    final line = emptyLineAt?.call(position);
+  ComposerDropTarget? _targetAt(Offset position, {int? sourceGap}) {
+    final line = sourceGap == null ? emptyLineAt?.call(position) : null;
     if (line != null) {
       var gap = 0;
       var endBlock = blocks.length;
@@ -126,7 +152,8 @@ class ComposerDropGeometry {
         );
       }
     }
-    final gap = gapAt(position);
+    var gap = gapAt(position);
+    if (sourceGap != null && gap == sourceGap + 1) gap = sourceGap;
     final y = gap == null ? null : gapY(gap);
     return gap == null || y == null ? null : (gap: gap, offset: null, y: y);
   }

@@ -5,6 +5,96 @@ import 'package:discourse_native/src/shell/composer/drop_geometry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'block moves collapse the source slot before retaining a destination',
+    () {
+      final index = ComposerBlockIndex.parse('First\n\nSecond\n\nThird');
+      var scroll = 0.0;
+      final geometry = ComposerDropGeometry(
+        index,
+        (block) => Rect.fromLTWH(
+          0,
+          index.blocks.indexOf(block) * 100 - scroll,
+          200,
+          80,
+        ),
+        emptyLineAt: (_) =>
+            throw StateError('Block moves use block boundaries'),
+      );
+      var target = geometry.blockTargetAt(
+        const Offset(100, 130),
+        sourceGap: 1,
+      )!;
+      expect(target, (gap: 1, offset: null, y: 90.0));
+      for (final y in [170.0, 110.0, 175.0]) {
+        target = geometry.blockTargetAt(
+          Offset(100, y),
+          sourceGap: 1,
+          previousTarget: target,
+        )!;
+        expect(target, (gap: 1, offset: null, y: 90.0));
+      }
+      scroll = 100;
+      target = geometry.blockTargetAt(
+        const Offset(100, 30),
+        sourceGap: 1,
+        previousTarget: target,
+      )!;
+      expect(target, (gap: 1, offset: null, y: -10.0));
+      target = geometry.blockTargetAt(
+        const Offset(100, 148),
+        sourceGap: 1,
+        previousTarget: target,
+      )!;
+      expect(target, (gap: 1, offset: null, y: -10.0));
+      target = geometry.blockTargetAt(
+        const Offset(100, 160),
+        sourceGap: 1,
+        previousTarget: target,
+      )!;
+      expect(target, (gap: 3, offset: null, y: 180.0));
+      target = geometry.blockTargetAt(
+        const Offset(100, 132),
+        sourceGap: 1,
+        previousTarget: target,
+      )!;
+      expect(target, (gap: 3, offset: null, y: 180.0));
+      expect(
+        geometry.blockTargetAt(
+          const Offset(100, 125),
+          sourceGap: 1,
+          previousTarget: target,
+        ),
+        (gap: 1, offset: null, y: -10.0),
+      );
+    },
+  );
+
+  test('block moves reach short outer neighbors across a wide source slot', () {
+    final index = ComposerBlockIndex.parse('First\n\nSecond');
+    final geometry = ComposerDropGeometry(
+      index,
+      (block) => Rect.fromLTWH(0, index.blocks.indexOf(block) * 180, 200, 20),
+    );
+    for (final (source, start, destination, gap, y) in [
+      (0, 10.0, 199.0, 2, 200.0),
+      (1, 190.0, 1.0, 0, 0.0),
+    ]) {
+      final original = geometry.blockTargetAt(
+        Offset(100, start),
+        sourceGap: source,
+      );
+      expect(
+        geometry.blockTargetAt(
+          Offset(100, destination),
+          sourceGap: source,
+          previousTarget: original,
+        ),
+        (gap: gap, offset: null, y: y),
+      );
+    }
+  });
+
   test('block hits include both edges and retain the first shared edge', () {
     final index = ComposerBlockIndex.parse('First\n\nSecond');
     final rects = {
