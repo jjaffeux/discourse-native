@@ -67,6 +67,11 @@ class TopicFeedMenu extends StatefulWidget {
   State<TopicFeedMenu> createState() => _TopicFeedMenuState();
 }
 
+typedef _FeedMenuMeasurements = ({
+  Object identity,
+  Map<bool, Map<Object, double>> widths,
+});
+
 class _TopicFeedMenuState extends State<TopicFeedMenu> {
   final _measureKeys = <Object, GlobalKey>{};
   final _measurementFrameKey = GlobalKey();
@@ -343,6 +348,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
       final compact = _compact;
       if (!mapEquals(widths, _widthsByCompact[compact])) {
         setState(() => _widthsByCompact[compact] = widths);
+        PageStorage.maybeOf(context)?.writeState(context, (
+          identity: _measurementIdentity!,
+          widths: Map<bool, Map<Object, double>>.of(_widthsByCompact),
+        ), identifier: _TopicFeedMenuState);
       }
     });
   }
@@ -365,6 +374,12 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     if (identity != _measurementIdentity) {
       _measurementIdentity = identity;
       _widthsByCompact.clear();
+      final stored = PageStorage.maybeOf(
+        context,
+      )?.readState(context, identifier: _TopicFeedMenuState);
+      if (stored is _FeedMenuMeasurements && stored.identity == identity) {
+        _widthsByCompact.addAll(stored.widths);
+      }
     }
     _measure();
     return LayoutBuilder(
