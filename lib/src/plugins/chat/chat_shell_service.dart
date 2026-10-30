@@ -560,7 +560,7 @@ final class ChatShellService
       _host.openPageTab(
         ContentRoute(
           destination: const ExtensionDestination(ChatPlugin.browseRouteId),
-          title: appL10n.browseChannels,
+          title: appL10n.channels,
           icon: DIcons.hashtag,
         ),
       );
@@ -568,7 +568,7 @@ final class ChatShellService
       _host.selectDestination(
         SidebarDestination(
           id: ChatPlugin.browseRouteId,
-          label: appL10n.browseChannels,
+          label: appL10n.channels,
           icon: DIcons.hashtag,
         ),
       );

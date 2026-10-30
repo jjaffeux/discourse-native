@@ -2427,7 +2427,7 @@ void main() {
       expect(find.text('Voice rooms'), findsOneWidget);
       expect(find.text('Watercooler'), findsOneWidget);
       expect(find.byType(ChatMobileSidebar), findsNothing);
-      for (final label in ['Chats', 'Browse channels', 'Threads']) {
+      for (final label in ['Chats', 'Channels', 'Threads']) {
         expect(sidebarDestination(label), findsNothing);
       }
       expect(shell.currentContent, same(route));
@@ -3865,7 +3865,7 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Browse channels',
+      'Channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -3892,7 +3892,7 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Browse channels',
+      'Channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -3979,7 +3979,7 @@ void main() {
   for (final (label, id, page) in [
     ('Summary', 'summary', find.byType(UserSummaryView)),
     ('Activity', 'activity', find.byType(UserActivityView)),
-    ('Browse channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
+    ('Channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
     ('Threads', 'chat-my-threads', find.byType(ChatMyThreadsView)),
   ]) {
     _mobileTest(
@@ -4842,10 +4842,10 @@ void main() {
       find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
       findsOneWidget,
     );
-    expect(peer('Channels'), findsOneWidget);
+    expect(peer('Browse channels'), findsOneWidget);
     expect(peer('Threads'), findsOneWidget);
-    await tester.ensureVisible(peer('Channels'));
-    await tester.tap(peer('Channels'));
+    await tester.ensureVisible(peer('Browse channels'));
+    await tester.tap(peer('Browse channels'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-browse');
     shell.handleBack();

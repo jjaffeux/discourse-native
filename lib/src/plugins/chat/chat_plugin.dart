@@ -342,7 +342,7 @@ class ChatPlugin
             if (publicChannelsEnabled)
               SidebarDestination(
                 id: browseRouteId,
-                label: appL10n.browseChannels,
+                label: appL10n.channels,
                 icon: DIcons.hashtag,
                 onTap: () => shell.openBrowseChannels(newTab: true),
               ),
@@ -525,7 +525,7 @@ class ChatPlugin
         StartPageSection(
           destination: SidebarDestination(
             id: browseRouteId,
-            label: context.l10n.browseChannels,
+            label: context.l10n.channels,
             icon: DIcons.hashtag,
             onTap: shell.openBrowseChannels,
           ),

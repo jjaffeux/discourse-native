@@ -2879,7 +2879,7 @@ void _registerChatShellTests() {
           },
         );
         await pumpChat(tester, api: api);
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
         await tester.enterText(
           find.byKey(const ValueKey('chat-browse-filter')),
@@ -2941,7 +2941,7 @@ void _registerChatShellTests() {
         );
         await pumpChat(tester, api: api);
 
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
 
         expect(
@@ -3001,7 +3001,7 @@ void _registerChatShellTests() {
       ) async {
         await pumpChat(tester);
 
-        await tester.tap(sidebarDestination('Browse channels'));
+        await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);

@@ -77,7 +77,7 @@ void main() {
 
   for (final (label, pageType) in [
     ('Chats', ChatMobileSidebar),
-    ('Channels', ChatBrowseChannelsView),
+    ('Browse channels', ChatBrowseChannelsView),
     ('Threads', ChatMyThreadsView),
   ]) {
     testWidgets(

@@ -52,7 +52,7 @@ void main() {
     final directoryTabs = <String>{};
     for (final (label, route) in [
       ('Chats', ChatPlugin.inboxRouteId),
-      ('Browse channels', ChatPlugin.browseRouteId),
+      ('Channels', ChatPlugin.browseRouteId),
       ('Threads', ChatPlugin.myThreadsRouteId),
     ]) {
       if (directoryTabs.isNotEmpty) {
@@ -125,7 +125,7 @@ void main() {
         );
         await capture(tester, 'chat-sidebar-conversation-${panel.name}');
         final conversation = shell.activeTabId!;
-        for (final label in ['Chats', 'Browse channels', 'Threads']) {
+        for (final label in ['Chats', 'Channels', 'Threads']) {
           expect(sidebarDestination(label), findsOneWidget);
         }
         await tester.tap(sidebarDestination('Threads'));
@@ -137,7 +137,7 @@ void main() {
           isFalse,
           reason: 'a retained conversation is not the focused directory',
         );
-        for (final label in ['Chats', 'Browse channels', 'Threads']) {
+        for (final label in ['Chats', 'Channels', 'Threads']) {
           expect(sidebarDestination(label), findsNothing);
         }
         shell.selectTab(conversation);
@@ -148,7 +148,7 @@ void main() {
               .selected,
           isTrue,
         );
-        for (final label in ['Chats', 'Browse channels', 'Threads']) {
+        for (final label in ['Chats', 'Channels', 'Threads']) {
           expect(sidebarDestination(label), findsOneWidget);
         }
       }
@@ -176,7 +176,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final (label, route) in [
       ('Threads', ChatPlugin.myThreadsRouteId),
-      ('Browse channels', ChatPlugin.browseRouteId),
+      ('Channels', ChatPlugin.browseRouteId),
       ('Chats', ChatPlugin.inboxRouteId),
     ]) {
       if (label == 'Threads') {
@@ -184,7 +184,7 @@ void main() {
       } else {
         await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
         await tester.pumpAndSettle();
-        if (label == 'Browse channels') {
+        if (label == 'Channels') {
           await tester.tap(
             find.byKey(const ValueKey('chat-inbox-channels-card')),
           );
@@ -197,7 +197,7 @@ void main() {
         shell.currentWorkspace!.tabs,
         hasLength(ForumWorkspace.maximumTabs),
       );
-      for (final label in ['Chats', 'Browse channels', 'Threads']) {
+      for (final label in ['Chats', 'Channels', 'Threads']) {
         expect(sidebarDestination(label), findsNothing);
       }
     }

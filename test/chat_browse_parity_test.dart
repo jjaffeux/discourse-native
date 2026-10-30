@@ -877,7 +877,14 @@ void main() {
     tester,
   ) async {
     final fixture = await _pump(tester);
-    expect(find.text('Channels'), findsNWidgets(2));
+    expect(find.text('Channels'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-channels-card')),
+        matching: find.text('Browse channels'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Starred'), findsNothing);
     fixture.api.chatChannelsBySite[_site] = ChatChannels(
       public: [

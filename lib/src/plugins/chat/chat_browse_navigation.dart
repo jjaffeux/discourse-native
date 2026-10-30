@@ -60,7 +60,7 @@ class ChatInboxNavigation extends StatelessWidget {
                   DPlaceCard(
                     key: const ValueKey('chat-inbox-channels-card'),
                     leading: const DIcon(DIcons.hashtag),
-                    title: Text(context.l10n.channels),
+                    title: Text(context.l10n.browseChannels),
                     footer: Text(joinedNote),
                     onPressed: () => shell.openBrowseChannels(),
                   ),

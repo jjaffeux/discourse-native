@@ -309,7 +309,7 @@ void main() {
         'Badges',
         'Bookmarks',
         'Categories',
-        'Browse channels',
+        'Channels',
         'Chat',
         'Groups',
         'Messages',
