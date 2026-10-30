@@ -73,6 +73,52 @@ Future<_PageHarnessState> _pump(
 }
 
 void main() {
+  for (final headerHeight in [28.0, 92.0]) {
+    testWidgets('a captured page keeps its origin when the frame moves to '
+        '$headerHeight', (tester) async {
+      final state = await _pump(tester, history: true, framed: true);
+      final source = _paintedRect(tester, find.byKey(_underlay));
+      final marker = tester.getRect(find.byKey(_blueMarker));
+      state.visit(1, headerHeight: headerHeight);
+      await tester.pumpAndSettle();
+      Future<void> expectMarkerAligned() async {
+        final background = _paintedRect(tester, _backgroundOf(tester));
+        final scale = background.width / source.width;
+        final color = await _pixel(
+          tester,
+          background.topLeft +
+              (marker.center - source.topLeft - Offset(0, headerHeight - 60)) *
+                  scale,
+        );
+        expect(
+          color.b,
+          greaterThan(color.r + .5),
+          reason: 'The saved marker stays at its original page position',
+        );
+      }
+
+      final cancelled = await tester.startGesture(tester.getCenter(_handle));
+      await cancelled.moveBy(const Offset(0, 20));
+      await cancelled.moveBy(const Offset(0, 90));
+      await tester.pump();
+      await expectMarkerAligned();
+      await cancelled.cancel();
+      await tester.pumpAndSettle();
+      expect(state.entry, 1);
+
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 220));
+      await tester.pump();
+      await expectMarkerAligned();
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(state.entry, 0);
+      expect(tester.getRect(find.byKey(_blueMarker)), marker);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final live in [false, true]) {
     testWidgets(
       'the whole ${live ? 'live' : 'captured'} page scales together',
@@ -330,9 +376,13 @@ class _PageHarnessState extends State<_PageHarness> {
   int entry = 0;
   int tab = 0;
   double keyboardBottom = 0;
+  double headerHeight = 60;
   late bool reducedMotion = widget.reducedMotion;
 
-  void visit(int value) => setState(() => entry = value);
+  void visit(int value, {double? headerHeight}) => setState(() {
+    entry = value;
+    if (headerHeight != null) this.headerHeight = headerHeight;
+  });
   void rebuild() => setState(() {});
   void setReducedMotion(bool value) => setState(() => reducedMotion = value);
   void switchTab() => setState(() => tab++);
@@ -403,9 +453,9 @@ class _PageHarnessState extends State<_PageHarness> {
                       padding: EdgeInsets.only(bottom: keyboardBottom),
                       child: Column(
                         children: [
-                          const SizedBox(
-                            height: 60,
-                            child: Text('Stationary header'),
+                          SizedBox(
+                            height: entry == 0 ? 60 : headerHeight,
+                            child: const Text('Stationary header'),
                           ),
                           Expanded(child: page),
                         ],
