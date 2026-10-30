@@ -173,6 +173,29 @@ void main() {
     expect(clearance(), 60);
   });
 
+  testWidgets('replacing a folded floating dock clears its reserved room', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 200);
+    addTearDown(controller.dispose);
+    double clearance() =>
+        DScrollChrome.bottomInsetOf(tester.element(find.byKey(_body)));
+    double hiddenFraction() => DScrollChrome.maybeOf(
+      tester.element(find.byKey(_body)),
+    )!.hiddenFraction;
+    await _mount(tester, controller: controller, floating: true);
+    await _wheel(tester, 80);
+    expect(hiddenFraction(), 1);
+    expect(clearance(), 60);
+    await _mount(tester, controller: controller, floating: true, dock: false);
+    expect(hiddenFraction(), 1);
+    expect(clearance(), 0);
+    await _mount(tester, controller: controller, floating: true);
+    expect(hiddenFraction(), 1);
+    expect(clearance(), 60);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('disabling scroll hiding restores and keeps the full dock', (
     tester,
   ) async {
