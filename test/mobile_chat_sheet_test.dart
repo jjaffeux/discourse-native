@@ -686,6 +686,58 @@ void main() {
     }, variant: _platforms);
   }
 
+  for (final thread in [false, true]) {
+    testWidgets(
+      'chat reading sheet matches its top corners above keyboard (thread: $thread)',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        final shell = await _fixture(tester);
+        shell.openChatChannel(10);
+        if (thread) {
+          shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+        }
+        await shell.appSettings.setReduceMotion(true);
+        await tester.pumpAndSettle();
+        BorderRadius corners() =>
+            tester
+                    .widget<DPageSurface>(
+                      find
+                          .descendant(
+                            of: _sheet,
+                            matching: find.byType(DPageSurface),
+                          )
+                          .first,
+                    )
+                    .borderRadius!
+                as BorderRadius;
+        expect(corners().bottomLeft.x, 55);
+        await tester.showKeyboard(
+          find.descendant(
+            of: find.byType(ComposerEditor),
+            matching: find.byType(TextField),
+          ),
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        tester.view.padding = const FakeViewPadding(top: 44);
+        await tester.pumpAndSettle();
+        await _capture(
+          tester,
+          'keyboard-corners-${thread ? 'thread' : 'channel'}',
+        );
+        expect(corners().topLeft.x, 31);
+        expect(corners().bottomLeft.x, 31);
+        expect(corners().bottomRight.x, 31);
+        FocusManager.instance.primaryFocus?.unfocus();
+        tester.view.viewInsets = FakeViewPadding.zero;
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        await tester.pumpAndSettle();
+        expect(corners().bottomLeft.x, 55);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
   for (final width in [320.0, 390.0, 800.0]) {
     testWidgets('chat sheet keyboard, safe areas and reduced motion at $width', (
       tester,
