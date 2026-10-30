@@ -77,6 +77,102 @@ void main() {
     });
   }
 
+  testWidgets('a fast refresh does not reveal the remaining native bounce', (
+    tester,
+  ) async {
+    var calls = 0;
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      _host(
+        platform: TargetPlatform.iOS,
+        controller: scroll,
+        onRefresh: () async => calls++,
+      ),
+    );
+    final origin = tester.getTopLeft(find.text('Row 0')).dy;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    for (var i = 0; i < 12; i++) {
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(calls, 1);
+    await tester.pumpWidget(
+      _host(platform: TargetPlatform.iOS, controller: scroll, onRefresh: null),
+    );
+    await tester.pump(const Duration(milliseconds: 220));
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getTopLeft(find.text('Row 0')).dy,
+        closeTo(origin, .1),
+        reason: 'Collapsed frame $frame',
+      );
+    }
+    await tester.pumpAndSettle();
+    final disabledPull = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    await disabledPull.moveBy(const Offset(0, 80));
+    await tester.pump();
+    await disabledPull.moveBy(const Offset(0, 80));
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('Row 0')).dy, greaterThan(origin));
+    expect(find.byType(DSpinner), findsNothing);
+    await disabledPull.up();
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+  });
+
+  testWidgets(
+    'a new pull preserves the gap while the previous bounce settles',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          platform: TargetPlatform.iOS,
+          controller: scroll,
+          onRefresh: () async {},
+        ),
+      );
+      final origin = tester.getTopLeft(find.text('Row 0')).dy;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(ListView)),
+      );
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 160));
+      await tester.pump(const Duration(milliseconds: 220));
+      final residualBounce = -scroll.offset;
+      expect(residualBounce, greaterThan(1));
+      expect(tester.getTopLeft(find.text('Row 0')).dy, closeTo(origin, .1));
+      final nextPull = await tester.startGesture(
+        tester.getCenter(find.byType(ListView)),
+      );
+      await nextPull.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.text('Row 0')).dy - origin,
+        lessThan(residualBounce),
+      );
+      await nextPull.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('macOS trackpad pulls refresh with the default scroll behavior', (
     tester,
   ) async {

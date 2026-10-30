@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/tokens.dart';
@@ -16,8 +16,9 @@ import 'd_spinner.dart';
 /// [AlwaysScrollableScrollPhysics] to support short or empty content. Nested
 /// scrollables and horizontal/reversed lists do not trigger a refresh. The
 /// spinner opens space above the content, below a floating [DPageSurface]
-/// header. The returned future holds that space and prevents duplicate gestures;
-/// completion collapses it without replacing the scrollable.
+/// header. On release, that space settles to the loading height. The returned
+/// future holds it there and prevents duplicate gestures; completion collapses
+/// it without replacing the scrollable.
 /// Callers handle errors and present them alongside their retained content.
 ///
 /// A null [onRefresh] disables new requests without replacing the child. Use a
@@ -57,28 +58,26 @@ class _DPullToRefreshState extends State<DPullToRefresh>
     with SingleTickerProviderStateMixin {
   static const _refreshExtent = 60.0;
   final _indicator = GlobalKey<RefreshIndicatorState>();
-  late final _extent = AnimationController(
-    vsync: this,
-    upperBound: _refreshExtent,
-  );
+  late final _extent = AnimationController.unbounded(vsync: this);
   RefreshIndicatorStatus? _status;
-  double _pullDistance = 0;
   double _nativeOverscroll = 0;
+  bool _ownsOverscroll = false;
 
   bool get _busy =>
       _status == RefreshIndicatorStatus.snap ||
       _status == RefreshIndicatorStatus.refresh;
 
+  bool get _pulling =>
+      _status == RefreshIndicatorStatus.drag ||
+      _status == RefreshIndicatorStatus.armed;
+
   void _updateExtent() {
-    final pulling =
-        _status == RefreshIndicatorStatus.drag ||
-        _status == RefreshIndicatorStatus.armed;
-    final target = _busy
-        ? _refreshExtent
-        : pulling && widget.onRefresh != null
-        ? (_pullDistance / 2).clamp(0.0, _refreshExtent)
-        : 0.0;
-    if (pulling || MediaQuery.disableAnimationsOf(context)) {
+    if (_pulling && widget.onRefresh != null) {
+      _extent.stop();
+      return;
+    }
+    final target = _busy ? _refreshExtent : 0.0;
+    if (_pulling || MediaQuery.disableAnimationsOf(context)) {
       _extent.value = target;
     } else {
       unawaited(
@@ -123,24 +122,28 @@ class _DPullToRefreshState extends State<DPullToRefresh>
     );
     var changed = _nativeOverscroll != nativeOverscroll;
     _nativeOverscroll = nativeOverscroll;
-    final pulling =
-        _status == RefreshIndicatorStatus.drag ||
-        _status == RefreshIndicatorStatus.armed;
-    if (pulling) {
+    if (!_busy && !_pulling && _extent.value == 0 && nativeOverscroll == 0) {
+      changed = changed || _ownsOverscroll;
+      _ownsOverscroll = false;
+    }
+    final dragging = switch (notification) {
+      ScrollUpdateNotification(:final dragDetails) => dragDetails != null,
+      OverscrollNotification(:final dragDetails) => dragDetails != null,
+      _ => false,
+    };
+    if (_pulling && dragging && widget.onRefresh != null) {
       final delta = switch (notification) {
         ScrollUpdateNotification(:final scrollDelta) => scrollDelta ?? 0,
-        OverscrollNotification(:final overscroll) => overscroll,
+        OverscrollNotification(:final overscroll) => overscroll / 2,
         _ => 0.0,
       };
-      _pullDistance -= delta;
+      _extent.value = math.max(0.0, _extent.value - delta);
       changed = changed || delta != 0;
     }
     if (changed && mounted) {
-      setState(() {
-        if (pulling) _updateExtent();
-      });
+      setState(() {});
     }
-    return widget.onRefresh != null || _status != null;
+    return widget.onRefresh != null || _busy || _pulling;
   }
 
   Future<void> _refresh() async {
@@ -154,7 +157,7 @@ class _DPullToRefreshState extends State<DPullToRefresh>
     final visible =
         busy ||
         (widget.onRefresh != null &&
-            ((_status == RefreshIndicatorStatus.drag && _pullDistance > 0) ||
+            ((_status == RefreshIndicatorStatus.drag && _extent.value > 0) ||
                 _status == RefreshIndicatorStatus.armed));
     final label = busy
         ? widget.refreshingLabel
@@ -182,9 +185,7 @@ class _DPullToRefreshState extends State<DPullToRefresh>
               if (mounted) {
                 setState(() {
                   _status = status;
-                  if (status == null || status == RefreshIndicatorStatus.drag) {
-                    _pullDistance = 0;
-                  }
+                  if (status != null) _ownsOverscroll = true;
                   _updateExtent();
                 });
               }
@@ -216,11 +217,9 @@ class _DPullToRefreshState extends State<DPullToRefresh>
                 children: [
                   ClipRect(
                     clipper: _RefreshContentClipper(extent, header),
-                    child: Padding(
-                      // Bouncing scroll physics already opens some pull space.
-                      padding: EdgeInsets.only(
-                        top: math.max(0, extent - _nativeOverscroll),
-                      ),
+                    child: _RefreshContentInset(
+                      offset:
+                          extent - (_ownsOverscroll ? _nativeOverscroll : 0),
                       child: child,
                     ),
                   ),
@@ -238,6 +237,58 @@ class _DPullToRefreshState extends State<DPullToRefresh>
         ),
       ),
     );
+  }
+}
+
+class _RefreshContentInset extends SingleChildRenderObjectWidget {
+  const _RefreshContentInset({required this.offset, required super.child});
+
+  final double offset;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRefreshContentInset(offset);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderRefreshContentInset renderObject,
+  ) {
+    renderObject.offset = offset;
+  }
+}
+
+class _RenderRefreshContentInset extends RenderShiftedBox {
+  _RenderRefreshContentInset(this._offset) : super(null);
+
+  double _offset;
+  set offset(double value) {
+    if (_offset == value) return;
+    _offset = value;
+    markNeedsLayout();
+  }
+
+  BoxConstraints _childConstraints(BoxConstraints constraints) =>
+      constraints.copyWith(
+        minHeight: math.max(0, constraints.minHeight - _offset),
+        maxHeight: math.max(0, constraints.maxHeight - _offset),
+      );
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final childSize = child!.getDryLayout(_childConstraints(constraints));
+    return constraints.constrain(
+      Size(childSize.width, childSize.height + _offset),
+    );
+  }
+
+  @override
+  void performLayout() {
+    child!.layout(_childConstraints(constraints), parentUsesSize: true);
+    size = constraints.constrain(
+      Size(child!.size.width, child!.size.height + _offset),
+    );
+    (child!.parentData! as BoxParentData).offset = Offset(0, _offset);
   }
 }
 
