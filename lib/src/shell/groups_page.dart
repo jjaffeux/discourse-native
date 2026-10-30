@@ -314,31 +314,33 @@ class _DirectoryControls extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (searchVisible) ...[
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: searchController,
-              builder: (context, value, _) => DInput(
-                key: const ValueKey('groups-search'),
-                size: DControlSize.field,
-                controller: searchController,
-                focusNode: searchFocus,
-                autofocus: true,
-                onChanged: onSearchChanged,
-                onSubmitted: onSearchSubmitted,
-                textInputAction: TextInputAction.search,
-                semanticLabel: context.l10n.searchGroups,
-                hintText: context.l10n.searchGroups,
-                prefix: const DIcon(DIcons.magnifyingGlass),
-                suffix: value.text.isEmpty
-                    ? null
-                    : DButton.iconOnly(
-                        onPressed: () {
-                          searchController.clear();
-                          onSearchSubmitted('');
-                        },
-                        variant: DButtonVariant.ghost,
-                        tooltip: context.l10n.clearSearch,
-                        icon: const DIcon(DIcons.xmark),
-                      ),
+            DReferenceTextScale(
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: searchController,
+                builder: (context, value, _) => DInput(
+                  key: const ValueKey('groups-search'),
+                  size: DControlSize.field,
+                  controller: searchController,
+                  focusNode: searchFocus,
+                  autofocus: true,
+                  onChanged: onSearchChanged,
+                  onSubmitted: onSearchSubmitted,
+                  textInputAction: TextInputAction.search,
+                  semanticLabel: context.l10n.searchGroups,
+                  hintText: context.l10n.searchGroups,
+                  prefix: const DIcon(DIcons.magnifyingGlass),
+                  suffix: value.text.isEmpty
+                      ? null
+                      : DButton.iconOnly(
+                          onPressed: () {
+                            searchController.clear();
+                            onSearchSubmitted('');
+                          },
+                          variant: DButtonVariant.ghost,
+                          tooltip: context.l10n.clearSearch,
+                          icon: const DIcon(DIcons.xmark),
+                        ),
+                ),
               ),
             ),
             const SizedBox(height: DSpacing.md),
@@ -349,50 +351,52 @@ class _DirectoryControls extends StatelessWidget {
             spacing: DSpacing.md,
             runSpacing: DSpacing.sm,
             children: [
-              Wrap(
-                spacing: DSpacing.controlGap,
-                runSpacing: DSpacing.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 180),
-                    child: DSelect<String>.controlled(
-                      key: const ValueKey('groups-type-filter'),
-                      size: DControlSize.filter,
-                      value: data.type,
-                      semanticLabel: context.l10n.filterByGroupType,
-                      entries: [
-                        DSelectOption(
-                          value: null,
-                          label: context.l10n.allGroups,
-                          child: Text(context.l10n.allGroups),
-                        ),
-                        for (final type in types)
+              DReferenceTextScale(
+                child: Wrap(
+                  spacing: DSpacing.controlGap,
+                  runSpacing: DSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: DSelect<String>.controlled(
+                        key: const ValueKey('groups-type-filter'),
+                        size: DControlSize.filter,
+                        value: data.type,
+                        semanticLabel: context.l10n.filterByGroupType,
+                        entries: [
                           DSelectOption(
-                            value: type,
-                            label: _groupTypeLabel(type),
-                            child: Text(_groupTypeLabel(type)),
+                            value: null,
+                            label: context.l10n.allGroups,
+                            child: Text(context.l10n.allGroups),
                           ),
-                      ],
-                      onChanged: onTypeChanged,
+                          for (final type in types)
+                            DSelectOption(
+                              value: type,
+                              label: _groupTypeLabel(type),
+                              child: Text(_groupTypeLabel(type)),
+                            ),
+                        ],
+                        onChanged: onTypeChanged,
+                      ),
                     ),
-                  ),
-                  DButton.iconOnly(
-                    key: const ValueKey('groups-show-search'),
-                    icon: const DIcon(DIcons.magnifyingGlass),
-                    tooltip: context.l10n.searchGroups,
-                    variant: DButtonVariant.quiet,
-                    onPressed: onShowSearch,
-                  ),
-                  if (data.canCreateGroup)
                     DButton.iconOnly(
-                      key: const ValueKey('create-group'),
-                      icon: const DIcon(DIcons.plus),
-                      tooltip: context.l10n.newGroup,
+                      key: const ValueKey('groups-show-search'),
+                      icon: const DIcon(DIcons.magnifyingGlass),
+                      tooltip: context.l10n.searchGroups,
                       variant: DButtonVariant.quiet,
-                      onPressed: onCreateGroup,
+                      onPressed: onShowSearch,
                     ),
-                ],
+                    if (data.canCreateGroup)
+                      DButton.iconOnly(
+                        key: const ValueKey('create-group'),
+                        icon: const DIcon(DIcons.plus),
+                        tooltip: context.l10n.newGroup,
+                        variant: DButtonVariant.quiet,
+                        onPressed: onCreateGroup,
+                      ),
+                  ],
+                ),
               ),
               if (data.loaded || data.groups.isNotEmpty)
                 Text(

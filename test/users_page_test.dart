@@ -1114,8 +1114,6 @@ void main() {
           .focusNode;
       final periodMenu = find.text('Today');
       final columnsMenu = find.byType(DDropdownMenuCheckboxItem);
-      // Each control answers exactly where it is painted. On a phone a page's
-      // fields are drawn 44 tall and its filters 36 tall.
       for (final (control, surface, height, opened) in [
         (
           search,
@@ -1131,7 +1129,7 @@ void main() {
             of: period,
             matching: find.byKey(const Key('d-select-trigger-visual')),
           ),
-          platform == TargetPlatform.macOS ? 30 : 36,
+          platform == TargetPlatform.macOS ? 30 : 44,
           () => periodMenu.evaluate().isNotEmpty,
         ),
         (
@@ -1144,7 +1142,7 @@ void main() {
                   widget.decoration is DButtonDecoration,
             ),
           ),
-          platform == TargetPlatform.macOS ? 30 : 36,
+          platform == TargetPlatform.macOS ? 30 : 44,
           () => columnsMenu.evaluate().isNotEmpty,
         ),
       ]) {

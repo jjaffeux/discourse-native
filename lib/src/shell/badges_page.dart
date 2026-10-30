@@ -344,25 +344,27 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                 MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
                 DiscourseTypography.sm;
             final stacked = constraints.maxWidth / scale < 300;
-            final filter = DSelect<_BadgeFilter>.controlled(
-              size: DControlSize.filter,
-              key: const ValueKey('badge-filter'),
-              value: _filter,
-              semanticLabel: context.l10n.filterBadges,
-              width: 128,
-              isExpanded: stacked,
-              entries: [
-                for (final filter in _BadgeFilter.values)
-                  if (!filter.personal || catalog.hasPersonalState)
-                    DSelectItem(
-                      value: filter,
-                      textValue: filter.label,
-                      child: Text(filter.label),
-                    ),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _filter = value);
-              },
+            final filter = DReferenceTextScale(
+              child: DSelect<_BadgeFilter>.controlled(
+                size: DControlSize.filter,
+                key: const ValueKey('badge-filter'),
+                value: _filter,
+                semanticLabel: context.l10n.filterBadges,
+                width: 128,
+                isExpanded: stacked,
+                entries: [
+                  for (final filter in _BadgeFilter.values)
+                    if (!filter.personal || catalog.hasPersonalState)
+                      DSelectItem(
+                        value: filter,
+                        textValue: filter.label,
+                        child: Text(filter.label),
+                      ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _filter = value);
+                },
+              ),
             );
             final summary = Text(
               context.l10n.messageBadgespage(

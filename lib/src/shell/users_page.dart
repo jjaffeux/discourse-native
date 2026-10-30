@@ -595,153 +595,162 @@ class _UsersPageState extends State<UsersPage> {
               key: const ValueKey('users-directory-surface'),
               title: Text(context.l10n.users),
               foldTitleAtTop: true,
-              controls: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Wrap(
-                    key: const ValueKey('users-toolbar'),
-                    spacing: DSpacing.controlGap,
-                    runSpacing: DSpacing.sm,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: searchWidth,
-                        child: DDataTableFilterField(
-                          key: const ValueKey('users-search'),
-                          size: DControlSize.field,
-                          maxWidth: double.infinity,
-                          value: _searchText,
-                          hintText: context.l10n.filterUsers,
-                          onChanged: _search,
+              controls: DReferenceTextScale(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      key: const ValueKey('users-toolbar'),
+                      spacing: DSpacing.controlGap,
+                      runSpacing: DSpacing.sm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: searchWidth,
+                          child: DDataTableFilterField(
+                            key: const ValueKey('users-search'),
+                            size: DControlSize.field,
+                            maxWidth: double.infinity,
+                            value: _searchText,
+                            hintText: context.l10n.filterUsers,
+                            onChanged: _search,
+                          ),
                         ),
-                      ),
-                      SizedBox(
-                        width: stackSearch
-                            ? toolbarWidth
-                            : toolbarWidth - searchWidth - DSpacing.controlGap,
-                        child: Wrap(
-                          alignment: stackSearch
-                              ? WrapAlignment.end
-                              : WrapAlignment.spaceBetween,
-                          spacing: DSpacing.controlGap,
-                          runSpacing: DSpacing.sm,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Wrap(
-                              spacing: DSpacing.controlGap,
-                              runSpacing: DSpacing.sm,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: periodWidth,
-                                  ),
-                                  child: DSelect<UserDirectoryPeriod>(
-                                    size: DControlSize.filter,
-                                    key: const ValueKey('users-period-filter'),
-                                    width: periodWidth,
-                                    value: data.query.period,
-                                    semanticLabel: context.l10n.activityPeriod,
-                                    enabled: widget.onPeriodChanged != null,
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        widget.onPeriodChanged?.call(value);
-                                      }
-                                    },
-                                    entries: [
-                                      for (final period
-                                          in UserDirectoryPeriod
-                                              .values
-                                              .reversed)
-                                        DSelectItem(
-                                          value: period,
-                                          textValue: period.label,
-                                          child: Text(period.label),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: math.min(
-                                    126 * textScale,
-                                    math.max(
-                                      0.0,
-                                      toolbarWidth -
-                                          periodWidth -
-                                          DSpacing.controlGap,
+                        SizedBox(
+                          width: stackSearch
+                              ? toolbarWidth
+                              : toolbarWidth -
+                                    searchWidth -
+                                    DSpacing.controlGap,
+                          child: Wrap(
+                            alignment: stackSearch
+                                ? WrapAlignment.end
+                                : WrapAlignment.spaceBetween,
+                            spacing: DSpacing.controlGap,
+                            runSpacing: DSpacing.sm,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Wrap(
+                                spacing: DSpacing.controlGap,
+                                runSpacing: DSpacing.sm,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxWidth: periodWidth,
                                     ),
-                                  ),
-                                  child: DCombobox<String>.controlled(
-                                    key: const ValueKey('users-group-filter'),
-                                    value: data.query.group ?? '__all_groups__',
-                                    anchor: DComboboxInput<String>(
+                                    child: DSelect<UserDirectoryPeriod>(
                                       size: DControlSize.filter,
-                                      semanticLabel: context.l10n.filterByGroup,
-                                      placeholder: context.l10n.allGroups,
-                                    ),
-                                    content: DComboboxContent(
-                                      children: [
-                                        DComboboxEmpty<String>(
-                                          child: Text(
-                                            context.l10n.noGroupsFound,
+                                      key: const ValueKey(
+                                        'users-period-filter',
+                                      ),
+                                      width: periodWidth,
+                                      value: data.query.period,
+                                      semanticLabel:
+                                          context.l10n.activityPeriod,
+                                      enabled: widget.onPeriodChanged != null,
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          widget.onPeriodChanged?.call(value);
+                                        }
+                                      },
+                                      entries: [
+                                        for (final period
+                                            in UserDirectoryPeriod
+                                                .values
+                                                .reversed)
+                                          DSelectItem(
+                                            value: period,
+                                            textValue: period.label,
+                                            child: Text(period.label),
                                           ),
-                                        ),
-                                        const DComboboxList<String>(),
                                       ],
                                     ),
-                                    enabled: widget.onGroupChanged != null,
-                                    filter: (value, query, label) =>
-                                        query ==
-                                            (data.query.group ??
-                                                context.l10n.allGroups) ||
-                                        label.toLowerCase().contains(
-                                          query.toLowerCase(),
-                                        ),
-                                    onChanged: (value, reason) =>
-                                        widget.onGroupChanged?.call(
-                                          value == '__all_groups__'
-                                              ? null
-                                              : value,
-                                        ),
-                                    options: [
-                                      DComboboxOption(
-                                        value: '__all_groups__',
-                                        label: context.l10n.allGroups,
-                                      ),
-                                      for (final group
-                                          in (<String>{
-                                            ...data.groupNames,
-                                            ?data.query.group,
-                                          }.toList()..sort(
-                                            (a, b) => a.toLowerCase().compareTo(
-                                              b.toLowerCase(),
-                                            ),
-                                          )))
-                                        DComboboxOption(
-                                          value: group,
-                                          label: group,
-                                        ),
-                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                            DDataTableColumnToggle<UserDirectoryItem>(
-                              key: const ValueKey('users-columns'),
-                              size: DControlSize.filter,
-                              menuLabel: context.l10n.columns,
-                              columns: columns,
-                              hiddenColumnIds: _hiddenColumnIds,
-                              onChanged: (hidden) => setState(
-                                () => _hiddenColumnIds = Set.of(hidden),
+                                  SizedBox(
+                                    width: math.min(
+                                      126 * textScale,
+                                      math.max(
+                                        0.0,
+                                        toolbarWidth -
+                                            periodWidth -
+                                            DSpacing.controlGap,
+                                      ),
+                                    ),
+                                    child: DCombobox<String>.controlled(
+                                      key: const ValueKey('users-group-filter'),
+                                      value:
+                                          data.query.group ?? '__all_groups__',
+                                      anchor: DComboboxInput<String>(
+                                        size: DControlSize.filter,
+                                        semanticLabel:
+                                            context.l10n.filterByGroup,
+                                        placeholder: context.l10n.allGroups,
+                                      ),
+                                      content: DComboboxContent(
+                                        children: [
+                                          DComboboxEmpty<String>(
+                                            child: Text(
+                                              context.l10n.noGroupsFound,
+                                            ),
+                                          ),
+                                          const DComboboxList<String>(),
+                                        ],
+                                      ),
+                                      enabled: widget.onGroupChanged != null,
+                                      filter: (value, query, label) =>
+                                          query ==
+                                              (data.query.group ??
+                                                  context.l10n.allGroups) ||
+                                          label.toLowerCase().contains(
+                                            query.toLowerCase(),
+                                          ),
+                                      onChanged: (value, reason) =>
+                                          widget.onGroupChanged?.call(
+                                            value == '__all_groups__'
+                                                ? null
+                                                : value,
+                                          ),
+                                      options: [
+                                        DComboboxOption(
+                                          value: '__all_groups__',
+                                          label: context.l10n.allGroups,
+                                        ),
+                                        for (final group
+                                            in (<String>{
+                                              ...data.groupNames,
+                                              ?data.query.group,
+                                            }.toList()..sort(
+                                              (a, b) => a
+                                                  .toLowerCase()
+                                                  .compareTo(b.toLowerCase()),
+                                            )))
+                                          DComboboxOption(
+                                            value: group,
+                                            label: group,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              DDataTableColumnToggle<UserDirectoryItem>(
+                                key: const ValueKey('users-columns'),
+                                size: DControlSize.filter,
+                                menuLabel: context.l10n.columns,
+                                columns: columns,
+                                hiddenColumnIds: _hiddenColumnIds,
+                                onChanged: (hidden) => setState(
+                                  () => _hiddenColumnIds = Set.of(hidden),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
