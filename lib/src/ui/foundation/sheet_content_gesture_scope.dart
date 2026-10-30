@@ -18,9 +18,14 @@ class SheetContentGestureScope extends InheritedWidget {
 }
 
 class SheetContentGestureRegion extends StatelessWidget {
-  const SheetContentGestureRegion({super.key, required this.child});
+  const SheetContentGestureRegion({
+    super.key,
+    required this.child,
+    this.enabled = true,
+  });
 
   final Widget child;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +33,9 @@ class SheetContentGestureRegion extends StatelessWidget {
         .dependOnInheritedWidgetOfExactType<SheetContentGestureScope>();
     if (scope == null) return child;
     return Listener(
-      onPointerDown: scope.onPointer,
-      onPointerPanZoomStart: scope.onPointer,
-      onPointerSignal: scope.onSignal,
+      onPointerDown: enabled ? scope.onPointer : null,
+      onPointerPanZoomStart: enabled ? scope.onPointer : null,
+      onPointerSignal: enabled ? scope.onSignal : null,
       child: child,
     );
   }

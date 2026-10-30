@@ -26,7 +26,9 @@ always restore it. Accepted dismissals finish moving off screen before going
 Back. The handle, downward overscroll at the top of the reader, wheel input,
 and native trackpad pans share dismissal. A touch or native trackpad gesture that
 scrolls the reader stays a scroll until release, even after reaching the top.
-Pulling the reader down to dismiss requires a fresh gesture at the top.
+Pulling the reader down to dismiss requires a fresh gesture at the actual start
+of the topic. While earlier posts remain or are loading, the reader keeps touch,
+trackpad, and wheel pulls, including a pull held while the final page arrives.
 Reduced motion completes an accepted dismissal immediately.
 
 The fixed mobile header also pulls the active content sheet down, including

@@ -11,8 +11,10 @@ final _handle = find.byKey(const ValueKey('sheet-drag-handle'));
 Future<void> _pumpPage(
   WidgetTester tester,
   TargetPlatform platform,
-  ScrollController scroll,
-) async {
+  ScrollController scroll, {
+  bool hasMoreBefore = false,
+  bool loadingBefore = false,
+}) async {
   tester.view.physicalSize = const Size(400, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -40,12 +42,18 @@ Future<void> _pumpPage(
                           showCloseButton: false,
                           children: [
                             Expanded(
-                              child: ListView.builder(
-                                controller: scroll,
-                                itemCount: 50,
-                                itemBuilder: (_, index) => SizedBox(
-                                  height: 48,
-                                  child: Text('Post $index'),
+                              child: DScrollChromePagination(
+                                hasMore: false,
+                                loading: false,
+                                hasMoreBefore: hasMoreBefore,
+                                loadingBefore: loadingBefore,
+                                child: ListView.builder(
+                                  controller: scroll,
+                                  itemCount: 50,
+                                  itemBuilder: (_, index) => SizedBox(
+                                    height: 48,
+                                    child: Text('Post $index'),
+                                  ),
                                 ),
                               ),
                             ),
@@ -65,6 +73,57 @@ Future<void> _pumpPage(
 
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final loading in [false, true]) {
+      for (final input in ['touch', 'trackpad', 'wheel']) {
+        testWidgets(
+          '$input at a temporary top stays in the reader on $platform (loading: $loading)',
+          (tester) async {
+            final scroll = ScrollController();
+            addTearDown(scroll.dispose);
+            await _pumpPage(
+              tester,
+              platform,
+              scroll,
+              hasMoreBefore: !loading,
+              loadingBefore: loading,
+            );
+            final bounds = tester.getRect(_sheet);
+            final point = tester.getCenter(_reader);
+            if (input == 'wheel') {
+              for (var step = 0; step < 4; step++) {
+                await tester.sendEventToBinding(
+                  PointerScrollEvent(
+                    position: point,
+                    scrollDelta: const Offset(0, -60),
+                  ),
+                );
+                await tester.pump(const Duration(milliseconds: 20));
+              }
+            } else if (input == 'trackpad') {
+              final pan = await tester.createGesture(
+                kind: PointerDeviceKind.trackpad,
+              );
+              await pan.panZoomStart(point);
+              await pan.moveBy(const Offset(0, 30));
+              await pan.moveBy(const Offset(0, 220));
+              await pan.up();
+            } else {
+              await tester.drag(_reader, const Offset(0, 250));
+            }
+            await tester.pumpAndSettle();
+            expect(tester.getRect(_sheet), bounds);
+
+            await tester.drag(
+              loading ? _header : _handle,
+              const Offset(0, 220),
+            );
+            await tester.pumpAndSettle();
+            expect(_sheet, findsNothing);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
     testWidgets('reaching the top requires a fresh page pull on $platform', (
       tester,
     ) async {

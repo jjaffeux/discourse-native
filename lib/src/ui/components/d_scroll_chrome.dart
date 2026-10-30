@@ -6,12 +6,15 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../foundation/header_motion.dart';
+import '../foundation/sheet_content_gesture_scope.dart';
 import 'd_scroll_behavior.dart';
 
 /// Reports whether a scrollable's visual edges are temporary page boundaries.
 /// Wrap the primary scroll view and update these values with its feed state.
 /// Chrome stays compact at that boundary while more content exists or loads;
 /// scrolling back up and explicitly revealing the chrome still work normally.
+/// Pulls at a temporary top boundary stay with the content instead of dismissing
+/// a surrounding sheet. The sheet's header and handle remain draggable.
 class DScrollChromePagination extends StatefulWidget {
   const DScrollChromePagination({
     super.key,
@@ -75,7 +78,10 @@ class _DScrollChromePaginationState extends State<DScrollChromePagination> {
     loading: widget.loading,
     hasMoreBefore: widget.hasMoreBefore,
     loadingBefore: widget.loadingBefore,
-    child: widget.child,
+    child: SheetContentGestureRegion(
+      enabled: widget.hasMoreBefore || widget.loadingBefore,
+      child: widget.child,
+    ),
   );
 }
 
