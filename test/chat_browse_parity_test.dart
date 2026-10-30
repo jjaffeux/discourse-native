@@ -198,6 +198,27 @@ void main() {
       await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(DSpinner), findsOneWidget);
+      if (page == ChatBrowsePage.chats) {
+        for (
+          var frame = 0;
+          frame < 40 && !fixture.chat.channelsLoading(_site);
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pump();
+        expect(fixture.chat.channelsLoading(_site), isTrue);
+        for (final card in ['channels', 'threads']) {
+          expect(
+            find.byKey(ValueKey('chat-inbox-$card-card')).hitTestable(),
+            findsOneWidget,
+          );
+        }
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-1')),
+          findsOneWidget,
+        );
+      }
       await tester.drag(find.byType(DPullToRefresh), const Offset(0, 420));
       await tester.pump(const Duration(milliseconds: 300));
       gate.complete();
@@ -209,6 +230,14 @@ void main() {
         before + 1,
       );
       expect(find.byType(DSpinner), findsNothing);
+      if (page == ChatBrowsePage.chats) {
+        for (final card in ['channels', 'threads']) {
+          expect(
+            find.byKey(ValueKey('chat-inbox-$card-card')).hitTestable(),
+            findsOneWidget,
+          );
+        }
+      }
       expect(tester.takeException(), isNull);
     });
   }
