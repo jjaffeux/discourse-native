@@ -224,7 +224,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   }
 
   Widget _buildResults(BuildContext context, bool lazy) {
-    if (_browse.loading) {
+    final channels = _browse.visibleChannels;
+    if (_browse.loading && channels.isEmpty) {
       return ContentReadingLane(
         basePadding: EdgeInsets.fromLTRB(
           16,
@@ -239,7 +240,6 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         ),
       );
     }
-    final channels = _browse.visibleChannels;
     if (channels.isEmpty && !_browse.hasMore && _browse.error != null) {
       final message = _BrowseMessage(
         icon: DIcons.triangleExclamation,

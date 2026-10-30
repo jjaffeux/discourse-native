@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
     show
@@ -7,6 +9,7 @@ import 'package:discourse_native/discourse_ui.dart'
         DControlSize,
         DDropdownMenuItem,
         DPlaceCard,
+        DPullToRefresh,
         DSpinner,
         DSkeletonRegion;
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -23,11 +26,13 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/pixel_samples.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -36,6 +41,103 @@ const _emptyMessage = 'No channels match these filters.';
 
 void main() {
   group('ChatBrowseChannelsView', () {
+    testWidgets(
+      'pulling refresh keeps the first channel card fully visible',
+      (tester) async {
+        final api = _BrowseApi(
+          chatBrowsePagesByKey: {
+            FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+              channels: [for (var id = 1; id <= 20; id++) _channel(id)],
+            ),
+          },
+        );
+        const evidenceKey = ValueKey('refresh-evidence');
+        await _pumpBrowse(
+          tester,
+          api,
+          body: const RepaintBoundary(
+            key: evidenceKey,
+            child: ChatBrowseChannelsView(siteUrl: _site),
+          ),
+        );
+        final boundary = find.byKey(evidenceKey);
+        final refresh = find.byType(DPullToRefresh);
+        final firstCard = find
+            .descendant(of: refresh, matching: find.byType(DPlaceCard))
+            .first;
+        Future<void> expectCardPainted(String phase) async {
+          final rect = tester.getRect(firstCard);
+          final origin = tester.getTopLeft(boundary);
+          final colors = await samplePixels(tester, boundary, [
+            rect.topCenter + const Offset(0, 5) - origin,
+            rect.bottomCenter - const Offset(0, 5) - origin,
+          ]);
+          final evidence = Platform.environment['NATIVE_UI_EVIDENCE_DIR'];
+          if (evidence != null) {
+            final box = tester.renderObject<RenderRepaintBoundary>(boundary);
+            await tester.runAsync(() async {
+              final image = await box.toImage();
+              try {
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                Directory(evidence).createSync(recursive: true);
+                File(
+                  '$evidence/channels-refresh-$phase.png',
+                ).writeAsBytesSync(bytes!.buffer.asUint8List());
+              } finally {
+                image.dispose();
+              }
+            });
+          }
+          expect(
+            colors.first.a,
+            greaterThan(.5),
+            reason: 'the top of the first card is painted $phase',
+          );
+          expect(
+            colors.last.a,
+            greaterThan(.5),
+            reason: 'the bottom of the first card is painted $phase',
+          );
+        }
+
+        await expectCardPainted('before');
+        final gate = _holdPage(api, offset: 0);
+        final gesture = await tester.startGesture(tester.getCenter(refresh));
+        for (var frame = 0; frame < 18; frame++) {
+          await gesture.moveBy(const Offset(0, 40));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await expectCardPainted('pulling');
+        await gesture.up();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        for (
+          var frame = 0;
+          api.chatBrowseRequested.length < 2 && frame < 30;
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(api.chatBrowseRequested, hasLength(2));
+        await expectCardPainted('pending');
+        gate.complete();
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (frame % 10 == 0) await expectCardPainted('settling-$frame');
+        }
+        await tester.pumpAndSettle();
+        await expectCardPainted('complete');
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+
     testWidgets('a pending search cannot append with the old offset', (
       tester,
     ) async {
