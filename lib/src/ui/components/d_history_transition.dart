@@ -832,8 +832,8 @@ class _HistoryRepaintBoundary extends RenderRepaintBoundary {
       return null;
     }
     final ratio = math.min(
-      math.min(devicePixelRatio, 1.5),
-      math.sqrt(1000000 / (painted.width * painted.height)),
+      devicePixelRatio,
+      math.sqrt(4000000 / (painted.width * painted.height)),
     );
     return paintedLayer.toImageSync(Offset.zero & painted, pixelRatio: ratio);
   }
