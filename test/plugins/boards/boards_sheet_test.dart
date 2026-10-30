@@ -227,6 +227,11 @@ void main() {
           .first;
       final title = find.text(tester.widget<Text>(visibleTitle).data!);
       final before = tester.getTopLeft(title).dy;
+      final filters = find.byKey(
+        const ValueKey('topic-list-filter-bar'),
+        skipOffstage: false,
+      );
+      final filterSize = tester.getSize(filters);
       await tester.tap(pill);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'boards/1/cards/101');
@@ -275,6 +280,13 @@ void main() {
       // Check the first revealed frame as well as the settled page.
       for (var frame = 0; frame < 60; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
+        if (filters.evaluate().isNotEmpty) {
+          expect(
+            tester.getSize(filters),
+            filterSize,
+            reason: 'Filter size at dismissal frame $frame',
+          );
+        }
         if (_sheet.evaluate().isEmpty) {
           expect(tester.getTopLeft(title).dy, closeTo(before, 0.1));
         }
