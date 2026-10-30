@@ -105,6 +105,7 @@ final class BoardsPlugin
     return [
       for (final membership in memberships?.values ?? const <BoardMembership>[])
         DBadge.action(
+          variant: DBadgeVariant.secondary,
           onPressed: () => navigation.openMembership(site, membership),
           leading: leading,
           child: Text(

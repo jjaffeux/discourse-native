@@ -9,7 +9,8 @@ import 'package:discourse_native/discourse_ui.dart'
         DPullToRefresh,
         DSeparator,
         DSpinner,
-        DTableHead;
+        DTableHead,
+        DTokens;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -664,7 +665,7 @@ void main() {
   {
     for (final brightness in Brightness.values) {
       testWidgets(
-        'incoming button stays flat with tertiary colors in flat $brightness',
+        'incoming button uses standard primary styling in $brightness',
         (tester) async {
           final api = _ControlledPagingApi();
           final controller = await _controlledShell(api, sites.first);
@@ -684,24 +685,24 @@ void main() {
           await tester.pumpAndSettle();
 
           final button = find.byKey(const ValueKey('incoming-topics-button'));
+          final primary = DTokens.of(
+            tester.element(button),
+          ).buttonTheme.primary;
           final surface = buttonSurface(tester, of: button);
-          expect(surface.color, theme.colorScheme.primary);
+          expect(surface.color, primary.background);
           expect(surface.borderColor.a, 0);
 
           final label = find.text('See 1 new or updated topic');
           expect(label, findsOneWidget);
           expect(
             DefaultTextStyle.of(tester.element(label)).style.color,
-            theme.colorScheme.onPrimary,
+            primary.foreground,
           );
           final icon = find.descendant(
             of: button,
             matching: find.byType(DIcon),
           );
-          expect(
-            IconTheme.of(tester.element(icon)).color,
-            theme.colorScheme.onPrimary,
-          );
+          expect(IconTheme.of(tester.element(icon)).color, primary.foreground);
           expect(tester.takeException(), isNull);
         },
       );

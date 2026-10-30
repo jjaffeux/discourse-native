@@ -189,12 +189,6 @@ void main() {
           'foregroundColor': 1,
         },
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
-        // Shared category paths and list filters supply their quiet selection fill.
-        // The incoming-topics pill stays quiet yet keeps the primary fill.
-        'lib/src/shell/topic_list_view.dart': {
-          'backgroundColor': 1,
-          'foregroundColor': 1,
-        },
         // Topic metadata actions retain the metadata row's text foreground.
         'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},
         // Chat search/navigation and the local-date sheet use pill controls.

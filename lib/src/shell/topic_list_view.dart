@@ -1257,7 +1257,6 @@ class _IncomingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
     final label = Text(
       _label,
       softWrap: true,
@@ -1275,10 +1274,8 @@ class _IncomingBanner extends StatelessWidget {
             liveRegion: true,
             child: DButton(
               key: const ValueKey('incoming-topics-button'),
-              variant: DButtonVariant.quiet,
+              variant: DButtonVariant.primary,
               size: DButtonSize.small,
-              backgroundColor: tokens.primary,
-              foregroundColor: tokens.primaryForeground,
               icon: const DIcon(DIcons.arrowUp),
               label: label,
               onPressed: onTap,
