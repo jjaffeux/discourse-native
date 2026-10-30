@@ -20,7 +20,9 @@ Future<void> showVoiceRoomEditor(
       controller ??
       PluginUiScope.require(context, voiceControllerService);
   final ownsAccount = originController.captureSiteSession(siteUrl);
-  final shell = PluginUiScope.maybe(context, voiceShellService);
+  final shell = room == null
+      ? null
+      : PluginUiScope.maybe(context, voiceShellService);
   final result = await showDDialog<VoiceRoomDraft>(
     context: context,
     builder: (context, dialog) => _VoiceRoomEditorDialog(
