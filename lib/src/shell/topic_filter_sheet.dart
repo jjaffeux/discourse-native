@@ -226,6 +226,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
   }
 
   Widget _buildSheet(BuildContext context) {
+    final taxonomyScope = const {'tag', 'category'}.contains(widget.onlyKey);
     final clauseKey = topicFilterClauseKey(filter.text.text);
     final option = widget.options
         .where((option) => option.name == clauseKey)
@@ -457,6 +458,12 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                     focusNode: _focus,
                     placeholder: widget.hintText,
                     semanticLabel: context.l10n.topicFilterQuery,
+                    textInputAction: taxonomyScope
+                        ? TextInputAction.done
+                        : TextInputAction.search,
+                    onSubmitted: taxonomyScope
+                        ? (_) => widget.onDismiss?.call()
+                        : null,
                   ),
                 ),
               ),

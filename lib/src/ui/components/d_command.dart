@@ -515,6 +515,8 @@ class DCommandInput<T> extends StatefulWidget {
     this.tokens = const [],
     this.autofocus = true,
     this.onEmptyBackspace,
+    this.textInputAction = TextInputAction.search,
+    this.onSubmitted,
     this._semanticLabel,
   });
 
@@ -539,6 +541,8 @@ class DCommandInput<T> extends StatefulWidget {
 
   /// Called when Backspace is pressed in an empty query, including on mobile.
   final VoidCallback? onEmptyBackspace;
+  final TextInputAction textInputAction;
+  final ValueChanged<String>? onSubmitted;
   final String? _semanticLabel;
   String get semanticLabel => _semanticLabel ?? appL10n.searchCommands;
 
@@ -674,7 +678,8 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
             onEmptyBackspace: widget.onEmptyBackspace,
             autocorrect: false,
             enableSuggestions: false,
-            textInputAction: TextInputAction.search,
+            textInputAction: widget.textInputAction,
+            onSubmitted: widget.onSubmitted,
             suffix: borderless
                 ? null
                 : ExcludeSemantics(

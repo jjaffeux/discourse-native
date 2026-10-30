@@ -39,6 +39,8 @@ Widget _command({
   TextEditingController? editingController,
   FocusNode? inputFocus,
   VoidCallback? onEmptyBackspace,
+  TextInputAction textInputAction = TextInputAction.search,
+  ValueChanged<String>? onSubmitted,
 }) => DCommand<String>(
   controller: controller,
   query: query,
@@ -58,6 +60,8 @@ Widget _command({
         controller: editingController,
         focusNode: inputFocus,
         onEmptyBackspace: onEmptyBackspace,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
       ),
       const DCommandList<String>(
         children: [
@@ -99,6 +103,50 @@ Widget _command({
 );
 
 void main() {
+  testWidgets(
+    'command input forwards IME action and submission separately from selection',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(const DCommand<String>(child: DCommandInput<String>())),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.testTextInput.setClientArgs!['inputAction'],
+        'TextInputAction.search',
+      );
+
+      final submitted = <String>[];
+      final selected = <String>[];
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        _host(
+          _command(
+            textInputAction: TextInputAction.done,
+            onSubmitted: submitted.add,
+            onSelected: selected.add,
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(EditableText), 'Calen');
+      await tester.pumpAndSettle();
+      expect(
+        tester.testTextInput.setClientArgs!['inputAction'],
+        'TextInputAction.done',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(submitted, ['Calen']);
+      expect(selected, isEmpty);
+
+      await tester.tap(find.byType(EditableText));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(selected, ['Calendar']);
+      expect(submitted, ['Calen']);
+    },
+  );
+
   for (final count in [3, 80]) {
     for (final direction in TextDirection.values) {
       testWidgets(

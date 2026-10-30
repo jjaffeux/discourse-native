@@ -50,6 +50,87 @@ const _otherChild = TopicCategory(
 const _tag = SidebarTag(id: 3, name: 'Original tag', slug: 'original-tag');
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final menu in ['category', 'tag']) {
+      testWidgets(
+        '$menu keyboard Done dismisses autocomplete without selecting on $platform',
+        (tester) async {
+          final fixture = await _fixture(tester, platform: platform);
+          if (menu == 'category') {
+            fixture.shell.selectTopicListCategory(_child);
+            await tester.pumpAndSettle();
+          }
+          await _open(tester, menu);
+          expect(find.byType(DSheetContent), findsOneWidget);
+          if (menu == 'tag') {
+            await tester.tap(find.text(_tag.name).last);
+            await tester.pumpAndSettle();
+            expect(fixture.shell.topicListContent?.tagNames, [_tag.name]);
+          }
+          await _query(tester, menu == 'tag' ? 'new' : 'Original');
+          await tester.pumpAndSettle();
+          expect(
+            find.descendant(
+              of: find.byType(DCommandList<String>),
+              matching: find.text(menu == 'tag' ? 'New result' : _parent.name),
+            ),
+            findsOneWidget,
+          );
+          if (menu == 'tag') {
+            expect(fixture.api.searches.last.term, 'new');
+          }
+          final command = tester.widget<DCommand<String>>(
+            find.byType(DCommand<String>),
+          );
+          expect(command.controller!.value, isNotNull);
+          expect(
+            tester.testTextInput.setClientArgs!['inputAction'],
+            'TextInputAction.done',
+          );
+
+          await tester.testTextInput.receiveAction(TextInputAction.done);
+          await tester.pumpAndSettle();
+
+          expect(find.byType(DSheetContent), findsNothing);
+          expect(find.byType(DCommandList<String>), findsNothing);
+          expect(
+            fixture.shell.topicListContent?.categoryId,
+            menu == 'category' ? _child.id : isNull,
+          );
+          expect(
+            fixture.shell.topicListContent?.tagNames,
+            menu == 'tag' ? [_tag.name] : isEmpty,
+          );
+          expect(fixture.navigator.currentState!.canPop(), isFalse);
+          expect(tester.testTextInput.isVisible, isFalse);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        '$menu keyboard Done closes empty and unmatched queries on $platform',
+        (tester) async {
+          final fixture = await _fixture(tester, platform: platform);
+          for (final query in ['', 'missing-filter']) {
+            await _open(tester, menu);
+            await _query(tester, query);
+            await tester.pumpAndSettle();
+
+            await tester.testTextInput.receiveAction(TextInputAction.done);
+            await tester.pumpAndSettle();
+
+            expect(find.byType(DSheetContent), findsNothing);
+            expect(fixture.shell.topicListContent?.categoryId, isNull);
+            expect(fixture.shell.topicListContent?.tagNames, isEmpty);
+            expect(fixture.navigator.currentState!.canPop(), isFalse);
+            expect(tester.testTextInput.isVisible, isFalse);
+            expect(tester.takeException(), isNull);
+          }
+        },
+      );
+    }
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
     for (final menu in ['category', 'subcategory', 'tag']) {
       testWidgets(
