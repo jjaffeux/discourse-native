@@ -24,8 +24,8 @@ import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
 
-/// Sheet artwork presets. Menu sheets float above the home indicator with
-/// a grab handle and rounded corners matching anchored Native menus.
+/// Sheet artwork presets. Phone bottom sheets fill the viewport's foot,
+/// with a grab handle and bottom corners matching the display.
 enum DSheetVariant {
   standard,
   menu,
@@ -33,9 +33,8 @@ enum DSheetVariant {
   /// A bottom reading page filling [DSheetViewport], with an overlaid handle.
   page,
 
-  /// A mobile menu with a lower opening height, pull-to-expand, and animated
-  /// clearance while expanding, when the keyboard is visible, or when there
-  /// is no more content below.
+  /// A full-width mobile menu with a lower opening height, pull-to-expand,
+  /// and placement above a visible keyboard.
   adaptiveMenu,
 }
 
@@ -179,7 +178,7 @@ class DSheetViewport extends StatefulWidget {
 
   /// The reading page's outline, shared by its card and previous-page surface.
   static BorderRadius pageBorderRadius(BuildContext context) =>
-      _sheetBottomCorners(context, least: 22).copyWith(
+      _sheetBottomCorners(context).copyWith(
         topLeft: const Radius.circular(DMobileDockGeometry.capsuleRadius),
         topRight: const Radius.circular(DMobileDockGeometry.capsuleRadius),
       );
@@ -639,11 +638,7 @@ class _DSheetRetainedKeyboardInsetsState
   );
 }
 
-BorderRadius _sheetBottomCorners(
-  BuildContext context, {
-  required double least,
-  double lift = 0,
-}) {
+BorderRadius _sheetBottomCorners(BuildContext context) {
   final media = MediaQuery.of(context);
   final view = View.of(context);
   final foot = math.max(
@@ -652,10 +647,8 @@ BorderRadius _sheetBottomCorners(
   );
   final display = media.displayCornerRadii;
   final fallback = foot > 0 ? DMobileDockGeometry.screenRadius : 0.0;
-  Radius corner(Radius? radius) => Radius.elliptical(
-    math.max(least, (radius?.x ?? fallback) - lift),
-    math.max(least, (radius?.y ?? fallback) - lift),
-  );
+  Radius corner(Radius? radius) =>
+      Radius.elliptical(radius?.x ?? fallback, radius?.y ?? fallback);
   return BorderRadius.only(
     bottomLeft: corner(display?.bottomLeft),
     bottomRight: corner(display?.bottomRight),
@@ -979,10 +972,12 @@ Widget _sheetLayout(
       !extendBehindKeyboard &&
       variant == DSheetVariant.standard &&
       side == DSheetSide.bottom;
-  final floatingBottom = endMenu || roundedForm;
+  final viewportBottom = endMenu || roundedForm;
+  final followsViewport =
+      viewportBottom || (mobile && side == DSheetSide.bottom);
   final view = View.of(context);
   final end = DMobileDockGeometry(
-    foot: floatingBottom
+    foot: viewportBottom
         ? math.max(
             MediaQuery.viewPaddingOf(context).bottom,
             view.viewPadding.bottom / view.devicePixelRatio,
@@ -992,15 +987,13 @@ Widget _sheetLayout(
   Widget popup = Builder(
     builder: (context) {
       final overKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
-      final content = floatingBottom
+      final content = viewportBottom
           ? Builder(
               builder: (context) => MediaQuery(
                 data: MediaQuery.of(context).copyWith(
-                  padding: MediaQuery.paddingOf(context).copyWith(
-                    bottom: overKeyboard
-                        ? 0
-                        : math.max(0, end.foot - end.endLift),
-                  ),
+                  padding: MediaQuery.paddingOf(
+                    context,
+                  ).copyWith(bottom: overKeyboard ? 0 : end.foot),
                   viewInsets: EdgeInsets.zero,
                 ),
                 child: presentation.content,
@@ -1018,10 +1011,10 @@ Widget _sheetLayout(
       return _DSheetSideScope(
         side: side,
         inset: inset,
-        menuFootCorners: floatingBottom
-            ? overKeyboard
-                  ? const BorderRadius.vertical(bottom: Radius.circular(24))
-                  : _sheetBottomCorners(context, least: 24, lift: end.endLift)
+        menuFootCorners: followsViewport
+            ? overKeyboard && !extendBehindKeyboard
+                  ? BorderRadius.zero
+                  : _sheetBottomCorners(context)
             : null,
         fillAvailableHeight: fillAvailableHeight,
         extendBehindKeyboard: extendBehindKeyboard,
@@ -1118,10 +1111,7 @@ Widget _sheetLayout(
         return Stack(fit: StackFit.expand, children: [backdrop, popup]);
       }
       final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-      final floatingLift = keyboard > 0
-          ? DMobileDockGeometry.inset
-          : end.endLift;
-      final margin = floatingBottom
+      final margin = viewportBottom
           ? 0.0
           : inset
           ? variant == DSheetVariant.menu
@@ -1136,8 +1126,8 @@ Widget _sheetLayout(
       );
       // Inset surfaces float above the device's bottom corners. The opening
       // control may already have consumed this padding inside a SafeArea.
-      final safeBottom = floatingBottom
-          ? floatingLift
+      final safeBottom = viewportBottom
+          ? 0.0
           : inset && !extendBehindKeyboard
           ? math.max(
               MediaQuery.viewPaddingOf(context).bottom,
@@ -1145,9 +1135,10 @@ Widget _sheetLayout(
             )
           : 0.0;
       final pickerTop = math.max(safeTop + DSpacing.xl, bounds.maxHeight * .11);
-      final availableWidth =
-          (bounds.maxWidth - (floatingBottom ? floatingLift : margin) * 2)
-              .clamp(0.0, double.infinity);
+      final availableWidth = (bounds.maxWidth - margin * 2).clamp(
+        0.0,
+        double.infinity,
+      );
       final panelWidth = width == null
           ? availableWidth < 640
                 ? availableWidth * .75
@@ -1164,8 +1155,6 @@ Widget _sheetLayout(
         curve: Curves.easeOutCubic,
         left: topBottomWidth != null
             ? (bounds.maxWidth - topBottomWidth) / 2
-            : floatingBottom
-            ? floatingLift
             : side == DSheetSide.center
             ? (bounds.maxWidth - panelWidth) / 2
             : side == DSheetSide.right
@@ -1176,8 +1165,6 @@ Widget _sheetLayout(
                 side == DSheetSide.left ||
                 side == DSheetSide.center
             ? null
-            : floatingBottom
-            ? floatingLift
             : margin,
         top: extendBehindKeyboard
             ? safeTop + DSpacing.sm
@@ -1186,8 +1173,8 @@ Widget _sheetLayout(
             : side == DSheetSide.bottom
             ? null
             : margin,
-        bottom: floatingBottom
-            ? keyboard + floatingLift
+        bottom: viewportBottom
+            ? keyboard
             : fillAvailableHeight
             ? (extendBehindKeyboard
                       ? 0.0
@@ -1209,7 +1196,7 @@ Widget _sheetLayout(
                         safeTop -
                         DSpacing.sm -
                         safeBottom -
-                        (floatingBottom ? keyboard : 0) -
+                        (viewportBottom ? keyboard : 0) -
                         margin,
                   ),
                 ),
@@ -2194,15 +2181,14 @@ class DSheetContent extends StatelessWidget {
 
   /// Whether an adaptive menu follows the height of its content.
   ///
-  /// False reserves a 55% opening viewport, including floating clearance,
+  /// False reserves a 55% opening viewport, including safe-area clearance,
   /// across loading and result changes. Pulling upward expands it; a visible
   /// keyboard uses the available viewport. Other sheet variants are unchanged.
   final bool sizeToContent;
 
-  /// Defers an adaptive menu's short-content margins until loading finishes.
+  /// Remeasures an adaptive menu after asynchronous content finishes loading.
   ///
-  /// Existing margins remain until dismissal. This does not render a loading
-  /// indicator or affect other sheet variants.
+  /// This does not render a loading indicator or affect other sheet variants.
   final bool contentLoading;
   final DSheetSide side;
   final bool showCloseButton;
@@ -2227,10 +2213,9 @@ class DSheetContent extends StatelessWidget {
   /// Null preserves Sheet's responsive 75% width and 384px desktop cap.
   final double? sidePanelWidth;
 
-  /// Floats the surface inside the viewport with shared spacing and rounded
-  /// corners, above the bottom safe area. The safe inset is consumed outside
-  /// the surface so its content does not repeat that padding. The default
-  /// retains the reference's fixed-edge presentation.
+  /// Floats side and desktop surfaces inside the viewport with shared spacing.
+  /// Phone bottom sheets fill the viewport's foot and keep safe-area padding
+  /// inside their surface.
   final bool inset;
 
   /// Overrides automatic whole-surface scrolling at large text sizes.
@@ -2367,7 +2352,7 @@ class DSheetContent extends StatelessWidget {
     final menuFootCorners = context
         .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
         ?.menuFootCorners;
-    final radius = menu || menuFootCorners != null
+    final baseRadius = menu || (inset && menuFootCorners != null)
         ? (menuFootCorners ??
                   const BorderRadius.vertical(bottom: Radius.circular(24)))
               .copyWith(
@@ -2379,6 +2364,10 @@ class DSheetContent extends StatelessWidget {
         : extendBehindKeyboard
         ? const BorderRadius.vertical(top: Radius.circular(DRadius.panel * 2))
         : BorderRadius.zero;
+    final radius = baseRadius.copyWith(
+      bottomLeft: menuFootCorners?.bottomLeft,
+      bottomRight: menuFootCorners?.bottomRight,
+    );
     final surfaceColor =
         backgroundColor ??
         (menu
@@ -2408,7 +2397,8 @@ class DSheetContent extends StatelessWidget {
         child: Material(
           animationDuration: Duration.zero,
           borderRadius: radius,
-          clipBehavior: inset || extendBehindKeyboard || menu
+          clipBehavior:
+              inset || extendBehindKeyboard || menu || menuFootCorners != null
               ? Clip.antiAlias
               : Clip.none,
           color: surfaceColor,
@@ -2619,21 +2609,12 @@ class DSheetFooter extends StatelessWidget {
 
   final List<Widget> children;
 
-  /// Visual content insets. Adaptive sheets add any remaining screen-safe
-  /// clearance below them, while the body can scroll through that area.
+  /// Visual content insets inside the sheet's safe area.
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: padding.add(
-      EdgeInsets.only(
-        bottom:
-            context
-                .dependOnInheritedWidgetOfExactType<_DSheetAdaptiveMenuScope>()
-                ?.footerSafeInset ??
-            0,
-      ),
-    ),
+    padding: padding,
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

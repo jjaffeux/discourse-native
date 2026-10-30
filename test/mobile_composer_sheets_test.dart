@@ -170,8 +170,8 @@ void main() {
         expect(find.byType(Dialog), findsNothing);
         expect(find.byType(BottomSheet), findsNothing);
         final bounds = tester.getRect(sheet);
-        expect(bounds.left, greaterThan(0));
-        expect(bounds.right, lessThan(320));
+        expect(bounds.left, 0);
+        expect(bounds.right, 320);
         expect(bounds.height, greaterThan(550));
 
         if (picker != 'gif') {

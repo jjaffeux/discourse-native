@@ -73,9 +73,9 @@ void main() {
       );
 
       final rect = tester.getRect(_menuSheet);
-      expect(rect.left, 6);
-      expect(rect.right, 384);
-      expect(rect.bottom, 838);
+      expect(rect.left, 0);
+      expect(rect.right, 390);
+      expect(rect.bottom, 844);
       await _capture(
         tester,
         '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-flat',
@@ -116,9 +116,9 @@ void main() {
       findsNothing,
     );
     final bounds = tester.getRect(_menuSheet);
-    expect(bounds.left, 23);
-    expect(bounds.right, 367);
-    expect(bounds.bottom, 844 - const DMobileDockGeometry(foot: _foot).endLift);
+    expect(bounds.left, 0);
+    expect(bounds.right, 390);
+    expect(bounds.bottom, 844);
     expect(bounds.height, lessThan(200));
     final handle = find.descendant(
       of: _menuSheet,

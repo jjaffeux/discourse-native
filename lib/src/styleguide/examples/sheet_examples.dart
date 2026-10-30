@@ -84,7 +84,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Adaptive menu sheet',
       description:
-          'Pull upward to expand with floating margins and a rounded foot. '
+          'Pull upward to expand while the sheet fills the viewport foot. '
           'Reserve a stable opening height for asynchronous results. '
           'The same surface floats above a visible keyboard.',
       code:
@@ -128,7 +128,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile menu sheet',
       description:
-          'An inset menu with a visible grab handle above the home indicator. Swipe down to dismiss.',
+          'A full-width menu that follows the viewport corners and keeps controls above the home indicator. Swipe down to dismiss.',
       code:
           'DSheetContent(variant: DSheetVariant.menu, side: DSheetSide.bottom, inset: true, showCloseButton: false, children: [body])',
       builder: (_) => DSheet<void>(

@@ -10,34 +10,22 @@ the screen's corner"). The rules are `.menu-sheet.is-end`,
 `app.css`; `SHEET_END_GAP`, `MenuSheet`, `Sheet` and `composerBar` in
 `App.tsx`.
 
-## One rule for the foot
+## Sheets at the viewport foot
 
-What ends at the screen's foot stands off it by the bar's 6 past half the
-foot's room, and a corner there follows the screen's 55 curve from that far
-in, never tighter than its own least radius. Display corner radii supply the
-curve when available. Otherwise the existing
-55pt curve is used when the bottom safe area is present. Each bottom corner is
-resolved separately. A square screen, and anything over the keyboard, has no
-curve to follow. Native sheets share the corner calculation;
-`DMobileDockGeometry.endLift` holds the placement rule. At width 390 and a
-foot of 34:
+Phone bottom menus, forms, and reading sheets fill the viewport width and reach
+its bottom edge. They have no exterior side or bottom gap. Each lower corner
+uses the corresponding display radius when available. On iOS, where display
+radii are unavailable, a bottom safe area selects the existing 55pt screen
+curve. Explicit square display corners and screens without a bottom safe area
+keep square lower corners.
 
-| Part | Value |
-| --- | --- |
-| Lift | `6 + foot / 2` = 23. With the keyboard up the foot is 0, so 6. |
-| Foot corner | `max(least, 55 - lift)` = 32 on a screen with a foot; `least` without one. |
+The bottom safe area stays inside the sheet, below its content and fixed
+actions. With a visible keyboard, the sheet ends directly above it with square
+bottom corners. Adaptive menus keep this footprint through expansion,
+scrolling, and loading changes.
 
-## Sheets at their end
-
-| Part | Value |
-| --- | --- |
-| Adaptive menu at its end | 23 from the sides and bottom edge, top corners 22, bottom corners `endRadius(24)` = 32. The foot's room the lift leaves, `max(0, foot - lift)` = 11, stays inside the sheet. Lifting and its corner ease together on the sheet's own progress. |
-| Over the keyboard | 6 off the keyboard, bottom corners 24. While the keyboard rises, the corner eases from 32 to 24 by the keyboard's placement rather than following the shrinking foot, which would swell it past both. |
-| Inset menu sheet | The same placement at once: 23 from the sides and bottom edge, bottom corners 32, 11 of the foot kept inside. |
-
-Phone inset form sheets share the same side and bottom gaps. Over the keyboard,
-all three gaps are 6pt. Reading sheets reach the screen edge and use its bottom
-corners directly, with a minimum radius of 22pt.
+The sidebar and composers retain `DMobileDockGeometry.endLift` and `endRadius`
+for their own placement. At a 34pt foot, that lift is 23pt.
 
 ## Sidebar and rail
 
@@ -96,10 +84,8 @@ so the same form serves the desktop dialog. Desktop keeps every dialog as
 it was.
 
 Fixed actions use `DSheetFooter`. At a partial detent, Native reserves the
-bottom safe area below the actions. As the sheet floats upward, the footer
-reserves only what the sheet's own lift and content inset have not covered.
-The scrolling body keeps its viewport through the safe area. With the keyboard
-visible, the footer follows the sheet above it. Bookmark, flag, fast-edit,
+bottom safe area below the actions, inside the sheet. With the keyboard
+visible, the footer follows the sheet directly above it. Bookmark, flag, fast-edit,
 notification-schedule, and edit-history sheets keep their actions outside the
 body's scrollable region.
 

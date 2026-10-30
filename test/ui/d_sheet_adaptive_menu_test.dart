@@ -108,9 +108,6 @@ Future<void> expand(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-const _foot = 34.0;
-final _floatedRadius = const DMobileDockGeometry(foot: _foot).endRadius(24);
-
 double footRadius(WidgetTester tester, Finder sheet) {
   final surface = tester.widget<Material>(
     find.descendant(of: sheet, matching: find.byType(Material)).first,
@@ -118,42 +115,23 @@ double footRadius(WidgetTester tester, Finder sheet) {
   return (surface.borderRadius as BorderRadius).bottomLeft.x;
 }
 
-/// How far a sheet has floated off the foot, 0 to 1, with no keyboard.
-double floatProgress(WidgetTester tester, Finder sheet) =>
-    footRadius(tester, sheet) / _floatedRadius;
-
-/// The corner radius at progress [p] while the keyboard rises with it: from
-/// the screen corner's to the keyboard's 24, never swelling past either.
-double keyboardFootRadius(double p) =>
-    (_floatedRadius + (24 - _floatedRadius) * p) * p;
-
-/// A floating sheet spans the screen, rounds its foot corners and stands off
-/// the bottom edge: by the foot's room, or by the bar's inset alone once the
-/// keyboard takes that room (then [keyboard] is the keyboard's height).
-void expectFloating(WidgetTester tester, Finder sheet, {double keyboard = 0}) {
-  final rect = tester.getRect(sheet);
-  final gap = keyboard > 0 ? 6.0 : 23.0;
-  expect(rect.left, closeTo(gap, .01));
-  expect(rect.right, closeTo(390 - gap, .01));
-  expect(
-    footRadius(tester, sheet),
-    closeTo(keyboard > 0 ? 24 : _floatedRadius, .01),
-  );
-  expect(
-    844 - keyboard - rect.bottom,
-    closeTo(
-      keyboard > 0 ? 6 : const DMobileDockGeometry(foot: _foot).endLift,
-      .01,
-    ),
-  );
-}
-
-/// A docked sheet spans the screen and its foot corners are square.
-void expectDocked(WidgetTester tester, Finder sheet) {
+void expectAtViewportFoot(
+  WidgetTester tester,
+  Finder sheet, {
+  double keyboard = 0,
+}) {
   final rect = tester.getRect(sheet);
   expect(rect.left, 0);
   expect(rect.right, 390);
-  expect(footRadius(tester, sheet), 0);
+  expect(footRadius(tester, sheet), keyboard > 0 ? 0 : 55);
+  expect(rect.bottom, closeTo(844 - keyboard, .01));
+}
+
+void expectFullWidth(WidgetTester tester, Finder sheet) {
+  final rect = tester.getRect(sheet);
+  expect(rect.left, 0);
+  expect(rect.right, 390);
+  expect(footRadius(tester, sheet), 55);
 }
 
 void main() {
@@ -189,7 +167,7 @@ void main() {
           tester.getTopLeft(sheet).dy,
           greaterThanOrEqualTo(844 * .45 - 1),
         );
-        expect(footRadius(tester, sheet), 0);
+        expect(footRadius(tester, sheet), 55);
         expect(tester.getRect(sheet).left, 0);
       }
     }
@@ -198,7 +176,7 @@ void main() {
   });
 
   testWidgets(
-    'legacy bridge waits for keyboard before raising and resizing while floating',
+    'legacy bridge waits for keyboard before raising and resizing at the viewport foot',
     (tester) async {
       const channel = MethodChannel('org.discourse.native/keyboard');
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -220,7 +198,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(
         footRadius(tester, sheet),
-        0,
+        55,
         reason: 'focus is not keyboard completion',
       );
       for (final inset in [100.0, 200.0, 300.0]) {
@@ -235,7 +213,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(
         footRadius(tester, sheet),
-        0,
+        55,
         reason: 'native completion takes precedence over a timeout',
       );
       await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
@@ -252,28 +230,19 @@ void main() {
       for (var frame = 0; frame < 4; frame++) {
         await tester.pump(const Duration(milliseconds: 32));
         final current = tester.getRect(sheet);
-        final progress = (opened.top - current.top) / (opened.top - 55);
-        final gap = (23 - 17 * progress) * progress;
-        expect(current.left, closeTo(gap, .01));
-        expect(current.right, closeTo(390 - gap, .01));
+        expect(current.left, 0);
+        expect(current.right, 390);
         expect(current.top, inExclusiveRange(55, previous.top));
         expect(current.height, lessThan(previous.height));
         expect(scroll.offset, 0, reason: 'focus keeps the list at its place');
-        expect(
-          footRadius(tester, sheet),
-          closeTo(
-            keyboardFootRadius((opened.top - current.top) / (opened.top - 55)),
-            .01,
-          ),
-          reason: 'floating and position share the same animation progress',
-        );
+        expect(footRadius(tester, sheet), 0);
         previous = current;
       }
       await tester.pump(const Duration(milliseconds: 153));
       final placed = tester.getRect(sheet);
-      expectFloating(tester, sheet, keyboard: 300);
+      expectAtViewportFoot(tester, sheet, keyboard: 300);
       expect(placed.top, closeTo(55, 1));
-      expect(placed.bottom, closeTo(538, 1));
+      expect(placed.bottom, closeTo(544, 1));
       expect(scroll.offset, 0);
       await tester.pumpAndSettle();
       expect(tester.getRect(sheet), placed);
@@ -333,13 +302,9 @@ void main() {
                 ? 1 - (1 + 4 * t) * math.exp(-4 * t)
                 : t;
             final rect = tester.getRect(sheet);
-            final gap = (23 - 17 * p) * p;
-            expect(rect.left, closeTo(gap, .1));
-            expect(rect.right, closeTo(390 - gap, .1));
-            expect(
-              footRadius(tester, sheet),
-              closeTo(keyboardFootRadius(p), .1),
-            );
+            expect(rect.left, 0);
+            expect(rect.right, 390);
+            expect(footRadius(tester, sheet), 0);
             expect(rect.top, closeTo(opened.top + (55 - opened.top) * p, .2));
             expect(scroll.offset, 0);
           }
@@ -347,26 +312,26 @@ void main() {
           await tester.pump(const Duration(milliseconds: 201));
           final shown = tester.getRect(sheet);
           expect(shown.top, closeTo(55, 1));
-          expectFloating(tester, sheet, keyboard: 300);
-          expect(shown.bottom, closeTo(538, 1));
+          expectAtViewportFoot(tester, sheet, keyboard: 300);
+          expect(shown.bottom, closeTo(544, 1));
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet), shown);
           await sendKeyboardFrame(tester, inset: 360, milliseconds: 200);
           await tester.pump();
           expect(tester.getRect(sheet), shown);
           await tester.pump(const Duration(milliseconds: 50));
-          expect(tester.getRect(sheet).bottom, closeTo(523, 1));
+          expect(tester.getRect(sheet).bottom, closeTo(529, 1));
           await tester.pump(const Duration(milliseconds: 151));
-          expect(tester.getRect(sheet).bottom, closeTo(478, 1));
+          expect(tester.getRect(sheet).bottom, closeTo(484, 1));
           await sendKeyboardFrame(tester, inset: 0, milliseconds: 300);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 150));
-          expect(footRadius(tester, sheet), greaterThan(0));
-          expect(tester.getRect(sheet).bottom, inExclusiveRange(478, 821));
+          expect(footRadius(tester, sheet), 0);
+          expect(tester.getRect(sheet).bottom, inExclusiveRange(484, 844));
           await tester.pump(const Duration(milliseconds: 151));
           final hidden = tester.getRect(sheet);
-          expect(hidden.bottom, closeTo(821, 1));
-          expectFloating(tester, sheet);
+          expect(hidden.bottom, closeTo(844, 1));
+          expectAtViewportFoot(tester, sheet);
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet), hidden);
@@ -400,7 +365,7 @@ void main() {
       scroll: scroll,
       sizeToContent: false,
     );
-    expect(tester.getRect(find.byType(DSheetContent)).bottom, closeTo(538, 1));
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, closeTo(544, 1));
     expect(tester.takeException(), isNull);
   });
 
@@ -451,7 +416,7 @@ void main() {
       await tester.tap(find.text('Close child'));
       await tester.pumpAndSettle();
       await closed;
-      expectFloating(tester, sheet);
+      expectAtViewportFoot(tester, sheet);
       expect(tester.takeException(), isNull);
     },
   );
@@ -482,14 +447,14 @@ void main() {
       await sendKeyboardFrame(tester);
       await tester.pumpAndSettle();
       final shown = tester.getRect(find.byType(DSheetContent));
-      expect(shown.bottom, closeTo(538, 1));
+      expect(shown.bottom, closeTo(544, 1));
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.getRect(find.byType(DSheetContent)), shown);
       await sendKeyboardFrame(tester, inset: 0);
       await tester.pumpAndSettle();
       expect(
         tester.getRect(find.byType(DSheetContent)).bottom,
-        closeTo(821, 1),
+        closeTo(844, 1),
       );
       expect(tester.takeException(), isNull);
     },
@@ -533,7 +498,7 @@ void main() {
     for (final sizeToContent in [true, false]) {
       for (final origin in ['handle', 'content']) {
         testWidgets(
-          'upward $origin pull floats with expansion on $platform (content: $sizeToContent)',
+          'upward $origin pull keeps full width with expansion on $platform (content: $sizeToContent)',
           (tester) async {
             final scroll = ScrollController();
             addTearDown(scroll.dispose);
@@ -544,20 +509,12 @@ void main() {
               sizeToContent: sizeToContent,
             );
             final sheet = find.byType(DSheetContent);
-            final opened = tester.getRect(sheet);
             void expectProgress() {
               final current = tester.getRect(sheet);
-              final progress = (opened.top - current.top) / (opened.top - 55);
-              expect(current.left, closeTo(23 * progress, .01));
-              expect(current.right, closeTo(390 - 23 * progress, .01));
-              expect(
-                current.bottom,
-                closeTo(opened.bottom + (821 - opened.bottom) * progress, .01),
-              );
-              expect(
-                footRadius(tester, sheet),
-                closeTo(_floatedRadius * progress, .01),
-              );
+              expect(current.left, 0);
+              expect(current.right, 390);
+              expect(current.bottom, greaterThanOrEqualTo(844));
+              expect(footRadius(tester, sheet), 55);
               expect(
                 scroll.offset,
                 0,
@@ -577,10 +534,7 @@ void main() {
             for (var step = 0; step < 5; step++) {
               await drag.moveBy(const Offset(0, -35));
               await tester.pump(const Duration(milliseconds: 16));
-              expect(
-                footRadius(tester, sheet),
-                inExclusiveRange(0, _floatedRadius),
-              );
+              expect(footRadius(tester, sheet), 55);
               expectProgress();
             }
             await drag.up();
@@ -590,10 +544,7 @@ void main() {
               expectProgress();
             }
             await tester.pumpAndSettle();
-            expect(
-              tester.getRect(sheet),
-              const Rect.fromLTRB(23, 55, 367, 821),
-            );
+            expect(tester.getRect(sheet), const Rect.fromLTRB(0, 55, 390, 844));
             expect(scroll.offset, 0);
             expect(tester.takeException(), isNull);
           },
@@ -601,7 +552,7 @@ void main() {
       }
 
       testWidgets(
-        'cancelled expansion restores its spacing on $platform (content: $sizeToContent)',
+        'cancelled expansion restores its height on $platform (content: $sizeToContent)',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -619,20 +570,20 @@ void main() {
           await drag.moveBy(const Offset(0, -40));
           await drag.moveBy(const Offset(0, -100));
           await tester.pump();
-          final pulled = footRadius(tester, sheet);
-          expect(pulled, inExclusiveRange(0, _floatedRadius));
+          final pulled = tester.getRect(sheet).top;
+          expect(pulled, lessThan(opened.top));
+          expectFullWidth(tester, sheet);
           await drag.moveBy(const Offset(0, 35));
           await tester.pump();
-          expect(footRadius(tester, sheet), inExclusiveRange(0, pulled));
+          expect(tester.getRect(sheet).top, greaterThan(pulled));
+          expectFullWidth(tester, sheet);
           await drag.cancel();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 80));
           final restoring = tester.getRect(sheet);
-          expect(footRadius(tester, sheet), inExclusiveRange(0, pulled));
-          expect(
-            floatProgress(tester, sheet),
-            closeTo((opened.top - restoring.top) / (opened.top - 55), .01),
-          );
+          expect(tester.getRect(sheet).top, greaterThan(pulled));
+          expectFullWidth(tester, sheet);
+          expect(restoring.top, inExclusiveRange(pulled, opened.top));
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet), opened);
           expect(scroll.offset, 0);
@@ -738,7 +689,7 @@ void main() {
     });
 
     testWidgets(
-      'short async results float the sheet through later loading on $platform',
+      'short async results keep the viewport foot through later loading on $platform',
       (tester) async {
         final scroll = ScrollController();
         final counts = ValueNotifier(0);
@@ -755,30 +706,27 @@ void main() {
           sizeToContent: false,
         );
         final sheet = find.byType(DSheetContent);
-        expectDocked(tester, sheet);
+        expectFullWidth(tester, sheet);
         counts.value = 2;
         loading.value = false;
-        var animated = false;
         for (var frame = 0; frame < 24; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
-          final radius = footRadius(tester, sheet);
-          animated |= radius > 0 && radius < _floatedRadius;
+          expectAtViewportFoot(tester, sheet);
         }
-        expect(animated, isTrue);
         await tester.pumpAndSettle();
-        expectFloating(tester, sheet);
+        expectAtViewportFoot(tester, sheet);
         loading.value = true;
         counts.value = 60;
         await tester.pumpAndSettle();
-        expectFloating(tester, sheet);
+        expectAtViewportFoot(tester, sheet);
         loading.value = false;
         await tester.pumpAndSettle();
-        expectFloating(tester, sheet);
+        expectAtViewportFoot(tester, sheet);
         await tester.tapAt(const Offset(8, 20));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Open filters'));
         await tester.pumpAndSettle();
-        expectDocked(tester, sheet);
+        expectFullWidth(tester, sheet);
         expect(tester.takeException(), isNull);
       },
     );
@@ -804,14 +752,14 @@ void main() {
         );
         final sheet = find.byType(DSheetContent);
         expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
-        expectDocked(tester, sheet);
+        expectFullWidth(tester, sheet);
         counts.value = 60;
         loading.value = false;
         for (var frame = 0; frame < 20; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
           expect(sheet, findsOneWidget);
           expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
-          expectDocked(tester, sheet);
+          expectFullWidth(tester, sheet);
         }
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet).height, closeTo(844 * .55, 1));
@@ -846,7 +794,7 @@ void main() {
         counts.value = 2;
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet).top, closeTo(55, 1));
-        expect(tester.getRect(sheet).bottom, closeTo(821, 1));
+        expect(tester.getRect(sheet).bottom, closeTo(844, 1));
         await tester.tap(find.byType(EditableText));
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pump();
@@ -854,7 +802,7 @@ void main() {
         await tester.pumpAndSettle();
         final keyboard = tester.getRect(sheet);
         expect(keyboard.top, closeTo(55, 1));
-        expect(keyboard.bottom, closeTo(538, 1));
+        expect(keyboard.bottom, closeTo(544, 1));
         counts.value = 0;
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet), keyboard);
@@ -1034,7 +982,7 @@ void main() {
 
     for (final reduced in [false, true]) {
       testWidgets(
-        'expanded menu keeps floating while scrolling on $platform (reduced: $reduced)',
+        'expanded menu keeps its viewport footprint while scrolling on $platform (reduced: $reduced)',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -1051,8 +999,8 @@ void main() {
           expect(opened.top, closeTo(844 * .45, 1));
           expect(
             tester.getRect(find.byType(ListView)).bottom,
-            closeTo(opened.bottom - 10, .1),
-            reason: 'the scroll viewport extends through the bottom safe area',
+            closeTo(opened.bottom - 44, .1),
+            reason: 'the sheet keeps safe-area padding below its content',
           );
           expect(
             tester
@@ -1064,20 +1012,20 @@ void main() {
           await expand(tester);
           final expanded = tester.getRect(sheet);
           expect(expanded.top, closeTo(55, 1));
-          expectFloating(tester, sheet);
+          expectAtViewportFoot(tester, sheet);
           scroll.jumpTo(scroll.position.maxScrollExtent);
           await tester.pump();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
-          expectFloating(tester, sheet);
+          expectAtViewportFoot(tester, sheet);
           await tester.pumpAndSettle();
-          final floating = tester.getRect(sheet);
-          expectFloating(tester, sheet);
-          expect(floating.bottom, closeTo(821, 1));
-          expect(floating.top, closeTo(expanded.top, 1));
+          final scrolled = tester.getRect(sheet);
+          expectAtViewportFoot(tester, sheet);
+          expect(scrolled.bottom, closeTo(844, 1));
+          expect(scrolled.top, closeTo(expanded.top, 1));
           expect(scroll.position.extentAfter, closeTo(0, 1));
           await tester.pump(const Duration(seconds: 1));
-          expect(tester.getRect(sheet), floating);
+          expect(tester.getRect(sheet), scrolled);
           final reverse = await tester.startGesture(
             tester.getCenter(find.byType(ListView)),
           );
@@ -1105,51 +1053,52 @@ void main() {
           );
           await reverse.up();
           await tester.pumpAndSettle();
-          expectFloating(tester, sheet);
+          expectAtViewportFoot(tester, sheet);
           scroll.jumpTo(scroll.offset - 200);
           await tester.pumpAndSettle();
-          expectFloating(tester, sheet);
+          expectAtViewportFoot(tester, sheet);
           await tester.tapAt(const Offset(8, 20));
           await tester.pumpAndSettle();
           expect(sheet, findsNothing);
           await tester.tap(find.text('Open filters'));
           await tester.pumpAndSettle();
-          expectDocked(tester, sheet);
+          expectFullWidth(tester, sheet);
           expect(tester.takeException(), isNull);
         },
       );
     }
 
-    testWidgets('short content and the system keyboard float on $platform', (
-      tester,
-    ) async {
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
-      await openMenu(tester, platform: platform, scroll: scroll, count: 2);
-      final sheet = find.byType(DSheetContent);
-      expectFloating(tester, sheet);
-      expect(tester.getRect(sheet).bottom, closeTo(821, 1));
-      await tester.tapAt(const Offset(10, 60));
-      await tester.pumpAndSettle();
-      expect(sheet, findsNothing);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await openMenu(tester, platform: platform, scroll: scroll);
-      expectDocked(tester, sheet);
-      await tester.tap(find.byType(EditableText));
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
-      expectFloating(tester, sheet, keyboard: 300);
-      expect(tester.getRect(sheet).bottom, closeTo(538, 1));
-      expect(tester.getRect(sheet).top, closeTo(55, 1));
-      tester.view.viewInsets = FakeViewPadding.zero;
-      await tester.pumpAndSettle();
-      expectFloating(tester, sheet);
-      expect(tester.getRect(sheet).bottom, closeTo(821, 1));
-      expect(tester.getRect(sheet).top, closeTo(55, 1));
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'short content and the system keyboard reach the viewport foot on $platform',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openMenu(tester, platform: platform, scroll: scroll, count: 2);
+        final sheet = find.byType(DSheetContent);
+        expectAtViewportFoot(tester, sheet);
+        expect(tester.getRect(sheet).bottom, closeTo(844, 1));
+        await tester.tapAt(const Offset(10, 60));
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await openMenu(tester, platform: platform, scroll: scroll);
+        expectFullWidth(tester, sheet);
+        await tester.tap(find.byType(EditableText));
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expectAtViewportFoot(tester, sheet, keyboard: 300);
+        expect(tester.getRect(sheet).bottom, closeTo(544, 1));
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expectAtViewportFoot(tester, sheet);
+        expect(tester.getRect(sheet).bottom, closeTo(844, 1));
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('expansion leaves scrolling to the next gesture on $platform', (
       tester,
@@ -1173,7 +1122,7 @@ void main() {
       await drag.up();
       await tester.pumpAndSettle();
       expect(scroll.offset, 0);
-      expectFloating(tester, sheet);
+      expectAtViewportFoot(tester, sheet);
       await tester.fling(find.byType(ListView), const Offset(0, -120), 1800);
       await tester.pump();
       final released = scroll.offset;
@@ -1198,7 +1147,7 @@ void main() {
     });
     for (final reduced in [false, true]) {
       testWidgets(
-        'handle expansion floats and a downward pull dismisses on $platform (reduced: $reduced)',
+        'handle expansion keeps full width and a downward pull dismisses on $platform (reduced: $reduced)',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -1218,28 +1167,17 @@ void main() {
             if (!reduced) {
               await tester.pump(const Duration(milliseconds: 64));
               final moving = tester.getRect(sheet);
-              expect(
-                footRadius(tester, sheet),
-                inExclusiveRange(0, _floatedRadius),
-              );
-              expect(
-                floatProgress(tester, sheet),
-                closeTo((opened.top - moving.top) / (opened.top - 55), .01),
-              );
+              expect(footRadius(tester, sheet), 55);
+              expect(moving.top, inExclusiveRange(55, opened.top));
             }
-            expect(
-              footRadius(tester, sheet),
-              reduced
-                  ? closeTo(_floatedRadius, .01)
-                  : inExclusiveRange(0, _floatedRadius),
-            );
+            expectFullWidth(tester, sheet);
             await tester.pumpAndSettle();
             expect(
               tester.getRect(find.byType(DSheetContent)).top,
               closeTo(55, 1),
             );
-            expectFloating(tester, sheet);
-            expect(tester.getRect(sheet).bottom, 821);
+            expectAtViewportFoot(tester, sheet);
+            expect(tester.getRect(sheet).bottom, 844);
             expect(find.bySemanticsLabel('Collapse'), findsNothing);
             await tester.timedDrag(
               find.byKey(const ValueKey('sheet-drag-handle')),

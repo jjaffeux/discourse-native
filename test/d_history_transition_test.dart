@@ -966,6 +966,8 @@ void main() {
     testWidgets('tab fades preserve all four corners throughout $direction', (
       tester,
     ) async {
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetViewPadding);
       final state = await _pump(
         tester,
         direction: direction,
