@@ -288,7 +288,7 @@ void main() {
           tester
               .widget<DButton>(find.byKey(const ValueKey('emoji-picker-close')))
               .variant,
-          DButtonVariant.ghost,
+          DButtonVariant.quiet,
         );
 
         expect(
@@ -297,14 +297,14 @@ void main() {
         );
         expect(tester.getSize(sheet).height, greaterThan(700));
         expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-        expect(tester.getTopLeft(sheet).dx, DSpacing.md);
+        expect(tester.getTopLeft(sheet).dx, 0);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
         expect(tester.testTextInput.isVisible, isTrue);
 
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();
         expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-        expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
+        expect(tester.getBottomLeft(sheet).dy, 543);
         expect(tester.getBottomLeft(navigation).dy, lessThan(544));
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
         expect(tester.takeException(), isNull);

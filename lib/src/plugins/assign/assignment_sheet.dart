@@ -561,7 +561,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       key: const Key('assignment-close'),
       onPressed: _saving ? null : widget.onCancel,
       icon: const DIcon(DIcons.xmark),
-      variant: DButtonVariant.ghost,
+      variant: DButtonVariant.quiet,
       size: DControlSize.small,
       tooltip: context.l10n.close,
       semanticLabel: context.l10n.closeAssignment,

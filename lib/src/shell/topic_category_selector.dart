@@ -270,8 +270,11 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         width: 320,
         children: [
           Padding(
-            padding: const EdgeInsets.all(4),
+            padding: DInsets.menu,
             child: DComboboxInput<int>(
+              size: context.isTouch
+                  ? DControlSize.filter
+                  : DControlSize.regular,
               key: ValueKey('$prefix-query'),
               placeholder: context.l10n.filterTopiccategoryselector(
                 (noun).toString(),

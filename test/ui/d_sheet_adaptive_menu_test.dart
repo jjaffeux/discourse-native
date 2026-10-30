@@ -124,7 +124,7 @@ void expectAtViewportFoot(
   expect(rect.left, 0);
   expect(rect.right, 390);
   expect(footRadius(tester, sheet), keyboard > 0 ? 22 : 55);
-  expect(rect.bottom, closeTo(844 - keyboard, .01));
+  expect(rect.bottom, closeTo(844 - keyboard - (keyboard > 0 ? 1 : 0), .01));
 }
 
 void expectFullWidth(WidgetTester tester, Finder sheet) {
@@ -242,7 +242,7 @@ void main() {
       final placed = tester.getRect(sheet);
       expectAtViewportFoot(tester, sheet, keyboard: 300);
       expect(placed.top, closeTo(55, 1));
-      expect(placed.bottom, closeTo(544, 1));
+      expect(placed.bottom, closeTo(543, 1));
       expect(scroll.offset, 0);
       await tester.pumpAndSettle();
       expect(tester.getRect(sheet), placed);
@@ -252,7 +252,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 70));
       expect(footRadius(tester, sheet), inExclusiveRange(22, 55));
-      expect(tester.getRect(sheet).bottom, inExclusiveRange(544, 844));
+      expect(tester.getRect(sheet).bottom, inExclusiveRange(543, 844));
       await tester.pumpAndSettle();
       expectAtViewportFoot(tester, sheet);
     },
@@ -320,21 +320,21 @@ void main() {
           final shown = tester.getRect(sheet);
           expect(shown.top, closeTo(55, 1));
           expectAtViewportFoot(tester, sheet, keyboard: 300);
-          expect(shown.bottom, closeTo(544, 1));
+          expect(shown.bottom, closeTo(543, 1));
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet), shown);
           await sendKeyboardFrame(tester, inset: 360, milliseconds: 200);
           await tester.pump();
           expect(tester.getRect(sheet), shown);
           await tester.pump(const Duration(milliseconds: 50));
-          expect(tester.getRect(sheet).bottom, closeTo(529, 1));
+          expect(tester.getRect(sheet).bottom, closeTo(528, 1));
           await tester.pump(const Duration(milliseconds: 151));
-          expect(tester.getRect(sheet).bottom, closeTo(484, 1));
+          expect(tester.getRect(sheet).bottom, closeTo(483, 1));
           await sendKeyboardFrame(tester, inset: 0, milliseconds: 300);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 150));
           expect(footRadius(tester, sheet), closeTo(38.5, .1));
-          expect(tester.getRect(sheet).bottom, inExclusiveRange(484, 844));
+          expect(tester.getRect(sheet).bottom, inExclusiveRange(483, 844));
           await tester.pump(const Duration(milliseconds: 151));
           final hidden = tester.getRect(sheet);
           expect(hidden.bottom, closeTo(844, 1));
@@ -372,7 +372,7 @@ void main() {
       scroll: scroll,
       sizeToContent: false,
     );
-    expect(tester.getRect(find.byType(DSheetContent)).bottom, closeTo(544, 1));
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, closeTo(543, 1));
     expect(tester.takeException(), isNull);
   });
 
@@ -454,7 +454,7 @@ void main() {
       await sendKeyboardFrame(tester);
       await tester.pumpAndSettle();
       final shown = tester.getRect(find.byType(DSheetContent));
-      expect(shown.bottom, closeTo(544, 1));
+      expect(shown.bottom, closeTo(543, 1));
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.getRect(find.byType(DSheetContent)), shown);
       await sendKeyboardFrame(tester, inset: 0);
@@ -809,7 +809,7 @@ void main() {
         await tester.pumpAndSettle();
         final keyboard = tester.getRect(sheet);
         expect(keyboard.top, closeTo(55, 1));
-        expect(keyboard.bottom, closeTo(544, 1));
+        expect(keyboard.bottom, closeTo(543, 1));
         counts.value = 0;
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet), keyboard);
@@ -1096,7 +1096,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         expectAtViewportFoot(tester, sheet, keyboard: 300);
-        expect(tester.getRect(sheet).bottom, closeTo(544, 1));
+        expect(tester.getRect(sheet).bottom, closeTo(543, 1));
         expect(tester.getRect(sheet).top, closeTo(55, 1));
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();

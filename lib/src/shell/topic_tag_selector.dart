@@ -277,8 +277,9 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       width: 280,
       children: [
         Padding(
-          padding: const EdgeInsets.all(4),
+          padding: DInsets.menu,
           child: DComboboxInput<TopicTag>(
+            size: context.isTouch ? DControlSize.filter : DControlSize.regular,
             key: ValueKey('$prefix-query'),
             placeholder: context.l10n.searchTags,
             semanticLabel: context.l10n.searchTagsTopictagselector,

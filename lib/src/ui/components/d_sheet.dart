@@ -25,6 +25,7 @@ import 'd_page_surface.dart';
 part 'd_sheet_adaptive_menu.dart';
 
 const _sheetMenuCorner = Radius.circular(22);
+const _sheetKeyboardGap = 1.0;
 
 /// Sheet artwork presets. Phone bottom sheets fill the viewport's foot,
 /// with a grab handle and bottom corners matching the display.
@@ -1099,18 +1100,10 @@ Widget _sheetLayout(
     DSheetSide.left => const Offset(-40, 0),
     _ => throw StateError('Sheet side was not resolved.'),
   };
-  final endMenu =
-      inset &&
+  final viewportBottom =
       !extendBehindKeyboard &&
-      variant == DSheetVariant.menu &&
-      side == DSheetSide.bottom;
-  final roundedForm =
-      mobile &&
-      inset &&
-      !extendBehindKeyboard &&
-      variant == DSheetVariant.standard &&
-      side == DSheetSide.bottom;
-  final viewportBottom = endMenu || roundedForm;
+      side == DSheetSide.bottom &&
+      (mobile || inset && variant == DSheetVariant.menu);
   final followsViewport =
       viewportBottom || (mobile && side == DSheetSide.bottom);
   final view = View.of(context);
@@ -1256,6 +1249,7 @@ Widget _sheetLayout(
         return Stack(fit: StackFit.expand, children: [backdrop, popup]);
       }
       final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+      final keyboardFoot = keyboard > 0 ? keyboard + _sheetKeyboardGap : 0.0;
       final margin = viewportBottom
           ? 0.0
           : inset
@@ -1319,20 +1313,19 @@ Widget _sheetLayout(
             ? null
             : margin,
         bottom: viewportBottom
-            ? keyboard
+            ? keyboardFoot
             : fillAvailableHeight
             ? (extendBehindKeyboard
                       ? 0.0
-                      : math.max(
-                          MediaQuery.viewInsetsOf(context).bottom,
-                          safeBottom,
-                        )) +
+                      : math.max(keyboardFoot, safeBottom)) +
                   margin
             : side == DSheetSide.top
             ? null
             : margin + safeBottom,
         width: horizontal ? panelWidth : topBottomWidth,
-        child: variant == DSheetVariant.menu && side == DSheetSide.bottom
+        child:
+            viewportBottom ||
+                variant == DSheetVariant.menu && side == DSheetSide.bottom
             ? ConstrainedBox(
                 constraints: BoxConstraints(
                   maxHeight: math.max(
@@ -1341,7 +1334,7 @@ Widget _sheetLayout(
                         safeTop -
                         DSpacing.sm -
                         safeBottom -
-                        (viewportBottom ? keyboard : 0) -
+                        (viewportBottom ? keyboardFoot : 0) -
                         margin,
                   ),
                 ),
@@ -1357,7 +1350,7 @@ Widget _sheetLayout(
       );
     },
   );
-  return fillAvailableHeight
+  return fillAvailableHeight || viewportBottom
       ? _DSheetKeyboardInsets(
           child: retainKeyboardInsets
               ? _DSheetRetainedKeyboardInsets(child: layout)
@@ -2264,7 +2257,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 }
 
 // Scaffold can consume the opening control's keyboard inset. Observe the view
-// so a full-height sheet still resizes as the keyboard opens and closes, while
+// so a bottom sheet still resizes as the keyboard opens and closes, while
 // preserving the caller's other MediaQuery overrides.
 class _DSheetKeyboardInsets extends StatelessWidget {
   const _DSheetKeyboardInsets({required this.child});
@@ -2461,7 +2454,9 @@ class DSheetContent extends StatelessWidget {
     final parts = <Widget>[if (menu && !overArtwork) handle];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
-      if (index > 0) parts.add(const SizedBox(height: DSpacing.lg));
+      if (index > 0 && children[index - 1] is! DSheetHeader) {
+        parts.add(const SizedBox(height: DSpacing.lg));
+      }
       if (child is DSheetBody && fillsHeight && !scrollWholeSheet) {
         parts.add(Expanded(child: child));
       } else if (child is DSheetBody &&
@@ -2626,7 +2621,7 @@ class DSheetContent extends StatelessWidget {
                       builder: (context, close) => DButton.iconOnly(
                         onPressed: close,
                         size: DButtonSize.small,
-                        variant: DButtonVariant.ghost,
+                        variant: DButtonVariant.quiet,
                         icon: const _DSheetCloseIcon(),
                         tooltip: closeSemanticLabel,
                         semanticLabel: closeSemanticLabel,

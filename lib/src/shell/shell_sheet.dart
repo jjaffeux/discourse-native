@@ -186,7 +186,7 @@ class _SheetBody extends StatelessWidget {
               if (nested)
                 DButton.iconOnly(
                   onPressed: () => DDialogClose.close<void>(context),
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.quiet,
                   tooltip: context.l10n.back,
                   icon: const DIcon(DIcons.arrowLeft),
                 ),
@@ -206,7 +206,7 @@ class _SheetBody extends StatelessWidget {
               if (!nested && !grabbed)
                 DButton.iconOnly(
                   onPressed: () => DDialogClose.close<void>(context),
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.quiet,
                   tooltip: context.l10n.close,
                   icon: const DIcon(DIcons.xmark),
                 ),

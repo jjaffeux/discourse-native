@@ -590,7 +590,7 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
                 widget.mobile &&
                     _sheetKeyboard == null &&
                     media.viewInsets.bottom > 0
-                ? 2
+                ? 1
                 : 0,
           ),
           child: widget.body,

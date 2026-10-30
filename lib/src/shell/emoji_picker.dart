@@ -67,7 +67,7 @@ Future<String?> showEmojiPicker({
                     key: const ValueKey('emoji-picker-close'),
                     icon: const DIcon(DIcons.xmark),
                     tooltip: appL10n.close,
-                    variant: DButtonVariant.ghost,
+                    variant: DButtonVariant.quiet,
                     onPressed: sheet.close,
                   ),
                 ],
@@ -226,7 +226,7 @@ DPopoverContent _desktopPickerContent(
                   DButton.iconOnly(
                     key: const ValueKey('emoji-picker-close'),
                     onPressed: onDismiss,
-                    variant: DButtonVariant.ghost,
+                    variant: DButtonVariant.quiet,
                     tooltip: context.l10n.close,
                     icon: const DIcon(DIcons.xmark),
                   ),

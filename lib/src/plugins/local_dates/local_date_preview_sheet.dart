@@ -52,7 +52,7 @@ class LocalDatePreviewSheet extends StatelessWidget {
                   onPressed: onClose,
                   size: DButtonSize.small,
                   shape: DButtonShape.pill,
-                  variant: DButtonVariant.secondary,
+                  variant: DButtonVariant.quiet,
                   icon: const DIcon(DIcons.xmark),
                   tooltip: l10n.close,
                 ),

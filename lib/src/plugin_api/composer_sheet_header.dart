@@ -30,7 +30,7 @@ class ComposerSheetHeader extends StatelessWidget {
                 onPressed: close,
                 size: DButtonSize.small,
                 shape: DButtonShape.pill,
-                variant: DButtonVariant.secondary,
+                variant: DButtonVariant.quiet,
                 icon: const Icon(Icons.close),
                 tooltip: context.l10n.close,
               ),

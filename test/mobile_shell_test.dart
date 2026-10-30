@@ -2712,6 +2712,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('mobile sheets keep one pixel above the keyboard', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    final page = find.byKey(const ValueKey('mobile-navigation-page'));
+    expect(tester.getRect(page).bottom, phone.height - 280 - 1);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+    expect(tester.getRect(page).bottom, phone.height);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (bottom, keyboard) in [(0.0, 0.0), (34.0, 0.0), (0.0, 280.0)]) {
     _mobileTest(
       'navigation panel consumes bottom safe area once ($bottom, $keyboard)',
@@ -2751,7 +2768,7 @@ void main() {
         );
         expect(page.bottom - account.bottom, lift);
         expect(account.top - panel.bottom, 6);
-        expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 2 : 0));
+        expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 1 : 0));
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
         expect(rail.bottom, panel.bottom);

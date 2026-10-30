@@ -283,7 +283,7 @@ class ComposerHeader extends StatelessWidget {
                   semanticLabel: empty
                       ? context.l10n.closeComposer
                       : context.l10n.composerActions,
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.quiet,
                   size: DButtonSize.large,
                   shape: DButtonShape.pill,
                   focusNode: trigger.focusNode,
@@ -319,7 +319,7 @@ class ComposerHeader extends StatelessWidget {
           key: const ValueKey('composer-return-to-topic'),
           tooltip: context.l10n.returnTo(target.topicTitle.toString()),
           icon: const DIcon(DIcons.arrowLeft),
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.quiet,
           onPressed: () => ShellScope.read(context).openTopicPost(
             siteUrl: target.siteUrl,
             topicId: target.topicId,
@@ -363,7 +363,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: onRestore,
           icon: const DIcon(DIcons.expand),
           tooltip: context.l10n.restoreComposer,
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.quiet,
           size: DButtonSize.toolbar,
         )
       else if (onMinimize case final minimize?)
@@ -372,7 +372,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: minimize,
           icon: ComposerPlacementIcon(placement: placement, minimized: true),
           tooltip: context.l10n.minimizeComposer,
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.quiet,
           size: DButtonSize.toolbar,
         ),
       if (!minimized)
@@ -381,7 +381,7 @@ class ComposerHeader extends StatelessWidget {
           onPressed: onClose,
           icon: const DIcon(DIcons.xmark),
           tooltip: closeTooltip,
-          variant: DButtonVariant.ghost,
+          variant: DButtonVariant.quiet,
           size: DButtonSize.toolbar,
         ),
     ];

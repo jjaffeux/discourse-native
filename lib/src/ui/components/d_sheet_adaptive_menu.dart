@@ -872,6 +872,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardChanged(systemKeyboard);
     }
     final keyboard = _exitKeyboard ?? _keyboardInset;
+    final keyboardFoot =
+        keyboard + _sheetKeyboardGap * _keyboardPlacement.value;
     final safeTop = math.max(
       media.padding.top,
       view.viewPadding.top / view.devicePixelRatio,
@@ -937,7 +939,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
     return LayoutBuilder(
       builder: (context, bounds) {
-        _room = math.max(0, bounds.maxHeight - keyboard);
+        _room = math.max(0, bounds.maxHeight - keyboardFoot);
         final maximum = math.max(0.0, _room - safeTop - 8);
         _fixedLow = math.max(
           0,
@@ -965,7 +967,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: keyboard,
+                  bottom: keyboardFoot,
                   child: Transform.translate(
                     offset: Offset(
                       0,

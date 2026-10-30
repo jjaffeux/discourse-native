@@ -463,7 +463,7 @@ void main() {
               .first;
           expect(MediaQuery.paddingOf(tester.element(safeArea)).bottom, 0);
           expect(corners(), BorderRadius.circular(22));
-          expect(tester.getRect(sheet).bottom, phone.height - 300);
+          expect(tester.getRect(sheet).bottom, phone.height - 300 - 1);
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
           await tester.pump();
@@ -1963,7 +1963,8 @@ void main() {
 
     expect(tester.takeException(), isNull);
     final last = find.text('End of room settings');
-    expect(MediaQuery.viewInsetsOf(tester.element(last)).bottom, 300);
+    expect(MediaQuery.viewInsetsOf(tester.element(last)).bottom, 0);
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, 339);
     final owner = Scrollable.of(tester.element(last), axis: Axis.vertical);
     final viewport = find.byElementPredicate(
       (element) => identical(element, owner.context),
@@ -1989,7 +1990,7 @@ void main() {
     expect(reached.top, greaterThanOrEqualTo(visible.top - 1));
     expect(reached.bottom, lessThanOrEqualTo(visible.bottom + 1));
     expect(reached.bottom, lessThanOrEqualTo(341));
-    expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, 339);
   });
 
   testWidgets(

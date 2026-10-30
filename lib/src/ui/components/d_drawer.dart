@@ -1309,26 +1309,52 @@ class _DDrawerRoutePageState<T> extends State<_DDrawerRoutePage<T>>
     );
   }
 
-  Widget _positionDrawer(DDrawerSwipeDirection direction, Widget child) =>
-      switch (direction) {
-        DDrawerSwipeDirection.down => Align(
-          alignment: Alignment.bottomCenter,
-          child: child,
+  Widget _positionDrawer(DDrawerSwipeDirection direction, Widget child) {
+    if (direction == DDrawerSwipeDirection.down) {
+      final media = MediaQuery.of(context);
+      return MediaQuery.fromView(
+        view: View.of(context),
+        child: Builder(
+          builder: (context) {
+            final keyboard = math.max(
+              media.viewInsets.bottom,
+              MediaQuery.viewInsetsOf(context).bottom,
+            );
+            final aligned = Align(
+              alignment: Alignment.bottomCenter,
+              child: child,
+            );
+            return MediaQuery(
+              data: media.copyWith(
+                viewInsets: media.viewInsets.copyWith(bottom: keyboard),
+              ),
+              child: keyboard > 0
+                  ? Padding(
+                      padding: EdgeInsets.only(bottom: keyboard + 1),
+                      child: ClipRect(child: aligned),
+                    )
+                  : aligned,
+            );
+          },
         ),
-        DDrawerSwipeDirection.up => Align(
-          alignment: Alignment.topCenter,
-          child: child,
-        ),
-        DDrawerSwipeDirection.right => Align(
-          alignment: Alignment.centerRight,
-          child: child,
-        ),
-        DDrawerSwipeDirection.left => Align(
-          alignment: Alignment.centerLeft,
-          child: child,
-        ),
-        _ => child,
-      };
+      );
+    }
+    return switch (direction) {
+      DDrawerSwipeDirection.up => Align(
+        alignment: Alignment.topCenter,
+        child: child,
+      ),
+      DDrawerSwipeDirection.right => Align(
+        alignment: Alignment.centerRight,
+        child: child,
+      ),
+      DDrawerSwipeDirection.left => Align(
+        alignment: Alignment.centerLeft,
+        child: child,
+      ),
+      _ => child,
+    };
+  }
 
   @override
   void dispose() {
