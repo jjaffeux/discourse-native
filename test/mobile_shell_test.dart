@@ -101,7 +101,7 @@ void _expectPageRadius(WidgetTester tester, BorderRadiusGeometry? geometry) =>
       geometry,
       BorderRadius.vertical(
         top: const Radius.circular(31),
-        bottom: Radius.circular(tester.view.viewPadding.bottom > 0 ? 55 : 22),
+        bottom: Radius.circular(tester.view.viewPadding.bottom > 0 ? 55 : 0),
       ),
     );
 
@@ -2098,10 +2098,10 @@ void main() {
     );
     final menuBounds = tester.getRect(menuSheet);
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-    expect(menuBounds.left, 6);
-    expect(menuBounds.right, screen.width - 6);
+    expect(menuBounds.left, 0);
+    expect(menuBounds.right, screen.width);
     expect(menuBounds.top, greaterThan(screen.height / 2));
-    expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
+    expect(menuBounds.bottom, screen.height);
     expect(
       find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
       findsNothing,
@@ -4398,8 +4398,8 @@ void main() {
         );
         expect(clip.tlRadius, const Radius.circular(31));
         expect(clip.trRadius, const Radius.circular(31));
-        expect(clip.blRadius, const Radius.circular(22));
-        expect(clip.brRadius, const Radius.circular(22));
+        expect(clip.blRadius, Radius.zero);
+        expect(clip.brRadius, Radius.zero);
         expect(
           (tester.getRect(panel).left - restingPanel.left) * direction,
           greaterThan(0),

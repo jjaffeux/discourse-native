@@ -126,10 +126,10 @@ void main() {
   ) async {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
       for (final (bottom, radii, expected) in [
-        (0.0, null, 22.0),
+        (0.0, null, 0.0),
         (34.0, null, 55.0),
-        (0.0, BorderRadius.zero, 22.0),
-        (34.0, BorderRadius.zero, 22.0),
+        (0.0, BorderRadius.zero, 0.0),
+        (34.0, BorderRadius.zero, 0.0),
         (0.0, BorderRadius.circular(62), 62.0),
         (34.0, BorderRadius.circular(62), 62.0),
       ]) {
@@ -177,32 +177,21 @@ void main() {
     );
   });
 
-  for (final (foot, display, gap, bottomCorners) in [
-    (
-      34.0,
-      null,
-      23.0,
-      const BorderRadius.vertical(bottom: Radius.circular(32)),
-    ),
-    (0.0, null, 6.0, const BorderRadius.vertical(bottom: Radius.circular(24))),
+  for (final (foot, display, bottomCorners) in [
+    (34.0, null, const BorderRadius.vertical(bottom: Radius.circular(55))),
+    (0.0, null, BorderRadius.zero),
     (
       34.0,
       const BorderRadius.only(
         bottomLeft: Radius.circular(62),
         bottomRight: Radius.circular(48),
       ),
-      23.0,
       const BorderRadius.only(
-        bottomLeft: Radius.circular(39),
-        bottomRight: Radius.circular(25),
+        bottomLeft: Radius.circular(62),
+        bottomRight: Radius.circular(48),
       ),
     ),
-    (
-      34.0,
-      BorderRadius.zero,
-      23.0,
-      const BorderRadius.vertical(bottom: Radius.circular(24)),
-    ),
+    (34.0, BorderRadius.zero, BorderRadius.zero),
   ]) {
     testWidgets('a menu follows the screen inset ($foot, $display)', (
       tester,
@@ -235,9 +224,9 @@ void main() {
       await tester.pumpAndSettle();
       final sheet = find.byType(DSheetContent);
       final bounds = tester.getRect(sheet);
-      expect(bounds.left, gap);
-      expect(bounds.right, 390 - gap);
-      expect(bounds.bottom, 844 - gap);
+      expect(bounds.left, 0);
+      expect(bounds.right, 390);
+      expect(bounds.bottom, 844);
       final surface = tester.widget<Material>(
         find.descendant(of: sheet, matching: find.byType(Material)).first,
       );
@@ -413,12 +402,12 @@ void main() {
             .borderRadius;
         const restingCorners = BorderRadius.vertical(
           top: Radius.circular(22),
-          bottom: Radius.circular(32),
+          bottom: Radius.circular(55),
         );
         expect(corners(), restingCorners);
-        expect(tester.getRect(sheet).left, 23);
-        expect(tester.getRect(sheet).right, phone.width - 23);
-        expect(tester.getRect(sheet).bottom, phone.height - 23);
+        expect(tester.getRect(sheet).left, 0);
+        expect(tester.getRect(sheet).right, phone.width);
+        expect(tester.getRect(sheet).bottom, phone.height);
         expect(
           MediaQuery.paddingOf(tester.element(find.text('Body'))).bottom,
           0,
@@ -433,17 +422,14 @@ void main() {
           expect(MediaQuery.paddingOf(tester.element(safeArea)).bottom, 0);
           expect(
             corners(),
-            const BorderRadius.vertical(
-              top: Radius.circular(22),
-              bottom: Radius.circular(24),
-            ),
+            const BorderRadius.vertical(top: Radius.circular(22)),
           );
-          expect(tester.getRect(sheet).bottom, phone.height - 300 - 6);
+          expect(tester.getRect(sheet).bottom, phone.height - 300);
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
           await tester.pumpAndSettle();
           expect(corners(), restingCorners);
-          expect(tester.getRect(sheet).bottom, phone.height - 23);
+          expect(tester.getRect(sheet).bottom, phone.height);
         }
         expect(tester.takeException(), isNull);
       });
@@ -1235,79 +1221,132 @@ void main() {
     });
   }
 
-  testWidgets('under-keyboard sheet retains its full height and live insets', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
-    tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetViewPadding);
-    addTearDown(tester.view.resetPadding);
-    addTearDown(tester.view.resetViewInsets);
-    final focus = FocusNode();
-    addTearDown(focus.dispose);
-    const editorKey = ValueKey('sheet-editor');
-    DSheetContent content() => DSheetContent(
-      side: DSheetSide.bottom,
-      fillAvailableHeight: true,
-      extendBehindKeyboard: true,
-      scrollWholeSheet: false,
-      children: [
-        Expanded(
-          child: DInput(
-            key: editorKey,
-            focusNode: focus,
-            borderless: true,
-            maxLines: null,
-            expands: true,
-          ),
+  testWidgets(
+    'plain phone bottom sheet uses viewport corners without changing its top',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _host(
+          _sheet<void>(side: DSheetSide.bottom),
+          size: const Size(390, 844),
+          theme: ThemeData(platform: TargetPlatform.iOS),
         ),
-      ],
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DSheet<void>(
-            initialFocusNode: focus,
-            trigger: DSheetTrigger(
-              builder: (_, open) =>
-                  DButton(label: const Text('Open'), onPressed: open),
-            ),
-            content: content(),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    final editable = find.descendant(
-      of: find.byKey(editorKey),
-      matching: find.byType(EditableText),
-    );
-    await tester.enterText(editable, 'Retained draft');
-    final state = tester.state(editable);
-    for (final inset in [336.0, 210.0, 0.0]) {
-      tester.view.viewInsets = FakeViewPadding(bottom: inset);
-      tester.view.padding = FakeViewPadding(
-        top: 59,
-        bottom: inset == 0 ? 34 : 0,
       );
+      await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
-      final sheet = tester.getRect(find.byType(DSheetContent));
-      expect(sheet, const Rect.fromLTRB(0, 59 + DSpacing.sm, 390, 844));
-      expect(tester.getRect(find.byKey(editorKey)).bottom, 844);
-      expect(MediaQuery.viewInsetsOf(tester.element(editable)).bottom, inset);
-      expect(tester.state(editable), same(state));
-      expect(find.text('Retained draft'), findsOneWidget);
-      expect(focus.hasFocus, isTrue);
-    }
-    await tester.tap(find.byTooltip('Close'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
+      final sheet = find.byType(DSheetContent);
+      expect(tester.getRect(sheet).left, 0);
+      expect(tester.getRect(sheet).right, 390);
+      expect(tester.getRect(sheet).bottom, 844);
+      final material = tester.widget<Material>(
+        find.descendant(of: sheet, matching: find.byType(Material)).first,
+      );
+      expect(
+        material.borderRadius,
+        const BorderRadius.vertical(bottom: Radius.circular(55)),
+      );
+    },
+  );
+
+  for (final variant in [DSheetVariant.standard, DSheetVariant.menu]) {
+    testWidgets(
+      'under-keyboard $variant sheet retains its full height and live insets',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewPadding);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewInsets);
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        const editorKey = ValueKey('sheet-editor');
+        DSheetContent content() => DSheetContent(
+          side: DSheetSide.bottom,
+          variant: variant,
+          fillAvailableHeight: true,
+          extendBehindKeyboard: true,
+          scrollWholeSheet: false,
+          children: [
+            Expanded(
+              child: DInput(
+                key: editorKey,
+                focusNode: focus,
+                borderless: true,
+                maxLines: null,
+                expands: true,
+              ),
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              body: DSheet<void>(
+                initialFocusNode: focus,
+                trigger: DSheetTrigger(
+                  builder: (_, open) =>
+                      DButton(label: const Text('Open'), onPressed: open),
+                ),
+                content: content(),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: find.byKey(editorKey),
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(editable, 'Retained draft');
+        final state = tester.state(editable);
+        for (final inset in [336.0, 210.0, 0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          tester.view.padding = FakeViewPadding(
+            top: 59,
+            bottom: inset == 0 ? 34 : 0,
+          );
+          await tester.pumpAndSettle();
+          final sheet = tester.getRect(find.byType(DSheetContent));
+          expect(sheet, const Rect.fromLTRB(0, 59 + DSpacing.sm, 390, 844));
+          final material = tester.widget<Material>(
+            find
+                .descendant(
+                  of: find.byType(DSheetContent),
+                  matching: find.byType(Material),
+                )
+                .first,
+          );
+          expect(
+            material.borderRadius,
+            BorderRadius.vertical(
+              top: Radius.circular(variant == DSheetVariant.menu ? 22 : 28),
+              bottom: const Radius.circular(55),
+            ),
+          );
+          expect(tester.getRect(find.byKey(editorKey)).bottom, 844);
+          expect(
+            MediaQuery.viewInsetsOf(tester.element(editable)).bottom,
+            inset,
+          );
+          expect(tester.state(editable), same(state));
+          expect(find.text('Retained draft'), findsOneWidget);
+          expect(focus.hasFocus, isTrue);
+        }
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final reducedMotion in [false, true]) {
     for (final brightness in Brightness.values) {
@@ -1853,10 +1892,7 @@ void main() {
               .first,
         )
         .borderRadius;
-    const round = BorderRadius.vertical(
-      top: Radius.circular(31),
-      bottom: Radius.circular(22),
-    );
+    const round = BorderRadius.vertical(top: Radius.circular(31));
     final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
 
     testWidgets('keeps rounded corners and hides its grabber beneath a band', (
