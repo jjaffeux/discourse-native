@@ -1667,6 +1667,7 @@ class _DSheetDragHandleState extends State<_DSheetDragHandle> {
     final page = widget.swipe?.widget.page ?? true;
     final enabled = widget.swipe != null;
     return Listener(
+      behavior: HitTestBehavior.translucent,
       onPointerDown: _claim,
       onPointerPanZoomStart: page ? _claim : null,
       onPointerMove: widget.external
@@ -1679,7 +1680,7 @@ class _DSheetDragHandleState extends State<_DSheetDragHandle> {
           : null,
       onPointerPanZoomEnd: _release,
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+        behavior: HitTestBehavior.translucent,
         // Dragging the header is a pointer shortcut for the sheet's own back
         // action. As semantics it would add scroll actions to whatever the
         // header shows, such as the forum's logo.
