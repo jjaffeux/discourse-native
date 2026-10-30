@@ -244,6 +244,47 @@ void main() {
 
   group('a panel', () {
     for (final brightness in Brightness.values) {
+      testWidgets('keeps its rim over opaque content ($brightness)', (
+        tester,
+      ) async {
+        const fill = Color(0xff404040);
+        const outline = Color(0xffb08060);
+        for (final bordered in [false, true]) {
+          final shot = await _capture(
+            tester,
+            brightness,
+            DCard(
+              border: bordered,
+              borderColor: outline,
+              spacing: 0,
+              backgroundColor: fill,
+              depth: DSurfaceDepth.rim,
+              child: const Expanded(
+                child: ColoredBox(color: fill, child: SizedBox.expand()),
+              ),
+            ),
+          );
+          final s = shot.surface;
+          final rim =
+              (brightness == Brightness.dark ? Colors.white : Colors.black)
+                  .withValues(alpha: .07);
+          for (final x in [
+            s.left + (bordered ? 1.5 : .5),
+            s.right - (bordered ? 1.5 : .5),
+          ]) {
+            expect(
+              shot.at(x, s.center.dy),
+              _near(Color.alphaBlend(rim, fill)),
+              reason: 'opaque content must not cover the panel rim',
+            );
+          }
+          if (bordered) {
+            expect(shot.at(s.left + .5, s.center.dy), outline);
+          }
+          expect(shot.at(s.center.dx, s.center.dy), fill);
+        }
+      });
+
       testWidgets('draws its rim, catch of light and shadow ($brightness)', (
         tester,
       ) async {

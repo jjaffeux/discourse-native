@@ -175,10 +175,10 @@ class DSurfaceEdges {
   CustomPainter? castPainter(BorderRadius radius) =>
       shadows.isEmpty ? null : _CastShadowPainter(radius, shadows);
 
-  /// Paints the rim and the catch of light inside [radius]'s shape. Use as a
-  /// [CustomPaint.painter] between the surface's fill and its content, where
-  /// CSS paints an inset shadow. A surface with a border passes its widths as
-  /// [border]: CSS lays an inset shadow inside the border, not under it.
+  /// Paints the rim and the catch of light inside [radius]'s shape. Cards use
+  /// [CustomPaint.foregroundPainter] so opaque content cannot cover their edges.
+  /// A surface with a border passes its widths as [border] to keep the inset
+  /// shadow inside the border.
   CustomPainter? insetPainter(
     BorderRadius radius, {
     EdgeInsets border = EdgeInsets.zero,
