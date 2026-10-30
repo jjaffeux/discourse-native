@@ -235,8 +235,15 @@ class _DSheetViewportState extends State<DSheetViewport>
   );
   bool _started = false;
   final _edge = ValueNotifier(0.0);
-  bool _edgeInitialized = false;
+  late double _readerOffset = widget.readerStart == DSheetReaderStart.scrolled
+      ? double.infinity
+      : 0;
   _DSheetDragScopeState? _edgeHost;
+  void _scrollTo(double offset, double overlap) {
+    _readerOffset = offset;
+    _edge.value = offset.clamp(0, overlap);
+  }
+
   void _syncEdge() {
     final host = _edgeHost;
     if (widget.readerStart != null && host != null && host.mounted) {
@@ -280,23 +287,19 @@ class _DSheetViewportState extends State<DSheetViewport>
             (context
                         .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
                         ?.owner
-                        ._barExtent ??
+                        ._pendingBarExtent ??
                     8) -
                 8 +
                 6,
           )
         : 0.0;
-    if (!_edgeInitialized) {
-      _edgeInitialized = true;
-      _edge.value = widget.readerStart == DSheetReaderStart.scrolled
-          ? overlap
-          : 0;
-      _syncEdge();
-    }
+    _edge.value = _readerOffset.clamp(0, overlap);
+    _syncEdge();
     final sheet = _DSheetRiseScope(
       edge: _edge,
       overlap: overlap,
       readerStart: widget.readerStart,
+      scrollTo: (offset) => _scrollTo(offset, overlap),
       child: FocusScope(
         child: _sheetPresentation(
           context,
@@ -342,11 +345,13 @@ class _DSheetRiseScope extends InheritedWidget {
     required this.edge,
     required this.overlap,
     required this.readerStart,
+    required this.scrollTo,
     required super.child,
   });
   final ValueNotifier<double> edge;
   final double overlap;
   final DSheetReaderStart? readerStart;
+  final ValueChanged<double> scrollTo;
   @override
   bool updateShouldNotify(_DSheetRiseScope oldWidget) =>
       overlap != oldWidget.overlap || readerStart != oldWidget.readerStart;
@@ -430,7 +435,7 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   @override
   void scrollTo(double offset) {
     final rise = context.getInheritedWidgetOfExactType<_DSheetRiseScope>();
-    if (rise != null) rise.edge.value = offset.clamp(0, rise.overlap);
+    if (rise != null) rise.scrollTo(offset);
   }
 
   // A head's reports can still be waiting for the frame when it withdraws.
