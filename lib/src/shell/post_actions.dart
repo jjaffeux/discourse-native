@@ -50,9 +50,7 @@ class PostActions extends StatefulWidget {
     final onReact = context
         .dependOnInheritedWidgetOfExactType<_PostQuickReactionScope>()
         ?.onReact;
-    return onReact == null
-        ? child
-        : GestureDetector(onDoubleTap: onReact, child: child);
+    return GestureDetector(onDoubleTap: onReact, child: child);
   }
 
   @override
