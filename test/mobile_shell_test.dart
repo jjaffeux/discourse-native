@@ -2193,8 +2193,8 @@ void main() {
         find.byKey(const ValueKey('mobile-search-button')),
       );
       final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-      expect(menu.center.dx, 68 / 2);
-      expect(identity.left, 68 + 10);
+      expect(menu.center.dx, 60 / 2);
+      expect(identity.left, 60 + 10);
       expect(bell.left - search.right, closeTo(10, .001));
       expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
       final menuIcon = tester.getRect(

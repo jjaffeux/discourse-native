@@ -297,7 +297,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     builder: (context) {
                       final navigation = <Widget>[
                         SizedBox(
-                          width: _mobileRailWidth,
+                          width: 60,
                           child: Center(
                             child: DButton.iconOnly(
                               key: const ValueKey('mobile-menu-button'),
