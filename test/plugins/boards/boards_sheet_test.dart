@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
@@ -9,6 +10,7 @@ import 'package:discourse_native/src/plugins/boards/boards_directory.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../mobile_shell_test.dart' show pumpMobileShellFixture;
 import '../../support/boards_fixture.dart';
 import '../../support/fakes.dart';
+import '../../support/topic_post_list.dart';
 
 final _sheet = find.byType(DSheetContent);
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
@@ -92,6 +95,73 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+
+  for (final folded in [false, true]) {
+    testWidgets('dismissing a board restores stationary topic controls '
+        '(folded: $folded)', (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      final shell = await pumpMobileShellFixture(
+        tester,
+        board: boardFixtureJson(extraCards: 30),
+        topic: topicPayload(
+          id: 7,
+          title: 'Shared topic card',
+          posts: [
+            for (var id = 1; id <= 30; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'reader',
+                cooked: '<p>Reading the discussion.</p>',
+              ),
+          ],
+        ),
+      );
+      shell.openTopic(
+        const Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+      );
+      await tester.pumpAndSettle();
+      if (folded) {
+        final scroll = topicPostList(tester).controller!;
+        scroll.position.pointerScroll(200);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
+          isTrue,
+        );
+      }
+      final progress = find.byKey(const ValueKey('topic-progress-button'));
+      final bookmark = find.byKey(
+        const ValueKey('topic-header-bookmark-button'),
+      );
+      final before = [tester.getRect(progress), tester.getRect(bookmark)];
+      shell.pushContent(
+        const ContentRoute(
+          destination: ExtensionDestination('boards/1'),
+          title: 'Product roadmap',
+          icon: boardsIcon,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final column = find.byKey(const PageStorageKey('board-column-list-10'));
+      await tester.drag(column, const Offset(0, -200));
+      await tester.pumpAndSettle();
+      await tester.dragFrom(tester.getCenter(_title), const Offset(0, 450));
+      var revealedFrames = 0;
+      for (var frame = 0; frame < 80; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (shell.currentContent?.isTopic != true) continue;
+        if (find.byType(TopicView).evaluate().isEmpty) continue;
+        revealedFrames++;
+        expect(progress.hitTestable(), findsOneWidget);
+        expect(tester.getRect(progress), before[0], reason: 'frame $frame');
+        expect(tester.getRect(bookmark), before[1], reason: 'frame $frame');
+      }
+      expect(revealedFrames, greaterThan(1));
+      expect(tester.takeException(), isNull);
+    }, variant: platforms);
+  }
 
   for (final (label, distance, scrollBoard) in [
     ('at the top', 0.0, false),

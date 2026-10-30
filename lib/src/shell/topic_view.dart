@@ -25,6 +25,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
+import 'composer/presentation.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'forum_theme_surfaces.dart';
@@ -243,6 +244,19 @@ class _TopicViewState extends State<TopicView>
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
+
+  int? _initialProgressPosition(TopicViewportSnapshot snapshot) {
+    final initial = _viewport.initialPositionFor(snapshot);
+    if (initial == null) return null;
+    final index = initial.itemIndex - (snapshot.hasEarlier ? 1 : 0);
+    if (index < 0 || index >= snapshot.postIds.length) return null;
+    final postId = snapshot.postIds[index];
+    if (snapshot.progressByPostNumber) {
+      return _viewport.binding?.postNumberFor(postId);
+    }
+    final streamIndex = snapshot.streamIds.indexOf(postId);
+    return streamIndex < 0 ? null : streamIndex + 1;
+  }
 
   @override
   void initState() {
@@ -2027,11 +2041,14 @@ class _TopicViewState extends State<TopicView>
                         const AlwaysStoppedAnimation<double>(0)
                   : const AlwaysStoppedAnimation<double>(0),
               builder: (context, hiddenFraction, child) {
+                final geometry = DMobileDockGeometry.of(context);
+                // A returning reader builds before the dock is measured. Use
+                // its kit geometry so the first frame has the final clearance.
                 final dock = controller.mobileNavigationEnabled
-                    ? DScrollChrome.bottomInsetOf(context)
+                    ? geometry.footerExtent +
+                          ComposerDock.parkedDraftRoomOf(context)
                     : 0.0;
                 final folded = dock > 0 && hiddenFraction >= .5;
-                final geometry = DMobileDockGeometry.of(context);
                 final height = TopicProgressButton.floatingHeightOf(context);
                 final corner = geometry.cornerAt(height);
                 final foldedBottom =
@@ -2065,7 +2082,11 @@ class _TopicViewState extends State<TopicView>
                   child: ListenableBuilder(
                     listenable: _viewportState.progressPositionListenable,
                     builder: (context, _) {
-                      final position = _progressPosition;
+                      // The saved anchor positions the controls before the
+                      // first viewport observation, including a history return.
+                      final position =
+                          _progressPosition ??
+                          _initialProgressPosition(snapshot);
                       if (position == null ||
                           (!controller.mobileNavigationEnabled &&
                               snapshot.progressTotal <= 1)) {

@@ -252,7 +252,7 @@ class _DSheetViewportState extends State<DSheetViewport>
     if (widget.content.variant != DSheetVariant.page ||
         MediaQuery.disableAnimationsOf(context) ||
         !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
-      _entrance.value = 1;
+      if (_entrance.value != 1) _entrance.value = 1;
     } else if (!_started) {
       unawaited(_entrance.forward());
     }

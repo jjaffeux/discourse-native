@@ -241,17 +241,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               null => false,
             };
         final source = shell.topicListContent;
-        // A board covers the list without starting a new scroll-chrome session.
-        final preserveListChrome =
+        // A board covers its source without starting a new scroll-chrome session.
+        final previousRoute =
+            shell.mobileNavigation.previousLocation?.contentStack.last;
+        final preservePageChrome =
             pageSheetOpen &&
             hideDock &&
-            shell
-                    .mobileNavigation
-                    .previousLocation
-                    ?.contentStack
-                    .last
-                    .isTopicList ==
-                true;
+            (previousRoute?.isTopicList == true ||
+                previousRoute?.isTopic == true);
         final showReply =
             !widget.boundary &&
             !panelRoot &&
@@ -433,17 +430,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 identity: (
                   owner,
                   selected,
-                  preserveListChrome
+                  preservePageChrome
                       ? shell.mobileNavigation.previousEntryId
                       : shell.mobileNavigation.entryId,
                   widget.boundary,
                 ),
                 visible: hidden < 1,
                 hiddenFraction: hidden,
-                hideOnScroll: !hideDock || preserveListChrome,
+                hideOnScroll: !hideDock || preservePageChrome,
                 keepActionVisible: _footerAction.action != null,
                 body: NotificationListener<ScrollNotification>(
-                  onNotification: (_) => preserveListChrome,
+                  onNotification: (_) => preservePageChrome,
                   child: content!,
                 ),
                 dockBuilder: (hidden) {
