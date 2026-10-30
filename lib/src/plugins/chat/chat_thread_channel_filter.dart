@@ -247,26 +247,28 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
         ),
       ),
       child: DPopoverTrigger(
-        builder: (context, trigger) => DButton(
-          key: const ValueKey('chat-threads-channel-filter'),
-          size: DButtonSize.filter,
-          variant: selected == null
-              ? DButtonVariant.quiet
-              : DButtonVariant.quietSelected,
-          semanticLabel: '${context.l10n.channel}, $label',
-          label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          icon: Text(
-            '■',
-            style: TextStyle(
-              color:
-                  selected?.categoryColor ??
-                  DTokens.of(context).mutedForeground,
+        builder: (context, trigger) => DReferenceTextScale(
+          child: DButton(
+            key: const ValueKey('chat-threads-channel-filter'),
+            size: DButtonSize.filter,
+            variant: selected == null
+                ? DButtonVariant.quiet
+                : DButtonVariant.quietSelected,
+            semanticLabel: '${context.l10n.channel}, $label',
+            label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            icon: Text(
+              '■',
+              style: TextStyle(
+                color:
+                    selected?.categoryColor ??
+                    DTokens.of(context).mutedForeground,
+              ),
             ),
+            focusNode: trigger.focusNode,
+            hasPopup: true,
+            expanded: trigger.open,
+            onPressed: trigger.toggle,
           ),
-          focusNode: trigger.focusNode,
-          hasPopup: true,
-          expanded: trigger.open,
-          onPressed: trigger.toggle,
         ),
       ),
     );
