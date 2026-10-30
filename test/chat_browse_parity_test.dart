@@ -552,6 +552,7 @@ void main() {
         Future<void>? request;
         if (page == ChatBrowsePage.chats) {
           fixture.api.channelsGate = gate;
+          fixture.chat.forget(_site);
           request = fixture.chat.loadChannels(_site, force: true);
         } else {
           fixture.api.browseGate = gate;

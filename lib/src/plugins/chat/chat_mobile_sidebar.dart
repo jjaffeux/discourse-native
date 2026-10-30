@@ -33,8 +33,8 @@ class ChatMobileSidebar extends StatelessWidget {
         final rooms = roomService?.rooms(siteUrl) ?? const <ChatInboxRoom>[];
         final error = chat.channelsError(siteUrl);
         final loading =
-            chat.channelsLoading(siteUrl) ||
-            (!chat.channelsLoaded(siteUrl) && error == null);
+            !chat.channelsLoaded(siteUrl) &&
+            (chat.channelsLoading(siteUrl) || error == null);
         final colors = DTokens.of(context);
         Widget row(ChatChannel channel) => ValueListenableBuilder<ChatChannel?>(
           key: ValueKey(channel.id),
@@ -139,7 +139,7 @@ class ChatMobileSidebar extends StatelessWidget {
               return lazy
                   ? DPullToRefresh(
                       key: ValueKey((siteUrl, filter)),
-                      onRefresh: loading
+                      onRefresh: loading || chat.channelsLoading(siteUrl)
                           ? null
                           : () => chat.loadChannels(siteUrl, force: true),
                       child: content,
