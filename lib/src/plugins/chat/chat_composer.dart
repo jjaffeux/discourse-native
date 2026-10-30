@@ -1107,6 +1107,9 @@ class _ChatComposerState extends State<ChatComposer> {
                                 container: true,
                                 explicitChildNodes: true,
                                 child: DDropdownMenu(
+                                  sheetOnMobile: true,
+                                  mobileSheetVariant:
+                                      DSheetVariant.adaptiveMenu,
                                   key: ValueKey((
                                     composer,
                                     widget.editingMessage?.id,

@@ -2780,6 +2780,75 @@ void main() {
   });
 
   group('emoji and GIF picker action handling', () {
+    testWidgets(
+      'the add menu opens as an adaptive sheet on mobile and a dropdown on desktop',
+      (tester) async {
+        await prepareNativeUiEvidence(tester);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.binding.setSurfaceSize(const Size(393, 852));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        addTearDown(tester.view.resetViewInsets);
+        final platform = defaultTargetPlatform;
+        final mobile = platform != TargetPlatform.macOS;
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          config: _gifsConfig,
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(
+          _TestView(shell: fixture.shell, platform: platform),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField(), 'keep this draft');
+        await tester.pumpAndSettle();
+
+        for (final keyboardInset in mobile ? [0.0, 300.0] : [0.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+          await tester.pumpAndSettle();
+          final add = find.byKey(const ValueKey('chat-composer-add'));
+          await tester.tap(add);
+          await tester.pumpAndSettle();
+
+          final sheet = find.byType(DSheetContent);
+          expect(sheet, mobile ? findsOneWidget : findsNothing);
+          if (mobile) {
+            expect(
+              tester.widget<DSheetContent>(sheet).variant,
+              DSheetVariant.adaptiveMenu,
+            );
+            expect(
+              tester.getBottomRight(sheet).dy,
+              lessThanOrEqualTo(852 - keyboardInset),
+            );
+          }
+          expect(find.text('Files'), findsOneWidget);
+          expect(find.text('Photo Library'), findsOneWidget);
+          expect(find.text('Insert GIF'), findsOneWidget);
+          await captureNativeUi(
+            tester,
+            '${platform.name}-add-menu-${keyboardInset == 0 ? 'closed-keyboard' : 'open-keyboard'}',
+          );
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(DDropdownMenuContent), findsNothing);
+          expect(_text(tester), 'keep this draft');
+          expect(
+            mobile
+                ? _field(tester).focusNode!.hasFocus
+                : tester.widget<DButton>(add).focusNode!.hasFocus,
+            isTrue,
+          );
+        }
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+
     testWidgets('puts GIF in the add menu in both mounted composers', (
       tester,
     ) async {
@@ -2838,7 +2907,7 @@ void main() {
         expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(tester.widget<DButton>(add).focusNode!.hasFocus, isTrue);
       }
-    });
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('the add dropdown retires when the channel changes', (
       tester,
