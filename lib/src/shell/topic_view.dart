@@ -1972,6 +1972,8 @@ class _TopicViewState extends State<TopicView>
       final postStreamContent = DScrollChromePagination(
         hasMore: snapshot.hasMore,
         loading: snapshot.loadingMore,
+        hasMoreBefore: snapshot.hasEarlier,
+        loadingBefore: snapshot.loadingEarlier,
         child: postStream,
       );
       // Each mounted reader sees every key, in mount order. While another
