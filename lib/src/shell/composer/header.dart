@@ -241,7 +241,7 @@ class ComposerHeader extends StatelessWidget {
       final empty = composer.draft.isEmpty;
       return Padding(
         key: const ValueKey('composer-header'),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         child: Row(
           spacing: DSpacing.controlGap,
           children: [
@@ -283,8 +283,8 @@ class ComposerHeader extends StatelessWidget {
                   semanticLabel: empty
                       ? context.l10n.closeComposer
                       : context.l10n.composerActions,
-                  variant: DButtonVariant.outline,
-                  size: DButtonSize.toolbar,
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.large,
                   shape: DButtonShape.pill,
                   focusNode: trigger.focusNode,
                   hasPopup: !empty,

@@ -234,7 +234,7 @@ class ComposerPanel extends StatelessWidget {
                   key: const ValueKey('composer-submit'),
                   icon: const DIcon(DIcons.arrowUp),
                   variant: DButtonVariant.primary,
-                  size: DButtonSize.toolbar,
+                  size: DButtonSize.large,
                   shape: DButtonShape.pill,
                   tooltip: submitLabel,
                   semanticLabel: submitLabel,
@@ -822,11 +822,11 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
     _scheduleOverflowUpdate();
     final headerExtent =
         DControlStyle.scaledHeight(
-          DControlSize.toolbar,
+          DControlSize.large,
           MediaQuery.textScalerOf(context),
           context: context,
         ) +
-        16;
+        8;
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: (notification) {
         if (notification.depth == 0) _scheduleOverflowUpdate();
