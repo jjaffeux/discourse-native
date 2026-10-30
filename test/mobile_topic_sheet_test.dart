@@ -40,6 +40,7 @@ Future<ShellController> _openTopic(
   Size size = const Size(390, 844),
   bool multipleDays = false,
   bool privateMessage = false,
+  TopicRecommendations? recommendations,
 }) async {
   final shell = await pumpMobileShellFixture(
     tester,
@@ -49,6 +50,7 @@ Future<ShellController> _openTopic(
       title: "What's everyone's sourdough hydration sweet spot? 🍞",
       canCreatePost: true,
       privateMessage: privateMessage,
+      recommendations: recommendations,
       posts: [
         for (var id = 1; id <= 30; id++)
           Post(
@@ -209,6 +211,64 @@ void main() {
         topicPostList(tester).controller!.jumpTo(0);
         await tester.pumpAndSettle();
         expect(edge.value, 0);
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
+  }
+
+  for (final (width, largeText) in [(390.0, false), (320.0, true)]) {
+    testWidgets(
+      'topic bottom content clears floating controls at $width with largeText=$largeText',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewPadding);
+        final shell = await _openTopic(
+          tester,
+          size: Size(width, 844),
+          recommendations: TopicRecommendations(
+            sources: [
+              TopicRecommendationSource(
+                definition: coreSuggestedTopicRecommendationSource,
+                topics: [
+                  for (var id = 1; id <= 6; id++)
+                    Topic(
+                      id: 100 + id,
+                      title: 'Suggested discussion $id',
+                      slug: 'suggested-$id',
+                      postsCount: 12 + id,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+        if (largeText) {
+          await shell.appSettings.setTextScale(AppTextScale.percent200);
+        }
+        await tester.pumpAndSettle();
+        final scroll = topicPostList(tester).controller!;
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(scroll.position.extentAfter, 0);
+        final progress = find.byKey(const ValueKey('topic-progress-button'));
+        final tools = find.byKey(const ValueKey('topic-header-tools'));
+        expect(progress.hitTestable(), findsOneWidget);
+        expect(tools.hitTestable(), findsOneWidget);
+        final panel = tester.getRect(
+          find.byKey(const ValueKey('topic-end-more-topics-panel')),
+        );
+        await _capture(tester, 'bottom-clearance-$width');
+        expect(panel.bottom, lessThanOrEqualTo(tester.getRect(progress).top));
+        expect(panel.bottom, lessThanOrEqualTo(tester.getRect(tools).top));
+        expect(
+          find.text('Suggested discussion 6').hitTestable(),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       },
       variant: _platforms,
