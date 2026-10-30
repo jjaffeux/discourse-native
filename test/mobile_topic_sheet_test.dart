@@ -105,8 +105,12 @@ void main() {
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
-  for (final atTop in [false, true]) {
-    testWidgets('topic starts with matching app header atTop=$atTop', (
+  for (final (privateMessage, atTop) in [
+    for (final privateMessage in [false, true])
+      for (final atTop in [false, true]) (privateMessage, atTop),
+  ]) {
+    final kind = privateMessage ? 'private message' : 'topic';
+    testWidgets('$kind starts with matching app header atTop=$atTop', (
       tester,
     ) async {
       final gate = Completer<void>();
@@ -115,6 +119,7 @@ void main() {
         topicGate: gate,
         topic: topicPayload(
           id: 7,
+          privateMessage: privateMessage,
           posts: [
             for (var number = 1; number <= 30; number++)
               Post(
@@ -134,25 +139,25 @@ void main() {
           id: 7,
           title: 'Resume discussion',
           slug: 'shared',
+          privateMessage: privateMessage,
           lastReadPostNumber: atTop ? 0 : 11,
           highestPostNumber: 30,
         ),
       );
       await tester.pump();
-      final edge = DSheetPageBand.edgeOf(
-        tester.element(find.byType(TopicView)),
-      )!;
-      final opening = edge.value;
+      double edge() =>
+          DSheetPageBand.edgeOf(tester.element(find.byType(TopicView)))!.value;
+      final opening = edge();
       expect(opening, atTop ? 0 : greaterThan(0));
       for (var frame = 0; frame < 3; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
-        expect(edge.value, opening);
+        expect(edge(), opening);
       }
       gate.complete();
       for (var frame = 0; frame < 48; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
         expect(
-          edge.value,
+          edge(),
           opening,
           reason:
               'The sheet must keep its opening position through restoration.',
@@ -162,10 +167,11 @@ void main() {
         )!;
         expect(page.barOpacity, atTop ? 0 : 1);
       }
+      expect(shell.currentTopic!.privateMessage, privateMessage);
       final scroll = topicPostList(tester).controller!;
       scroll.jumpTo(0);
       await tester.pumpAndSettle();
-      expect(edge.value, 0);
+      expect(edge(), 0);
       final page = DPageHeaderScope.maybeOf(
         tester.element(find.byKey(const ValueKey('topic-header-morph'))),
       )!;
