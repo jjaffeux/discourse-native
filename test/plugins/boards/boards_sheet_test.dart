@@ -511,7 +511,9 @@ void main() {
     await _openBoard(tester, name: 'Board');
     expect(find.byKey(const ValueKey('board-back')), findsNothing);
     final title = tester.getRect(_title);
-    final tag = tester.getRect(find.text('# roadmap'));
+    final tag = tester.getRect(
+      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
+    );
     expect(tag.left, greaterThan(title.right));
     expect(tag.center.dy, inInclusiveRange(title.top, title.bottom));
     expect(tester.takeException(), isNull);
@@ -524,8 +526,12 @@ void main() {
       tags: ['roadmap', 'native'],
     );
     final title = tester.getRect(_title);
-    final roadmap = tester.getRect(find.text('# roadmap'));
-    final native = tester.getRect(find.text('# native'));
+    final roadmap = tester.getRect(
+      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
+    );
+    final native = tester.getRect(
+      find.byKey(const ValueKey(('board-header-tag', 'native'))),
+    );
     expect(roadmap.top, greaterThanOrEqualTo(title.bottom));
     expect(native.center.dy, roadmap.center.dy);
     expect(tester.takeException(), isNull);
