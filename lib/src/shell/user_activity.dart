@@ -204,29 +204,35 @@ class _ActivityListState extends State<_ActivityList> {
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
     final content = DPageSurface.headed(
       title: Text(context.l10n.activity),
-      controls: ContentReadingLaneBox(
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: DSelect<_ActivityKind>.controlled(
-              size: DControlSize.filter,
-              key: const ValueKey('activity-kind-filter'),
-              value: _kind,
-              semanticLabel: context.l10n.activity,
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _kind = value);
-                if (feed.hasPrevious) unawaited(onRefresh());
-              },
-              entries: [
-                for (final (value, label) in [
-                  (_ActivityKind.all, context.l10n.allActivity),
-                  (_ActivityKind.topics, context.l10n.topics),
-                  (_ActivityKind.replies, context.l10n.replies),
-                ])
-                  DSelectOption(value: value, label: label, child: Text(label)),
-              ],
+      controls: DReferenceTextScale(
+        child: ContentReadingLaneBox(
+          child: Padding(
+            padding: EdgeInsets.zero,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: DSelect<_ActivityKind>.controlled(
+                size: DControlSize.filter,
+                key: const ValueKey('activity-kind-filter'),
+                value: _kind,
+                semanticLabel: context.l10n.activity,
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _kind = value);
+                  if (feed.hasPrevious) unawaited(onRefresh());
+                },
+                entries: [
+                  for (final (value, label) in [
+                    (_ActivityKind.all, context.l10n.allActivity),
+                    (_ActivityKind.topics, context.l10n.topics),
+                    (_ActivityKind.replies, context.l10n.replies),
+                  ])
+                    DSelectOption(
+                      value: value,
+                      label: label,
+                      child: Text(label),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

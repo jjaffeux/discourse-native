@@ -43,13 +43,15 @@ class MessageInboxPage extends StatelessWidget {
     controls:
         ForumTabScope.tabOf(context).currentContent?.isSearchList != true &&
             ForumTabScope.tabOf(context).topicListContent?.isSearchList != true
-        ? Row(
-            children: [
-              Expanded(
-                child: _MessageListNavigation(keepTopicOpen: keepTopicOpen),
-              ),
-              ?actions,
-            ],
+        ? DReferenceTextScale(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _MessageListNavigation(keepTopicOpen: keepTopicOpen),
+                ),
+                ?actions,
+              ],
+            ),
           )
         : null,
     child: TopicListView(feed: feed, inbox: true),

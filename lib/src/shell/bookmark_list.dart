@@ -487,7 +487,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final content = DPageSurface.headed(
       identity: widget.siteUrl,
       title: Text(context.l10n.bookmarks),
-      controls: _heading(context, filters),
+      controls: DReferenceTextScale(child: _heading(context, filters)),
       bodyBuilder: (context, header) => DPageReadingLane(
         builder: (context, lane) => AccountFeedViewport(
           identity: (

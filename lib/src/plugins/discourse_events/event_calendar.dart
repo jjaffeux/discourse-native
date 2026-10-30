@@ -469,7 +469,10 @@ final class _EventCalendarState extends State<EventCalendar> {
         title: Text(context.l10n.events),
         controls: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_toolbar(context), ?widget.status],
+          children: [
+            DReferenceTextScale(child: Builder(builder: _toolbar)),
+            ?widget.status,
+          ],
         ),
         child: Padding(
           // Mobile scroll fades reach the page edge beneath the dock.

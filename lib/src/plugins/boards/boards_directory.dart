@@ -70,47 +70,49 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
     return DPageSurface.headed(
       identity: widget.site,
       title: Text(l10n.boardsTitle),
-      controls: LayoutBuilder(
-        builder: (context, constraints) {
-          final wrap =
-              constraints.maxWidth < 520 ||
-              MediaQuery.textScalerOf(context).scale(14) > 21;
-          final search = DInput(
-            size: DControlSize.field,
-            value: _query,
-            hintText: l10n.boardsFilter,
-            semanticLabel: l10n.boardsFilter,
-            prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
-            onChanged: (value) => setState(() => _query = value),
-          );
-          return DControlWrap(
-            spacing: 8,
-            runSpacing: 8,
-            wrap: wrap,
-            children: [
-              if (wrap)
-                SizedBox(width: constraints.maxWidth, child: search)
-              else
-                DControlExpanded(child: search),
-              DSelect<_BoardStatus>.controlled(
-                size: DControlSize.filter,
-                value: _status,
-                semanticLabel: l10n.boardsStatus,
-                entries: [
-                  for (final status in _BoardStatus.values)
-                    DSelectOption(
-                      value: status,
-                      label: _statusLabel(status),
-                      child: Text(_statusLabel(status)),
-                    ),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _status = value);
-                },
-              ),
-            ],
-          );
-        },
+      controls: DReferenceTextScale(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wrap =
+                constraints.maxWidth < 520 ||
+                MediaQuery.textScalerOf(context).scale(14) > 21;
+            final search = DInput(
+              size: DControlSize.field,
+              value: _query,
+              hintText: l10n.boardsFilter,
+              semanticLabel: l10n.boardsFilter,
+              prefix: const DIcon(DIcons.magnifyingGlass, size: 14),
+              onChanged: (value) => setState(() => _query = value),
+            );
+            return DControlWrap(
+              spacing: 8,
+              runSpacing: 8,
+              wrap: wrap,
+              children: [
+                if (wrap)
+                  SizedBox(width: constraints.maxWidth, child: search)
+                else
+                  DControlExpanded(child: search),
+                DSelect<_BoardStatus>.controlled(
+                  size: DControlSize.filter,
+                  value: _status,
+                  semanticLabel: l10n.boardsStatus,
+                  entries: [
+                    for (final status in _BoardStatus.values)
+                      DSelectOption(
+                        value: status,
+                        label: _statusLabel(status),
+                        child: Text(_statusLabel(status)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _status = value);
+                  },
+                ),
+              ],
+            );
+          },
+        ),
       ),
       bodyBuilder: (context, header) => DPullToRefresh(
         onRefresh: loading ? null : widget.onRefresh,
