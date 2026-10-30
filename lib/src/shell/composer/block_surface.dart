@@ -375,11 +375,11 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     return true;
   }
 
-  bool _insideSurface(Offset position) {
+  bool _withinSurfaceWidth(Offset position) {
     final box = _bounds.currentContext?.findRenderObject();
-    return box is RenderBox &&
-        box.hasSize &&
-        (Offset.zero & box.size).contains(box.globalToLocal(position));
+    if (box is! RenderBox || !box.hasSize) return false;
+    final x = box.globalToLocal(position).dx;
+    return x >= 0 && x < box.size.width;
   }
 
   void _move(int gap) {
@@ -627,6 +627,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
             onPointerMove: desktop ? _hover : null,
             child: Stack(
               key: _bounds,
+              clipBehavior: desktop ? Clip.hardEdge : Clip.none,
               fit: widget.expands ? StackFit.expand : StackFit.loose,
               children: [
                 Padding(
@@ -639,14 +640,14 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     dataAt: _touchDataAt,
                     onStart: _startTouchDrag,
                     onMove: (drag, position) {
-                      if (_insideSurface(position)) {
+                      if (_withinSurfaceWidth(position)) {
                         _moveDrag(drag, position);
                       } else {
                         _leaveDrag();
                       }
                     },
                     onDrop: (drag, position) {
-                      if (_insideSurface(position)) _drop(drag, position);
+                      if (_withinSurfaceWidth(position)) _drop(drag, position);
                     },
                     onEnd: _cancelDrag,
                     child: widget.child,

@@ -1,5 +1,4 @@
 import 'dart:ui' as ui;
-import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/block_surface.dart';
