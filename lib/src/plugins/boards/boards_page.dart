@@ -300,7 +300,36 @@ class _BoardsPageState extends State<BoardsPage> {
       for (final id in board.categoryIds)
         if (widget.controller.siteState.categoryFor?.call(widget.site, id)
             case final category?)
-          _categoryBadge(category.name, category.colorValue),
+          DButtonGroup.quiet(
+            selected: true,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: DButton(
+                  key: ValueKey(('board-header-category', category.id)),
+                  size: DButtonSize.filter,
+                  variant: DButtonVariant.quiet,
+                  isLink: true,
+                  onPressed: () => widget.navigation.openCategory(
+                    widget.site,
+                    category.id,
+                    category.name,
+                  ),
+                  icon: CategoryIcon(
+                    category: category,
+                    siteUrl: widget.site,
+                    size: 14,
+                    squareSize: 10,
+                  ),
+                  label: Text(
+                    category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
     ];
     return page(
       board.name,
@@ -520,17 +549,6 @@ class _BoardsPageState extends State<BoardsPage> {
       );
     },
   );
-
-  Widget _categoryBadge(String name, int color) {
-    final surface = DTokens.of(context).categoryControlSurface(Color(color));
-    return DBadge(
-      size: DBadgeSize.control,
-      backgroundColor: surface.background,
-      foregroundColor: surface.foreground,
-      borderColor: surface.border,
-      child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
-  }
 
   Widget _addMenu(BoardColumn column) => DDropdownMenu(
     sheetOnMobile: true,

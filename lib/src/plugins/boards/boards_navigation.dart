@@ -99,6 +99,18 @@ final class BoardsNavigation implements PluginLinkHandler {
     );
   }
 
+  void openCategory(String site, int id, String name) {
+    if (!controller.enabled(site) || host.currentSite?.url != site) return;
+    final path = '/c/$id.json';
+    topicLists.openTopicList(
+      ContentRoute(
+        destination: FeedDestination.fromPath(key: 'list-$path', path: path),
+        title: name,
+        icon: DIcons.folder,
+      ),
+    );
+  }
+
   Future<bool> configure(String site, BoardSnapshot board) => openExternalLink(
     resolveSitePath(
       site,

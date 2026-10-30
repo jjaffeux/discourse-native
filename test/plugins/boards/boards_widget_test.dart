@@ -608,16 +608,101 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       );
       await tester.pumpAndSettle();
       final tag = find.byKey(const ValueKey(('board-header-tag', 'roadmap')));
+      final category = find.byKey(const ValueKey(('board-header-category', 5)));
       final title = tester.getRect(find.byKey(const ValueKey('board-title')));
       expect(find.byKey(const ValueKey('board-back')), findsNothing);
       for (final control in [find.text('Support'), tag]) {
         expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
       }
+      expect(tester.getSize(category).height, tester.getSize(tag).height);
+      expect(
+        find.descendant(of: category, matching: find.byType(CategoryIcon)),
+        findsOneWidget,
+      );
+      expect(
+        find.ancestor(of: find.text('Support'), matching: find.byType(DBadge)),
+        findsNothing,
+      );
       await captureNativeUi(tester, 'board-header-tag-style');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  testWidgets(
+    'board header category keeps its artwork and opens its topic list',
+    (tester) async {
+      final json = boardFixtureJson();
+      (json['board'] as Map)['category_ids'] = [5];
+      final fixture = BoardsFixture(
+        json: json,
+        categories: {
+          5: const TopicCategory(
+            id: 5,
+            name: 'Deals',
+            color: '12b5d8',
+            styleType: 'icon',
+            icon: 'folder',
+            readRestricted: true,
+          ),
+        },
+      );
+      addTearDown(fixture.dispose);
+      await tester.pumpWidget(retainedPage(fixture));
+      await tester.pumpAndSettle();
+      final category = find.byKey(const ValueKey(('board-header-category', 5)));
+      for (final icon in [DIcons.folder, DIcons.lock]) {
+        expect(
+          find.descendant(
+            of: category,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is DIcon && widget.icon == icon,
+            ),
+          ),
+          findsOneWidget,
+        );
+      }
+      await tester.tap(category);
+      await tester.pumpAndSettle();
+      final route = fixture.host.currentContent;
+      expect(route?.destination, isA<FeedDestination>());
+      expect(route?.feedPath, '/c/5.json');
+      expect(route?.categoryId, 5);
+      expect(route?.title, 'Deals');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets('long board categories fit a narrow header', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final json = boardFixtureJson();
+    (json['board'] as Map)['category_ids'] = [5];
+    final fixture = BoardsFixture(
+      json: json,
+      categories: {
+        5: const TopicCategory(
+          id: 5,
+          name: 'Deals and proposals for international customer accounts',
+          color: '12b5d8',
+        ),
+      },
+    );
+    addTearDown(fixture.dispose);
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) =>
+            nativeUiEvidenceBuilder(context, retainedPage(fixture)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final category = find.byKey(const ValueKey(('board-header-category', 5)));
+    expect(tester.getSize(category).width, lessThanOrEqualTo(180));
+    expect(tester.getRect(category).right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
+    await captureNativeUi(tester, 'board-header-category-narrow');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('board header tags open their associated topic lists', (
     tester,
   ) async {

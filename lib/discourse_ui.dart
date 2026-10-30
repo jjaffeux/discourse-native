@@ -1,6 +1,7 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
+export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 
