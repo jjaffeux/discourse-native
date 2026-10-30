@@ -10,6 +10,73 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('a deep pull eases into the loading gap on $platform', (
+      tester,
+    ) async {
+      final response = Completer<void>();
+      var calls = 0;
+      await tester.pumpWidget(
+        _host(
+          platform: platform,
+          onRefresh: () {
+            calls++;
+            return response.future;
+          },
+        ),
+      );
+      final origin = tester.getTopLeft(find.text('Row 0')).dy;
+      final bounds = tester.getRect(find.byType(DPullToRefresh));
+      double gap() => tester.getTopLeft(find.text('Row 0')).dy - origin;
+      void expectAligned() {
+        expect(
+          tester.getCenter(find.byType(DSpinner)).dy,
+          closeTo(origin + gap() / 2, .1),
+        );
+        expect(
+          tester.getBottomRight(find.byType(ListView)).dy,
+          closeTo(bounds.bottom, .1),
+        );
+      }
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(ListView)),
+      );
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      final heldGap = gap();
+      expect(heldGap, greaterThan(60));
+      expectAligned();
+      expect(calls, 0);
+      await gesture.up();
+      await tester.pump();
+      expect(gap(), closeTo(heldGap, .1));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 32));
+      final earlyGap = gap();
+      expect(earlyGap, greaterThan(60));
+      expect(earlyGap, lessThan(heldGap));
+      expectAligned();
+      await tester.pump(const Duration(milliseconds: 64));
+      expect(gap(), greaterThan(60));
+      expect(gap(), lessThan(earlyGap));
+      expectAligned();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(gap(), closeTo(60, .1));
+      expectAligned();
+      expect(calls, 1);
+      response.complete();
+      await tester.pumpAndSettle();
+      expect(gap(), closeTo(0, .1));
+    });
+  }
+
   testWidgets('macOS trackpad pulls refresh with the default scroll behavior', (
     tester,
   ) async {
