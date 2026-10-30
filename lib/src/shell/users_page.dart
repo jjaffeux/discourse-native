@@ -520,7 +520,7 @@ class _UsersPageState extends State<UsersPage> {
     final data = widget.data;
     final textScale = math.max(
       1.0,
-      MediaQuery.textScalerOf(context).scale(13) / 13,
+      DReferenceTextScale.scalerOf(context).scale(13) / 13,
     );
     final periodWidth =
         (switch (data.query.period) {
