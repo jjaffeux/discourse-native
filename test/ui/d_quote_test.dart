@@ -10,7 +10,9 @@ import '../support/pixel_samples.dart';
 
 void main() {
   for (final direction in TextDirection.values) {
-    testWidgets('mark stays inset and follows $direction', (tester) async {
+    testWidgets('thin rail follows $direction without a quote fill', (
+      tester,
+    ) async {
       const boundary = ValueKey('quote-pixels');
       final theme = AppTheme.light;
       final tokens = theme.extension<DTokens>()!;
@@ -39,19 +41,19 @@ void main() {
       );
       final height = tester.getSize(find.byType(DQuote)).height;
       double x(double start) =>
-          direction == TextDirection.ltr ? start : 240 - start;
+          direction == TextDirection.ltr ? start : 239.75 - start;
       final pixels = await samplePixels(tester, find.byKey(boundary), [
+        Offset(x(.5), .5),
+        Offset(x(1.5), 30),
+        Offset(x(.5), height - .5),
+        Offset(x(2.5), 30),
         Offset(x(12), 30),
-        Offset(x(12), 5),
-        Offset(x(12), height - 5),
-        Offset(x(2), 30),
-        Offset(x(2), 2),
       ]);
       expect(pixels, [
         tokens.primary,
-        tokens.muted,
-        tokens.muted,
-        tokens.muted,
+        tokens.primary,
+        tokens.primary,
+        tokens.background,
         tokens.background,
       ]);
       expect(tester.takeException(), isNull);
@@ -148,10 +150,7 @@ void main() {
         final quoteSign = find.byWidgetPredicate(
           (widget) => widget is DIcon && widget.icon == DIcons.quoteRight,
         );
-        expect(
-          find.ancestor(of: quoteSign, matching: find.byType(ExcludeSemantics)),
-          findsWidgets,
-        );
+        expect(quoteSign, findsNothing);
         expect(tester.takeException(), isNull);
       } finally {
         semantics.dispose();

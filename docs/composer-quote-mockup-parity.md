@@ -1,5 +1,17 @@
 # Composer and quote delta audit, 9 October 2026
 
+## Current quote treatment, 30 October 2026
+
+The user-selected Thin rail design supersedes the rounded quote geometry
+recorded below. `DQuote` now draws a straight 2px directional rail with 12px
+between the rail and content, minimal vertical padding, and no background
+fill or decorative quote mark. Attribution uses the accent colour and quoted
+text uses the smaller, secondary reading style. Post quotes, chat reply
+references, and composer previews share this component. Source navigation and
+the composer's Native removal action retain their existing interactions.
+
+The October 9 audit below records the previous implementation.
+
 Reference: `discourse-native-mockups` at `c39ad5079e36ccd40a2604c43b513195d5c125a2`,
 following the already-ported `54ba01c` baseline. App audit starts at
 `84262ec969196fdc567746882fec46b0b375798b`.

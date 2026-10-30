@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/quote.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -74,6 +75,18 @@ void main() {
                                         '<p>A second paragraph wraps within the same quote box.</p>',
                                   ),
                                 ),
+                                const SizedBox(height: 20),
+                                const Text('Chat reply quote'),
+                                DBubbleQuote(
+                                  author: const Text('sam'),
+                                  onPressed: () {},
+                                  semanticLabel: 'Jump to message from sam',
+                                  child: const Text(
+                                    'I made this just in time for Nat 🙂 what an interesting setup',
+                                  ),
+                                ),
+                                const SizedBox(height: 11),
+                                const Text('WOW!'),
                                 const SizedBox(height: 20),
                                 const Text('Composer quote'),
                                 ComposerQuotePreview(

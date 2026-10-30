@@ -5,23 +5,24 @@ import '../styleguide_example.dart';
 
 final quoteExamples = ComponentExamples(
   status: ComponentStatus.implemented,
-  description: 'A shared quote box for posts and the composer.',
+  description: 'A shared thin-rail quote for posts, chat, and the composer.',
   notes:
-      'Attribution and source navigation remain app-owned. The inset mark '
-      'and quote sign are decorative. Native actions may occupy the trailing '
-      'slot. The surface follows reading direction and inherited text scaling.',
+      'Attribution and source navigation remain app-owned. The straight '
+      'leading rail is decorative. Native actions may occupy the trailing '
+      'slot. Quotes have no background fill and follow reading direction '
+      'and inherited text scaling.',
   examples: [
     StyleguideExample(
       title: 'Attributed quote',
       description:
-          'One rounded surface joins the attribution and multiple paragraphs.',
+          'One thin rail joins the attribution and multiple paragraphs.',
       states: const ['Attribution', 'Multiline', 'RTL'],
       code: 'DQuote(header: Text("Source"), child: Text("Quoted content"))',
       builder: (_) => const DQuote(
         header: Text('Source attribution'),
         child: Text(
           'The first paragraph stays with its source.\n\n'
-          'A second paragraph shares the same inset mark.',
+          'A second paragraph shares the same leading rail.',
         ),
       ),
     ),

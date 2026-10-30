@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/pixel_samples.dart';
+
 void main() {
   Widget host(
     Widget child, {
@@ -52,6 +54,40 @@ void main() {
       ),
     ),
   );
+
+  testWidgets('reply quotes keep the thin rail on an unfilled surface', (
+    tester,
+  ) async {
+    const boundary = ValueKey('reply-quote-pixels');
+    await tester.pumpWidget(
+      host(
+        const RepaintBoundary(
+          key: boundary,
+          child: ColoredBox(
+            color: Color(0xffff9800),
+            child: DBubbleQuote(
+              author: SizedBox(height: 12),
+              child: SizedBox(height: 40),
+            ),
+          ),
+        ),
+        width: 240,
+      ),
+    );
+    final tokens = DTokens.of(tester.element(find.byType(DBubbleQuote)));
+    final pixels = await samplePixels(tester, find.byKey(boundary), [
+      const Offset(.5, .5),
+      const Offset(1.5, 25),
+      const Offset(2.5, 25),
+      const Offset(100, 25),
+    ]);
+    expect(pixels, [
+      tokens.primary,
+      tokens.primary,
+      const Color(0xffff9800),
+      const Color(0xffff9800),
+    ]);
+  });
 
   testWidgets(
     'neutral conversation bubble has the mockup raised fill and subtle border',

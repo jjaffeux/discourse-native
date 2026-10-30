@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../theme/d_icons.dart';
+import '../../../theme/discourse_typography.dart';
 import '../../site_emoji_text.dart';
 import '../block_selection.dart';
 import '../markdown_highlight.dart';
@@ -326,12 +327,12 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
     final baseStyle = widget.baseStyle;
     final removeKey = widget.removeKey;
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     final title = block.title;
-    final bodyStyle = theme.textTheme.bodyMedium
-        ?.merge(baseStyle)
-        .copyWith(color: muted);
-    final quoteBodyStyle = bodyStyle ?? baseStyle.copyWith(color: muted);
+    final quoteBodyStyle = baseStyle.copyWith(
+      fontSize: DiscourseTypography.compact,
+      height: DiscourseTypography.lineHeightSmall,
+      color: DTokens.of(context).mutedForeground,
+    );
     final runs = [
       for (final run in _contentRuns)
         if (!run.has(Md.marker))
@@ -368,10 +369,6 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
             title ?? context.l10n.quote,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: muted,
-              fontWeight: FontWeight.w600,
-            ),
           ),
           trailing: widget.onRemove == null
               ? null

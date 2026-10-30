@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_link_interaction.dart';
+import 'd_quote.dart';
 
 enum DBubbleVariant {
   /// A pill with a continuous outlined caret pointing to its author's avatar.
@@ -279,13 +280,11 @@ class _DBubbleContentState extends State<DBubbleContent> {
     };
     if (scope.quote) {
       style = _ContentStyle(
-        background: mix(
-          tokens.background,
-          tokens.foreground,
-          active ? .08 : .035,
-        ),
-        foreground: tokens.foreground,
-        border: tokens.primary,
+        background: active
+            ? mix(tokens.background, tokens.foreground, .08)
+            : Colors.transparent,
+        foreground: tokens.mutedForeground,
+        border: Colors.transparent,
       );
     }
 
@@ -297,7 +296,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
     final style = _style(context, interactive);
     final ghost = scope.variant == DBubbleVariant.ghost;
     final conversation = scope.quote || scope.variant == DBubbleVariant.neutral;
-    final radius = ((ghost
+    final radius = ((ghost || scope.quote
         ? BorderRadius.zero
         : BorderRadius.circular(DRadius.bubble)));
     const Widget? status = null;
@@ -343,7 +342,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
       // Corner controls may own popovers whose accessibility subtree must
       // remain visible beyond the bubble's rounded surface.
       clipBehavior: widget.trailingAction == null ? Clip.antiAlias : Clip.none,
-      padding: ghost
+      padding: ghost || scope.quote
           ? EdgeInsets.zero
           : widget.compact
           ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4)
@@ -351,11 +350,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
       decoration: BoxDecoration(
         color: style.background,
         borderRadius: radius,
-        border: scope.quote
-            ? BorderDirectional(
-                start: BorderSide(color: style.border, width: 3),
-              )
-            : Border.all(color: style.border),
+        border: scope.quote ? null : Border.all(color: style.border),
       ),
       child: DefaultTextStyle.merge(
         style: textStyle,
@@ -489,9 +484,9 @@ class _DBubbleContentState extends State<DBubbleContent> {
                 foregroundPainter: _BubbleFocusPainter(
                   visible: _focused,
                   color: tokens.focusRing,
-                  radius: scope.variant == DBubbleVariant.ghost
+                  radius: scope.variant == DBubbleVariant.ghost || scope.quote
                       ? 0
-                      : scope.quote || scope.variant == DBubbleVariant.neutral
+                      : scope.variant == DBubbleVariant.neutral
                       ? 12
                       : tokens.radius * 1.4,
                 ),
@@ -539,21 +534,7 @@ class DBubbleQuote extends StatelessWidget {
       action: onPressed == null ? null : DBubbleContentAction.link,
       onPressed: onPressed,
       semanticLabel: semanticLabel,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: DSpacing.xs,
-        children: [
-          DefaultTextStyle.merge(
-            style: TextStyle(
-              color: DTokens.of(context).primary,
-              fontWeight: FontWeight.w600,
-            ),
-            child: author,
-          ),
-          child,
-        ],
-      ),
+      child: DQuote(header: author, child: child),
     ),
   );
 }

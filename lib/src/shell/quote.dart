@@ -153,8 +153,10 @@ class QuoteBlock extends StatelessWidget {
         child: CookedHtml(
           html: data.bodyHtml,
           siteUrl: siteUrl,
-          textStyle: theme.textTheme.bodyLarge?.copyWith(
-            height: DiscourseTypography.lineHeightCooked,
+          textStyle: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: DiscourseTypography.compact,
+            color: DTokens.of(context).mutedForeground,
+            height: DiscourseTypography.lineHeightSmall,
           ),
         ),
       ),
@@ -171,10 +173,10 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
+    final accent = DTokens.of(context).primary;
     final link = data.link;
     final titleStyle = theme.textTheme.labelMedium?.copyWith(
-      color: muted,
+      color: accent,
       fontWeight: FontWeight.w600,
     );
     // A linked title is a topic title, so its shortcodes draw as the site's
@@ -220,7 +222,7 @@ class _Header extends StatelessWidget {
           ),
         if (link != null) ...[
           const SizedBox(width: 4),
-          DIcon(DIcons.arrowUp, size: 12, color: muted),
+          DIcon(DIcons.arrowUp, size: 12, color: accent),
         ],
       ],
     );
