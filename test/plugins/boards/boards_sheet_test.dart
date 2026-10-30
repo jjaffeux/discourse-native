@@ -216,6 +216,21 @@ void main() {
       await tester.tap(pill);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'boards/1/cards/101');
+      expect(
+        tester.getRect(_dots.first).bottom,
+        tester.getRect(_sheet).bottom - DSpacing.sm,
+      );
+      expect(
+        tester.getRect(_column(10)).bottom,
+        tester.getRect(_dots.first).top - DSpacing.md,
+      );
+      final dots = tester.getRect(_dots.first);
+      await tester.tap(_dot(1));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_dots.first).bottom, dots.bottom);
+      expect(tester.getRect(_column(11)).bottom, lessThan(dots.top));
+      await tester.tap(_dot(0));
+      await tester.pumpAndSettle();
       if (scrollBoard) {
         final column = find.byKey(const PageStorageKey('board-column-list-10'));
         await tester.timedDrag(
