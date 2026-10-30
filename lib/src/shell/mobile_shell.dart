@@ -651,7 +651,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               label: item.label,
               badge: item.badge,
               selected: selected == item.tab,
-              onPressed: item.onPressed,
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                item.onPressed();
+              },
             ),
           'profile': ?_profilePlace(context, shell: shell, instance: instance),
         };
