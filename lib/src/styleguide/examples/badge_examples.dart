@@ -23,6 +23,9 @@ final badgeExamples = ComponentExamples(
       '1.5px surface ring for small icons; the caller owns positioning and caps. '
       'Labels grow and wrap for accessibility; actions use the visible pill bounds. '
       'DBadgeSize.unread uses 11px bold text with 1px/6px insets. '
+      'DBadgeSize.count uses accent colors, semibold tabular figures, 7px '
+      'horizontal insets and a 20px minimum width. Its 11.5/16px desktop '
+      'type becomes 12.5/18px on touch. '
       'No selected/toggle behavior is implied. '
       'Use semanticValue and liveRegion for changes, invalid for validation, '
       'and a descriptive label so status remains clear without color or motion.',
@@ -264,13 +267,22 @@ DBadge(
     StyleguideExample(
       title: 'Compact counts',
       description:
-          'Regular labels alongside 16px compact counts. Both keep readable 12px text and grow with the text scale.',
-      states: const ['Regular', 'Compact', 'Single digit', '99+', 'Large text'],
+          'Regular labels, 16px compact counts, and accent feed counts. Feed counts adapt to touch and retain tabular digits as text grows.',
+      states: const [
+        'Regular',
+        'Compact',
+        'Feed count',
+        'Single digit',
+        '99+',
+        'Large text',
+      ],
       code: r'''const Wrap(spacing: 8, runSpacing: 8, children: [
   DBadge(child: Text('Regular')),
   DBadge(size: DBadgeSize.compact, child: Text('1')),
   DBadge(size: DBadgeSize.compact, child: Text('6')),
   DBadge(size: DBadgeSize.compact, child: Text('99+')),
+  DBadge(size: DBadgeSize.count, child: Text('4')),
+  DBadge(size: DBadgeSize.count, child: Text('128')),
 ])''',
       builder: (_) => const Wrap(
         spacing: 8,
@@ -281,6 +293,8 @@ DBadge(
           DBadge(size: DBadgeSize.compact, child: Text('1')),
           DBadge(size: DBadgeSize.compact, child: Text('6')),
           DBadge(size: DBadgeSize.compact, child: Text('99+')),
+          DBadge(size: DBadgeSize.count, child: Text('4')),
+          DBadge(size: DBadgeSize.count, child: Text('128')),
         ],
       ),
     ),

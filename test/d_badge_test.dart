@@ -10,6 +10,96 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('feed menu counts keep desktop typography on phones', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const DBadge(size: DBadgeSize.menuCount, child: Text('9')),
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+      scale: 2,
+    );
+    final style = _styleOf(tester, '9');
+    expect(style.fontSize, 11.5);
+    expect(style.height, 16 / 11.5);
+    expect(tester.getSize(find.byType(DBadge)).height, 34);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('feed counts use accent pills and platform count metrics', (
+    tester,
+  ) async {
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      final touch = platform == TargetPlatform.iOS;
+      for (final theme in [
+        AppTheme.light,
+        AppTheme.dark,
+        StyleguideTheme.forest.resolve(AppTheme.light),
+      ]) {
+        for (final scale in [1.0, 2.0]) {
+          await _pump(
+            tester,
+            const DBadge(size: DBadgeSize.count, child: Text('128')),
+            theme: theme.copyWith(platform: platform),
+            scale: scale,
+            rtl: true,
+          );
+          final bounds = tester.getRect(find.byType(DBadge));
+          final label = tester.getRect(find.text('128'));
+          final style = _styleOf(tester, '128');
+          final tokens = DTokens.of(tester.element(find.byType(DBadge)));
+          expect(style.fontSize, touch ? 12.5 : 11.5);
+          expect(style.height, touch ? 18 / 12.5 : 16 / 11.5);
+          expect(style.fontWeight, FontWeight.w600);
+          expect(style.fontFeatures, const [FontFeature.tabularFigures()]);
+          expect(style.color, tokens.primary);
+          expect(
+            _decoration(tester).color,
+            tokens.primary.withValues(alpha: .12),
+          );
+          expect(_decoration(tester).border, isNull);
+          expect(bounds.height, (touch ? 18 : 16) * scale + 2);
+          expect(bounds.width, closeTo(label.width + 14, .001));
+          expect(label.center.dx, closeTo(bounds.center.dx, .001));
+          expect(bounds.contains(label.topLeft), isTrue);
+          expect(bounds.contains(label.bottomRight), isTrue);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+    await _pump(tester, const DBadge(size: DBadgeSize.count, child: Text('')));
+    expect(tester.getSize(find.byType(DBadge)).width, 20);
+  });
+
+  testWidgets(
+    'feed counts exclude reading uplift and retain accessible names',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(
+        tester,
+        const MediaQuery(
+          data: MediaQueryData(
+            textScaler: AppTextScaler(
+              platformScaler: TextScaler.linear(2),
+              appScale: 1.25,
+              baselineScale: 1.2,
+            ),
+          ),
+          child: DBadge(
+            size: DBadgeSize.count,
+            semanticLabel: '128 unread topics',
+            child: Text('128'),
+          ),
+        ),
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+      );
+      expect(tester.getSize(find.byType(DBadge)).height, 18 * 2 * 1.25 + 2);
+      expect(find.bySemanticsLabel('128 unread topics'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    },
+  );
+
   testWidgets('inline badges retain paragraph metrics, baseline and ellipsis', (
     tester,
   ) async {
@@ -750,6 +840,8 @@ void main() {
           DBadgeSize.featured => 26,
           DBadgeSize.control => 36,
           DBadgeSize.unread => 19,
+          DBadgeSize.count => 20,
+          DBadgeSize.menuCount => 18,
         },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));

@@ -73,7 +73,7 @@ void main() {
       top(tester, 'topic-list-filter'),
       top(tester, 'topic-list-tag-filter'),
     );
-    expect(tester.getSemantics(_filters()).label, 'Filters');
+    expect(tester.getSemantics(_filters()).getSemanticsData().label, 'Filters');
     expect(tester.takeException(), isNull);
   });
 

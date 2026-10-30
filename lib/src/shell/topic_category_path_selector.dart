@@ -144,48 +144,43 @@ class TopicCategoryPathSelector extends StatelessWidget {
             },
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),
-              // A reflow between the two forms replaces the button instead of
-              // tweening its corners; the trigger's focus node lives above it.
-              child: KeyedSubtree(
-                key: ValueKey(iconOnly),
-                child: iconOnly
-                    ? DButton.iconOnly(
-                        size: DButtonSize.filter,
-                        variant: DButtonVariant.quiet,
-                        icon: icon,
-                        tooltip: label,
-                        semanticLabel: semanticLabel,
-                        onPressed: onSelected == null ? null : trigger.toggle,
-                        focusNode: trigger.focusNode,
-                        expanded: trigger.open,
-                        hasPopup: true,
-                      )
-                    : DButton(
-                        size: DButtonSize.filter,
-                        variant: DButtonVariant.quiet,
-                        alignment: AlignmentDirectional.centerStart,
-                        label: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: category == null && level > 0
-                              ? TextStyle(
-                                  color: Color.lerp(
-                                    DTokens.of(context).background,
-                                    DTokens.of(context).foreground,
-                                    .40,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        icon: category != null || level == 0 ? icon : null,
-                        semanticLabel: semanticLabel,
-                        onPressed: onSelected == null ? null : trigger.toggle,
-                        focusNode: trigger.focusNode,
-                        expanded: trigger.open,
-                        hasPopup: true,
+              child: iconOnly
+                  ? DButton.iconOnly(
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.quiet,
+                      icon: icon,
+                      tooltip: label,
+                      semanticLabel: semanticLabel,
+                      onPressed: onSelected == null ? null : trigger.toggle,
+                      focusNode: trigger.focusNode,
+                      expanded: trigger.open,
+                      hasPopup: true,
+                    )
+                  : DButton(
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.quiet,
+                      alignment: AlignmentDirectional.centerStart,
+                      label: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: category == null && level > 0
+                            ? TextStyle(
+                                color: Color.lerp(
+                                  DTokens.of(context).background,
+                                  DTokens.of(context).foreground,
+                                  .40,
+                                ),
+                              )
+                            : null,
                       ),
-              ),
+                      icon: category != null || level == 0 ? icon : null,
+                      semanticLabel: semanticLabel,
+                      onPressed: onSelected == null ? null : trigger.toggle,
+                      focusNode: trigger.focusNode,
+                      expanded: trigger.open,
+                      hasPopup: true,
+                    ),
             ),
           ),
         ),
@@ -209,14 +204,23 @@ class TopicCategoryPathSelector extends StatelessWidget {
               if (level > 0)
                 DButtonGroupText(
                   padding: EdgeInsets.symmetric(
-                    horizontal: DControlStyle.isTouch(context) && short ? 2 : 5,
+                    horizontal:
+                        DControlStyle.isTouch(context) &&
+                            DFitRow.compactOf(context)
+                        ? 2
+                        : 5,
                   ),
-                  child: DIcon(
-                    _pathSeparatorIcon,
-                    size: 14,
-                    color: DTokens.of(
-                      context,
-                    ).mutedForeground.withValues(alpha: .45),
+                  child: Transform.rotate(
+                    angle: .3141592653589793,
+                    child: DSeparator(
+                      orientation: Axis.vertical,
+                      length: 14,
+                      thickness: 1.5,
+                      radius: BorderRadius.circular(1),
+                      color: DTokens.of(
+                        context,
+                      ).mutedForeground.withValues(alpha: .45),
+                    ),
                   ),
                 ),
               segment(level),
@@ -233,13 +237,6 @@ const noSubcategoriesIcon = DIconData(
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
       '<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>'
       '<path d="m4 4 8 8" stroke="currentColor" stroke-width="1.5"/>'
-      '</svg>',
-);
-
-const _pathSeparatorIcon = DIconData(
-  'category-path-separator',
-  '<svg viewBox="0 0 5 16" fill="none" xmlns="http://www.w3.org/2000/svg">'
-      '<path d="M4 1 1 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
       '</svg>',
 );
 

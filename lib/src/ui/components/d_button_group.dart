@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
@@ -149,7 +150,7 @@ class _DButtonGroupState extends State<DButtonGroup> {
         container: true,
         explicitChildNodes: true,
         label: widget.semanticLabel,
-        child: DecoratedBox(
+        child: DControlMotionSurface(
           decoration: BoxDecoration(
             color: DTokens.of(context).foreground.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(DRadius.pill),

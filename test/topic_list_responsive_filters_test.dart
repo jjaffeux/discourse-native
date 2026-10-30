@@ -226,6 +226,11 @@ void main() {
       await _pump(tester);
       await _capture(tester, 'phone-expanded');
       final filters = find.byKey(const ValueKey('topic-list-filter'));
+      final latest = find.byKey(const ValueKey('topic-list-view-latest'));
+      expect(
+        find.descendant(of: latest, matching: find.text('Latest')),
+        findsOneWidget,
+      );
       final initialTop = tester.getTopLeft(filters).dy;
       expect(tester.getSize(filters).height, 36);
       await tester.drag(
@@ -233,6 +238,11 @@ void main() {
         const Offset(0, -500),
       );
       await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: latest, matching: find.text('Latest')),
+        findsNothing,
+      );
+      expect(tester.getSize(latest), const Size.square(32));
       expect(tester.getTopLeft(filters).dy, lessThan(initialTop));
       expect(tester.getRect(filters).bottom, lessThan(200));
       expect(
@@ -264,6 +274,44 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('width pressure retains feed names and ordinary phone spacing', (
+    tester,
+  ) async {
+    await _pump(tester, width: 430, query: 'category:3 status:open');
+    final latest = find.byKey(const ValueKey('topic-list-view-latest'));
+    expect(
+      find.descendant(of: latest, matching: find.text('Latest')),
+      findsOneWidget,
+    );
+    final tag = tester.getRect(
+      find.byKey(const ValueKey('topic-list-tag-filter')),
+    );
+    final filters = tester.getRect(
+      find.byKey(const ValueKey('topic-list-filter')),
+    );
+    expect(filters.left - tag.right, 8);
+    final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+    expect(
+      find.descendant(of: bar, matching: find.text('Product')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.text('Mobile')),
+      findsOneWidget,
+    );
+    final separators = tester.widgetList<DButtonGroupText>(
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-filter-bar')),
+        matching: find.byType(DButtonGroupText),
+      ),
+    );
+    expect(separators, isNotEmpty);
+    for (final separator in separators) {
+      expect(separator.padding, const EdgeInsets.symmetric(horizontal: 5));
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('swiping preserves filter buttons between layout changes', (
     tester,

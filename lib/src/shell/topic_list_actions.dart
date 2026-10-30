@@ -306,57 +306,54 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         ),
       ),
       child: DPopoverTrigger(
-        // A reflow between the two forms replaces the button instead of
-        // tweening its corners; the popover and its focus node live above it.
-        builder: (context, trigger) => KeyedSubtree(
-          key: ValueKey(iconOnly),
-          child: iconOnly
-              ? DButton.iconOnly(
-                  key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
-                  semanticLabel: label,
-                  tooltip: label,
-                  icon: widget.icon!,
-                  size: DButtonSize.filter,
-                  variant: variant,
-                  focusNode: trigger.focusNode,
-                  expanded: trigger.open,
-                  hasPopup: true,
-                  onPressed: trigger.toggle,
-                )
-              : DButton(
-                  key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
-                  semanticLabel: tight ? label : null,
-                  label: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: widget.filterKey == 'tag'
-                          ? MediaQuery.textScalerOf(context).scale(88)
-                          : double.infinity,
-                    ),
-                    child: Text(
-                      tight ? '$count' : label,
-                      style: widget.dimLabel
-                          ? TextStyle(
-                              color: Color.lerp(
-                                DTokens.of(context).background,
-                                DTokens.of(context).foreground,
-                                .40,
-                              ),
-                            )
-                          : null,
-                    ),
+        builder: (context, trigger) => iconOnly
+            ? DButton.iconOnly(
+                key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
+                semanticLabel: label,
+                tooltip: label,
+                icon: widget.icon!,
+                size: DButtonSize.filter,
+                variant: variant,
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                hasPopup: true,
+                onPressed: trigger.toggle,
+              )
+            : DButton(
+                key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
+                semanticLabel: tight ? label : null,
+                label: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: switch (widget.filterKey) {
+                      'tag' => MediaQuery.textScalerOf(context).scale(88),
+                      null => MediaQuery.textScalerOf(context).scale(96),
+                      _ => double.infinity,
+                    },
                   ),
-                  tooltip: widget.query.isEmpty
-                      ? context.l10n.filterTopics
-                      : context.l10n.editActiveFilter,
-                  icon: widget.icon,
-                  size: DButtonSize.filter,
-                  variant: variant,
-                  focusNode: trigger.focusNode,
-                  expanded: trigger.open,
-                  hasPopup: true,
-                  onPressed: trigger.toggle,
+                  child: Text(
+                    tight ? '$count' : label,
+                    style: widget.dimLabel
+                        ? TextStyle(
+                            color: Color.lerp(
+                              DTokens.of(context).background,
+                              DTokens.of(context).foreground,
+                              .40,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
-        ),
+                tooltip: widget.query.isEmpty
+                    ? context.l10n.filterTopics
+                    : context.l10n.editActiveFilter,
+                icon: widget.icon,
+                size: DButtonSize.filter,
+                variant: variant,
+                focusNode: trigger.focusNode,
+                expanded: trigger.open,
+                hasPopup: true,
+                onPressed: trigger.toggle,
+              ),
       ),
     );
   }

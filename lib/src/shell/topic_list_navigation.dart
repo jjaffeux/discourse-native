@@ -301,11 +301,8 @@ class _TopicListNavigationControls extends StatelessWidget {
                       controller.mobileNavigationEnabled ? 14 : 16,
                     )
                   : EdgeInsets.zero,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final wrap =
-                      constraints.maxWidth < 600 &&
-                      MediaQuery.textScalerOf(context).scale(14) > 21;
+              child: Builder(
+                builder: (context) {
                   // The filters wrap among themselves; a control that is not
                   // a filter stands beside them instead of being stranded on
                   // a run of its own.
@@ -336,18 +333,10 @@ class _TopicListNavigationControls extends StatelessWidget {
                         categoryId: state.route!.categoryId!,
                         size: DButtonSize.filter,
                         quiet: true,
-                        showChevron: !controller.mobileNavigationEnabled,
+                        showChevron: true,
                       ),
                     ?trailing,
                   ];
-                  if (wrap) {
-                    return DControlWrap(
-                      key: const ValueKey('topic-list-feed-row'),
-                      spacing: DSpacing.sm,
-                      runSpacing: 8,
-                      children: [primary, ...actions],
-                    );
-                  }
                   return Row(
                     key: const ValueKey('topic-list-feed-row'),
                     crossAxisAlignment: CrossAxisAlignment.start,

@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
+import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
@@ -694,19 +695,21 @@ class _DToggleState extends State<DToggle> {
         ),
       ),
     );
-    return Align(
-      widthFactor: 1,
-      heightFactor: 1,
-      child: splitView
-          ? AnimatedScale(
-              scale: _pointerPressed ? .92 : 1,
-              duration: reducedMotion
-                  ? Duration.zero
-                  : Duration(milliseconds: _pointerPressed ? 80 : 400),
-              curve: const Cubic(.34, 1.56, .64, 1),
-              child: control,
-            )
-          : control,
+    return DControlMotion(
+      child: Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: splitView
+            ? AnimatedScale(
+                scale: _pointerPressed ? .92 : 1,
+                duration: reducedMotion
+                    ? Duration.zero
+                    : Duration(milliseconds: _pointerPressed ? 80 : 400),
+                curve: const Cubic(.34, 1.56, .64, 1),
+                child: control,
+              )
+            : control,
+      ),
     );
   }
 }
