@@ -620,31 +620,67 @@ void main() {
   }
 
   {
-    testWidgets('phone close and submit use the mockup 34px action flat', (
-      tester,
-    ) async {
-      await _Harness.create(
-        tester,
-        mobile: true,
-        size: const Size(390, 844),
-        theme: AppTheme.light,
-      );
-      for (final action in ['composer-close', 'composer-submit']) {
-        final button = find.byKey(ValueKey(action));
-        expect(tester.getSize(button), const Size(34, 34), reason: action);
-        expect(
-          tester
-              .getSize(
-                find.descendant(of: button, matching: find.byType(DIcon)),
-              )
-              .height,
-          14,
-          reason: action,
+    for (final dark in [false, true]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'phone header actions are large and raised dark=$dark scale=$scale',
+          (tester) async {
+            await _Harness.create(
+              tester,
+              mobile: true,
+              size: const Size(390, 844),
+              theme: dark ? AppTheme.dark : AppTheme.light,
+              scale: scale,
+            );
+            final header = tester.getRect(
+              find.byKey(const ValueKey('composer-header')),
+            );
+            final handle = tester.getRect(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+            );
+            for (final action in ['composer-close', 'composer-submit']) {
+              final button = find.byKey(ValueKey(action));
+              expect(
+                tester.getSize(button),
+                const Size(48, 48),
+                reason: action,
+              );
+              expect(tester.getRect(button).top, header.top, reason: action);
+              expect(tester.getRect(button).top, greaterThan(handle.bottom));
+              expect(
+                tester
+                    .getSize(
+                      find.descendant(of: button, matching: find.byType(DIcon)),
+                    )
+                    .height,
+                16,
+                reason: action,
+              );
+            }
+            expect(header.height, 56);
+            expect(
+              tester
+                  .widget<DButton>(find.byKey(const ValueKey('composer-close')))
+                  .variant,
+              DButtonVariant.ghost,
+            );
+            expect(
+              tester
+                  .widget<DButton>(
+                    find.byKey(const ValueKey('composer-submit')),
+                  )
+                  .variant,
+              DButtonVariant.primary,
+            );
+            await _render(
+              tester,
+              'phone-header-actions-${dark ? 'dark' : 'light'}-$scale',
+            );
+            expect(tester.takeException(), isNull);
+          },
         );
       }
-      await _render(tester, 'phone-header-actions-flat');
-      expect(tester.takeException(), isNull);
-    });
+    }
   }
 
   {
