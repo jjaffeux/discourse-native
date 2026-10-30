@@ -678,12 +678,11 @@ packages:
     source: hosted
     version: "3.0.2"
   libavif:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: libavif
-      sha256: e96c31379cd472786133085ec18b977c79d3965a1a339bf283447e7b85955268
-      url: "https://pub.dev"
-    source: hosted
+      path: "../../packages/libavif"
+      relative: true
+    source: path
     version: "0.1.1"
   linked_pageview:
     dependency: transitive

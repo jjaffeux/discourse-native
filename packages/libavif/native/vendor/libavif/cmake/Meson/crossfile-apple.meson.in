@@ -1,0 +1,17 @@
+[binaries]
+c = ['@CMAKE_C_COMPILER@']
+cpp = ['@CMAKE_CXX_COMPILER@']
+ar = ['@CMAKE_AR@']
+strip = ['@CMAKE_STRIP@']
+pkg-config = 'false'
+
+[host_machine]
+system = '@cross_system_name@'
+@cross_system_subsystem@
+cpu_family = '@cross_system_processor@'
+cpu = '@cross_system_processor@'
+endian = '@cross_system_endian@'
+
+[built-in options]
+c_args = [@cross_c_args@]
+c_link_args = [@cross_c_args@]

@@ -22,9 +22,11 @@ The workflow does not upload to or publish the Store.
 
 Install Flutter `3.47.7`, Visual Studio 2022 with **Desktop development with C++**,
 the Windows SDK, Rust `1.92.0`, Meson `1.9.1`, Ninja `1.13.0`, and NASM `2.16.03`.
-Run these commands from a Visual Studio x64 Developer PowerShell terminal.
+Run these commands from a Visual Studio x64 Developer terminal using PowerShell 7.
 Keep the checkout in a short path such as `C:\src`. Native codec builds create
 deep directory trees, and MSBuild's tracking files still have path-length limits.
+The reviewed `packages/libavif` copy also puts Windows codec intermediates in a
+short temporary directory. Its source checksum and patch are in `PATCHES.md`.
 
 ```powershell
 $env:RUSTUP_TOOLCHAIN = '1.92.0'

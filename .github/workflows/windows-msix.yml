@@ -65,6 +65,7 @@ jobs:
           test/windows_file_persistence_test.dart
           test/draft_store_test.dart test/webview_inline_video_playback_test.dart
           test/offline_cooking_runtime_test.dart test/voice_controller_test.dart
+          test/avif_image_test.dart
       - name: Exercise native Windows startup and encrypted storage
         run: flutter test integration_test/windows_smoke_test.dart -d windows
       - name: Build Store package
