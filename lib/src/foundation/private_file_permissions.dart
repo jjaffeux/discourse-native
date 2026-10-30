@@ -73,6 +73,7 @@ Future<T> withPrivateAdvisoryFileLock<T>(
   Future<T> Function() operation,
 ) async {
   await ensurePrivateFile(file);
+  if (Platform.isWindows) return _withWindowsFileLock(file, operation);
   final nativePath = file.path.toNativeUtf8();
   final int descriptor;
   try {
@@ -103,6 +104,37 @@ Future<T> withPrivateAdvisoryFileLock<T>(
     // cleanup error cannot replace the operation's more useful exception.
     _nativeFlock(descriptor, 0x0008);
     _nativeClose(descriptor);
+  }
+}
+
+Future<T> _withWindowsFileLock<T>(
+  File file,
+  Future<T> Function() operation,
+) async {
+  final handle = await file.open(mode: FileMode.append);
+  var locked = false;
+  try {
+    final elapsed = Stopwatch()..start();
+    while (!locked) {
+      try {
+        // Windows locks are bound to the handle, including between isolates.
+        await handle.lock(FileLock.exclusive, 0, 1);
+        locked = true;
+      } on FileSystemException catch (error) {
+        if (error.osError?.errorCode != 33 || elapsed.elapsed >= _lockTimeout) {
+          rethrow;
+        }
+        await Future<void>.delayed(_lockRetryInterval);
+      }
+    }
+    return await operation();
+  } finally {
+    try {
+      if (locked) await handle.unlock(0, 1);
+    } on FileSystemException {
+      // Closing also releases the lock, without replacing an operation error.
+    }
+    await handle.close();
   }
 }
 

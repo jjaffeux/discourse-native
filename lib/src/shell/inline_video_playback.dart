@@ -146,10 +146,10 @@ InlineVideoPlaybackSession createInlineVideoPlaybackSession(
     case TargetPlatform.macOS:
       return _NativeInlineVideoPlaybackSession(request);
     case TargetPlatform.linux:
+    case TargetPlatform.windows:
       return _WebViewInlineVideoPlaybackSession(request);
     case TargetPlatform.android:
     case TargetPlatform.fuchsia:
-    case TargetPlatform.windows:
       return _UnsupportedInlineVideoPlaybackSession(request, selectedPlatform);
   }
 }

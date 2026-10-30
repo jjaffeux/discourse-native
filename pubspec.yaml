@@ -143,6 +143,7 @@ dependency_overrides:
     path: packages/video_player_avfoundation
 
 dev_dependencies:
+  msix: 3.18.0
   vm_service: ^15.4.0
   # Parses Dart syntax for the user-facing string localization audit.
   analyzer: ^14.6.0
@@ -241,3 +242,17 @@ flutter:
           weight: 400
         - asset: assets/fonts/JetBrainsMono-Bold.ttf
           weight: 700
+
+msix_config:
+  display_name: Discourse Native
+  publisher_display_name: Discourse
+  identity_name: Discourse.DiscourseNative
+  publisher: CN=4A2D3327-D000-4EEA-AE19-9F753B328EF2
+  msix_version: 1.0.0.0
+  architecture: x64
+  logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png
+  capabilities: internetClient,microphone,webcam
+  store: true
+  build_windows: false
+  sign_msix: false
+  install_certificate: false

@@ -1,0 +1,70 @@
+name: Windows MSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      store_version:
+        description: 'Increasing Microsoft Store version (a.b.c.0)'
+        required: true
+        default: '1.0.0.0'
+  push:
+    branches: [main, codex/windows-msix]
+    paths: ['windows/**', 'lib/**', 'packages/**', 'pubspec.*', '.fvmrc', '.github/actions/setup-avif/**', '.github/workflows/windows-msix.yml', 'tool/build_windows_msix.ps1', 'test/windows_*', 'integration_test/windows_smoke_test.dart']
+  pull_request:
+    paths: ['windows/**', 'lib/**', 'packages/**', 'pubspec.*', '.fvmrc', '.github/actions/setup-avif/**', '.github/workflows/windows-msix.yml', 'tool/build_windows_msix.ps1', 'test/windows_*', 'integration_test/windows_smoke_test.dart']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-msix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      STORE_VERSION: ${{ inputs.store_version || '1.0.0.0' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize MSVC
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version-file: .fvmrc
+          channel: stable
+          cache: true
+      - name: Set up AVIF build tools
+        uses: ./.github/actions/setup-avif
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Verify WebView2 Runtime
+        shell: pwsh
+        run: |
+          $runtime = Get-ChildItem "${env:ProgramFiles(x86)}/Microsoft/EdgeWebView/Application/*/msedgewebview2.exe" -ErrorAction SilentlyContinue
+          if (-not $runtime) { throw 'WebView2 Runtime is required for Windows authentication and embedded media.' }
+      - name: Test Windows storage and desktop behavior
+        run: >-
+          flutter test test/windows_dpapi_storage_test.dart
+          test/windows_file_persistence_test.dart
+          test/draft_store_test.dart test/webview_inline_video_playback_test.dart
+          test/offline_cooking_runtime_test.dart test/voice_controller_test.dart
+      - name: Exercise native Windows startup and encrypted storage
+        run: flutter test integration_test/windows_smoke_test.dart -d windows
+      - name: Build Store package
+        shell: pwsh
+        run: ./tool/build_windows_msix.ps1 -StoreVersion $env:STORE_VERSION
+      - name: Keep uploadable MSIX
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: DiscourseNative-${{ env.STORE_VERSION }}-x64
+          path: build/windows/msix/*.msix
+          if-no-files-found: error
+          retention-days: 14

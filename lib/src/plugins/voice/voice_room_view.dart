@@ -197,7 +197,7 @@ class _VoiceRoomControllerViewState extends State<_VoiceRoomControllerView> {
       },
       onKeyEvent: (_, event) {
         if (!widget.controller.pushToTalkEnabled ||
-            (!Platform.isMacOS && !Platform.isLinux) ||
+            (!Platform.isMacOS && !Platform.isLinux && !Platform.isWindows) ||
             event.logicalKey != LogicalKeyboardKey.space) {
           return KeyEventResult.ignored;
         }
@@ -989,7 +989,7 @@ class _CallControlsState extends State<_CallControls> {
         me?.canPublishVideo != false;
     final cameraOn = call.cameraEnabled || controller.cameraStarting;
     final canShare =
-        (Platform.isMacOS || Platform.isLinux) &&
+        (Platform.isMacOS || Platform.isLinux || Platform.isWindows) &&
         canPublish &&
         call.room.videoEnabled &&
         call.room.screenShareAllowed &&
@@ -1807,7 +1807,8 @@ Future<void> _showMediaSettings(
                   await controller.selectCamera(value);
                 },
               ),
-              if (!mobile && (Platform.isMacOS || Platform.isLinux))
+              if (!mobile &&
+                  (Platform.isMacOS || Platform.isLinux || Platform.isWindows))
                 DSwitchTile(
                   value: pushToTalk,
                   title: DLabel(child: Text(appL10n.pushToTalk)),
