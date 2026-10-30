@@ -154,7 +154,14 @@ void main() {
               findsOneWidget,
             );
             final bounds = tester.getRect(sheet);
-            expect(bounds.width, size.width);
+            final inset = scale == 1 ? 23.0 : 0.0;
+            expect(
+              bounds.left,
+              inset,
+              reason:
+                  'Short menus float; enlarged scrollable menus open docked.',
+            );
+            expect(bounds.right, size.width - inset);
             expect(bounds.top, closeTo(size.height * .45, 1));
           } else {
             expect(find.byType(DSheetContent), findsNothing);
