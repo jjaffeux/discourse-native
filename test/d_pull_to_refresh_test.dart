@@ -46,6 +46,45 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('refresh reserves content space and collapses on $platform', (
+      tester,
+    ) async {
+      final response = Completer<void>();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _host(
+          platform: platform,
+          controller: scroll,
+          onRefresh: () => response.future,
+        ),
+      );
+      final row = tester.getRect(find.text('Row 0'));
+      final viewport = scroll.position.viewportDimension;
+      await _pull(tester);
+      await tester.pump(const Duration(seconds: 1));
+      final refreshedRow = tester.getRect(find.text('Row 0'));
+      expect(refreshedRow.top, closeTo(row.top + 60, 0.1));
+      expect(
+        tester.getRect(find.byType(DSpinner)).bottom,
+        lessThan(refreshedRow.top),
+      );
+      expect(scroll.position.viewportDimension, closeTo(viewport - 60, 0.1));
+      expect(scroll.offset, closeTo(0, 0.1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.getRect(find.text('Row 0')), refreshedRow);
+      response.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 90));
+      final collapsingTop = tester.getTopLeft(find.text('Row 0')).dy;
+      expect(collapsingTop, greaterThan(row.top));
+      expect(collapsingTop, lessThan(refreshedRow.top));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.text('Row 0')), row);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(scroll.position.viewportDimension, viewport);
+    });
+
     testWidgets('pull refreshes a short list once on $platform', (
       tester,
     ) async {
@@ -118,6 +157,7 @@ void main() {
       await tester.pumpWidget(
         _host(platform: platform, count: 40, onRefresh: () async => calls++),
       );
+      final row = tester.getRect(find.text('Row 0'));
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(ListView)),
       );
@@ -126,6 +166,7 @@ void main() {
       await gesture.moveBy(const Offset(0, 30));
       await tester.pump();
       expect(find.bySemanticsLabel('Pull to refresh'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Row 0')).dy, greaterThan(row.top));
       await gesture.moveBy(const Offset(0, -100));
       await tester.pump();
       expect(find.byType(DSpinner), findsNothing);
@@ -134,6 +175,69 @@ void main() {
       expect(calls, 0);
     });
   }
+
+  testWidgets('iOS bounce supplies pull space without a second gap', (
+    tester,
+  ) async {
+    final response = Completer<void>();
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      _host(
+        platform: TargetPlatform.iOS,
+        controller: scroll,
+        onRefresh: () => response.future,
+      ),
+    );
+    final rowTop = tester.getTopLeft(find.text('Row 0')).dy;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    for (var i = 0; i < 6; i++) {
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+    }
+    expect(scroll.offset, lessThan(-60));
+    expect(
+      tester.getTopLeft(find.text('Row 0')).dy,
+      closeTo(rowTop - scroll.offset, 0.1),
+    );
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpWidget(
+      _host(platform: TargetPlatform.iOS, controller: scroll, onRefresh: null),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.getTopLeft(find.text('Row 0')).dy, closeTo(rowTop + 60, 0.1));
+    response.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('the last row stays reachable while refreshing', (tester) async {
+    final response = Completer<void>();
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      _host(controller: scroll, count: 40, onRefresh: () => response.future),
+    );
+    final position = scroll.position;
+    await _pull(tester);
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pump();
+    expect(scroll.position, same(position));
+    final bounds = tester.getRect(find.byType(DPullToRefresh));
+    final lastRow = tester.getRect(
+      find
+          .ancestor(of: find.text('Row 39'), matching: find.byType(SizedBox))
+          .first,
+    );
+    expect(lastRow.bottom, closeTo(bounds.bottom, 0.1));
+    expect(find.text('Row 39').hitTestable(), findsOneWidget);
+    response.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('a small pull cancels without refreshing', (tester) async {
     var calls = 0;
@@ -144,10 +248,35 @@ void main() {
         },
       ),
     );
+    final row = tester.getRect(find.text('Row 0'));
     await tester.drag(find.byType(ListView), const Offset(0, 40));
     await tester.pumpAndSettle();
     expect(calls, 0);
     expect(find.byType(DSpinner), findsNothing);
+    expect(tester.getRect(find.text('Row 0')), row);
+  });
+
+  testWidgets('disabling refresh during a pull collapses its space', (
+    tester,
+  ) async {
+    var calls = 0;
+    await tester.pumpWidget(_host(onRefresh: () async => calls++));
+    final row = tester.getRect(find.text('Row 0'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    await gesture.moveBy(const Offset(0, 30));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 30));
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('Row 0')).dy, greaterThan(row.top));
+    await tester.pumpWidget(_host(onRefresh: null));
+    expect(find.byType(DSpinner), findsNothing);
+    expect(tester.getRect(find.text('Row 0')), row);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(calls, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('scrolling away from the top does not refresh', (tester) async {
@@ -245,6 +374,8 @@ void main() {
     tester,
   ) async {
     final response = Completer<void>();
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
     late DPageHeaderGeometry geometry;
     await tester.pumpWidget(
       MaterialApp(
@@ -258,8 +389,13 @@ void main() {
               return DPullToRefresh(
                 onRefresh: () => response.future,
                 child: ListView(
+                  controller: scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: [header.spacer, const Text('Row')],
+                  children: [
+                    header.spacer,
+                    for (var i = 0; i < 20; i++)
+                      SizedBox(height: 60, child: Text('Row $i')),
+                  ],
                 ),
               );
             },
@@ -267,22 +403,25 @@ void main() {
         ),
       ),
     );
+    final controls = tester.getRect(find.text('Page controls'));
     await _pull(tester);
     expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
     final page = tester.getRect(find.byType(DPageSurface));
-    final indicator = tester.getRect(
-      find
-          .ancestor(
-            of: find.byType(DSpinner),
-            matching: find.byType(DecoratedBox),
-          )
-          .first,
-    );
+    final indicator = tester.getRect(find.byType(DSpinner));
     expect(geometry.visibleExtent, greaterThan(0));
     expect(
       indicator.top,
       greaterThanOrEqualTo(page.top + geometry.visibleExtent),
     );
+    expect(
+      tester.getTopLeft(find.text('Row 0')).dy,
+      greaterThan(indicator.bottom),
+    );
+    expect(tester.getRect(find.text('Page controls')), controls);
+    scroll.jumpTo(geometry.naturalExtent + 40);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Row 0').hitTestable(), findsNothing);
+    expect(find.text('Row 3').hitTestable(), findsOneWidget);
     response.complete();
     await tester.pumpAndSettle();
   });
@@ -301,19 +440,6 @@ void main() {
       final spinner = tester.widget<DSpinner>(find.byType(DSpinner));
       final tokens = DTokens.of(tester.element(find.byType(DSpinner)));
       expect(spinner.color, tokens.foreground);
-      final surface =
-          tester
-                  .widget<DecoratedBox>(
-                    find
-                        .ancestor(
-                          of: find.byType(DSpinner),
-                          matching: find.byType(DecoratedBox),
-                        )
-                        .first,
-                  )
-                  .decoration
-              as BoxDecoration;
-      expect(surface.color, tokens.background);
     }
     response.complete();
     await tester.pumpAndSettle();

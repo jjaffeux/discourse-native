@@ -7,7 +7,8 @@ final pullToRefreshExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Refresh a list by pulling down from its top edge.',
   notes:
-      'The Native spinner follows Flutter’s refresh gesture lifecycle. '
+      'The Native spinner opens space above the content while pulling. '
+      'That space stays open during refresh and collapses on completion. '
       'Use AlwaysScrollableScrollPhysics for short and empty lists. '
       'The child retains its scroll controller. A null callback disables refresh; '
       'the caller handles request errors. A screen-reader Refresh action is '

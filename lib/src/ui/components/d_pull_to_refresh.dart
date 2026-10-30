@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +15,9 @@ import 'd_spinner.dart';
 /// The child owns its scroll controller and must use
 /// [AlwaysScrollableScrollPhysics] to support short or empty content. Nested
 /// scrollables and horizontal/reversed lists do not trigger a refresh. The
-/// indicator appears below a floating [DPageSurface] header. The
-/// returned future keeps the indicator visible and prevents duplicate gestures.
+/// spinner opens space above the content, below a floating [DPageSurface]
+/// header. The returned future holds that space and prevents duplicate gestures;
+/// completion collapses it without replacing the scrollable.
 /// Callers handle errors and present them alongside their retained content.
 ///
 /// A null [onRefresh] disables new requests without replacing the child. Use a
@@ -51,31 +53,94 @@ class DPullToRefresh extends StatefulWidget {
   State<DPullToRefresh> createState() => _DPullToRefreshState();
 }
 
-class _DPullToRefreshState extends State<DPullToRefresh> {
+class _DPullToRefreshState extends State<DPullToRefresh>
+    with SingleTickerProviderStateMixin {
+  static const _refreshExtent = 60.0;
   final _indicator = GlobalKey<RefreshIndicatorState>();
+  late final _extent = AnimationController(
+    vsync: this,
+    upperBound: _refreshExtent,
+  );
   RefreshIndicatorStatus? _status;
   double _pullDistance = 0;
+  double _nativeOverscroll = 0;
+
+  bool get _busy =>
+      _status == RefreshIndicatorStatus.snap ||
+      _status == RefreshIndicatorStatus.refresh;
+
+  void _updateExtent() {
+    final pulling =
+        _status == RefreshIndicatorStatus.drag ||
+        _status == RefreshIndicatorStatus.armed;
+    final target = _busy
+        ? _refreshExtent
+        : pulling && widget.onRefresh != null
+        ? (_pullDistance / 2).clamp(0.0, _refreshExtent)
+        : 0.0;
+    if (pulling || MediaQuery.disableAnimationsOf(context)) {
+      _extent.value = target;
+    } else {
+      unawaited(
+        _extent.animateTo(
+          target,
+          duration: DMotion.change,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(DPullToRefresh oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.onRefresh == null) != (widget.onRefresh == null)) {
+      _updateExtent();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) _updateExtent();
+  }
+
+  @override
+  void dispose() {
+    _extent.dispose();
+    super.dispose();
+  }
 
   bool _acceptScrollNotification(ScrollNotification notification) {
-    if (widget.onRefresh == null ||
-        notification.depth != 0 ||
+    if (notification.depth != 0 ||
         notification.metrics.axisDirection != AxisDirection.down) {
       return false;
     }
 
-    // Flutter enters `drag` at scroll start, before the direction is known.
-    // Only reveal our indicator once the gesture has actually pulled down.
-    if (_status == RefreshIndicatorStatus.drag) {
+    final nativeOverscroll = math.max(
+      0.0,
+      notification.metrics.minScrollExtent - notification.metrics.pixels,
+    );
+    var changed = _nativeOverscroll != nativeOverscroll;
+    _nativeOverscroll = nativeOverscroll;
+    final pulling =
+        _status == RefreshIndicatorStatus.drag ||
+        _status == RefreshIndicatorStatus.armed;
+    if (pulling) {
       final delta = switch (notification) {
         ScrollUpdateNotification(:final scrollDelta) => scrollDelta ?? 0,
         OverscrollNotification(:final overscroll) => overscroll,
         _ => 0.0,
       };
-      final wasPulling = _pullDistance > 0;
       _pullDistance -= delta;
-      if (wasPulling != (_pullDistance > 0)) setState(() {});
+      changed = changed || delta != 0;
     }
-    return true;
+    if (changed && mounted) {
+      setState(() {
+        if (pulling) _updateExtent();
+      });
+    }
+    return widget.onRefresh != null || _status != null;
   }
 
   Future<void> _refresh() async {
@@ -85,9 +150,7 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final busy =
-        _status == RefreshIndicatorStatus.snap ||
-        _status == RefreshIndicatorStatus.refresh;
+    final busy = _busy;
     final visible =
         busy ||
         (widget.onRefresh != null &&
@@ -98,29 +161,6 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
         : _status == RefreshIndicatorStatus.armed
         ? widget.releaseLabel
         : widget.pullLabel;
-    final indicator = IgnorePointer(
-      child: Center(
-        child: AnimatedOpacity(
-          opacity: _status == RefreshIndicatorStatus.drag ? 0.5 : 1,
-          duration: DMotion.duration(context, DMotion.change),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: tokens.background,
-              shape: BoxShape.circle,
-              border: Border.all(color: tokens.border),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(DSpacing.md),
-              child: DSpinner(
-                color: tokens.foreground,
-                animating: busy,
-                semanticLabel: label,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
     final header = DPageSurface.headerGeometryOf(context);
 
     return SheetContentGestureRegion(
@@ -132,35 +172,92 @@ class _DPullToRefreshState extends State<DPullToRefresh> {
                   unawaited(_indicator.currentState?.show());
                 },
               },
-        child: Stack(
-          children: [
-            RefreshIndicator.noSpinner(
-              key: _indicator,
-              onRefresh: _refresh,
-              notificationPredicate: _acceptScrollNotification,
-              onStatusChange: (status) {
-                if (mounted) {
-                  setState(() {
-                    _status = status;
-                    if (status == null ||
-                        status == RefreshIndicatorStatus.drag) {
-                      _pullDistance = 0;
-                    }
-                  });
-                }
-              },
-              child: widget.child,
-            ),
-            if (visible)
-              Positioned(
-                top: DSpacing.sm,
-                left: 0,
-                right: 0,
-                child: header?.inset(indicator) ?? indicator,
+        child: AnimatedBuilder(
+          animation: _extent,
+          child: RefreshIndicator.noSpinner(
+            key: _indicator,
+            onRefresh: _refresh,
+            notificationPredicate: _acceptScrollNotification,
+            onStatusChange: (status) {
+              if (mounted) {
+                setState(() {
+                  _status = status;
+                  if (status == null || status == RefreshIndicatorStatus.drag) {
+                    _pullDistance = 0;
+                  }
+                  _updateExtent();
+                });
+              }
+            },
+            child: widget.child,
+          ),
+          builder: (context, child) {
+            final extent = _extent.value;
+            final indicator = IgnorePointer(
+              child: ClipRect(
+                child: SizedBox(
+                  height: extent,
+                  child: Center(
+                    child: Opacity(
+                      opacity: _status == RefreshIndicatorStatus.drag ? 0.5 : 1,
+                      child: DSpinner(
+                        size: DSpacing.xl,
+                        color: tokens.foreground,
+                        animating: busy,
+                        semanticLabel: label,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-          ],
+            );
+            return ClipRect(
+              child: Stack(
+                children: [
+                  ClipRect(
+                    clipper: _RefreshContentClipper(extent, header),
+                    child: Padding(
+                      // Bouncing scroll physics already opens some pull space.
+                      padding: EdgeInsets.only(
+                        top: math.max(0, extent - _nativeOverscroll),
+                      ),
+                      child: child,
+                    ),
+                  ),
+                  if (visible)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: header?.inset(indicator) ?? indicator,
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _RefreshContentClipper extends CustomClipper<Rect> {
+  _RefreshContentClipper(this.extent, this.header) : super(reclip: header);
+
+  final double extent;
+  final DPageHeaderGeometry? header;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    0,
+    extent > 0
+        ? math.min(size.height, extent + (header?.visibleExtent ?? 0))
+        : 0,
+    size.width,
+    size.height,
+  );
+
+  @override
+  bool shouldReclip(_RefreshContentClipper oldClipper) =>
+      extent != oldClipper.extent || header != oldClipper.header;
 }
