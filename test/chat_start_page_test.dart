@@ -119,12 +119,12 @@ void main() {
       shell.selectInstance(index);
       shell.pushContent(ContentRoute.newTab());
       await tester.pumpAndSettle();
-      expect(_heading('Channels'), channels ? findsOneWidget : findsNothing);
+      expect(_heading('Browse channels'), channels ? findsOneWidget : findsNothing);
       expect(_heading('Threads'), threads ? findsOneWidget : findsNothing);
     }
 
     for (final (label, route) in [
-      ('Channels', ChatPlugin.browseRouteId),
+      ('Browse channels', ChatPlugin.browseRouteId),
       ('Threads', ChatPlugin.myThreadsRouteId),
     ]) {
       shell.pushContent(ContentRoute.newTab());
@@ -210,7 +210,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(_recent(channelTab), findsOneWidget);
       expect(_recent(threadTab), findsNothing);
-      expect(_heading('Channels'), findsOneWidget);
+      expect(_heading('Browse channels'), findsOneWidget);
       expect(_heading('Threads'), findsOneWidget);
 
       shell.search.setStartPageQuery(_site, startTab, 'incident');
