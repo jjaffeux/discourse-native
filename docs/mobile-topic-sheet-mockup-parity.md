@@ -10,7 +10,9 @@ Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. Its top corners are 31, as round as the phone's bar, and its bottom
 corners follow the display radius, with a 55px fallback on screens with a
-bottom safe area and square corners on square viewports; see
+bottom safe area and square corners on square viewports. Above the keyboard,
+the bottom corners animate to the same 31px curve as the top. Painting, clipping,
+rims, and navigation share this outline. See
 [topic-head-mockup-parity.md](topic-head-mockup-parity.md) for the condensed
 head's matching rounded outline. The shared mobile body runs to the bottom screen edge for Start, topic
 lists, ordinary pages, plugin roots, topic sheets, and chat channel and thread

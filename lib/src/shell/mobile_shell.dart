@@ -941,48 +941,50 @@ class MobileHistoryGestures extends StatelessWidget {
     final sidebarOpen = navigation.sidebarOpen;
     final sidebarEntry = (navigation.historyId, 'sidebar');
     return DSheetDragScope(
-      child: DHistoryTransition(
-        frameBuilder: frameBuilder,
-        history: navigation.historyId,
-        tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
-        tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
-        tabClipper: sidebarOpen
-            ? null
-            : DHistoryTabClipper(
-                borderRadius: DSheetViewport.pageBorderRadius(context),
-                insets: const EdgeInsets.only(top: 6),
-              ),
-        entry: sidebarOpen ? sidebarEntry : navigation.entryId,
-        backSwipeAnywhere: true,
-        navigation: sidebarOpen
-            ? null
-            : DHistoryNavigation(
-                entry: sidebarEntry,
-                preview: navigationPreview,
-                onOpen: () {
+      child: Builder(
+        builder: (context) => DHistoryTransition(
+          frameBuilder: frameBuilder,
+          history: navigation.historyId,
+          tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
+          tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
+          tabClipper: sidebarOpen
+              ? null
+              : DHistoryTabClipper(
+                  borderRadius: DSheetViewport.pageBorderRadius(context),
+                  insets: const EdgeInsets.only(top: 6),
+                ),
+          entry: sidebarOpen ? sidebarEntry : navigation.entryId,
+          backSwipeAnywhere: true,
+          navigation: sidebarOpen
+              ? null
+              : DHistoryNavigation(
+                  entry: sidebarEntry,
+                  preview: navigationPreview,
+                  onOpen: () {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    shell.toggleMobileSidebar();
+                  },
+                ),
+          previousEntry: sidebarOpen ? null : navigation.previousEntryId,
+          nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
+          onBack: !sidebarOpen && navigation.canGoBack
+              ? () {
                   FocusManager.instance.primaryFocus?.unfocus();
-                  shell.toggleMobileSidebar();
-                },
-              ),
-        previousEntry: sidebarOpen ? null : navigation.previousEntryId,
-        nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
-        onBack: !sidebarOpen && navigation.canGoBack
-            ? () {
-                FocusManager.instance.primaryFocus?.unfocus();
-                shell.handleBack();
-              }
-            : null,
-        onForward: sidebarOpen || navigation.canGoForward
-            ? () {
-                FocusManager.instance.primaryFocus?.unfocus();
-                if (sidebarOpen) {
-                  shell.closeMobileSidebar();
-                } else {
-                  shell.handleForward();
+                  shell.handleBack();
                 }
-              }
-            : null,
-        child: child,
+              : null,
+          onForward: sidebarOpen || navigation.canGoForward
+              ? () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  if (sidebarOpen) {
+                    shell.closeMobileSidebar();
+                  } else {
+                    shell.handleForward();
+                  }
+                }
+              : null,
+          child: child,
+        ),
       ),
     );
   }

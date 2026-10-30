@@ -179,6 +179,40 @@ void main() {
     );
   });
 
+  testWidgets(
+    'standalone reading viewport restores raw keyboard corner geometry',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: const Scaffold(body: DSheetViewport(content: standardPage)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect((pageClip(tester) as BorderRadius).bottomLeft.x, 55);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        (pageClip(tester) as BorderRadius).bottomLeft.x,
+        inExclusiveRange(31, 55),
+      );
+      await tester.pumpAndSettle();
+      expect((pageClip(tester) as BorderRadius).bottomLeft.x, 31);
+      expect(tester.getRect(find.byType(DSheetViewport)).bottom, 544);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      await tester.pumpAndSettle();
+      expect((pageClip(tester) as BorderRadius).bottomLeft.x, 55);
+    },
+  );
+
   for (final (foot, display, bottomCorners) in [
     (34.0, null, const BorderRadius.vertical(bottom: Radius.circular(55))),
     (0.0, null, BorderRadius.zero),

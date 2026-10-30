@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/chat_shell.dart';
 import 'support/dock_corner.dart';
+import 'support/keyboard_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
 final _handle = find.byKey(const ValueKey('sheet-drag-handle'));
@@ -200,7 +201,7 @@ void main() {
         tester.widget<DPageSurface>(surface).borderRadius,
         const BorderRadius.vertical(
           top: Radius.circular(DMobileDockGeometry.capsuleRadius),
-          bottom: Radius.circular(22),
+          bottom: Radius.circular(55),
         ),
       );
       expect(find.byType(ChatChannelView), findsOneWidget);
@@ -686,6 +687,156 @@ void main() {
     }, variant: _platforms);
   }
 
+  for (final thread in [false, true]) {
+    testWidgets(
+      'chat reading sheet matches its top corners above keyboard (thread: $thread)',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        final shell = await _fixture(tester);
+        shell.openChatChannel(10);
+        if (thread) {
+          shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+        }
+        await shell.appSettings.setReduceMotion(true);
+        await tester.pumpAndSettle();
+        BorderRadius corners() =>
+            tester
+                    .widget<DPageSurface>(
+                      find
+                          .descendant(
+                            of: _sheet,
+                            matching: find.byType(DPageSurface),
+                          )
+                          .first,
+                    )
+                    .borderRadius!
+                as BorderRadius;
+        expect(corners().bottomLeft.x, 55);
+        await tester.showKeyboard(
+          find.descendant(
+            of: find.byType(ComposerEditor),
+            matching: find.byType(TextField),
+          ),
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        tester.view.padding = const FakeViewPadding(top: 44);
+        await tester.pumpAndSettle();
+        await _capture(
+          tester,
+          'keyboard-corners-${thread ? 'thread' : 'channel'}',
+        );
+        expect(corners().topLeft.x, 31);
+        expect(corners().bottomLeft.x, 31);
+        expect(corners().bottomRight.x, 31);
+        FocusManager.instance.primaryFocus?.unfocus();
+        tester.view.viewInsets = FakeViewPadding.zero;
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        await tester.pumpAndSettle();
+        expect(corners().bottomLeft.x, 55);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
+  testWidgets(
+    'chat page paint and navigation outline share keyboard animation',
+    (tester) async {
+      const keyboardChannel = MethodChannel('org.discourse.native/keyboard');
+      Map<String, Object>? snapshot;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        keyboardChannel,
+        (call) async => call.method == 'keyboardTransition' ? snapshot : false,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          keyboardChannel,
+          null,
+        ),
+      );
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      final shell = await _fixture(tester);
+      shell.openChatChannel(10);
+      await tester.pumpAndSettle();
+      void expectCorners(double bottom) {
+        final surface = tester.widget<DPageSurface>(
+          find
+              .descendant(of: _sheet, matching: find.byType(DPageSurface))
+              .first,
+        );
+        final radius = surface.borderRadius! as BorderRadius;
+        expect(radius.topLeft.x, 31);
+        expect(radius.bottomLeft.x, closeTo(bottom, .01));
+        final history = tester.widget<DHistoryTransition>(
+          find.byType(DHistoryTransition),
+        );
+        expect(
+          history.tabClipper!.borderRadius.bottomLeft.x,
+          closeTo(bottom, .01),
+        );
+      }
+
+      expectCorners(55);
+      await tester.showKeyboard(
+        find.descendant(
+          of: find.byType(ComposerEditor),
+          matching: find.byType(TextField),
+        ),
+      );
+      snapshot = keyboardFramePayload();
+      await sendKeyboardFrame(tester);
+      await tester.pump();
+      expectCorners(55);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      tester.view.padding = const FakeViewPadding(top: 44);
+      await tester.pump(const Duration(milliseconds: 200));
+      expectCorners(43);
+      await _capture(tester, 'keyboard-corners-channel-midpoint');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump(const Duration(milliseconds: 200));
+      expectCorners(31);
+      snapshot = keyboardFramePayload(inset: 0);
+      await sendKeyboardFrame(tester, inset: 0);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump(const Duration(milliseconds: 200));
+      expectCorners(43);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      await tester.pumpAndSettle();
+      expectCorners(55);
+      snapshot = keyboardFramePayload(milliseconds: 0);
+      await sendKeyboardFrame(tester, milliseconds: 0);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expectCorners(31);
+      final child = showDDialog<void>(
+        context: tester.element(_sheet),
+        builder: (_, controller) => DDialogContent(
+          children: [
+            DButton(
+              label: const Text('Close corner child'),
+              onPressed: () => controller.close(),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      snapshot = keyboardFramePayload(inset: 0, milliseconds: 0);
+      await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expectCorners(31);
+      await tester.tap(find.text('Close corner child'));
+      await tester.pumpAndSettle();
+      await child;
+      expectCorners(55);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   for (final width in [320.0, 390.0, 800.0]) {
     testWidgets('chat sheet keyboard, safe areas and reduced motion at $width', (
       tester,
@@ -701,7 +852,7 @@ void main() {
       expect(tester.getRect(_sheet).bottom, 844);
       // The bar reaches the screen's bottom; what it shows of its row, and
       // the composer above it, keep the bar's 30 of room over the foot.
-      expect(tester.getRect(_dock).bottom, 844);
+      expect(tester.getRect(_dock).bottom, closeTo(844, .01));
       expect(
         tester
             .getRect(
