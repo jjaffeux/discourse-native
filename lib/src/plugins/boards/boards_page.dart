@@ -446,7 +446,7 @@ class _BoardsPageState extends State<BoardsPage> {
                             ? _columnMenu(board, column)
                             : null,
                         footer:
-                            _handle!.canWrite &&
+                            board.canWrite &&
                                 column.order != BoardColumnOrder.unsupported
                             ? _addMenu(column)
                             : null,
@@ -530,7 +530,7 @@ class _BoardsPageState extends State<BoardsPage> {
         variant: DButtonVariant.ghost,
         icon: const DIcon(DIcons.plus),
         label: Text(context.l10n.boardsAddCard),
-        onPressed: state.toggle,
+        onPressed: _handle!.canWrite ? state.toggle : null,
         focusNode: state.focusNode,
         hasPopup: true,
         expanded: state.open,
@@ -704,7 +704,7 @@ class _BoardsPageState extends State<BoardsPage> {
       onPressed: card.kind == BoardCardKind.topic && card.topicId != null
           ? () => widget.navigation.openTopic(widget.site, card)
           : () => _edit(column, card: card),
-      menu: _handle!.canWrite && card.kind != BoardCardKind.unsupported
+      menu: board.canWrite && card.kind != BoardCardKind.unsupported
           ? _menu(board, column, card)
           : null,
     );
@@ -809,7 +809,7 @@ class _BoardsPageState extends State<BoardsPage> {
             variant: DButtonVariant.ghost,
             icon: const DIcon(DIcons.ellipsis),
             tooltip: context.l10n.moreActions,
-            onPressed: state.toggle,
+            onPressed: _handle!.canWrite ? state.toggle : null,
             focusNode: state.focusNode,
             hasPopup: true,
             expanded: state.open,
