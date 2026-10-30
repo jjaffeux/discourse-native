@@ -14,7 +14,7 @@ final historyTransitionExamples = ComponentExamples(
       'sheets. DHistoryNavigation reserves the top leading 80 by 56 logical '
       'pixels for navigation, below the system safe area. The touch-down '
       'position fixes the destination until release. At the history root, '
-      'only that corner opens navigation. Descendant horizontal controls keep '
+      'the Back gesture region opens navigation. Descendant horizontal controls keep '
       'their gestures and Forward stays on the trailing edge. '
       'The incoming page grows from 94% to full size as the swipe progresses. '
       'A 40% scrim lightens as the background page is revealed and darkens '
@@ -44,7 +44,7 @@ final historyTransitionExamples = ComponentExamples(
     StyleguideExample(
       title: 'Live navigation preview',
       description:
-          'Swipe right from the top-left 80 by 56 points to reveal navigation while its page action slides down. Swipe left from the right edge to return. Cancel a short drag to restore both positions. The preview cannot receive focus or interaction.',
+          'Swipe right anywhere at the history root to reveal navigation while its page action slides down. With Back history, the top-left 80 by 56 points still opens navigation. Swipe left from the right edge to return. Cancel a short drag to restore both positions. The preview cannot receive focus or interaction.',
       states: const [
         'First reveal',
         'Cancel',
