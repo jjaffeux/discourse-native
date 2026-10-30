@@ -76,6 +76,54 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'chat directory chrome uses the reference text scale on $platform',
+      (tester) async {
+        for (final (appScale, platformScale, height, textSize) in [
+          (1.0, 1.0, 44.0, 16.0),
+          (1.25, 2.0, 80.0, 40.0),
+        ]) {
+          await _pump(
+            tester,
+            platform: platform,
+            size: const Size(430, 932),
+            textScaler: AppTextScaler(
+              platformScaler: TextScaler.linear(platformScale),
+              appScale: appScale,
+              baselineScale: 17 / 14,
+            ),
+          );
+          for (final page in [
+            ChatBrowsePage.channels,
+            ChatBrowsePage.threads,
+          ]) {
+            await _tab(tester, page);
+            for (final key in [
+              'chat-inbox-back',
+              if (page == ChatBrowsePage.threads) 'chat-threads-channel-filter',
+            ]) {
+              final control = find.byKey(ValueKey(key));
+              expect(tester.getSize(control).height, height, reason: key);
+              final text = find
+                  .descendant(of: control, matching: find.byType(Text))
+                  .first;
+              final context = tester.element(text);
+              expect(
+                MediaQuery.textScalerOf(
+                  context,
+                ).scale(DefaultTextStyle.of(context).style.fontSize!),
+                textSize,
+                reason: key,
+              );
+            }
+          }
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final view in [
       'chats',
       'channels',
@@ -1258,6 +1306,7 @@ Future<_Fixture> _pump(
   Size size = const Size(900, 650),
   TargetPlatform platform = TargetPlatform.macOS,
   EdgeInsets safeArea = EdgeInsets.zero,
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1337,6 +1386,10 @@ Future<_Fixture> _pump(
                 Brightness.dark,
                 fontFamily: 'Open Sans',
               ).copyWith(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child!,
+              ),
               home: Scaffold(
                 body: Builder(
                   builder: (context) {
