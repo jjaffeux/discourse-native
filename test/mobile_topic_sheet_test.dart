@@ -37,6 +37,7 @@ Future<ShellController> _openTopic(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   bool multipleDays = false,
+  bool privateMessage = false,
 }) async {
   final shell = await pumpMobileShellFixture(
     tester,
@@ -45,6 +46,7 @@ Future<ShellController> _openTopic(
       id: 7,
       title: "What's everyone's sourdough hydration sweet spot? 🍞",
       canCreatePost: true,
+      privateMessage: privateMessage,
       posts: [
         for (var id = 1; id <= 30; id++)
           Post(
@@ -172,6 +174,33 @@ void main() {
       expect(page.barOpacity, 0);
       expect(tester.takeException(), isNull);
     }, variant: _platforms);
+  }
+
+  for (final fromHeader in [false, true]) {
+    testWidgets(
+      'a scrolled private message opened outside Inbox dismisses from ${fromHeader ? 'header' : 'indicator'}',
+      (tester) async {
+        final shell = await _openTopic(tester, privateMessage: true);
+        final scroll = find
+            .descendant(
+              of: find.byType(TopicView),
+              matching: find.byType(CustomScrollView),
+            )
+            .first;
+        await tester.drag(scroll, const Offset(0, -600));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<CustomScrollView>(scroll).controller!.offset,
+          greaterThan(0),
+        );
+        await tester.drag(fromHeader ? _header : _handle, const Offset(0, 200));
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'latest');
+        expect(find.byType(TopicView), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
   }
 
   for (final (origin, offset) in [
