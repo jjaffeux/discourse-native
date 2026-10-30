@@ -1992,6 +1992,64 @@ void main() {
     expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
   });
 
+  testWidgets(
+    'page indicator leaves heading controls pressable across their visible bounds',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => DTouchTargets(child: child!),
+          home: DPageHeaderHost(
+            identity: 'page',
+            titlesInBar: true,
+            builder: (_, _, child) => child,
+            child: DSheetViewport(
+              onDismiss: () {},
+              content: DSheetContent(
+                variant: DSheetVariant.page,
+                side: DSheetSide.bottom,
+                showCloseButton: false,
+                children: [
+                  Expanded(
+                    child: DPageSurface.headed(
+                      title: const Text('Page title'),
+                      controls: DButton(
+                        label: const Text('Page action'),
+                        onPressed: () => presses++,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = tester.getRect(
+        find.widgetWithText(DButton, 'Page action'),
+      );
+      await tester.tapAt(button.bottomCenter - const Offset(0, 2));
+      expect(presses, 1);
+      await tester.tapAt(button.topCenter + const Offset(0, 2));
+      expect(
+        presses,
+        2,
+        reason: 'The indicator must not cover the button top.',
+      );
+      await tester.tapAt(button.center);
+      expect(presses, 3);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   group('a page sheet under a band', () {
     late DSheetPageBand band;
     Future<void> pump(WidgetTester tester) async {
