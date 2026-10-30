@@ -121,7 +121,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application control sizes',
       description:
-          'Mockup geometry on every platform: 30px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Inline metadata uses 12px text and its exact visible bounds. On a phone, a control drawn under 44 is pressed across an invisible 44 area, and a page\'s own search field is drawn 44 tall.',
+          'Filters use 30px surfaces on desktop and 44px surfaces with 16px labels on phones. Search fields use 35.5px, preferences 40.25px, chips 24px and post controls 30px. Inline metadata uses 12px text and its exact visible bounds. On a phone, a control drawn under 44 is pressed across an invisible 44 area, and a page\'s own search field is drawn 44 tall.',
       code:
           "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
       builder: (_) => Column(

@@ -29,11 +29,11 @@ void main() {
           size == DControlSize.filter && platform != TargetPlatform.macOS;
       // Touch sidebars are drawer rows with their own 40pt geometry.
       final drawerRows = platform != TargetPlatform.macOS;
-      final controlFontSize = phoneFilter ? 14.0 : fontSize;
+      final controlFontSize = phoneFilter ? 16.0 : fontSize;
       final height = scale == 1
-          ? (phoneFilter ? 36.0 : baseHeight)
+          ? (phoneFilter ? 44.0 : baseHeight)
           : phoneFilter
-          ? 57.0
+          ? 68.0
           : doubledHeight;
       testWidgets(
         '${size.name} on $platform at $scale has the same height across controls',

@@ -14,8 +14,8 @@ enum DControlSize {
   regular,
   large,
 
-  /// Page filters: 30px artwork and 12.5px text on desktop; 36px and
-  /// 14px text/icons on phones, with kit-owned touch targets.
+  /// Page filters: 30px artwork and 12.5px text on desktop; 44px and
+  /// 16px text/icons on phones.
   filter,
 
   /// Floating reader tools: 40px surfaces, 14px text and 15px icons.
@@ -33,7 +33,7 @@ enum DControlSize {
   /// Composer and desktop navigation actions.
   toolbar,
 
-  /// View-switch segments: 26px on desktop, 32px on touch.
+  /// View-switch segments: 26px on desktop, 40px on touch.
   segment,
 
   /// Window navigation: 15px artwork with 5px vertical and 7px side insets.
@@ -104,13 +104,13 @@ abstract final class DControlStyle {
         DControlSize.small => isTouch(context) ? 40 : smallHeight,
         DControlSize.regular => regularHeight,
         DControlSize.large => isTouch(context) ? 48 : largeHeight,
-        DControlSize.filter => isTouch(context) ? 36 : regularHeight,
+        DControlSize.filter => isTouch(context) ? 44 : regularHeight,
         DControlSize.floating => 40,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
         DControlSize.toolbar => 34,
-        DControlSize.segment => isTouch(context) ? 32 : 26,
+        DControlSize.segment => isTouch(context) ? 40 : 26,
         DControlSize.chrome => 25,
         DControlSize.action => isTouch(context) ? 44 : 34,
         DControlSize.post => 30,
@@ -121,7 +121,7 @@ abstract final class DControlStyle {
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.filter =>
-          isTouch(context) ? 14 : DiscourseTypography.preview,
+          isTouch(context) ? 16 : DiscourseTypography.preview,
         DControlSize.floating => 14,
         DControlSize.small ||
         DControlSize.regular ||
@@ -130,7 +130,7 @@ abstract final class DControlStyle {
         DControlSize.toolbar ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
-        DControlSize.segment => isTouch(context) ? 14 : 12.5,
+        DControlSize.segment => isTouch(context) ? 16 : 12.5,
         DControlSize.post => labelFontSize,
         DControlSize.documentTab ||
         DControlSize.tabAction ||
@@ -142,7 +142,7 @@ abstract final class DControlStyle {
       fontSize(size, context: context) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.filter => isTouch(context) ? 14 : 12,
+        DControlSize.filter => isTouch(context) ? 16 : 12,
         DControlSize.floating => 15,
         DControlSize.small ||
         DControlSize.regular ||

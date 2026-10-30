@@ -70,7 +70,7 @@ void main() {
         final frame = find.byType(DButtonGroup);
         expect(
           tester.getSize(frame).height,
-          platform == TargetPlatform.macOS ? 30 : 36,
+          platform == TargetPlatform.macOS ? 30 : 44,
         );
         await tester.tap(find.text('New'));
         await tester.pumpAndSettle();

@@ -93,7 +93,7 @@ void main() {
         );
         expect(
           tester.getSize(_surface(const Key('filter'))).height,
-          platform == TargetPlatform.macOS ? 30 : 36,
+          platform == TargetPlatform.macOS ? 30 : 44,
         );
         // Reference Fa rounds the 384/512 bookmark viewBox to 9px, with
         // 9px side padding and a 1px border: 9 + 2 * (9 + 1) = 29.
