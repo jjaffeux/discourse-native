@@ -5395,6 +5395,9 @@ class ShellController extends FrameSafeNotifier
       ),
     );
     if (currentInstance?.url == siteUrl && activeTabId == tabId) {
+      if (mobileNavigationEnabled) {
+        mobileNavigation.replaceCurrent(activeTab!.location);
+      }
       unawaited(loadFeed(messages.id));
     }
   }
