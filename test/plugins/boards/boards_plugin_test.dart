@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
-import 'package:discourse_native/discourse_ui.dart' show DBadge;
+import 'package:discourse_native/discourse_ui.dart' show DButton;
 import 'package:discourse_native/src/plugins/boards/boards_controller.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_module.dart';
@@ -204,7 +204,7 @@ void main() {
     for (final name in ['Roadmap · Backlog', 'Triage']) {
       final pill = find.ancestor(
         of: find.text(name),
-        matching: find.byType(DBadge),
+        matching: find.byType(DButton),
       );
       final icon = find.descendant(
         of: pill,

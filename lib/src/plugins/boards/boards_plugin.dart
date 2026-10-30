@@ -104,11 +104,12 @@ final class BoardsPlugin
     final navigation = PluginUiScope.require(context, boardsNavigationKey);
     return [
       for (final membership in memberships?.values ?? const <BoardMembership>[])
-        DBadge.action(
-          variant: DBadgeVariant.secondary,
+        DButton(
+          variant: DButtonVariant.primary,
+          size: DButtonSize.chip,
           onPressed: () => navigation.openMembership(site, membership),
-          leading: leading,
-          child: Text(
+          icon: leading,
+          label: Text(
             membership.columnTitle.isEmpty
                 ? membership.name
                 : '${membership.name} · ${membership.columnTitle}',
