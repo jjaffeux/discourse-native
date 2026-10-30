@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart' show DSkeleton;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
@@ -85,12 +86,8 @@ class _EmojiImageState extends State<EmojiImage> {
   Widget build(BuildContext context) {
     final image = _bytes;
 
-    // Nothing yet: hold the space rather than drawing the shortcode, so a
-    // paragraph does not reflow under the reader when the images land.
     if (!_resolved) {
-      return widget.fallbackUrl == null
-          ? SizedBox(width: widget.size, height: widget.size)
-          : _fallback();
+      return widget.fallbackUrl == null ? _placeholder() : _fallback();
     }
 
     if (image == null) return _fallback();
@@ -103,8 +100,7 @@ class _EmojiImageState extends State<EmojiImage> {
         width: widget.size,
         height: widget.size,
         fit: BoxFit.contain,
-        placeholderBuilder: (context) =>
-            SizedBox.square(dimension: widget.size),
+        placeholderBuilder: (context) => _placeholder(),
         errorBuilder: (context, error, stackTrace) =>
             _decodeFallback(cache, url, image),
       );
@@ -120,6 +116,8 @@ class _EmojiImageState extends State<EmojiImage> {
       height: widget.size,
       fit: BoxFit.contain,
       gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+          wasSynchronouslyLoaded || frame != null ? child : _placeholder(),
       errorBuilder: (context, error, stackTrace) =>
           _decodeFallback(cache, url, image),
     );
@@ -139,7 +137,14 @@ class _EmojiImageState extends State<EmojiImage> {
           alt: widget.alt,
           style: widget.style,
         )
+      : widget.alt.isEmpty
+      ? _placeholder()
       : Text(widget.alt, style: widget.style);
+
+  Widget _placeholder() => TickerMode(
+    enabled: false,
+    child: DSkeleton(width: widget.size, height: widget.size),
+  );
 }
 
 const double emojiScale = 1;

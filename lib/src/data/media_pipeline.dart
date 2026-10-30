@@ -43,6 +43,7 @@ final class MediaPipeline {
       requestPool: requestPool,
       store: store,
       retryAfter: rateLimitCooldown,
+      maxConcurrent: maxConcurrent,
     );
   }
 
@@ -53,6 +54,7 @@ final class MediaPipeline {
     required ByteCacheRequestPool requestPool,
     required ByteCacheStore? store,
     required Duration retryAfter,
+    required int maxConcurrent,
   }) : _client = client,
        _coordinator = coordinator,
        _requestPool = requestPool,
@@ -66,6 +68,7 @@ final class MediaPipeline {
        emoji = EmojiCache(
          client: client,
          coordinator: coordinator,
+         maxConcurrent: maxConcurrent,
          requestPool: requestPool,
          retryAfter: retryAfter,
          store: store,

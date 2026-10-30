@@ -18,6 +18,7 @@ class EmojiCache extends ByteCache<EmojiBytes> {
     super.client,
     super.retryAfter,
     super.coordinator,
+    super.maxConcurrent,
     super.requestPriority = MediaRequestPriority.interactive,
     super.requestPool,
     super.store,

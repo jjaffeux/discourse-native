@@ -954,12 +954,7 @@ class _TonePreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final emoji = sample;
     if (emoji == null) return const DIcon(DIcons.hand, size: 21);
-    return EmojiImage(
-      url: emoji.urlFor(tone),
-      size: 22,
-      alt: ':${emoji.codeFor(tone)}:',
-      style: Theme.of(context).textTheme.labelSmall,
-    );
+    return EmojiImage(url: emoji.urlFor(tone), size: 22, alt: '');
   }
 }
 
@@ -1073,12 +1068,7 @@ class _CategoryButton extends StatelessWidget {
                   final size = IconTheme.of(context).size!;
                   return SizedBox.square(
                     dimension: size,
-                    child: EmojiImage(
-                      url: preview.url,
-                      size: size,
-                      alt: ':${preview.code}:',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
+                    child: EmojiImage(url: preview.url, size: size, alt: ''),
                   );
                 },
               ),
@@ -1142,7 +1132,6 @@ class _EmojiCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Focus(
       canRequestFocus: false,
       onKeyEvent: (node, event) => onKey(event),
@@ -1160,12 +1149,7 @@ class _EmojiCell extends StatelessWidget {
               dimension: _cellExtent,
               child: Center(
                 child: ExcludeSemantics(
-                  child: EmojiImage(
-                    url: choice.url,
-                    size: 25,
-                    alt: ':${choice.code}:',
-                    style: theme.textTheme.labelSmall,
-                  ),
+                  child: EmojiImage(url: choice.url, size: 25, alt: ''),
                 ),
               ),
             ),
