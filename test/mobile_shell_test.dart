@@ -4842,6 +4842,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final directory in ['channels', 'threads']) {
+    _mobileTest('Chat compose survives returning from $directory', (
+      tester,
+    ) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await _tapDockTab(tester, 'panel/chat');
+      final action = find.byKey(const ValueKey('mobile-panel-action'));
+      expect(tester.widget<DButton>(action).tooltip, 'Start a message');
+
+      await tester.tap(find.byKey(ValueKey('chat-inbox-$directory-card')));
+      await tester.pumpAndSettle();
+      expect(
+        shell.currentContent?.id,
+        directory == 'channels' ? 'chat-browse' : 'chat-my-threads',
+      );
+      await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatMobileSidebar), findsOneWidget);
+      expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
+      expect(tester.widget<DButton>(action).tooltip, 'Start a message');
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+        findsOneWidget,
+      );
+      expect(shell.visibleComposer, isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   _mobileTest('filters replace the tab root without adding Back steps', (
     tester,
   ) async {
