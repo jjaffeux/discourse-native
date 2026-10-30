@@ -468,7 +468,7 @@ class _MainContentBody extends StatelessWidget {
         underlay: livePrevious
             ? DPageSurface(
                 border: false,
-                borderRadius: DSheetViewport.pageBorderRadius,
+                borderRadius: DSheetViewport.pageBorderRadius(context),
                 backgroundColor: ForumWindowBackground.panelColor(context),
                 depth: DSurfaceDepth.panel,
                 child: _MainContentBody(
@@ -779,7 +779,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             },
             underlay: DPageSurface(
               border: false,
-              borderRadius: DSheetViewport.pageBorderRadius,
+              borderRadius: DSheetViewport.pageBorderRadius(context),
               backgroundColor: ForumWindowBackground.panelColor(context),
               depth: DSurfaceDepth.panel,
               child: listPane,

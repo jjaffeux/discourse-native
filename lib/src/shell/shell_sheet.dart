@@ -101,41 +101,41 @@ Future<T?> showShellSheet<T>({
     topBottomMaxWidth: 640,
     builder: (context, _) => surface(
       context,
-      Padding(
-        // The adaptive sheet spans the viewport; centre the capped width
-        // without loosening the height it lays the surface out at.
-        padding: EdgeInsets.symmetric(
-          horizontal: adaptive
-              ? math.max(0, (MediaQuery.sizeOf(context).width - 640) / 2)
-              : 0,
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 640),
-          child: DSheetContent(
-            side: DSheetSide.bottom,
-            variant: variant,
-            sizeToContent: sizeToContent,
-            semanticLabel: title,
-            showCloseButton: false,
-            scrollWholeSheet: false,
-            topBottomMaxHeightFactor: 1,
-            fillAvailableHeight: fillAvailableHeight,
-            children: [
-              Flexible(
-                child: _SheetBody(
-                  title: title,
-                  builder: builder,
-                  footerBuilder: footerBuilder,
-                  nested: nested,
-                  grabbed: adaptive,
-                  expandBody: pinnedFooter,
-                  scrollBody: scrollBody,
-                  showHeaderDivider: showHeaderDivider,
-                  padding: padding,
-                  footerPadding: footerPadding,
+      LayoutBuilder(
+        builder: (context, constraints) => Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: adaptive
+                ? math.max(0, (constraints.maxWidth - 640) / 2)
+                : 0,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 640),
+            child: DSheetContent(
+              side: DSheetSide.bottom,
+              variant: variant,
+              sizeToContent: sizeToContent,
+              semanticLabel: title,
+              showCloseButton: false,
+              scrollWholeSheet: false,
+              topBottomMaxHeightFactor: 1,
+              fillAvailableHeight: fillAvailableHeight,
+              children: [
+                Flexible(
+                  child: _SheetBody(
+                    title: title,
+                    builder: builder,
+                    footerBuilder: footerBuilder,
+                    nested: nested,
+                    grabbed: adaptive,
+                    expandBody: pinnedFooter,
+                    scrollBody: scrollBody,
+                    showHeaderDivider: showHeaderDivider,
+                    padding: padding,
+                    footerPadding: footerPadding,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

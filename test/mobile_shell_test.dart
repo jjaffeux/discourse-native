@@ -96,14 +96,14 @@ final _moreTrigger = find.descendant(
   ),
 );
 
-/// Look A's page card: as round at its top as the bar, 22 at its foot.
-void _expectPageRadius(BorderRadiusGeometry? geometry) => expect(
-  geometry,
-  const BorderRadius.vertical(
-    top: Radius.circular(31),
-    bottom: Radius.circular(22),
-  ),
-);
+void _expectPageRadius(WidgetTester tester, BorderRadiusGeometry? geometry) =>
+    expect(
+      geometry,
+      BorderRadius.vertical(
+        top: const Radius.circular(31),
+        bottom: Radius.circular(tester.view.viewPadding.bottom > 0 ? 55 : 22),
+      ),
+    );
 
 Future<void> _loadChromeCaptureFonts(WidgetTester tester) async {
   if (!const bool.fromEnvironment('captureMobileChrome')) return;
@@ -1564,7 +1564,10 @@ void main() {
           final surface = find
               .descendant(of: body, matching: find.byType(DPageSurface))
               .first;
-          _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
+          _expectPageRadius(
+            tester,
+            tester.widget<DPageSurface>(surface).borderRadius,
+          );
           final page = tester.element(body);
           expect(MediaQuery.paddingOf(page).bottom, bottom);
           final dock = tester.getRect(
@@ -1695,7 +1698,7 @@ void main() {
             labelSize: tester.getSize(label),
             glyphSize: tester.getSize(glyph),
           );
-          _expectPageRadius(bodyRadius());
+          _expectPageRadius(tester, bodyRadius());
           await _captureChrome(tester, 'dock-topics-$scale-${mode.name}-flat');
           shell.openChatChannel(10);
           await tester.pumpAndSettle();
@@ -1712,7 +1715,10 @@ void main() {
                 matching: find.byType(DPageSurface),
               )
               .first;
-          _expectPageRadius(tester.widget<DPageSurface>(sheet).borderRadius);
+          _expectPageRadius(
+            tester,
+            tester.widget<DPageSurface>(sheet).borderRadius,
+          );
           await _captureChrome(tester, 'dock-chat-$scale-${mode.name}-flat');
           expect(tester.takeException(), isNull);
         },
@@ -1748,7 +1754,10 @@ void main() {
       final surface = find
           .descendant(of: body, matching: find.byType(DPageSurface))
           .first;
-      _expectPageRadius(tester.widget<DPageSurface>(surface).borderRadius);
+      _expectPageRadius(
+        tester,
+        tester.widget<DPageSurface>(surface).borderRadius,
+      );
       expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
@@ -1987,7 +1996,10 @@ void main() {
         )
         .first;
     expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
-    _expectPageRadius(tester.widget<DPageSurface>(mobileSurface).borderRadius);
+    _expectPageRadius(
+      tester,
+      tester.widget<DPageSurface>(mobileSurface).borderRadius,
+    );
     await tester.tap(find.byKey(const ValueKey('topic-card-7')));
     await tester.pumpAndSettle();
     expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
@@ -2001,7 +2013,10 @@ void main() {
           matching: find.byType(DPageSurface),
         )
         .first;
-    _expectPageRadius(tester.widget<DPageSurface>(sheetSurface).borderRadius);
+    _expectPageRadius(
+      tester,
+      tester.widget<DPageSurface>(sheetSurface).borderRadius,
+    );
     final reader = find.byType(TopicView);
     final element = tester.element(reader);
     final viewport = tester.getRect(reader);
@@ -2083,9 +2098,8 @@ void main() {
     );
     final menuBounds = tester.getRect(menuSheet);
     final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
-    // A sheet at its end keeps to the screen's sides.
-    expect(menuBounds.left, 0);
-    expect(menuBounds.right, screen.width);
+    expect(menuBounds.left, 6);
+    expect(menuBounds.right, screen.width - 6);
     expect(menuBounds.top, greaterThan(screen.height / 2));
     expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
     expect(

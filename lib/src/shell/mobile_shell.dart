@@ -948,9 +948,9 @@ class MobileHistoryGestures extends StatelessWidget {
         tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),
         tabClipper: sidebarOpen
             ? null
-            : const DHistoryTabClipper(
-                borderRadius: DSheetViewport.pageBorderRadius,
-                insets: EdgeInsets.only(top: 6),
+            : DHistoryTabClipper(
+                borderRadius: DSheetViewport.pageBorderRadius(context),
+                insets: const EdgeInsets.only(top: 6),
               ),
         entry: sidebarOpen ? sidebarEntry : navigation.entryId,
         backSwipeAnywhere: true,

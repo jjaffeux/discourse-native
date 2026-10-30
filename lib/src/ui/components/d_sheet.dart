@@ -172,15 +172,17 @@ class DSheetViewport extends StatefulWidget {
               ?.owner
               ._pageEdge ??
           const AlwaysStoppedAnimation<double>(0),
+      pageBorderRadius(context),
     ),
     child: child,
   );
 
   /// The reading page's outline, shared by its card and previous-page surface.
-  static const pageBorderRadius = BorderRadius.vertical(
-    top: Radius.circular(DMobileDockGeometry.capsuleRadius),
-    bottom: Radius.circular(22),
-  );
+  static BorderRadius pageBorderRadius(BuildContext context) =>
+      _sheetBottomCorners(context, least: 22).copyWith(
+        topLeft: const Radius.circular(DMobileDockGeometry.capsuleRadius),
+        topRight: const Radius.circular(DMobileDockGeometry.capsuleRadius),
+      );
 
   const DSheetViewport({
     super.key,
@@ -335,7 +337,13 @@ class _DSheetViewportState extends State<DSheetViewport>
       ),
     );
     return widget.readerStart != null
-        ? ClipPath(clipper: _DSheetRiseClipper(_edge), child: sheet)
+        ? ClipPath(
+            clipper: _DSheetRiseClipper(
+              _edge,
+              DSheetViewport.pageBorderRadius(context),
+            ),
+            child: sheet,
+          )
         : sheet;
   }
 }
@@ -500,7 +508,7 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
       band: this,
       child: DPageSurface(
         border: false,
-        borderRadius: DSheetViewport.pageBorderRadius,
+        borderRadius: DSheetViewport.pageBorderRadius(context),
         backgroundColor: widget.color,
         depth: rise == null ? depth : null,
         child: Stack(
@@ -531,16 +539,14 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
     );
     if (rise == null) return card;
     final edges = depth == null ? null : DSurfaceEdges.resolve(context, depth);
+    final radius = DSheetViewport.pageBorderRadius(context);
     return CustomPaint(
-      painter: _DSheetRisePainter(
-        edges?.castPainter(DSheetViewport.pageBorderRadius),
-        rise.edge,
-      ),
+      painter: _DSheetRisePainter(edges?.castPainter(radius), rise.edge),
       child: ClipPath(
-        clipper: _DSheetRiseClipper(rise.edge),
+        clipper: _DSheetRiseClipper(rise.edge, radius),
         child: CustomPaint(
           foregroundPainter: _DSheetRisePainter(
-            edges?.insetPainter(DSheetViewport.pageBorderRadius),
+            edges?.insetPainter(radius),
             rise.edge,
           ),
           child: card,
@@ -571,17 +577,17 @@ class _DSheetRisePainter extends CustomPainter {
 }
 
 class _DSheetRiseClipper extends CustomClipper<Path> {
-  _DSheetRiseClipper(this.edge) : super(reclip: edge);
+  _DSheetRiseClipper(this.edge, this.radius) : super(reclip: edge);
+  final BorderRadius radius;
   final ValueListenable<double> edge;
   @override
   Path getClip(Size size) => Path()
     ..addRRect(
-      DSheetViewport.pageBorderRadius.toRRect(
-        Rect.fromLTRB(0, edge.value, size.width, size.height),
-      ),
+      radius.toRRect(Rect.fromLTRB(0, edge.value, size.width, size.height)),
     );
   @override
-  bool shouldReclip(_DSheetRiseClipper oldClipper) => edge != oldClipper.edge;
+  bool shouldReclip(_DSheetRiseClipper oldClipper) =>
+      edge != oldClipper.edge || radius != oldClipper.radius;
 }
 
 class _DSheetPageMotionScope extends InheritedWidget {
@@ -633,13 +639,36 @@ class _DSheetRetainedKeyboardInsetsState
   );
 }
 
+BorderRadius _sheetBottomCorners(
+  BuildContext context, {
+  required double least,
+  double lift = 0,
+}) {
+  final media = MediaQuery.of(context);
+  final view = View.of(context);
+  final foot = math.max(
+    media.viewPadding.bottom,
+    view.viewPadding.bottom / view.devicePixelRatio,
+  );
+  final display = media.displayCornerRadii;
+  final fallback = foot > 0 ? DMobileDockGeometry.screenRadius : 0.0;
+  Radius corner(Radius? radius) => Radius.elliptical(
+    math.max(least, (radius?.x ?? fallback) - lift),
+    math.max(least, (radius?.y ?? fallback) - lift),
+  );
+  return BorderRadius.only(
+    bottomLeft: corner(display?.bottomLeft),
+    bottomRight: corner(display?.bottomRight),
+  );
+}
+
 class _DSheetSideScope extends InheritedWidget {
   const _DSheetSideScope({
     required this.side,
     required this.inset,
     required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
-    this.menuFootRadius,
+    this.menuFootCorners,
     required super.child,
   });
 
@@ -649,7 +678,7 @@ class _DSheetSideScope extends InheritedWidget {
   final bool extendBehindKeyboard;
 
   /// A menu's bottom corners, which round as it lifts off the foot.
-  final double? menuFootRadius;
+  final BorderRadius? menuFootCorners;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -669,7 +698,7 @@ class _DSheetSideScope extends InheritedWidget {
   bool updateShouldNotify(_DSheetSideScope oldWidget) =>
       side != oldWidget.side ||
       inset != oldWidget.inset ||
-      menuFootRadius != oldWidget.menuFootRadius ||
+      menuFootCorners != oldWidget.menuFootCorners ||
       fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
@@ -913,7 +942,7 @@ Widget _sheetLayout(
                   BlendMode.srcATop,
                 ),
                 child: ClipRRect(
-                  borderRadius: DSheetViewport.pageBorderRadius,
+                  borderRadius: DSheetViewport.pageBorderRadius(context),
                   child: child,
                 ),
               ),
@@ -939,9 +968,6 @@ Widget _sheetLayout(
     DSheetSide.left => const Offset(-40, 0),
     _ => throw StateError('Sheet side was not resolved.'),
   };
-  // A menu inset at the foot stands off it as a sheet at its end does,
-  // across the screen's width, keeping what of the foot's room the lift
-  // leaves inside it.
   final endMenu =
       inset &&
       !extendBehindKeyboard &&
@@ -953,46 +979,49 @@ Widget _sheetLayout(
       !extendBehindKeyboard &&
       variant == DSheetVariant.standard &&
       side == DSheetSide.bottom;
+  final floatingBottom = endMenu || roundedForm;
   final view = View.of(context);
   final end = DMobileDockGeometry(
-    foot: endMenu || roundedForm
+    foot: floatingBottom
         ? math.max(
             MediaQuery.viewPaddingOf(context).bottom,
             view.viewPadding.bottom / view.devicePixelRatio,
           )
         : 0,
   );
-  final content = endMenu
-      ? Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: MediaQuery.paddingOf(
-                context,
-              ).copyWith(bottom: math.max(0, end.foot - end.endLift)),
-            ),
-            child: presentation.content,
-          ),
-        )
-      : inset && !extendBehindKeyboard
-      ? Builder(
-          builder: (context) => MediaQuery.removePadding(
-            context: context,
-            removeBottom: true,
-            child: presentation.content,
-          ),
-        )
-      : presentation.content;
   Widget popup = Builder(
     builder: (context) {
-      final formOverKeyboard =
-          roundedForm && MediaQuery.viewInsetsOf(context).bottom > 0;
+      final overKeyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+      final content = floatingBottom
+          ? Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  padding: MediaQuery.paddingOf(context).copyWith(
+                    bottom: overKeyboard
+                        ? 0
+                        : math.max(0, end.foot - end.endLift),
+                  ),
+                  viewInsets: EdgeInsets.zero,
+                ),
+                child: presentation.content,
+              ),
+            )
+          : inset && !extendBehindKeyboard
+          ? Builder(
+              builder: (context) => MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: presentation.content,
+              ),
+            )
+          : presentation.content;
       return _DSheetSideScope(
         side: side,
         inset: inset,
-        menuFootRadius: endMenu || roundedForm
-            ? formOverKeyboard
-                  ? 24
-                  : end.endRadius(24)
+        menuFootCorners: floatingBottom
+            ? overKeyboard
+                  ? const BorderRadius.vertical(bottom: Radius.circular(24))
+                  : _sheetBottomCorners(context, least: 24, lift: end.endLift)
             : null,
         fillAvailableHeight: fillAvailableHeight,
         extendBehindKeyboard: extendBehindKeyboard,
@@ -1088,7 +1117,11 @@ Widget _sheetLayout(
       if (page) {
         return Stack(fit: StackFit.expand, children: [backdrop, popup]);
       }
-      final margin = endMenu
+      final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+      final floatingLift = keyboard > 0
+          ? DMobileDockGeometry.inset
+          : end.endLift;
+      final margin = floatingBottom
           ? 0.0
           : inset
           ? variant == DSheetVariant.menu
@@ -1103,8 +1136,8 @@ Widget _sheetLayout(
       );
       // Inset surfaces float above the device's bottom corners. The opening
       // control may already have consumed this padding inside a SafeArea.
-      final safeBottom = endMenu
-          ? end.endLift
+      final safeBottom = floatingBottom
+          ? floatingLift
           : inset && !extendBehindKeyboard
           ? math.max(
               MediaQuery.viewPaddingOf(context).bottom,
@@ -1112,10 +1145,9 @@ Widget _sheetLayout(
             )
           : 0.0;
       final pickerTop = math.max(safeTop + DSpacing.xl, bounds.maxHeight * .11);
-      final availableWidth = (bounds.maxWidth - margin * 2).clamp(
-        0.0,
-        double.infinity,
-      );
+      final availableWidth =
+          (bounds.maxWidth - (floatingBottom ? floatingLift : margin) * 2)
+              .clamp(0.0, double.infinity);
       final panelWidth = width == null
           ? availableWidth < 640
                 ? availableWidth * .75
@@ -1132,6 +1164,8 @@ Widget _sheetLayout(
         curve: Curves.easeOutCubic,
         left: topBottomWidth != null
             ? (bounds.maxWidth - topBottomWidth) / 2
+            : floatingBottom
+            ? floatingLift
             : side == DSheetSide.center
             ? (bounds.maxWidth - panelWidth) / 2
             : side == DSheetSide.right
@@ -1142,6 +1176,8 @@ Widget _sheetLayout(
                 side == DSheetSide.left ||
                 side == DSheetSide.center
             ? null
+            : floatingBottom
+            ? floatingLift
             : margin,
         top: extendBehindKeyboard
             ? safeTop + DSpacing.sm
@@ -1150,7 +1186,9 @@ Widget _sheetLayout(
             : side == DSheetSide.bottom
             ? null
             : margin,
-        bottom: fillAvailableHeight
+        bottom: floatingBottom
+            ? keyboard + floatingLift
+            : fillAvailableHeight
             ? (extendBehindKeyboard
                       ? 0.0
                       : math.max(
@@ -1171,6 +1209,7 @@ Widget _sheetLayout(
                         safeTop -
                         DSpacing.sm -
                         safeBottom -
+                        (floatingBottom ? keyboard : 0) -
                         margin,
                   ),
                 ),
@@ -2325,14 +2364,16 @@ class DSheetContent extends StatelessWidget {
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
           };
-    final menuFootRadius = context
+    final menuFootCorners = context
         .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
-        ?.menuFootRadius;
-    final radius = menu || menuFootRadius != null
-        ? BorderRadius.vertical(
-            top: const Radius.circular(22),
-            bottom: Radius.circular(menuFootRadius ?? 24),
-          )
+        ?.menuFootCorners;
+    final radius = menu || menuFootCorners != null
+        ? (menuFootCorners ??
+                  const BorderRadius.vertical(bottom: Radius.circular(24)))
+              .copyWith(
+                topLeft: const Radius.circular(22),
+                topRight: const Radius.circular(22),
+              )
         : inset
         ? BorderRadius.circular(DRadius.panel)
         : extendBehindKeyboard

@@ -338,7 +338,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
               top: Radius.circular(18),
               bottom: Radius.circular(26),
             )
-          : DSheetViewport.pageBorderRadius,
+          : DSheetViewport.pageBorderRadius(context),
       backgroundColor: widget.sheet != ForumMobileSheet.none
           ? Colors.transparent
           : ForumWindowBackground.panelColor(context),

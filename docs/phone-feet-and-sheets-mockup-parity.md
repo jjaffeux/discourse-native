@@ -14,9 +14,13 @@ the screen's corner"). The rules are `.menu-sheet.is-end`,
 
 What ends at the screen's foot stands off it by the bar's 6 past half the
 foot's room, and a corner there follows the screen's 55 curve from that far
-in, never tighter than its own least radius. A square screen, and anything
-over the keyboard, has no curve to follow. `DMobileDockGeometry.endLift`
-and `endRadius` hold the rule. At width 390 and a foot of 34:
+in, never tighter than its own least radius. Display corner radii supply the
+curve when available. Otherwise the existing
+55pt curve is used when the bottom safe area is present. Each bottom corner is
+resolved separately. A square screen, and anything over the keyboard, has no
+curve to follow. Native sheets share the corner calculation;
+`DMobileDockGeometry.endLift` holds the placement rule. At width 390 and a
+foot of 34:
 
 | Part | Value |
 | --- | --- |
@@ -27,11 +31,13 @@ and `endRadius` hold the rule. At width 390 and a foot of 34:
 
 | Part | Value |
 | --- | --- |
-| Adaptive menu at its end | Full width (no side inset), 23 off the bottom edge, top corners 22, bottom corners `endRadius(24)` = 32. The foot's room the lift leaves, `max(0, foot - lift)` = 11, stays inside the sheet. Lifting and its corner ease together on the sheet's own progress. |
+| Adaptive menu at its end | 23 from the sides and bottom edge, top corners 22, bottom corners `endRadius(24)` = 32. The foot's room the lift leaves, `max(0, foot - lift)` = 11, stays inside the sheet. Lifting and its corner ease together on the sheet's own progress. |
 | Over the keyboard | 6 off the keyboard, bottom corners 24. While the keyboard rises, the corner eases from 32 to 24 by the keyboard's placement rather than following the shrinking foot, which would swell it past both. |
-| Inset menu sheet | The same placement at once: full width, 23 off the bottom edge, bottom corners 32, 11 of the foot kept inside. |
+| Inset menu sheet | The same placement at once: 23 from the sides and bottom edge, bottom corners 32, 11 of the foot kept inside. |
 
-The sheets' shadows and edges belong to the shadows work, not to this one.
+Phone inset form sheets share the same side and bottom gaps. Over the keyboard,
+all three gaps are 6pt. Reading sheets reach the screen edge and use its bottom
+corners directly, with a minimum radius of 22pt.
 
 ## Sidebar and rail
 

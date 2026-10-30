@@ -1250,8 +1250,8 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
         tab: tab,
         tabOwner: tabOwner,
         tabClipper: widget.roundedPanel
-            ? const DHistoryTabClipper(
-                borderRadius: DSheetViewport.pageBorderRadius,
+            ? DHistoryTabClipper(
+                borderRadius: DSheetViewport.pageBorderRadius(context),
                 insets: _tabPanelInsets,
               )
             : null,
@@ -1291,7 +1291,7 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
                 child: DPageSurface(
                   key: _page,
                   borderRadius: widget.tabTransitions
-                      ? DSheetViewport.pageBorderRadius
+                      ? DSheetViewport.pageBorderRadius(context)
                       : null,
                   backgroundColor: Colors.red,
                   child: const SizedBox.expand(),

@@ -985,7 +985,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _lift = end.endLift * _inset.value;
     // Over the keyboard there is no screen corner to follow; the foot eases
     // between the two rather than through the shrinking foot's room.
-    final cornerRadius = DMobileDockGeometry(foot: screenFoot).endRadius(24);
+    final corners = _sheetBottomCorners(
+      context,
+      least: 24,
+      lift: DMobileDockGeometry(foot: screenFoot).endLift,
+    );
     final bodySafeInset = math.max(0, safeBottom - end.endLift) * _inset.value;
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
@@ -996,8 +1000,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: _inset.value > 0,
-        menuFootRadius:
-            (cornerRadius + (24 - cornerRadius) * _keyboardPlacement.value) *
+        menuFootCorners:
+            BorderRadius.lerp(
+              corners,
+              const BorderRadius.vertical(bottom: Radius.circular(24)),
+              _keyboardPlacement.value,
+            )! *
             _inset.value,
         fillAvailableHeight: false,
         extendBehindKeyboard: false,
@@ -1068,8 +1076,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
               children: [
                 backdrop(curve * dim),
                 Positioned(
-                  left: 0,
-                  right: 0,
+                  left: _lift,
+                  right: _lift,
                   bottom: keyboard + _lift,
                   child: Transform.translate(
                     offset: Offset(

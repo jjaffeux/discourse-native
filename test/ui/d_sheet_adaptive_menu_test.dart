@@ -108,9 +108,6 @@ Future<void> expand(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// The test screen's foot, and the radius its floating sheet's bottom corners
-/// reach there. A floating sheet is full width and lifts off the foot, so
-/// these corners are the progress of floating that survives it.
 const _foot = 34.0;
 final _floatedRadius = const DMobileDockGeometry(foot: _foot).endRadius(24);
 
@@ -135,8 +132,9 @@ double keyboardFootRadius(double p) =>
 /// keyboard takes that room (then [keyboard] is the keyboard's height).
 void expectFloating(WidgetTester tester, Finder sheet, {double keyboard = 0}) {
   final rect = tester.getRect(sheet);
-  expect(rect.left, 0);
-  expect(rect.right, 390);
+  final gap = keyboard > 0 ? 6.0 : 23.0;
+  expect(rect.left, closeTo(gap, .01));
+  expect(rect.right, closeTo(390 - gap, .01));
   expect(
     footRadius(tester, sheet),
     closeTo(keyboard > 0 ? 24 : _floatedRadius, .01),
@@ -254,8 +252,10 @@ void main() {
       for (var frame = 0; frame < 4; frame++) {
         await tester.pump(const Duration(milliseconds: 32));
         final current = tester.getRect(sheet);
-        expect(current.left, 0);
-        expect(current.right, 390);
+        final progress = (opened.top - current.top) / (opened.top - 55);
+        final gap = (23 - 17 * progress) * progress;
+        expect(current.left, closeTo(gap, .01));
+        expect(current.right, closeTo(390 - gap, .01));
         expect(current.top, inExclusiveRange(55, previous.top));
         expect(current.height, lessThan(previous.height));
         expect(scroll.offset, 0, reason: 'focus keeps the list at its place');
@@ -333,8 +333,9 @@ void main() {
                 ? 1 - (1 + 4 * t) * math.exp(-4 * t)
                 : t;
             final rect = tester.getRect(sheet);
-            expect(rect.left, 0);
-            expect(rect.right, 390);
+            final gap = (23 - 17 * p) * p;
+            expect(rect.left, closeTo(gap, .1));
+            expect(rect.right, closeTo(390 - gap, .1));
             expect(
               footRadius(tester, sheet),
               closeTo(keyboardFootRadius(p), .1),
@@ -547,8 +548,8 @@ void main() {
             void expectProgress() {
               final current = tester.getRect(sheet);
               final progress = (opened.top - current.top) / (opened.top - 55);
-              expect(current.left, 0);
-              expect(current.right, 390);
+              expect(current.left, closeTo(23 * progress, .01));
+              expect(current.right, closeTo(390 - 23 * progress, .01));
               expect(
                 current.bottom,
                 closeTo(opened.bottom + (821 - opened.bottom) * progress, .01),
@@ -589,7 +590,10 @@ void main() {
               expectProgress();
             }
             await tester.pumpAndSettle();
-            expect(tester.getRect(sheet), const Rect.fromLTRB(0, 55, 390, 821));
+            expect(
+              tester.getRect(sheet),
+              const Rect.fromLTRB(23, 55, 367, 821),
+            );
             expect(scroll.offset, 0);
             expect(tester.takeException(), isNull);
           },

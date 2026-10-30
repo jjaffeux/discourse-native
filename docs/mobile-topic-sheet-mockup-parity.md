@@ -9,7 +9,8 @@ plus the supplied October 20 Start-page screenshot.
 Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. Its top corners are 31, as round as the phone's bar, and its bottom
-corners keep the 22px page radius; see
+corners follow the display radius, with a 55px fallback on screens with a
+bottom safe area and a 22px minimum; see
 [topic-head-mockup-parity.md](topic-head-mockup-parity.md) for the condensed
 head's matching rounded outline. The shared mobile body runs to the bottom screen edge for Start, topic
 lists, ordinary pages, plugin roots, topic sheets, and chat channel and thread

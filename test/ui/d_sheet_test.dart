@@ -16,6 +16,7 @@ Widget _host(
   bool disableAnimations = false,
   EdgeInsets viewInsets = EdgeInsets.zero,
   ThemeData? theme,
+  BorderRadius? displayCornerRadii,
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -24,6 +25,7 @@ Widget _host(
       textScaler: textScaler,
       disableAnimations: disableAnimations,
       viewInsets: viewInsets,
+      displayCornerRadii: displayCornerRadii,
     ),
     child: Directionality(
       textDirection: direction,
@@ -119,87 +121,134 @@ void main() {
       )
       .borderRadius;
 
-  testWidgets(
-    'page keeps its 31px top and 22px bottom corners across display radii and safe insets',
-    (tester) async {
-      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-        for (final bottom in [0.0, 34.0]) {
-          for (final radii in [
-            null,
-            BorderRadius.zero,
-            BorderRadius.circular(62),
-          ]) {
-            await pumpPage(
-              tester,
-              standardPage,
-              platform: platform,
-              media: MediaQueryData(
-                size: const Size(390, 844),
-                displayCornerRadii: radii,
-                viewPadding: EdgeInsets.only(bottom: bottom),
-              ),
-            );
-            expect(
-              pageClip(tester),
-              const BorderRadius.vertical(
-                top: Radius.circular(31),
-                bottom: Radius.circular(22),
-              ),
-            );
-          }
-        }
-      }
-    },
-  );
-
-  for (final foot in [34.0, 0.0]) {
-    testWidgets(
-      'a menu at the foot stands off it as a sheet at its end ($foot)',
-      (tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        tester.view.viewPadding = FakeViewPadding(bottom: foot);
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          _host(
-            DSheet<void>(
-              trigger: DSheetTrigger(
-                builder: (_, open) =>
-                    DButton(label: const Text('Open'), onPressed: open),
-              ),
-              content: const DSheetContent(
-                variant: DSheetVariant.menu,
-                side: DSheetSide.bottom,
-                inset: true,
-                showCloseButton: false,
-                children: [SizedBox(height: 120, child: Text('Menu content'))],
-              ),
-            ),
+  testWidgets('page follows the display corners and safe-area fallback', (
+    tester,
+  ) async {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      for (final (bottom, radii, expected) in [
+        (0.0, null, 22.0),
+        (34.0, null, 55.0),
+        (0.0, BorderRadius.zero, 22.0),
+        (34.0, BorderRadius.zero, 22.0),
+        (0.0, BorderRadius.circular(62), 62.0),
+        (34.0, BorderRadius.circular(62), 62.0),
+      ]) {
+        await pumpPage(
+          tester,
+          standardPage,
+          platform: platform,
+          media: MediaQueryData(
             size: const Size(390, 844),
-            theme: ThemeData(platform: TargetPlatform.iOS),
+            displayCornerRadii: radii,
+            viewPadding: EdgeInsets.only(bottom: bottom),
           ),
-        );
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        final sheet = find.byType(DSheetContent);
-        final bounds = tester.getRect(sheet);
-        // Across the screen's width, 6 past half the foot off its bottom edge,
-        // its foot following the screen's 55 corner from that far in.
-        expect(bounds.left, 0);
-        expect(bounds.right, 390);
-        expect(bounds.bottom, 844 - (6 + foot / 2));
-        final surface = tester.widget<Material>(
-          find.descendant(of: sheet, matching: find.byType(Material)).first,
         );
         expect(
-          surface.borderRadius,
+          pageClip(tester),
           BorderRadius.vertical(
-            top: const Radius.circular(22),
-            bottom: Radius.circular(foot > 0 ? 55 - (6 + foot / 2) : 24),
+            top: const Radius.circular(31),
+            bottom: Radius.circular(expected),
           ),
         );
-      },
+      }
+    }
+  });
+
+  testWidgets('page keeps distinct bottom display corners', (tester) async {
+    await pumpPage(
+      tester,
+      standardPage,
+      media: const MediaQueryData(
+        size: Size(390, 844),
+        displayCornerRadii: BorderRadius.only(
+          bottomLeft: Radius.circular(62),
+          bottomRight: Radius.circular(48),
+        ),
+      ),
     );
+    expect(
+      pageClip(tester),
+      const BorderRadius.only(
+        topLeft: Radius.circular(31),
+        topRight: Radius.circular(31),
+        bottomLeft: Radius.circular(62),
+        bottomRight: Radius.circular(48),
+      ),
+    );
+  });
+
+  for (final (foot, display, gap, bottomCorners) in [
+    (
+      34.0,
+      null,
+      23.0,
+      const BorderRadius.vertical(bottom: Radius.circular(32)),
+    ),
+    (0.0, null, 6.0, const BorderRadius.vertical(bottom: Radius.circular(24))),
+    (
+      34.0,
+      const BorderRadius.only(
+        bottomLeft: Radius.circular(62),
+        bottomRight: Radius.circular(48),
+      ),
+      23.0,
+      const BorderRadius.only(
+        bottomLeft: Radius.circular(39),
+        bottomRight: Radius.circular(25),
+      ),
+    ),
+    (
+      34.0,
+      BorderRadius.zero,
+      23.0,
+      const BorderRadius.vertical(bottom: Radius.circular(24)),
+    ),
+  ]) {
+    testWidgets('a menu follows the screen inset ($foot, $display)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = FakeViewPadding(bottom: foot);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _host(
+          DSheet<void>(
+            trigger: DSheetTrigger(
+              builder: (_, open) =>
+                  DButton(label: const Text('Open'), onPressed: open),
+            ),
+            content: const DSheetContent(
+              variant: DSheetVariant.menu,
+              side: DSheetSide.bottom,
+              inset: true,
+              showCloseButton: false,
+              children: [SizedBox(height: 120, child: Text('Menu content'))],
+            ),
+          ),
+          size: const Size(390, 844),
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          displayCornerRadii: display,
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final sheet = find.byType(DSheetContent);
+      final bounds = tester.getRect(sheet);
+      expect(bounds.left, gap);
+      expect(bounds.right, 390 - gap);
+      expect(bounds.bottom, 844 - gap);
+      final surface = tester.widget<Material>(
+        find.descendant(of: sheet, matching: find.byType(Material)).first,
+      );
+      expect(
+        surface.borderRadius,
+        bottomCorners.copyWith(
+          topLeft: const Radius.circular(22),
+          topRight: const Radius.circular(22),
+        ),
+      );
+    });
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
@@ -367,7 +416,9 @@ void main() {
           bottom: Radius.circular(32),
         );
         expect(corners(), restingCorners);
-        expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
+        expect(tester.getRect(sheet).left, 23);
+        expect(tester.getRect(sheet).right, phone.width - 23);
+        expect(tester.getRect(sheet).bottom, phone.height - 23);
         expect(
           MediaQuery.paddingOf(tester.element(find.text('Body'))).bottom,
           0,
@@ -376,6 +427,10 @@ void main() {
           tester.view.viewInsets = const FakeViewPadding(bottom: 300);
           tester.view.padding = const FakeViewPadding(top: 59);
           await tester.pumpAndSettle();
+          final safeArea = find
+              .descendant(of: sheet, matching: find.byType(SafeArea))
+              .first;
+          expect(MediaQuery.paddingOf(tester.element(safeArea)).bottom, 0);
           expect(
             corners(),
             const BorderRadius.vertical(
@@ -383,15 +438,12 @@ void main() {
               bottom: Radius.circular(24),
             ),
           );
-          expect(
-            tester.getRect(sheet).bottom,
-            phone.height - 300 - DSpacing.md,
-          );
+          expect(tester.getRect(sheet).bottom, phone.height - 300 - 6);
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
           await tester.pumpAndSettle();
           expect(corners(), restingCorners);
-          expect(tester.getRect(sheet).bottom, phone.height - 34 - DSpacing.md);
+          expect(tester.getRect(sheet).bottom, phone.height - 23);
         }
         expect(tester.takeException(), isNull);
       });
