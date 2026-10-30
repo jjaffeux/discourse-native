@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../foundation/app_text_scaler.dart';
+import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_control_wrap.dart';
@@ -57,36 +58,38 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
       (context, info) => _DFitRowScope(
         step: info.step,
         compact: compact,
-        child: DReferenceTextScale(
-          child: Builder(
-            builder: (context) => DControlWrap(
-              wrap: info.step.index >= DFitRowStep.wrapped.index,
-              spacing: DControlStyle.isTouch(context) && tightOf(context)
-                  ? 6
-                  : spacing,
-              runSpacing: runSpacing,
-              children: [
-                for (final child in children)
-                  DControlWrapItem(
-                    remaining: child is DFitRowItem && child.leading,
-                    breakAfter:
-                        child is DFitRowItem &&
-                        child.leading &&
-                        info.step.index >= DFitRowStep.wrapped.index &&
-                        info.step != DFitRowStep.isolated,
-                    breakBefore:
-                        child is DFitRowItem &&
-                        child.last &&
-                        info.step == DFitRowStep.isolated,
-                    order:
-                        child is DFitRowItem &&
-                            child.last &&
-                            info.step == DFitRowStep.isolated
-                        ? 1
-                        : 0,
-                    child: child,
-                  ),
-              ],
+        child: DControlMotionScope(
+          child: DReferenceTextScale(
+            child: Builder(
+              builder: (context) => DControlWrap(
+                wrap: info.step.index >= DFitRowStep.wrapped.index,
+                spacing: DControlStyle.isTouch(context) && compact
+                    ? 6
+                    : spacing,
+                runSpacing: runSpacing,
+                children: [
+                  for (final child in children)
+                    DControlWrapItem(
+                      remaining: child is DFitRowItem && child.leading,
+                      breakAfter:
+                          child is DFitRowItem &&
+                          child.leading &&
+                          info.step.index >= DFitRowStep.wrapped.index &&
+                          info.step != DFitRowStep.isolated,
+                      breakBefore:
+                          child is DFitRowItem &&
+                          child.last &&
+                          info.step == DFitRowStep.isolated,
+                      order:
+                          child is DFitRowItem &&
+                              child.last &&
+                              info.step == DFitRowStep.isolated
+                          ? 1
+                          : 0,
+                      child: child,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -189,6 +192,7 @@ class _RenderDFitRow extends RenderProxyBox
   _RenderDFitRow(this._compact);
   bool _compact;
   Map<RenderBox, Rect>? _fromRects;
+  Map<RenderBox, Map<RenderDControlMotion, Rect>>? _fromControls;
   Size? _fromSize;
   RenderDControlWrap? _controls;
   double _elapsed = 0;
@@ -201,6 +205,7 @@ class _RenderDFitRow extends RenderProxyBox
     if (_elapsed == 1) {
       _ticker.stop();
       _fromRects = null;
+      _fromControls = null;
       _fromSize = null;
     }
     markNeedsLayout();
@@ -209,12 +214,14 @@ class _RenderDFitRow extends RenderProxyBox
   void update(bool compact, bool animate) {
     if (_compact != compact && animate && hasSize) {
       _fromRects = _controls?.paintedRects;
+      _fromControls = _controls?.controlRects;
       _fromSize = _controls?.size;
       _elapsed = 0;
       _ticker.stop();
       _ticker.start();
     } else if (!animate) {
       _fromRects = null;
+      _fromControls = null;
       _fromSize = null;
       _ticker.stop();
     }
@@ -244,6 +251,7 @@ class _RenderDFitRow extends RenderProxyBox
   void performLayout() {
     if (_width != constraints.maxWidth) {
       _fromRects = null;
+      _fromControls = null;
       _fromSize = null;
       _ticker.stop();
     }
@@ -262,16 +270,21 @@ class _RenderDFitRow extends RenderProxyBox
       }
       final wrap = line is RenderDControlWrap ? line : null;
       _controls = wrap;
+      final remaining = 1 - _elapsed;
       invokeLayoutCallback<BoxConstraints>(
         (_) => wrap?.transitionFrom(
           _fromRects,
           _fromSize,
-          _fromRects == null
-              ? 1
-              : const Cubic(.2, .8, .2, 1).transform(_elapsed),
+          _fromRects == null ? 1 : 1 - remaining * remaining * remaining,
+          controls: _fromControls,
+          controlProgress: const Cubic(.2, .8, .2, 1).transform(_elapsed),
+          fadeProgress: Curves.ease.transform(_elapsed),
         ),
       );
-      line.layout(constraints, parentUsesSize: true);
+      line.layout(
+        width.isFinite ? constraints.tighten(width: width) : constraints,
+        parentUsesSize: true,
+      );
       size = line.size;
       if (wrap == null || !width.isFinite) return;
       final controls = wrap;

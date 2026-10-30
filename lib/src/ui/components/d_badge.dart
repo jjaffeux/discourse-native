@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/app_text_scaler.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
@@ -21,6 +22,13 @@ enum DBadgeSize {
 
   /// Inline topic counts: 11px bold labels with 1px/6px insets.
   unread,
+
+  /// Accent feed counts: 11.5/16px desktop type, 12.5/18px on touch, and
+  /// 1px/7px insets inside a borderless pill at least 20px wide.
+  count,
+
+  /// Feed menu counts retain the desktop count typography on touch platforms.
+  menuCount,
 
   /// Matches the mockup taxonomy chips: 30px with 12.5px labels and the
   /// button corner radius, so they sit beside buttons as one control row.
@@ -247,6 +255,10 @@ class _DBadgeState extends State<DBadge> {
     final inline = widget._inline;
     Widget complete(Widget child) {
       final control = linkActivation.wrap(child);
+      if (widget.size == DBadgeSize.count ||
+          widget.size == DBadgeSize.menuCount) {
+        return DReferenceTextScale(child: control);
+      }
       return inline == null
           ? control
           : Align(
@@ -261,6 +273,10 @@ class _DBadgeState extends State<DBadge> {
     final featured = widget.size == DBadgeSize.featured;
 
     final unread = widget.size == DBadgeSize.unread;
+    final count =
+        widget.size == DBadgeSize.count || widget.size == DBadgeSize.menuCount;
+    final touchCount =
+        widget.size == DBadgeSize.count && DControlStyle.isTouch(context);
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
     final fontSize = inline != null
@@ -269,6 +285,8 @@ class _DBadgeState extends State<DBadge> {
         ? DControlStyle.fontSize(DControlSize.filter, context: context)
         : overlay
         ? 10.0
+        : count
+        ? (touchCount ? 12.5 : 11.5)
         : (unread)
         ? DiscourseTypography.micro
         : DiscourseTypography.xs;
@@ -279,6 +297,8 @@ class _DBadgeState extends State<DBadge> {
               fontSize
         : overlay
         ? 1.2
+        : count
+        ? (touchCount ? 18 : 16) / fontSize
         : compact
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
@@ -339,14 +359,20 @@ class _DBadgeState extends State<DBadge> {
     };
     final foreground =
         widget.foregroundColor ??
-        (inline == null
+        (count
+            ? tokens.primary
+            : inline == null
             ? baseForeground
             : inline.baseStyle?.color ??
                   DefaultTextStyle.of(context).style.color ??
                   tokens.foreground);
     final fill =
         widget.backgroundColor ??
-        (inline == null ? baseBackground : tokens.muted);
+        (count
+            ? tokens.primary.withValues(alpha: .12)
+            : inline == null
+            ? baseBackground
+            : tokens.muted);
     final background = inline != null && active
         ? Color.alphaBlend(tokens.foreground.withValues(alpha: .08), fill)
         : fill;
@@ -379,7 +405,7 @@ class _DBadgeState extends State<DBadge> {
         curve: _transitionCurve,
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
-          minWidth: overlay ? 14 : (unread ? 18 : 0),
+          minWidth: count ? 20 : (overlay ? 14 : (unread ? 18 : 0)),
           minHeight: inline != null
               ? 0
               : featured
@@ -392,11 +418,13 @@ class _DBadgeState extends State<DBadge> {
                 )
               : overlay
               ? 14
+              : count
+              ? 0
               : ((unread) ? 0 : (compact ? 16 : 20)),
         ),
         decoration: BoxDecoration(
           color: background,
-          border: overlay || unread || inline != null
+          border: overlay || unread || count || inline != null
               ? null
               : Border.all(color: border),
           borderRadius: radius,
@@ -425,6 +453,8 @@ class _DBadgeState extends State<DBadge> {
               )
             : overlay
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
+            : count
+            ? const EdgeInsets.symmetric(horizontal: 7, vertical: 1)
             : (unread
                   ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
                   : EdgeInsetsDirectional.fromSTEB(
@@ -468,12 +498,12 @@ class _DBadgeState extends State<DBadge> {
                       height: lineHeight,
                       fontWeight: inline != null
                           ? FontWeight.w400
-                          : overlay
+                          : overlay || count
                           ? FontWeight.w600
                           : unread
                           ? FontWeight.w700
                           : (control ? FontWeight.w400 : FontWeight.w500),
-                      fontFeatures: overlay
+                      fontFeatures: overlay || count
                           ? const [FontFeature.tabularFigures()]
                           : null,
                       letterSpacing: inline == null
@@ -490,7 +520,7 @@ class _DBadgeState extends State<DBadge> {
                     ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: overlay
+              mainAxisAlignment: overlay || count
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [

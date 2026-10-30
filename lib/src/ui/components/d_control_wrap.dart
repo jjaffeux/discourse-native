@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/control_motion.dart';
 import '../foundation/tokens.dart';
 
 /// Spaces Native controls using their layout bounds. Gaps are not interactive.
@@ -154,8 +155,13 @@ class RenderDControlWrap extends RenderWrap {
   });
 
   Map<RenderBox, Rect>? _fromRects;
+  Map<RenderBox, Map<RenderDControlMotion, Rect>>? _fromControls;
   Size? _fromSize;
   double _progress = 1;
+  double _controlProgress = 1;
+  double _fadeProgress = 1;
+  final _positionedControls = <RenderDControlMotion>{};
+  final _positionedSurfaces = <RenderDControlMotionSurface>{};
 
   /// The painted positions, including an interrupted fit-row transition.
   Map<RenderBox, Rect> get paintedRects => {
@@ -163,20 +169,53 @@ class RenderDControlWrap extends RenderWrap {
       child: _paintRect(child),
   };
 
+  Iterable<RenderObject> _motionPartsIn(RenderObject object) sync* {
+    if (object is RenderOffstage && object.offstage) return;
+    if (object is RenderDControlMotion) {
+      yield object;
+      return;
+    }
+    if (object is RenderDControlMotionSurface) yield object;
+    final children = <RenderObject>[];
+    object.visitChildren(children.add);
+    for (final child in children) {
+      yield* _motionPartsIn(child);
+    }
+  }
+
+  Map<RenderBox, Map<RenderDControlMotion, Rect>> get controlRects => {
+    for (var child = firstChild; child != null; child = childAfter(child))
+      child: {
+        for (final control in _motionPartsIn(
+          child,
+        ).whereType<RenderDControlMotion>())
+          control: MatrixUtils.transformRect(
+            control.getTransformTo(child),
+            control.paintedBounds,
+          ),
+      },
+  };
+
   /// Fits against the destination layout while easing artwork and hit bounds.
   void transitionFrom(
     Map<RenderBox, Rect>? rects,
     Size? fromSize,
-    double progress,
-  ) {
+    double progress, {
+    Map<RenderBox, Map<RenderDControlMotion, Rect>>? controls,
+    double controlProgress = 1,
+    double fadeProgress = 1,
+  }) {
     if (identical(rects, _fromRects) &&
         fromSize == _fromSize &&
         progress == _progress) {
       return;
     }
     _fromRects = rects;
+    _fromControls = controls;
     _fromSize = fromSize;
     _progress = progress;
+    _controlProgress = controlProgress;
+    _fadeProgress = fadeProgress;
     markNeedsLayout();
     markNeedsSemanticsUpdate();
   }
@@ -190,14 +229,16 @@ class RenderDControlWrap extends RenderWrap {
 
   Matrix4 _paintTransform(RenderBox child) {
     final rect = _paintRect(child);
-    return Matrix4.identity()
-      ..translateByDouble(rect.left, rect.top, 0, 1)
-      ..scaleByDouble(
+    final transform = Matrix4.translationValues(rect.left, rect.top, 0);
+    if (_fromControls?[child]?.isNotEmpty != true) {
+      transform.scaleByDouble(
         child.size.width == 0 ? 1 : rect.width / child.size.width,
         child.size.height == 0 ? 1 : rect.height / child.size.height,
         1,
         1,
       );
+    }
+    return transform;
   }
 
   @override
@@ -236,6 +277,14 @@ class RenderDControlWrap extends RenderWrap {
 
   @override
   void performLayout() {
+    for (final control in _positionedControls) {
+      if (control.attached) control.place(Offset.zero, 1);
+    }
+    _positionedControls.clear();
+    for (final surface in _positionedSurfaces) {
+      if (surface.attached) surface.paintSize = null;
+    }
+    _positionedSurfaces.clear();
     _surfaces.clear();
     if (firstChild == null) {
       _naturalMain = 0;
@@ -409,6 +458,32 @@ class RenderDControlWrap extends RenderWrap {
       }
       crossPosition += run.cross + runSpacing;
     }
+    if (_fromRects != null) {
+      for (var child = firstChild; child != null; child = childAfter(child)) {
+        final parts = _motionPartsIn(child).toList();
+        for (final surface in parts.whereType<RenderDControlMotionSurface>()) {
+          _positionedSurfaces.add(surface);
+          final from = _fromRects![child];
+          surface.paintSize = from == null
+              ? null
+              : Size.lerp(from.size, surface.layoutSize, _progress);
+        }
+        for (final control in parts.whereType<RenderDControlMotion>()) {
+          _positionedControls.add(control);
+          final previous = _fromControls?[child]?[control];
+          final current = MatrixUtils.transformRect(
+            control.getTransformTo(child),
+            control.layoutBounds,
+          );
+          control.place(
+            previous == null
+                ? Offset.zero
+                : (previous.topLeft - current.topLeft) * (1 - _controlProgress),
+            previous == null ? _fadeProgress : 1,
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -429,7 +504,7 @@ class RenderDControlWrap extends RenderWrap {
       if (_fromRects!.containsKey(item)) {
         paintItem(context, offset);
       } else {
-        context.pushOpacity(offset, (_progress * 255).round(), paintItem);
+        context.pushOpacity(offset, (_fadeProgress * 255).round(), paintItem);
       }
     }
   }
@@ -449,8 +524,23 @@ class RenderDControlWrap extends RenderWrap {
       return defaultHitTestChildren(result, position: position);
     }
     for (var child = lastChild; child != null; child = childBefore(child)) {
-      if (!_fromRects!.containsKey(child) && _progress < .5) continue;
+      if (!_fromRects!.containsKey(child) && _fadeProgress < .5) continue;
       final item = child;
+      if (_fromControls?[item]?.isNotEmpty == true) {
+        for (final control in _motionPartsIn(
+          item,
+        ).whereType<RenderDControlMotion>().toList().reversed) {
+          if (result.addWithPaintTransform(
+            transform: control.getTransformTo(this),
+            position: position,
+            hitTest: (result, position) =>
+                control.hitTest(result, position: position),
+          )) {
+            return true;
+          }
+        }
+        continue;
+      }
       if (result.addWithPaintTransform(
         transform: _paintTransform(item),
         position: position,

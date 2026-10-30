@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import '../foundation/count_label.dart';
 import '../models/content_route.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import 'platform.dart';
 
 enum _View { latest, unread, newActivity, unseen, top, trending }
@@ -81,7 +82,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
   Object? _measurementIdentity;
 
   bool get _compact =>
-      widget.compact || (context.isTouch && DFitRow.tightOf(context));
+      widget.compact || (context.isTouch && DFitRow.compactOf(context));
 
   Map<Object, double> get _widths => _widthsByCompact[_compact] ?? const {};
 
@@ -135,8 +136,8 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     children: [
       Flexible(child: label),
       if (count > 0) ...[
-        const SizedBox(width: DSpacing.xs),
-        DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
+        const SizedBox(width: 6),
+        DBadge(size: DBadgeSize.count, child: Text('$count')),
       ],
     ],
   );
@@ -145,29 +146,45 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     final label = _segmentLabel(view);
     final count = _count(_mode(view));
     final icon = DIcon(switch (view) {
-      _View.latest => DIcons.farClock,
+      _View.latest => DNativeIcons.clock,
       _View.unread => DIcons.envelope,
       _View.newActivity => DIcons.certificate,
-      _View.unseen => DIcons.farEyeSlash,
-      _View.top => DIcons.medal,
+      _View.unseen => DNativeIcons.eyeSlash,
+      _View.top => DNativeIcons.trophy,
       _View.trending => DIcons.fire,
     }, size: 14);
-    final toggle = DToggle(
-      key: ValueKey('topic-list-view-${view.name}'),
-      pressed: view == _current,
-      size: DToggleSize.segment,
-      variant: DToggleVariant.segmented,
-      semanticLabel: _semantics(label, count),
-      focusNode: focusNode,
-      onPressedChanged: activate == null ? null : (_) => activate(),
-      child: _countedLabel(_compact ? icon : Text(label), count),
-    );
-    return activate == null
-        ? toggle
-        : KeyedSubtree(
-            key: _toggleKeys.putIfAbsent(view, GlobalKey.new),
-            child: toggle,
+    final toggle = _compact && count == 0
+        ? DToggle.iconOnly(
+            key: ValueKey('topic-list-view-${view.name}'),
+            pressed: view == _current,
+            size: DToggleSize.segment,
+            variant: DToggleVariant.segmented,
+            semanticLabel: label,
+            focusNode: focusNode,
+            onPressedChanged: activate == null ? null : (_) => activate(),
+            icon: icon,
+          )
+        : DToggle(
+            key: ValueKey('topic-list-view-${view.name}'),
+            pressed: view == _current,
+            size: DToggleSize.segment,
+            variant: DToggleVariant.segmented,
+            semanticLabel: _semantics(label, count),
+            focusNode: focusNode,
+            onPressedChanged: activate == null ? null : (_) => activate(),
+            child: _countedLabel(_compact ? icon : Text(label), count),
           );
+    return DTooltip(
+      message: label,
+      disabled: !_compact || activate == null,
+      excludeFromSemantics: true,
+      child: activate == null
+          ? toggle
+          : KeyedSubtree(
+              key: _toggleKeys.putIfAbsent(view, GlobalKey.new),
+              child: toggle,
+            ),
+    );
   }
 
   Widget _overflow(int count, {DDropdownMenuTriggerState? trigger}) {
@@ -285,7 +302,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
           if (selected) const DIcon(DIcons.check, size: 14),
           if (count > 0) ...[
             if (selected) const SizedBox(width: DSpacing.sm),
-            DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
+            DBadge(size: DBadgeSize.menuCount, child: Text('$count')),
           ],
         ],
       ),

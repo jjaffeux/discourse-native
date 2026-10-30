@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_artwork.dart';
+import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/joined_control.dart';
@@ -1055,7 +1056,7 @@ class DButton extends StatelessWidget {
                 horizontal:
                     effectiveSize == DControlSize.filter &&
                         DControlStyle.isTouch(context)
-                    ? DFitRow.tightOf(context)
+                    ? DFitRow.compactOf(context)
                           ? 10
                           : 12
                     : joined?.quiet == true
@@ -1429,20 +1430,22 @@ class DButton extends StatelessWidget {
       );
     }
 
-    return linkActivation.wrap(
-      MergeSemantics(
-        child: Semantics(
-          button: !isLink,
-          link: isLink,
-          enabled: enabled,
-          expanded: hasPopup ? expanded : null,
-          validationResult: invalid
-              ? SemanticsValidationResult.invalid
-              : SemanticsValidationResult.none,
-          liveRegion: loading,
-          label: effectiveSemanticLabel,
-          value: loading ? loadingSemanticLabel : null,
-          child: result,
+    return DControlMotion(
+      child: linkActivation.wrap(
+        MergeSemantics(
+          child: Semantics(
+            button: !isLink,
+            link: isLink,
+            enabled: enabled,
+            expanded: hasPopup ? expanded : null,
+            validationResult: invalid
+                ? SemanticsValidationResult.invalid
+                : SemanticsValidationResult.none,
+            liveRegion: loading,
+            label: effectiveSemanticLabel,
+            value: loading ? loadingSemanticLabel : null,
+            child: result,
+          ),
         ),
       ),
     );
