@@ -892,36 +892,29 @@ void main() {
       }
     }
 
-    testWidgets(
-      'a deliberate pull lowers an expanded sheet before dismissal on $platform',
-      (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-        await openMenu(tester, platform: platform, scroll: scroll);
-        final sheet = find.byType(DSheetContent);
-        final lower = tester.getRect(sheet);
-        await expand(tester);
-        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
-        await tester.timedDrag(
-          handle,
-          const Offset(0, 300),
-          const Duration(milliseconds: 400),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          tester.getRect(sheet),
-          Rect.fromLTRB(0, lower.top, 390, lower.bottom - 23),
-          reason: 'committed expansion keeps its floating clearance',
-        );
-        await tester.timedDrag(
-          handle,
-          const Offset(0, 200),
-          const Duration(milliseconds: 400),
-        );
-        await tester.pumpAndSettle();
-        expect(sheet, findsNothing);
-      },
-    );
+    for (final origin in ['handle', 'content']) {
+      testWidgets(
+        'a deliberate $origin pull dismisses an expanded sheet without a lower stop on $platform',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(tester, platform: platform, scroll: scroll);
+          final sheet = find.byType(DSheetContent);
+          await expand(tester);
+          final target = origin == 'handle'
+              ? find.byKey(const ValueKey('sheet-drag-handle'))
+              : find.byType(ListView);
+          await tester.timedDrag(
+            target,
+            const Offset(0, 300),
+            const Duration(milliseconds: 400),
+          );
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     for (final expanded in [false, true]) {
       testWidgets(
