@@ -14,7 +14,6 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
@@ -97,7 +96,7 @@ class TopicInboxHeader extends StatelessWidget {
         _TopicHeaderReadingLane(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            child: taxonomy,
+            child: DReferenceTextScale(child: taxonomy),
           ),
         ),
     ];
