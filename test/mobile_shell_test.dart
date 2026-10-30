@@ -2427,7 +2427,7 @@ void main() {
       expect(find.text('Voice rooms'), findsOneWidget);
       expect(find.text('Watercooler'), findsOneWidget);
       expect(find.byType(ChatMobileSidebar), findsNothing);
-      for (final label in ['Chats', 'Channels', 'Threads']) {
+      for (final label in ['Chats', 'Browse channels', 'Threads']) {
         expect(sidebarDestination(label), findsNothing);
       }
       expect(shell.currentContent, same(route));
@@ -3865,7 +3865,7 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Channels',
+      'Browse channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -3892,7 +3892,7 @@ void main() {
       'Preferences',
       'Summary',
       'Activity',
-      'Channels',
+      'Browse channels',
       'Threads',
     ]);
     expect(tester.takeException(), isNull);
@@ -3979,7 +3979,7 @@ void main() {
   for (final (label, id, page) in [
     ('Summary', 'summary', find.byType(UserSummaryView)),
     ('Activity', 'activity', find.byType(UserActivityView)),
-    ('Channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
+    ('Browse channels', 'chat-browse', find.byType(ChatBrowseChannelsView)),
     ('Threads', 'chat-my-threads', find.byType(ChatMyThreadsView)),
   ]) {
     _mobileTest(
