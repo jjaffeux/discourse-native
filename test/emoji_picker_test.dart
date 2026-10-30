@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
@@ -51,6 +52,70 @@ void main() {
       client: MockClient((_) async => http.Response('', 404)),
     );
   });
+
+  for (final available in [true, false]) {
+    testWidgets('picker artwork stays square when available=$available', (
+      tester,
+    ) async {
+      final response = Completer<http.Response>();
+      installTestMediaPipeline(client: MockClient((_) => response.future));
+      final controller = _pickerController(
+        ({refresh = false}) async => _catalog,
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      String? selected;
+      await tester.pumpWidget(
+        _pickerHarness(controller, onPicked: (code) => selected = code),
+      );
+
+      final cell = find.byKey(
+        const ValueKey('emoji-picker-cell-smileys_&_emotion-0-wave'),
+      );
+      final placeholder = find.descendant(
+        of: cell,
+        matching: find.byType(DSkeleton),
+      );
+      expect(placeholder, findsOneWidget);
+      expect(tester.getSize(placeholder), const Size.square(25));
+      expect(find.text(':wave:'), findsNothing);
+
+      response.complete(
+        available
+            ? http.Response.bytes(
+                base64Decode(
+                  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8'
+                  'BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+                ),
+                200,
+              )
+            : http.Response('', 404),
+      );
+      await tester.pumpAndSettle();
+      if (available) {
+        final image = tester.widget<Image>(
+          find.descendant(of: cell, matching: find.byType(Image)),
+        );
+        await tester.runAsync(
+          () => precacheImage(image.image, tester.element(cell)),
+        );
+        await tester.pumpAndSettle();
+        expect(placeholder, findsNothing);
+        expect(
+          tester.getSize(
+            find.descendant(of: cell, matching: find.byType(Image)),
+          ),
+          const Size.square(25),
+        );
+      } else {
+        expect(placeholder, findsOneWidget);
+        expect(tester.getSize(placeholder), const Size.square(25));
+      }
+      expect(find.text(':wave:'), findsNothing);
+      await tester.tap(cell);
+      expect(selected, 'wave');
+    });
+  }
 
   testWidgets('desktop opens an anchored popover and returns a toned code', (
     tester,

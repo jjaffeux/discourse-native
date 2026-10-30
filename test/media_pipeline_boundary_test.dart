@@ -80,29 +80,35 @@ void main() {
     },
   );
 
-  test('the default cap starts a wide emoji picker burst', () async {
+  test('large emoji picker bursts finish without dropping requests', () async {
     final release = Completer<void>();
     final burstStarted = Completer<void>();
     final requested = <Uri>[];
+    var active = 0;
+    var maximumActive = 0;
     final pipeline = MediaPipeline(
       client: MockClient((request) async {
         requested.add(request.url);
+        active++;
+        if (active > maximumActive) maximumActive = active;
         if (requested.length ==
                 MediaRequestCoordinator.defaultMaxConcurrentPerOrigin &&
             !burstStarted.isCompleted) {
           burstStarted.complete();
         }
         await release.future;
+        active--;
         return http.Response.bytes([1], 200);
       }),
     );
     addTearDown(pipeline.close);
 
     final loads = [
-      for (var index = 0; index < 20; index++)
+      for (var index = 0; index < 200; index++)
         pipeline.emoji.load('https://emoji.test/$index.png'),
     ];
     await burstStarted.future;
+    await pumpEventQueue();
 
     expect(
       requested,
@@ -110,6 +116,8 @@ void main() {
     );
     release.complete();
     expect(await Future.wait(loads), everyElement(isNotNull));
+    expect(requested, hasLength(200));
+    expect(maximumActive, 8);
   });
 
   test('picker emoji overtake queued avatar work', () async {
