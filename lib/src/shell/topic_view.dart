@@ -217,6 +217,8 @@ class _TopicViewState extends State<TopicView>
   (String, int, int)? _scheduledCacheIdentity;
 
   final _morePanelKey = GlobalKey();
+  final _topicControlsKey = GlobalKey();
+  double? _topicControlsHeight;
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   final _topicControlsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
@@ -639,6 +641,10 @@ class _TopicViewState extends State<TopicView>
   }) {
     final controller = _controller;
     if (controller == null) return;
+    final controlsHeight = _topicControlsKey.currentContext?.size?.height;
+    if (controlsHeight != null && controlsHeight != _topicControlsHeight) {
+      setState(() => _topicControlsHeight = controlsHeight);
+    }
     if (_openingPostId case final postId?) {
       final element = _reader.postContext(postId);
       if (element is! StatefulElement ||
@@ -1920,10 +1926,17 @@ class _TopicViewState extends State<TopicView>
             ),
           ),
         ],
-        if (controller.mobileNavigationEnabled)
+        if (controller.mobileNavigationEnabled ||
+            (!context.isTouch && snapshot.progressTotal > 1))
           SliverPadding(
             padding: EdgeInsets.only(
-              bottom: DScrollChrome.bottomInsetOf(context),
+              bottom:
+                  (controller.mobileNavigationEnabled
+                      ? DScrollChrome.bottomInsetOf(context)
+                      : 0) +
+                  (_topicControlsHeight ??
+                      TopicProgressButton.floatingHeightOf(context)) +
+                  DSpacing.sm,
             ),
           ),
       ];
@@ -2094,25 +2107,36 @@ class _TopicViewState extends State<TopicView>
                               snapshot.progressTotal <= 1)) {
                         return const SizedBox.shrink();
                       }
-                      return DReferenceTextScale(
-                        child: DControlWrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (controller.mobileNavigationEnabled)
-                              TopicHeaderTools(
-                                siteUrl: siteUrl,
-                                topic: snapshot.topic!,
-                                registry: widget.registry,
-                                keepTopicListOpen: widget.keepTopicListOpen,
-                              ),
-                            TopicProgressPopover(
-                              controller: controller,
-                              position: position,
-                              total: snapshot.progressTotal,
-                              floating: true,
+                      return NotificationListener<
+                        SizeChangedLayoutNotification
+                      >(
+                        onNotification: (_) {
+                          _scheduleLook();
+                          return false;
+                        },
+                        child: SizeChangedLayoutNotifier(
+                          key: _topicControlsKey,
+                          child: DReferenceTextScale(
+                            child: DControlWrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (controller.mobileNavigationEnabled)
+                                  TopicHeaderTools(
+                                    siteUrl: siteUrl,
+                                    topic: snapshot.topic!,
+                                    registry: widget.registry,
+                                    keepTopicListOpen: widget.keepTopicListOpen,
+                                  ),
+                                TopicProgressPopover(
+                                  controller: controller,
+                                  position: position,
+                                  total: snapshot.progressTotal,
+                                  floating: true,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       );
                     },

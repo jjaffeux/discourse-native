@@ -90,6 +90,14 @@ void main() {
         expect(find.byType(TopicProgressPopover).hitTestable(), findsOneWidget);
         expect(geometry.visibleExtent, 0);
         expect(scroll.position.maxScrollExtent, closeTo(initialExtent, .1));
+        expect(
+          tester.getRect(_panel).bottom,
+          lessThanOrEqualTo(
+            tester
+                .getRect(find.byKey(const ValueKey('topic-progress-button')))
+                .top,
+          ),
+        );
 
         scroll.jumpTo(panelOffset - extent * .45);
         await tester.pumpAndSettle();
