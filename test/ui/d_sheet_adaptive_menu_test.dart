@@ -869,6 +869,48 @@ void main() {
       },
     );
 
+    for (final sizeToContent in [false, true]) {
+      testWidgets(
+        'expanded sheet has no lower stop and keeps its size during a short pull on $platform (content: $sizeToContent)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+          );
+          await expand(tester);
+          final sheet = find.byType(DSheetContent);
+          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final full = tester.getRect(sheet);
+          await tester.tap(handle);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), full);
+          final drag = await tester.startGesture(tester.getCenter(handle));
+          await drag.moveBy(const Offset(0, 20));
+          await drag.moveBy(const Offset(0, 70));
+          await tester.pump();
+          expect(tester.getRect(sheet).top, greaterThan(full.top));
+          expect(tester.getRect(sheet).size, full.size);
+          await drag.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), full);
+          await tester.timedDrag(
+            handle,
+            const Offset(0, 300),
+            const Duration(milliseconds: 400),
+          );
+          await tester.pump();
+          expect(tester.getRect(sheet).size, full.size);
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     for (final expanded in [false, true]) {
       for (final origin in ['handle', 'content']) {
         testWidgets(
@@ -1194,7 +1236,7 @@ void main() {
             );
             expectFloating(tester, sheet);
             expect(tester.getRect(sheet).bottom, 821);
-            expect(find.bySemanticsLabel('Collapse'), findsOneWidget);
+            expect(find.bySemanticsLabel('Collapse'), findsNothing);
             await tester.timedDrag(
               find.byKey(const ValueKey('sheet-drag-handle')),
               const Offset(0, 600),

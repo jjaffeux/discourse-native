@@ -363,6 +363,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _floating = false;
   bool _raiseForKeyboard = false;
   bool _expanded = true;
+  bool _fullyExpanded = false;
   bool _resizingInsets = false;
   bool _expandingInsets = false;
   double _previousInset = 0;
@@ -401,6 +402,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                         widget.presentation.animation.value /
                             _dismissAnimationOrigin)
                     .clamp(0.0, 1.0);
+
+  double get _heightOffset => _fullyExpanded ? 0 : math.min(_offset, _fixedLow);
 
   @override
   void initState() {
@@ -466,7 +469,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _dismissCurve = _curve.transform(widget.presentation.animation.value);
     _exitKeyboard = _keyboardInset;
     _exitSafeBottom = _safeBottom;
-    _exitHeightOffset = math.min(_travel.value, _fixedLow);
+    _exitHeightOffset = _heightOffset;
     return _DSheetDismissSimulation(
       math.max(1, _room - _travel.value),
       math.max(0, _exitVelocity),
@@ -598,8 +601,17 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   void _travelStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed ||
         status == AnimationStatus.dismissed) {
+      if (_travel.value == 0 && _interacted) _completeExpansion();
       _scheduleMeasure();
     }
+  }
+
+  void _completeExpansion() {
+    if (_fullyExpanded) return;
+    setState(() {
+      _fullyExpanded = true;
+      _low = 0;
+    });
   }
 
   void _changed() {
@@ -630,7 +642,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     });
     final tall = box.size.height + _lift;
     final half = _room * .55;
-    final low = _keyboard > 0
+    final low = _fullyExpanded || _keyboard > 0
         ? 0.0
         : !widget.sizeToContent
         ? _fixedLow
@@ -794,6 +806,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       unawaited(_travel.animateTo(to, duration: _duration, curve: _curve));
     } else {
       _travel.value = to;
+      if (to == 0) _completeExpansion();
     }
   }
 
@@ -855,7 +868,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         return;
       }
       final destination = MediaQuery.sizeOf(context).height + _lift;
-      _exitHeightOffset = math.min(_travel.value, _fixedLow);
+      _exitHeightOffset = _heightOffset;
       unawaited(
         _travel
             .animateWith(
@@ -1049,7 +1062,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             // that height and translate the whole sheet with the finger.
             final heightOffset = widget.sizeToContent
                 ? 0.0
-                : _exitHeightOffset ?? math.min(_offset, _fixedLow);
+                : _exitHeightOffset ?? _heightOffset;
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
