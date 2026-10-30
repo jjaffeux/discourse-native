@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart' show AppTextScaler;
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -37,28 +38,48 @@ void main() {
 
         final filters = ChatInboxFilters();
         addTearDown(filters.dispose);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: platform),
-            home: Scaffold(
-              body: ChatInboxFilterBar(siteUrl: topics.site, filters: filters),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        for (final key in [
-          'chat-inbox-activity-filter',
-          'chat-inbox-sort-filter',
+        for (final (appScale, platformScale, height, textSize) in [
+          (1.0, 1.0, 44.0, 16.0),
+          (1.25, 2.0, 80.0, 40.0),
         ]) {
-          final control = find.byKey(ValueKey(key));
-          expect(tester.getSize(control).height, 44, reason: key);
-          final label = find.descendant(
-            of: control,
-            matching: find.byType(Text),
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark.copyWith(platform: platform),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: AppTextScaler(
+                    platformScaler: TextScaler.linear(platformScale),
+                    appScale: appScale,
+                    baselineScale: 17 / 14,
+                  ),
+                ),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: ChatInboxFilterBar(
+                  siteUrl: topics.site,
+                  filters: filters,
+                ),
+              ),
+            ),
           );
-          expect(DefaultTextStyle.of(tester.element(label)).style.fontSize, 16);
+          await tester.pumpAndSettle();
+          for (final key in [
+            'chat-inbox-activity-filter',
+            'chat-inbox-sort-filter',
+          ]) {
+            final control = find.byKey(ValueKey(key));
+            expect(tester.getSize(control).height, height, reason: key);
+            final label = find.descendant(
+              of: control,
+              matching: find.byType(Text),
+            );
+            final context = tester.element(label);
+            final fontSize = DefaultTextStyle.of(context).style.fontSize!;
+            expect(MediaQuery.textScalerOf(context).scale(fontSize), textSize);
+          }
+          expect(tester.takeException(), isNull);
         }
-        expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
     );
