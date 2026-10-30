@@ -99,15 +99,18 @@ class DHistoryTransition extends StatefulWidget {
   /// between the capture boundary and the sheet. It retains its aspect ratio
   /// when the available height changes. Native owns the image lifetime.
   static Widget? previousPageUnderlayOf(BuildContext context) {
-    final image = context
-        .dependOnInheritedWidgetOfExactType<_HistoryPageScope>()
-        ?.previousImage;
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_HistoryPageScope>();
+    final image = scope?.previousImage;
     return image == null
         ? null
         : ExcludeSemantics(
             child: ExcludeFocus(
               child: IgnorePointer(
-                child: _HistorySnapshotUnderlay(image: image),
+                child: _HistorySnapshotUnderlay(
+                  image: image,
+                  imageOffset: scope!.previousPageOffset,
+                ),
               ),
             ),
           );
@@ -607,11 +610,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             _resetGesture();
           }
         }
+        final previous = _previews[widget.previousEntry];
         return ClipRect(
           child: AnimatedBuilder(
             animation: _progress,
             child: _HistoryPageScope(
-              previousImage: _previews[widget.previousEntry]?.image,
+              previousImage: previous?.image,
+              previousPageOffset: () =>
+                  (previous?.origin ?? Offset.zero) - _pageOrigin(),
               animatePageEntrance: _animatePageEntrance,
               child: _HistoryBoundary(key: _boundary, child: widget.child),
             ),
@@ -836,42 +842,55 @@ class _HistoryRepaintBoundary extends RenderRepaintBoundary {
 class _HistoryPageScope extends InheritedWidget {
   const _HistoryPageScope({
     required this.previousImage,
+    required this.previousPageOffset,
     required this.animatePageEntrance,
     required super.child,
   });
 
   final ui.Image? previousImage;
+  final ValueGetter<Offset> previousPageOffset;
   final bool animatePageEntrance;
 
   @override
   bool updateShouldNotify(_HistoryPageScope oldWidget) =>
       previousImage != oldWidget.previousImage ||
+      previousPageOffset != oldWidget.previousPageOffset ||
       animatePageEntrance != oldWidget.animatePageEntrance;
 }
 
 class _HistorySnapshotUnderlay extends LeafRenderObjectWidget {
-  const _HistorySnapshotUnderlay({required this.image});
+  const _HistorySnapshotUnderlay({
+    required this.image,
+    required this.imageOffset,
+  });
 
   final ui.Image image;
+  final ValueGetter<Offset> imageOffset;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _HistorySnapshotRenderer(image);
+      _HistorySnapshotRenderer(image, imageOffset);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _HistorySnapshotRenderer renderObject,
-  ) => renderObject.image = image;
+  ) {
+    renderObject
+      ..image = image
+      ..imageOffset = imageOffset
+      ..markNeedsPaint();
+  }
 }
 
 class _HistorySnapshotRenderer extends RenderBox {
-  _HistorySnapshotRenderer(ui.Image image)
+  _HistorySnapshotRenderer(ui.Image image, this.imageOffset)
     : _source = image,
       _image = image.clone();
 
   ui.Image _source;
   ui.Image _image;
+  ValueGetter<Offset> imageOffset;
 
   set image(ui.Image image) {
     if (image == _source) return;
@@ -903,9 +922,11 @@ class _HistorySnapshotRenderer extends RenderBox {
     if (ancestor is! _HistoryRepaintBoundary || ancestor.size.isEmpty) return;
     // Align the image using layout offsets. The canvas already carries the
     // sheet's scale and translation; including them again crops its content.
+    // The captured page may have sat higher or lower in the stationary frame.
+    final departureOffset = imageOffset();
     final target = Rect.fromLTWH(
-      offset.dx - origin.dx,
-      offset.dy - origin.dy,
+      offset.dx - origin.dx + departureOffset.dx,
+      offset.dy - origin.dy + departureOffset.dy,
       ancestor.size.width,
       ancestor.size.width * _image.height / _image.width,
     );
