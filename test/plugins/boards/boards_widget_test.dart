@@ -547,14 +547,22 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       },
     );
     addTearDown(fixture.dispose);
-    await tester.pumpWidget(retainedPage(fixture));
+    await prepareNativeUiEvidence(tester);
+    await tester.pumpWidget(
+      Builder(
+        builder: (context) =>
+            nativeUiEvidenceBuilder(context, retainedPage(fixture)),
+      ),
+    );
     await tester.pumpAndSettle();
     final back = find.byKey(const ValueKey('board-back'));
+    final tag = find.byKey(const ValueKey(('board-header-tag', 'roadmap')));
     final title = tester.getRect(find.byKey(const ValueKey('board-title')));
     expect(tester.getRect(back).bottom, lessThanOrEqualTo(title.top));
-    for (final control in [find.text('Support'), find.text('# roadmap')]) {
+    for (final control in [find.text('Support'), tag]) {
       expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
     }
+    await captureNativeUi(tester, 'board-header-tag-style');
     await tester.tap(back);
     expect(fixture.host.currentContent?.id, 'boards');
     await tester.pumpWidget(const SizedBox.shrink());
@@ -578,7 +586,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       ('cs-handover', '/tag/cs-handover.json'),
       ('équipe & suivi', '/tag/%C3%A9quipe%20&%20suivi.json'),
     ]) {
-      await tester.tap(find.text('# $label'));
+      await tester.tap(find.byKey(ValueKey(('board-header-tag', label))));
       await tester.pumpAndSettle();
       final route = fixture.host.currentContent;
       expect(route?.destination, isA<FeedDestination>());

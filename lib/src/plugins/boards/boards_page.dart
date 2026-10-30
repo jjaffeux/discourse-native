@@ -299,11 +299,28 @@ class _BoardsPageState extends State<BoardsPage> {
               case final category?)
             _categoryBadge(category.name, category.colorValue),
         for (final tag in board.tagNames)
-          DBadge.link(
+          DButton(
+            key: ValueKey(('board-header-tag', tag)),
             onPressed: () => widget.navigation.openTag(widget.site, tag),
-            variant: DBadgeVariant.secondary,
-            size: DBadgeSize.control,
-            child: Text('# $tag', maxLines: 1, overflow: TextOverflow.ellipsis),
+            variant: DButtonVariant.tool,
+            size: DButtonSize.filter,
+            isLink: true,
+            semanticLabel: l10n.openTagTopicheadertags(tag),
+            label: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '#',
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+                  const WidgetSpan(child: SizedBox(width: DSpacing.controlGap)),
+                  TextSpan(text: tag),
+                ],
+              ),
+              maxLines: 1,
+            ),
           ),
         if (board.archived)
           DBadge(size: DBadgeSize.control, child: Text(l10n.boardsArchived)),
