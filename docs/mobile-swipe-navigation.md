@@ -1,12 +1,12 @@
 # Mobile swipe navigation
 
-The phone shell separates sidebar access from Back by the gesture's starting position.
+The phone shell selects sidebar access or Back from the available history and the gesture's starting position.
 `DHistoryTransition` owns recognition and interactive page motion, including motion over retained reading sheets.
 
 ## Gesture regions
 
 In a left-to-right layout, the sidebar corner is the first **80 logical pixels from the left** and **56 logical pixels below the top safe area**.
-The upper bounds are exclusive. A touch at x = 80 or y = 56 belongs to Back.
+The upper bounds are exclusive. When Back is available, a touch at x = 80 or y = 56 belongs to Back.
 The corner mirrors to the top-right in a right-to-left layout, along with the swipe direction.
 
 For a phone with a 44-point top safe area, the sidebar region is x = 0 through 79 and screen y = 44 through 99.
@@ -17,7 +17,7 @@ Logical pixels correspond to iOS points and Android density-independent pixels, 
 The shell uses these rules:
 
 - A rightward swipe starting in the corner opens the sidebar from any page, including a reading sheet.
-- A rightward swipe elsewhere goes back one visit. At the history root, it does nothing.
+- A rightward swipe elsewhere goes back one visit. When no Back route is available, it opens the sidebar.
 - Back from a topic, channel, direct message, thread, or board restores its previous visit. Returning to a list dismisses the sheet.
 - Opening the sidebar preserves the current visit and its Back and Forward history.
 - A leftward swipe from the trailing 48 logical pixels goes Forward, or closes an open sidebar.
@@ -49,10 +49,10 @@ Start near the menu button, inside the app, to use the sidebar shortcut.
 ## Ownership and verification
 
 `DHistoryNavigation` supplies a navigation entry, an inert live preview, and an open callback.
-`backSwipeAnywhere` enables Back across the `DHistoryTransition` frame.
+`backSwipeAnywhere` enables Back across the `DHistoryTransition` frame, with sidebar access across the same frame when Back is unavailable.
 The phone shell supplies these options and routes completed gestures through its existing history controller.
 `DSheetViewport` continues to own downward dismissal. A second horizontal recognizer on each sheet would compete with corner navigation and risk popping two visits.
 Plugins do not need to implement their own navigation gestures.
 
-The component styleguide's **History transition** example demonstrates corner navigation.
+The component styleguide's **History transition** example demonstrates corner navigation and sidebar access at the history root.
 Focused widget coverage lives in `test/d_history_transition_test.dart`, `test/mobile_shell_test.dart`, `test/mobile_topic_sheet_test.dart`, `test/mobile_chat_sheet_test.dart`, and `test/plugins/boards/boards_sheet_test.dart`.

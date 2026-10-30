@@ -5147,7 +5147,10 @@ void main() {
   _mobileTest('content swipes open navigation across mobile root tabs', (
     tester,
   ) async {
-    final shell = await pumpMobileShellFixture(tester, board: boardFixtureJson());
+    final shell = await pumpMobileShellFixture(
+      tester,
+      board: boardFixtureJson(),
+    );
     final header = tester.getRect(_header);
     for (final tab in [
       'topics',

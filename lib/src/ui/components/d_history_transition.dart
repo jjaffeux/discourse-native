@@ -32,8 +32,8 @@ final class DHistoryTabClipper extends CustomClipper<RRect> {
       borderRadius != oldClipper.borderRadius || insets != oldClipper.insets;
 }
 
-/// A navigation surface revealed from the top leading corner, independently
-/// of the current page's Back destination.
+/// A navigation surface revealed from the top leading corner or when Back is
+/// unavailable, independently of the current page's Back destination.
 final class DHistoryNavigation {
   const DHistoryNavigation({
     required this.entry,
@@ -51,7 +51,8 @@ final class DHistoryNavigation {
 /// Give each visit a stable [entry] identity and change [history] when its owner
 /// or journey changes. Adjacent identities select visual previews; callbacks
 /// change the actual history only after a committed swipe finishes. Short drags
-/// spring back without invoking a callback. Null callbacks disable that edge.
+/// spring back without invoking a callback. Null callbacks disable that history
+/// direction.
 /// The incoming page grows from 94% to full size with the swipe. Shallow
 /// parallax separates the pages during a drag. Background
 /// pages stay inside the viewport, shrinking as a forward page covers them.
@@ -144,11 +145,13 @@ class DHistoryTransition extends StatefulWidget {
   /// navigation. Mount below the system safe area. The destination is selected
   /// at touch-down and stays fixed until release, including outside the corner.
   /// RTL mirrors the corner and swipe direction. This takes priority over Back.
+  /// When Back is unavailable, its gesture region also opens navigation.
   final DHistoryNavigation? navigation;
 
   /// Accept Back swipes across the surface, including retained page sheets.
   /// Descendant horizontal controls keep their gestures. Forward stays on the
-  /// trailing edge. At the history root, swipes outside [navigation] do nothing.
+  /// trailing edge. When Back is unavailable, supplied [navigation] opens across
+  /// the surface instead.
   final bool backSwipeAnywhere;
 
   /// Places the animated page within stationary navigation chrome.
@@ -416,12 +419,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         _allowsDirection(event.localPosition, _rtl ? 1 : -1);
   }
 
-  bool _navigationOrigin(Offset position) =>
-      widget.navigation != null &&
-      position.dy >= 0 &&
-      position.dy < _navigationCorner.height &&
-      (_rtl ? _gestureWidth - position.dx : position.dx) <
-          _navigationCorner.width;
+  bool _navigationOrigin(Offset position) {
+    if (widget.navigation == null) return false;
+    final leading = _rtl ? _gestureWidth - position.dx : position.dx;
+    return (position.dy >= 0 &&
+            position.dy < _navigationCorner.height &&
+            leading < _navigationCorner.width) ||
+        ((widget.previousEntry == null || widget.onBack == null) &&
+            (widget.backSwipeAnywhere || leading <= _edgeWidth));
+  }
 
   bool _allowsDirection(Offset origin, double distance) {
     final leading = _rtl ? _gestureWidth - origin.dx : origin.dx;
