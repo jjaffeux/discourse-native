@@ -213,12 +213,13 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final dark in [false, true]) {
       testWidgets(
-        'phone overflow includes all views and counts ($platform $dark)',
+        'phone overflow opens with every view reachable ($platform $dark)',
         (tester) async {
           final fixture = _Fixture(
             platform: platform,
             dark: dark,
             width: 358,
+            phoneHeight: 780,
             mode: TopicListMode.newTopics,
           );
           await fixture.pump(tester);
@@ -252,12 +253,23 @@ void main() {
             tester,
             '${platform.name}-${dark ? 'dark' : 'light'}-overflow',
           );
-          await tester.drag(
-            find.byKey(const ValueKey('sheet-drag-handle')),
-            const Offset(0, -350),
-          );
-          await tester.pumpAndSettle();
-          await tester.ensureVisible(_entry('popular'));
+          for (final id in [
+            'latest',
+            'unread',
+            'new-all',
+            'new-topics',
+            'new-replies',
+            'unseen',
+            'top-period-yearly',
+            'top-period-quarterly',
+            'top-period-monthly',
+            'top-period-weekly',
+            'top-period-daily',
+            'top-period-all',
+            'popular',
+          ]) {
+            expect(_entry(id).hitTestable(), findsOneWidget, reason: id);
+          }
           await tester.tap(_entry('popular'));
           await tester.pumpAndSettle();
           expect(fixture.mode, TopicListMode.popular);
@@ -337,10 +349,12 @@ class _Fixture {
     this.unified = true,
     this.signedIn = true,
     this.scale = 1,
+    this.phoneHeight = 844,
   });
   final TargetPlatform platform;
   final bool dark;
   final double scale;
+  final double phoneHeight;
   TopicListMode mode;
   double width;
   bool unified, signedIn;
@@ -349,7 +363,7 @@ class _Fixture {
 
   Future<void> pump(WidgetTester tester) async {
     final mobile = platform != TargetPlatform.macOS;
-    final size = mobile ? const Size(390, 844) : const Size(1100, 720);
+    final size = mobile ? Size(390, phoneHeight) : const Size(1100, 720);
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
