@@ -84,6 +84,73 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+  for (final count in [0, 7]) {
+    testWidgets(
+      'feed overflow has round ends on hover and open with $count topics',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: const ValueKey('topic-list-production-review'),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: TopicFeedMenu(
+                    mode: TopicListMode.latest,
+                    maxVisibleViews: 1,
+                    unreadCount: count,
+                    onSelected: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer();
+        await mouse.moveTo(tester.getCenter(trigger));
+        await tester.pumpAndSettle();
+        await _captureProductionRow(
+          tester,
+          Platform.environment['TOPIC_LIST_CAPTURE_DIR'],
+          'feed-overflow-hover-$count',
+        );
+        for (final open in [false, true]) {
+          if (open) {
+            await tester.tap(trigger);
+            await tester.pumpAndSettle();
+            expect(find.byType(DDropdownMenuContent), findsOneWidget);
+          }
+          final size = tester.getSize(trigger);
+          if (count == 0) {
+            expect(size.width, size.height);
+          } else {
+            expect(
+              find.descendant(of: trigger, matching: find.text('$count')),
+              findsOneWidget,
+            );
+            expect(size.width, greaterThan(size.height));
+          }
+          final surface = buttonSurface(tester, of: trigger);
+          expect(surface.color.a, greaterThan(0));
+          final radius = surface.borderRadius;
+          for (final corner in [
+            radius.topLeft,
+            radius.topRight,
+            radius.bottomLeft,
+            radius.bottomRight,
+          ]) {
+            expect(corner.x, greaterThanOrEqualTo(size.height / 2));
+            expect(corner.y, greaterThanOrEqualTo(size.height / 2));
+          }
+        }
+      },
+    );
+  }
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
