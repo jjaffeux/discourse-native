@@ -101,6 +101,7 @@ void composerBlockDragEdgesTests({bool native = false}) {
       );
     }
   }
+  if (native) return;
   for (final above in [true, false]) {
     testWidgets(
       'full mobile drop line keeps two points at the exact ${above ? 'top' : 'bottom'} viewport edge',

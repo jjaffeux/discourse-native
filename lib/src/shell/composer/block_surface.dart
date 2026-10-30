@@ -80,7 +80,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
   final _blockActionsKey = GlobalKey();
   Rect? _handleRect;
   double? _actionCenter;
-  double? _dropTop;
+  ({double top, double translationY})? _dropPlacement;
 
   ComposerController get composer => widget.composer;
 
@@ -186,10 +186,10 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           ? null
           : box.globalToLocal(actionRect.center).dy;
       final target = _pointer == null ? _dropTarget : _targetAt(_pointer!);
-      final dropTop = _dropY(target);
+      final dropPlacement = _placeDropIndicator(target);
       if (localRect != _handleRect ||
           actionCenter != _actionCenter ||
-          dropTop != _dropTop ||
+          dropPlacement != _dropPlacement ||
           target != _dropTarget ||
           emptyLine?.range != _emptyLine) {
         setState(() {
@@ -197,7 +197,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           _handleRect = localRect;
           _actionCenter = actionCenter;
           _dropTarget = target;
-          _dropTop = dropTop;
+          _dropPlacement = dropPlacement;
         });
       }
     });
@@ -277,14 +277,8 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final drag = _drag;
     if (pointer == null || drag == null || !_accepts(drag)) return;
     final position = widget.editorScroll();
-    final object = _bounds.currentContext?.findRenderObject();
-    if (position == null || object is! RenderBox || !object.hasSize) return;
-    final bounds = object.localToGlobal(Offset.zero) & object.size;
-    // Intersect a growing mobile editor with its scroll viewport.
-    final viewport = position.context.notificationContext?.findRenderObject();
-    final visible = viewport is RenderBox && viewport.hasSize
-        ? bounds.intersect(viewport.localToGlobal(Offset.zero) & viewport.size)
-        : bounds;
+    final visible = _dragBounds()?.visible;
+    if (position == null || visible == null) return;
     const edge = 48.0;
     final delta = pointer.dy < visible.top + edge
         ? -((visible.top + edge - pointer.dy) / edge).clamp(0, 1) * 10
@@ -309,7 +303,7 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     if (mounted) {
       setState(() {
         _dropTarget = null;
-        _dropTop = null;
+        _dropPlacement = null;
       });
     }
   }
@@ -375,11 +369,43 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     return true;
   }
 
-  bool _withinSurfaceWidth(Offset position) {
+  ({Rect visible, Rect? viewport})? _dragBounds() {
     final box = _bounds.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.hasSize) return false;
-    final x = box.globalToLocal(position).dx;
-    return x >= 0 && x < box.size.width;
+    if (box is! RenderBox || !box.hasSize) return null;
+    final bounds = box.localToGlobal(Offset.zero) & box.size;
+    final viewport = context.isTouch
+        ? RenderAbstractViewport.maybeOf(box)
+        : null;
+    final scrollContext = widget.editorScroll()?.context.notificationContext;
+    final viewportBox = viewport is RenderBox
+        ? viewport
+        : scrollContext?.findRenderObject();
+    if (viewportBox is! RenderBox || !viewportBox.hasSize) {
+      return (visible: bounds, viewport: null);
+    }
+    var viewportBounds =
+        viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+    if (viewport is RenderViewportBase) {
+      final revealed = viewport.getOffsetToReveal(box, 0, rect: Rect.zero);
+      viewportBounds = Rect.fromLTRB(
+        viewportBounds.left,
+        viewportBounds.top + revealed.rect.top,
+        viewportBounds.right,
+        viewportBounds.bottom,
+      );
+    }
+    return (
+      visible: bounds.intersect(viewportBounds),
+      viewport: viewportBounds,
+    );
+  }
+
+  bool _acceptsTouchPosition(Offset position) {
+    final visible = _dragBounds()?.visible;
+    return visible != null &&
+        (position.dy < visible.top ||
+            position.dy >= visible.bottom ||
+            (position.dx >= visible.left && position.dx < visible.right));
   }
 
   void _move(int gap) {
@@ -572,12 +598,30 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     ],
   );
 
-  double? _dropY(ComposerDropTarget? target) {
+  ({double top, double translationY})? _placeDropIndicator(
+    ComposerDropTarget? target,
+  ) {
     final box = _bounds.currentContext?.findRenderObject();
-    if (target == null || box is! RenderBox || !box.hasSize) {
-      return null;
+    if (target == null || box is! RenderBox || !box.hasSize) return null;
+    var y = target.y;
+    var translationY = -.5;
+    final viewport = context.isTouch ? _dragBounds()?.viewport : null;
+    if (viewport != null) {
+      final bounds = box.localToGlobal(Offset.zero) & box.size;
+      if (y < viewport.top ||
+          (y == viewport.top && viewport.top > bounds.top)) {
+        y = viewport.top;
+        translationY = 0;
+      } else if (y > viewport.bottom ||
+          (y == viewport.bottom && viewport.bottom < bounds.bottom)) {
+        y = viewport.bottom;
+        translationY = -1;
+      }
     }
-    return box.globalToLocal(Offset(0, target.y)).dy;
+    return (
+      top: box.globalToLocal(Offset(0, y)).dy,
+      translationY: translationY,
+    );
   }
 
   @override
@@ -597,15 +641,16 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
     final topInset = desktop
         ? ((actionHeight - widget.lineHeight) / 2).clamp(0.0, double.infinity)
         : 0.0;
-    final line = _dropTop == null
+    final placement = _dropPlacement;
+    final line = placement == null
         ? null
         : PositionedDirectional(
             start: desktop ? gutter : 0,
             end: 0,
-            top: _dropTop,
-            child: const FractionalTranslation(
-              translation: Offset(0, -.5),
-              child: DDropIndicator(),
+            top: placement.top,
+            child: FractionalTranslation(
+              translation: Offset(0, placement.translationY),
+              child: const DDropIndicator(),
             ),
           );
     return Focus(
@@ -640,14 +685,16 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
                     dataAt: _touchDataAt,
                     onStart: _startTouchDrag,
                     onMove: (drag, position) {
-                      if (_withinSurfaceWidth(position)) {
+                      if (_acceptsTouchPosition(position)) {
                         _moveDrag(drag, position);
                       } else {
                         _leaveDrag();
                       }
                     },
                     onDrop: (drag, position) {
-                      if (_withinSurfaceWidth(position)) _drop(drag, position);
+                      if (_acceptsTouchPosition(position)) {
+                        _drop(drag, position);
+                      }
                     },
                     onEnd: _cancelDrag,
                     child: widget.child,

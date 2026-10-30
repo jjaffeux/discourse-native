@@ -843,7 +843,9 @@ void main() {
         await gesture.cancel();
       } else {
         if (cancellation == 'outside') {
-          await gesture.moveTo(const Offset(0, 0));
+          await gesture.moveTo(
+            Offset(0, surface.blockRect(blocks.last)!.center.dy),
+          );
         } else {
           composer.text.text = '$source!';
         }
