@@ -215,11 +215,17 @@ class _BoardsPageState extends State<BoardsPage> {
       List<Widget> badges = const [],
       required Widget body,
       int columns = 0,
-    }) => DPageSurface(
-      framed: false,
-      border: false,
+    }) => DPageSurface.headed(
+      identity: (
+        widget.controller,
+        widget.site,
+        widget.route.boardId,
+        widget.controller.accountRevision(widget.site),
+      ),
+      title: Text(title, key: const ValueKey('board-title')),
+      controls: badges.isEmpty ? null : DControlWrap(children: badges),
       limitContentSize: false,
-      child: CustomScrollView(
+      bodyBuilder: (context, header) => CustomScrollView(
         key: ValueKey((
           widget.controller,
           widget.site,
@@ -227,14 +233,7 @@ class _BoardsPageState extends State<BoardsPage> {
           widget.controller.accountRevision(widget.site),
         )),
         slivers: [
-          SliverToBoxAdapter(
-            child: _BoardHeader(
-              title: title,
-              badges: badges,
-              sheet: widget.navigation.mobileNavigationEnabled,
-              onBack: () => widget.navigation.open(),
-            ),
-          ),
+          SliverToBoxAdapter(child: header.spacer),
           SliverLayoutBuilder(
             builder: (context, constraints) {
               final dock = DScrollChrome.bottomInsetOf(context);
@@ -1079,68 +1078,6 @@ class _BoardLoadingSkeleton extends StatelessWidget {
       );
     },
   );
-}
-
-/// The topic reader's heading. In the mobile page sheet, whose dismissal goes
-/// back, the badges follow the title on its line and wrap below
-/// it when they do not fit. Elsewhere a back link leads to the directory and
-/// the badges follow the title on their own row.
-class _BoardHeader extends StatelessWidget {
-  const _BoardHeader({
-    required this.title,
-    required this.badges,
-    required this.sheet,
-    required this.onBack,
-  });
-  final String title;
-  final List<Widget> badges;
-  final bool sheet;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final heading = Semantics(
-      header: true,
-      headingLevel: 1,
-      child: Text(
-        title,
-        key: const ValueKey('board-title'),
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.headlineSmall,
-      ),
-    );
-    if (sheet) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: DControlWrap(children: [heading, ...badges]),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: DButton(
-              key: const ValueKey('board-back'),
-              icon: const DIcon(DIcons.chevronLeft),
-              label: Text(context.l10n.boardsTitle),
-              variant: DButtonVariant.inline,
-              density: DButtonDensity.backLink,
-              onPressed: onBack,
-            ),
-          ),
-          heading,
-          if (badges.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            DControlWrap(children: badges),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 /// Marks the column a one-column board shows. The dots sit below the column

@@ -131,15 +131,6 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     addTearDown(fixture.dispose);
     await tester.pumpWidget(retainedPage(fixture));
     await tester.pumpAndSettle();
-    final header = find.ancestor(
-      of: find.byKey(const ValueKey('board-title')),
-      matching: find.byType(SliverToBoxAdapter),
-    );
-    expect(header, findsOneWidget);
-    expect(
-      find.descendant(of: header, matching: find.byType(DDropdownMenuTrigger)),
-      findsNothing,
-    );
     expect(find.text('Refresh'), findsNothing);
     await tester.dragFrom(
       tester.getCenter(find.byKey(const ValueKey('board-title'))),
@@ -533,40 +524,39 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(fixture.live.channels, isEmpty);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('board header follows the topic reader outside the sheet', (
-    tester,
-  ) async {
-    final json = boardFixtureJson();
-    (json['board'] as Map)
-      ..['tag_names'] = ['roadmap']
-      ..['category_ids'] = [5];
-    final fixture = BoardsFixture(
-      json: json,
-      categories: {
-        5: const TopicCategory(id: 5, name: 'Support', color: '12b5d8'),
-      },
-    );
-    addTearDown(fixture.dispose);
-    await prepareNativeUiEvidence(tester);
-    await tester.pumpWidget(
-      Builder(
-        builder: (context) =>
-            nativeUiEvidenceBuilder(context, retainedPage(fixture)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final back = find.byKey(const ValueKey('board-back'));
-    final tag = find.byKey(const ValueKey(('board-header-tag', 'roadmap')));
-    final title = tester.getRect(find.byKey(const ValueKey('board-title')));
-    expect(tester.getRect(back).bottom, lessThanOrEqualTo(title.top));
-    for (final control in [find.text('Support'), tag]) {
-      expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
-    }
-    await captureNativeUi(tester, 'board-header-tag-style');
-    await tester.tap(back);
-    expect(fixture.host.currentContent?.id, 'boards');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'board heading keeps its controls below the title outside the sheet',
+    (tester) async {
+      final json = boardFixtureJson();
+      (json['board'] as Map)
+        ..['tag_names'] = ['roadmap']
+        ..['category_ids'] = [5];
+      final fixture = BoardsFixture(
+        json: json,
+        categories: {
+          5: const TopicCategory(id: 5, name: 'Support', color: '12b5d8'),
+        },
+      );
+      addTearDown(fixture.dispose);
+      await prepareNativeUiEvidence(tester);
+      await tester.pumpWidget(
+        Builder(
+          builder: (context) =>
+              nativeUiEvidenceBuilder(context, retainedPage(fixture)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tag = find.byKey(const ValueKey(('board-header-tag', 'roadmap')));
+      final title = tester.getRect(find.byKey(const ValueKey('board-title')));
+      expect(find.byKey(const ValueKey('board-back')), findsNothing);
+      for (final control in [find.text('Support'), tag]) {
+        expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
+      }
+      await captureNativeUi(tester, 'board-header-tag-style');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('board header tags open their associated topic lists', (
     tester,
   ) async {

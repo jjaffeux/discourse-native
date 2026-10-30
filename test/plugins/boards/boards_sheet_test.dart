@@ -22,7 +22,7 @@ import '../../support/topic_post_list.dart';
 
 final _sheet = find.byType(DSheetContent);
 final _dock = find.byKey(const ValueKey('mobile-bottom-bar'));
-final _title = find.byKey(const ValueKey('board-title'));
+final _title = find.byKey(const ValueKey('mobile-page-title'));
 final _dots = find.byType(DCarouselDot);
 Finder _dot(int index) => find.byKey(ValueKey('board-column-dot-$index'));
 Finder _column(int id) => find.byKey(ValueKey('board-column-$id'));
@@ -95,6 +95,20 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+
+  testWidgets('the board title appears in the mobile header', (tester) async {
+    await _openBoard(tester);
+    final header = find.byKey(const ValueKey('mobile-header'));
+    expect(
+      find.descendant(of: header, matching: find.text('Product roadmap')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('board-header-tag', 'roadmap'))).hitTestable(),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
 
   for (final folded in [false, true]) {
     testWidgets('dismissing a board restores stationary topic controls '
@@ -277,7 +291,11 @@ void main() {
     final shell = await _openBoard(tester);
     expect(shell.currentContent?.id, 'boards/1');
     expect(tester.widget<DSheetContent>(_sheet).variant, DSheetVariant.page);
-    expect(find.descendant(of: _sheet, matching: _title), findsOneWidget);
+    expect(_title.hitTestable(), findsOneWidget);
+    expect(
+      find.descendant(of: _sheet, matching: find.text('Product roadmap')),
+      findsNothing,
+    );
     final pull = await tester.startGesture(
       tester
           .getCenter(find.byKey(const ValueKey('sheet-drag-handle')))
@@ -366,7 +384,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  for (final target in ['board-title', 'board-card-101']) {
+  for (final target in ['mobile-page-title', 'board-card-101']) {
     testWidgets(
       'pulling board content at $target dismisses without refreshing',
       (tester) async {
@@ -487,10 +505,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     }
     expect(shell.currentContent?.id, 'boards/1');
-    expect(tester.widget<Text>(_title).data, 'Product roadmap');
     expect(find.byKey(const ValueKey('board-card-101')), findsOneWidget);
     expect(left(), leftBefore);
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: _title, matching: find.text('Product roadmap')),
+      findsOneWidget,
+    );
     expect(left(), leftBefore);
     expect(tester.takeException(), isNull);
   }, variant: platforms);
@@ -522,19 +543,25 @@ void main() {
     variant: platforms,
   );
 
-  testWidgets('the sheet header keeps tags beside the title', (tester) async {
+  testWidgets('the board keeps tags in the sheet controls', (tester) async {
     await _openBoard(tester, name: 'Board');
     expect(find.byKey(const ValueKey('board-back')), findsNothing);
     final title = tester.getRect(_title);
     final tag = tester.getRect(
       find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
     );
-    expect(tag.left, greaterThan(title.right));
-    expect(tag.center.dy, inInclusiveRange(title.top, title.bottom));
+    expect(tag.top, greaterThanOrEqualTo(title.bottom));
+    expect(tag.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
+    expect(
+      find.descendant(of: _sheet, matching: find.text('Board')),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('the sheet header wraps tags below a long title', (tester) async {
+  testWidgets('a long board title leaves tags together in the controls', (
+    tester,
+  ) async {
     await _openBoard(
       tester,
       name: 'Quarterly product roadmap for the native apps',
@@ -549,6 +576,7 @@ void main() {
     );
     expect(roadmap.top, greaterThanOrEqualTo(title.bottom));
     expect(native.center.dy, roadmap.center.dy);
+    expect(roadmap.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -929,7 +957,10 @@ void main() {
         expect(tester.takeException(), isNull);
         final sheet = tester.getRect(_sheet);
         await tester.dragFrom(
-          tester.getTopLeft(_title) + const Offset(20, 10),
+          tester.getTopLeft(
+                find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
+              ) +
+              const Offset(20, 10),
           const Offset(0, -2000),
         );
         await tester.pumpAndSettle();

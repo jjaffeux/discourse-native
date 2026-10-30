@@ -42,9 +42,9 @@ On phones and tablets a board opens in the shared mobile page sheet, as a topic
 does, and pulling it down returns to the previous page. When that page is the
 boards directory, the shell draws it live behind the sheet rather than from a
 history snapshot, so it is still there after the app has been in the
-background. The sheet drops the
-directory back link and the mobile tab bar; the board's categories, tags and
-menu follow its title and wrap below a long one. Below 600 points a column fills
+background. The sheet hides the mobile tab bar. The shared page heading puts
+the board title in the phone's top bar and its categories and tags in the
+controls area. Below 600 points a column fills
 the sheet with 10 points of each neighbouring column showing, so a middle column
 hints at the one before it and the one after; the first and last columns rest
 against the padding and show 20 points of their one neighbour. Each swipe
@@ -52,8 +52,8 @@ settles on one column. Dots below the column area mark the column in view, and
 tapping one scrolls to its column. They stay at the bottom of the board however
 short the columns are. The sheet hides the horizontal scrollbar under the
 columns; a partly visible column already shows that the board continues.
-Elsewhere the header follows the topic reader: a back link above the title and
-the controls below it. Columns scroll individually, so the board stops above the
+Elsewhere the shared page heading shows the title above the controls.
+Columns scroll individually, so the board stops above the
 home indicator and a minimized composer instead of continuing under them.
 When the header leaves less room than a column needs for its heading, a card
 and its footer (200 points, scaled with the text size), as on a landscape phone
