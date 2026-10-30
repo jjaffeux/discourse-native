@@ -267,13 +267,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             shell.currentContent?.isMessages == true &&
             instance.isConnected &&
             instance.user?.canSendPrivateMessages == true;
-        final panelAction = panelRoot
-            ? panels
-                  .where((p) => p.owner.value == panelOwner)
+        final panelAction = widget.boundary
+            ? null
+            : panels
+                  .where(
+                    (p) => panelRoot
+                        ? p.owner.value == panelOwner
+                        : p.panel.active,
+                  )
                   .firstOrNull
                   ?.panel
-                  .mobileAction
-            : null;
+                  .mobileAction;
         Widget frameWithHeader(
           BuildContext context,
           ValueListenable<DPageHeader?> header,

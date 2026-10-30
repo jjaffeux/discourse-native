@@ -751,8 +751,8 @@ final class SidebarPanelContribution {
   /// Grouped panels retain the primary owner's mobile presentation.
   final WidgetBuilder? mobileBuilder;
 
-  /// Offered in the mobile tab bar while this panel's root is shown, where
-  /// the forum's own creation action (New topic) would otherwise sit.
+  /// Offered in the mobile tab bar at this panel's root and on its active pages,
+  /// where the forum's own creation action (New topic) would otherwise sit.
   final SidebarPanelAction? mobileAction;
 
   /// Desktop actions pinned beneath the panel's scrolling sections, so they
