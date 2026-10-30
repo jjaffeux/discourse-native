@@ -21,8 +21,10 @@ keep square lower corners.
 
 The bottom safe area stays inside the sheet, below its content and fixed
 actions. With a visible keyboard, the sheet ends directly above it. Its lower
-corners animate to the same 22pt curve as its top corners, then return to the
-viewport curve as the keyboard hides. Adaptive menus keep this footprint through expansion,
+corners animate to their top-corner curve: 22pt for menus and 31pt for reading
+pages, including chat channels and threads. They return to the viewport curve as
+the keyboard hides. Reading-page paint, clipping, rims, and navigation share one
+animated outline. Adaptive menus keep their footprint through expansion,
 scrolling, and loading changes.
 
 The sidebar and composers retain `DMobileDockGeometry.endLift` and `endRadius`

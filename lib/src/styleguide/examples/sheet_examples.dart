@@ -323,7 +323,10 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
   bool _open = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DSheetDragScope(child: Builder(builder: _buildExample));
+
+  Widget _buildExample(BuildContext context) {
     final previous = DPageSurface(
       border: false,
       borderRadius: DSheetViewport.pageBorderRadius(context),
@@ -337,53 +340,51 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
     );
     return SizedBox(
       height: 420,
-      child: DSheetDragScope(
-        child: Column(
-          children: [
-            const DSheetDragRegion(
-              child: DSheetHeader(
-                children: [DSheetTitle(child: Text('Community header'))],
-              ),
+      child: Column(
+        children: [
+          const DSheetDragRegion(
+            child: DSheetHeader(
+              children: [DSheetTitle(child: Text('Community header'))],
             ),
-            Expanded(
-              child: _open
-                  ? DSheetViewport(
-                      onDismiss: () => setState(() => _open = false),
-                      underlay: previous,
-                      content: DSheetContent(
-                        side: DSheetSide.bottom,
-                        variant: DSheetVariant.page,
-                        semanticLabel: 'Reading page',
-                        showCloseButton: false,
-                        children: [
-                          Expanded(
-                            child: DScrollArea(
-                              child: Padding(
-                                padding: const EdgeInsets.all(DSpacing.lg),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  spacing: DSpacing.lg,
-                                  children: [
-                                    const Text('A community discussion'),
-                                    DButton(
-                                      label: const Text('Close reading page'),
-                                      onPressed: () =>
-                                          setState(() => _open = false),
-                                    ),
-                                    for (var i = 1; i <= 20; i++)
-                                      Text('Post $i in the discussion.'),
-                                  ],
-                                ),
+          ),
+          Expanded(
+            child: _open
+                ? DSheetViewport(
+                    onDismiss: () => setState(() => _open = false),
+                    underlay: previous,
+                    content: DSheetContent(
+                      side: DSheetSide.bottom,
+                      variant: DSheetVariant.page,
+                      semanticLabel: 'Reading page',
+                      showCloseButton: false,
+                      children: [
+                        Expanded(
+                          child: DScrollArea(
+                            child: Padding(
+                              padding: const EdgeInsets.all(DSpacing.lg),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: DSpacing.lg,
+                                children: [
+                                  const Text('A community discussion'),
+                                  DButton(
+                                    label: const Text('Close reading page'),
+                                    onPressed: () =>
+                                        setState(() => _open = false),
+                                  ),
+                                  for (var i = 1; i <= 20; i++)
+                                    Text('Post $i in the discussion.'),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    )
-                  : previous,
-            ),
-          ],
-        ),
+                        ),
+                      ],
+                    ),
+                  )
+                : previous,
+          ),
+        ],
       ),
     );
   }

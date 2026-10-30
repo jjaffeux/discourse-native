@@ -180,10 +180,14 @@ class DSheetViewport extends StatefulWidget {
 
   /// The reading page's outline, shared by its card and previous-page surface.
   static BorderRadius pageBorderRadius(BuildContext context) =>
-      _sheetBottomCorners(context).copyWith(
-        topLeft: const Radius.circular(DMobileDockGeometry.capsuleRadius),
-        topRight: const Radius.circular(DMobileDockGeometry.capsuleRadius),
-      );
+      (context
+                  .dependOnInheritedWidgetOfExactType<_DSheetPageCornerScope>()
+                  ?.corners ??
+              _sheetBottomCorners(context))
+          .copyWith(
+            topLeft: const Radius.circular(DMobileDockGeometry.capsuleRadius),
+            topRight: const Radius.circular(DMobileDockGeometry.capsuleRadius),
+          );
 
   const DSheetViewport({
     super.key,
@@ -281,7 +285,12 @@ class _DSheetViewportState extends State<DSheetViewport>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      widget.content.variant == DSheetVariant.page
+      ? _DSheetPageCorners(child: Builder(builder: _buildPage))
+      : _buildPage(context);
+
+  Widget _buildPage(BuildContext context) {
     final content = widget.content;
     assert((!content.showCloseButton));
     final overlap = widget.readerStart != null
@@ -657,14 +666,56 @@ BorderRadius _sheetBottomCorners(BuildContext context) {
   );
 }
 
+class _DSheetPageCorners extends StatelessWidget {
+  const _DSheetPageCorners({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (context.dependOnInheritedWidgetOfExactType<_DSheetPageCornerScope>() !=
+        null) {
+      return child;
+    }
+    final media = MediaQuery.of(context);
+    return _DSheetKeyboardInsets(
+      child: Builder(
+        builder: (metricsContext) => _DSheetKeyboardCorners(
+          viewportCorners: _sheetBottomCorners(metricsContext),
+          keyboardCorners: const BorderRadius.vertical(
+            bottom: Radius.circular(DMobileDockGeometry.capsuleRadius),
+          ),
+          overKeyboard: MediaQuery.viewInsetsOf(metricsContext).bottom > 0,
+          builder: (corners) => MediaQuery(
+            data: media,
+            child: _DSheetPageCornerScope(corners: corners, child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DSheetPageCornerScope extends InheritedWidget {
+  const _DSheetPageCornerScope({required this.corners, required super.child});
+
+  final BorderRadius corners;
+
+  @override
+  bool updateShouldNotify(_DSheetPageCornerScope oldWidget) =>
+      corners != oldWidget.corners;
+}
+
 class _DSheetKeyboardCorners extends StatefulWidget {
   const _DSheetKeyboardCorners({
     required this.viewportCorners,
+    required this.keyboardCorners,
     required this.overKeyboard,
     required this.builder,
   });
 
   final BorderRadius viewportCorners;
+  final BorderRadius keyboardCorners;
   final bool overKeyboard;
   final Widget Function(BorderRadius corners) builder;
 
@@ -735,7 +786,7 @@ class _DSheetKeyboardCornersState extends State<_DSheetKeyboardCorners> {
       builder: (context, progress, _) => widget.builder(
         BorderRadius.lerp(
           widget.viewportCorners,
-          const BorderRadius.vertical(bottom: _sheetMenuCorner),
+          widget.keyboardCorners,
           progress,
         )!,
       ),
@@ -1126,6 +1177,9 @@ Widget _sheetLayout(
       if (followsViewport && !extendBehindKeyboard && !page) {
         return _DSheetKeyboardCorners(
           viewportCorners: _sheetBottomCorners(context),
+          keyboardCorners: const BorderRadius.vertical(
+            bottom: _sheetMenuCorner,
+          ),
           overKeyboard: overKeyboard,
           builder: withCorners,
         );
@@ -1474,11 +1528,13 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
   }
 
   @override
-  Widget build(BuildContext context) => _DSheetDragHost(
-    owner: this,
-    swipe: _swipe,
-    barExtent: _barExtent,
-    child: widget.child,
+  Widget build(BuildContext context) => _DSheetPageCorners(
+    child: _DSheetDragHost(
+      owner: this,
+      swipe: _swipe,
+      barExtent: _barExtent,
+      child: widget.child,
+    ),
   );
 }
 
