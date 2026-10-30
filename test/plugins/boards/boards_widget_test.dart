@@ -43,6 +43,67 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     );
   }
 
+  testWidgets('board columns keep their first loaded frame bounds', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pump();
+    pending.complete(boardFixtureJson());
+    await tester.pump();
+    final column = find.byKey(const ValueKey('board-column-10'));
+    final first = tester.getRect(column);
+    for (var frame = 0; frame < 8; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final bounds = tester.getRect(column);
+      expect(bounds, first, reason: 'Loaded frame ${frame + 1}');
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reopening a cached board keeps column bounds through refresh', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pumpAndSettle();
+    final column = find.byKey(const ValueKey('board-column-10'));
+    final loaded = tester.getRect(column);
+    await tester.pumpWidget(const SizedBox.shrink());
+    final pending = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+        pending.future;
+    await tester.pumpWidget(retainedPage(fixture));
+    await tester.pump();
+    final refreshing = tester.getRect(column);
+    final add = find.byKey(const ValueKey('board-add-10'));
+    final addRetained = add.evaluate().isNotEmpty;
+    final addDisabled =
+        addRetained && tester.widget<DButton>(add).onPressed == null;
+    final card = find.byKey(const ValueKey('board-card-101'));
+    final menu = find.descendant(of: card, matching: find.byType(DButton));
+    final menuRetained = menu.evaluate().isNotEmpty;
+    final menuDisabled =
+        menuRetained && tester.widget<DButton>(menu).onPressed == null;
+    pending.complete(boardFixtureJson());
+    await tester.pumpAndSettle();
+    final refreshed = tester.getRect(column);
+    expect(refreshing, loaded);
+    expect(refreshed, loaded);
+    expect(addRetained, isTrue);
+    expect(addDisabled, isTrue);
+    expect(menuRetained, isTrue);
+    expect(menuDisabled, isTrue);
+    expect(tester.widget<DButton>(add).onPressed, isNotNull);
+    expect(tester.widget<DButton>(menu).onPressed, isNotNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('pending board uses skeletons without a refresh button', (
     tester,
   ) async {
