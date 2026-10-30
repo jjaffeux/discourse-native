@@ -326,7 +326,7 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
   Widget build(BuildContext context) {
     final previous = DPageSurface(
       border: false,
-      borderRadius: DSheetViewport.pageBorderRadius,
+      borderRadius: DSheetViewport.pageBorderRadius(context),
       depth: DSurfaceDepth.panel,
       child: Center(
         child: DButton(

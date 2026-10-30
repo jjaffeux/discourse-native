@@ -247,8 +247,8 @@ void topicCompactActionsSheetTests({
             const EdgeInsets.fromLTRB(8, 0, 8, 8),
           );
           final bounds = tester.getRect(_menuSheet);
-          expect(bounds.left, 0);
-          expect(bounds.right, size.width);
+          expect(bounds.left, 23);
+          expect(bounds.right, size.width - 23);
           expect(
             bounds.bottom,
             size.height - const DMobileDockGeometry(foot: _foot).endLift,

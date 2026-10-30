@@ -536,7 +536,7 @@ void main() {
         tester.widget<DPageSurface>(surface).borderRadius,
         const BorderRadius.vertical(
           top: Radius.circular(31),
-          bottom: Radius.circular(22),
+          bottom: Radius.circular(55),
         ),
       );
       expect(find.byType(TopicListView), findsNothing);
