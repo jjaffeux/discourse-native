@@ -5,8 +5,10 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -106,6 +108,112 @@ void main() {
     }
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  for (final delayed in [false, true]) {
+    testWidgets(
+      'cold restored private message reserves app header delayed=$delayed',
+      (tester) async {
+        final coldEdges = <double>[];
+        var observing = true;
+        void observeFrame(Duration _) {
+          if (!observing) return;
+          final reader = find.byType(TopicView);
+          if (reader.evaluate().isNotEmpty) {
+            final edge = DSheetPageBand.edgeOf(tester.element(reader));
+            if (edge != null) coldEdges.add(edge.value);
+          }
+          tester.binding.addPostFrameCallback(observeFrame);
+        }
+
+        tester.binding.addPostFrameCallback(observeFrame);
+        addTearDown(() => observing = false);
+        final gate = Completer<void>();
+        final inbox = ContentRoute.messages();
+        final topic = ContentRoute.topic(
+          topicId: 7,
+          slug: 'shared',
+          title: 'Restored private discussion',
+          postNumber: 27,
+        );
+        final location = ForumTabLocation(
+          rootDestinationId: inbox.id,
+          contentStack: [inbox, topic],
+        );
+        final shell = await pumpMobileShellFixture(
+          tester,
+          topicGate: delayed ? gate : null,
+          forumTabs: FakeForumTabStore([
+            ForumWorkspace(
+              siteUrl: _site,
+              accountIdentity: 'user:reader',
+              activeTabId: 'restored',
+              tabs: [
+                ForumTab(
+                  id: 'restored',
+                  rootDestinationId: inbox.id,
+                  contentStack: [inbox, topic],
+                ),
+              ],
+              mobile: MobileNavigationState(
+                place: 'topics',
+                visits: [
+                  ForumTabLocation(
+                    rootDestinationId: inbox.id,
+                    contentStack: [inbox],
+                  ),
+                  location,
+                ],
+                index: 1,
+              ),
+            ),
+          ]),
+          topic: topicPayload(
+            id: 7,
+            privateMessage: true,
+            posts: [
+              for (var number = 1; number <= 27; number++)
+                Post(
+                  id: number,
+                  postNumber: number,
+                  username: 'reader',
+                  cooked:
+                      '<p>${List.filled(30, 'A discussion post.').join(' ')}</p>',
+                ),
+            ],
+          ),
+        );
+        observing = false;
+        expect(coldEdges, isNotEmpty);
+        expect(
+          coldEdges,
+          everyElement(greaterThan(0)),
+          reason: 'Every cold painted frame must reserve the app header.',
+        );
+        expect(shell.currentContent?.topicId, 7);
+        final edge = DSheetPageBand.edgeOf(
+          tester.element(find.byType(TopicView)),
+        )!;
+        expect(
+          edge.value,
+          greaterThan(0),
+          reason:
+              'A cold restored post 27 leaves space for the app bar while loading.',
+        );
+        final opening = edge.value;
+        gate.complete();
+        await shell.loadTopic(7, 'shared');
+        for (var frame = 0; frame < 48; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(edge.value, opening, reason: 'cold restoration frame $frame');
+        }
+        topicPostList(tester).controller!.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(edge.value, 0);
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
+  }
 
   for (final (privateMessage, atTop) in [
     for (final privateMessage in [false, true])
