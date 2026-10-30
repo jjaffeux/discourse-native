@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -53,10 +52,10 @@ void mobileReactionScrollTests({bool native = false}) {
                   id == 4 ? 450 : 3,
                   '<p>Post $id discusses sailing and the community.</p>',
                 ).join(),
-                'actions_summary': [
+                'actions_summary': const [
                   {'id': 2, 'can_act': true},
                 ],
-                'reactions': <Object>[],
+                'reactions': const <Object>[],
                 'reaction_users_count': 0,
               },
               site,
