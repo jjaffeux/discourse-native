@@ -179,6 +179,7 @@ class _ReaderFadePartState extends State<_ReaderFadePart> {
     _edge?.removeListener(_measure);
     _scope = context.dependOnInheritedWidgetOfExactType<_ScrollFadeScope>();
     _edge = DSheetPageBand.edgeOf(context);
+    if (_scope?.scroll?.value == double.infinity) _opacity = 0;
     _scope?.scroll?.addListener(_measure);
     _edge?.addListener(_measure);
     _schedule();

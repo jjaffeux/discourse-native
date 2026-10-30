@@ -3521,6 +3521,24 @@ class ShellController extends FrameSafeNotifier
     return route.postNumber;
   }
 
+  bool topicOpensAtTop(int topicId) {
+    final tab = focusedTabContext;
+    final target = topicScrollPostNumber(topicId, tabId: tab.tabId);
+    if (target != null) {
+      return target <= 1 &&
+          topicScrollPostOffset(topicId, tabId: tab.tabId) == 0;
+    }
+    final siteUrl = tab.siteUrl;
+    if (siteUrl == null) return false;
+    final detail = store.read<TopicDetail>(siteUrl, topicId);
+    final read = _topicReads.lastReadPostNumberFor(siteUrl, topicId);
+    if (detail != null) return detail.resumePostNumberAfter(read) == null;
+    final row = store.read<Topic>(siteUrl, topicId);
+    if (row == null) return false;
+    if (row.isNestedView) return true;
+    return (read ?? 0) <= 1 && (row.lastReadPostNumber ?? 0) <= 1;
+  }
+
   double topicScrollPostOffset(int topicId, {String? tabId}) {
     final tab = tabId == null ? activeTab : currentWorkspace?.tabById(tabId);
     final route = tab?.currentContent;

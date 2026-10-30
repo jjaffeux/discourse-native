@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -103,6 +104,75 @@ void main() {
     }
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  for (final atTop in [false, true]) {
+    testWidgets('topic starts with matching app header atTop=$atTop', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topicGate: gate,
+        topic: topicPayload(
+          id: 7,
+          posts: [
+            for (var number = 1; number <= 30; number++)
+              Post(
+                id: number,
+                postNumber: number,
+                username: 'reader',
+                cooked:
+                    '<p>${List.filled(30, 'A discussion post.').join(' ')}</p>',
+              ),
+          ],
+        ),
+      );
+      await shell.appSettings.setReduceMotion(true);
+      await tester.pumpAndSettle();
+      shell.openTopic(
+        Topic(
+          id: 7,
+          title: 'Resume discussion',
+          slug: 'shared',
+          lastReadPostNumber: atTop ? 0 : 11,
+          highestPostNumber: 30,
+        ),
+      );
+      await tester.pump();
+      final edge = DSheetPageBand.edgeOf(
+        tester.element(find.byType(TopicView)),
+      )!;
+      final opening = edge.value;
+      expect(opening, atTop ? 0 : greaterThan(0));
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(edge.value, opening);
+      }
+      gate.complete();
+      for (var frame = 0; frame < 48; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          edge.value,
+          opening,
+          reason:
+              'The sheet must keep its opening position through restoration.',
+        );
+        final page = DPageHeaderScope.maybeOf(
+          tester.element(find.byKey(const ValueKey('topic-header-morph'))),
+        )!;
+        expect(page.barOpacity, atTop ? 0 : 1);
+      }
+      final scroll = topicPostList(tester).controller!;
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(edge.value, 0);
+      final page = DPageHeaderScope.maybeOf(
+        tester.element(find.byKey(const ValueKey('topic-header-morph'))),
+      )!;
+      expect(page.barOpacity, 0);
+      expect(tester.takeException(), isNull);
+    }, variant: _platforms);
+  }
 
   for (final (origin, offset) in [
     ('above the indicator', -10.0),
