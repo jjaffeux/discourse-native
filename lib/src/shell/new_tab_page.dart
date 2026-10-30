@@ -209,7 +209,7 @@ class NewTabPage extends StatelessWidget {
           _StartSection(
             id: 'messages',
             title: context.l10n.messages,
-            icon: DIcons.inbox,
+            icon: DIcons.envelope,
             rows: const [],
             siteUrl: siteUrl,
             onHeading: () => openLink(context, shell.siteLink('/my/messages')),

@@ -850,7 +850,7 @@ List<_DockDestination> _mobilePlaces(
       (
         tab: MobileTab.messages,
         label: context.l10n.inbox,
-        icon: DIcons.inbox,
+        icon: DIcons.envelope,
         badge: null,
         onPressed: () =>
             shell.selectMobileDestination(MobileTab.messages, messages),

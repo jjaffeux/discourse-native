@@ -111,7 +111,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                               DIcons.house,
                               DIcons.layerGroup,
                               DIcons.comment,
-                              DIcons.inbox,
+                              DIcons.envelope,
                               DIcons.users,
                               DIcons.users,
                             ][index],

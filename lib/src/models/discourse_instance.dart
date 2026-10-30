@@ -538,7 +538,7 @@ class DiscourseInstance {
               SidebarDestination(
                 id: 'messages',
                 label: appL10n.messages,
-                icon: DIcons.inbox,
+                icon: DIcons.envelope,
               ),
               SidebarDestination(
                 id: 'drafts',

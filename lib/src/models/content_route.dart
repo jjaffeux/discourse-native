@@ -305,7 +305,7 @@ class ContentRoute {
     return ContentRoute(
       destination: MessagesDestination(groupName: group, mode: mode),
       title: appL10n.messages,
-      icon: DIcons.inbox,
+      icon: DIcons.envelope,
     );
   }
 
@@ -409,7 +409,7 @@ class ContentRoute {
                   '${_messageRouteId(groupName, messageMode)}?q=${Uri.encodeComponent(expression)}',
             ),
       title: messageMode == null ? appL10n.topics : appL10n.messages,
-      icon: messageMode == null ? DIcons.layerGroup : DIcons.inbox,
+      icon: messageMode == null ? DIcons.layerGroup : DIcons.envelope,
     );
   }
 

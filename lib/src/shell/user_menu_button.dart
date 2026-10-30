@@ -447,7 +447,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       notificationColor: theme.discourse.notificationIndicator,
                       notificationSurface:
                           widget.ringColor ?? theme.shell.content,
-                      icon: DIcon(DIcons.bell, size: context.isTouch ? 20 : 17),
+                      icon: DIcon(
+                        DIcons.inbox,
+                        size: context.isTouch ? 20 : 17,
+                      ),
                       compact: widget.compact,
                     ),
                   ],
