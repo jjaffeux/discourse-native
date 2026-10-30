@@ -252,7 +252,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
               child: CustomPaint(
                 // CSS draws an inset shadow inside the border, even a
                 // transparent one.
-                painter: edges?.insetPainter(
+                foregroundPainter: edges?.insetPainter(
                   radius,
                   border: border && !dashedBorder
                       ? const EdgeInsets.all(1)

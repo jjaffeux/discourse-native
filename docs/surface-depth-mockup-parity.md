@@ -60,8 +60,9 @@ CSS shadow never shows under its own box, so the painter clips the box out.
 A translucent panel (the appearance opacity setting) therefore does not
 darken.
 
-`insetPainter` draws the catch of light and then the rim. These are painted
-between the surface's fill and its content, where CSS paints an inset shadow.
+`insetPainter` draws the catch of light and then the rim. Cards paint these
+edges above their content so opaque children, such as sidebar headings,
+cannot cover the rim.
 A surface with a border passes its widths, so the light falls inside the
 border and not under it. A blurred catch of light (`block` only) is drawn as
 bands along the edges. A mask blur reruns over its path's bounds on every
