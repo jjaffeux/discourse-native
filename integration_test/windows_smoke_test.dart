@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/main.dart' as app;
@@ -21,7 +22,10 @@ void main() {
     final storage = WindowsDpapiStorage(file: file);
     await storage.write('smoke', secret);
     expect(await WindowsDpapiStorage(file: file).read('smoke'), secret);
-    expect(await file.readAsString(), isNot(contains('private-beta')));
+    expect(
+      base64Decode(await file.readAsString()),
+      isNot(utf8.encode(jsonEncode({'smoke': secret}))),
+    );
     await storage.delete('smoke');
     expect(await WindowsDpapiStorage(file: file).read('smoke'), isNull);
     app.main();

@@ -53,7 +53,7 @@ void main() {
       );
       expect(
         base64Decode(await file.readAsString()),
-        isNot(utf8.encode(secret)),
+        isNot(utf8.encode(jsonEncode({'http-basic-auth': secret}))),
       );
       expect(encryptions, 1);
     },
