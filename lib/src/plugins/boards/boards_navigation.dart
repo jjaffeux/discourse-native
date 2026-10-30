@@ -8,9 +8,11 @@ const boardsNavigationKey = PluginServiceKey<BoardsNavigation>(
   owner: boardsPluginId,
   name: 'navigation',
 );
+// Font Awesome Free 7.3.1, table-columns. Icons: CC BY 4.0.
+// https://fontawesome.com/license/free
 const boardsIcon = DIconData(
   'boards',
-  '<svg viewBox="0 0 24 24"><path d="M3 3h7v18H3V3zm11 0h7v12h-7V3z"/></svg>',
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="currentColor" d="M0 96C0 60.7 28.7 32 64 32l320 0c35.3 0 64 28.7 64 64l0 320c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 96zm64 64l0 256 128 0 0-256-128 0zm320 0l-128 0 0 256 128 0 0-256z"/></svg>',
 );
 
 final class BoardsRoute {
