@@ -817,15 +817,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     if (pulled >= 0) {
       // Match standard sheets: velocity shapes an accepted exit, but never
-      // turns a short pull into a dismissal. A deliberate expanded pull can
-      // return to the lower detent before another pull dismisses it.
+      // turns a short pull into a dismissal.
       final threshold = _swipeExtent * _sheetDismissFraction;
       if (pulled < threshold) {
         _settle(_startOffset > _low / 2 ? _low : 0);
-      } else if (_travel.value >= _low + threshold) {
-        _dismiss(velocity);
       } else {
-        _settle(_low);
+        _dismiss(velocity);
       }
     } else {
       final ahead = _travel.value + velocity * .18;
