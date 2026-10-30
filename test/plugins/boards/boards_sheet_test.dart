@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -13,11 +16,13 @@ import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../mobile_shell_test.dart' show pumpMobileShellFixture;
 import '../../support/boards_fixture.dart';
 import '../../support/fakes.dart';
+import '../../support/native_ui_evidence.dart';
 import '../../support/topic_post_list.dart';
 
 final _sheet = find.byType(DSheetContent);
@@ -32,6 +37,30 @@ final _columnScrollbar = find.ancestor(
     (widget) => widget is DScrollBar && widget.axis == Axis.horizontal,
   ),
 );
+
+Future<void> _captureBoard(WidgetTester tester, String name) async {
+  final directory = Platform.environment['NATIVE_UI_EVIDENCE_DIR'];
+  if (directory == null) return;
+  await tester.runAsync(() async {
+    final builder = ui.SceneBuilder();
+    tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final image = await scene.toImage(
+      tester.view.physicalSize.width.toInt(),
+      tester.view.physicalSize.height.toInt(),
+    );
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      Directory(directory).createSync(recursive: true);
+      File(
+        '$directory/$name.png',
+      ).writeAsBytesSync(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+      scene.dispose();
+    }
+  });
+}
 
 Future<ShellController> _openBoard(
   WidgetTester tester, {
@@ -64,6 +93,15 @@ Future<ShellController> _openBoard(
     onApi: onApi,
     forumTabs: forumTabs,
   );
+  if (Platform.environment['NATIVE_UI_EVIDENCE_DIR'] != null) {
+    await shell.forumSettings.setShared(
+      shell.forumSettings.shared.copyWith(
+        font: ForumFont.openSans,
+        interfaceFont: ForumFont.openSans,
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
   if (!fromDirectory) {
     shell.pushContent(
       ContentRoute(
@@ -91,6 +129,17 @@ Future<ShellController> _openBoard(
 }
 
 void main() {
+  const notificationOpens = MethodChannel(
+    'org.discourse.native/notification_opens',
+  );
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationOpens, (_) async => null);
+  });
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(notificationOpens, null);
+  });
   const platforms = TargetPlatformVariant({
     TargetPlatform.iOS,
     TargetPlatform.android,
@@ -563,11 +612,83 @@ void main() {
       find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
     );
     expect(tag.top, greaterThanOrEqualTo(title.bottom));
+    final handle = tester.getRect(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+    );
+    expect(tag.top - handle.bottom, greaterThanOrEqualTo(8));
     expect(tag.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
     expect(
       find.descendant(of: _sheet, matching: find.text('Board')),
       findsNothing,
     );
+    expect(tester.takeException(), isNull);
+  }, variant: platforms);
+
+  testWidgets('board tags expand from one row and open the last tag', (
+    tester,
+  ) async {
+    const tags = [
+      'cs-completed',
+      'cs-handover',
+      'cs-icebox',
+      'cs-onboarding',
+      'cs-ops',
+      'cs-renewals-expansion',
+    ];
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    await prepareNativeUiEvidence(tester);
+    if (Platform.environment['NATIVE_UI_EVIDENCE_DIR'] != null) {
+      await tester.runAsync(() async {
+        for (final (family, asset) in [
+          ('Lato', 'Lato-Regular.ttf'),
+          ('Open Sans', 'OpenSans.ttf'),
+        ]) {
+          await (FontLoader(
+            family,
+          )..addFont(rootBundle.load('assets/fonts/$asset'))).load();
+        }
+      });
+    }
+    final shell = await _openBoard(tester, tags: tags);
+    Finder tag(String name) => find.byKey(ValueKey(('board-header-tag', name)));
+    final more = find.byKey(const ValueKey('board-header-more-tags'));
+    expect(more, findsOneWidget);
+    final visible = tags
+        .where((name) => tag(name).evaluate().isNotEmpty)
+        .toList();
+    expect(visible, isNotEmpty);
+    expect(visible.length, lessThan(tags.length));
+    expect(
+      find.descendant(
+        of: more,
+        matching: find.text('+${tags.length - visible.length}'),
+      ),
+      findsOneWidget,
+    );
+    final handle = tester.getRect(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+    );
+    for (final name in visible) {
+      expect(
+        tester.getRect(tag(name)).top - handle.bottom,
+        greaterThanOrEqualTo(8),
+      );
+      expect(tester.getCenter(tag(name)).dy, tester.getCenter(more).dy);
+    }
+    final platform = Theme.of(tester.element(more)).platform.name;
+    await _captureBoard(tester, 'board-header-tags-$platform-collapsed');
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    expect(more, findsNothing);
+    for (final name in tags) {
+      expect(tag(name), findsOneWidget);
+    }
+    await _captureBoard(tester, 'board-header-tags-$platform-expanded');
+    expect(tester.takeException(), isNull);
+    await tester.tap(tag(tags.last));
+    await tester.pumpAndSettle();
+    expect(shell.currentContent?.feedPath, '/tag/cs-renewals-expansion.json');
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
@@ -968,6 +1089,11 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         final sheet = tester.getRect(_sheet);
+        final moreTags = find.byKey(const ValueKey('board-header-more-tags'));
+        if (moreTags.evaluate().isNotEmpty) {
+          await tester.tap(moreTags);
+          await tester.pumpAndSettle();
+        }
         await tester.dragFrom(
           tester.getTopLeft(
                 find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),

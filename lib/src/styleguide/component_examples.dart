@@ -37,6 +37,7 @@ import 'examples/field_examples.dart';
 import 'examples/floating_panel_examples.dart';
 import 'examples/foundation_examples.dart';
 import 'examples/gradient_blur_examples.dart';
+import 'examples/header_tags_examples.dart';
 import 'examples/history_transition_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/image_preview_examples.dart';
@@ -114,6 +115,7 @@ final componentExamples = <String, ComponentExamples>{
   'notification-level-menu': notificationLevelMenuExamples,
   'page-surface': pageSurfaceExamples,
   'control-wrap': controlWrapExamples,
+  'header-tags': headerTagsExamples,
   'sticky': stickyExamples,
   'notification-dot': notificationDotExamples,
   'category-selector': categorySelectorExamples,

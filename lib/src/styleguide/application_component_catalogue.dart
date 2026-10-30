@@ -69,6 +69,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Floating controls', 'Continued blur'],
   ),
   ComponentReference(
+    id: 'header-tags',
+    name: 'Header tags',
+    sections: ['Compact tag row'],
+  ),
+  ComponentReference(
     id: 'control-wrap',
     name: 'Control wrap',
     sections: ['Compact controls'],

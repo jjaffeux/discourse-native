@@ -10,7 +10,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_header_tags.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -161,7 +160,7 @@ void main() {
     double count(int hidden) => 30;
 
     test('keeps the whole path while it and a count of every tag fit', () {
-      final fit = fitTopicHead(
+      final fit = fitHeaderTags(
         available: 200,
         path: [60, 60],
         own: 1,
@@ -174,7 +173,7 @@ void main() {
     });
 
     test('leaves the own category alone when the path will not fit', () {
-      final fit = fitTopicHead(
+      final fit = fitHeaderTags(
         available: 160,
         path: [60, 60],
         own: 1,
@@ -187,7 +186,7 @@ void main() {
     });
 
     test('shows the tags that fit beside a count of the rest', () {
-      final fit = fitTopicHead(
+      final fit = fitHeaderTags(
         available: 230,
         path: [60],
         own: 0,
@@ -199,7 +198,7 @@ void main() {
     });
 
     test('a last tag needs no count after it', () {
-      final fit = fitTopicHead(
+      final fit = fitHeaderTags(
         available: 126,
         path: [60],
         own: 0,

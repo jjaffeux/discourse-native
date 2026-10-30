@@ -55,6 +55,7 @@ export 'src/ui/components/d_fit_row.dart';
 export 'src/ui/components/d_floating_panel.dart';
 export 'src/ui/components/d_gradient_blur.dart';
 export 'src/ui/components/d_header_morph.dart';
+export 'src/ui/components/d_header_tags.dart';
 export 'src/ui/components/d_history_transition.dart';
 export 'src/ui/components/d_hover_card.dart';
 export 'src/ui/components/d_image_preview.dart';
