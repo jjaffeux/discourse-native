@@ -24,6 +24,8 @@ import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
 
+const _sheetMenuCorner = Radius.circular(22);
+
 /// Sheet artwork presets. Phone bottom sheets fill the viewport's foot,
 /// with a grab handle and bottom corners matching the display.
 enum DSheetVariant {
@@ -655,6 +657,92 @@ BorderRadius _sheetBottomCorners(BuildContext context) {
   );
 }
 
+class _DSheetKeyboardCorners extends StatefulWidget {
+  const _DSheetKeyboardCorners({
+    required this.viewportCorners,
+    required this.overKeyboard,
+    required this.builder,
+  });
+
+  final BorderRadius viewportCorners;
+  final bool overKeyboard;
+  final Widget Function(BorderRadius corners) builder;
+
+  @override
+  State<_DSheetKeyboardCorners> createState() => _DSheetKeyboardCornersState();
+}
+
+class _DSheetKeyboardCornersState extends State<_DSheetKeyboardCorners> {
+  _DSheetKeyboardFrame? _frame;
+  ValueListenable<int>? _cover;
+  bool _wasCovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _DSheetKeyboardTransitions.frame.addListener(_frameChanged);
+    unawaited(_DSheetKeyboardTransitions.refresh());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final cover = DOverlayRoute.modalCoverCountOf(context);
+    if (!identical(cover, _cover)) {
+      _cover?.removeListener(_coverChanged);
+      _cover = cover..addListener(_coverChanged);
+    }
+    _coverChanged();
+  }
+
+  void _coverChanged() {
+    if (!mounted || ModalRoute.of(context)?.isActive == false) return;
+    if ((_cover?.value ?? 0) > 0 ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      _wasCovered = true;
+    } else if (_wasCovered) {
+      _wasCovered = false;
+      unawaited(_DSheetKeyboardTransitions.refresh());
+    }
+  }
+
+  void _frameChanged() {
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent == false ||
+        DOverlayRoute.modalCoverCountOf(context).value > 0) {
+      return;
+    }
+    setState(() => _frame = _DSheetKeyboardTransitions.frame.value);
+  }
+
+  @override
+  void dispose() {
+    _DSheetKeyboardTransitions.frame.removeListener(_frameChanged);
+    _cover?.removeListener(_coverChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = _frame;
+    final overKeyboard = frame == null ? widget.overKeyboard : frame.inset > 0;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: overKeyboard ? 1 : 0),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : frame?.remaining ?? DMotion.change,
+      curve: frame?.remainingCurve ?? Curves.easeOutCubic,
+      builder: (context, progress, _) => widget.builder(
+        BorderRadius.lerp(
+          widget.viewportCorners,
+          const BorderRadius.vertical(bottom: _sheetMenuCorner),
+          progress,
+        )!,
+      ),
+    );
+  }
+}
+
 class _DSheetSideScope extends InheritedWidget {
   const _DSheetSideScope({
     required this.side,
@@ -670,7 +758,6 @@ class _DSheetSideScope extends InheritedWidget {
   final bool fillAvailableHeight;
   final bool extendBehindKeyboard;
 
-  /// A menu's bottom corners, which round as it lifts off the foot.
   final BorderRadius? menuFootCorners;
 
   static DSheetSide? maybeOf(BuildContext context) =>
@@ -1008,14 +1095,10 @@ Widget _sheetLayout(
               ),
             )
           : presentation.content;
-      return _DSheetSideScope(
+      Widget withCorners(BorderRadius? corners) => _DSheetSideScope(
         side: side,
         inset: inset,
-        menuFootCorners: followsViewport
-            ? overKeyboard && !extendBehindKeyboard
-                  ? BorderRadius.zero
-                  : _sheetBottomCorners(context)
-            : null,
+        menuFootCorners: corners,
         fillAvailableHeight: fillAvailableHeight,
         extendBehindKeyboard: extendBehindKeyboard,
         child: extendBehindKeyboard
@@ -1040,6 +1123,14 @@ Widget _sheetLayout(
               )
             : content,
       );
+      if (followsViewport && !extendBehindKeyboard && !page) {
+        return _DSheetKeyboardCorners(
+          viewportCorners: _sheetBottomCorners(context),
+          overKeyboard: overKeyboard,
+          builder: withCorners,
+        );
+      }
+      return withCorners(followsViewport ? _sheetBottomCorners(context) : null);
     },
   );
   if (page) {
@@ -2355,10 +2446,7 @@ class DSheetContent extends StatelessWidget {
     final baseRadius = menu || (inset && menuFootCorners != null)
         ? (menuFootCorners ??
                   const BorderRadius.vertical(bottom: Radius.circular(24)))
-              .copyWith(
-                topLeft: const Radius.circular(22),
-                topRight: const Radius.circular(22),
-              )
+              .copyWith(topLeft: _sheetMenuCorner, topRight: _sheetMenuCorner)
         : inset
         ? BorderRadius.circular(DRadius.panel)
         : extendBehindKeyboard

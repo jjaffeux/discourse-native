@@ -123,7 +123,7 @@ void expectAtViewportFoot(
   final rect = tester.getRect(sheet);
   expect(rect.left, 0);
   expect(rect.right, 390);
-  expect(footRadius(tester, sheet), keyboard > 0 ? 0 : 55);
+  expect(footRadius(tester, sheet), keyboard > 0 ? 22 : 55);
   expect(rect.bottom, closeTo(844 - keyboard, .01));
 }
 
@@ -235,7 +235,7 @@ void main() {
         expect(current.top, inExclusiveRange(55, previous.top));
         expect(current.height, lessThan(previous.height));
         expect(scroll.offset, 0, reason: 'focus keeps the list at its place');
-        expect(footRadius(tester, sheet), 0);
+        expect(footRadius(tester, sheet), inExclusiveRange(22, 55));
         previous = current;
       }
       await tester.pump(const Duration(milliseconds: 153));
@@ -247,7 +247,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(sheet), placed);
       tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+      expect(footRadius(tester, sheet), 22);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 70));
+      expect(footRadius(tester, sheet), inExclusiveRange(22, 55));
+      expect(tester.getRect(sheet).bottom, inExclusiveRange(544, 844));
       await tester.pumpAndSettle();
+      expectAtViewportFoot(tester, sheet);
     },
   );
 
@@ -304,7 +311,7 @@ void main() {
             final rect = tester.getRect(sheet);
             expect(rect.left, 0);
             expect(rect.right, 390);
-            expect(footRadius(tester, sheet), 0);
+            expect(footRadius(tester, sheet), closeTo(55 - 33 * p, .1));
             expect(rect.top, closeTo(opened.top + (55 - opened.top) * p, .2));
             expect(scroll.offset, 0);
           }
@@ -326,7 +333,7 @@ void main() {
           await sendKeyboardFrame(tester, inset: 0, milliseconds: 300);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 150));
-          expect(footRadius(tester, sheet), 0);
+          expect(footRadius(tester, sheet), closeTo(38.5, .1));
           expect(tester.getRect(sheet).bottom, inExclusiveRange(484, 844));
           await tester.pump(const Duration(milliseconds: 151));
           final hidden = tester.getRect(sheet);

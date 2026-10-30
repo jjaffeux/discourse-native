@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/keyboard_test_harness.dart';
+
 Widget _host(
   Widget child, {
   Size size = const Size(800, 600),
@@ -415,18 +417,27 @@ void main() {
         if (fillHeight) {
           tester.view.viewInsets = const FakeViewPadding(bottom: 300);
           tester.view.padding = const FakeViewPadding(top: 59);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(
+            (corners() as BorderRadius).bottomLeft.x,
+            inExclusiveRange(22, 55),
+          );
           await tester.pumpAndSettle();
           final safeArea = find
               .descendant(of: sheet, matching: find.byType(SafeArea))
               .first;
           expect(MediaQuery.paddingOf(tester.element(safeArea)).bottom, 0);
-          expect(
-            corners(),
-            const BorderRadius.vertical(top: Radius.circular(22)),
-          );
+          expect(corners(), BorderRadius.circular(22));
           expect(tester.getRect(sheet).bottom, phone.height - 300);
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(
+            (corners() as BorderRadius).bottomLeft.x,
+            inExclusiveRange(22, 55),
+          );
           await tester.pumpAndSettle();
           expect(corners(), restingCorners);
           expect(tester.getRect(sheet).bottom, phone.height);
@@ -434,6 +445,124 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+  }
+
+  for (final reducedMotion in [false, true]) {
+    testWidgets(
+      'form corners follow native keyboard timing and refresh after a child (reduced: $reducedMotion)',
+      (tester) async {
+        const channel = MethodChannel('org.discourse.native/keyboard');
+        Map<String, Object>? snapshot;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          (call) async =>
+              call.method == 'keyboardTransition' ? snapshot : false,
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            null,
+          ),
+        );
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _host(
+            DSheet<void>(
+              trigger: DSheetTrigger(
+                builder: (_, open) =>
+                    DButton(label: const Text('Open'), onPressed: open),
+              ),
+              content: const DSheetContent(
+                side: DSheetSide.bottom,
+                inset: true,
+                fillAvailableHeight: true,
+                children: [DSheetBody(child: Text('Form'))],
+              ),
+            ),
+            size: const Size(390, 844),
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            disableAnimations: reducedMotion,
+            displayCornerRadii: const BorderRadius.only(
+              bottomLeft: Radius.circular(62),
+              bottomRight: Radius.circular(48),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent, skipOffstage: false);
+        BorderRadius corners() =>
+            tester
+                    .widget<Material>(
+                      find
+                          .descendant(
+                            of: sheet,
+                            matching: find.byType(Material),
+                          )
+                          .first,
+                    )
+                    .borderRadius!
+                as BorderRadius;
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+        snapshot = keyboardFramePayload();
+        await sendKeyboardFrame(tester);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 22 : 52, .01));
+        expect(
+          corners().bottomRight.x,
+          closeTo(reducedMotion ? 22 : 41.5, .01),
+        );
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 22 : 42, .01));
+        expect(corners().bottomRight.x, closeTo(reducedMotion ? 22 : 35, .01));
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(corners(), BorderRadius.circular(22));
+        snapshot = keyboardFramePayload(inset: 0);
+        await sendKeyboardFrame(tester, inset: 0);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 62 : 42, .01));
+        expect(corners().bottomRight.x, closeTo(reducedMotion ? 48 : 35, .01));
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+
+        snapshot = keyboardFramePayload(milliseconds: 0);
+        await sendKeyboardFrame(tester, milliseconds: 0);
+        await tester.pumpAndSettle();
+        expect(corners(), BorderRadius.circular(22));
+        final closed = showDDialog<void>(
+          context: tester.element(sheet),
+          builder: (_, controller) => DDialogContent(
+            children: [
+              DButton(
+                label: const Text('Close child'),
+                onPressed: () => controller.close(),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        snapshot = keyboardFramePayload(inset: 0, milliseconds: 0);
+        await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
+        await tester.pumpAndSettle();
+        expect(corners(), BorderRadius.circular(22));
+        await tester.tap(find.text('Close child'));
+        await tester.pumpAndSettle();
+        await closed;
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   double visibleOpacity(WidgetTester tester, Finder finder) {

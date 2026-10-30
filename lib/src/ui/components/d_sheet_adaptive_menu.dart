@@ -294,7 +294,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     duration: _duration,
     animationBehavior: AnimationBehavior.preserve,
   );
-  late final _nativeKeyboardInset = AnimationController.unbounded(vsync: this);
+  late final _keyboardInsetAnimation = AnimationController.unbounded(
+    vsync: this,
+  );
   _DSheetKeyboardFrame? _nativeKeyboardFrame;
   double _low = 0;
   double _fixedLow = 0;
@@ -333,9 +335,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   Simulation? Function()? _exitSimulation;
 
   bool get _animate => !MediaQuery.disableAnimationsOf(context);
-  double get _keyboardInset => _nativeKeyboardFrame == null
-      ? _keyboard * _keyboardPlacement.value
-      : _nativeKeyboardInset.value;
+  double get _keyboardInset => _keyboardInsetAnimation.value;
 
   double get _offset => _dismissOrigin == null
       ? _travel.value
@@ -355,7 +355,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _travel.addStatusListener(_travelStatus);
     _keyboardPlacement.addListener(_changed);
     _keyboardPlacement.addStatusListener(_travelStatus);
-    _nativeKeyboardInset.addListener(_changed);
+    _keyboardInsetAnimation.addListener(_changed);
     _DSheetKeyboardTransitions.ready.addListener(_keyboardTransition);
     _DSheetKeyboardTransitions.frame.addListener(_keyboardFrameChanged);
     unawaited(_DSheetKeyboardTransitions.refresh());
@@ -401,7 +401,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _interacted = true;
     _travel.stop();
     _keyboardPlacement.stop();
-    _nativeKeyboardInset.stop();
+    _keyboardInsetAnimation.stop();
     _dismissOrigin = _travel.value;
     _dismissAnimationOrigin = math.max(
       .001,
@@ -460,13 +460,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _keyboardSettled = frame.inset > 0;
     _keyboard = math.max(current, frame.inset);
     _interacted = true;
-    _nativeKeyboardInset.value = current;
+    _keyboardInsetAnimation.value = current;
     if (frame.inset == 0) _travel.stop();
     final duration = frame.remaining;
     final curve = frame.remainingCurve;
     if (_animate && duration > Duration.zero) {
       unawaited(
-        _nativeKeyboardInset
+        _keyboardInsetAnimation
             .animateTo(frame.inset, duration: duration, curve: curve)
             .then((_) {
               if (!mounted || !identical(_nativeKeyboardFrame, frame)) return;
@@ -486,7 +486,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       }
     } else {
       _keyboard = frame.inset;
-      _nativeKeyboardInset.value = frame.inset;
+      _keyboardInsetAnimation.value = frame.inset;
       _keyboardPlacement.value = frame.inset > 0 ? 1 : 0;
       if (frame.inset > 0) _travel.value = 0;
     }
@@ -501,10 +501,35 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardMinimum?.cancel();
       _keyboardSettled = false;
       _raiseForKeyboard = false;
-      _keyboardPlacement.value = 0;
+      if (_animate) {
+        unawaited(
+          _keyboardInsetAnimation.animateTo(
+            0,
+            duration: _duration,
+            curve: _curve,
+          ),
+        );
+        unawaited(_keyboardPlacement.animateTo(0, curve: _curve));
+      } else {
+        _keyboardInsetAnimation.value = 0;
+        _keyboardPlacement.value = 0;
+      }
       _keyboardMinimumElapsed = false;
       _keyboardMetricsStable = false;
     } else {
+      if (!opening && _keyboardSettled) {
+        if (_animate) {
+          unawaited(
+            _keyboardInsetAnimation.animateTo(
+              keyboard,
+              duration: _duration,
+              curve: _curve,
+            ),
+          );
+        } else {
+          _keyboardInsetAnimation.value = keyboard;
+        }
+      }
       if (opening) {
         _keyboardSettled = _DSheetKeyboardTransitions.ready.value == true;
         _raiseForKeyboard = _keyboardSettled;
@@ -593,15 +618,24 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _raiseForKeyboard = false;
       _settle(0);
       if (_animate) {
+        unawaited(
+          _keyboardInsetAnimation.animateTo(
+            _keyboard,
+            duration: _duration,
+            curve: _curve,
+          ),
+        );
         unawaited(_keyboardPlacement.animateTo(1, curve: _curve));
       } else {
+        _keyboardInsetAnimation.value = _keyboard;
         _keyboardPlacement.value = 1;
       }
     }
     // Native timing already owns all geometry until hiding completes. Metrics
     // notifications must not restart those animations with the menu duration.
     if (_nativeKeyboardFrame != null &&
-        (_nativeKeyboardFrame!.inset > 0 || _nativeKeyboardInset.isAnimating)) {
+        (_nativeKeyboardFrame!.inset > 0 ||
+            _keyboardInsetAnimation.isAnimating)) {
       return;
     }
     if (_contentLayoutPending) {
@@ -818,7 +852,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     _travel.dispose();
     _keyboardPlacement.dispose();
-    _nativeKeyboardInset.dispose();
+    _keyboardInsetAnimation.dispose();
     _keyboardMinimum?.cancel();
     _keyboardStability?.cancel();
     _DSheetKeyboardTransitions.ready.removeListener(_keyboardTransition);
@@ -857,9 +891,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: false,
-        menuFootCorners: keyboard > 0
-            ? BorderRadius.zero
-            : _sheetBottomCorners(context),
+        menuFootCorners: BorderRadius.lerp(
+          _sheetBottomCorners(context),
+          const BorderRadius.vertical(bottom: _sheetMenuCorner),
+          _keyboardPlacement.value,
+        ),
         fillAvailableHeight: false,
         extendBehindKeyboard: false,
         child: MediaQuery(
