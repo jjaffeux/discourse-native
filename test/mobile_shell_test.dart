@@ -64,6 +64,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
+import 'support/boards_fixture.dart';
 import 'support/bundled_plugins.dart';
 import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
@@ -233,6 +234,7 @@ Future<void> _tapDockTab(
       'messages' => 'Inbox',
       'users' => 'Users',
       'destination/events-upcoming' => 'Events',
+      'destination/boards' => 'Boards',
       'destination/user-bookmarks' => 'Bookmarks',
       'destination/summary' => 'Summary',
       'destination/activity' => 'Activity',
@@ -5142,15 +5144,16 @@ void main() {
     },
   );
 
-  _mobileTest('corner swipes open navigation across mobile tabs', (
+  _mobileTest('content swipes open navigation across mobile root tabs', (
     tester,
   ) async {
-    final shell = await pumpMobileShellFixture(tester);
+    final shell = await pumpMobileShellFixture(tester, board: boardFixtureJson());
     final header = tester.getRect(_header);
     for (final tab in [
       'topics',
       'destination/user-bookmarks',
       'panel/chat',
+      'destination/boards',
       'messages',
       'users',
     ]) {
@@ -5170,7 +5173,7 @@ void main() {
       final navigationElement = tester.element(navigationPage);
       expect(find.byType(InstanceRail), findsNothing);
 
-      final open = await tester.startGesture(Offset(8, header.top + 12));
+      final open = await tester.startGesture(const Offset(160, 400));
       await open.moveBy(
         const Offset(120, 0),
         timeStamp: const Duration(milliseconds: 200),

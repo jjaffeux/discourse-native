@@ -73,7 +73,7 @@ void main() {
       for (final reducedMotion in [false, true]) (direction, reducedMotion),
   ]) {
     testWidgets(
-      'corner and full-surface Back in $direction reduced $reducedMotion',
+      'corner, full-surface Back and root navigation in $direction reduced $reducedMotion',
       (tester) async {
         final state = await _pump(
           tester,
@@ -122,11 +122,13 @@ void main() {
         }
         state.visit(0);
         await tester.pumpAndSettle();
+        await swipe(at(200, 250), cancel: true);
+        expect(state.navigationOpens, 1);
         await swipe(at(200, 250));
         expect(state.index, 0);
-        expect(state.navigationOpens, 1);
-        await swipe(at(5, 5));
         expect(state.navigationOpens, 2);
+        await swipe(at(5, 5));
+        expect(state.navigationOpens, 3);
         expect(tester.takeException(), isNull);
       },
     );
