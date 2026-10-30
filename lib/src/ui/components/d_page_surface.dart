@@ -321,6 +321,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       widget.header is _PageTitle && widget.titleText != null && _titlesInBar;
   final _readerScroll = ValueNotifier(0.0);
   final _readerTitleOpacity = ValueNotifier(1.0);
+  bool _readerInitialized = false;
   Widget? get _header => _titleInBar
       ? const SizedBox.shrink()
       : _compact
@@ -449,6 +450,15 @@ class _DPageSurfaceState extends State<DPageSurface>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _titlesInBar = DPageHeaderHost.titlesInBarOf(context);
+    if (widget.fadeHeaderOnScroll && !_readerInitialized) {
+      _readerInitialized = true;
+      if (DSheetPageBand.maybeOf(context)?.readerStart ==
+          DSheetReaderStart.scrolled) {
+        // The resumed pixel offset is unknown until the reader lays out.
+        _readerScroll.value = double.infinity;
+        _readerTitleOpacity.value = 0;
+      }
+    }
     final band = widget.compactHeaderBand
         ? DSheetPageBand.maybeOf(context)
         : null;

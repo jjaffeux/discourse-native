@@ -66,6 +66,8 @@ void main() {
     'detail',
     'first',
     'unknown',
+    'session',
+    'nested',
   ]) {
     testWidgets(
       'opening header uses $source through loading and restoration',
@@ -94,7 +96,8 @@ void main() {
           title: payload.detail.title,
           stream: payload.detail.stream,
           postsCount: payload.posts.length,
-          lastReadPostNumber: 12,
+          lastReadPostNumber: source == 'session' ? 0 : 12,
+          isNestedView: source == 'nested',
         );
         final site = instance(
           'scroll.example',
@@ -115,20 +118,21 @@ void main() {
         );
         addTearDown(controller.dispose);
         await controller.load();
-        if (source == 'detail') {
+        if (source == 'detail' || source == 'session') {
           controller.store
             ..put(site.url, detail)
             ..putAll(site.url, payload.posts);
         }
-        if (source == 'row' || source == 'first') {
+        if (source == 'row' || source == 'first' || source == 'nested') {
           controller.store.put(
             controller.currentInstance!.url,
-            const Topic(
+            Topic(
               id: 7,
               title: 'Returning to a familiar discussion',
               slug: 'returning',
               highestPostNumber: 30,
               lastReadPostNumber: 12,
+              isNestedView: source == 'nested',
             ),
           );
         }
@@ -145,6 +149,13 @@ void main() {
           ),
         );
         if (source == 'anchor') controller.saveTopicScrollPost(7, 12);
+        if (source == 'session') {
+          await controller.markTopicRead(site.url, 7, 12, caughtUp: false);
+        }
+        expect(
+          controller.topicOpensAtTop(7),
+          source == 'first' || source == 'nested',
+        );
         final loading = controller.loadTopic(7, 'returning');
         final theme = AppTheme.light;
         await tester.pumpWidget(
@@ -196,7 +207,7 @@ void main() {
           expect(api.topicPostNumbersOpened, [12]);
         } else if (source == 'first') {
           expect(api.topicPostNumbersOpened, [1]);
-        } else if (source == 'detail') {
+        } else if (source == 'detail' || source == 'session') {
           expect(api.topicPostNumbersOpened, isEmpty);
         } else {
           // The returned window already includes the resume post. Choosing

@@ -149,6 +149,9 @@ class DSheet<T> extends StatelessWidget {
   );
 }
 
+/// The reader position used before its first scroll layout.
+enum DSheetReaderStart { top, scrolled }
+
 /// Sheet presentation for a retained surface whose host owns its visibility.
 ///
 /// Mount in a full viewport outside a resizing [Scaffold]. The host owns back
@@ -187,11 +190,11 @@ class DSheetViewport extends StatefulWidget {
     this.onSwipeDismissRequested,
     this.underlay,
     this.covering,
-    this.riseWithScroll = false,
+    this.readerStart,
   });
 
-  /// Opens over the top bar and lowers its rounded edge as its reader scrolls.
-  final bool riseWithScroll;
+  /// Enables a sheet that follows its reader, starting above or below the bar.
+  final DSheetReaderStart? readerStart;
   final DSheetContent content;
 
   /// The previous page, painted during entrance and while pulled down.
@@ -232,10 +235,11 @@ class _DSheetViewportState extends State<DSheetViewport>
   );
   bool _started = false;
   final _edge = ValueNotifier(0.0);
+  bool _edgeInitialized = false;
   _DSheetDragScopeState? _edgeHost;
   void _syncEdge() {
     final host = _edgeHost;
-    if (widget.riseWithScroll && host != null && host.mounted) {
+    if (widget.readerStart != null && host != null && host.mounted) {
       host._pageEdge.value = _edge.value;
     }
   }
@@ -270,7 +274,7 @@ class _DSheetViewportState extends State<DSheetViewport>
   Widget build(BuildContext context) {
     final content = widget.content;
     assert((!content.showCloseButton));
-    final overlap = widget.riseWithScroll
+    final overlap = widget.readerStart != null
         ? math.max(
             0.0,
             (context
@@ -282,9 +286,17 @@ class _DSheetViewportState extends State<DSheetViewport>
                 6,
           )
         : 0.0;
+    if (!_edgeInitialized) {
+      _edgeInitialized = true;
+      _edge.value = widget.readerStart == DSheetReaderStart.scrolled
+          ? overlap
+          : 0;
+      _syncEdge();
+    }
     final sheet = _DSheetRiseScope(
       edge: _edge,
       overlap: overlap,
+      readerStart: widget.readerStart,
       child: FocusScope(
         child: _sheetPresentation(
           context,
@@ -319,7 +331,7 @@ class _DSheetViewportState extends State<DSheetViewport>
         ),
       ),
     );
-    return widget.riseWithScroll
+    return widget.readerStart != null
         ? ClipPath(clipper: _DSheetRiseClipper(_edge), child: sheet)
         : sheet;
   }
@@ -329,18 +341,21 @@ class _DSheetRiseScope extends InheritedWidget {
   const _DSheetRiseScope({
     required this.edge,
     required this.overlap,
+    required this.readerStart,
     required super.child,
   });
   final ValueNotifier<double> edge;
   final double overlap;
+  final DSheetReaderStart? readerStart;
   @override
   bool updateShouldNotify(_DSheetRiseScope oldWidget) =>
-      overlap != oldWidget.overlap;
+      overlap != oldWidget.overlap || readerStart != oldWidget.readerStart;
 }
 
 /// Where the content of a page sheet says what its condensed head is doing
 /// over the sheet's top edge, inside the card's rounded outline.
 abstract interface class DSheetPageBand {
+  DSheetReaderStart? get readerStart;
   void scrollTo(double offset);
 
   static ValueListenable<double>? edgeOf(BuildContext context) =>
@@ -407,6 +422,10 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   Object? _owner;
   bool _condensed = false;
   bool _coversGrabber = false;
+
+  @override
+  DSheetReaderStart? get readerStart =>
+      context.getInheritedWidgetOfExactType<_DSheetRiseScope>()?.readerStart;
 
   @override
   void scrollTo(double offset) {

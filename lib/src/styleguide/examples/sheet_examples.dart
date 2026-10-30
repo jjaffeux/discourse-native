@@ -26,7 +26,7 @@ final sheetExamples = ComponentExamples(
       'The exit preserves release velocity, accelerating slower swipes until '
       'the sheet clears the screen. The backdrop fades with swipe progress '
       'to reveal the screen underneath and restores if the swipe is cancelled. '
-      'Phone topic viewports use riseWithScroll inside DSheetDragScope: the top bar reports its extent, '
+      'Phone topic viewports use readerStart inside DSheetDragScope: the top bar reports its extent, '
       'and the reader lowers the rounded edge as it scrolls. Retained DSheetViewport surfaces enable swipes with onDismiss; the host '
       'removes the sheet after its exit or leaves it mounted to restore it. '
       'onSwipeDismissRequested instead restores the sheet as soon as the swipe '
