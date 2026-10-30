@@ -137,8 +137,14 @@ void main() {
           await tester.tap(trigger);
           await tester.pumpAndSettle();
 
-          expect(find.text('Choose topic feed'), findsNothing);
-          expect(find.byType(DSheetClose), findsNothing);
+          expect(
+            find.text('Choose topic feed'),
+            mobile ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byTooltip('Close'),
+            mobile ? findsOneWidget : findsNothing,
+          );
           expect(menu, findsOneWidget);
           if (mobile) {
             final sheet = find.byType(DSheetContent);
@@ -146,9 +152,9 @@ void main() {
             expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
             expect(
               tester.widget<DSheetContent>(sheet).variant,
-              DSheetVariant.adaptiveMenu,
+              DSheetVariant.menu,
             );
-            expect(find.byType(DSheetHeader), findsNothing);
+            expect(find.byType(DSheetHeader), findsOneWidget);
             expect(
               find.byKey(const ValueKey('sheet-drag-handle')),
               findsOneWidget,
@@ -156,7 +162,7 @@ void main() {
             final bounds = tester.getRect(sheet);
             expect(bounds.left, 0);
             expect(bounds.right, size.width);
-            expect(bounds.top, closeTo(size.height * .45, 1));
+            expect(bounds.top, greaterThanOrEqualTo(size.height * .2 - 1));
           } else {
             expect(find.byType(DSheetContent), findsNothing);
             final bounds = tester.getRect(menu);
@@ -193,22 +199,28 @@ void main() {
           );
           await _capture(tester, '$scenario-$scale');
 
-          if (mobile) {
-            await tester.drag(
-              find.byKey(const ValueKey('sheet-drag-handle')),
-              const Offset(0, -350),
-            );
-            await tester.pumpAndSettle();
-            expect(
-              tester.getTopLeft(find.byType(DSheetContent)).dy,
-              lessThan(size.height * .45 - 1),
-            );
-          }
           final allTime = find.byKey(
             const ValueKey('topic-list-top-period-all'),
           );
-          await tester.ensureVisible(allTime);
-          await tester.pumpAndSettle();
+          if (mobile && scale == 2) {
+            expect(allTime.hitTestable(), findsNothing);
+            final scrollable = find.descendant(
+              of: menu,
+              matching: find.byType(Scrollable),
+            );
+            for (
+              var attempt = 0;
+              attempt < 4 && allTime.hitTestable().evaluate().isEmpty;
+              attempt++
+            ) {
+              await tester.drag(scrollable, const Offset(0, -400));
+              await tester.pumpAndSettle();
+            }
+            expect(allTime.hitTestable(), findsOneWidget);
+          } else {
+            await tester.ensureVisible(allTime);
+            await tester.pumpAndSettle();
+          }
           await _capture(tester, '$scenario-$scale-scrolled');
           await tester.tap(allTime);
           await tester.pumpAndSettle();
@@ -235,12 +247,6 @@ void main() {
           await tester.pumpAndSettle();
           if (mobile) {
             final handle = find.byKey(const ValueKey('sheet-drag-handle'));
-            await tester.drag(handle, const Offset(0, -350));
-            await tester.pumpAndSettle();
-            expect(
-              tester.getTopLeft(find.byType(DSheetContent)).dy,
-              lessThan(size.height * .45 - 1),
-            );
             await tester.drag(handle, const Offset(0, 700));
             await tester.pumpAndSettle();
             expect(mode, TopicListMode.topAll);

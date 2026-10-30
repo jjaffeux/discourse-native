@@ -16,8 +16,10 @@ supported All Time choice. The current New subset or Top period appears in its
 segment's label. Signed-out readers see Latest, Top and Trending.
 
 Desktop overflow lists only hidden views. On iOS and Android it opens a Native
-adaptive bottom sheet containing every view, including the current one. Menu
-entries retain their counts and selected checkmark. Counts use the existing live
+menu bottom sheet containing every view, including the current one. The sheet
+opens at its content height without a pull-to-expand step. Larger text and short
+screens scroll within the available height. Menu entries retain their counts
+and selected checkmark. Counts use the existing live
 category and tag scope. The overflow badge counts the union of hidden New and
 Unread: Unified New already includes the unread replies; legacy New topics and
 Unread replies are disjoint.
