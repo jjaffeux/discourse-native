@@ -495,13 +495,14 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
   @override
   Widget build(BuildContext context) {
     final rise = context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>();
+    final depth = _condensed ? null : DSurfaceDepth.panel;
     final card = _DSheetPageBandScope(
       band: this,
       child: DPageSurface(
         border: false,
         borderRadius: DSheetViewport.pageBorderRadius,
         backgroundColor: widget.color,
-        depth: _condensed ? null : DSurfaceDepth.panel,
+        depth: rise == null ? depth : null,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -528,40 +529,45 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
         ),
       ),
     );
-    return rise == null
-        ? card
-        : ClipPath(
-            clipper: _DSheetRiseClipper(rise.edge),
-            child: CustomPaint(
-              foregroundPainter: _DSheetRiseRim(
-                DSurfaceEdges.resolve(
-                  context,
-                  DSurfaceDepth.panel,
-                ).insetPainter(DSheetViewport.pageBorderRadius),
-                rise.edge,
-              ),
-              child: card,
-            ),
-          );
+    if (rise == null) return card;
+    final edges = depth == null ? null : DSurfaceEdges.resolve(context, depth);
+    return CustomPaint(
+      painter: _DSheetRisePainter(
+        edges?.castPainter(DSheetViewport.pageBorderRadius),
+        rise.edge,
+      ),
+      child: ClipPath(
+        clipper: _DSheetRiseClipper(rise.edge),
+        child: CustomPaint(
+          foregroundPainter: _DSheetRisePainter(
+            edges?.insetPainter(DSheetViewport.pageBorderRadius),
+            rise.edge,
+          ),
+          child: card,
+        ),
+      ),
+    );
   }
 }
 
-class _DSheetRiseRim extends CustomPainter {
-  _DSheetRiseRim(this.rim, this.edge) : super(repaint: edge);
-  final CustomPainter? rim;
+class _DSheetRisePainter extends CustomPainter {
+  _DSheetRisePainter(this.painter, this.edge) : super(repaint: edge);
+  final CustomPainter? painter;
   final ValueListenable<double> edge;
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
-    canvas.clipRect(Rect.fromLTWH(0, edge.value, size.width, 31));
     canvas.translate(0, edge.value);
-    rim?.paint(canvas, Size(size.width, math.max(0, size.height - edge.value)));
+    painter?.paint(
+      canvas,
+      Size(size.width, math.max(0, size.height - edge.value)),
+    );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_DSheetRiseRim oldDelegate) =>
-      rim != oldDelegate.rim || edge != oldDelegate.edge;
+  bool shouldRepaint(_DSheetRisePainter oldDelegate) =>
+      painter != oldDelegate.painter || edge != oldDelegate.edge;
 }
 
 class _DSheetRiseClipper extends CustomClipper<Path> {

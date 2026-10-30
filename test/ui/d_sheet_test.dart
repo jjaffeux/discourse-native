@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
@@ -1764,14 +1765,31 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    DPageSurface card(WidgetTester tester) => tester.widget<DPageSurface>(
-      find
-          .descendant(
-            of: find.byType(DSheetContent),
-            matching: find.byType(DPageSurface),
-          )
-          .first,
-    );
+    Future<Color> topPixel(WidgetTester tester, [int row = 0]) async {
+      final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+      return (await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(
+          size.width.round(),
+          size.height.round(),
+        );
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final offset = (row * image.width + image.width ~/ 2) * 4;
+        final color = Color.fromARGB(
+          bytes.getUint8(offset + 3),
+          bytes.getUint8(offset),
+          bytes.getUint8(offset + 1),
+          bytes.getUint8(offset + 2),
+        );
+        image.dispose();
+        scene.dispose();
+        return color;
+      }))!;
+    }
 
     BorderRadiusGeometry? corners(WidgetTester tester) => tester
         .widget<DPageSurface>(
@@ -1794,21 +1812,22 @@ void main() {
     ) async {
       await pump(tester);
       expect(corners(tester), round);
-      expect(card(tester).depth, DSurfaceDepth.panel);
+      final rim = await topPixel(tester);
       final head = Object();
       band.report(head, condensed: true, coversGrabber: true);
       await tester.pump();
       expect(corners(tester), round);
       expect(grabber, findsNothing);
-      // The band runs on into the screen's head: no edge along the top.
-      expect(card(tester).depth, isNull);
+      final flat = await topPixel(tester);
+      expect(flat, isNot(rim));
+      expect(flat, await topPixel(tester, 3));
       band.report(head, condensed: true, coversGrabber: false);
       await tester.pump();
       expect(grabber, findsOneWidget);
-      expect(card(tester).depth, isNull);
+      expect(await topPixel(tester), flat);
       band.report(head, condensed: false, coversGrabber: false);
       await tester.pump();
-      expect(card(tester).depth, DSurfaceDepth.panel);
+      expect(await topPixel(tester), rim);
     });
 
     testWidgets('a withdrawn head is not heard from again', (tester) async {
@@ -1830,11 +1849,12 @@ void main() {
       final head = Object();
       band.report(head, condensed: true, coversGrabber: true);
       await tester.pump();
+      final flat = await topPixel(tester);
       band.withdraw(Object());
       await tester.pump();
       expect(corners(tester), round);
       expect(grabber, findsNothing);
-      expect(card(tester).depth, isNull);
+      expect(await topPixel(tester), flat);
     });
   });
 }
