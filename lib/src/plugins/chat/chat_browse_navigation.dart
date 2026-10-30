@@ -15,14 +15,16 @@ class ChatBrowseBack extends StatelessWidget {
   const ChatBrowseBack({super.key});
 
   @override
-  Widget build(BuildContext context) => DButton(
-    key: const ValueKey('chat-inbox-back'),
-    variant: DButtonVariant.quiet,
-    size: DControlSize.filter,
-    icon: const DIcon(DIcons.arrowLeft),
-    label: Text(context.l10n.chats),
-    onPressed: () =>
-        PluginUiScope.require(context, chatShellService).openChats(),
+  Widget build(BuildContext context) => DReferenceTextScale(
+    child: DButton(
+      key: const ValueKey('chat-inbox-back'),
+      variant: DButtonVariant.quiet,
+      size: DControlSize.filter,
+      icon: const DIcon(DIcons.arrowLeft),
+      label: Text(context.l10n.chats),
+      onPressed: () =>
+          PluginUiScope.require(context, chatShellService).openChats(),
+    ),
   );
 }
 
