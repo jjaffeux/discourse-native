@@ -805,7 +805,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
   /// The categories the topic sits under, then the one it is in. A topic that
   /// could be moved into a subcategory offers one after its own category,
   /// which stays when the line is short.
-  List<TopicHeadStep> _path(BuildContext context, ShellController shell) {
+  List<DHeaderStep> _path(BuildContext context, ShellController shell) {
     if (topic.privateMessage) return const [];
     final category = shell.categoryFor(topic.categoryId, siteUrl: siteUrl);
     final parent = shell.categoryFor(
@@ -819,11 +819,11 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       parent: parent,
       categories: shell.filterCategoriesFor(siteUrl),
     );
-    final rootStep = TopicHeadStep(
+    final rootStep = DHeaderStep(
       label: root?.name ?? context.l10n.categoryTopicinboxheader,
       marked: root != null,
       own: parent == null,
-      chip: _TopicCategoryControl(
+      child: _TopicCategoryControl(
         key: const ValueKey('topic-header-parent-category'),
         siteUrl: siteUrl,
         topic: topic,
@@ -834,11 +834,11 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
       ),
     );
     if (!hasSubcategory) return [rootStep];
-    final subStep = TopicHeadStep(
+    final subStep = DHeaderStep(
       label: parent == null ? context.l10n.subcategory : category!.name,
       marked: parent != null,
       own: parent != null,
-      chip: _TopicCategoryControl(
+      child: _TopicCategoryControl(
         key: const ValueKey('topic-header-category'),
         siteUrl: siteUrl,
         topic: topic,
