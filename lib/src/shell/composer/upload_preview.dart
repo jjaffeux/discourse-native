@@ -39,8 +39,9 @@ final class ComposerUploadPreview extends ChangeNotifier {
         _aborted.future.then((_) => null),
       ]).timeout(const Duration(seconds: 30));
       final limit = isVideo ? 2 * 1024 * 1024 * 1024 : 32 * 1024 * 1024;
-      if (_references == 0 || length == null || length <= 0 || length > limit)
+      if (_references == 0 || length == null || length <= 0 || length > limit) {
         return;
+      }
       final directory = await Directory.systemTemp.createTemp(
         'composer-preview-',
       );
