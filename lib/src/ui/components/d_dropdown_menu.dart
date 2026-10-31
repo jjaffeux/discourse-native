@@ -83,6 +83,7 @@ class DDropdownMenu extends StatelessWidget {
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
     this.mobileSheetSizeToContent = true,
+    this.mobileSheetInitiallyExpanded = false,
   });
 
   final Widget child;
@@ -106,6 +107,10 @@ class DDropdownMenu extends StatelessWidget {
   /// Desktop menus retain their normal content sizing.
   final bool mobileSheetSizeToContent;
 
+  /// Starts an adaptive mobile sheet expanded, without its lower detent.
+  /// Desktop menus retain their normal content sizing.
+  final bool mobileSheetInitiallyExpanded;
+
   @override
   Widget build(BuildContext context) {
     final ancestor = _DropdownMenuRootScope.maybeOf(context);
@@ -113,6 +118,7 @@ class DDropdownMenu extends StatelessWidget {
       sheetOnMobile: sheetOnMobile,
       mobileSheetVariant: mobileSheetVariant,
       mobileSheetSizeToContent: mobileSheetSizeToContent,
+      mobileSheetInitiallyExpanded: mobileSheetInitiallyExpanded,
       open: open,
       defaultOpen: defaultOpen,
       controller: controller,

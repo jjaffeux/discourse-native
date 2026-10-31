@@ -274,6 +274,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.onDismiss,
     required this.retained,
     required this.sizeToContent,
+    required this.initiallyExpanded,
     required this.contentLoading,
     this.onDismissRequested,
   });
@@ -282,6 +283,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final VoidCallback? onDismiss;
   final bool retained;
   final bool sizeToContent;
+  final bool initiallyExpanded;
   final bool contentLoading;
   final VoidCallback? onDismissRequested;
 
@@ -357,6 +359,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   @override
   void initState() {
     super.initState();
+    _fullyExpanded = widget.initiallyExpanded;
     _travel.addListener(_travelChanged);
     _travel.addStatusListener(_travelStatus);
     _keyboardPlacement.addListener(_changed);

@@ -12,7 +12,8 @@ and 10px popup corners. Large text gains a local
 scroll viewport; placement respects the physical phone safe area even when
 the header's SafeArea has consumed local padding. The mobile sheet has a grab
 handle, floats above the home indicator, and supports downward swipe dismissal.
-Tall content can expand and scroll using the existing adaptive sheet behavior.
+The profile opens at its content height, capped by the available viewport.
+Tall content scrolls immediately without a separate expansion gesture.
 
 The account header uses a 32px avatar, a 13.5px semibold display name and a
 12px muted handle. The three separators follow the account, presence and

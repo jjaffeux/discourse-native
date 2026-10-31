@@ -146,6 +146,7 @@ class DSheet<T> extends StatelessWidget {
       true,
       variant: content.variant,
       sizeToContent: content.sizeToContent,
+      initiallyExpanded: content.initiallyExpanded,
       contentLoading: content.contentLoading,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
@@ -335,6 +336,7 @@ class _DSheetViewportState extends State<DSheetViewport>
           widget.onDismiss != null || widget.onSwipeDismissRequested != null,
           variant: content.variant,
           sizeToContent: content.sizeToContent,
+          initiallyExpanded: content.initiallyExpanded,
           contentLoading: content.contentLoading,
           retainKeyboardInsets: true,
           onRetainedDismiss: widget.onDismiss,
@@ -940,6 +942,7 @@ Widget _sheetPresentation(
   bool dismissOnSwipe, {
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
+  bool initiallyExpanded = false,
   bool contentLoading = false,
   double? topBottomMaxWidth,
   bool retainKeyboardInsets = false,
@@ -956,6 +959,7 @@ Widget _sheetPresentation(
       retained: retainKeyboardInsets,
       onDismissRequested: onRetainedSwipeDismissRequested,
       sizeToContent: sizeToContent,
+      initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
     );
     return _DSheetKeyboardInsets(
@@ -2296,6 +2300,7 @@ class DSheetContent extends StatelessWidget {
     this.side = DSheetSide.right,
     this.variant = DSheetVariant.standard,
     this.sizeToContent = true,
+    this.initiallyExpanded = false,
     this.contentLoading = false,
     this.showCloseButton = true,
     this.card = false,
@@ -2329,6 +2334,13 @@ class DSheetContent extends StatelessWidget {
   /// across loading and result changes. Pulling upward expands it; a visible
   /// keyboard uses the available viewport. Other sheet variants are unchanged.
   final bool sizeToContent;
+
+  /// Starts an adaptive menu at its expanded height for this opening.
+  ///
+  /// Content-sized menus fit their content up to the available viewport.
+  /// Fixed-size menus fill that viewport. The lower detent stays removed until
+  /// dismissal. Other sheet variants are unchanged.
+  final bool initiallyExpanded;
 
   /// Remeasures an adaptive menu after asynchronous content finishes loading.
   ///
@@ -2850,6 +2862,7 @@ Future<T?> showDSheet<T>({
   bool inset = false,
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
+  bool initiallyExpanded = false,
   bool contentLoading = false,
 
   bool fillAvailableHeight = false,
@@ -2892,6 +2905,7 @@ Future<T?> showDSheet<T>({
       dismissOnSwipe,
       variant: variant,
       sizeToContent: sizeToContent,
+      initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
       topBottomMaxWidth: topBottomMaxWidth,
     ),

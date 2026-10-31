@@ -282,6 +282,7 @@ class DPopover extends StatefulWidget {
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
     this.mobileSheetSizeToContent = true,
+    this.mobileSheetInitiallyExpanded = false,
     this.mobileSheetContentLoading = false,
     this.fullScreenOnMobile = false,
     this.initialFocusNode,
@@ -318,6 +319,10 @@ class DPopover extends StatefulWidget {
   /// False reserves a stable 55% opening viewport for asynchronous content.
   /// Desktop popovers retain their normal content sizing.
   final bool mobileSheetSizeToContent;
+
+  /// Starts an adaptive mobile sheet expanded, without its lower detent.
+  /// Desktop popovers retain their normal content sizing.
+  final bool mobileSheetInitiallyExpanded;
 
   /// Defers short-content margins while an adaptive mobile sheet is loading.
   /// Existing margins remain until dismissal; desktop popovers are unchanged.
@@ -919,6 +924,7 @@ class _DPopoverState extends State<DPopover>
                 : widget.mobileSheetVariant,
             showCloseButton: !adaptiveMenu,
             sizeToContent: widget.mobileSheetSizeToContent,
+            initiallyExpanded: widget.mobileSheetInitiallyExpanded,
             contentLoading: widget.mobileSheetContentLoading,
             semanticLabel: widget.content.semanticLabel,
             topBottomMaxHeightFactor: adaptiveMenu

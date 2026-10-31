@@ -58,6 +58,8 @@ final sheetExamples = ComponentExamples(
       'Set sizeToContent: false to keep a 55% opening viewport through '
       'asynchronous loading and result changes, and contentLoading: true '
       'while waiting so placeholders do not trigger short-content margins. '
+      'Set initiallyExpanded: true to open at the content height, capped by '
+      'the available viewport, without a lower detent for that opening. '
       'Other snap-point compositions use Drawer.',
   examples: [
     StyleguideExample(
@@ -124,6 +126,43 @@ final sheetExamples = ComponentExamples(
         'keyboard',
         'reduced motion',
       ],
+    ),
+    StyleguideExample(
+      title: 'Content-height adaptive menu',
+      description:
+          'Open at the content height and scroll immediately when the options '
+          'need more than the available viewport.',
+      code:
+          'DSheetContent(variant: DSheetVariant.adaptiveMenu, initiallyExpanded: true, side: DSheetSide.bottom, showCloseButton: false, children: [Flexible(child: menu)])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) =>
+              _trigger('Open content-height menu', open),
+        ),
+        content: DSheetContent(
+          variant: DSheetVariant.adaptiveMenu,
+          initiallyExpanded: true,
+          side: DSheetSide.bottom,
+          showCloseButton: false,
+          children: [
+            Flexible(
+              child: DScrollArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var index = 0; index < 12; index++)
+                      DButton(
+                        label: Text('Option ${index + 1}'),
+                        onPressed: () {},
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      states: const ['content height', 'scroll', 'swipe dismissal'],
     ),
     StyleguideExample(
       title: 'Mobile menu sheet',

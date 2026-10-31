@@ -17,6 +17,7 @@ Future<void> openMenu(
   ValueListenable<int>? counts,
   ValueListenable<bool> loading = const AlwaysStoppedAnimation(false),
   bool sizeToContent = true,
+  bool initiallyExpanded = false,
   bool reducedMotion = false,
   bool settle = true,
   VoidCallback? onContentLayout,
@@ -71,6 +72,7 @@ Future<void> openMenu(
                 sheetOnMobile: true,
                 mobileSheetVariant: DSheetVariant.adaptiveMenu,
                 mobileSheetSizeToContent: sizeToContent,
+                mobileSheetInitiallyExpanded: initiallyExpanded,
                 mobileSheetContentLoading: pending,
                 content: DPopoverContent(
                   semanticLabel: 'Filters',
@@ -147,6 +149,43 @@ void main() {
           .setMockMethodCallHandler(channel, null),
     );
   });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final sizeToContent in [true, false]) {
+      testWidgets(
+        'initially expanded menu scrolls immediately on ${platform.name} (content: $sizeToContent)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+            initiallyExpanded: true,
+          );
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          expect(opened.top, closeTo(55, 1));
+          expect(opened.bottom, lessThanOrEqualTo(844));
+          expect(scroll.offset, 0);
+
+          await tester.drag(find.byType(ListView), const Offset(0, -150));
+          await tester.pumpAndSettle();
+          expect(scroll.offset, greaterThan(0));
+          expect(tester.getRect(sheet), opened);
+
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, 30),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   testWidgets('opening frames never paint the expanded sheet at the top', (
     tester,
