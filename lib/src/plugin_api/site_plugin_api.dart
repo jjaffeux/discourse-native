@@ -417,10 +417,10 @@ abstract interface class CompactTopicListMetadataPlugin {
 
 enum TopicPropertySectionLayout { inline, standalone }
 
-/// A command a [TopicPropertySection] offers in a phone's topic actions sheet.
+/// A command rendered by the host in the topic actions menu.
 @immutable
-final class TopicPropertyAction {
-  const TopicPropertyAction({
+final class TopicMenuAction {
+  const TopicMenuAction({
     required this.label,
     required this.icon,
     required this.onSelected,
@@ -468,7 +468,7 @@ final class TopicPropertySection {
 
   /// On a phone, these join the topic's actions sheet as a group of their
   /// own in place of [compactAction]. A section with none keeps its button.
-  final List<TopicPropertyAction> actions;
+  final List<TopicMenuAction> actions;
 
   /// Compact presentation alongside the title. The host supplies a details
   /// action backed by the current topic and plugin state.
@@ -498,6 +498,14 @@ abstract interface class TopicPropertiesPlugin {
 /// Invalidates transient contributions without replacing the topic record.
 abstract interface class TopicPropertiesRebuildPlugin {
   Listenable? topicPropertiesRebuildOn(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  );
+}
+
+abstract interface class TopicMenuPlugin {
+  List<TopicMenuAction> topicMenuActions(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,

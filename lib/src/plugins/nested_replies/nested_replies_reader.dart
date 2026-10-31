@@ -231,8 +231,10 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       return const [];
     }
     final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
+    final readableIds = _readablePostIds();
     final visible = <({int number, int id, double top})>[];
     for (final entry in _postKeys.entries) {
+      if (!readableIds.contains(entry.key)) continue;
       final box = entry.value.currentContext?.findRenderObject();
       final post = reader.post(entry.key);
       if (box is! RenderBox ||
@@ -257,13 +259,16 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     return visible;
   }
 
+  Set<int> _readablePostIds() => {
+    if (_controller.op case final op?) op.postId,
+    for (final row in _displayedRows().rows)
+      if (!_controller.isCollapsed(row.node.postNumber)) row.node.postId,
+  };
+
   void _observe({bool timing = false}) {
     if (!reader.foreground) return;
     final visible = _visible();
-    reader.setVisiblePostIds([
-      if (_controller.op case final op?) op.postId,
-      ..._displayedRows().rows.map((row) => row.node.postId),
-    ]);
+    reader.setVisiblePostIds(_readablePostIds());
     if (timing) {
       final current = visible.map((post) => post.number).toSet();
       final exposed = current.intersection(_timingCandidates);
@@ -537,8 +542,10 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     return math.max(1, ((lane.width - 250) / 16).floor());
   }
 
-  ({List<NestedVisibleRow> rows, int depthOffset}) _displayedRows() {
-    var rows = _controller.visibleRows();
+  ({List<NestedVisibleRow> rows, int depthOffset}) _displayedRows({
+    bool includeCollapsed = false,
+  }) {
+    var rows = _controller.visibleRows(includeCollapsed: includeCollapsed);
     var baseDepth = 0;
     if (_usesMobileLayout && _controller.contextMode) {
       final target = rows.indexWhere(
@@ -561,8 +568,21 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
 
   @override
   Widget build(BuildContext context) {
-    final projection = _displayedRows();
+    final projection = _displayedRows(includeCollapsed: true);
     final rows = projection.rows;
+    final logicalRows = rows
+        .where(
+          (row) => row.ancestorPostNumbers.every(
+            (number) => !_controller.isCollapsed(number),
+          ),
+        )
+        .toList(growable: false);
+    final threadEnds = {
+      for (var index = 0; index < logicalRows.length; index++)
+        if (index == logicalRows.length - 1 ||
+            logicalRows[index + 1].depth == 0)
+          logicalRows[index].node.postId,
+    };
     return PluginTopicHeader(
       reader: reader,
       bodyBuilder: (header) => NotificationListener<UserScrollNotification>(
@@ -605,25 +625,50 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
                               );
                               return index < 0 ? null : index;
                             },
-                            itemBuilder: (context, index) => KeyedSubtree(
-                              key: ValueKey(rows[index].node.postId),
-                              child: _post(
+                            itemBuilder: (context, index) {
+                              final row = rows[index];
+                              final post = _post(
                                 context,
-                                rows[index].node,
-                                rows[index].depth,
+                                row.node,
+                                row.depth,
                                 displayDepth:
-                                    rows[index].depth - projection.depthOffset,
-                                continuations: rows[index].ancestorContinuations
+                                    row.depth - projection.depthOffset,
+                                continuations: row.ancestorContinuations
                                     .skip(projection.depthOffset)
                                     .toList(growable: false),
-                                ancestors: rows[index].ancestorPostNumbers
+                                ancestors: row.ancestorPostNumbers
                                     .skip(projection.depthOffset)
                                     .toList(growable: false),
-                                endOfThread:
-                                    index == rows.length - 1 ||
-                                    rows[index + 1].depth == 0,
-                              ),
-                            ),
+                                endOfThread: threadEnds.contains(
+                                  row.node.postId,
+                                ),
+                              );
+                              final presented = DCollapsible(
+                                open: row.ancestorPostNumbers.every(
+                                  (number) => !_controller.isCollapsed(number),
+                                ),
+                                child: DCollapsibleContent(
+                                  duration: DMotion.change,
+                                  child: post,
+                                ),
+                              );
+                              return KeyedSubtree(
+                                key: ValueKey(row.node.postId),
+                                child:
+                                    _usesMobileLayout &&
+                                        index > 0 &&
+                                        row.depth == 0
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const DSeparator(thickness: 6),
+                                          presented,
+                                        ],
+                                      )
+                                    : presented,
+                              );
+                            },
                           ),
                           SliverToBoxAdapter(
                             child: Padding(

@@ -51,6 +51,74 @@ const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final toolbarVisible in [false, true]) {
+    testWidgets(
+      'closing content hides a selection toolbar visible $toolbarVisible',
+      (tester) async {
+        final shell = await _shell(post: _editablePost);
+        addTearDown(shell.dispose);
+        final expanded = ValueNotifier(true);
+        addTearDown(expanded.dispose);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: ValueListenableBuilder<bool>(
+                  valueListenable: expanded,
+                  builder: (context, open, child) => DCollapsible(
+                    open: open,
+                    child: DCollapsibleContent(
+                      duration: DMotion.change,
+                      child: child!,
+                    ),
+                  ),
+                  child: const PostTextSelection(
+                    siteUrl: _siteUrl,
+                    post: _editablePost,
+                    topicId: 7,
+                    child: Text(_body),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        tester
+            .state<SelectionAreaState>(find.byType(SelectionArea))
+            .selectableRegion
+            .selectAll(SelectionChangedCause.toolbar);
+        await tester.pump();
+        if (toolbarVisible) {
+          await tester.pump(const Duration(milliseconds: 151));
+          await tester.pump();
+          expect(
+            find.byKey(const ValueKey('copy-quote-selection')),
+            findsOneWidget,
+          );
+        }
+        expanded.value = false;
+        await tester.pump();
+        expect(find.byType(PostTextSelection), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('copy-quote-selection')),
+          findsNothing,
+        );
+        await tester.pump(const Duration(milliseconds: 151));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('copy-quote-selection')),
+          findsNothing,
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(PostTextSelection), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('copy quote retains unpainted code and mixed source selections', (
     tester,
   ) async {

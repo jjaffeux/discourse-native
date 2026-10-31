@@ -23,6 +23,7 @@ class PostNewsCard extends StatelessWidget {
     required this.child,
     this.topicBookmark,
     this.heading,
+    this.contentExpanded,
     this.headers = const [],
     this.decorationTone,
     this.margin = const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
@@ -34,6 +35,7 @@ class PostNewsCard extends StatelessWidget {
   final Widget child;
   final Bookmark? topicBookmark;
   final Widget? heading;
+  final bool? contentExpanded;
   final List<Widget> headers;
   final Color? decorationTone;
   final EdgeInsetsGeometry margin;
@@ -68,6 +70,32 @@ class PostNewsCard extends StatelessWidget {
                   : bookmark != null
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface);
+    Widget disclosure(Widget child) => contentExpanded == null
+        ? child
+        : DCollapsible(
+            open: contentExpanded,
+            child: DCollapsibleContent(duration: DMotion.change, child: child),
+          );
+    final news = DReveal(
+      visible:
+          post.isDeleted ||
+          post.hidden ||
+          post.locked ||
+          bookmark != null ||
+          headers.isNotEmpty,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PostNewsHeader(
+            siteUrl: siteUrl,
+            topicId: topicId,
+            post: post,
+            topicBookmark: openingBookmark,
+          ),
+          ...headers,
+        ],
+      ),
+    );
     return ShellSelector<bool>(
       select: (shell) =>
           shell.isTopicPostHighlighted(siteUrl, topicId, post.postNumber),
@@ -75,10 +103,10 @@ class PostNewsCard extends StatelessWidget {
         padding: margin,
         child: !hasNews && !highlighted
             ? heading == null
-                  ? child
+                  ? disclosure(child)
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [heading!, child],
+                      children: [heading!, disclosure(child)],
                     )
             : DCard(
                 key: ValueKey('post-news-card-${post.id}'),
@@ -97,27 +125,16 @@ class PostNewsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     ?heading,
-                    DReveal(
-                      visible:
-                          post.isDeleted ||
-                          post.hidden ||
-                          post.locked ||
-                          bookmark != null ||
-                          headers.isNotEmpty,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          PostNewsHeader(
-                            siteUrl: siteUrl,
-                            topicId: topicId,
-                            post: post,
-                            topicBookmark: openingBookmark,
-                          ),
-                          ...headers,
-                        ],
+                    if (contentExpanded == null) ...[
+                      news,
+                      child,
+                    ] else
+                      disclosure(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [news, child],
+                        ),
                       ),
-                    ),
-                    child,
                   ],
                 ),
               ),

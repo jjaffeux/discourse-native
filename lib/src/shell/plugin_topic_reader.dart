@@ -123,6 +123,8 @@ class PluginTopicPost extends StatelessWidget {
     required this.reader,
     required this.postId,
     this.layout = TopicPostLayout.standard,
+    this.contentExpanded = true,
+    this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
     this.footerLeading,
@@ -133,6 +135,8 @@ class PluginTopicPost extends StatelessWidget {
   final PluginTopicReader reader;
   final int postId;
   final TopicPostLayout layout;
+  final bool contentExpanded;
+  final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
@@ -148,6 +152,8 @@ class PluginTopicPost extends StatelessWidget {
           topicId: reader.topicId,
           postId: postId,
           layout: layout,
+          contentExpanded: contentExpanded,
+          authorBadges: authorBadges,
           leading: leading,
           bodyLeading: bodyLeading,
           footerLeading: footerLeading,
