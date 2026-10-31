@@ -368,7 +368,7 @@ void main() {
   }
 
   testWidgets(
-    'channel membership sheet floats above the safe area and dismisses on touch',
+    'channel membership sheet fills the viewport foot and dismisses on touch',
     (tester) async {
       await _pump(
         tester,
@@ -412,7 +412,7 @@ void main() {
 
   {
     testWidgets(
-      'standalone presence menu uses an inset mobile sheet',
+      'standalone presence menu uses a viewport-edge mobile sheet',
       (tester) async {
         final mobile = defaultTargetPlatform != TargetPlatform.macOS;
         final fixture = await _pump(
@@ -1348,10 +1348,19 @@ void _expectMenuPresentation(WidgetTester tester, {required bool mobile}) {
   final media = MediaQuery.of(tester.element(sheet));
   final safeBottom =
       tester.view.viewPadding.bottom / tester.view.devicePixelRatio;
-  final dock = DMobileDockGeometry(foot: safeBottom);
   expect(bounds.left - viewport.left, 0);
   expect(viewport.right - bounds.right, 0);
-  expect(viewport.bottom - bounds.bottom, closeTo(dock.endLift, .01));
+  expect(bounds.bottom, closeTo(viewport.bottom, .01));
+  final content = tester.widget<DSheetContent>(sheet).children.last;
+  final menu = content is Flexible ? content.child : content;
+  final contentBounds = tester.getRect(
+    find.descendant(of: sheet, matching: find.byWidget(menu)),
+  );
+  expect(
+    contentBounds.bottom,
+    lessThanOrEqualTo(viewport.bottom - safeBottom + .01),
+    reason: 'the home-indicator area stays below the menu contents',
+  );
   expect(bounds.top, greaterThanOrEqualTo(viewport.top + media.padding.top));
 }
 
