@@ -22887,6 +22887,12 @@ abstract class AppLocalizations {
   /// **'New card'**
   String get boardsNewCard;
 
+  /// Topic menu action for adding the current topic to an eligible board.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to board…'**
+  String get boardsAddToBoard;
+
   /// Native Boards plugin interface.
   ///
   /// In en, this message translates to:
