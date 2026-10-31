@@ -78,6 +78,9 @@ class MainContent extends StatefulWidget {
 }
 
 class _MainContentState extends State<MainContent> {
+  final _sourceBodyKey = GlobalKey();
+  _MainContentSnapshot? _sourceList;
+  Object? _sourceListOwner;
   final _aboutPageKey = GlobalKey<ForumAboutPageState>();
   final _dashboardPageKey = GlobalKey<DashboardHostState>();
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
@@ -86,6 +89,80 @@ class _MainContentState extends State<MainContent> {
   String? _refresherTabId;
   ShellController? _refresherController;
   (String?, String?, String)? _groupWordsIdentity;
+
+  Widget _buildBody(
+    BuildContext context,
+    _MainContentSnapshot state,
+    GroupPagesPort port,
+  ) {
+    final shell = ShellScope.read(context);
+    final registry =
+        widget.registry ??
+        PluginScope.maybeOf(context)?.registry ??
+        PluginRegistry.empty;
+    final owner = (
+      shell,
+      state.siteUrl,
+      shell.currentAccountIdentity,
+      state.groupSessionIdentity,
+      state.activeTabId,
+    );
+    final mobile =
+        shell.mobileNavigationEnabled && ForumTabScope.panelOf(context) == null;
+    if (!mobile || owner != _sourceListOwner) _sourceList = null;
+    _sourceListOwner = owner;
+    final route = state.route;
+    if (mobile && route?.isTopicList == true) _sourceList = state;
+    final source = _sourceList;
+    final covered =
+        source != null &&
+        state.sourceRoute == null &&
+        route != null &&
+        (route.isTopic || registry.usesMobilePageSheet(context, route)) &&
+        shell
+            .tabContext(state.activeTabId)
+            .contentStack
+            .any(source.route!.sameDestinationAs);
+    if (!covered && state.sourceRoute == null) {
+      _sourceList = null;
+    }
+
+    Widget body(_MainContentSnapshot snapshot, {Key? key}) => _MainContentBody(
+      key: key,
+      layout: widget.layout,
+      state: snapshot,
+      registry: registry,
+      groupPages: _groupPages,
+      groupPagesPort: port,
+      aboutPageKey: _aboutPageKey,
+      dashboardPageKey: _dashboardPageKey,
+    );
+    final primary = body(covered ? source : state, key: _sourceBodyKey);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: covered,
+          child: ExcludeFocus(
+            excluding: covered,
+            child: ExcludeSemantics(
+              excluding: covered,
+              child: IgnorePointer(
+                ignoring: covered,
+                child: ForumContentScope(
+                  route: covered ? source.route : null,
+                  child: covered
+                      ? DPageHeaderHost.exclude(child: primary)
+                      : primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (covered) body(state),
+      ],
+    );
+  }
 
   void _bindRefresher(ShellController shell, String? tabId) {
     if (identical(shell, _refresherController) && tabId == _refresherTabId) {
@@ -196,20 +273,7 @@ class _MainContentState extends State<MainContent> {
                         ),
                       ),
                     ),
-                  Expanded(
-                    child: _MainContentBody(
-                      layout: widget.layout,
-                      state: state,
-                      registry:
-                          widget.registry ??
-                          PluginScope.maybeOf(context)?.registry ??
-                          PluginRegistry.empty,
-                      groupPages: _groupPages,
-                      groupPagesPort: port,
-                      aboutPageKey: _aboutPageKey,
-                      dashboardPageKey: _dashboardPageKey,
-                    ),
-                  ),
+                  Expanded(child: _buildBody(context, state, port)),
                 ],
               ),
             );
@@ -232,6 +296,7 @@ bool _isGroupNamespace(ContentRoute? route) =>
 
 class _MainContentBody extends StatelessWidget {
   const _MainContentBody({
+    super.key,
     required this.layout,
     required this.state,
     required this.registry,
@@ -1657,12 +1722,16 @@ class _TopicFeedSelector<T> extends StatefulWidget {
 class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   late T _value;
   String? _tabId;
+  ContentRoute? _sourceRoute;
 
   T _read() => widget.select(widget.controller, _tab());
 
-  ShellTabContext _tab() => _panelScoped
-      ? widget.controller.tabContext(_tabId)
-      : widget.controller.focusedTabContext;
+  ShellTabContext _tab() {
+    final tab = _panelScoped
+        ? widget.controller.tabContext(_tabId)
+        : widget.controller.focusedTabContext;
+    return _sourceRoute == null ? tab : tab.atContent(_sourceRoute!);
+  }
 
   bool _panelScoped = false;
 
@@ -1679,6 +1748,7 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
     _panelScoped =
         context.getInheritedWidgetOfExactType<ForumTabScope>() != null;
     _tabId = ForumTabScope.idOf(context);
+    _sourceRoute = ForumContentScope.routeOf(context);
     _value = _read();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'header_preferences.dart';
@@ -146,14 +147,33 @@ class ForumTabScope extends InheritedWidget {
   static ShellTabContext tabOf(BuildContext context) {
     final shell = ShellScope.read(context);
     final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
-    return scope == null
+    final tab = scope == null
         ? shell.focusedTabContext
         : shell.tabContext(scope.tabId);
+    final route = ForumContentScope.routeOf(context);
+    return route == null ? tab : tab.atContent(route);
   }
 
   @override
   bool updateShouldNotify(ForumTabScope oldWidget) =>
       tabId != oldWidget.tabId || panel != oldWidget.panel;
+}
+
+class ForumContentScope extends InheritedWidget {
+  const ForumContentScope({
+    super.key,
+    required this.route,
+    required super.child,
+  });
+
+  final ContentRoute? route;
+
+  static ContentRoute? routeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ForumContentScope>()?.route;
+
+  @override
+  bool updateShouldNotify(ForumContentScope oldWidget) =>
+      route != oldWidget.route;
 }
 
 class ForumTabSelector<T> extends StatefulWidget {
@@ -175,11 +195,17 @@ class ForumTabSelector<T> extends StatefulWidget {
 class _ForumTabSelectorState<T> extends State<ForumTabSelector<T>> {
   ShellController? _shell;
   String? _tabId;
+  ContentRoute? _contentRoute;
   bool _scoped = false;
   late T _value;
 
-  ShellTabContext _resolve() =>
-      _scoped ? _shell!.tabContext(_tabId) : _shell!.focusedTabContext;
+  ShellTabContext _resolve() {
+    final tab = _scoped
+        ? _shell!.tabContext(_tabId)
+        : _shell!.focusedTabContext;
+    final route = _contentRoute;
+    return route == null ? tab : tab.atContent(route);
+  }
 
   @override
   void didChangeDependencies() {
@@ -188,6 +214,7 @@ class _ForumTabSelectorState<T> extends State<ForumTabSelector<T>> {
     final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
     _scoped = scope != null;
     _tabId = scope?.tabId;
+    _contentRoute = ForumContentScope.routeOf(context);
     if (!identical(shell, _shell)) {
       _shell?.removeListener(_select);
       _shell = shell..addListener(_select);

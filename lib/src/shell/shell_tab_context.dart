@@ -2,7 +2,8 @@ part of 'shell_controller.dart';
 
 final class ShellTabContext {
   ShellTabContext._(this.shell, this.tabId)
-    : siteUrl = shell.currentInstance?.url,
+    : _contentRoute = null,
+      siteUrl = shell.currentInstance?.url,
       accountIdentity = shell.currentAccountIdentity,
       lease = shell.currentInstance == null
           ? null
@@ -15,12 +16,25 @@ final class ShellTabContext {
         : null;
   }
 
+  ShellTabContext._atContent(ShellTabContext source, this._contentRoute)
+    : shell = source.shell,
+      tabId = source.tabId,
+      siteUrl = source.siteUrl,
+      accountIdentity = source.accountIdentity,
+      lease = source.lease {
+    _reader = source._reader;
+  }
+
   final ShellController shell;
   final String? tabId;
   final String? siteUrl;
   final String? accountIdentity;
   final SiteLease? lease;
+  final ContentRoute? _contentRoute;
   late final TopicReaderProjection? _reader;
+
+  ShellTabContext atContent(ContentRoute route) =>
+      ShellTabContext._atContent(this, route);
 
   bool get isCurrent =>
       !shell._tabContextDisposed &&
@@ -29,14 +43,19 @@ final class ShellTabContext {
       shell.currentAccountIdentity == accountIdentity &&
       lease?.isCurrent == true &&
       _reader?.isCurrent == true &&
-      shell.currentWorkspace?.tabById(tabId!) != null;
+      shell.currentWorkspace?.tabById(tabId!) != null &&
+      (_contentRoute == null ||
+          shell.currentWorkspace!
+              .tabById(tabId!)!
+              .contentStack
+              .any(_contentRoute.sameDestinationAs));
   ForumTab? get tab =>
       isCurrent ? shell.currentWorkspace?.tabById(tabId!) : null;
   ForumTab? get activeTab => tab;
   String? get activeTabId => tab?.id;
   DiscourseInstance? get _instance => isCurrent ? shell.currentInstance : null;
 
-  ContentRoute? get currentContent => activeTab?.currentContent;
+  ContentRoute? get currentContent => contentStack.lastOrNull;
 
   UserDirectoryQuery get usersQuery => siteUrl == null || !isCurrent
       ? const UserDirectoryQuery()
@@ -73,12 +92,18 @@ final class ShellTabContext {
     );
   }
 
-  List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
+  List<ContentRoute> get contentStack {
+    final routes = activeTab?.contentStack ?? const <ContentRoute>[];
+    final source = _contentRoute;
+    if (source == null) return routes;
+    final index = routes.lastIndexWhere(source.sameDestinationAs);
+    return routes.take(index + 1).toList(growable: false);
+  }
 
   ForumTab? get topicListTab => activeTab;
 
   ContentRoute? get topicListContent {
-    final routes = topicListTab?.contentStack ?? const <ContentRoute>[];
+    final routes = contentStack;
     for (final route in routes.reversed) {
       if (route.isTopic) continue;
       return route.isTopicList ? route : null;
@@ -125,7 +150,7 @@ final class ShellTabContext {
   bool get currentFeedIsUnread {
     // Core serves personal and group Unread folders through the same unread
     // filter as /unread, so a message read here leaves them the same way.
-    final route = topicListContent ?? topicListTab?.currentContent;
+    final route = topicListContent ?? currentContent;
     if (route?.isMessages == true) {
       return route!.messageListMode == MessageListMode.unread;
     }
@@ -139,7 +164,8 @@ final class ShellTabContext {
     final tab = topicListTab;
     if (tab == null) return null;
 
-    final route = topicListContent ?? tab.currentContent;
+    final route = topicListContent ?? currentContent;
+    if (route == null) return null;
     final mode = TopicListMode.fromRoute(route);
     if (mode != null) return mode;
     if (tab.rootDestinationId != 'latest' &&
