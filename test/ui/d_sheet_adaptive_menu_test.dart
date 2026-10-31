@@ -1006,7 +1006,7 @@ void main() {
           expect(opened.top, closeTo(844 * .45, 1));
           expect(
             tester.getRect(find.byType(ListView)).bottom,
-            closeTo(opened.bottom - 44, .1),
+            closeTo(opened.bottom - 34 - 10 * (17 / 13), .1),
             reason: 'the sheet keeps safe-area padding below its content',
           );
           expect(

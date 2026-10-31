@@ -10,7 +10,9 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/menu_content_scale.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
@@ -2296,6 +2298,7 @@ class DSheetContent extends StatelessWidget {
     this.sizeToContent = true,
     this.contentLoading = false,
     this.showCloseButton = true,
+    this.card = false,
 
     this.semanticLabel,
     this.backgroundColor,
@@ -2333,6 +2336,9 @@ class DSheetContent extends StatelessWidget {
   final bool contentLoading;
   final DSheetSide side;
   final bool showCloseButton;
+
+  /// Identity cards retain their own sizing inside menu-shaped sheets.
+  final bool card;
 
   String get closeSemanticLabel => appL10n.close;
   final String? semanticLabel;
@@ -2406,6 +2412,11 @@ class DSheetContent extends StatelessWidget {
     final page = variant == DSheetVariant.page;
     final menu =
         variant == DSheetVariant.menu || variant == DSheetVariant.adaptiveMenu;
+    final scaleContents =
+        DControlStyle.isTouch(context) &&
+        (menu || resolved == DSheetSide.bottom) &&
+        !card &&
+        !fillAvailableHeight;
     final handle = Center(
       child: DTouchTarget(
         child: DSheetDragRegion(
@@ -2453,17 +2464,26 @@ class DSheetContent extends StatelessWidget {
     }
     final parts = <Widget>[if (menu && !overArtwork) handle];
     for (var index = 0; index < children.length; index++) {
-      final child = children[index];
+      final original = children[index];
+      final child = !scaleContents || original is Spacer
+          ? original
+          : original is Flexible
+          ? Flexible(
+              flex: original.flex,
+              fit: original.fit,
+              child: DMenuContentScale(child: original.child),
+            )
+          : DMenuContentScale(child: original);
       if (index > 0 && children[index - 1] is! DSheetHeader) {
         parts.add(const SizedBox(height: DSpacing.lg));
       }
-      if (child is DSheetBody && fillsHeight && !scrollWholeSheet) {
+      if (original is DSheetBody && fillsHeight && !scrollWholeSheet) {
         parts.add(Expanded(child: child));
-      } else if (child is DSheetBody &&
+      } else if (original is DSheetBody &&
           topBottomMaxHeightFactor != null &&
           !scrollWholeSheet) {
         parts.add(Flexible(child: child));
-      } else if (fillsHeight && child is DSheetFooter) {
+      } else if (fillsHeight && original is DSheetFooter) {
         if (!hasBody && !scrollWholeSheet) parts.add(const Spacer());
         parts.add(child);
       } else {

@@ -307,6 +307,7 @@ Future<void> showUserCard({
                 );
                 return DSheetContent(
                   key: const ValueKey<String>('user-card-surface'),
+                  card: true,
                   side: DSheetSide.bottom,
                   inset: true,
                   variant: DSheetVariant.menu,
