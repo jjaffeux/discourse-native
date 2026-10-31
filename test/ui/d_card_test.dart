@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'dart:ui' show ImageByteFormat, SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -30,6 +32,48 @@ Widget host(
 );
 
 void main() {
+  testWidgets('tone sheen fades from the top-right within the card outline', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      host(
+        RepaintBoundary(
+          key: key,
+          child: const DCard(
+            spacing: 0,
+            backgroundColor: Colors.white,
+            sheenColor: Colors.blue,
+            borderColor: Colors.red,
+            child: SizedBox(height: 160),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      final bytes = (await image.toByteData(format: ImageByteFormat.rawRgba))!;
+      int red(int x, int y) => bytes.getUint8((y * image.width + x) * 4);
+      expect(red(350, 20), lessThan(red(30, 140)));
+      final outline = (80 * image.width) * 4;
+      expect(bytes.getUint8(outline + 1), (Colors.red.g * 255).round());
+      final directory = Platform.environment['DASHBOARD_PREVIEW_DIR'];
+      if (directory != null) {
+        final output = File('$directory/card.png');
+        await output.parent.create(recursive: true);
+        await output.writeAsBytes(
+          (await image.toByteData(
+            format: ImageByteFormat.png,
+          ))!.buffer.asUint8List(),
+        );
+      }
+      image.dispose();
+    });
+  });
+
   for (final mode in ['solid', 'dashed', 'hidden']) {
     testWidgets('custom $mode outline paints within the card bounds', (
       tester,

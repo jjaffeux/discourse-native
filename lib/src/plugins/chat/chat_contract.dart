@@ -8,5 +8,6 @@ export 'chat_inbox_rooms.dart'
         ChatInboxRoom,
         ChatInboxRoomRow,
         chatInboxRoomsService;
+export 'chat_inbox_section.dart' show ChatInboxSectionSlice, ChatInboxMore;
 export 'chat_message.dart' show ChatMessage;
 export 'chat_services.dart' show chatConversationService, chatPluginId;

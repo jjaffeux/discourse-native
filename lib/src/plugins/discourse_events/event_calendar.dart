@@ -317,42 +317,27 @@ final class _EventCalendarState extends State<EventCalendar> {
     List<T> values,
     String Function(T value) describe,
     T selected,
-    ValueChanged<T>? onChanged, {
-    bool lead = false,
-  }) => DSelect<T>.controlled(
-    size: DControlSize.filter,
-    value: selected,
-    semanticLabel: label,
-    width: 190,
-    maxPopupHeight: 280,
-    align: DPopoverAlign.start,
-    alignItemWithTrigger: false,
-    enabled: onChanged != null,
-    entries: [
-      for (final value in values)
-        DSelectItem(
-          value: value,
-          textValue: describe(value),
-          child: Text(describe(value)),
-        ),
-    ],
-    onChanged: (value) {
-      if (value != null) onChanged?.call(value);
-    },
-    triggerBuilder: (context, state, _) => DButton(
-      size: DControlSize.filter,
-      variant: lead ? DButtonVariant.quietSelected : DButtonVariant.quiet,
-      focusNode: state.focusNode,
-      hasPopup: true,
-      expanded: state.open,
-      semanticLabel: label,
-      onPressed: state.enabled ? state.toggle : null,
-      label: Text(
-        describe(selected),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+    ValueChanged<T>? onChanged,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (!values.contains(selected)) Text(describe(selected)),
+      DToggleGroup<T>(
+        size: DControlSize.segment,
+        inset: true,
+        semanticLabel: label,
+        allowEmptySelection: false,
+        values: values.contains(selected) ? [selected] : const [],
+        onChanged: onChanged == null
+            ? null
+            : (choices) => onChanged(choices.single),
+        items: [
+          for (final value in values)
+            DToggleGroupItem(value: value, child: Text(describe(value))),
+        ],
       ),
-    ),
+    ],
   );
 
   Widget _toolbar(BuildContext context) {
@@ -405,10 +390,8 @@ final class _EventCalendarState extends State<EventCalendar> {
                               : context.l10n.allEvents,
                           widget.mine,
                           widget.onMineChanged,
-                          lead: true,
                         ),
-                        // A page in a view the select does not offer still
-                        // names that view on the trigger.
+                        // Route-supplied views stay active until a choice is made.
                         _select(
                           context.l10n.calendarView,
                           const [

@@ -668,7 +668,8 @@ class DButton extends StatelessWidget {
         ? 12.0
         : chrome
         ? 8.0
-        : effectiveSize == DControlSize.filter && DControlStyle.isTouch(context)
+        : effectiveSize == DControlSize.filter &&
+              DControlStyle.usesTouchGeometry(context)
         ? 7.0
         : DControlStyle.contentGap(effectiveSize);
     final standardDimension =

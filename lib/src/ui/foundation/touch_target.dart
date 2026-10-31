@@ -224,11 +224,13 @@ class _RenderTouchTarget extends RenderProxyBox {
   /// area and outside what it draws.
   bool _reaches(Offset local) {
     if (_held > 0 || size.contains(local)) return false;
+    final transform = getTransformTo(_scope);
+    final drawn = MatrixUtils.transformRect(transform, Offset.zero & size);
     return Rect.fromCenter(
-      center: size.center(Offset.zero),
-      width: math.max(size.width, kDTouchTargetExtent),
-      height: math.max(size.height, kDTouchTargetExtent),
-    ).contains(local);
+      center: drawn.center,
+      width: math.max(drawn.width, kDTouchTargetExtent),
+      height: math.max(drawn.height, kDTouchTargetExtent),
+    ).contains(MatrixUtils.transformPoint(transform, local));
   }
 }
 

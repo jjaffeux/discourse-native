@@ -3,6 +3,15 @@ import 'd_icon.dart';
 // Font Awesome Free artwork from the native mockup. Icons: CC BY 4.0.
 // https://fontawesome.com/license/free
 abstract final class DNativeIcons {
+  static const DIconData caretUp = DIconData(
+    'caret-up',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" fill="currentColor"><path d="M140.3 135.2c12.6-10.3 31.1-9.5 42.8 2.2l128 128c9.2 9.2 11.9 22.9 6.9 34.9S301.4 320 288.5 320l-256 0c-12.9 0-24.6-7.8-29.6-19.8S.7 274.5 9.9 265.4l128-128 2.4-2.2z"/></svg>',
+  );
+
+  static const DIconData caretDown = DIconData(
+    'caret-down',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512" fill="currentColor"><path d="M140.3 376.8c12.6 10.2 31.1 9.5 42.8-2.2l128-128c9.2-9.2 11.9-22.9 6.9-34.9S301.4 192 288.5 192l-256 0c-12.9 0-24.6 7.8-29.6 19.8S.7 237.5 9.9 246.6l128 128 2.4 2.2z"/></svg>',
+  );
   static const DIconData clock = DIconData(
     'clock',
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M256 0a256 256 0 1 1 0 512 256 256 0 1 1 0-512zM232 120l0 136c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2 280 120c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/></svg>',
@@ -264,6 +273,8 @@ abstract final class DNativeIcons {
   );
 
   static const Map<String, DIconData> byName = {
+    'caret-up': caretUp,
+    'caret-down': caretDown,
     'image': image,
     'font': font,
     'bars': bars,

@@ -1,4 +1,8 @@
 {
+  "chatViewMore": "View {count} more",
+  "@chatViewMore": {"description": "Expand the remaining rows in a Chat section.", "placeholders": {"count": {"type": "int"}}},
+  "chatViewLess": "View less",
+  "@chatViewLess": {"description": "Fold an expanded Chat section back to its first rows."},
   "destinationBookmarkPageType": "Page",
   "@destinationBookmarkPageType": {"description": "Type label for an app-local bookmark of a whole page."},
   "destinationBookmarkUnavailable": "This destination is currently unavailable.",

@@ -8,6 +8,7 @@ import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_group_indicator.dart';
 import 'd_separator.dart';
 
 /// Layout direction for a [DButtonGroup].
@@ -27,7 +28,8 @@ class DButtonGroup extends StatefulWidget {
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
     this.sharedOutline = false,
-  }) : inset = false,
+  }) : selectedIndex = null,
+       inset = false,
        quiet = false,
        quietSelected = false,
        backgroundColor = null,
@@ -46,6 +48,7 @@ class DButtonGroup extends StatefulWidget {
   }) : orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
        sharedOutline = false,
+       selectedIndex = null,
        inset = false,
        quiet = false,
        quietSelected = false,
@@ -60,7 +63,8 @@ class DButtonGroup extends StatefulWidget {
     required this.children,
     this.semanticLabel,
     bool selected = false,
-  }) : inset = false,
+  }) : selectedIndex = null,
+       inset = false,
        quiet = true,
        quietSelected = selected,
        backgroundColor = null,
@@ -78,7 +82,8 @@ class DButtonGroup extends StatefulWidget {
     required this.children,
     this.semanticLabel,
     this.backgroundColor,
-  }) : inset = false,
+  }) : selectedIndex = null,
+       inset = false,
        quiet = true,
        quietSelected = false,
        split = true,
@@ -95,6 +100,7 @@ class DButtonGroup extends StatefulWidget {
     required this.children,
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
+    this.selectedIndex,
   }) : inset = true,
        quiet = false,
        quietSelected = false,
@@ -104,6 +110,9 @@ class DButtonGroup extends StatefulWidget {
        sharedOutline = false,
        spacedSize = null;
 
+  /// The selected direct child of an inset group. Children retain activation.
+  /// Null leaves the inset surface without a shared selection indicator.
+  final int? selectedIndex;
   final Color? backgroundColor;
   final bool inset;
   final List<Widget> children;
@@ -129,6 +138,7 @@ class DButtonGroup extends StatefulWidget {
 
 class _DButtonGroupState extends State<DButtonGroup> {
   int? _focusedIndex;
+  final Map<int, GlobalKey> _indicatorKeys = {};
 
   void _focusChanged(int index, bool focused) {
     if (!mounted) return;
@@ -146,6 +156,33 @@ class _DButtonGroupState extends State<DButtonGroup> {
       widget.semanticLabel == null || widget.semanticLabel!.trim().isNotEmpty,
     );
     if (widget.inset) {
+      Widget measured(int index, Widget child) {
+        final key = _indicatorKeys.putIfAbsent(index, GlobalKey.new);
+        if (child is Flexible) {
+          return Flexible(
+            flex: child.flex,
+            fit: child.fit,
+            child: SizedBox(key: key, child: child.child),
+          );
+        }
+        return SizedBox(key: key, child: child);
+      }
+
+      Widget content = Row(
+        mainAxisSize: widget.mainAxisSize,
+        spacing: 2,
+        children: [
+          for (final (index, child) in children.indexed)
+            widget.selectedIndex == null ? child : measured(index, child),
+        ],
+      );
+      if (widget.selectedIndex case final selected?) {
+        assert(selected >= 0 && selected < children.length);
+        content = DGroupIndicator(
+          selectedKey: _indicatorKeys[selected],
+          child: content,
+        );
+      }
       return Semantics(
         container: true,
         explicitChildNodes: true,
@@ -155,14 +192,7 @@ class _DButtonGroupState extends State<DButtonGroup> {
             color: DTokens.of(context).foreground.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(DRadius.pill),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(2),
-            child: Row(
-              mainAxisSize: widget.mainAxisSize,
-              spacing: 2,
-              children: children,
-            ),
-          ),
+          child: Padding(padding: const EdgeInsets.all(2), child: content),
         ),
       );
     }

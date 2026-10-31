@@ -9,6 +9,14 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String chatViewMore(int count) {
+    return 'View $count more';
+  }
+
+  @override
+  String get chatViewLess => 'View less';
+
+  @override
   String get destinationBookmarkPageType => 'Page';
 
   @override

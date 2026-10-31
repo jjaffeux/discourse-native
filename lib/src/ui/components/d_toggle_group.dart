@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button_group.dart';
+import 'd_group_indicator.dart';
 import 'd_toggle.dart';
 import 'd_tooltip.dart';
 
@@ -112,8 +113,9 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   /// segmented colors, weight and full-width selection inside this frame.
   final bool inset;
 
-  /// A shared moving selection surface for horizontal inset icon choices.
+  /// A shared moving selection surface for horizontal inset choices.
   /// Native owns its measured geometry, colors and reduced-motion behavior.
+  /// Single-selection inset groups with segment sizing use it automatically.
   final bool slidingIndicator;
   final List<DToggleGroupItem<T>> items;
 
@@ -136,7 +138,8 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   final DToggleSize size;
   final DToggleDensity density;
 
-  /// Equal-width choices filling the available horizontal space. Disables
+  /// Equal-width choices filling the available horizontal space. Binary inset
+  /// text choices also use equal widths when sized to their content. Disables
   /// scrolling; callers must provide bounded width (or height when vertical).
   final bool expanded;
 
@@ -161,26 +164,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   final Map<T, FocusNode> _ownedFocusNodes = {};
   final Map<FocusNode, bool> _borrowedSkipTraversal = {};
   int _rovingIndex = 0;
-  final _indicatorBounds = GlobalKey();
   final Map<T, GlobalKey> _indicatorKeys = {};
-  Rect? _indicatorRect;
 
-  void _measureIndicator() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !widget.slidingIndicator) return;
-      final value = _currentValues.singleOrNull;
-      final bounds = _indicatorBounds.currentContext?.findRenderObject();
-      final item = _indicatorKeys[value]?.currentContext?.findRenderObject();
-      final rect =
-          bounds is RenderBox &&
-              item is RenderBox &&
-              bounds.hasSize &&
-              item.hasSize
-          ? bounds.globalToLocal(item.localToGlobal(Offset.zero)) & item.size
-          : null;
-      if (rect != _indicatorRect) setState(() => _indicatorRect = rect);
-    });
-  }
+  bool get _slidingIndicator =>
+      widget.slidingIndicator ||
+      (widget.inset && !widget.multiple && widget.size == DToggleSize.segment);
 
   List<T> get _currentValues =>
       widget.values ?? widget.controller?.values ?? _localValues;
@@ -441,13 +429,16 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       'DToggleGroup item values must be unique.',
     );
     assert(
-      !widget.slidingIndicator ||
-          ((widget.inset && !widget.multiple) &&
-              widget.items.every((item) => item._iconOnly)),
-      'Sliding indicators require single-selection horizontal inset icon choices.',
+      !_slidingIndicator || (widget.inset && !widget.multiple),
+      'Sliding indicators require single-selection horizontal inset choices.',
     );
-    if (widget.slidingIndicator) _measureIndicator();
     final selected = _currentValues.toSet();
+    final equalWidth =
+        widget.expanded ||
+        (widget.inset &&
+            widget.items.length == 2 &&
+            widget.items.every((item) => !item._iconOnly) &&
+            widget.density == DToggleDensity.standard);
     final compactInset = widget.density == DToggleDensity.compactInset;
     final viewSwitch =
         widget.inset &&
@@ -463,12 +454,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
       final variant =
-          (widget.slidingIndicator ? DToggleVariant.inline : null) ??
           (widget.inset &&
-                  (widget.density == DToggleDensity.standard || compactInset) &&
-                  widget.variant == DToggleVariant.standard
-              ? DToggleVariant.segmented
-              : widget.variant);
+              (widget.density == DToggleDensity.standard || compactInset) &&
+              widget.variant == DToggleVariant.standard
+          ? DToggleVariant.segmented
+          : widget.variant);
       final size = widget.size;
       final baseStyle = item.visualStyle;
       final groupRadius = BorderRadius.circular(DRadius.control);
@@ -503,7 +493,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
               )
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
-        expandArtwork: widget.expanded,
+        expandArtwork: equalWidth,
       );
       final itemEnabled = (_groupInteractive);
       _focusFor(item).skipTraversal = index != _rovingIndex;
@@ -555,13 +545,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       if (item.tooltip case final tooltip?) {
         toggle = DTooltip(message: tooltip, child: toggle);
       }
-      if (widget.slidingIndicator) {
+      if (_slidingIndicator) {
         toggle = SizedBox(
           key: _indicatorKeys.putIfAbsent(item.value, GlobalKey.new),
           child: toggle,
         );
       }
-      children.add(widget.expanded ? Expanded(child: toggle) : toggle);
+      children.add(equalWidth ? Expanded(child: toggle) : toggle);
       if (!widget.wrap && index != widget.items.length - 1 && gap > 0) {
         children.add(SizedBox(width: (gap), height: 0));
       }
@@ -576,39 +566,16 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           )
         : _FocusOrderedFlex(
             direction: Axis.horizontal,
-            mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: equalWidth ? MainAxisSize.max : MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             focusedChildIndex: connected ? _rovingIndex : null,
             children: children,
           );
-    if (widget.slidingIndicator) {
-      final rect = _indicatorRect;
-      group = Stack(
-        key: _indicatorBounds,
-        children: [
-          if (rect != null)
-            AnimatedPositioned(
-              key: const ValueKey('toggle-group-sliding-indicator'),
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 260),
-              curve: Curves.easeInOutCubic,
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: DTokens.of(context).background,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: DTokens.of(context).border),
-                  ),
-                ),
-              ),
-            ),
-          group,
-        ],
+    if (equalWidth && !widget.expanded) group = IntrinsicWidth(child: group);
+    if (_slidingIndicator) {
+      group = DGroupIndicator(
+        selectedKey: _indicatorKeys[_currentValues.singleOrNull],
+        child: group,
       );
     }
     if (widget.wrap && widget.density == DToggleDensity.menuFilter) {
@@ -617,7 +584,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         child: group,
       );
     }
-    if (widget.scrollable && !widget.expanded && !widget.wrap) {
+    if (widget.scrollable && !widget.expanded && !widget.wrap && !equalWidth) {
       group = SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: widget.density == DToggleDensity.menuFilter

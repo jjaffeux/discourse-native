@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../models/content_route.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -14,6 +15,7 @@ class ContentNavigationControls extends StatelessWidget {
   const ContentNavigationControls({super.key});
 
   static const backKey = ValueKey('content-navigation-back');
+  static const homeKey = ValueKey('content-navigation-home');
   static const forwardKey = ValueKey('content-navigation-forward');
   static const refreshKey = ValueKey('content-navigation-refresh');
 
@@ -41,77 +43,101 @@ class ContentNavigationControls extends StatelessWidget {
           final tab = ForumTabScope.tabOf(context);
           final tokens = DTokens.of(context);
           return IntrinsicWidth(
-            child: DCard(
-              variant: DCardVariant.capsule,
-              size: DCardSize.small,
-              borderColor: Colors.transparent,
-              child: Semantics(
-                container: true,
-                explicitChildNodes: true,
-                label: context.l10n.navigation,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: DSpacing.xxs,
-                  children: [
-                    DButton.iconOnly(
-                      key: backKey,
-                      icon: const DIcon(DIcons.arrowLeft),
-                      tooltip: context.l10n.backMouseBackButton,
-                      semanticLabel: context.l10n.back,
-                      shortcut: DShortcut(
-                        contentBackShortcutForPlatform(defaultTargetPlatform),
-                      ),
-                      variant: DButtonVariant.ghost,
-                      density: DButtonDensity.chrome,
-                      onPressed: state.back
-                          ? () => tab.handleBack(canReturnToSidebar: false)
-                          : null,
-                    ),
-                    DButton.iconOnly(
-                      key: forwardKey,
-                      icon: const RotatedBox(
-                        quarterTurns: 2,
-                        child: DIcon(DIcons.arrowLeft),
-                      ),
-                      tooltip: context.l10n.forwardMouseForwardButton,
-                      semanticLabel: context.l10n.forward,
-                      shortcut: DShortcut(
-                        contentForwardShortcutForPlatform(
-                          defaultTargetPlatform,
-                        ),
-                      ),
-                      variant: DButtonVariant.ghost,
-                      density: DButtonDensity.chrome,
-                      onPressed: state.forward ? tab.handleForward : null,
-                    ),
-                    DSeparator(
-                      orientation: Axis.vertical,
-                      space: 11,
-                      length: DControlStyle.scaledHeight(
-                        DControlSize.segment,
-                        MediaQuery.textScalerOf(context),
-                        context: context,
-                      ),
-                      indent: DSpacing.controlGap,
-                      endIndent: DSpacing.controlGap,
-                      color: tokens.border,
-                    ),
-                    DButton.iconOnly(
-                      key: refreshKey,
-                      icon: const DIcon(DIcons.arrowRotateRight),
-                      tooltip: context.l10n.refreshCurrentTab,
-                      shortcut: DShortcut(
-                        refreshTabShortcutForPlatform(defaultTargetPlatform),
-                      ),
-                      variant: DButtonVariant.ghost,
-                      density: DButtonDensity.chrome,
-                      onPressed: state.refresh && !state.refreshing
-                          ? () => unawaited(tab.refreshTab())
-                          : null,
-                    ),
-                  ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: DSpacing.controlGap,
+              children: [
+                DButton.iconOnly(
+                  key: homeKey,
+                  icon: const DIcon(DIcons.house),
+                  tooltip: context.l10n.latest,
+                  semanticLabel: context.l10n.latest,
+                  variant: DButtonVariant.ghost,
+                  density: DButtonDensity.chrome,
+                  onPressed: () => ShellScope.read(
+                    context,
+                  ).openPageTab(ContentRoute.topicList(TopicListMode.latest)),
                 ),
-              ),
+                Flexible(
+                  child: DCard(
+                    variant: DCardVariant.capsule,
+                    size: DCardSize.small,
+                    borderColor: Colors.transparent,
+                    child: Semantics(
+                      container: true,
+                      explicitChildNodes: true,
+                      label: context.l10n.navigation,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: DSpacing.xxs,
+                        children: [
+                          DButton.iconOnly(
+                            key: backKey,
+                            icon: const DIcon(DIcons.arrowLeft),
+                            tooltip: context.l10n.backMouseBackButton,
+                            semanticLabel: context.l10n.back,
+                            shortcut: DShortcut(
+                              contentBackShortcutForPlatform(
+                                defaultTargetPlatform,
+                              ),
+                            ),
+                            variant: DButtonVariant.ghost,
+                            density: DButtonDensity.chrome,
+                            onPressed: state.back
+                                ? () =>
+                                      tab.handleBack(canReturnToSidebar: false)
+                                : null,
+                          ),
+                          DButton.iconOnly(
+                            key: forwardKey,
+                            icon: const RotatedBox(
+                              quarterTurns: 2,
+                              child: DIcon(DIcons.arrowLeft),
+                            ),
+                            tooltip: context.l10n.forwardMouseForwardButton,
+                            semanticLabel: context.l10n.forward,
+                            shortcut: DShortcut(
+                              contentForwardShortcutForPlatform(
+                                defaultTargetPlatform,
+                              ),
+                            ),
+                            variant: DButtonVariant.ghost,
+                            density: DButtonDensity.chrome,
+                            onPressed: state.forward ? tab.handleForward : null,
+                          ),
+                          DSeparator(
+                            orientation: Axis.vertical,
+                            space: 11,
+                            length: DControlStyle.scaledHeight(
+                              DControlSize.segment,
+                              MediaQuery.textScalerOf(context),
+                              context: context,
+                            ),
+                            indent: DSpacing.controlGap,
+                            endIndent: DSpacing.controlGap,
+                            color: tokens.border,
+                          ),
+                          DButton.iconOnly(
+                            key: refreshKey,
+                            icon: const DIcon(DIcons.arrowRotateRight),
+                            tooltip: context.l10n.refreshCurrentTab,
+                            shortcut: DShortcut(
+                              refreshTabShortcutForPlatform(
+                                defaultTargetPlatform,
+                              ),
+                            ),
+                            variant: DButtonVariant.ghost,
+                            density: DButtonDensity.chrome,
+                            onPressed: state.refresh && !state.refreshing
+                                ? () => unawaited(tab.refreshTab())
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },

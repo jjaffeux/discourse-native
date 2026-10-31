@@ -96,7 +96,7 @@ void main() {
   popoverBackdropTests();
 
   testWidgets(
-    'a phone sheet opened from reference-sized chrome reads at the app scale',
+    'a phone menu uses 17 point type with app and accessibility scaling',
     (tester) async {
       const platform = TextScaler.linear(2);
       const reading = AppTextScaler(
@@ -142,13 +142,16 @@ void main() {
       await tester.tap(find.text('Open menu'));
       await tester.pumpAndSettle();
       expect(find.text('Menu'), findsOneWidget);
-      // The control keeps reference geometry; the sheet it opens is a reading
-      // surface like every other sheet, with the phone's baseline uplift.
       expect(
         trigger,
         const AppTextScaler(platformScaler: platform, appScale: 1.25),
       );
-      expect(content, reading);
+      expect(content, trigger);
+      final paragraph = tester.renderObject<RenderParagraph>(find.text('Menu'));
+      final drawnFontSize =
+          paragraph.textScaler.scale(paragraph.text.style!.fontSize!) *
+          paragraph.getTransformTo(null).getMaxScaleOnAxis();
+      expect(drawnFontSize, closeTo(42.5, .001));
     },
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );

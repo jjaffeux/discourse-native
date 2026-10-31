@@ -128,7 +128,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Mobile menu sheet',
       description:
-          'A full-width menu that follows the viewport corners and keeps controls above the home indicator. Swipe down to dismiss.',
+          'A full-width menu with proportionally enlarged phone text, rows, icons, and fields. The handle and viewport corners keep their own sizes. Swipe down to dismiss.',
       code:
           'DSheetContent(variant: DSheetVariant.menu, side: DSheetSide.bottom, inset: true, showCloseButton: false, children: [body])',
       builder: (_) => DSheet<void>(
@@ -143,7 +143,7 @@ final sheetExamples = ComponentExamples(
           children: [
             Padding(
               padding: EdgeInsets.all(16),
-              child: Text('A compact menu over the current page.'),
+              child: Text('A menu at phone text sizes over the current page.'),
             ),
           ],
         ),
@@ -229,6 +229,28 @@ final sheetExamples = ComponentExamples(
             DSheetBody(
               child: Text('The panel stays centered as the workspace changes.'),
             ),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
+      title: 'Identity card sheet',
+      description:
+          'Cards keep their own artwork sizes. Full-height composer sheets also retain their existing scale.',
+      code:
+          'DSheetContent(variant: DSheetVariant.menu, card: true, side: DSheetSide.bottom, children: [body])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (_, open) => _trigger('Open identity card', open),
+        ),
+        content: const DSheetContent(
+          variant: DSheetVariant.menu,
+          card: true,
+          side: DSheetSide.bottom,
+          showCloseButton: false,
+          children: [
+            DSheetHeader(children: [DSheetTitle(child: Text('User card'))]),
+            DSheetBody(child: Text('Identity artwork retains its own sizing.')),
           ],
         ),
       ),

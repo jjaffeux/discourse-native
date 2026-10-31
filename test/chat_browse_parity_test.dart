@@ -318,14 +318,8 @@ void main() {
           expect(control.center.dy, activity.center.dy, reason: key);
         }
 
-        await tester.tap(
-          find.byKey(const ValueKey('chat-inbox-activity-filter')),
-        );
-        await tester.pumpAndSettle();
-        expect(find.byType(DDropdownMenuContent), findsOneWidget);
-        expect(find.text('Chat activity'), findsNothing);
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+        expect(find.byType(DToggleGroup<bool>), findsOneWidget);
+        expect(find.byType(DToggleGroup<ChatInboxSort>), findsOneWidget);
         expect(find.byType(DDropdownMenuContent), findsNothing);
 
         await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
@@ -556,35 +550,37 @@ void main() {
         find.byKey(const ValueKey('chat-inbox-navigation')),
       );
       expect(activity.top, greaterThan(title.bottom));
-      expect(sort.left, greaterThan(activity.right));
-      expect(sort.center.dy, activity.center.dy);
+      expect(sort.top, greaterThanOrEqualTo(activity.top));
+      expect(sort.right, lessThanOrEqualTo(width));
       expect(cards.top, greaterThan(activity.bottom));
       expect(find.byType(DToggleGroup<ChatBrowsePage>), findsNothing);
       expect(find.byKey(const ValueKey('user-presence-menu')), findsNothing);
-      expect(find.text('2 joined'), findsOneWidget);
+      expect(find.text('2 joined'), findsNothing);
       expect(find.text('Threads'), findsOneWidget);
       expect(find.text('2 threads'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('grouping menu offers By type and Newest', (tester) async {
-    await _pump(tester);
-    await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
-    await tester.pumpAndSettle();
-    final menu = find.byType(DDropdownMenuContent);
+  testWidgets('grouping switch offers By type and Newest without a popup', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    final group = find.byKey(const ValueKey('chat-inbox-sort-filter'));
     expect(
-      find.descendant(of: menu, matching: find.text('By type')),
+      find.descendant(of: group, matching: find.text('By type')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: menu, matching: find.text('Newest')),
+      find.descendant(of: group, matching: find.text('Newest')),
       findsOneWidget,
     );
+    await _pick(tester, 'chat-inbox-sort-filter', 'Newest');
     expect(
-      find.descendant(of: menu, matching: find.text('Direct messages')),
-      findsNothing,
+      fixture.chat.inboxFilters.filterFor(_site).sort,
+      ChatInboxSort.newest,
     );
+    expect(find.byType(DDropdownMenuContent), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -872,6 +868,77 @@ void main() {
     expect(find.text('Watercooler'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  for (final sidebar in [false, true]) {
+    testWidgets(
+      'folded ${sidebar ? 'sidebar' : 'page'} keeps the active conversation visible',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final fixture = await _pump(tester, size: const Size(900, 1200));
+        fixture.api.chatChannelsBySite[_site] = ChatChannels(
+          public: [
+            for (var id = 1; id <= 7; id++)
+              ChatChannel(
+                id: id,
+                title: 'Channel $id',
+                kind: ChatChannelKind.category,
+                membership: const ChatMembership(following: true),
+                lastMessageId: 100 + id,
+                lastMessageAt: DateTime.utc(2026, 10, 17, 0, 7 - id),
+              ),
+          ],
+          direct: const [
+            ChatChannel(
+              id: 99,
+              title: 'Ada',
+              kind: ChatChannelKind.directMessage,
+            ),
+          ],
+        );
+        await fixture.chat.loadChannels(_site, force: true);
+        await fixture.show(
+          sidebar ? _sidebarInbox() : const ChatMobileSidebar(siteUrl: _site),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Channel 7'), findsNothing);
+        expect(find.text('View 3 more'), findsOneWidget);
+        final scope = tester.element(find.byType(ChatInboxFilterBar));
+        PluginUiScope.require(scope, chatShellService).openChannel(7);
+        await tester.pumpAndSettle();
+        expect(find.text('Channel 7'), findsOneWidget);
+        expect(find.text('View 2 more'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.widgetWithText(DButton, 'View 2 more'))
+              .flagsCollection
+              .isExpanded,
+          ui.Tristate.isFalse,
+        );
+        await tester.tap(find.text('View 2 more'));
+        await tester.pumpAndSettle();
+        expect(find.text('Channel 5'), findsOneWidget);
+        expect(find.text('Channel 6'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.widgetWithText(DButton, 'View less'))
+              .flagsCollection
+              .isExpanded,
+          ui.Tristate.isTrue,
+        );
+        await tester.tap(find.text('View less'));
+        await tester.pumpAndSettle();
+        expect(find.text('Channel 5'), findsNothing);
+        expect(find.text('Channel 7'), findsOneWidget);
+        expect(find.text('View 2 more'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('Ada')).dy,
+          lessThan(tester.getTopLeft(find.text('Channel 1')).dy),
+        );
+        expect(tester.takeException(), isNull);
+        semantics.dispose();
+      },
+    );
+  }
 
   testWidgets('sidebar and inbox share grouping and real star actions', (
     tester,
@@ -1186,6 +1253,17 @@ Future<void> _tab(
 }
 
 Future<void> _pick(WidgetTester tester, String key, String value) async {
+  if (key == 'chat-inbox-activity-filter' || key == 'chat-inbox-sort-filter') {
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(ValueKey(key)),
+        matching: find.text(value),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    return;
+  }
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
   final mobile = switch (Theme.of(

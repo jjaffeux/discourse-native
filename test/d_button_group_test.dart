@@ -10,6 +10,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('inset selection follows independent child actions', (
+    tester,
+  ) async {
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: StatefulBuilder(
+              builder: (context, update) => DButtonGroup.inset(
+                selectedIndex: selected,
+                children: [
+                  for (final (index, label) in ['Latest', 'Unread'].indexed)
+                    DToggle(
+                      key: ValueKey(label),
+                      variant: DToggleVariant.segmented,
+                      size: DControlSize.segment,
+                      pressed: selected == index,
+                      onPressedChanged: (_) => update(() => selected = index),
+                      child: Text(label),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final indicator = find.byKey(
+      const ValueKey('toggle-group-sliding-indicator'),
+    );
+    expect(
+      tester.getRect(indicator),
+      tester.getRect(find.byKey(const ValueKey('Latest'))),
+    );
+    await tester.tap(find.text('Unread'));
+    await tester.pumpAndSettle();
+    expect(selected, 1);
+    expect(
+      tester.getRect(indicator),
+      tester.getRect(find.byKey(const ValueKey('Unread'))),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     testWidgets('spaced post controls use a visible gap on $platform', (
       tester,

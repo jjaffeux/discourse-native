@@ -369,8 +369,6 @@ void main() {
       await tester.pump();
       await frames(tester);
       expect(find.text('Nothing planned').hitTestable(), findsOneWidget);
-      await tester.tap(find.byType(DSelect<bool>));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('My events'));
       await tester.pumpAndSettle();
       expect(mine, isTrue);
@@ -496,10 +494,16 @@ void main() {
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(kalender.ScheduleBody)),
       );
-      await gesture.moveBy(const Offset(0, -100));
+      final toolbarHeight = tester
+          .getSize(find.byKey(const ValueKey('event-calendar-header')))
+          .height;
+      await gesture.moveBy(const Offset(0, -20));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.moveBy(Offset(0, -toolbarHeight - 40));
       await tester.pump(const Duration(milliseconds: 16));
       expect(pinned(), findsOneWidget);
       expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Tue 8');
+      await export(tester, 'paris-midnight-pinned');
       expect(call('before'), findsNothing);
       await gesture.up();
       expect(tester.takeException(), isNull);

@@ -183,22 +183,25 @@ class _DSheetMenuPhysics extends ScrollPhysics {
   const _DSheetMenuPhysics({
     required this.consume,
     required this.stopMomentum,
+    required this.contentScale,
     super.parent,
   });
 
   final double Function(ScrollMetrics, double) consume;
   final bool Function() stopMomentum;
+  final double contentScale;
 
   @override
   _DSheetMenuPhysics applyTo(ScrollPhysics? ancestor) => _DSheetMenuPhysics(
     consume: consume,
     stopMomentum: stopMomentum,
+    contentScale: contentScale,
     parent: buildParent(ancestor),
   );
 
   @override
   double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
-    final remaining = consume(position, offset);
+    final remaining = consume(position, offset * contentScale) / contentScale;
     // BouncingScrollPhysics expects a nonzero offset. A drag fully consumed
     // by the sheet has nothing left to send to the content viewport.
     return remaining == 0
@@ -231,6 +234,9 @@ class _DSheetMenuScrollBehavior extends ScrollBehavior {
   ScrollPhysics getScrollPhysics(BuildContext context) => _DSheetMenuPhysics(
     consume: consume,
     stopMomentum: stopMomentum,
+    contentScale: DMenuContentScale.isActiveOf(context)
+        ? DMenuContentScale.factor
+        : 1,
     parent: delegate.getScrollPhysics(context),
   );
 

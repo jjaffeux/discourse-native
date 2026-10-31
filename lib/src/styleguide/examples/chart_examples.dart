@@ -1004,7 +1004,7 @@ class _DashboardChartExample extends StatefulWidget {
 }
 
 class _DashboardChartExampleState extends State<_DashboardChartExample> {
-  DChartPlot _plot = DChartPlot.line;
+  DChartPlot _plot = DChartPlot.area;
   @override
   Widget build(BuildContext context) => DChartContainer(
     config: _config,
@@ -1022,6 +1022,11 @@ class _DashboardChartExampleState extends State<_DashboardChartExample> {
                 value: DChartPlot.line,
                 textValue: 'Line',
                 child: Text('Line'),
+              ),
+              DSelectItem(
+                value: DChartPlot.area,
+                textValue: 'Fading area',
+                child: Text('Fading area'),
               ),
               DSelectItem(
                 value: DChartPlot.stackedArea,

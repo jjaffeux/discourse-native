@@ -37,6 +37,27 @@ Rect _rect(WidgetTester tester, String name) =>
     tester.getRect(find.byKey(ValueKey(name)));
 
 void main() {
+  testWidgets('scaled menu controls retain a physical 44 point touch area', (
+    tester,
+  ) async {
+    final presses = <String>[];
+    await _pump(
+      tester,
+      Center(
+        child: Transform.scale(
+          scale: 17 / 13,
+          child: _Control('scaled', presses),
+        ),
+      ),
+    );
+    final center = _rect(tester, 'scaled').center;
+    await tester.tapAt(center + const Offset(21.5, 0));
+    expect(presses, ['scaled']);
+    presses.clear();
+    await tester.tapAt(center + const Offset(22.5, 0));
+    expect(presses, isEmpty);
+  });
+
   testWidgets('a phone press reaches 7 past a 30 point control, not 8', (
     tester,
   ) async {

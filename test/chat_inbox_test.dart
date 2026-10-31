@@ -40,13 +40,13 @@ void main() {
       final grouped = chatInboxSections(channels, ChatInboxSort.byType);
       expect(grouped.map((s) => s.kind), [
         ChatInboxSectionKind.starred,
-        ChatInboxSectionKind.channels,
         ChatInboxSectionKind.directMessages,
+        ChatInboxSectionKind.channels,
       ]);
       expect(grouped.map((s) => s.channels.map((c) => c.id).toList()), [
         [1, 3],
-        [2],
         [4],
+        [2],
       ]);
       final newest = chatInboxSections(channels, ChatInboxSort.newest);
       expect(newest.single.kind, ChatInboxSectionKind.allChats);
@@ -60,6 +60,47 @@ void main() {
       for (final sort in ChatInboxSort.values) {
         expect(chatInboxSections([], sort), isEmpty);
       }
+    },
+  );
+
+  test(
+    'section folding retains the active row and counts only hidden rows',
+    () {
+      const rows = [1, 2, 3, 4, 5, 6, 7];
+      final folded = ChatInboxSectionSlice(
+        rows,
+        expanded: false,
+        alone: false,
+        keep: (id) => id == 7,
+      );
+      expect(folded.visible, [1, 2, 3, 4, 7]);
+      expect(folded.hidden, 2);
+      expect(folded.canFold, isTrue);
+      final expanded = ChatInboxSectionSlice(
+        rows,
+        expanded: true,
+        alone: false,
+      );
+      expect(expanded.visible, rows);
+      expect(expanded.hidden, 0);
+      expect(expanded.canFold, isTrue);
+      final lone = ChatInboxSectionSlice(rows, expanded: false, alone: true);
+      expect(lone.visible, rows);
+      expect(lone.canFold, isFalse);
+      final five = ChatInboxSectionSlice(
+        [1, 2, 3, 4, 5],
+        expanded: false,
+        alone: false,
+      );
+      expect(five.visible, [1, 2, 3, 4, 5]);
+      expect(five.canFold, isFalse);
+      final six = ChatInboxSectionSlice(
+        [1, 2, 3, 4, 5, 6],
+        expanded: false,
+        alone: false,
+      );
+      expect(six.visible, [1, 2, 3, 4]);
+      expect(six.hidden, 2);
     },
   );
 

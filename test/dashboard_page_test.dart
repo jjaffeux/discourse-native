@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/shell/dashboard_controller.dart';
 import 'package:discourse_native/src/shell/dashboard_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -69,6 +70,71 @@ void main() {
       await loader.load();
     }
   });
+  testWidgets(
+    'dashboard changes use direction chips and comparison-colored report areas',
+    (tester) async {
+      await tester.pumpWidget(
+        dashboard(
+          state: DashboardState(
+            snapshot: DashboardSnapshot(
+              supported: true,
+              sections: [
+                DashboardHighlights(const [
+                  DashboardMetric('bounce_rate', 32, change: -10),
+                ]),
+                DashboardReports(const [
+                  DashboardReport(
+                    source: 'core_report',
+                    identifier: 'time_to_first_response',
+                    title: 'Response time',
+                    path: '/report',
+                  ),
+                ]),
+              ],
+            ),
+            reports: {
+              'core_report:time_to_first_response': DashboardReportResult(
+                points: const [
+                  DashboardPoint('2026-10-20', 3),
+                  DashboardPoint('2026-10-21', 3),
+                ],
+                average: true,
+                previousValue: 6,
+              ),
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final badge = find.ancestor(
+        of: find.text('-10.0%'),
+        matching: find.byType(DBadge),
+      );
+      expect(badge, findsOneWidget);
+      final tokens = DTokens.of(tester.element(badge));
+      expect(tester.widget<DBadge>(badge).foregroundColor, tokens.success);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DNativeIcons.caretDown,
+        ),
+        findsWidgets,
+      );
+      final report = find.byType(DCartesianChart<DashboardPoint>);
+      await tester.ensureVisible(report);
+      await tester.pumpAndSettle();
+      expect(find.text('-50.0%'), findsOneWidget);
+      final chart = tester.widget<DCartesianChart<DashboardPoint>>(report);
+      expect(chart.plot, DChartPlot.area);
+      expect(
+        DChartContainer.of(
+          tester.element(report),
+        ).color(tester.element(report), 'value'),
+        tokens.success,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [const Size(390, 844), const Size(1100, 900)]) {
     testWidgets('six dashboard sections render and scroll at $size', (
       tester,

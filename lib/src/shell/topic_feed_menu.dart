@@ -450,6 +450,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
                   : null,
               child: DButtonGroup.inset(
                 key: const ValueKey('topic-list-view-switch'),
+                selectedIndex: shown.indexOf(_current),
                 semanticLabel: context.l10n.topicLists,
                 children: [
                   for (final view in shown)

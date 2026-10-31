@@ -248,6 +248,8 @@ void main() {
             .position;
         await tester.drag(scroll, const Offset(0, -400));
         await tester.pumpAndSettle();
+        await tester.tap(find.text('View 36 more'));
+        await tester.pumpAndSettle();
         final pinnedTop = tester.getTopLeft(controls).dy;
         position.jumpTo(position.maxScrollExtent);
         await tester.pumpAndSettle();
@@ -255,9 +257,9 @@ void main() {
         expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
         expect(
           find
-              .descendant(of: controls, matching: find.byType(DButton))
+              .descendant(of: controls, matching: find.byType(DToggle))
               .hitTestable(),
-          findsOneWidget,
+          findsNWidgets(2),
         );
         expect(tester.getTopLeft(panels.tabs).dy, tabsTop);
         final offset = position.pixels;
@@ -271,11 +273,7 @@ void main() {
         expect(position.pixels, lessThan(offset));
         expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
         await tester.tap(
-          find.descendant(of: controls, matching: find.byType(DButton)),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(DDropdownMenuRadioItem<bool>, 'Unread'),
+          find.descendant(of: controls, matching: find.text('Unread')),
         );
         await tester.pumpAndSettle();
         expect(
@@ -341,9 +339,9 @@ void main() {
       expect(tester.getTopLeft(controls).dy, closeTo(pinnedTop, .1));
       final button = find.descendant(
         of: controls,
-        matching: find.byType(DButton),
+        matching: find.byType(DToggle),
       );
-      expect(button.hitTestable(), findsOneWidget);
+      expect(button.hitTestable(), findsNWidgets(2));
       await capture(tester, 'chat-sidebar-${mode.name}');
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));

@@ -41,6 +41,7 @@ class DCard extends ImplicitlyAnimatedWidget {
     this.variant = DCardVariant.standard,
     this.spacing,
     this.backgroundColor,
+    this.sheenColor,
     this.clipBehavior = Clip.antiAlias,
     this.border = true,
     this.borderColor,
@@ -82,6 +83,10 @@ class DCard extends ImplicitlyAnimatedWidget {
   /// descendant theme. Supports translucent fills over a shared backdrop.
   final Color? backgroundColor;
 
+  /// A subtle diagonal wash from the top-right corner, clipped with the card.
+  /// Null retains the plain surface fill.
+  final Color? sheenColor;
+
   /// Overrides the outline and clip together, for surfaces adjoining a window.
   /// Null uses the panel radius (or the capsule variant's rounded ends).
   final BorderRadiusGeometry? borderRadius;
@@ -102,20 +107,16 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
   ColorTween? _outline;
   @override
   void forEachTween(TweenVisitor<dynamic> visitor) {
-    _fill =
-        visitor(
-              _fill,
-              widget.backgroundColor,
-              (value) => ColorTween(begin: value as Color),
-            )
-            as ColorTween?;
-    _outline =
-        visitor(
-              _outline,
-              widget.borderColor,
-              (value) => ColorTween(begin: value as Color),
-            )
-            as ColorTween?;
+    _fill = visitor(
+      _fill,
+      widget.backgroundColor,
+      (value) => ColorTween(begin: value as Color),
+    ) as ColorTween?;
+    _outline = visitor(
+      _outline,
+      widget.borderColor,
+      (value) => ColorTween(begin: value as Color),
+    ) as ColorTween?;
   }
 
   @override
@@ -249,47 +250,62 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                 letterSpacing: 0,
                 color: tokens.foreground,
               ),
-              child: CustomPaint(
-                // CSS draws an inset shadow inside the border, even a
-                // transparent one.
-                foregroundPainter: edges?.insetPainter(
-                  radius,
-                  border: border && !dashedBorder
-                      ? const EdgeInsets.all(1)
-                      : EdgeInsets.zero,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: widget.sheenColor == null
+                      ? null
+                      : LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [
+                            widget.sheenColor!.withValues(alpha: .14),
+                            widget.sheenColor!.withValues(alpha: 0),
+                          ],
+                          stops: const [0, .65],
+                        ),
                 ),
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: compactCapsule
-                        ? DSpacing.xs + (border ? 1 : 0)
-                        : capsule
-                        ? DSpacing.sm
-                        : 0,
-                    right: compactCapsule
-                        ? DSpacing.xs + (border ? 1 : 0)
-                        : capsule
-                        ? DSpacing.sm
-                        : 0,
-                    top: leading == null ? inset : 0,
-                    bottom:
-                        footer == null &&
-                            !children.any((part) => part is DCardFooter) &&
-                            trailing == null
-                        ? inset
-                        : 0,
+                child: CustomPaint(
+                  // CSS draws an inset shadow inside the border, even a
+                  // transparent one.
+                  foregroundPainter: edges?.insetPainter(
+                    radius,
+                    border: border && !dashedBorder
+                        ? const EdgeInsets.all(1)
+                        : EdgeInsets.zero,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < parts.length; i++) ...[
-                        if (i > 0 &&
-                            !(parts[i - 1] is DCardContent &&
-                                (parts[i - 1] as DCardContent).joinNext))
-                          SizedBox(height: inset),
-                        parts[i],
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: compactCapsule
+                          ? DSpacing.xs + (border ? 1 : 0)
+                          : capsule
+                          ? DSpacing.sm
+                          : 0,
+                      right: compactCapsule
+                          ? DSpacing.xs + (border ? 1 : 0)
+                          : capsule
+                          ? DSpacing.sm
+                          : 0,
+                      top: leading == null ? inset : 0,
+                      bottom:
+                          footer == null &&
+                              !children.any((part) => part is DCardFooter) &&
+                              trailing == null
+                          ? inset
+                          : 0,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < parts.length; i++) ...[
+                          if (i > 0 &&
+                              !(parts[i - 1] is DCardContent &&
+                                  (parts[i - 1] as DCardContent).joinNext))
+                            SizedBox(height: inset),
+                          parts[i],
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -476,9 +492,8 @@ class DCardFooter extends StatelessWidget {
           child: Padding(
             padding:
                 padding ??
-                EdgeInsets.all(
-                  _spacing(context),
-                ).add(const EdgeInsets.only(top: 1)),
+                EdgeInsets.all(_spacing(context))
+                    .add(const EdgeInsets.only(top: 1)),
             child: child,
           ),
         ),

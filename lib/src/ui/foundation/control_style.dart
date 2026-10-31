@@ -4,6 +4,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import 'menu_content_scale.dart';
 import 'tokens.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
@@ -99,20 +100,24 @@ abstract final class DControlStyle {
     _ => true,
   };
 
+  /// Scaled phone menus supply their own proportional enlargement.
+  static bool usesTouchGeometry(BuildContext? context) =>
+      isTouch(context) && !DMenuContentScale.isActiveOf(context!);
+
   static double height(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.small => isTouch(context) ? 40 : smallHeight,
+        DControlSize.small => usesTouchGeometry(context) ? 40 : smallHeight,
         DControlSize.regular => regularHeight,
-        DControlSize.large => isTouch(context) ? 48 : largeHeight,
-        DControlSize.filter => isTouch(context) ? 44 : regularHeight,
+        DControlSize.large => usesTouchGeometry(context) ? 48 : largeHeight,
+        DControlSize.filter => usesTouchGeometry(context) ? 44 : regularHeight,
         DControlSize.floating => 40,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
         DControlSize.toolbar => 34,
-        DControlSize.segment => isTouch(context) ? 40 : 26,
+        DControlSize.segment => usesTouchGeometry(context) ? 40 : 26,
         DControlSize.chrome => 25,
-        DControlSize.action => isTouch(context) ? 44 : 34,
+        DControlSize.action => usesTouchGeometry(context) ? 44 : 34,
         DControlSize.post => 30,
         DControlSize.documentTab => 35,
         DControlSize.tabAction => 30,
@@ -121,7 +126,7 @@ abstract final class DControlStyle {
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.filter =>
-          isTouch(context) ? 16 : DiscourseTypography.preview,
+          usesTouchGeometry(context) ? 16 : DiscourseTypography.preview,
         DControlSize.floating => 14,
         DControlSize.small ||
         DControlSize.regular ||
@@ -130,7 +135,7 @@ abstract final class DControlStyle {
         DControlSize.toolbar ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
-        DControlSize.segment => isTouch(context) ? 16 : 12.5,
+        DControlSize.segment => usesTouchGeometry(context) ? 16 : 12.5,
         DControlSize.post => labelFontSize,
         DControlSize.documentTab ||
         DControlSize.tabAction ||
@@ -142,7 +147,7 @@ abstract final class DControlStyle {
       fontSize(size, context: context) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.filter => isTouch(context) ? 16 : 12,
+        DControlSize.filter => usesTouchGeometry(context) ? 16 : 12,
         DControlSize.floating => 15,
         DControlSize.small ||
         DControlSize.regular ||

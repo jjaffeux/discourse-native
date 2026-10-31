@@ -166,8 +166,10 @@ void main() {
         Rect surface(Finder control) => tester.getRect(
           find.descendant(of: control, matching: find.byType(DControlArtwork)),
         );
-        final scope = surface(button('All events'));
-        final view = surface(button('Month'));
+        final scope = tester.getRect(find.byType(DToggleGroup<bool>));
+        final view = tester.getRect(
+          find.byType(DToggleGroup<EventCalendarView>),
+        );
         final today = surface(button('Today'));
         final previous = surface(find.byTooltip('Previous month'));
         final next = surface(find.byTooltip('Next month'));
@@ -181,13 +183,13 @@ void main() {
         expect(title.top, platform == TargetPlatform.iOS ? 12 : 20);
         expect(scope.left, 16);
         expect(scope.top - title.bottom, closeTo(16, .01));
-        expect(view.left - scope.right, closeTo(8, .01));
-        expect(view.top, scope.top);
-        expect(today.center.dy, scope.center.dy);
+        expect(view.top, greaterThanOrEqualTo(scope.top));
+        expect(view.right, lessThanOrEqualTo(width - 16));
+        expect(today.left, greaterThanOrEqualTo(scope.right));
         expect(today.right, closeTo(width - 16, .01));
         expect(previous.left, closeTo(16, .01));
         expect(next.right, closeTo(width - 16, .01));
-        expect(previous.top - scope.bottom, closeTo(10, .01));
+        expect(previous.top, greaterThan(view.bottom));
         expect(period.center.dx, closeTo(width / 2, .01));
         expect(period.center.dy, previous.center.dy);
         expect(
@@ -208,17 +210,16 @@ void main() {
           DefaultTextStyle.of(
             tester.element(find.text('All events')),
           ).style.fontWeight,
-          FontWeight.w500,
+          FontWeight.w600,
         );
         expect(
           DefaultTextStyle.of(
             tester.element(find.text('Month')),
           ).style.fontWeight,
-          FontWeight.w500,
+          FontWeight.w600,
         );
-        expect(find.byType(DToggleGroup<bool>), findsNothing);
-        await tester.tap(find.byType(DSelect<EventCalendarView>));
-        await tester.pumpAndSettle();
+        expect(find.byType(DToggleGroup<bool>), findsOneWidget);
+        expect(find.byType(DSelect<bool>), findsNothing);
         for (final label in ['Week', 'Day', 'Year']) {
           expect(find.text(label), findsNothing);
         }
@@ -268,29 +269,37 @@ void main() {
     },
   );
 
-  testWidgets('the view select names a page view it does not offer', (
-    tester,
-  ) async {
-    page = EventCalendarPage(EventCalendarView.week, DateTime.utc(2026, 9, 8));
-    await pump(tester, [event(1)]);
-    expect(
-      find.descendant(
-        of: find.byType(DSelect<EventCalendarView>),
-        matching: find.text('Week'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('EventCalendarView'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'a route supplied Week view stays active until a switch is chosen',
+    (tester) async {
+      page = EventCalendarPage(
+        EventCalendarView.week,
+        DateTime.utc(2026, 9, 8),
+      );
+      await pump(tester, [event(1)]);
+      expect(find.text('Week'), findsOneWidget);
+      expect(page.view, EventCalendarView.week);
+      expect(
+        tester
+            .widget<DToggleGroup<EventCalendarView>>(
+              find.byType(DToggleGroup<EventCalendarView>),
+            )
+            .values,
+        isEmpty,
+      );
+      await tester.tap(find.text('Month'));
+      await tester.pumpAndSettle();
+      expect(page.view, EventCalendarView.month);
+      expect(find.textContaining('EventCalendarView'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'a narrow window with large text keeps all navigation reachable',
     (tester) async {
       await pump(tester, [event(1)], size: const Size(320, 780), scale: 2);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.byType(DSelect<EventCalendarView>));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('Next month'));
@@ -389,13 +398,9 @@ void main() {
         size: const Size(390, 844),
         platform: TargetPlatform.iOS,
       );
-      await tester.tap(find.byType(DSelect<EventCalendarView>));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       expect(page.view, EventCalendarView.schedule);
-      await tester.tap(find.byType(DSelect<bool>));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('My events'));
       await tester.pumpAndSettle();
       expect(mine, isTrue);
@@ -482,8 +487,6 @@ void main() {
       size: const Size(320, 844),
       platform: TargetPlatform.iOS,
     );
-    await tester.tap(find.byType(DSelect<EventCalendarView>));
-    await settle();
     await tester.tap(find.text('Schedule'));
     await settle();
     await tester.tap(find.byTooltip('Next month'));

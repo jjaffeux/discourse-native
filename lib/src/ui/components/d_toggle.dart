@@ -10,6 +10,7 @@ import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
+import 'd_group_indicator.dart';
 
 /// Toggle surface treatments, including the inset group's segmented choices.
 enum DToggleVariant { standard, outline, segmented, inline }
@@ -270,6 +271,7 @@ class _DToggleState extends State<DToggle> {
     final segmented = widget.variant == DToggleVariant.segmented;
     final viewSegment = segmented && widget.size == DToggleSize.segment;
     final inline = widget.variant == DToggleVariant.inline;
+    final sharedSelection = segmented && DGroupIndicator.contains(context);
     final outline = tokens.buttonTheme.outline;
 
     final postReaction = widget.density == DToggleDensity.postReaction;
@@ -531,6 +533,8 @@ class _DToggleState extends State<DToggle> {
                 )!.withValues(alpha: .28)
               : Colors.transparent
         : inline
+        ? Colors.transparent
+        : sharedSelection && _current
         ? Colors.transparent
         : viewSegment
         ? _current

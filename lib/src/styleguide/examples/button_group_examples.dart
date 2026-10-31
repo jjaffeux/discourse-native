@@ -6,7 +6,7 @@ import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 
 final buttonGroupExamples = ComponentExamples(
-  topLevelExampleIndex: 11,
+  topLevelExampleIndex: 12,
   description:
       'A joined container for independent actions, fields, and passive text.',
   status: ComponentStatus.implemented,
@@ -25,9 +25,18 @@ final buttonGroupExamples = ComponentExamples(
       'sharedOutline joins buttons and passive text under one outline without '
       'internal rules; the separators retain passive hit areas. '
       'inset draws the shared view-switch pill with 2px insets and gaps. '
+      'selectedIndex adds the same measured moving selection as Toggle Group. '
       'Its segment-sized Toggle children can keep independent dropdown triggers '
       'and overflow actions; Toggle Group uses this same frame for selection-only switches.',
   examples: [
+    StyleguideExample(
+      title: 'Inset choices with independent actions',
+      description:
+          'The selected child has a moving tinted indicator while each control retains its own activation.',
+      code:
+          'DButtonGroup.inset(selectedIndex: selectedIndex, children: choices)',
+      builder: (_) => const _InsetChoices(),
+    ),
     StyleguideExample(
       title: 'Composition and independent actions',
       description:
@@ -896,6 +905,33 @@ class _PopoverFixture extends StatelessWidget {
           ),
         ),
       ),
+    ],
+  );
+}
+
+class _InsetChoices extends StatefulWidget {
+  const _InsetChoices();
+
+  @override
+  State<_InsetChoices> createState() => _InsetChoicesState();
+}
+
+class _InsetChoicesState extends State<_InsetChoices> {
+  int _selected = 0;
+
+  @override
+  Widget build(BuildContext context) => DButtonGroup.inset(
+    selectedIndex: _selected,
+    semanticLabel: 'Topic views',
+    children: [
+      for (final (index, label) in ['Latest', 'Unread', 'Top'].indexed)
+        DToggle(
+          size: DControlSize.segment,
+          variant: DToggleVariant.segmented,
+          pressed: index == _selected,
+          onPressedChanged: (_) => setState(() => _selected = index),
+          child: Text(label),
+        ),
     ],
   );
 }
