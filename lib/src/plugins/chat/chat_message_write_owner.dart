@@ -1,6 +1,6 @@
 part of 'chat_controller.dart';
 
-enum _MessageWriteKind { edit, deletion, pin, flag, rebake }
+enum _MessageWriteKind { edit, deletion, pin, flag, rebake, interaction }
 
 final class _PinWriteSettlement {
   _PinWriteSettlement({
@@ -193,7 +193,7 @@ final class _AccountMessageWrites {
   bool get isCurrent => chat._requestIsCurrent(lease, () => !_retired);
 
   bool inFlight(int id, _MessageWriteKind kind) =>
-      !_retired && _active[id]?.kind == kind;
+      isCurrent && _active[id]?.kind == kind;
 
   _MessageWrite? _admit(
     _MessageWriteKind kind,
@@ -257,6 +257,50 @@ final class _AccountMessageWrites {
         pin.actorId != null &&
         pin.actorId == actorId) {
       pin.confirmed = true;
+    }
+  }
+
+  Future<String?> interact(int messageId, String actionId) async {
+    final message = chat._store.read<ChatMessage>(siteUrl, messageId);
+    if (!isCurrent ||
+        message == null ||
+        !chat.canInteractWithBlock(siteUrl, message, actionId)) {
+      return appL10n.chatActionUnavailable;
+    }
+    final ticket = _admit(_MessageWriteKind.interaction, [messageId]);
+    if (ticket == null) return appL10n.anotherMessageChangeIsStillFinishing;
+    onChanged();
+    try {
+      final credentials = await chat._requests.credentialsFor(siteUrl);
+      if (!_owns(ticket)) return null;
+      final apiKey = credentials.apiKey;
+      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
+      final current = chat._store.read<ChatMessage>(siteUrl, messageId);
+      if (current == null ||
+          !chat.canInteractWithBlock(siteUrl, current, actionId)) {
+        return appL10n.chatActionUnavailable;
+      }
+      await credentials.run(
+        () => chat.api.createChatMessageInteraction(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          channelId: current.channelId,
+          messageId: messageId,
+          actionId: actionId,
+        ),
+      );
+      return null;
+    } on WriteException catch (error) {
+      return _owns(ticket) ? error.message : null;
+    } catch (_) {
+      return _owns(ticket)
+          ? const WriteException(WriteFailure.unreachable).message
+          : null;
+    } finally {
+      final current = _owns(ticket);
+      _release(ticket);
+      if (current) onChanged();
     }
   }
 

@@ -23120,6 +23120,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A voice room with this name already exists.'**
   String get voiceRoomNameAlreadyExists;
+
+  /// Shown when a Chat block action is no longer permitted or present.
+  ///
+  /// In en, this message translates to:
+  /// **'This action is no longer available.'**
+  String get chatActionUnavailable;
+
+  /// Accessible description of the model which generated an AI Chat message.
+  ///
+  /// In en, this message translates to:
+  /// **'Model: {model}'**
+  String aiChatModel(String model);
+
+  /// Accessible label for a Chat bot avatar marker.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot account'**
+  String get chatBotAccount;
 }
 
 class _AppLocalizationsDelegate

@@ -19336,5 +19336,22 @@
   "voiceRoomNameAlreadyExists": "A voice room with this name already exists.",
   "@voiceRoomNameAlreadyExists": {
     "description": "Validation error in the Voice room form when another room in the forum has the trimmed name."
+  },
+  "chatActionUnavailable": "This action is no longer available.",
+  "@chatActionUnavailable": {
+    "description": "Shown when a Chat block action is no longer permitted or present."
+  },
+  "aiChatModel": "Model: {model}",
+  "@aiChatModel": {
+    "description": "Accessible description of the model which generated an AI Chat message.",
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "chatBotAccount": "Bot account",
+  "@chatBotAccount": {
+    "description": "Accessible label for a Chat bot avatar marker."
   }
 }

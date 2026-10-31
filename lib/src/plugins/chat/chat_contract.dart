@@ -10,4 +10,5 @@ export 'chat_inbox_rooms.dart'
         chatInboxRoomsService;
 export 'chat_inbox_section.dart' show ChatInboxSectionSlice, ChatInboxMore;
 export 'chat_message.dart' show ChatMessage;
+export 'chat_message_contract.dart';
 export 'chat_services.dart' show chatConversationService, chatPluginId;

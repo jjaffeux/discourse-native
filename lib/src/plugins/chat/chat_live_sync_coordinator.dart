@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_message_contract.dart';
 import 'chat_message_summary.dart';
 import 'chat_plugin_data.dart';
 import 'chat_stream_target.dart';
@@ -179,11 +180,14 @@ final class ChatLiveSyncCoordinator {
   ChatLiveSyncCoordinator({
     required PluginRequestHost requests,
     required ChatLiveSyncHost host,
+    ChatMessageDecoder decodeMessage = ChatMessage.fromJson,
   }) : _requests = requests,
-       _host = host;
+       _host = host,
+       _decodeMessage = decodeMessage;
 
   final PluginRequestHost _requests;
   final ChatLiveSyncHost _host;
+  final ChatMessageDecoder _decodeMessage;
   final Map<String, _ChatLiveSite> _sites = {};
   final Map<String, FrameSafeValueNotifier<Set<int>>> _presenceRefs = {};
   bool _disposed = false;
@@ -597,7 +601,7 @@ final class ChatLiveSyncCoordinator {
 
   void _applyRootEvent(String siteUrl, int channelId, Object? data) {
     if (data is! Map<String, dynamic>) return;
-    final event = _ChatLiveMessageEvent.decode(data, siteUrl);
+    final event = _ChatLiveMessageEvent.decode(data, siteUrl, _decodeMessage);
     if (event != null) {
       final message = event.message;
       if (message.channelId != channelId ||
@@ -630,7 +634,7 @@ final class ChatLiveSyncCoordinator {
       case 'thread_created':
         final payload = data['chat_message'];
         if (payload is! Map<String, dynamic>) return;
-        final message = ChatMessage.fromJson(payload, siteUrl);
+        final message = _decodeMessage(payload, siteUrl);
         if (message.channelId == channelId && message.thread != null) {
           _host.putLiveMessage(siteUrl, message, true);
         }
@@ -744,7 +748,7 @@ final class ChatLiveSyncCoordinator {
     if (data is! Map<String, dynamic>) return;
     final heldThread = _host.threadFor(siteUrl, target.threadId);
     final originalId = heldThread?.originalMessage?.id;
-    final event = _ChatLiveMessageEvent.decode(data, siteUrl);
+    final event = _ChatLiveMessageEvent.decode(data, siteUrl, _decodeMessage);
     if (event != null) {
       final message = event.message;
       if (message.channelId != target.channelId ||
@@ -1509,7 +1513,7 @@ final class ChatLiveSyncCoordinator {
       _host.admitActivityMessage(
         siteUrl,
         channelId,
-        ChatMessage.fromJson(payload, siteUrl),
+        _decodeMessage(payload, siteUrl),
       );
     }
     _host.notifyCanonicalChange();
@@ -1583,6 +1587,7 @@ final class _ChatLiveMessageEvent {
   static _ChatLiveMessageEvent? decode(
     Map<String, dynamic> data,
     String siteUrl,
+    ChatMessageDecoder decodeMessage,
   ) {
     final kind = switch (data['type']) {
       'sent' => _ChatLiveMessageKind.sent,
@@ -1593,7 +1598,7 @@ final class _ChatLiveMessageEvent {
     if (kind == null) return null;
     final payload = data['chat_message'];
     if (payload is! Map<String, dynamic>) return null;
-    final message = ChatMessage.fromJson(payload, siteUrl);
+    final message = decodeMessage(payload, siteUrl);
     if (message.id <= 0) return null;
     return _ChatLiveMessageEvent._(kind, message, data['staged_id'] is String);
   }

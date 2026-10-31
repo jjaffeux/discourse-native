@@ -14682,4 +14682,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get voiceRoomNameAlreadyExists =>
       'A voice room with this name already exists.';
+
+  @override
+  String get chatActionUnavailable => 'This action is no longer available.';
+
+  @override
+  String aiChatModel(String model) {
+    return 'Model: $model';
+  }
+
+  @override
+  String get chatBotAccount => 'Bot account';
 }

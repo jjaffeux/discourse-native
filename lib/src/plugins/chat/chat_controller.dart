@@ -18,6 +18,8 @@ import 'chat_direct_message_search.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
+import 'chat_message_blocks.dart';
+import 'chat_message_contract.dart';
 import 'chat_message_summary.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
@@ -384,6 +386,8 @@ class ChatController extends FrameSafeNotifier {
     PluginCookingHost? cookingHost,
     ChatCookingCoordinator? cookingScheduler,
     PluginTimezoneHost? timezoneHost,
+    this.decodeMessage = ChatMessage.fromJson,
+    this.messageContributions = const [],
 
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
@@ -457,6 +461,7 @@ class ChatController extends FrameSafeNotifier {
         );
     _liveSync = ChatLiveSyncCoordinator(
       requests: requests,
+      decodeMessage: decodeMessage,
       host: ChatLiveSyncHost(
         isDisposed: () => isDisposed,
         clock: _clock,
@@ -864,6 +869,9 @@ class ChatController extends FrameSafeNotifier {
   /// never sent after disconnect, disposal, or generation replacement.
   bool _requestIsCurrent(PluginSiteLease lease, bool Function() ownsRequest) =>
       !isDisposed && lease.isCurrent && ownsRequest();
+
+  final ChatMessageDecoder decodeMessage;
+  final List<ChatMessageContribution<Object>> messageContributions;
 
   late final ChatChannelListController channelListPreferences;
   final ChatInboxFilters inboxFilters = ChatInboxFilters();
@@ -1987,6 +1995,42 @@ class ChatController extends FrameSafeNotifier {
       _siteConfigFor(siteUrl).emojiEnabled &&
       _canInteractWithMessage(siteUrl, message, requireFollowing: true);
 
+  bool canInteractWithBlock(
+    String siteUrl,
+    ChatMessage message,
+    String actionId,
+  ) =>
+      !isDisposed &&
+      _currentUserFor(siteUrl) != null &&
+      message.id > 0 &&
+      !message.isOptimistic &&
+      !message.isDeleted &&
+      (channel(siteUrl, message.channelId)?.canJoin == true ||
+          channel(siteUrl, message.channelId)?.membership.following == true) &&
+      message.blocks.any(
+        (block) =>
+            (block is! ChatConfirmationBlock || block.cookedStatus == null) &&
+            block.elements.any(
+              (element) =>
+                  element is ChatBlockButton && element.actionId == actionId,
+            ),
+      );
+
+  bool messageInteractionPending(String siteUrl, int messageId) =>
+      _messageWriteOwners[siteUrl]?.inFlight(
+        messageId,
+        _MessageWriteKind.interaction,
+      ) ==
+      true;
+
+  Future<String?> interactWithMessage(
+    String siteUrl,
+    int messageId,
+    String actionId,
+  ) => isDisposed
+      ? Future.value()
+      : _messageWritesFor(siteUrl).interact(messageId, actionId);
+
   bool canReplyToMessage(String siteUrl, ChatMessage message) =>
       _canInteractWithMessage(siteUrl, message, requireFollowing: true);
 
@@ -3083,7 +3127,7 @@ class ChatController extends FrameSafeNotifier {
 
       // This temporary listener only reconciles this client's remaining local rows.
       if (payload is! Map<String, dynamic>) return;
-      final canonical = ChatMessage.fromJson(payload, siteUrl);
+      final canonical = decodeMessage(payload, siteUrl);
       if (canonical.id <= 0 ||
           canonical.channelId != target.channelId ||
           canonical.threadId != target.threadId) {

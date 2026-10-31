@@ -1,4 +1,7 @@
+import 'package:discourse_native/discourse_chat.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+
+import 'ai_chat_message.dart';
 import 'ai_conversations_plugin.dart';
 import 'ai_conversations_service.dart';
 import 'ai_proofreading_api.dart';
@@ -17,11 +20,19 @@ final class DiscourseAiModule implements PluginModule {
   @override
   PluginDescriptor get descriptor => PluginDescriptor(
     id: discourseAiPluginId,
+    staticContributionTargets: const [
+      PluginStaticContributionTarget(PluginId('chat'), optional: true),
+    ],
     liveChannelScopes: {const PluginLiveChannelScope.prefix('/discourse-ai')},
   );
 
   @override
   void register(PluginRegistrar registrar) {
+    registrar.addStaticContribution(
+      chatMessageContributions,
+      name: 'model-attribution',
+      value: const AiChatMessageContribution(),
+    );
     registrar.addCapability(const AiConversationsPlugin());
     registrar.addCapability(const AiSummaryPlugin());
     registrar.addCapability(const AiProofreadingPlugin());

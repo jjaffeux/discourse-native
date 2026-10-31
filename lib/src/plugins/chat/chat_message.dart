@@ -2,6 +2,8 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_bookmark.dart';
+import 'chat_message_blocks.dart';
+import 'chat_message_contract.dart';
 import 'chat_preview.dart';
 
 /// Preview metadata is trusted only when supplied by an app-owned picker.
@@ -85,6 +87,7 @@ class ChatMessageAuthor {
     this.status,
     this.flair,
     this.isStaff = false,
+    this.isBot = false,
   });
 
   factory ChatMessageAuthor.fromJson(Object? value, String siteUrl) {
@@ -98,6 +101,10 @@ class ChatMessageAuthor {
       avatarUrl: resolveAvatarUrl(jsonText(value['avatar_template']), siteUrl),
       status: UserStatus.fromJson(value['status']),
       flair: UserFlair.fromJson(value, siteUrl),
+      isBot:
+          value['id'] is int &&
+          (value['id'] as int) <= 0 &&
+          jsonString(value['username']).isNotEmpty,
       // Discourse serializes `staff` alongside the two constituent roles.
       isStaff:
           value['admin'] == true ||
@@ -113,6 +120,7 @@ class ChatMessageAuthor {
   final UserStatus? status;
   final UserFlair? flair;
   final bool isStaff;
+  final bool isBot;
 
   String get displayName => name ?? username;
 
@@ -125,11 +133,12 @@ class ChatMessageAuthor {
       other.avatarUrl == avatarUrl &&
       other.status == status &&
       other.flair == flair &&
-      other.isStaff == isStaff;
+      other.isStaff == isStaff &&
+      other.isBot == isBot;
 
   @override
   int get hashCode =>
-      Object.hash(id, username, name, avatarUrl, status, flair, isStaff);
+      Object.hash(id, username, name, avatarUrl, status, flair, isStaff, isBot);
 }
 
 /// [reactorIds] is a truncated deduplication aid; [count] is authoritative.
@@ -589,6 +598,8 @@ class ChatMessage with Storable<ChatMessage> {
     required this.cooked,
     required this.author,
     this.mentionedUserStatuses = const {},
+    this.blocks = const [],
+    this.plugins = PluginData.none,
     this.raw = '',
     this.createdAt,
     this.deletedAt,
@@ -666,7 +677,11 @@ class ChatMessage with Storable<ChatMessage> {
     );
   }
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    PluginData plugins = PluginData.none,
+  }) {
     final replyTo = switch (json['in_reply_to']) {
       final Map<String, dynamic> reply => reply,
       _ => null,
@@ -677,6 +692,8 @@ class ChatMessage with Storable<ChatMessage> {
       cooked: jsonString(json['cooked']),
       author: ChatMessageAuthor.fromJson(json['user'], siteUrl),
       mentionedUserStatuses: userStatusesByUsername(json['mentioned_users']),
+      blocks: ChatBlock.parse(json['blocks']),
+      plugins: plugins,
       raw: jsonString(json['message']),
       createdAt: jsonDate(json['created_at']),
       deletedAt: jsonDate(json['deleted_at']),
@@ -717,6 +734,7 @@ class ChatMessage with Storable<ChatMessage> {
     ChatMessagePageWindow window = ChatMessagePageWindow.retainNewest,
     int maximumMessages = maximumPageSize,
     bool markFirstOfResults = false,
+    ChatMessageDecoder? decodeMessage,
   }) {
     if (maximumMessages < 1 || maximumMessages > maximumPageSize) {
       throw RangeError.range(
@@ -736,7 +754,7 @@ class ChatMessage with Storable<ChatMessage> {
     return (
       messages: List.unmodifiable([
         for (final (index, entry) in bounded.entries.indexed)
-          ChatMessage.fromJson(
+          (decodeMessage ?? ChatMessage.fromJson)(
             markFirstOfResults
                 ? {...entry, 'first_of_results': index == 0}
                 : entry,
@@ -812,6 +830,8 @@ class ChatMessage with Storable<ChatMessage> {
   final ChatMessageAuthor author;
   final Map<String, UserStatusReference> mentionedUserStatuses;
   final String raw;
+  final List<ChatBlock> blocks;
+  final PluginData plugins;
   final DateTime? createdAt;
 
   final DateTime? deletedAt;
@@ -897,6 +917,8 @@ class ChatMessage with Storable<ChatMessage> {
       cooked: cooked,
       author: author,
       mentionedUserStatuses: mentionedUserStatuses,
+      blocks: blocks,
+      plugins: plugins,
       raw: raw,
       createdAt: createdAt,
       deletedAt: deletedAt,
@@ -964,6 +986,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1008,6 +1032,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1046,6 +1072,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: canonical.cooked,
     author: canonical.author,
     mentionedUserStatuses: canonical.mentionedUserStatuses,
+    blocks: canonical.blocks,
+    plugins: canonical.plugins,
     raw: canonical.raw,
     createdAt: canonical.createdAt,
     deletedAt: canonical.deletedAt,
@@ -1078,6 +1106,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1115,6 +1145,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1156,6 +1188,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1197,6 +1231,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1234,6 +1270,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: source.cooked,
     author: author,
     mentionedUserStatuses: source.mentionedUserStatuses,
+    blocks: source.blocks,
+    plugins: source.plugins,
     raw: source.raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1273,6 +1311,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1312,6 +1352,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1349,6 +1391,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1386,6 +1430,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1423,6 +1469,8 @@ class ChatMessage with Storable<ChatMessage> {
     cooked: cooked,
     author: author,
     mentionedUserStatuses: mentionedUserStatuses,
+    blocks: blocks,
+    plugins: plugins,
     raw: raw,
     createdAt: createdAt,
     deletedAt: deletedAt,
@@ -1468,6 +1516,8 @@ class ChatMessage with Storable<ChatMessage> {
       cooked: cooked,
       author: author,
       mentionedUserStatuses: mentionedUserStatuses,
+      blocks: blocks,
+      plugins: plugins,
       raw: raw,
       createdAt: createdAt,
       deletedAt: deletedAt,
@@ -1530,6 +1580,8 @@ class ChatMessage with Storable<ChatMessage> {
           other.cooked == cooked &&
           other.author == author &&
           mapEquals(other.mentionedUserStatuses, mentionedUserStatuses) &&
+          listEquals(other.blocks, blocks) &&
+          other.plugins == plugins &&
           other.raw == raw &&
           other.createdAt == createdAt &&
           other.deletedAt == deletedAt &&
@@ -1574,6 +1626,8 @@ class ChatMessage with Storable<ChatMessage> {
         Object.hash(entry.key, entry.value),
     ]),
     raw,
+    Object.hashAll(blocks),
+    plugins,
     createdAt,
     Object.hash(
       deletedAt,

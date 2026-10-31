@@ -11,6 +11,15 @@ enum ChatReactionAction { add, remove }
 typedef ChatMessageMove = ({int destinationChannelId, int firstMovedMessageId});
 
 abstract interface class ChatApi {
+  Future<void> createChatMessageInteraction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String actionId,
+    String? clientId,
+  });
+
   Future<ChatDirectMessageSearchResults> searchChatDirectMessages({
     required String siteUrl,
     required String apiKey,

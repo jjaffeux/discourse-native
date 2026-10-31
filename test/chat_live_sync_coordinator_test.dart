@@ -4,14 +4,75 @@ import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_live_sync_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/discourse_ai/ai_chat_message.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _site = 'https://meta.discourse.org';
 
 void main() {
   group('ChatLiveSyncCoordinator', () {
+    test(
+      'full channel and thread updates decode blocks and optional model data through the installed codec',
+      () {
+        final codec = ChatMessageCodec([const AiChatMessageContribution()]);
+        final fixture = _Fixture(decodeMessage: codec.decode);
+        final tracker = _viewStreams(fixture);
+        fixture.coordinator.beginViewingChannel(_site, 9);
+        final root = tracker.latest('/chat/9');
+        final thread = tracker.latest('/chat/9/thread/22');
+        Map<String, dynamic> event(
+          String type, {
+          int? threadId,
+          bool extras = true,
+        }) => {
+          'type': type,
+          'chat_message': {
+            'id': 101,
+            'chat_channel_id': 9,
+            'thread_id': threadId,
+            'cooked': '<p>Approval</p>',
+            if (extras) 'ai_llm_name': 'Model B',
+            if (extras)
+              'blocks': [
+                {
+                  'type': 'actions',
+                  'elements': [
+                    {
+                      'type': 'button',
+                      'action_id': 'go',
+                      'text': {'text': 'Go'},
+                    },
+                  ],
+                },
+              ],
+          },
+        };
+        root.deliver(event('sent'), 70);
+        thread.deliver(event('processed', threadId: 22), 80);
+        expect(fixture.liveMessages, hasLength(2));
+        expect(
+          fixture.liveMessages.every(
+            (message) => message.blocks.single.elements.length == 1,
+          ),
+          isTrue,
+        );
+        expect(
+          fixture.liveMessages.map(
+            (message) => message.plugins
+                .get(const AiChatMessageContribution().key)
+                ?.model,
+          ),
+          ['Model B', 'Model B'],
+        );
+        root.deliver(event('refresh', extras: false), 71);
+        expect(fixture.liveMessages.last.blocks, isEmpty);
+        expect(fixture.liveMessages.last.plugins.isEmpty, isTrue);
+      },
+    );
+
     test('attaches the complete snapshot from its canonical cursors', () {
       final fixture = _Fixture();
       addTearDown(fixture.coordinator.dispose);
@@ -807,9 +868,13 @@ Map<String, dynamic> _newMessageEvent(int messageId) => {
 };
 
 final class _Fixture {
-  _Fixture({_Requests? requests}) : requests = requests ?? _Requests() {
+  _Fixture({
+    _Requests? requests,
+    ChatMessageDecoder decodeMessage = ChatMessage.fromJson,
+  }) : requests = requests ?? _Requests() {
     coordinator = ChatLiveSyncCoordinator(
       requests: this.requests,
+      decodeMessage: decodeMessage,
       host: ChatLiveSyncHost(
         isDisposed: () => false,
         clock: () => DateTime.utc(2026, 8, 8),

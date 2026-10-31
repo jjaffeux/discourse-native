@@ -3841,6 +3841,16 @@ class FakeDiscourseApi
   }
 
   @override
+  Future<void> createChatMessageInteraction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String actionId,
+    String? clientId,
+  }) async {}
+
+  @override
   Future<void> flagChatMessage({
     required String siteUrl,
     required String apiKey,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_message_contract.dart';
 import 'chat_search_response.dart';
 
 enum ChatSearchSort { relevance, latest }
@@ -37,12 +38,16 @@ final class ChatSearchPage {
   static const int defaultPageSize = ChatSearchResponse.defaultPageSize;
   static const int maximumPageSize = ChatSearchResponse.maximumPageSize;
 
-  factory ChatSearchPage.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory ChatSearchPage.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    ChatMessageDecoder? decodeMessage,
+  }) {
     final response = ChatSearchResponse.fromJson(json);
     final hits = <ChatSearchHit>[];
     for (final record in response.records) {
       final entry = record.message;
-      final message = ChatMessage.fromJson(entry, siteUrl);
+      final message = (decodeMessage ?? ChatMessage.fromJson)(entry, siteUrl);
       final channel = ChatChannel.fromJson(record.channel, siteUrl);
       hits.add(
         ChatSearchHit(
