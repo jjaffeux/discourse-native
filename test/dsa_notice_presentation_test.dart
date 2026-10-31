@@ -101,7 +101,11 @@ void main() {
       find.byKey(const ValueKey('dsa-explanation')),
       'This content contains an illegal threat against a named person.',
     );
-    tester.testTextInput.hide();
+    if (tester.testTextInput.isRegistered) {
+      tester.testTextInput.hide();
+    } else {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
     await tester.pumpAndSettle();
     final declaration = find.byKey(const ValueKey('dsa-declaration'));
     await tester.ensureVisible(declaration);

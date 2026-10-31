@@ -160,6 +160,7 @@ dev_dependencies:
 
   # Exercise native playback notifications and platform-view rebuilds.
   video_player_platform_interface: 6.9.0
+  url_launcher_platform_interface: 2.3.2
 
   # Gate native calendar export continuations without opening platform UI.
   file_selector_platform_interface: 2.7.0

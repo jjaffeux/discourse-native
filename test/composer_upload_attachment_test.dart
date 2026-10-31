@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -47,7 +48,13 @@ void main() {
           if (!composer.isDisposed) composer.dispose();
         });
         await tester.runAsync(() async {
-          final bytes = await File('assets/app_icon.png').readAsBytes();
+          final asset = await rootBundle.load(
+            'packages/discourse_native/src/styleguide/assets/discourse.png',
+          );
+          final bytes = asset.buffer.asUint8List(
+            asset.offsetInBytes,
+            asset.lengthInBytes,
+          );
           composer.addFiles([
             ComposerUploadFile(
               name: 'Sailing.png',

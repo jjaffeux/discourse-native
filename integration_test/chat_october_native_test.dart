@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,8 +9,6 @@ import '../test/dsa_notice_presentation_test.dart' as reporting;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  const workspace = String.fromEnvironment('NATIVE_TEST_WORKSPACE');
-  if (workspace.isNotEmpty) Directory.current = workspace;
   setUp(() => SharedPreferences.setMockInitialValues({}));
   group('Chat action blocks', blocks.main);
   group('Chat transcripts', transcripts.main);

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
@@ -10,7 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
+import 'package:url_launcher_platform_interface/method_channel_url_launcher.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
+import 'fixtures/chat_thread_transcript.dart';
 import 'support/native_ui_evidence.dart';
 
 Future<void> pumpTranscript(
@@ -86,9 +87,7 @@ void main() {
       'TranscriptReview',
     )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
   });
-  final threadTranscript = File(
-    'test/fixtures/chat_thread_transcript.html',
-  ).readAsStringSync();
+  const threadTranscript = chatThreadTranscriptHtml;
   final title = find.textContaining('Better Discourse app', findRichText: true);
   final reply = find.textContaining('RFC: native app', findRichText: true);
 
@@ -290,6 +289,9 @@ void main() {
   testWidgets(
     'timestamp and thread links retain destinations with replies visible',
     (tester) async {
+      final launcher = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = MethodChannelUrlLauncher();
+      addTearDown(() => UrlLauncherPlatform.instance = launcher);
       const channel = MethodChannel('plugins.flutter.io/url_launcher');
       final launched = <String>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (

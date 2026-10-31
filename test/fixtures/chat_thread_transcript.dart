@@ -1,4 +1,5 @@
-<!-- Structure emitted by plugins/chat/assets/javascripts/lib/discourse-markdown/chat-transcript.js
+const chatThreadTranscriptHtml =
+    r'''<!-- Structure emitted by plugins/chat/assets/javascripts/lib/discourse-markdown/chat-transcript.js
      in discourse at 67bc74d0d83, including its closing-tag order. -->
 <div class="chat-transcript" data-message-id="101" data-username="nat" data-datetime="2026-10-02T04:18:00Z" data-channel-name="general" data-channel-id="5" data-multiquote="true" data-thread-id="140" data-thread-title="Better Discourse app scraping concerns and legal discussion">
 <div class="chat-transcript-meta">
@@ -41,3 +42,4 @@ Better Discourse app scraping concerns and legal discussion</span>
 </div></details>
 </div>
 </div>
+''';
