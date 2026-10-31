@@ -2563,8 +2563,10 @@ class DSheetContent extends StatelessWidget {
               : Clip.none,
           color: surfaceColor,
           textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: DiscourseTypography.sm,
-            height: 20 / 14,
+            fontSize: scaleContents
+                ? DControlStyle.labelFontSize
+                : DiscourseTypography.sm,
+            height: scaleContents ? 1.5 : 20 / 14,
             fontWeight: FontWeight.w400,
             letterSpacing: 0,
             color: tokens.foreground,
