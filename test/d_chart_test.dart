@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -69,6 +70,130 @@ Future<void> pump(
 );
 
 void main() {
+  testWidgets('area fill fades downward without changing the line', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    await pump(
+      tester,
+      RepaintBoundary(
+        key: key,
+        child: DCartesianChart<int>(
+          plot: DChartPlot.area,
+          data: const [10, 10],
+          series: [
+            DChartSeries(
+              key: 'desktop',
+              value: (value) => value,
+              color: (_, _) => Colors.red,
+            ),
+          ],
+          label: (value) => '$value',
+          semanticLabel: 'Area trend',
+          minValue: 0,
+          maxValue: 10,
+          tooltip: false,
+        ),
+      ),
+    );
+    await tester.pump();
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    await tester.runAsync(() async {
+      final image = await boundary.toImage();
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      int alpha(int y) => bytes.getUint8((y * image.width + 180) * 4 + 3);
+      expect(alpha(30), greaterThan(alpha(160)));
+      expect(alpha(5), greaterThan(alpha(30)));
+      final directory = Platform.environment['DASHBOARD_PREVIEW_DIR'];
+      if (directory != null) {
+        final output = File('$directory/area.png');
+        await output.parent.create(recursive: true);
+        await output.writeAsBytes(
+          (await image.toByteData(
+            format: ui.ImageByteFormat.png,
+          ))!.buffer.asUint8List(),
+        );
+      }
+      image.dispose();
+    });
+  });
+
+  testWidgets(
+    'stacked gradients dim other series while retaining their bands',
+    (tester) async {
+      final key = GlobalKey();
+      Future<ui.Image> render(String? emphasized) async {
+        await pump(
+          tester,
+          RepaintBoundary(
+            key: key,
+            child: DCartesianChart<int>(
+              plot: DChartPlot.stackedArea,
+              emphasizedSeries: emphasized,
+              data: const [4, 4],
+              series: [
+                DChartSeries(
+                  key: 'desktop',
+                  value: (value) => value,
+                  color: (_, _) => Colors.red,
+                ),
+                DChartSeries(
+                  key: 'mobile',
+                  value: (value) => value,
+                  color: (_, _) => Colors.blue,
+                ),
+              ],
+              label: (value) => '$value',
+              semanticLabel: 'Traffic bands',
+              minValue: 0,
+              maxValue: 8,
+              tooltip: false,
+            ),
+          ),
+        );
+        await tester.pump();
+        final boundary =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        return (await tester.runAsync(() => boundary.toImage()))!;
+      }
+
+      final full = await render(null);
+      final dimmed = await render('mobile');
+      await tester.runAsync(() async {
+        final before = (await full.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        final after = (await dimmed.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        int offset(int y) => (y * full.width + 180) * 4;
+        expect(
+          after.getUint8(offset(125) + 3),
+          lessThan(before.getUint8(offset(125) + 3)),
+        );
+        expect(after.getUint32(offset(30)), before.getUint32(offset(30)));
+        expect(
+          before.getUint8(offset(115) + 3),
+          greaterThan(before.getUint8(offset(180) + 3)),
+        );
+        final directory = Platform.environment['DASHBOARD_PREVIEW_DIR'];
+        if (directory != null) {
+          final output = File('$directory/traffic.png');
+          await output.writeAsBytes(
+            (await full.toByteData(
+              format: ui.ImageByteFormat.png,
+            ))!.buffer.asUint8List(),
+          );
+        }
+        full.dispose();
+        dimmed.dispose();
+      });
+    },
+  );
+
   testWidgets('isolated stacked samples paint without filling missing dates', (
     tester,
   ) async {
@@ -109,7 +234,11 @@ void main() {
       image.dispose();
     }
   });
-  for (final kind in [DChartPlot.line, DChartPlot.stackedArea]) {
+  for (final kind in [
+    DChartPlot.line,
+    DChartPlot.area,
+    DChartPlot.stackedArea,
+  ]) {
     testWidgets(
       '$kind reuses keyboard inspection and preserves missing values',
       (tester) async {

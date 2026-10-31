@@ -483,7 +483,7 @@ class DChartController extends ValueNotifier<int?> {
 typedef DChartTooltipBuilder =
     Widget Function(BuildContext context, String label, List<DChartItem> items);
 
-enum DChartPlot { bar, line, stackedArea }
+enum DChartPlot { bar, line, area, stackedArea }
 
 /// Native Cartesian plotting with shared inspection, axes, and accessibility.
 ///
@@ -513,6 +513,7 @@ class DCartesianChart<T> extends StatefulWidget {
     this.height = 200,
     this.barRadius = 4,
     this.plot = DChartPlot.bar,
+    this.emphasizedSeries,
     this.margin = const EdgeInsets.all(5),
     this.tickMargin = 10,
     this.minTickGap = 5,
@@ -555,6 +556,10 @@ class DCartesianChart<T> extends StatefulWidget {
   final double height;
   final double barRadius;
   final DChartPlot plot;
+
+  /// Area or line series to retain at full strength while others are dimmed.
+  /// Null gives every series equal emphasis without changing its values.
+  final String? emphasizedSeries;
   final EdgeInsetsGeometry margin;
   final double tickMargin;
   final double minTickGap;
@@ -864,6 +869,7 @@ class _DCartesianChartState<T> extends State<DCartesianChart<T>> {
                                 painter: _BarPainter(
                                   rows: rows,
                                   kind: widget.plot,
+                                  emphasizedSeries: widget.emphasizedSeries,
                                   labels: labels,
                                   plot: plot,
                                   low: low,
@@ -962,6 +968,7 @@ class _BarPainter extends CustomPainter {
   const _BarPainter({
     required this.rows,
     required this.kind,
+    required this.emphasizedSeries,
     required this.labels,
     required this.plot,
     required this.low,
@@ -984,6 +991,7 @@ class _BarPainter extends CustomPainter {
   });
   final List<List<DChartItem>> rows;
   final DChartPlot kind;
+  final String? emphasizedSeries;
   final List<String> labels;
   final Rect plot;
   final double low, high, radius;
@@ -1138,22 +1146,30 @@ class _BarPainter extends CustomPainter {
         for (var index = start + 1; index <= end; index++) {
           path.lineTo(x(index), y(top(index)));
         }
-        final color = rows[start][series].color!;
+        final item = rows[start][series];
+        final opacity = emphasizedSeries == null || emphasizedSeries == item.key
+            ? 1.0
+            : .25;
+        final color = item.color!.withValues(alpha: item.color!.a * opacity);
         if (kind == DChartPlot.stackedArea) {
-          paint
-            ..style = PaintingStyle.fill
-            ..color = color.withValues(alpha: .72);
+          paint.style = PaintingStyle.fill;
+          Shader gradient(Rect bounds) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color.withValues(alpha: color.a * .4),
+              color.withValues(alpha: color.a * .08),
+            ],
+          ).createShader(bounds);
           if (start == end) {
             final halfWidth = math.min(3.0, slot * .4);
-            canvas.drawRect(
-              Rect.fromLTRB(
-                x(start) - halfWidth,
-                y(top(start)),
-                x(start) + halfWidth,
-                y(base(start)),
-              ),
-              paint,
+            final band = Rect.fromLTRB(
+              x(start) - halfWidth,
+              y(top(start)),
+              x(start) + halfWidth,
+              y(base(start)),
             );
+            canvas.drawRect(band, paint..shader = gradient(band));
             start = end + 1;
             continue;
           }
@@ -1161,19 +1177,40 @@ class _BarPainter extends CustomPainter {
             path.lineTo(x(index), y(base(index)));
           }
           path.close();
-          canvas.drawPath(path, paint);
+          canvas.drawPath(path, paint..shader = gradient(path.getBounds()));
         } else if (start == end) {
           canvas.drawCircle(
             Offset(x(start), y(top(start))),
             2,
             paint
+              ..shader = null
               ..style = PaintingStyle.fill
               ..color = color,
           );
         } else {
+          if (kind == DChartPlot.area) {
+            final area = Path.from(path)
+              ..lineTo(x(end), y(0))
+              ..lineTo(x(start), y(0))
+              ..close();
+            canvas.drawPath(
+              area,
+              paint
+                ..style = PaintingStyle.fill
+                ..shader = LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    color.withValues(alpha: color.a * .3),
+                    color.withValues(alpha: 0),
+                  ],
+                ).createShader(plot),
+            );
+          }
           canvas.drawPath(
             path,
             paint
+              ..shader = null
               ..style = PaintingStyle.stroke
               ..strokeWidth = 2
               ..strokeJoin = StrokeJoin.round
@@ -1183,7 +1220,9 @@ class _BarPainter extends CustomPainter {
         start = end + 1;
       }
     }
-    paint.style = PaintingStyle.fill;
+    paint
+      ..shader = null
+      ..style = PaintingStyle.fill;
     canvas.restore();
   }
 

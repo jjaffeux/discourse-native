@@ -68,6 +68,51 @@ final class DiscourseDashboardApi implements DashboardApi {
     required List<DashboardReport> items,
   }) async {
     if (items.isEmpty) return const {};
+    final current = await _reports(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      range: range,
+      items: items,
+    );
+    final comparable = items.where((item) {
+      final result = current[item.key];
+      return result != null &&
+          !result.error &&
+          !result.unsupported &&
+          result.points.isNotEmpty &&
+          result.points.every(
+            (point) => DateTime.tryParse(point.label) != null,
+          );
+    }).toList();
+    if (comparable.isEmpty) return current;
+    try {
+      final previous = await _reports(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+        range: range.previous,
+        items: comparable,
+      );
+      return Map.unmodifiable({
+        for (final entry in current.entries)
+          entry.key: previous[entry.key] == null
+              ? entry.value
+              : entry.value.withPrevious(previous[entry.key]!),
+      });
+    } catch (_) {
+      // A comparison failure must not discard the current period's report.
+      return current;
+    }
+  }
+
+  Future<Map<String, DashboardReportResult>> _reports({
+    required String siteUrl,
+    required String apiKey,
+    required String clientId,
+    required DashboardRange range,
+    required List<DashboardReport> items,
+  }) async {
     final body = <String, Object?>{
       'items': items.map((item) => item.toJson()).toList(),
       'filters': range.query,

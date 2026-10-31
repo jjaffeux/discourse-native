@@ -37,6 +37,21 @@ final class DashboardRange {
   const DashboardRange(this.start, this.end);
   final DateTime start;
   final DateTime end;
+
+  DashboardRange get previous {
+    final days =
+        DateTime.utc(
+          end.year,
+          end.month,
+          end.day,
+        ).difference(DateTime.utc(start.year, start.month, start.day)).inDays +
+        1;
+    return DashboardRange(
+      DateTime(start.year, start.month, start.day - days),
+      DateTime(start.year, start.month, start.day - 1),
+    );
+  }
+
   Map<String, String> get query => {
     'start_date': _day(start),
     'end_date': _day(end),
@@ -239,6 +254,7 @@ final class DashboardReportResult {
     this.total,
     this.average = false,
     this.percent = false,
+    this.previousValue,
     Iterable<DashboardSeries> series = const [],
   }) : series = List.unmodifiable(series),
        points = List.unmodifiable(points),
@@ -324,6 +340,31 @@ final class DashboardReportResult {
   final num? total;
   final bool average;
   final bool percent;
+  final num? previousValue;
+
+  num? get change {
+    final current = value;
+    final previous = previousValue;
+    if (current == null || previous == null || previous == 0) return null;
+    return dashboardNumber((current - previous) / previous.abs() * 100);
+  }
+
+  DashboardReportResult withPrevious(DashboardReportResult previous) =>
+      DashboardReportResult(
+        error: error,
+        unsupported: unsupported,
+        points: points,
+        headings: headings,
+        rows: rows,
+        total: total,
+        average: average,
+        percent: percent,
+        series: series,
+        previousValue: previous.error || previous.unsupported
+            ? null
+            : previous.value,
+      );
+
   num? get value {
     if (points.isEmpty) return total;
     final observed = points.map((point) => point.value).nonNulls.toList();

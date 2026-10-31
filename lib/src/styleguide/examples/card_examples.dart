@@ -18,6 +18,17 @@ final cardExamples = ComponentExamples(
       'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
+      title: 'Tinted report card',
+      description:
+          'A tone-colored sheen fades from the top-right corner while the card retains its outline and clipping.',
+      code:
+          "DCard(sheenColor: DTokens.of(context).success, children: const [Text('Daily engaged users'), Text('180')])",
+      builder: (context) => DCard(
+        sheenColor: DTokens.of(context).success,
+        children: const [Text('Daily engaged users'), Text('180')],
+      ),
+    ),
+    StyleguideExample(
       title: 'Directory card',
       description:
           'A flat destination card with an optional tinted mark, unread count, two-line description and aligned footer. Omit leading to align the title with the content. The same card is used on phones and desktops.',

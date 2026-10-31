@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/json.dart';
+import 'package:discourse_native/src/plugins/data_explorer/data_explorer_reports.dart';
 import 'package:discourse_native/src/shell/dashboard_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -21,6 +22,137 @@ const site = 'https://forum.example/discuss';
 final snapshot = DashboardSnapshot.fromJson(dashboardFixture);
 
 void main() {
+  test(
+    'optional report sources decode both periods through their own handler',
+    () async {
+      var requests = 0;
+      final raw = DiscourseApi(
+        client: MockClient((request) async {
+          requests++;
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'key': 'data_explorer_query:7',
+                  'data': {
+                    'columns': ['date', 'count'],
+                    'rows': [
+                      ['2026-10-20', requests == 1 ? 10 : 5],
+                    ],
+                  },
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(raw.close);
+      final api = DiscourseDashboardApi(
+        raw,
+        sources: const [DataExplorerReports()],
+      );
+      final result = await api.reports(
+        siteUrl: site,
+        apiKey: 'key',
+        clientId: '',
+        range: DashboardPeriod.last7Days.rangeAt(DateTime(2026, 10, 25)),
+        items: const [
+          DashboardReport(
+            source: 'data_explorer_query',
+            identifier: '7',
+            title: 'Daily count',
+            path: '/query/7',
+          ),
+        ],
+      );
+      expect(requests, 2);
+      expect(result['data_explorer_query:7']!.value, 10);
+      expect(result['data_explorer_query:7']!.previousValue, 5);
+      expect(result['data_explorer_query:7']!.change, 100);
+    },
+  );
+
+  test(
+    'comparison failure retains current report values and neutral change',
+    () async {
+      var requests = 0;
+      final raw = DiscourseApi(
+        client: MockClient((request) async {
+          requests++;
+          return requests == 1
+              ? http.Response(jsonEncode(dashboardReportsFixture), 200)
+              : http.Response('{}', 500);
+        }),
+      );
+      addTearDown(raw.close);
+      final api = DiscourseDashboardApi(raw);
+      final result = await api.reports(
+        siteUrl: site,
+        apiKey: 'key',
+        clientId: '',
+        range: DashboardPeriod.last7Days.rangeAt(DateTime(2026, 10, 25)),
+        items: snapshot.sections.whereType<DashboardReports>().single.items,
+      );
+      expect(requests, 2);
+      expect(result['core_report:daily_engaged_users']!.value, 180);
+      expect(result['core_report:daily_engaged_users']!.change, isNull);
+    },
+  );
+
+  test(
+    'comparison ranges cover the preceding equal number of calendar days',
+    () {
+      final previous = DashboardRange(
+        DateTime(2026, 10, 19),
+        DateTime(2026, 10, 25),
+      ).previous;
+      expect(previous.query, {
+        'start_date': '2026-10-12',
+        'end_date': '2026-10-18',
+      });
+      expect(
+        DashboardRange(
+          DateTime(2026, 3, 25),
+          DateTime(2026, 3, 31),
+        ).previous.query,
+        {'start_date': '2026-03-18', 'end_date': '2026-03-24'},
+      );
+    },
+  );
+
+  test(
+    'report deltas compare totals or averages and preserve unavailable comparisons',
+    () {
+      DashboardReportResult result(List<num?> values, {bool average = false}) =>
+          DashboardReportResult(
+            points: [
+              for (var i = 0; i < values.length; i++)
+                DashboardPoint('2026-10-${20 + i}', values[i]),
+            ],
+            average: average,
+          );
+      expect(result([10, 20]).withPrevious(result([10, 10])).change, 50);
+      expect(
+        result([
+          2,
+          4,
+        ], average: true).withPrevious(result([6, 6], average: true)).change,
+        -50,
+      );
+      expect(result([0, 0]).withPrevious(result([10, 10])).change, -100);
+      expect(result([10, 20]).withPrevious(result([0, 0])).change, isNull);
+      expect(result([10, null]).withPrevious(result([10, 10])).change, isNull);
+      expect(
+        result([
+          10,
+          20,
+        ]).withPrevious(DashboardReportResult(error: true)).change,
+        isNull,
+      );
+    },
+  );
+
   test('calendar presets include today and clamp calendar months', () {
     final march = DateTime(2024, 3, 31);
     expect(DashboardPeriod.last7Days.rangeAt(march).query, {
@@ -314,6 +446,31 @@ void main() {
               : request.method == 'GET'
               ? dashboardFixture
               : <String, dynamic>{};
+          if (request.url.path.endsWith('bulk.json') &&
+              jsonObject(
+                    jsonObject(jsonDecode(request.body))['filters'],
+                  )['start_date'] ==
+                  '2026-10-12') {
+            final previous = {
+              ...body,
+              'items': [
+                for (final item in jsonObjects(body['items']))
+                  {
+                    ...item,
+                    'data': {
+                      ...jsonObject(item['data']),
+                      'data': [
+                        for (final point in jsonObjects(
+                          jsonObject(item['data'])['data'],
+                        ))
+                          {...point, 'y': (point['y'] as num) / 2},
+                      ],
+                    },
+                  },
+              ],
+            };
+            return http.Response(jsonEncode(previous), 200);
+          }
           return http.Response(jsonEncode(body), 200);
         }),
       );
@@ -344,6 +501,12 @@ void main() {
       expect(jsonObject(jsonDecode(sent[1].body))['filters'], range.query);
       expect(sent[1].headers['user-api-key'], 'key');
       expect(reports.length, 2);
+      expect(jsonObject(jsonDecode(sent[2].body))['filters'], {
+        'start_date': '2026-10-12',
+        'end_date': '2026-10-18',
+      });
+      expect(reports['core_report:daily_engaged_users']!.previousValue, 90);
+      expect(reports['core_report:daily_engaged_users']!.change, 100);
       await api.configure(
         siteUrl: site,
         apiKey: 'key',
