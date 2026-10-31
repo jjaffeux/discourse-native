@@ -830,33 +830,62 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 ),
               )
             : null;
-        if (mobileSheet && readerPane != null) {
+        final retainedMobileSource =
+            mobileSheet && Theme.of(context).platform == TargetPlatform.android;
+        if (retainedMobileSource || mobileSheet && readerPane != null) {
           final entry = controller.mobileNavigation.entryId;
           return DSheetViewport(
-            readerStart: controller.topicOpensAtTop(state.route!.topicId!)
+            readerStart: readerPane == null
+                ? null
+                : controller.topicOpensAtTop(state.route!.topicId!)
                 ? DSheetReaderStart.top
                 : DSheetReaderStart.scrolled,
-            key: ValueKey(('mobile-topic-sheet', entry)),
-            onDismiss: () {
-              if (controller.mobileNavigation.entryId == entry) {
-                controller.handleBack();
-              }
-            },
-            underlay: DPageSurface(
-              border: false,
-              borderRadius: DSheetViewport.pageBorderRadius(context),
-              backgroundColor: ForumWindowBackground.panelColor(context),
-              depth: DSurfaceDepth.panel,
-              child: listPane,
-            ),
-            content: DSheetContent(
-              side: DSheetSide.bottom,
-              variant: DSheetVariant.page,
-              showCloseButton: false,
-              semanticLabel: state.route!.title,
-              backgroundColor: ForumWindowBackground.panelColor(context),
-              children: [Expanded(child: readerPane)],
-            ),
+            key: retainedMobileSource
+                ? const ValueKey('mobile-topic-source-slot')
+                : ValueKey(('mobile-topic-sheet', entry)),
+            onDismiss: readerPane == null
+                ? null
+                : () {
+                    if (controller.mobileNavigation.entryId == entry) {
+                      controller.handleBack();
+                    }
+                  },
+            underlay: retainedMobileSource
+                ? DCard(
+                    border: false,
+                    spacing: 0,
+                    borderRadius: readerPane == null
+                        ? BorderRadius.zero
+                        : DSheetViewport.pageBorderRadius(context),
+                    backgroundColor: readerPane == null
+                        ? Colors.transparent
+                        : ForumWindowBackground.panelColor(context),
+                    depth: readerPane == null ? null : DSurfaceDepth.panel,
+                    clipBehavior: readerPane == null
+                        ? Clip.none
+                        : Clip.antiAlias,
+                    child: Expanded(child: listPane),
+                  )
+                : DPageSurface(
+                    border: false,
+                    borderRadius: DSheetViewport.pageBorderRadius(context),
+                    backgroundColor: ForumWindowBackground.panelColor(context),
+                    depth: DSurfaceDepth.panel,
+                    child: listPane,
+                  ),
+            content: readerPane == null
+                ? null
+                : DSheetContent(
+                    key: retainedMobileSource
+                        ? ValueKey(('mobile-topic-reader', entry))
+                        : null,
+                    side: DSheetSide.bottom,
+                    variant: DSheetVariant.page,
+                    showCloseButton: false,
+                    semanticLabel: state.route!.title,
+                    backgroundColor: ForumWindowBackground.panelColor(context),
+                    children: [Expanded(child: readerPane)],
+                  ),
           );
         }
         return Stack(

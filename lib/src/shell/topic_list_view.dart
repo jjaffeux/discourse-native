@@ -1372,10 +1372,9 @@ class _TopicRowState extends State<_TopicRow> {
   Widget build(BuildContext context) => _content ??= _buildContent();
 
   Widget _buildContent() {
-    return ForumTabSelector<({String? siteUrl, bool selected, bool reading})>(
+    return ForumTabSelector<({String? siteUrl, bool selected})>(
       select: (controller, tab) => (
         siteUrl: controller.currentInstance?.url,
-        reading: widget.inbox && tab.currentContent?.isTopic == true,
         selected: widget.inbox && tab.readingTopicId == widget.topicId,
       ),
       builder: (context, state, _) {
@@ -1403,7 +1402,6 @@ class _TopicRowState extends State<_TopicRow> {
                     hiddenCategoryId: widget.hiddenCategoryId,
                     siteUrl: siteUrl,
                     selected: state.selected,
-                    inbox: state.reading,
                     onTap: () => widget.onOpen(topic),
                   ),
                 ),
@@ -1615,7 +1613,6 @@ class _TopicRowBody extends StatelessWidget {
     this.forum,
     this.titleStyle,
     this.selected = false,
-    this.inbox = false,
     this.contentPadding,
     this.outerPadding,
     this.showViews = false,
@@ -1640,7 +1637,6 @@ class _TopicRowBody extends StatelessWidget {
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
   final bool selected;
-  final bool inbox;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
 
