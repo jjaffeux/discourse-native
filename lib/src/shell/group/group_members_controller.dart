@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../foundation/latest_wins_queued_lookup_controller.dart';
 import '../../models/found_user.dart';
 import '../../models/group.dart';
 import '../site_url.dart';
@@ -70,12 +71,26 @@ final class GroupMemberAdditionController extends ChangeNotifier {
   final Duration searchDebounce;
   final Set<String> _selectedUsernames = {};
   final Set<String> _selectedEmails = {};
+  late final _lookup =
+      LatestWinsQueuedLookupController<String, List<FoundUser>>(
+        lookup: searchUsers,
+        onResult: (found) {
+          _results = found;
+          _searching = false;
+          notifyListeners();
+        },
+        onError: (_, _) {
+          _results = const [];
+          _error = appL10n.membersCouldNotBeSearchedTryAgain;
+          _searching = false;
+          notifyListeners();
+        },
+      );
 
   Timer? _debounce;
   List<FoundUser> _results = const [];
   String _query = '';
   String? _error;
-  int _sequence = 0;
   bool _searching = false;
   bool _saving = false;
   bool _disposed = false;
@@ -99,32 +114,12 @@ final class GroupMemberAdditionController extends ChangeNotifier {
     _error = null;
     _results = const [];
     _debounce?.cancel();
-    final request = ++_sequence;
-    _searching = value.trim().length >= 2;
-    if (value.trim().length < 2) {
-      notifyListeners();
-      return;
+    _lookup.invalidate();
+    final query = value.trim();
+    _searching = query.length >= 2;
+    if (_searching) {
+      _debounce = Timer(searchDebounce, () => _lookup.request(query));
     }
-    _debounce = Timer(searchDebounce, () => _runSearch(value, request));
-    notifyListeners();
-  }
-
-  Future<void> _runSearch(String value, int request) async {
-    if (_disposed || request != _sequence) return;
-    _searching = true;
-    notifyListeners();
-    if (_disposed || request != _sequence) return;
-    try {
-      final found = await searchUsers(value.trim());
-      if (_disposed || request != _sequence) return;
-      _results = found;
-    } catch (error) {
-      if (_disposed || request != _sequence) return;
-
-      _results = const [];
-      _error = appL10n.membersCouldNotBeSearchedTryAgain;
-    }
-    _searching = false;
     notifyListeners();
   }
 
@@ -177,8 +172,8 @@ final class GroupMemberAdditionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _sequence++;
     _debounce?.cancel();
+    _lookup.dispose();
     super.dispose();
   }
 }
