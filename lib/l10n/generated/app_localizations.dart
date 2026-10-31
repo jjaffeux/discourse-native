@@ -94,6 +94,18 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Expand the remaining rows in a Chat section.
+  ///
+  /// In en, this message translates to:
+  /// **'View {count} more'**
+  String chatViewMore(int count);
+
+  /// Fold an expanded Chat section back to its first rows.
+  ///
+  /// In en, this message translates to:
+  /// **'View less'**
+  String get chatViewLess;
+
   /// Type label for an app-local bookmark of a whole page.
   ///
   /// In en, this message translates to:

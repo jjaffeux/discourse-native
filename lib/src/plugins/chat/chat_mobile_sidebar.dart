@@ -14,10 +14,28 @@ import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
 /// Mobile's combined inbox keeps its filters while visiting a conversation.
-class ChatMobileSidebar extends StatelessWidget {
+class ChatMobileSidebar extends StatefulWidget {
   const ChatMobileSidebar({super.key, required this.siteUrl});
 
   final String siteUrl;
+
+  @override
+  State<ChatMobileSidebar> createState() => _ChatMobileSidebarState();
+}
+
+class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
+  final _expanded = <ChatInboxSectionKind>{};
+  bool _roomsExpanded = false;
+  String get siteUrl => widget.siteUrl;
+
+  @override
+  void didUpdateWidget(ChatMobileSidebar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl) {
+      _expanded.clear();
+      _roomsExpanded = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +44,7 @@ class ChatMobileSidebar extends StatelessWidget {
     final filters = chat.inboxFilters;
     final roomService = PluginUiScope.optional(context, chatInboxRoomsService);
     return ListenableBuilder(
-      listenable: Listenable.merge([chat, filters, roomService]),
+      listenable: Listenable.merge([chat, filters, roomService, shell]),
       builder: (context, _) {
         final filter = filters.filterFor(siteUrl);
         final channels = chatInboxConversations(chat, siteUrl, filter);
@@ -42,30 +60,67 @@ class ChatMobileSidebar extends StatelessWidget {
           builder: (context, current, _) => ChatInboxRow(
             siteUrl: siteUrl,
             channel: current ?? channel,
+            selected: shell.visibleChannelId == channel.id,
             onPressed: () => shell.openChannel(channel.id),
           ),
         );
         // Rows are ruled within their own section; the rooms heading stands
         // between the two sections without a rule on either side.
         final createRoom = roomService?.createRoom(siteUrl);
+        final sections = chatInboxSections(channels, filter.sort);
+        final alone = sections.length + (rooms.isEmpty ? 0 : 1) == 1;
+        final roomSlice = ChatInboxSectionSlice(
+          rooms,
+          expanded: _roomsExpanded,
+          alone: alone,
+        );
+        List<Widget> sectionRows(ChatInboxSection section) {
+          final expanded = _expanded.contains(section.kind);
+          final slice = ChatInboxSectionSlice(
+            section.channels,
+            expanded: expanded,
+            alone: alone,
+            keep: (channel) => channel.id == shell.visibleChannelId,
+          );
+          return [
+            ChatInboxSectionHeading(kind: section.kind),
+            for (final (index, channel) in slice.visible.indexed) ...[
+              if (index > 0) DSeparator(color: colors.border),
+              row(channel),
+            ],
+            if (slice.canFold)
+              ChatInboxMore(
+                key: ValueKey(('chat-more', section.kind)),
+                hidden: slice.hidden,
+                expanded: expanded,
+                onPressed: () => setState(() {
+                  if (!_expanded.add(section.kind)) {
+                    _expanded.remove(section.kind);
+                  }
+                }),
+              ),
+          ];
+        }
+
         final entries = <Widget>[
           ChatInboxNavigation(
             key: ValueKey(('chat-navigation', siteUrl)),
             siteUrl: siteUrl,
           ),
-          for (final section in chatInboxSections(channels, filter.sort)) ...[
-            ChatInboxSectionHeading(kind: section.kind),
-            for (final (index, channel) in section.channels.indexed) ...[
-              if (index > 0) DSeparator(color: colors.border),
-              row(channel),
-            ],
-          ],
+          for (final section in sections) ...sectionRows(section),
           if (rooms.isNotEmpty || createRoom != null)
             const _VoiceRoomsHeading(),
-          for (final (index, room) in rooms.indexed) ...[
+          for (final (index, room) in roomSlice.visible.indexed) ...[
             if (index > 0) DSeparator(color: colors.border),
             ChatInboxRoomRow(room: room),
           ],
+          if (roomSlice.canFold)
+            ChatInboxMore(
+              key: const ValueKey('chat-more-voice-rooms'),
+              hidden: roomSlice.hidden,
+              expanded: _roomsExpanded,
+              onPressed: () => setState(() => _roomsExpanded = !_roomsExpanded),
+            ),
           if (createRoom != null)
             DButton(
               variant: DButtonVariant.ghost,

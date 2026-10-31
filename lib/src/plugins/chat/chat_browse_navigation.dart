@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
@@ -40,53 +39,32 @@ class ChatInboxNavigation extends StatelessWidget {
       listenable: chat,
       builder: (context, _) {
         final settings = chat.siteConfigFor(siteUrl).chatSettings;
-        final joined = chat
-            .publicChannels(siteUrl)
-            .where((c) => c.membership.following)
-            .length;
-        final numbers = NumberFormat('0', context.l10n.localeName);
-        final joinedNote = chat.channelsLoaded(siteUrl)
-            ? context.l10n.chatJoinedChannelCount(numbers.format(joined))
-            : chat.channelsError(siteUrl) != null
-            ? context.l10n.couldNotLoadConversations
-            : context.l10n.loading;
         return Padding(
           key: const ValueKey('chat-inbox-navigation'),
           padding: const EdgeInsets.only(top: DSpacing.xs, bottom: DSpacing.xs),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final cards = <Widget>[
-                if (settings.publicChannelsEnabled)
-                  DPlaceCard(
-                    key: const ValueKey('chat-inbox-channels-card'),
-                    leading: const DIcon(DIcons.hashtag),
-                    title: Text(context.l10n.browseChannels),
-                    footer: Text(joinedNote),
-                    onPressed: () => shell.openBrowseChannels(),
-                  ),
-                if (settings.threadsEnabled)
-                  DPlaceCard(
-                    key: const ValueKey('chat-inbox-threads-card'),
-                    leading: const DIcon(DIcons.comments),
-                    title: Text(context.l10n.threads),
-                    footer: const SizedBox.shrink(),
-                    onPressed: () => shell.openMyThreads(),
-                  ),
-              ];
-              if (constraints.maxWidth <
-                  MediaQuery.textScalerOf(context).scale(300)) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  spacing: DSpacing.sm,
-                  children: cards,
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: DSpacing.sm,
-                children: [for (final card in cards) Expanded(child: card)],
-              );
-            },
+          child: Wrap(
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
+            children: [
+              if (settings.publicChannelsEnabled)
+                DButton(
+                  key: const ValueKey('chat-inbox-channels-card'),
+                  variant: DButtonVariant.quiet,
+                  size: DControlSize.filter,
+                  icon: const DIcon(DIcons.hashtag),
+                  label: Text(context.l10n.browseChannels),
+                  onPressed: () => shell.openBrowseChannels(),
+                ),
+              if (settings.threadsEnabled)
+                DButton(
+                  key: const ValueKey('chat-inbox-threads-card'),
+                  variant: DButtonVariant.quiet,
+                  size: DControlSize.filter,
+                  icon: const DIcon(DIcons.comments),
+                  label: Text(context.l10n.threads),
+                  onPressed: () => shell.openMyThreads(),
+                ),
+            ],
           ),
         );
       },

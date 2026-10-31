@@ -265,21 +265,10 @@ final class VoicePlugin
         id: 'voice-rooms',
         title: appL10n.voiceRooms,
         showHeader: true,
-        bodyBuilder: (_) => SliverList.list(
-          children: [
-            for (final room in rooms)
-              ChatInboxRoomRow(room: room, compact: true),
-            if (createRoom != null)
-              DButton(
-                variant: DButtonVariant.ghost,
-                size: DControlStyle.isTouch(context)
-                    ? DButtonSize.small
-                    : DButtonSize.regular,
-                icon: const DIcon(DIcons.plus),
-                label: Text(context.l10n.newVoiceRoom),
-                onPressed: () => unawaited(createRoom(context)),
-              ),
-          ],
+        bodyBuilder: (_) => _VoiceSidebarRooms(
+          key: ValueKey(('voice-sidebar-rooms', instance.url)),
+          rooms: rooms,
+          createRoom: createRoom,
         ),
         destinations: [
           for (final room in directory.rooms.where(
@@ -374,4 +363,51 @@ final class VoicePlugin
       ),
     ),
   ];
+}
+
+class _VoiceSidebarRooms extends StatefulWidget {
+  const _VoiceSidebarRooms({super.key, required this.rooms, this.createRoom});
+
+  final List<ChatInboxRoom> rooms;
+  final Future<void> Function(BuildContext context)? createRoom;
+
+  @override
+  State<_VoiceSidebarRooms> createState() => _VoiceSidebarRoomsState();
+}
+
+class _VoiceSidebarRoomsState extends State<_VoiceSidebarRooms> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final slice = ChatInboxSectionSlice(
+      widget.rooms,
+      expanded: _expanded,
+      alone: false,
+    );
+    final createRoom = widget.createRoom;
+    return SliverList.list(
+      children: [
+        for (final room in slice.visible)
+          ChatInboxRoomRow(room: room, compact: true),
+        if (slice.canFold)
+          ChatInboxMore(
+            hidden: slice.hidden,
+            expanded: _expanded,
+            compact: true,
+            onPressed: () => setState(() => _expanded = !_expanded),
+          ),
+        if (createRoom != null)
+          DButton(
+            variant: DButtonVariant.ghost,
+            size: DControlStyle.isTouch(context)
+                ? DButtonSize.small
+                : DButtonSize.regular,
+            icon: const DIcon(DIcons.plus),
+            label: Text(context.l10n.newVoiceRoom),
+            onPressed: () => unawaited(createRoom(context)),
+          ),
+      ],
+    );
+  }
 }

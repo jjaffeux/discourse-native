@@ -6,18 +6,19 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_inbox_rooms.dart';
+import 'chat_inbox_section.dart';
 import 'chat_search_entry.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_user_avatar.dart';
 
 export 'chat_controller.dart' show chatInboxActivityAt;
+export 'chat_inbox_section.dart';
 
 /// One mixed list of channels and direct messages, most recent activity first.
 List<ChatChannel> chatInboxConversations(
@@ -55,31 +56,48 @@ class ChatInboxFilterBar extends StatelessWidget {
         spacing: DSpacing.controlGap,
         runSpacing: DSpacing.controlGap,
         children: [
-          ChatBrowseFilter<bool>(
-            key: const ValueKey('chat-inbox-activity-filter'),
-            label: filter.unreadOnly
-                ? context.l10n.unread
-                : context.l10n.recent,
-            emphasized: true,
-            semanticLabel: context.l10n.chatActivity,
-            value: filter.unreadOnly,
-            options: {false: context.l10n.recent, true: context.l10n.unread},
-            onChanged: (value) =>
-                filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
+          DReferenceTextScale(
+            child: DToggleGroup<bool>(
+              key: const ValueKey('chat-inbox-activity-filter'),
+              size: DControlSize.segment,
+              inset: true,
+              allowEmptySelection: false,
+              semanticLabel: context.l10n.chatActivity,
+              values: [filter.unreadOnly],
+              items: [
+                DToggleGroupItem(
+                  value: false,
+                  child: Text(context.l10n.recent),
+                ),
+                DToggleGroupItem(value: true, child: Text(context.l10n.unread)),
+              ],
+              onChanged: (values) => filters.update(
+                siteUrl,
+                filter.copyWith(unreadOnly: values.single),
+              ),
+            ),
           ),
-          ChatBrowseFilter<ChatInboxSort>(
-            key: const ValueKey('chat-inbox-sort-filter'),
-            label: filter.sort == ChatInboxSort.byType
-                ? context.l10n.chatOrderByType
-                : context.l10n.chatOrderNewest,
-            semanticLabel: context.l10n.chatOrder,
-            value: filter.sort,
-            options: {
-              ChatInboxSort.byType: context.l10n.chatOrderByType,
-              ChatInboxSort.newest: context.l10n.chatOrderNewest,
-            },
-            onChanged: (value) =>
-                filters.update(siteUrl, filter.copyWith(sort: value)),
+          DReferenceTextScale(
+            child: DToggleGroup<ChatInboxSort>(
+              key: const ValueKey('chat-inbox-sort-filter'),
+              size: DControlSize.segment,
+              inset: true,
+              allowEmptySelection: false,
+              semanticLabel: context.l10n.chatOrder,
+              values: [filter.sort],
+              items: [
+                DToggleGroupItem(
+                  value: ChatInboxSort.byType,
+                  child: Text(context.l10n.chatOrderByType),
+                ),
+                DToggleGroupItem(
+                  value: ChatInboxSort.newest,
+                  child: Text(context.l10n.chatOrderNewest),
+                ),
+              ],
+              onChanged: (values) =>
+                  filters.update(siteUrl, filter.copyWith(sort: values.single)),
+            ),
           ),
         ],
       );
@@ -110,17 +128,17 @@ List<ChatInboxSection> chatInboxSections(
       ],
     ),
     (
-      kind: ChatInboxSectionKind.channels,
-      channels: [
-        for (final c in channels)
-          if (!c.membership.starred && !c.isDirectMessage) c,
-      ],
-    ),
-    (
       kind: ChatInboxSectionKind.directMessages,
       channels: [
         for (final c in channels)
           if (!c.membership.starred && c.isDirectMessage) c,
+      ],
+    ),
+    (
+      kind: ChatInboxSectionKind.channels,
+      channels: [
+        for (final c in channels)
+          if (!c.membership.starred && !c.isDirectMessage) c,
       ],
     ),
   ],
@@ -478,6 +496,7 @@ final class _ChatSidebarInboxLayout {
     required this.loading,
     required this.failed,
     required this.empty,
+    required this.activeChannelId,
   });
 
   final ChatInboxFilter filter;
@@ -486,6 +505,7 @@ final class _ChatSidebarInboxLayout {
   final bool loading;
   final bool failed;
   final bool empty;
+  final int? activeChannelId;
 
   @override
   bool operator ==(Object other) =>
@@ -494,6 +514,7 @@ final class _ChatSidebarInboxLayout {
       loading == other.loading &&
       failed == other.failed &&
       empty == other.empty &&
+      activeChannelId == other.activeChannelId &&
       listEquals(channelIds, other.channelIds) &&
       listEquals(starredIds, other.starredIds);
 
@@ -503,6 +524,7 @@ final class _ChatSidebarInboxLayout {
     loading,
     failed,
     empty,
+    activeChannelId,
     Object.hashAll(channelIds),
     Object.hashAll(starredIds),
   );
@@ -511,6 +533,8 @@ final class _ChatSidebarInboxLayout {
 class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
   ChatController? _chat;
   ChatInboxRooms? _rooms;
+  ChatShellService? _shell;
+  final _expanded = <ChatInboxSectionKind>{};
   Listenable? _sources;
   late _ChatSidebarInboxLayout _layout;
   Widget? _content;
@@ -520,11 +544,15 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     super.didChangeDependencies();
     final chat = PluginUiScope.require(context, chatControllerService);
     final rooms = PluginUiScope.optional(context, chatInboxRoomsService);
-    if (!identical(chat, _chat) || !identical(rooms, _rooms)) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (!identical(chat, _chat) ||
+        !identical(rooms, _rooms) ||
+        !identical(shell, _shell)) {
       _sources?.removeListener(_changed);
       _chat = chat;
       _rooms = rooms;
-      _sources = Listenable.merge([chat, chat.inboxFilters, rooms])
+      _shell = shell;
+      _sources = Listenable.merge([chat, chat.inboxFilters, rooms, shell])
         ..addListener(_changed);
     }
     _layout = _read();
@@ -535,6 +563,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
   void didUpdateWidget(ChatSidebarInbox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl == widget.siteUrl) return;
+    _expanded.clear();
     _layout = _read();
     _content = null;
   }
@@ -555,6 +584,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
       loading: !chat.channelsLoaded(siteUrl) && error == null,
       failed: error != null && channels.isEmpty,
       empty: channels.isEmpty && (_rooms?.rooms(siteUrl).isEmpty ?? true),
+      activeChannelId: _shell?.visibleChannelId,
     );
   }
 
@@ -598,15 +628,22 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
             child: _ChatSidebarInboxEmpty(filter: layout.filter),
           )
         else
-          for (final section in sections) _section(section),
+          for (final section in sections)
+            _section(section, alone: sections.length == 1),
       ],
     );
   }
 
-  Widget _section(ChatInboxSection section) {
+  Widget _section(ChatInboxSection section, {required bool alone}) {
+    final expanded = _expanded.contains(section.kind);
+    final slice = ChatInboxSectionSlice(
+      section.channels,
+      expanded: expanded,
+      alone: alone,
+      keep: (channel) => channel.id == _layout.activeChannelId,
+    );
     final indexes = {
-      for (final (index, channel) in section.channels.indexed)
-        channel.id: index,
+      for (final (index, channel) in slice.visible.indexed) channel.id: index,
     };
     return DCollapsible(
       key: ValueKey(section.kind),
@@ -632,14 +669,27 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
         ),
         sliver: DCollapsibleContent.sliver(
           sliver: SliverList.builder(
-            itemCount: section.channels.length,
+            itemCount: slice.visible.length + (slice.canFold ? 1 : 0),
             findChildIndexCallback: (key) =>
                 key is ValueKey<int> ? indexes[key.value] : null,
-            itemBuilder: (context, index) => _ChatSidebarInboxEntry(
-              key: ValueKey(section.channels[index].id),
-              siteUrl: widget.siteUrl,
-              channelId: section.channels[index].id,
-            ),
+            itemBuilder: (context, index) => index == slice.visible.length
+                ? ChatInboxMore(
+                    key: ValueKey(('chat-more', section.kind)),
+                    hidden: slice.hidden,
+                    expanded: expanded,
+                    compact: true,
+                    onPressed: () => setState(() {
+                      if (!_expanded.add(section.kind)) {
+                        _expanded.remove(section.kind);
+                      }
+                      _content = null;
+                    }),
+                  )
+                : _ChatSidebarInboxEntry(
+                    key: ValueKey(slice.visible[index].id),
+                    siteUrl: widget.siteUrl,
+                    channelId: slice.visible[index].id,
+                  ),
           ),
         ),
       ),
