@@ -151,6 +151,7 @@ void main() {
   testWidgets(
     'nested controls move without scaling their artwork or targets',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       late StateSetter rebuild;
       var compact = false;
       var reducedMotion = false;
@@ -250,6 +251,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 130));
       final middle = painted(glyph);
       expect(middle.size, initialGlyph.size);
+      expect(
+        tester.getSemantics(button).getSemanticsData().label,
+        'Second category',
+      );
       expect(tester.element(button), same(element));
       await tester.tapAt(middle.center);
       expect(activated, 1);
@@ -284,6 +289,7 @@ void main() {
       await tester.pump();
       expect(painted(glyph), initialGlyph);
       expect(tester.takeException(), isNull);
+      semantics.dispose();
     },
     variant: const TargetPlatformVariant({
       TargetPlatform.iOS,
