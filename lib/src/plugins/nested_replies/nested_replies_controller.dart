@@ -85,7 +85,6 @@ final class NestedRepliesSnapshot {
           ),
       }),
       collapsed = Set.unmodifiable(controller._collapsed),
-      repliesHidden = Set.unmodifiable(controller._repliesHidden),
       expanded = Set.unmodifiable(controller._expanded),
       roots = List.unmodifiable(controller._rootIds),
       ancestors = List.unmodifiable(controller._ancestorIds),
@@ -111,7 +110,6 @@ final class NestedRepliesSnapshot {
   final Map<int, List<int>> children;
   final Map<(int, int), NestedChildrenState> childPages;
   final Set<int> collapsed;
-  final Set<int> repliesHidden;
   final Set<int> expanded;
   final List<int> roots;
   final List<int> ancestors;
@@ -154,7 +152,6 @@ final class NestedRepliesController extends ChangeNotifier {
   final Map<(int, int), NestedChildrenState> _childPages = {};
   final Set<int> _collapsed = {};
   final Set<int> _expanded = {};
-  final Set<int> _repliesHidden = {};
   final Map<int, ({NestedReplyNode root, bool own})> _openingRoots = {};
   NestedRepliesSnapshot? _snapshot;
   bool restoringPages = false;
@@ -210,9 +207,7 @@ final class NestedRepliesController extends ChangeNotifier {
   bool isCollapsed(int postNumber) => _collapsed.contains(postNumber);
 
   bool isExpanded(int postNumber, {required int depth}) {
-    if (_repliesHidden.contains(postNumber)) return false;
     if (_expanded.contains(postNumber)) return true;
-    if (_collapsed.contains(postNumber)) return false;
     if (collapseReplies) {
       if (!contextMode) return depth < 0;
       final targetDepth = _ancestorIds.length;
@@ -431,9 +426,7 @@ final class NestedRepliesController extends ChangeNotifier {
         page: page.page,
         hasMore: page.hasMore,
       );
-      if (!_repliesHidden.contains(parentPostNumber)) {
-        _expanded.add(parentPostNumber);
-      }
+      _expanded.add(parentPostNumber);
     } catch (failure) {
       if (_accepts(generation)) {
         _childPages[key] = NestedChildrenState(
@@ -463,18 +456,6 @@ final class NestedRepliesController extends ChangeNotifier {
       _collapsed.add(postNumber);
     } else {
       _collapsed.remove(postNumber);
-    }
-    notifyListeners();
-  }
-
-  void setRepliesExpanded(int postNumber, bool expanded) {
-    if (!isCurrent || this.postNumber(postNumber) == null) return;
-    if (expanded) {
-      _repliesHidden.remove(postNumber);
-      _expanded.add(postNumber);
-    } else {
-      _expanded.remove(postNumber);
-      _repliesHidden.add(postNumber);
     }
     notifyListeners();
   }
@@ -517,7 +498,7 @@ final class NestedRepliesController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<NestedVisibleRow> visibleRows() {
+  List<NestedVisibleRow> visibleRows({bool includeCollapsed = false}) {
     final rows = <NestedVisibleRow>[];
     final activePath = <int>{};
     void visit(
@@ -538,7 +519,7 @@ final class NestedRepliesController extends ChangeNotifier {
           ancestorPostNumbers: ancestors,
         ),
       );
-      if (!isCollapsed(node.postNumber) &&
+      if ((includeCollapsed || !isCollapsed(node.postNumber)) &&
           isExpanded(node.postNumber, depth: depth)) {
         final children = _children[node.postNumber] ?? const <int>[];
         for (var index = 0; index < children.length; index++) {
@@ -644,9 +625,6 @@ final class NestedRepliesController extends ChangeNotifier {
     _collapsed
       ..clear()
       ..addAll(snapshot.collapsed);
-    _repliesHidden
-      ..clear()
-      ..addAll(snapshot.repliesHidden);
     _expanded
       ..clear()
       ..addAll(snapshot.expanded);
@@ -758,7 +736,6 @@ final class NestedRepliesController extends ChangeNotifier {
       beforeApply?.call();
       if (!_accepts(generation)) return;
       refreshed._collapsed.addAll(_collapsed);
-      refreshed._repliesHidden.addAll(_repliesHidden);
       refreshed._expanded.addAll(_expanded);
       if (!refreshed.contextMode) {
         final pending = refreshed._rootIds

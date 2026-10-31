@@ -4,9 +4,11 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/nested_replies/nested_replies_admin.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_data.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_module.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_plugin.dart';
@@ -55,6 +57,220 @@ void main() {
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
+  for (final (enabled, staff, privateMessage, nestedMode, available) in [
+    (true, true, false, true, true),
+    (true, true, false, false, true),
+    (false, true, false, true, false),
+    (null, true, false, true, false),
+    (true, false, false, true, false),
+    (true, true, true, true, false),
+  ]) {
+    testWidgets(
+      'settings availability enabled=$enabled staff=$staff PM=$privateMessage nested=$nestedMode',
+      (tester) async {
+        final fixture = await _pump(
+          tester,
+          desktop,
+          enabled: enabled,
+          user: DiscourseUser(id: 9, username: 'reader', staff: staff),
+          privateMessage: privateMessage,
+          nestedMode: nestedMode,
+        );
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        final actions = fixture.shell.plugins.registry.topicMenuActions(
+          tester.element(primaryMainContent),
+          _site,
+          fixture.shell.currentTopic!,
+        );
+        expect(
+          actions.map((action) => action.label),
+          available ? [appL10n.nestedRepliesSettings] : isEmpty,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final (platform, size) in [
+    (TargetPlatform.linux, desktop),
+    (TargetPlatform.iOS, phone),
+  ]) {
+    testWidgets('settings move from stats to topic menu on $platform', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester, size, nestedMode: false);
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      expect(find.text(appL10n.nestedRepliesSettings), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nested-replies-settings')));
+      await tester.pumpAndSettle();
+      expect(find.byType(NestedRepliesSettingsPanel), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
+  for (final (platform, size, label) in [
+    (TargetPlatform.iOS, phone, 'phone'),
+    (TargetPlatform.linux, desktop, 'desktop'),
+  ]) {
+    testWidgets('OP badge stays in the author header on $platform', (
+      tester,
+    ) async {
+      final fixture = await _pump(tester, size);
+      final roots = _roots();
+      roots['roots'] = [
+        {..._post(3), 'user_id': 10, 'username': 'captain'},
+        _post(2),
+      ];
+      fixture.api.pluginResponses.updateAll((_, _) => roots);
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      final root = find.byKey(const ValueKey('nested-row-103'));
+      final badge = find.descendant(of: root, matching: find.text('OP'));
+      final author = find.descendant(of: root, matching: find.text('captain'));
+      final staff = find.descendant(of: root, matching: find.text('staff'));
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pump();
+        expect(badge, findsOneWidget);
+        expect(find.text('OP'), findsOneWidget);
+        expect(find.text('Original poster'), findsNothing);
+        expect(
+          find.bySemanticsLabel(RegExp('Original poster')),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(badge).center.dy,
+          closeTo(tester.getRect(author).center.dy, 1),
+        );
+        expect(
+          tester.getRect(badge).left,
+          greaterThan(tester.getRect(author).right),
+        );
+        expect(
+          tester.getRect(badge).right,
+          lessThan(tester.getRect(staff).left),
+        );
+        await _export(tester, 'OP-$label-expanded');
+        if (platform == TargetPlatform.iOS) {
+          await tester.tap(badge);
+          await tester.pump(const Duration(milliseconds: 310));
+        } else {
+          await tester.tap(
+            find.byKey(const ValueKey('nested-collapse-103')).hitTestable(),
+          );
+        }
+        await _frames(tester);
+        expect(renderedText(_bodies[3]!), findsNothing);
+        expect(find.byKey(const ValueKey('nested-row-104')), findsNothing);
+        expect(badge, findsOneWidget);
+        expect(find.text('OP'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp('Original poster')),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(badge).center.dy,
+          closeTo(tester.getRect(author).center.dy, 1),
+        );
+        await _export(tester, 'OP-$label-collapsed');
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
+  testWidgets(
+    'desktop root groups keep four points expanded and no collapsed gap',
+    (tester) async {
+      final fixture = await _pump(tester, desktop);
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      final root = find.byKey(const ValueKey('nested-row-103'));
+      final child = find.byKey(const ValueKey('nested-row-104'));
+      final nextRoot = find.byKey(const ValueKey('nested-row-102'));
+      final childPost = find.descendant(
+        of: child,
+        matching: find.byType(PluginTopicPost),
+      );
+      expect(
+        tester.getRect(nextRoot).top - tester.getRect(childPost).bottom,
+        4,
+      );
+      for (final id in [103, 102]) {
+        await tester.tap(
+          find.byKey(ValueKey('nested-collapse-$id')).hitTestable(),
+        );
+        await _frames(tester);
+      }
+      final firstHeader = find.descendant(
+        of: root,
+        matching: find.text('sailor'),
+      );
+      final secondHeader = find.descendant(
+        of: nextRoot,
+        matching: find.text('navigator'),
+      );
+      expect(tester.getRect(root).height, 48);
+      expect(tester.getRect(nextRoot).top - tester.getRect(root).top, 48);
+      expect(
+        tester.getRect(secondHeader).center.dy -
+            tester.getRect(firstHeader).center.dy,
+        48,
+      );
+      expect(child, findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  for (final (originalId, replyId) in [(10, null), (null, 10), (null, null)]) {
+    testWidgets(
+      'OP badge requires known IDs original=$originalId reply=$replyId',
+      (tester) async {
+        final fixture = await _pump(tester, desktop);
+        final roots = _roots();
+        roots['op_post'] = {..._post(1), 'user_id': originalId};
+        roots['roots'] = [
+          {..._post(3), 'user_id': replyId},
+          _post(2),
+        ];
+        fixture.api.pluginResponses.updateAll((_, _) => roots);
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        expect(find.byKey(const ValueKey('nested-row-103')), findsOneWidget);
+        expect(find.text('OP'), findsNothing);
+        expect(find.text('Original poster'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets('topic stats keep nested activity without settings', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester, desktop, activityLog: true);
+    fixture.shell.openTopic(fixture.row);
+    await _frames(tester);
+    final actions = fixture.shell.plugins.registry.topicMapActions(
+      tester.element(primaryMainContent),
+      _site,
+      fixture.shell.currentTopic!,
+    );
+    expect(actions.actions, hasLength(1));
+    expect(find.text(appL10n.nestedRepliesActivity), findsOneWidget);
+    expect(find.text(appL10n.nestedRepliesSettings), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('nested posts follow the live content width preference', (
     tester,
   ) async {
@@ -75,6 +291,43 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'desktop replies keep canonical body insets and aligned thread gutters',
+    (tester) async {
+      final fixture = await _pump(tester, desktop);
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      final root = find.byKey(const ValueKey('nested-row-103'));
+      final child = find.byKey(const ValueKey('nested-row-104'));
+      final rootRect = tester.getRect(root);
+      final body = tester.getRect(
+        find.descendant(of: root, matching: find.byType(CookedHtml)).first,
+      );
+      final avatar = tester.getRect(
+        find.descendant(of: root, matching: find.byType(AvatarImage)).first,
+      );
+      final childBody = tester.getRect(
+        find.descendant(of: child, matching: find.byType(CookedHtml)).first,
+      );
+      final childAvatar = tester.getRect(
+        find.descendant(of: child, matching: find.byType(AvatarImage)).first,
+      );
+      final connector = tester.getRect(
+        find.descendant(of: child, matching: find.byType(DThreadConnector)),
+      );
+      expect(body.left - rootRect.left, 56);
+      expect(rootRect.right - body.right, 16);
+      expect(avatar.left - rootRect.left, 18);
+      expect(body.left - avatar.left, 38);
+      expect(childBody.left - body.left, 32);
+      expect(childAvatar.left - avatar.left, 32);
+      expect(connector.right, lessThanOrEqualTo(childAvatar.left));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 
   for (final width in [390.0, 430.0]) {
     testWidgets(
@@ -105,6 +358,15 @@ void main() {
               .first,
         );
         await _frames(tester);
+        expect(tester.getSize(avatar), const Size(28, 28));
+        expect(
+          tester.getSize(
+            find
+                .descendant(of: child, matching: find.byType(AvatarImage))
+                .first,
+          ),
+          const Size(28, 28),
+        );
         expect(tester.getTopLeft(body).dx, tester.getTopLeft(avatar).dx);
         expect(tester.getTopLeft(body).dx, 16);
         expect(tester.getSize(body).width, width - 32);
@@ -135,6 +397,7 @@ void main() {
           find.descendant(of: root, matching: find.text('sailor')),
           findsOneWidget,
         );
+        expect(tester.getSize(avatar), const Size(28, 28));
         final collapsed = tester.getRect(root);
         await _export(tester, 'mobile-collapsed-${width.toInt()}');
         await tester.tapAt(
@@ -148,6 +411,91 @@ void main() {
       },
       variant: TargetPlatformVariant.only(TargetPlatform.iOS),
     );
+  }
+
+  for (final (platform, size) in [
+    (TargetPlatform.iOS, phone),
+    (TargetPlatform.linux, desktop),
+  ]) {
+    for (final reducedMotion in [false, true]) {
+      testWidgets(
+        'post and descendants animate together on $platform with reduced motion $reducedMotion',
+        (tester) async {
+          final fixture = await _pump(tester, size);
+          await fixture.shell.appSettings.setReduceMotion(reducedMotion);
+          fixture.shell.openTopic(fixture.row);
+          await _frames(tester);
+          final readerState = tester.state(find.byType(NestedRepliesReader));
+          final root = find.byKey(const ValueKey('nested-row-103'));
+          final child = find.byKey(const ValueKey('nested-row-104'));
+          final nextRoot = find.byKey(const ValueKey('nested-row-102'));
+          final childFrame = find.byKey(const ValueKey(104));
+          final openChildHeight = tester.getSize(childFrame).height;
+          final openNextTop = tester.getTopLeft(nextRoot).dy;
+          Future<void> toggle() async {
+            if (platform == TargetPlatform.iOS) {
+              final rect = tester.getRect(root);
+              await tester.tapAt(rect.topLeft + Offset(rect.width * .7, 24));
+            } else {
+              await tester.tap(
+                find.byKey(const ValueKey('nested-collapse-103')).hitTestable(),
+              );
+            }
+            await tester.pump();
+          }
+
+          if (platform == TargetPlatform.iOS) {
+            await tester.tap(renderedText(_bodies[3]!).first);
+            await tester.pump(const Duration(milliseconds: 310));
+            await tester.pump();
+          } else {
+            await toggle();
+          }
+          if (!reducedMotion) {
+            expect(child, findsOneWidget);
+            await tester.pump(const Duration(milliseconds: 90));
+            final midChildHeight = tester.getSize(childFrame).height;
+            expect(midChildHeight, greaterThan(0));
+            expect(midChildHeight, lessThan(openChildHeight));
+            expect(tester.getTopLeft(nextRoot).dy, lessThan(openNextTop));
+            await toggle();
+            await tester.pump(const Duration(milliseconds: 45));
+            expect(
+              tester.getSize(childFrame).height,
+              greaterThan(midChildHeight),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.getTopLeft(nextRoot).dy, openNextTop);
+            if (platform == TargetPlatform.iOS) {
+              await tester.tap(renderedText(_bodies[3]!).first);
+              await tester.pump(const Duration(milliseconds: 310));
+              await tester.pump();
+            } else {
+              await toggle();
+            }
+            await tester.pumpAndSettle();
+          }
+          expect(child, findsNothing);
+          expect(renderedText(_bodies[3]!), findsNothing);
+          expect(renderedText(_bodies[4]!), findsNothing);
+          expect(
+            tester.getSize(root).height,
+            platform == TargetPlatform.iOS ? 64 : 48,
+          );
+          await toggle();
+          await tester.pumpAndSettle();
+          expect(tester.getSize(childFrame).height, openChildHeight);
+          expect(tester.getTopLeft(nextRoot).dy, openNextTop);
+          expect(
+            tester.state(find.byType(NestedRepliesReader)),
+            same(readerState),
+          );
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+    }
   }
 
   for (final (platform, size) in [
@@ -473,6 +821,34 @@ void main() {
             .dy;
         expect(rootTop, lessThan(childTop));
         expect(childTop, lessThan(laterRootTop));
+        final groupSeparators = find.descendant(
+          of: find.byType(NestedRepliesReader),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DSeparator && widget.thickness == 6,
+          ),
+        );
+        if (size == phone) {
+          expect(groupSeparators, findsOneWidget);
+          final separator = tester.getRect(groupSeparators);
+          final child = tester.getRect(
+            find.byKey(const ValueKey('nested-row-104')),
+          );
+          final laterRoot = tester.getRect(
+            find.byKey(const ValueKey('nested-row-102')),
+          );
+          expect(separator.left, laterRoot.left);
+          expect(separator.width, laterRoot.width);
+          final childPost = find.descendant(
+            of: find.byKey(const ValueKey('nested-row-104')),
+            matching: find.byType(PluginTopicPost),
+          );
+          expect(child.bottom - tester.getRect(childPost).bottom, 16);
+          expect(separator.top, child.bottom);
+          expect(separator.bottom, laterRoot.top);
+          expect(separator.top, greaterThan(childTop));
+        } else {
+          expect(groupSeparators, findsNothing);
+        }
         if (size == phone) {
           expect(find.text('Top').hitTestable(), findsOneWidget);
         }
@@ -514,6 +890,18 @@ void main() {
         final avatar = find
             .descendant(of: root, matching: find.byType(AvatarImage))
             .first;
+        expect(tester.getSize(avatar), const Size(28, 28));
+        expect(
+          tester.getSize(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('nested-row-104')),
+                  matching: find.byType(AvatarImage),
+                )
+                .first,
+          ),
+          const Size(28, 28),
+        );
         final bodyRail = find
             .descendant(
               of: root,
@@ -971,7 +1359,11 @@ void main() {
 Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
   WidgetTester tester,
   Size size, {
-  bool enabled = true,
+  bool? enabled = true,
+  DiscourseUser user = _user,
+  bool nestedMode = true,
+  bool privateMessage = false,
+  bool activityLog = false,
   bool installed = true,
   Completer<void>? configGate,
   bool postExtension = false,
@@ -985,10 +1377,16 @@ Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
       NestedRepliesSettings(enabled: enabled),
     ),
   );
-  final row = _models.topicSummary(_topic(), _site);
+  final topic = {
+    ..._topic(),
+    'is_nested_view': nestedMode,
+    'has_activity_log': activityLog,
+    if (privateMessage) 'archetype': 'private_message',
+  };
+  final row = _models.topicSummary(topic, _site);
   final api = FakeDiscourseApi(
     models: _models,
-    user: _user,
+    user: user,
     siteConfigs: {_site: config},
     siteConfigGate: configGate,
     feeds: {
@@ -996,7 +1394,7 @@ Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
     },
     topics: {
       7: _models.topic({
-        ..._topic(),
+        ...topic,
         'post_stream': {
           'stream': [101, 102, 103, 104],
           'posts': [_post(1), _post(2), _post(3), _post(4)],
@@ -1012,7 +1410,7 @@ Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
     tester,
     size,
     instances: [
-      instance('meta.discourse.org').copyWith(user: _user, config: config),
+      instance('meta.discourse.org').copyWith(user: user, config: config),
     ],
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
@@ -1080,6 +1478,7 @@ Map<String, dynamic> _post(int number) => {
   'cooked': '<p>${_bodies[number]}</p>',
   'raw': _bodies[number],
   'can_edit': true,
+  'moderator': number == 3,
   'can_delete': true,
   'reply_to_post_number': number == 4 ? 3 : 1,
   'direct_reply_count': number == 3 ? 1 : 0,

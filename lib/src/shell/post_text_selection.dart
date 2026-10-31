@@ -57,6 +57,14 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!TickerMode.valuesOf(context).enabled) {
+      _showTimer?.cancel();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !TickerMode.valuesOf(context).enabled) {
+          _dismiss(clearSelection: true);
+        }
+      });
+    }
     final position = Scrollable.maybeOf(context)?.position;
     if (identical(position, _scroll)) return;
     _scroll?.removeListener(_hideWhileScrolling);
@@ -80,6 +88,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
 
   void _selectionChanged(SelectedContent? content) {
     _showTimer?.cancel();
+    if (!TickerMode.valuesOf(context).enabled) return;
     _selection = (_quoteResolver ??= PostQuoteSelectionResolver(
       _displayedCooked,
     )).resolve(content?.plainText ?? '', isLocalized: widget.post.isLocalized);
@@ -94,7 +103,11 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   }
 
   void _showToolbar() {
-    if (!mounted || _selection.markdown.isEmpty) return;
+    if (!mounted ||
+        !TickerMode.valuesOf(context).enabled ||
+        _selection.markdown.isEmpty) {
+      return;
+    }
     final area = _selectionKey.currentState;
     if (area == null) return;
 
@@ -187,7 +200,9 @@ class _PostTextSelectionState extends State<PostTextSelection> {
       overlayChildBuilder: (context) => Builder(
         builder: (context) {
           final anchors = _anchors;
-          if (anchors == null || _selection.markdown.isEmpty) {
+          if (!TickerMode.valuesOf(context).enabled ||
+              anchors == null ||
+              _selection.markdown.isEmpty) {
             return const SizedBox.shrink();
           }
           return _PostTextSelectionToolbar(

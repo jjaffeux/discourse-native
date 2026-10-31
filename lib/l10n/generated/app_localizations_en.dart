@@ -169,6 +169,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Earlier replies are unavailable.';
 
   @override
+  String get nestedRepliesOriginalPosterShort => 'OP';
+
+  @override
   String get nestedRepliesOriginalPoster => 'Original poster';
 
   @override

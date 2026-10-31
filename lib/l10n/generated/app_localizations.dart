@@ -382,6 +382,12 @@ abstract class AppLocalizations {
   /// **'Earlier replies are unavailable.'**
   String get nestedRepliesEarlierUnavailable;
 
+  /// Nested replies plugin. Compact badge identifying replies by the original poster
+  ///
+  /// In en, this message translates to:
+  /// **'OP'**
+  String get nestedRepliesOriginalPosterShort;
+
   /// Nested replies plugin. Original poster
   ///
   /// In en, this message translates to:

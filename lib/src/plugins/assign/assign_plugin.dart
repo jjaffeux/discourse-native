@@ -423,7 +423,7 @@ final class AssignPlugin
             ? const []
             : direct == null
             ? [
-                TopicPropertyAction(
+                TopicMenuAction(
                   key: const Key('assign-topic-action'),
                   label: appL10n.assignTopic,
                   icon: DIcons.userPlus,
@@ -437,7 +437,7 @@ final class AssignPlugin
                 ),
               ]
             : [
-                TopicPropertyAction(
+                TopicMenuAction(
                   key: const Key('assign-topic-reassign-action'),
                   label: appL10n.reassignTopic,
                   icon: DIcons.userPen,
@@ -450,7 +450,7 @@ final class AssignPlugin
                     ),
                   ),
                 ),
-                TopicPropertyAction(
+                TopicMenuAction(
                   key: const Key('assign-topic-unassign-action'),
                   label: appL10n.unassignFromTopic(direct.assignee.displayName),
                   icon: DNativeIcons.userMinus,

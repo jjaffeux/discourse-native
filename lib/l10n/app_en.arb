@@ -95,6 +95,8 @@
   "@nestedRepliesNoReplies": {"description": "Nested replies plugin. No replies yet."},
   "nestedRepliesEarlierUnavailable": "Earlier replies are unavailable.",
   "@nestedRepliesEarlierUnavailable": {"description": "Nested replies plugin. Earlier replies are unavailable."},
+  "nestedRepliesOriginalPosterShort": "OP",
+  "@nestedRepliesOriginalPosterShort": {"description": "Nested replies plugin. Compact badge identifying replies by the original poster"},
   "nestedRepliesOriginalPoster": "Original poster",
   "@nestedRepliesOriginalPoster": {"description": "Nested replies plugin. Original poster"},
   "nestedRepliesNotificationTopic": "{count} new replies in this topic",

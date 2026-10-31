@@ -142,6 +142,15 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         child: PluginTopicPost(reader: reader, postId: node.postId),
       );
     }
+    final authorId = reader.post(node.postId)?.userId;
+    final originalPost = _controller.op;
+    final originalAuthorId = reader.post(originalPost?.postId ?? 0)?.userId;
+    final isOriginalAuthor =
+        node.postId != originalPost?.postId &&
+        authorId != null &&
+        originalAuthorId != null &&
+        authorId == originalAuthorId;
+    final theme = Theme.of(context);
     final phone = _usesMobileLayout;
     final displayLevel = displayDepth ?? depth;
     final step = phone ? 16.0 : 32.0;
@@ -204,21 +213,28 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
           );
     Widget post = ordinary
         ? PluginTopicPost(
-            key: collapsed
-                ? null
-                : _postKeys.putIfAbsent(node.postId, GlobalKey.new),
+            key: _postKeys.putIfAbsent(node.postId, GlobalKey.new),
             reader: reader,
             postId: node.postId,
-            layout: collapsed
-                ? TopicPostLayout.headerOnly
-                : phone
-                ? TopicPostLayout.stacked
-                : TopicPostLayout.compact,
+            contentExpanded: !collapsed,
+            authorBadges: [
+              if (isOriginalAuthor)
+                DBadge.inline(
+                  baseStyle: theme.textTheme.labelSmall,
+                  backgroundColor: theme.colorScheme.primary.withValues(
+                    alpha: 0.18,
+                  ),
+                  foregroundColor: theme.colorScheme.primary,
+                  semanticLabel: appL10n.nestedRepliesOriginalPoster,
+                  child: Text(appL10n.nestedRepliesOriginalPosterShort),
+                ),
+            ],
+            layout: phone ? TopicPostLayout.stacked : TopicPostLayout.compact,
             leading: collapsed ? control : null,
             bodyLeading: phone
                 ? null
                 : Padding(
-                    padding: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.only(top: 2),
                     child: rail(interactive: true),
                   ),
             footerLeading: footer,
@@ -248,33 +264,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
     final extras = <Widget>[
       if (_controller.pinnedPostIds.contains(node.postId))
         DBadge(child: Text(appL10n.pinned)),
-      if (reader.post(node.postId)?.userId != null &&
-          reader.post(node.postId)?.userId ==
-              reader.post(_controller.op?.postId ?? 0)?.userId)
-        DBadge(child: Text(appL10n.nestedRepliesOriginalPoster)),
-      if (total > 0 && !atLimit && (!phone || displayLevel < visualLimit))
-        DToggle(
-          key: ValueKey('nested-replies-toggle-${node.postId}'),
-          variant: DToggleVariant.inline,
-          size: DToggleSize.chip,
-          pressed: expanded,
-          onPressedChanged: _controller.restoringPages && children.isEmpty
-              ? null
-              : (value) {
-                  _controller.setRepliesExpanded(node.postNumber, value);
-                  if (value && children.isEmpty) {
-                    unawaited(
-                      _controller.loadChildren(
-                        node.postNumber,
-                        depth: childDepth,
-                      ),
-                    );
-                  }
-                },
-          child: Text(countLabel(total, CountNoun.reply)),
-        ),
-      if (hasMore &&
-          expanded &&
+      if ((hasMore || (!expanded && total > 0)) &&
           !atLimit &&
           (!phone || displayLevel < visualLimit))
         DButton(
@@ -315,43 +305,49 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
               ),
           ],
         ),
-        if (!collapsed && (extras.isNotEmpty || childPage.error != null))
-          Stack(
-            children: [
-              Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: phone ? 16 : 56,
-                  end: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: extras,
+        if (extras.isNotEmpty || childPage.error != null)
+          DCollapsible(
+            open: !collapsed,
+            child: DCollapsibleContent(
+              duration: DMotion.change,
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      start: phone ? 16 : 56,
+                      end: 16,
                     ),
-                    if (childPage.error != null)
-                      _error(
-                        appL10n.nestedRepliesCouldNotLoad,
-                        () => _controller.loadChildren(
-                          node.postNumber,
-                          depth: childDepth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: extras,
                         ),
-                      ),
-                  ],
-                ),
+                        if (childPage.error != null)
+                          _error(
+                            appL10n.nestedRepliesCouldNotLoad,
+                            () => _controller.loadChildren(
+                              node.postNumber,
+                              depth: childDepth,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (!phone && hasChildren)
+                    PositionedDirectional(
+                      start: 16,
+                      width: 32,
+                      top: 0,
+                      bottom: 0,
+                      child: rail(),
+                    ),
+                ],
               ),
-              if (!phone && hasChildren)
-                PositionedDirectional(
-                  start: 16,
-                  width: 32,
-                  top: 0,
-                  bottom: 0,
-                  child: rail(),
-                ),
-            ],
+            ),
           ),
       ],
     );
@@ -382,9 +378,8 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
       children: [
         Padding(
           padding: EdgeInsetsDirectional.only(
-            start: 8 + visualDepth * step,
-            end: 8,
-            bottom: endOfThread ? 16 : 0,
+            start: visualDepth * step,
+            bottom: endOfThread ? (collapsed ? 0.0 : 4.0) : 0.0,
           ),
           child: content,
         ),
@@ -395,7 +390,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         )
           if (level == visualDepth - 1 || continuations[level])
             PositionedDirectional(
-              start: 8 + 32 + level * step - 1,
+              start: 32 + level * step - 1,
               width: level == visualDepth - 1 ? step - 15 : 2,
               top: 0,
               bottom: 0,
@@ -441,33 +436,38 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
             ),
           ],
         ),
-        if (!collapsed)
-          Padding(
-            padding: EdgeInsetsDirectional.only(start: phone ? 0 : 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_revealed[node.postId] case final cooked?)
-                  CookedHtml(html: cooked, siteUrl: reader.siteUrl),
-                if (node.data.placeholder == NestedPostPlaceholder.ignored &&
-                    !_revealed.containsKey(node.postId))
-                  DButton(
-                    variant: DButtonVariant.inline,
-                    size: DButtonSize.chip,
-                    label: Text(
-                      _revealing.contains(node.postId)
-                          ? appL10n.loading
-                          : appL10n.nestedRepliesRevealIgnored,
+        DCollapsible(
+          open: !collapsed,
+          child: DCollapsibleContent(
+            duration: DMotion.change,
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(start: phone ? 0 : 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_revealed[node.postId] case final cooked?)
+                    CookedHtml(html: cooked, siteUrl: reader.siteUrl),
+                  if (node.data.placeholder == NestedPostPlaceholder.ignored &&
+                      !_revealed.containsKey(node.postId))
+                    DButton(
+                      variant: DButtonVariant.inline,
+                      size: DButtonSize.chip,
+                      label: Text(
+                        _revealing.contains(node.postId)
+                            ? appL10n.loading
+                            : appL10n.nestedRepliesRevealIgnored,
+                      ),
+                      onPressed: _revealing.contains(node.postId)
+                          ? null
+                          : () => _reveal(node),
                     ),
-                    onPressed: _revealing.contains(node.postId)
-                        ? null
-                        : () => _reveal(node),
-                  ),
-                if (_revealErrors.containsKey(node.postId))
-                  Text(appL10n.nestedRepliesCouldNotLoad),
-              ],
+                  if (_revealErrors.containsKey(node.postId))
+                    Text(appL10n.nestedRepliesCouldNotLoad),
+                ],
+              ),
             ),
           ),
+        ),
       ],
     ),
   );

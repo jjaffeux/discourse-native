@@ -19,6 +19,7 @@ final class NestedRepliesPlugin
         TopicRecordPlugin<NestedTopicData>,
         TopicReaderPlugin,
         TopicMapActionPlugin,
+        TopicMenuPlugin,
         PostMenuPlugin,
         TopicListHeaderPlugin,
         TopicListTitlePlugin {
@@ -78,6 +79,29 @@ final class NestedRepliesPlugin
   }
 
   @override
+  List<TopicMenuAction> topicMenuActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) {
+    final service = _service(context);
+    if (service.settingsFor(siteUrl).enabled != true ||
+        !service.staffFor(siteUrl) ||
+        topic.privateMessage) {
+      return const [];
+    }
+    return [
+      TopicMenuAction(
+        key: const ValueKey('nested-replies-settings'),
+        label: appL10n.nestedRepliesSettings,
+        icon: DIcons.reply,
+        onSelected: (context) =>
+            unawaited(service.showSettings(context, siteUrl, topic.id)),
+      ),
+    ];
+  }
+
+  @override
   TopicMapActionContribution topicMapActions(
     BuildContext context,
     String siteUrl,
@@ -91,15 +115,6 @@ final class NestedRepliesPlugin
     }
     return TopicMapActionContribution(
       actions: [
-        if (settings.enabled == true && service.staffFor(siteUrl))
-          DButton(
-            size: DButtonSize.chip,
-            variant: DButtonVariant.tool,
-            icon: const DIcon(DIcons.reply),
-            label: Text(appL10n.nestedRepliesSettings),
-            onPressed: () =>
-                unawaited(service.showSettings(context, siteUrl, topic.id)),
-          ),
         if (feature?.enabled == true && feature?.hasActivityLog == true)
           DButton(
             size: DButtonSize.chip,

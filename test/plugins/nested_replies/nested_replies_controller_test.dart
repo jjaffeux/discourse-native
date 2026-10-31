@@ -44,7 +44,17 @@ void main() {
         6,
         7,
       ]);
-      controller.setRepliesExpanded(2, false);
+      expect(
+        controller
+            .visibleRows(includeCollapsed: true)
+            .map((row) => row.node.postNumber),
+        [2, 3, 4, 5, 6, 7],
+      );
+      expect(
+        controller.visibleRows(includeCollapsed: true)[2].ancestorPostNumbers,
+        [2, 3],
+      );
+      controller.setCollapsed(2, true);
       expect(controller.visibleRows().map((row) => row.node.postNumber), [
         2,
         7,
@@ -128,7 +138,7 @@ void main() {
       addTearDown(controller.dispose);
       await controller.open();
       await controller.loadChildren(2, depth: 1);
-      controller.setRepliesExpanded(2, false);
+      controller.setCollapsed(2, true);
       controller.setCollapsed(5, true);
       loader.rootHandler = (_) async => _roots([
         node(2, children: [node(3, parent: 2)]),
@@ -145,7 +155,7 @@ void main() {
       expect(controller.childrenFor(5).single.postNumber, 4);
       expect(controller.postNumber(4)!.data.replyToPostNumber, 5);
       expect(controller.childrenState(2, depth: 1).page, 0);
-      expect(controller.isExpanded(2, depth: 0), isFalse);
+      expect(controller.isCollapsed(2), isTrue);
       expect(controller.isCollapsed(5), isTrue);
     },
   );
@@ -261,7 +271,7 @@ void main() {
   });
 
   test(
-    'a child page cannot reopen replies hidden while it was loading',
+    'a child page cannot reopen a post collapsed while it was loading',
     () async {
       final pending = Completer<NestedPageReceipt<NestedChildrenPage>?>();
       final loader = _Loader()..rootHandler = (_) async => _roots([node(2)]);
@@ -269,35 +279,15 @@ void main() {
       final controller = NestedRepliesController(loader: loader);
       addTearDown(controller.dispose);
       await controller.open();
-      controller.setRepliesExpanded(2, true);
       final loading = controller.loadChildren(2, depth: 1);
-      controller.setRepliesExpanded(2, false);
+      controller.setCollapsed(2, true);
       pending.complete(_children([node(3, parent: 2)], hasMore: false));
       await loading;
-      expect(controller.isExpanded(2, depth: 0), isFalse);
-      expect(controller.isCollapsed(2), isFalse);
+      expect(controller.isCollapsed(2), isTrue);
       expect(controller.childrenFor(2).single.postNumber, 3);
       expect(controller.visibleRows().map((row) => row.node.postNumber), [2]);
     },
   );
-
-  test('reply disclosure is independent of whole post collapse', () async {
-    final loader = _Loader()
-      ..rootHandler = (_) async => _roots([
-        node(2, children: [node(3, parent: 2)]),
-      ]);
-    final controller = NestedRepliesController(loader: loader);
-    addTearDown(controller.dispose);
-    await controller.open();
-    controller.setRepliesExpanded(2, false);
-    expect(controller.isCollapsed(2), isFalse);
-    expect(controller.visibleRows().map((row) => row.node.postNumber), [2]);
-    controller.setCollapsed(2, true);
-    controller.setCollapsed(2, false);
-    expect(controller.isExpanded(2, depth: 0), isFalse);
-    controller.setRepliesExpanded(2, true);
-    expect(controller.visibleRows().map((row) => row.node.postNumber), [2, 3]);
-  });
 
   test(
     'foreground revisit reconciles loaded root and child pages with one visit',
@@ -321,7 +311,7 @@ void main() {
       await controller.loadMoreRoots();
       await controller.loadChildren(2, depth: 1);
       await controller.loadChildren(2, depth: 1);
-      controller.setRepliesExpanded(2, false);
+      controller.setCollapsed(2, true);
       controller.updatePins([104]);
       final saved = controller.snapshot();
       expect(identical(saved, controller.snapshot()), isTrue);
@@ -352,48 +342,40 @@ void main() {
       expect(restored.pinnedPostIds, isEmpty);
       expect(restored.requestedSort, NestedRepliesSort.hot);
       expect(restored.effectiveSort, NestedRepliesSort.top);
-      expect(restored.isExpanded(2, depth: 0), isFalse);
+      expect(restored.isCollapsed(2), isTrue);
       expect(identical(saved, restored.snapshot()), isFalse);
       await restored.loadMoreRoots();
       expect(loader.rootRequests.last.page, 3);
     },
   );
 
-  test(
-    'reload restores the loaded page depth and independent replies state',
-    () async {
-      final loader = _Loader();
-      loader.rootHandler = (request) async =>
-          _roots([node(request.page + 2)], page: request.page, hasMore: true);
-      loader.childHandler = (request) async => _children(
-        [node(10 + request.page, parent: 2)],
-        page: request.page,
-        hasMore: true,
-      );
-      final controller = NestedRepliesController(loader: loader);
-      addTearDown(controller.dispose);
-      await controller.open();
-      await controller.loadMoreRoots();
-      await controller.loadChildren(2, depth: 1);
-      await controller.loadChildren(2, depth: 1);
-      controller.setRepliesExpanded(2, false);
-      await controller.reload();
-      expect(
-        loader.rootRequests.map(
-          (request) => (request.page, request.trackVisit),
-        ),
-        [(0, true), (1, false), (0, false), (1, false)],
-      );
-      expect(controller.rootPage, 1);
-      expect(controller.childrenState(2, depth: 1).page, 1);
-      expect(controller.childrenFor(2).map((node) => node.postNumber), [
-        10,
-        11,
-      ]);
-      expect(controller.isExpanded(2, depth: 0), isFalse);
-      expect(controller.restoringPages, isFalse);
-    },
-  );
+  test('reload restores the loaded page depth and collapsed posts', () async {
+    final loader = _Loader();
+    loader.rootHandler = (request) async =>
+        _roots([node(request.page + 2)], page: request.page, hasMore: true);
+    loader.childHandler = (request) async => _children(
+      [node(10 + request.page, parent: 2)],
+      page: request.page,
+      hasMore: true,
+    );
+    final controller = NestedRepliesController(loader: loader);
+    addTearDown(controller.dispose);
+    await controller.open();
+    await controller.loadMoreRoots();
+    await controller.loadChildren(2, depth: 1);
+    await controller.loadChildren(2, depth: 1);
+    controller.setCollapsed(2, true);
+    await controller.reload();
+    expect(
+      loader.rootRequests.map((request) => (request.page, request.trackVisit)),
+      [(0, true), (1, false), (0, false), (1, false)],
+    );
+    expect(controller.rootPage, 1);
+    expect(controller.childrenState(2, depth: 1).page, 1);
+    expect(controller.childrenFor(2).map((node) => node.postNumber), [10, 11]);
+    expect(controller.isCollapsed(2), isTrue);
+    expect(controller.restoringPages, isFalse);
+  });
 
   test('superseded reload cannot replay old pages into a new sort', () async {
     final loader = _Loader()

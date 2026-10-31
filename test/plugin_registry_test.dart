@@ -4,6 +4,7 @@ import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/post_action.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
@@ -576,6 +577,41 @@ void main() {
   });
 
   group('widget surfaces', () {
+    testWidgets(
+      'topic menu preserves order and plugin ownership on selection',
+      (tester) async {
+        final selected = <String>[];
+        final registry = PluginRegistry([
+          _TopicMenuPlugin('first', selected),
+          const _NamedPlugin('unrelated'),
+          _TopicMenuPlugin('second', selected),
+        ]);
+        late List<TopicMenuAction> actions;
+        late BuildContext hostContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) {
+                hostContext = context;
+                actions = registry.topicMenuActions(context, 'site', _topic);
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+
+        expect(actions.map((action) => action.label), ['first', 'second']);
+        expect(actions.map((action) => action.key), [
+          const ValueKey('first'),
+          const ValueKey('second'),
+        ]);
+        for (final action in actions) {
+          action.onSelected(hostContext);
+        }
+        expect(selected, ['first', 'second']);
+      },
+    );
+
     testWidgets('aggregate additive topic and post surfaces in order', (
       tester,
     ) async {
@@ -987,3 +1023,31 @@ final class _CounterPlugin extends _NamedPlugin
 }
 
 void _noop() {}
+
+final class _TopicMenuPlugin extends _NamedPlugin implements TopicMenuPlugin {
+  const _TopicMenuPlugin(super.name, this.selected);
+
+  final List<String> selected;
+
+  @override
+  List<TopicMenuAction> topicMenuActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) {
+    expect(PluginUiScope.ownerOf(context), PluginId(name));
+    expect(siteUrl, 'site');
+    expect(topic, same(_topic));
+    return [
+      TopicMenuAction(
+        key: ValueKey(name),
+        label: name,
+        icon: DIcons.reply,
+        onSelected: (context) {
+          expect(PluginUiScope.ownerOf(context), PluginId(name));
+          selected.add(name);
+        },
+      ),
+    ];
+  }
+}

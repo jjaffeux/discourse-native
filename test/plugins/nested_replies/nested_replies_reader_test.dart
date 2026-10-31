@@ -69,77 +69,90 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('review phone context child toggle reflects hidden descendants', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    Map<String, dynamic> node(
-      int number, {
-      List<Map<String, dynamic>> children = const [],
-    }) => {
-      'id': 100 + number,
-      'post_number': number,
-      'deleted_post_placeholder': true,
-      'direct_reply_count': children.length,
-      'total_descendant_count': children.length,
-      'children': children,
-    };
-    final transport = RecordingPluginTransport(
-      responses: {
-        'GET /n/conversation/7/context/4.json?sort=top&track_visit=true': {
-          'topic': {'id': 7, 'title': 'Conversation', 'is_nested_view': true},
-          'target_post': node(
-            4,
-            children: [
-              node(5, children: [node(6)]),
-            ],
-          ),
-          'ancestor_chain': [node(2), node(3)],
-          'ancestors_truncated': false,
-          'siblings': <String, dynamic>{},
+  testWidgets(
+    'phone context keeps descendants hidden until their replies are loaded',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      Map<String, dynamic> node(
+        int number, {
+        List<Map<String, dynamic>> children = const [],
+      }) => {
+        'id': 100 + number,
+        'post_number': number,
+        'deleted_post_placeholder': true,
+        'direct_reply_count': children.length,
+        'total_descendant_count': children.length,
+        'children': children,
+      };
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /n/conversation/7/context/4.json?sort=top&track_visit=true': {
+            'topic': {'id': 7, 'title': 'Conversation', 'is_nested_view': true},
+            'target_post': node(
+              4,
+              children: [
+                node(5, children: [node(6)]),
+              ],
+            ),
+            'ancestor_chain': [node(2), node(3)],
+            'ancestors_truncated': false,
+            'siblings': <String, dynamic>{},
+          },
+          'GET /n/conversation/7/children/5.json?sort=top&page=0&depth=4': {
+            'children': [node(6)],
+            'page': 0,
+            'has_more': false,
+          },
         },
-      },
-    );
-    final host = await PluginHostHarness.open(
-      transport: transport,
-      sites: [const PluginHostSite(url: _site)],
-    );
-    addTearDown(host.close);
-    final reader = _Reader(postNumber: 4, query: 'collapse_replies=true');
-    addTearDown(reader.dispose);
-    await tester.pumpWidget(
-      host.scope(
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: NestedRepliesReader(
-              reader: reader,
-              api: NestedRepliesApi(transport, reader.models),
-              settings: const NestedRepliesSettings(
-                enabled: true,
-                maxDepth: 10,
+      );
+      final host = await PluginHostHarness.open(
+        transport: transport,
+        sites: [const PluginHostSite(url: _site)],
+      );
+      addTearDown(host.close);
+      final reader = _Reader(postNumber: 4, query: 'collapse_replies=true');
+      addTearDown(reader.dispose);
+      await tester.pumpWidget(
+        host.scope(
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: NestedRepliesReader(
+                reader: reader,
+                api: NestedRepliesApi(transport, reader.models),
+                settings: const NestedRepliesSettings(
+                  enabled: true,
+                  maxDepth: 10,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await _frames(tester);
-    expect(find.byKey(const ValueKey(105)), findsOneWidget);
-    expect(find.byKey(const ValueKey(106)), findsNothing);
-    final toggle = tester.widget<DToggle>(
-      find.byKey(const ValueKey('nested-replies-toggle-105')),
-    );
-    expect(
-      toggle.pressed,
-      isFalse,
-      reason: 'The child descendants are hidden by collapse_replies',
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+      );
+      await _frames(tester);
+      expect(find.byKey(const ValueKey(105)), findsOneWidget);
+      expect(find.byKey(const ValueKey(106)), findsNothing);
+      final child = find.byKey(const ValueKey(105));
+      final load = find.descendant(
+        of: child,
+        matching: find.text('Load more replies'),
+      );
+      await tester.ensureVisible(load);
+      await tester.tap(load);
+      await _frames(tester);
+      expect(find.byKey(const ValueKey(106)), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is DSeparator && widget.thickness == 6,
+        ),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   setUpAll(() async {
     await (FontLoader(
@@ -323,7 +336,7 @@ void main() {
       );
       await _frames(tester);
       await tester.tap(find.text('Ignored post'));
-      await tester.pump();
+      await _frames(tester);
       memory.invalidateTopic(_site, 7);
       await _frames(tester);
       expect(find.bySemanticsLabel(RegExp('^Expand post')), findsOneWidget);
@@ -374,7 +387,7 @@ void main() {
       await tester.pumpWidget(view(retired));
       await _frames(tester);
       await tester.tap(find.text('Ignored post'));
-      await tester.pump();
+      await _frames(tester);
       expect(find.text('Deleted post'), findsNothing);
       retired.close();
       memory.forgetSite(_site);
@@ -452,7 +465,7 @@ void main() {
     },
   );
 
-  testWidgets('reply toggle hides children while retaining the parent body', (
+  testWidgets('post collapse hides and restores its preloaded descendants', (
     tester,
   ) async {
     final transport = RecordingPluginTransport(
@@ -484,19 +497,19 @@ void main() {
     await _frames(tester);
     expect(find.text('Ignored post'), findsOneWidget);
     expect(find.text('Deleted post'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('nested-replies-toggle-102')));
-    await tester.pump();
-    expect(find.text('Ignored post'), findsOneWidget);
-    expect(find.text('Deleted post'), findsNothing);
+    expect(find.text('1 reply'), findsNothing);
+    expect(reader.visibleIds, {102, 103});
     await tester.tap(find.text('Ignored post'));
     await tester.pump();
-    await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
-    await tester.pump();
-    expect(find.text('Ignored post'), findsOneWidget);
-    expect(find.text('Deleted post'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('nested-replies-toggle-102')));
-    await tester.pump();
+    expect(reader.visibleIds, isEmpty);
     expect(find.text('Deleted post'), findsOneWidget);
+    await _frames(tester);
+    expect(find.text('Deleted post'), findsNothing);
+    await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
+    await _frames(tester);
+    expect(find.text('Ignored post'), findsOneWidget);
+    expect(find.text('Deleted post'), findsOneWidget);
+    expect(reader.visibleIds, {102, 103});
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -754,10 +767,10 @@ void main() {
       await _export(tester, 'desktop-branches.png');
       expect(find.text('Continue this thread'), findsNothing);
       await tester.tap(find.text('Ignored post'));
-      await tester.pump();
+      await _frames(tester);
       expect(find.text('Deleted post'), findsNothing);
       await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
-      await tester.pump();
+      await _frames(tester);
       expect(find.text('Deleted post'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -846,6 +859,7 @@ final class _Reader extends ChangeNotifier implements PluginTopicReader {
   final posts = <int, Post>{};
   final batches = <TopicContentResult<Object?>>[];
   final timings = <List<int>>[];
+  Set<int> visibleIds = {};
   @override
   Post? post(int postId) => posts[postId];
   @override
@@ -900,7 +914,7 @@ final class _Reader extends ChangeNotifier implements PluginTopicReader {
   @override
   Future<void> refreshMetadata() async {}
   @override
-  void setVisiblePostIds(Iterable<int> postIds) {}
+  void setVisiblePostIds(Iterable<int> postIds) => visibleIds = postIds.toSet();
   @override
   Stream<Object?> get topicEvents => const Stream.empty();
   @override

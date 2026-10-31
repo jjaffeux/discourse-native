@@ -123,6 +123,8 @@ class TopicPostPresentation extends StatelessWidget {
     required this.topicId,
     required this.postId,
     this.layout = TopicPostLayout.standard,
+    this.contentExpanded = true,
+    this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
     this.footerLeading,
@@ -134,6 +136,8 @@ class TopicPostPresentation extends StatelessWidget {
   final int topicId;
   final int postId;
   final TopicPostLayout layout;
+  final bool contentExpanded;
+  final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
@@ -155,6 +159,8 @@ class TopicPostPresentation extends StatelessWidget {
                   topic: topic,
                   postId: postId,
                   layout: layout,
+                  contentExpanded: contentExpanded,
+                  authorBadges: authorBadges,
                   leading: leading,
                   bodyLeading: bodyLeading,
                   footerLeading: footerLeading,
@@ -4059,6 +4065,8 @@ class _StoredPost extends StatefulWidget {
     required this.readTimeWordCount,
     required this.keyboardSelection,
     this.layout = TopicPostLayout.standard,
+    this.contentExpanded = true,
+    this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
     this.footerLeading,
@@ -4070,6 +4078,8 @@ class _StoredPost extends StatefulWidget {
   final TopicDetail topic;
   final int postId;
   final TopicPostLayout layout;
+  final bool contentExpanded;
+  final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
@@ -4092,6 +4102,8 @@ class _StoredPost extends StatefulWidget {
     readTimeWordCount,
     keyboardSelection,
     layout,
+    contentExpanded,
+    authorBadges,
     leading,
     bodyLeading,
     footerLeading,
@@ -4155,6 +4167,8 @@ class _StoredPostState extends State<_StoredPost> {
                     topic: topic,
                     post: post,
                     layout: widget.layout,
+                    contentExpanded: widget.contentExpanded,
+                    authorBadges: widget.authorBadges,
                     leading: widget.leading,
                     bodyLeading: widget.bodyLeading,
                     footerLeading: widget.footerLeading,
@@ -4214,6 +4228,8 @@ class _PostTile extends StatefulWidget {
     required this.topic,
     required this.post,
     this.layout = TopicPostLayout.standard,
+    this.contentExpanded = true,
+    this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
     this.footerLeading,
@@ -4225,6 +4241,8 @@ class _PostTile extends StatefulWidget {
   final TopicDetail topic;
   final Post post;
   final TopicPostLayout layout;
+  final bool contentExpanded;
+  final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
@@ -4292,16 +4310,30 @@ class _PostTileState extends State<_PostTile> {
   ) {
     final theme = Theme.of(context);
     final post = widget.post;
+    final compact = widget.layout != TopicPostLayout.standard;
+    final avatarSize = compact ? 28.0 : 32.0;
+    final avatarWidth =
+        widget.layout == TopicPostLayout.stacked || (compact && context.isTouch)
+        ? avatarSize
+        : 32.0;
+    Widget headerTag({required String label, required Color color}) => compact
+        ? DBadge.inline(
+            baseStyle: theme.textTheme.labelSmall,
+            backgroundColor: color.withValues(alpha: 0.18),
+            foregroundColor: color,
+            child: Text(label),
+          )
+        : _Tag(label: label, color: color);
     final avatar = UserCardTarget(
       username: post.username,
       siteUrl: widget.siteUrl,
       child: DAvatar.frame(
         child: SizedBox(
-          width: 32,
-          height: 32,
+          width: avatarSize,
+          height: avatarSize,
           child: AvatarImage(
             url: post.avatarUrl,
-            size: 32,
+            size: avatarSize,
             fallback: ColoredBox(
               color: theme.shell.floating,
               child: Center(
@@ -4329,8 +4361,9 @@ class _PostTileState extends State<_PostTile> {
           const SizedBox(width: 10),
         ],
         if (widget.layout != TopicPostLayout.standard) ...[
-          SizedBox.square(
-            dimension: 32,
+          SizedBox(
+            width: avatarWidth,
+            height: 32,
             child: Center(child: widget.leading ?? avatar),
           ),
           const SizedBox(width: 8),
@@ -4367,12 +4400,22 @@ class _PostTileState extends State<_PostTile> {
                     post.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style:
+                        (compact
+                                ? theme.textTheme.bodySmall
+                                : theme.textTheme.bodyMedium)
+                            ?.copyWith(
+                              fontWeight: compact
+                                  ? FontWeight.w400
+                                  : FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
+              for (final badge in widget.authorBadges) ...[
+                const SizedBox(width: 6),
+                badge,
+              ],
               UserStatusMessage(
                 siteUrl: widget.siteUrl,
                 userId: post.userId,
@@ -4382,7 +4425,7 @@ class _PostTileState extends State<_PostTile> {
               ),
               if (post.isStaff) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.staffChatmessagetile,
                   color: theme.colorScheme.primary,
                 ),
@@ -4401,35 +4444,35 @@ class _PostTileState extends State<_PostTile> {
               ],
               if (post.isDeleted) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.deletedTopicview,
                   color: theme.colorScheme.error,
                 ),
               ],
               if (post.wiki) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.wikiTopicview,
                   color: theme.colorScheme.primary,
                 ),
               ],
               if (post.locked) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.locked,
                   color: theme.colorScheme.secondary,
                 ),
               ],
               if (post.hidden) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.hiddenTopicview,
                   color: theme.colorScheme.error,
                 ),
               ],
               if (post.isModeratorAction) ...[
                 const SizedBox(width: 6),
-                _Tag(
+                headerTag(
                   label: context.l10n.moderatorTopicview,
                   color: theme.colorScheme.primary,
                 ),
@@ -4520,7 +4563,6 @@ class _PostTileState extends State<_PostTile> {
       ...(PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
           .postDecorations(context, widget.siteUrl, widget.topic, post),
     ];
-    final compact = widget.layout != TopicPostLayout.standard;
     final bodyIndent = widget.layout == TopicPostLayout.stacked ? 0.0 : 40.0;
     if (widget.layout == TopicPostLayout.headerOnly) {
       return Padding(
@@ -4598,7 +4640,7 @@ class _PostTileState extends State<_PostTile> {
 
     final postContent = Padding(
       padding: compact
-          ? const EdgeInsets.fromLTRB(16, 0, 16, 8)
+          ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
           : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: compact || context.isTouch
           ? content
@@ -4624,6 +4666,7 @@ class _PostTileState extends State<_PostTile> {
       margin: compact
           ? EdgeInsets.zero
           : const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
+      contentExpanded: compact ? widget.contentExpanded : null,
       heading: compact
           ? Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -4659,11 +4702,14 @@ class _PostTileState extends State<_PostTile> {
     );
 
     return compact
-        ? PostActions(
-            siteUrl: widget.siteUrl,
-            post: post,
-            persistent: true,
-            child: tile,
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: PostActions(
+              siteUrl: widget.siteUrl,
+              post: post,
+              persistent: true,
+              child: tile,
+            ),
           )
         : ConstrainedBox(
             constraints: const BoxConstraints(

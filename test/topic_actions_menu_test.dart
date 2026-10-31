@@ -1,5 +1,17 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show
+        PluginModule,
+        PluginDescriptor,
+        PluginId,
+        PluginRegistrar,
+        PluginManifest,
+        PluginInstaller,
+        SitePlugin,
+        TopicMenuPlugin,
+        TopicMenuAction,
+        showShellSheet;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -10,6 +22,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +48,44 @@ const _flag = PostFlagType(
 final _trigger = find.byKey(const ValueKey('topic-status-button'));
 
 void main() {
+  for (final mobile in [false, true]) {
+    final surface = mobile ? 'phone sheet' : 'desktop ellipsis';
+    final platform = mobile ? TargetPlatform.iOS : TargetPlatform.linux;
+    testWidgets('plugin action opens settings after $surface dismissal', (
+      tester,
+    ) async {
+      final plugin = _TopicMenuPlugin();
+      await _fixture(tester, _MenuApi(), menuPlugin: plugin, mobile: mobile);
+      await _open(tester, general: true);
+      expect(find.text('Plugin settings'), findsOneWidget);
+      await _choose(tester, 'Plugin settings');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('Settings opened'), findsOneWidget);
+      expect(plugin.selections, 1);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(platform));
+
+    testWidgets('plugin action from $surface rejects a stale route', (
+      tester,
+    ) async {
+      final plugin = _TopicMenuPlugin();
+      final shell = await _fixture(
+        tester,
+        _MenuApi(),
+        menuPlugin: plugin,
+        mobile: mobile,
+      );
+      await _open(tester, general: true);
+      shell.openTopicPost(siteUrl: _site, topicId: 8, postNumber: 1);
+      await _choose(tester, 'Plugin settings');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(plugin.selections, 0);
+      expect(find.text('Settings opened'), findsNothing);
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
   testWidgets('accepted close survives a delayed topic refresh', (
     tester,
   ) async {
@@ -678,7 +729,16 @@ void main() {
   );
 }
 
-Future<ShellController> _fixture(WidgetTester tester, _MenuApi api) async {
+Future<ShellController> _fixture(
+  WidgetTester tester,
+  _MenuApi api, {
+  _TopicMenuPlugin? menuPlugin,
+  bool mobile = false,
+}) async {
+  final plugins = menuPlugin == null
+      ? null
+      : PluginInstaller.install(PluginManifest([_TopicMenuModule(menuPlugin)]));
+  if (plugins != null) addTearDown(plugins.close);
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: _reader),
@@ -694,6 +754,7 @@ Future<ShellController> _fixture(WidgetTester tester, _MenuApi api) async {
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
     initialRootMode: ShellRootMode.forum,
+    plugins: plugins,
   );
   addTearDown(() {
     if (!shell.accountSessionDisposed) shell.dispose();
@@ -702,11 +763,20 @@ Future<ShellController> _fixture(WidgetTester tester, _MenuApi api) async {
   shell.openTopicPost(siteUrl: _site, topicId: 7, postNumber: 1);
   await shell.loadTopic(7, 'topic');
   await tester.idle();
-  await _pumpButton(tester, shell);
+  await _pumpButton(tester, shell, mobile: mobile);
   return shell;
 }
 
-Future<void> _pumpButton(WidgetTester tester, ShellController shell) async {
+Future<void> _pumpButton(
+  WidgetTester tester,
+  ShellController shell, {
+  bool mobile = false,
+}) async {
+  if (mobile) {
+    tester.view.physicalSize = phone;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+  }
   final site = shell.currentInstance!.url;
   final topic = shell.currentTopic!;
   // Keep the actual button and its popup anchor mounted across topic/account
@@ -717,11 +787,13 @@ Future<void> _pumpButton(WidgetTester tester, ShellController shell) async {
       child: MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: TopicStatusButton(
-            siteUrl: site,
-            topic: topic,
-            topicFlags: shell.availableTopicFlagTypes(site, topic),
-          ),
+          body: mobile
+              ? TopicActionsButton(siteUrl: site, topic: topic)
+              : TopicStatusButton(
+                  siteUrl: site,
+                  topic: topic,
+                  topicFlags: shell.availableTopicFlagTypes(site, topic),
+                ),
         ),
       ),
     ),
@@ -907,4 +979,46 @@ class _DelayedMenuApi extends _MenuApi {
       abortTrigger: abortTrigger,
     );
   }
+}
+
+final class _TopicMenuModule implements PluginModule {
+  const _TopicMenuModule(this.plugin);
+
+  final _TopicMenuPlugin plugin;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('topic-menu-test'));
+
+  @override
+  void register(PluginRegistrar registrar) => registrar.addCapability(plugin);
+}
+
+final class _TopicMenuPlugin implements SitePlugin, TopicMenuPlugin {
+  int selections = 0;
+
+  @override
+  String get name => 'topic-menu-test';
+
+  @override
+  List<TopicMenuAction> topicMenuActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => [
+    TopicMenuAction(
+      label: 'Plugin settings',
+      icon: DIcons.reply,
+      onSelected: (context) async {
+        selections++;
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        if (!context.mounted) return;
+        await showShellSheet<void>(
+          context: context,
+          title: 'Settings opened',
+          builder: (_) => const Text('Plugin controls'),
+        );
+      },
+    ),
+  ];
 }

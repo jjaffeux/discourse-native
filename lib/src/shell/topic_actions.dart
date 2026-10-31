@@ -614,10 +614,19 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
 
   @override
   Widget build(BuildContext context) {
-    final items = status._moreItems(
-      context,
-      _currentCheck(context, status.siteUrl),
-    );
+    final current = _currentCheck(context, status.siteUrl);
+    final items = _ruledGroups([
+      _topicMenuItems(
+        this.context,
+        ShellScope.read(context).plugins.registry.topicMenuActions(
+          context,
+          status.siteUrl,
+          status.topic,
+        ),
+        current,
+      ),
+      status._moreItems(context, current),
+    ]);
     return DDropdownMenu(
       sheetOnMobile: true,
       mobileSheetVariant: DSheetVariant.adaptiveMenu,
@@ -649,6 +658,27 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
     );
   }
 }
+
+List<Widget> _topicMenuItems(
+  BuildContext context,
+  List<TopicMenuAction> actions,
+  bool Function() current,
+) => [
+  for (final action in actions)
+    DDropdownMenuItem(
+      key: action.key,
+      leading: DIcon(
+        action.icon,
+        size: 13,
+        color: DTokens.of(context).mutedForeground,
+      ),
+      leadingGap: 9,
+      onPressed: () {
+        if (current()) action.onSelected(context);
+      },
+      child: Text(action.label),
+    ),
+];
 
 /// Whether a command chosen now still belongs to the account, tab and page
 /// [context] showed when its menu was built.
@@ -682,7 +712,7 @@ class TopicActionsButton extends StatefulWidget {
   final String siteUrl;
   final TopicDetail topic;
   final List<PostFlagType> topicFlags;
-  final List<List<TopicPropertyAction>> sectionActions;
+  final List<List<TopicMenuAction>> sectionActions;
 
   @override
   State<TopicActionsButton> createState() => _TopicActionsButtonState();
@@ -699,24 +729,18 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
       topicFlags: widget.topicFlags,
     );
     final current = _currentCheck(context, widget.siteUrl);
-    Widget menuIcon(DIconData icon) =>
-        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
     final items = _ruledGroups([
       for (final actions in widget.sectionActions)
-        [
-          for (final action in actions)
-            DDropdownMenuItem(
-              key: action.key,
-              leading: menuIcon(action.icon),
-              leadingGap: 9,
-              // The sheet closes as it is chosen; the button stays to anchor
-              // what the action opens.
-              onPressed: () {
-                if (current()) action.onSelected(this.context);
-              },
-              child: Text(action.label),
-            ),
-        ],
+        _topicMenuItems(this.context, actions, current),
+      _topicMenuItems(
+        this.context,
+        ShellScope.read(context).plugins.registry.topicMenuActions(
+          context,
+          widget.siteUrl,
+          widget.topic,
+        ),
+        current,
+      ),
       status._moreItems(context, current),
       ...status._menuGroups(context),
     ]);

@@ -1766,7 +1766,7 @@ final class PluginRegistry
           showHeader: section.showHeader,
           actions: [
             for (final action in section.actions)
-              TopicPropertyAction(
+              TopicMenuAction(
                 key: action.key,
                 label: action.label,
                 icon: action.icon,
@@ -1799,6 +1799,26 @@ final class PluginRegistry
       _ => Listenable.merge(listenables),
     };
   }
+
+  List<TopicMenuAction> topicMenuActions(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => [
+    for (final plugin in plugins.whereType<TopicMenuPlugin>())
+      for (final action in plugin.topicMenuActions(
+        _uiContext(context, plugin),
+        siteUrl,
+        topic,
+      ))
+        TopicMenuAction(
+          key: action.key,
+          label: action.label,
+          icon: action.icon,
+          onSelected: (context) =>
+              action.onSelected(_uiContext(context, plugin)),
+        ),
+  ];
 
   TopicMapActionContribution topicMapActions(
     BuildContext context,
