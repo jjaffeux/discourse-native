@@ -738,5 +738,11 @@ Iterable<dom.Element> _ancestors(dom.Element element) sync* {
   }
 }
 
-String _cssColor(Color color) =>
-    '#${(color.toARGB32() & 0x00FFFFFF).toRadixString(16).padLeft(6, '0')}';
+String _cssColor(Color color) {
+  final argb = color.toARGB32();
+  if (color.a == 1) {
+    return '#${(argb & 0x00FFFFFF).toRadixString(16).padLeft(6, '0')}';
+  }
+  return 'rgba(${(argb >> 16) & 0xFF}, ${(argb >> 8) & 0xFF}, '
+      '${argb & 0xFF}, ${color.a})';
+}

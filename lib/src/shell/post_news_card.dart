@@ -72,8 +72,6 @@ class PostNewsCard extends StatelessWidget {
       select: (shell) =>
           shell.isTopicPostHighlighted(siteUrl, topicId, post.postNumber),
       builder: (context, highlighted, _) => Padding(
-        // The enclosing post highlight reserves its 1px outline. Leave one
-        // more pixel clear between this card and the topic's outer outline.
         padding: margin,
         child: !hasNews && !highlighted
             ? heading == null

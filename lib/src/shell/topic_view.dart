@@ -4127,8 +4127,9 @@ class _StoredPostState extends State<_StoredPost> {
             PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
         final isSmallAction =
             post.isSmallAction || registry.isSmallAction(post);
-        final content =
-            isSmallAction && widget.layout == TopicPostLayout.standard
+        final standaloneSmallAction =
+            isSmallAction && widget.layout == TopicPostLayout.standard;
+        final content = standaloneSmallAction
             ? PostActions(
                 siteUrl: siteUrl,
                 post: post,
@@ -4164,50 +4165,26 @@ class _StoredPostState extends State<_StoredPost> {
             selected: selectedId == post.id,
             child: child!,
           ),
-          child: ShellSelector<bool>(
-            select: (controller) => controller.isTopicPostHighlighted(
-              siteUrl,
-              topic.id,
-              post.postNumber,
-            ),
-            builder: (context, highlighted, _) {
-              final primary = Theme.of(context).colorScheme.primary;
-              return AnimatedContainer(
-                key: ValueKey('topic-post-highlight-${post.id}'),
-                duration: DMotion.duration(
-                  context,
-                  const Duration(milliseconds: 180),
-                ),
-                curve: Curves.easeOut,
-                decoration: widget.layout == TopicPostLayout.standard
-                    ? BoxDecoration(
-                        color: highlighted
-                            ? primary.withValues(alpha: 0.10)
-                            : Colors.transparent,
-                        border: Border.all(
-                          color: highlighted
-                              ? primary.withValues(alpha: 0.28)
-                              : Colors.transparent,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      )
-                    : null,
-                foregroundDecoration: widget.layout != TopicPostLayout.standard
-                    ? BoxDecoration(
-                        color: highlighted
-                            ? primary.withValues(alpha: 0.10)
-                            : Colors.transparent,
-                        border: Border.all(
-                          color: highlighted
-                              ? primary.withValues(alpha: 0.28)
-                              : Colors.transparent,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      )
-                    : null,
-                child: content,
-              );
-            },
+          child: KeyedSubtree(
+            key: ValueKey('topic-post-highlight-${post.id}'),
+            child: standaloneSmallAction
+                ? ShellSelector<bool>(
+                    select: (controller) => controller.isTopicPostHighlighted(
+                      siteUrl,
+                      topic.id,
+                      post.postNumber,
+                    ),
+                    builder: (context, highlighted, _) => DCard(
+                      duration: DMotion.duration(context, DMotion.change),
+                      spacing: 0,
+                      borderColor: highlighted
+                          ? DTokens.of(context).primary.withValues(alpha: .65)
+                          : Colors.transparent,
+                      backgroundColor: Colors.transparent,
+                      child: content,
+                    ),
+                  )
+                : content,
           ),
         );
       },
