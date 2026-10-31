@@ -19,6 +19,48 @@ ForumTabLocation page(String id) => ForumTabLocation(
 
 void main() {
   test(
+    'updating the current visit keeps its identity and surrounding history',
+    () {
+      final navigation = MobileNavigation();
+      navigation.synchronize(owner: 'account', location: page('latest'));
+      navigation.synchronize(owner: 'account', location: page('reader'));
+      final readerEntry = navigation.entryId;
+      navigation.synchronize(owner: 'account', location: page('next'));
+      final nextEntry = navigation.entryId;
+      expect(navigation.goBack(), isTrue);
+      navigation.updateCurrent(page('updated reader'));
+      expect(navigation.entryId, readerEntry);
+      expect(navigation.location, page('updated reader'));
+      expect(navigation.goForward(), isTrue);
+      expect(navigation.entryId, nextEntry);
+      expect(navigation.goBack(), isTrue);
+      expect(navigation.entryId, readerEntry);
+      expect(navigation.location, page('updated reader'));
+      expect(navigation.goBack(), isTrue);
+      expect(navigation.location, page('latest'));
+    },
+  );
+
+  test('updating a restored root visit does not create a new entry', () {
+    final navigation = MobileNavigation();
+    navigation.synchronize(
+      owner: 'account',
+      location: page('reader'),
+      contentRoot: true,
+    );
+    final entry = navigation.entryId;
+    navigation.updateCurrent(page('updated reader'));
+    navigation.synchronize(
+      owner: 'account',
+      location: page('updated reader'),
+      contentRoot: true,
+    );
+    expect(navigation.entryId, entry);
+    expect(navigation.canGoBack, isFalse);
+    expect(navigation.location, page('updated reader'));
+  });
+
+  test(
     'typed kind and mode changes retain distinct mobile visits under one key',
     () {
       for (final (before, after) in [

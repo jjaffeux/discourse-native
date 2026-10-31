@@ -10360,7 +10360,12 @@ final class _ShellExistingTopicOpeningEditors
 
 final class _ShellTopicReader extends ChangeNotifier
     implements PluginTopicReader {
-  _ShellTopicReader(this._shell, this._context, this.route, {this.onClose}) {
+  _ShellTopicReader(
+    this._shell,
+    this._context,
+    ContentRoute route, {
+    this.onClose,
+  }) : _route = route {
     _shell.addListener(_changed);
   }
 
@@ -10370,8 +10375,10 @@ final class _ShellTopicReader extends ChangeNotifier
   final Object _visibleOwner = Object();
   bool _closed = false;
 
+  ContentRoute _route;
+
   @override
-  final ContentRoute route;
+  ContentRoute get route => _route;
   @override
   String get siteUrl => _context.siteUrl!;
   @override
@@ -10418,6 +10425,8 @@ final class _ShellTopicReader extends ChangeNotifier
     read,
   ) async {
     if (!isCurrent) return null;
+    final sourceRoute = route;
+    bool sourceCurrent() => isCurrent && identical(route, sourceRoute);
     final data = _shell._topicData.forLease(siteUrl, _context.lease!);
     if (data == null) return null;
     final accepted = await data.ingestReaderContent(topicId, () async {
@@ -10425,7 +10434,7 @@ final class _ShellTopicReader extends ChangeNotifier
         siteUrl,
         _context.lease!,
       ).credentials(_shell.credentials);
-      if (!isCurrent) throw StateError('Reader was retired.');
+      if (!sourceCurrent()) throw StateError('Reader was retired.');
       return credential.run(
         () => read(
           PluginRequestCredentials(
@@ -10434,9 +10443,9 @@ final class _ShellTopicReader extends ChangeNotifier
           ),
         ),
       );
-    }, sourceCurrent: () => isCurrent);
-    if (isCurrent && accepted != null) _shell._syncTopicChannels();
-    return isCurrent ? accepted : null;
+    }, sourceCurrent: sourceCurrent);
+    if (sourceCurrent() && accepted != null) _shell._syncTopicChannels();
+    return sourceCurrent() ? accepted : null;
   }
 
   @override
@@ -10454,6 +10463,43 @@ final class _ShellTopicReader extends ChangeNotifier
     if (foreground && selected?.canEdit == true) {
       _shell.openEdit(selected!, context: _context);
     }
+  }
+
+  @override
+  bool updateQuery(String? query) {
+    if (!foreground) return false;
+    if (route.topicQuery == query) return true;
+    final tab = _context.tab;
+    if (tab == null) return false;
+    final held = route.destination as TopicDestination;
+    final updated = ContentRoute(
+      destination: TopicDestination(
+        topicId: topicId,
+        slug: held.slug,
+        postNumber: held.postNumber,
+        query: query,
+        retainedFeedPath: held.retainedFeedPath,
+        legacyKey: held.legacyKey,
+      ),
+      title: route.title,
+      icon: route.icon,
+      subtitle: route.subtitle,
+      color: route.color,
+    );
+    _route = updated;
+    final updatedTab = tab.copyWith(
+      contentStack: [
+        ...tab.contentStack.take(tab.contentStack.length - 1),
+        updated,
+      ],
+    );
+    _shell._workspace.replaceTab(siteUrl, updatedTab);
+    if (_shell.mobileNavigationEnabled && _shell.activeTabId == tabId) {
+      _shell.mobileNavigation.updateCurrent(updatedTab.location);
+    }
+    _shell._syncTopicChannels();
+    _shell._notify();
+    return true;
   }
 
   @override

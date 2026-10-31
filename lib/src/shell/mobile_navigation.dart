@@ -154,6 +154,10 @@ final class MobileNavigation {
     _entries = [..._entries.take(_index), (id: Object(), content: location)];
   }
 
+  void updateCurrent(ForumTabLocation location) {
+    _entries[_index] = (id: entryId, content: location);
+  }
+
   static bool _sameDestination(ForumTabLocation? a, ForumTabLocation? b) {
     if (a == null || b == null) return a == b;
     if (a.rootDestinationId != b.rootDestinationId ||

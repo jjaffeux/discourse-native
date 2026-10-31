@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'control_hit_test.dart';
 import 'control_style.dart';
 
 /// A fingertip: on a phone, a control drawn smaller than this is pressed
@@ -144,20 +145,8 @@ class _RenderTouchTargetScope extends RenderProxyBox {
     return probe.path.any((entry) => entry.target == target);
   }
 
-  static bool _isControl(RenderObject hit) => switch (hit) {
-    _RenderTouchTarget() || RenderEditable() => true,
-    RenderSemanticsGestureHandler(:final onTap, :final onLongPress) =>
-      onTap != null || onLongPress != null,
-    RenderSemanticsAnnotations(:final properties) =>
-      properties.button == true ||
-          properties.link == true ||
-          properties.textField == true ||
-          properties.slider == true ||
-          properties.toggled != null ||
-          properties.checked != null ||
-          properties.onTap != null,
-    _ => false,
-  };
+  static bool _isControl(RenderObject hit) =>
+      hit is _RenderTouchTarget || isControlRenderObject(hit);
 
   static List<RenderObject> _ancestors(RenderObject node) => [
     for (var a = node.parent; a != null; a = a.parent) a,

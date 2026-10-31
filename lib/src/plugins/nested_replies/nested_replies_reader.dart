@@ -46,7 +46,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   Timer? _timing;
   Timer? _refresh;
   Timer? _rememberTimer;
-  late final Object _memoryKey;
+  late Object _memoryKey;
   _RememberedReader? _restore;
   bool _restoring = true;
   bool _scheduled = false;
@@ -56,6 +56,23 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   int _memoryRevision = 0;
 
   PluginTopicReader get reader => widget.reader;
+
+  Object _memoryKeyFor({
+    required NestedRepliesSort sort,
+    required int? target,
+    required int? context,
+    required String? collapse,
+  }) => (
+    reader.siteUrl,
+    reader.tabId,
+    reader.topicId,
+    sort,
+    target,
+    context,
+    collapse,
+    widget.settings.maxDepth,
+    widget.settings.capDepth,
+  );
 
   @override
   void initState() {
@@ -77,16 +94,11 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     final target = reader.route.postNumber == TopicLink.lastPostNumber
         ? reader.topic?.highestPostNumber
         : reader.route.postNumber;
-    _memoryKey = (
-      reader.siteUrl,
-      reader.tabId,
-      reader.topicId,
-      sort,
-      target,
-      context,
-      query['collapse_replies'],
-      widget.settings.maxDepth,
-      widget.settings.capDepth,
+    _memoryKey = _memoryKeyFor(
+      sort: sort,
+      target: target,
+      context: context,
+      collapse: query['collapse_replies'],
     );
     _restore = widget.memory?._take(_memoryKey);
     _scroll = ScrollController(initialScrollOffset: _restore?.offset ?? 0)
@@ -280,6 +292,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   void _remember() {
     if (!reader.isCurrent ||
         _controller.loading ||
+        _controller.error != null ||
         _controller.restoringPages) {
       return;
     }
@@ -297,6 +310,31 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   Future<void> _reload() async {
     await _controller.reload(beforeApply: _prepareAnchorRestore);
     if (mounted && reader.isCurrent) _scheduleObservation();
+  }
+
+  Future<void> _changeSort(NestedRepliesSort sort) async {
+    if (sort == _controller.requestedSort) return;
+    _remember();
+    final query = {
+      ...nestedRepliesQuery(reader.route.topicQuery),
+      'sort': sort.wireValue,
+    };
+    if (!reader.updateQuery(Uri(queryParameters: query).query)) return;
+    _memoryKey = _memoryKeyFor(
+      sort: sort,
+      target: _controller.targetPostNumber,
+      context: _controller.contextDepth,
+      collapse: query['collapse_replies'],
+    );
+    _restore = null;
+    _restoring = false;
+    _timingCandidates.clear();
+    await _controller.changeSort(sort, foreground: reader.foreground);
+    if (!mounted || !reader.isCurrent) return;
+    if (_controller.error == null && reader.foreground) {
+      unawaited(reader.reconcileVisit());
+    }
+    _scheduleObservation();
   }
 
   void _restoreAnchor() {
@@ -489,13 +527,20 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     super.dispose();
   }
 
-  int get _phoneDepthLimit =>
-      math.max(1, ((MediaQuery.sizeOf(context).width - 250) / 20).floor());
+  bool get _usesMobileLayout => context.isTouch;
+
+  int get _phoneDepthLimit {
+    final lane = ContentReadingLane.geometryFor(
+      context,
+      availableWidth: MediaQuery.sizeOf(context).width,
+    );
+    return math.max(1, ((lane.width - 250) / 16).floor());
+  }
 
   ({List<NestedVisibleRow> rows, int depthOffset}) _displayedRows() {
     var rows = _controller.visibleRows();
     var baseDepth = 0;
-    if (MediaQuery.sizeOf(context).width < 600 && _controller.contextMode) {
+    if (_usesMobileLayout && _controller.contextMode) {
       final target = rows.indexWhere(
         (row) => row.node.postNumber == _controller.targetPostNumber,
       );
@@ -507,8 +552,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     return (
       rows: [
         for (final row in rows)
-          if (MediaQuery.sizeOf(context).width >= 600 ||
-              row.depth - baseDepth <= _phoneDepthLimit)
+          if (!_usesMobileLayout || row.depth - baseDepth <= _phoneDepthLimit)
             row,
       ],
       depthOffset: baseDepth,

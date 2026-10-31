@@ -35,7 +35,7 @@ abstract interface class TopicReaderPlugin {
   Widget buildTopicReader(BuildContext context, PluginTopicReader reader);
 }
 
-enum TopicPostLayout { standard, compact, headerOnly }
+enum TopicPostLayout { standard, compact, stacked, headerOnly }
 
 enum TopicContentDisposition { complete, redacted }
 
@@ -101,6 +101,9 @@ abstract interface class PluginTopicReader implements Listenable {
   void reply({int? parentPostNumber, String? username});
   void edit(int postId);
   void navigate({int? postNumber, String? query, bool replace = false});
+
+  /// Updates this visit's opaque view query without navigating or loading it.
+  bool updateQuery(String? query);
   Future<void> observeVisible(Iterable<int> postNumbers);
   Future<void> reconcileVisit();
   Future<void> refreshMetadata();
