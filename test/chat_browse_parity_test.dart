@@ -873,6 +873,7 @@ void main() {
     testWidgets(
       'folded ${sidebar ? 'sidebar' : 'page'} keeps the active conversation visible',
       (tester) async {
+        final semantics = tester.ensureSemantics();
         final fixture = await _pump(tester, size: const Size(900, 1200));
         fixture.api.chatChannelsBySite[_site] = ChatChannels(
           public: [
@@ -906,10 +907,24 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Channel 7'), findsOneWidget);
         expect(find.text('View 2 more'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.widgetWithText(DButton, 'View 2 more'))
+              .flagsCollection
+              .isExpanded,
+          ui.Tristate.isFalse,
+        );
         await tester.tap(find.text('View 2 more'));
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsOneWidget);
         expect(find.text('Channel 6'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.widgetWithText(DButton, 'View less'))
+              .flagsCollection
+              .isExpanded,
+          ui.Tristate.isTrue,
+        );
         await tester.tap(find.text('View less'));
         await tester.pumpAndSettle();
         expect(find.text('Channel 5'), findsNothing);
@@ -920,6 +935,7 @@ void main() {
           lessThan(tester.getTopLeft(find.text('Channel 1')).dy),
         );
         expect(tester.takeException(), isNull);
+        semantics.dispose();
       },
     );
   }
