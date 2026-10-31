@@ -104,7 +104,7 @@ dependencies:
   # anything that has to change without being asked — the incoming-topics
   # banner today, presence and post streams later — goes through this. See
   # lib/src/data/site_tracker.dart.
-  message_bus_client: ^0.2.0
+  message_bus_client: ^0.2.1
   # Persistent drafts, private storage and cached media live
   # in platform-appropriate application data directories.
   path_provider: ^2.1.6
