@@ -472,18 +472,11 @@ class ContentRoute {
     return slugs.join(':');
   }
 
-  factory ContentRoute.homepage(
-    SiteConfig config, {
-    required bool connected,
-    ContentRoute? registeredHomepage,
-  }) {
+  factory ContentRoute.homepage(SiteConfig config, {required bool connected}) {
     const anonymous = {'latest', 'top', 'categories', 'hot'};
     var homepage = config.defaultHomepage.isNotEmpty
         ? config.defaultHomepage
         : config.topMenu.firstOrNull ?? 'latest';
-    if (connected && registeredHomepage?.id == homepage) {
-      return registeredHomepage!;
-    }
     const discovery = {
       'latest',
       'top',

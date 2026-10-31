@@ -1816,7 +1816,7 @@ class ShellController extends FrameSafeNotifier
       case PageLoad.preferences:
         await preferences.load(instance, refresh: force);
       case PageLoad.extensionRoot:
-        if (plugins.registry.homepage(route.id) == null) {
+        if (!_isRegisteredHomepage(instance, route)) {
           await _loadPage(context, route, PageLoad.rootFeed, force: force);
         }
       case PageLoad.extension:
@@ -1918,18 +1918,32 @@ class ShellController extends FrameSafeNotifier
       ? 'anonymous'
       : 'user:${instance.user!.username.toLowerCase()}';
 
-  ContentRoute _homepageFor(DiscourseInstance instance) {
-    final config = siteConfigFor(instance.url);
-    return ContentRoute.homepage(
-      config,
-      connected: instance.isConnected,
-      registeredHomepage: instance.isConnected
-          ? plugins.registry
-                .homepage(config.defaultHomepage)
-                ?.homepage(config, instance.user)
-          : null,
-    );
+  ContentRoute? _registeredHomepageFor(DiscourseInstance instance) {
+    final config = _presentation.accountConfigFor(instance.url);
+    if (config == null) return null;
+    return plugins.registry
+        .homepage(config.defaultHomepage)
+        ?.homepage(config, instance.user);
   }
+
+  bool _isRegisteredHomepage(DiscourseInstance instance, ContentRoute route) {
+    final config = _presentation.accountConfigFor(instance.url);
+    return config != null &&
+        plugins.registry.plugins.whereType<HomepagePlugin>().any(
+          (plugin) =>
+              plugin
+                  .homepage(config, instance.user)
+                  ?.sameDestinationAs(route) ==
+              true,
+        );
+  }
+
+  ContentRoute _homepageFor(DiscourseInstance instance) =>
+      _registeredHomepageFor(instance) ??
+      ContentRoute.homepage(
+        siteConfigFor(instance.url),
+        connected: instance.isConnected,
+      );
 
   Future<void>? _loadTask;
 
@@ -5005,7 +5019,10 @@ class ShellController extends FrameSafeNotifier
       return true;
     }
     final destination = _routeForLink(url, specializedTitle: title);
-    if (destination == null || _isCorePageLink(destination.route)) return false;
+    if (destination == null ||
+        _isCorePageLink(destination.siteUrl, destination.route)) {
+      return false;
+    }
     final handled = _openResolvedCoreLink(
       destination,
       _CoreLinkIntent.ordinary,
@@ -5205,7 +5222,7 @@ class ShellController extends FrameSafeNotifier
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
     return destination != null &&
-        _isCorePageLink(destination.route) &&
+        _isCorePageLink(destination.siteUrl, destination.route) &&
         _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
   }
 
@@ -8565,7 +8582,9 @@ class ShellController extends FrameSafeNotifier
     DiscourseInstance instance,
     ForumTab initialTab,
   ) async {
+    final lease = lifecycle.capture(instance.url);
     await _presentation.ensureConfig(instance.url);
+    if (!lease.isCurrent) return;
     if (instance.isConnected &&
         plugins.registry.homepage(
               siteConfigFor(instance.url).defaultHomepage,
@@ -8574,6 +8593,7 @@ class ShellController extends FrameSafeNotifier
       await _refreshSessionUserFor(instance);
     }
     if (isDisposed ||
+        !lease.isCurrent ||
         currentInstance?.url != instance.url ||
         !_workspace.awaitsHomepage(initialTab.id) ||
         !identical(currentWorkspace?.tabById(initialTab.id), initialTab)) {

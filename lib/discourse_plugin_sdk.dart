@@ -83,6 +83,7 @@ export 'src/models/discourse_instance.dart'
 export 'src/models/discourse_user.dart' show DiscourseUser;
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;
+export 'src/models/homepage_option.dart';
 export 'src/models/json.dart';
 export 'src/models/live_refresh_id.dart' show liveRefreshId;
 export 'src/models/notification.dart'

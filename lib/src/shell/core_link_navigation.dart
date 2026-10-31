@@ -3,11 +3,13 @@ part of 'shell_controller.dart';
 enum _CoreLinkIntent { ordinary, notification }
 
 extension _CoreLinkNavigation on ShellController {
-  bool _isCorePageLink(ContentRoute route) =>
+  bool _isCorePageLink(String siteUrl, ContentRoute route) =>
       switch (ContentPageContract.resolve(route).coreUrl) {
         CoreUrlPolicy.direct => true,
-        CoreUrlPolicy.registeredHomepage =>
-          plugins.registry.homepage(route.id) != null,
+        CoreUrlPolicy.registeredHomepage => switch (_instanceAt(siteUrl)) {
+          final instance? => _isRegisteredHomepage(instance, route),
+          null => false,
+        },
         CoreUrlPolicy.specialized => false,
       };
 
@@ -16,7 +18,7 @@ extension _CoreLinkNavigation on ShellController {
     _CoreLinkIntent intent,
   ) {
     final route = destination.route;
-    final corePage = _isCorePageLink(route);
+    final corePage = _isCorePageLink(destination.siteUrl, route);
     if (!corePage &&
         route.destination is! BadgeDestination &&
         route.destination is! GroupDestination &&

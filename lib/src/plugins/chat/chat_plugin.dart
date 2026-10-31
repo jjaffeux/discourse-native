@@ -58,6 +58,7 @@ class ChatPlugin
         IconCatalogPlugin,
         SidebarPlugin,
         StartPagePlugin,
+        HomepagePlugin,
         SidebarPanelPlugin,
         SidebarPanelListenablePlugin,
         ContentPlugin,
@@ -85,6 +86,45 @@ class ChatPlugin
         UserPreferencesPlugin,
         PluginCurrentUserFeature {
   const ChatPlugin();
+
+  @override
+  String get homepageId => 'chat';
+
+  @override
+  ContentRoute? homepage(SiteConfig config, DiscourseUser? user) {
+    final settings = config.chatSettings;
+    if (!settings.chatEnabled || !settings.publicChannelsEnabled) return null;
+    if (user == null) {
+      if (!settings.anonymousChatAllowed) return null;
+    } else if (user.hasChatEnabled == false || user.canChat == false) {
+      return null;
+    }
+    final option = config.homepageOptions
+        ?.where((option) => option.id == homepageId)
+        .firstOrNull;
+    final path = option?.path;
+    if (path == null) return null;
+    final uri = Uri.tryParse(path);
+    if (uri == null ||
+        uri.hasScheme ||
+        uri.hasAuthority ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      return null;
+    }
+    final link = ChatLink.parse(path);
+    if (link == null ||
+        link.route.isThread ||
+        link.route.isInfo ||
+        link.messageId != null) {
+      return null;
+    }
+    return ContentRoute(
+      destination: ExtensionDestination(link.route.routeId),
+      title: appL10n.chat,
+      icon: DIcons.comment,
+    );
+  }
 
   @override
   List<GlobalSearchContribution> get searchContributions => const [
