@@ -28,11 +28,22 @@ class _ControlMotion extends SingleChildRenderObjectWidget {
       RenderDControlMotion();
 }
 
-class RenderDControlMotion extends RenderTransform {
-  RenderDControlMotion() : super(transform: Matrix4.identity());
-
+class RenderDControlMotion extends RenderProxyBox {
   Rect layoutBounds = Rect.zero;
-  Offset _offset = Offset.zero;
+  ({RenderBox ancestor, Rect from, double progress})? _placement;
+
+  // Descendant paint transforms may read sizes, so resolve them after layout.
+  Offset get _offset {
+    final placement = _placement;
+    if (placement == null) return Offset.zero;
+    final current = MatrixUtils.transformRect(
+      getTransformTo(placement.ancestor),
+      layoutBounds,
+    );
+    return (placement.from.topLeft - current.topLeft) *
+        (1 - placement.progress);
+  }
+
   Rect get paintedBounds => layoutBounds.shift(_offset);
   double _opacity = 1;
 
@@ -42,13 +53,18 @@ class RenderDControlMotion extends RenderTransform {
     layoutBounds = Offset.zero & size;
   }
 
-  void place(Offset offset, double opacity) {
-    _offset = offset;
-    transform = Matrix4.translationValues(offset.dx, offset.dy, 0);
-    if (_opacity == opacity) return;
-    _opacity = opacity;
-    markNeedsCompositingBitsUpdate();
+  void place(
+    ({RenderBox ancestor, Rect from, double progress})? placement,
+    double opacity,
+  ) {
+    if (_placement == placement && _opacity == opacity) return;
+    _placement = placement;
+    if (_opacity != opacity) {
+      _opacity = opacity;
+      markNeedsCompositingBitsUpdate();
+    }
     markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   @override
@@ -57,6 +73,7 @@ class RenderDControlMotion extends RenderTransform {
 
   @override
   void paint(PaintingContext context, Offset offset) {
+    offset += _offset;
     if (_opacity == 1) {
       super.paint(context, offset);
     } else {
@@ -66,7 +83,19 @@ class RenderDControlMotion extends RenderTransform {
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) =>
-      _opacity >= .5 && super.hitTest(result, position: position);
+      _opacity >= .5 &&
+      result.addWithPaintOffset(
+        offset: _offset,
+        position: position,
+        hitTest: (result, position) =>
+            super.hitTest(result, position: position),
+      );
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    final offset = _offset;
+    transform.translateByDouble(offset.dx, offset.dy, 0, 1);
+  }
 
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {

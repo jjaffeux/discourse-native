@@ -278,7 +278,7 @@ class RenderDControlWrap extends RenderWrap {
   @override
   void performLayout() {
     for (final control in _positionedControls) {
-      if (control.attached) control.place(Offset.zero, 1);
+      if (control.attached) control.place(null, 1);
     }
     _positionedControls.clear();
     for (final surface in _positionedSurfaces) {
@@ -471,14 +471,10 @@ class RenderDControlWrap extends RenderWrap {
         for (final control in parts.whereType<RenderDControlMotion>()) {
           _positionedControls.add(control);
           final previous = _fromControls?[child]?[control];
-          final current = MatrixUtils.transformRect(
-            control.getTransformTo(child),
-            control.layoutBounds,
-          );
           control.place(
             previous == null
-                ? Offset.zero
-                : (previous.topLeft - current.topLeft) * (1 - _controlProgress),
+                ? null
+                : (ancestor: child, from: previous, progress: _controlProgress),
             previous == null ? _fadeProgress : 1,
           );
         }
