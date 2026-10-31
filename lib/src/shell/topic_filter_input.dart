@@ -10,7 +10,6 @@ import '../models/topic_filter.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
-import 'category_icon.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';

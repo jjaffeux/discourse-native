@@ -14,7 +14,6 @@ import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
-import 'category_icon.dart';
 import 'directory_skeleton.dart';
 import 'open_link.dart';
 import 'relative_time.dart';

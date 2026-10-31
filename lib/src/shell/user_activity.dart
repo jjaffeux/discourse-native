@@ -15,7 +15,6 @@ import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
 import 'account_feed_viewport.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
