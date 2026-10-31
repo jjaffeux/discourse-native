@@ -3596,26 +3596,28 @@ class _MoreTopics extends StatelessWidget {
               showTitle: showTitle,
               tabs: available.length <= 1
                   ? null
-                  : DToggleGroup<TopicRecommendationSourceId>(
-                      key: const ValueKey('topic-recommendations-switch'),
-                      values: [selection.id],
-                      onChanged: (values) => onSelected(values.single),
-                      allowEmptySelection: false,
-                      inset: true,
-                      size: DToggleSize.segment,
-                      semanticLabel: context.l10n.moreTopics,
-                      items: [
-                        for (final source in available)
-                          DToggleGroupItem(
-                            value: source.id,
-                            child: Text(
-                              source.label,
-                              key: ValueKey(
-                                'topic-recommendations-tab-${source.id.value}',
+                  : DReferenceTextScale(
+                      child: DToggleGroup<TopicRecommendationSourceId>(
+                        key: const ValueKey('topic-recommendations-switch'),
+                        values: [selection.id],
+                        onChanged: (values) => onSelected(values.single),
+                        allowEmptySelection: false,
+                        inset: true,
+                        size: DToggleSize.segment,
+                        semanticLabel: context.l10n.moreTopics,
+                        items: [
+                          for (final source in available)
+                            DToggleGroupItem(
+                              value: source.id,
+                              child: Text(
+                                source.label,
+                                key: ValueKey(
+                                  'topic-recommendations-tab-${source.id.value}',
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
             ),
           Column(

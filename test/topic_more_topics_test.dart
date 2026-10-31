@@ -165,14 +165,9 @@ void main() {
       final suggested = find.byKey(
         const ValueKey('topic-recommendations-tab-core/suggested'),
       );
-      // At 2x the touch segments are wider than the panel, so the switch
-      // scrolls, and revealing Related took Suggested out of view.
-      expect(
-        suggested.hitTestable(),
-        scale > 1 ? findsNothing : findsOneWidget,
-      );
       await tester.ensureVisible(suggested);
       await tester.pumpAndSettle();
+      expect(suggested.hitTestable(), findsOneWidget);
       await tester.tap(suggested);
       await tester.pumpAndSettle();
       expect(find.text('Suggested discussion 1'), findsOneWidget);
@@ -182,6 +177,50 @@ void main() {
       await _render(tester, 'phone-${scale}x-dark');
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+  }
+
+  for (final (appScale, accessibility, height, textSize) in [
+    (1.0, 1.0, 44.0, 16.0),
+    (1.25, 2.0, 80.0, 40.0),
+  ]) {
+    testWidgets(
+      'recommendation tabs exclude reading uplift at $appScale/$accessibility',
+      (tester) async {
+        await _pump(
+          tester,
+          short: true,
+          size: const Size(430, 1200),
+          textScaler: AppTextScaler(
+            platformScaler: TextScaler.linear(accessibility),
+            appScale: appScale,
+            baselineScale: 17 / 14,
+          ),
+        );
+        final scroll = topicPostList(tester).controller!;
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+
+        final switcher = find.byKey(
+          const ValueKey('topic-recommendations-switch'),
+        );
+        expect(tester.getSize(switcher).height, height);
+        final label = find
+            .descendant(of: switcher, matching: find.byType(Text))
+            .first;
+        final context = tester.element(label);
+        final fontSize = DefaultTextStyle.of(context).style.fontSize!;
+        expect(MediaQuery.textScalerOf(context).scale(fontSize), textSize);
+        expect(
+          MediaQuery.textScalerOf(tester.element(_panel)).scale(14),
+          17 * appScale * accessibility,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
   }
 
   testWidgets('panel follows the reading width preference', (tester) async {
@@ -210,6 +249,7 @@ Future<void> _pump(
   bool short = false,
   Size size = const Size(1000, 800),
   double scale = 1,
+  TextScaler? textScaler,
   bool dark = false,
   bool reduced = false,
   bool hasMore = false,
@@ -308,7 +348,7 @@ Future<void> _pump(
         home: MediaQuery(
           data: MediaQueryData(
             size: size,
-            textScaler: TextScaler.linear(scale),
+            textScaler: textScaler ?? TextScaler.linear(scale),
             disableAnimations: reduced,
           ),
           child: RepaintBoundary(

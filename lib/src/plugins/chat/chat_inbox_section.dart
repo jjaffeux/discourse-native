@@ -40,38 +40,40 @@ class ChatInboxMore extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => MergeSemantics(
-    child: Semantics(
-      expanded: expanded,
-      child: DButton(
-        variant: DButtonVariant.ghost,
-        size: DControlSize.filter,
-        alignment: AlignmentDirectional.centerStart,
-        foregroundColor: DTokens.of(context).mutedForeground,
-        semanticLabel: expanded
-            ? context.l10n.chatViewLess
-            : context.l10n.chatViewMore(hidden),
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.controlGap,
-          children: [
-            SizedBox(
-              width: compact ? 32 : 40,
-              child: RotatedBox(
-                quarterTurns: expanded ? 2 : 0,
-                child: const DIcon(DIcons.chevronDown),
+  Widget build(BuildContext context) => DReferenceTextScale(
+    child: MergeSemantics(
+      child: Semantics(
+        expanded: expanded,
+        child: DButton(
+          variant: DButtonVariant.ghost,
+          size: DControlSize.filter,
+          alignment: AlignmentDirectional.centerStart,
+          foregroundColor: DTokens.of(context).mutedForeground,
+          semanticLabel: expanded
+              ? context.l10n.chatViewLess
+              : context.l10n.chatViewMore(hidden),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: DSpacing.controlGap,
+            children: [
+              SizedBox(
+                width: compact ? 32 : 40,
+                child: RotatedBox(
+                  quarterTurns: expanded ? 2 : 0,
+                  child: const DIcon(DIcons.chevronDown),
+                ),
               ),
-            ),
-            Flexible(
-              child: Text(
-                expanded
-                    ? context.l10n.chatViewLess
-                    : context.l10n.chatViewMore(hidden),
+              Flexible(
+                child: Text(
+                  expanded
+                      ? context.l10n.chatViewLess
+                      : context.l10n.chatViewMore(hidden),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          onPressed: onPressed,
         ),
-        onPressed: onPressed,
       ),
     ),
   );
