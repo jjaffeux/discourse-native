@@ -77,6 +77,59 @@ void main() {
 
     _testOnPlatform(
       platform,
+      '${platform.name} Home reuses Latest and preserves other tabs',
+      (tester) async {
+        await pumpShell(tester, desktop);
+        final shell = _shell(tester);
+        final original = shell.activeTabId!;
+        shell.pushContent(
+          const ContentRoute(
+            destination: ExtensionDestination('away-from-latest'),
+            title: 'Another page',
+            icon: DIcons.comments,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byKey(ContentNavigationControls.homeKey)).right,
+          lessThan(
+            tester.getRect(find.byKey(ContentNavigationControls.backKey)).left,
+          ),
+        );
+        await tester.tap(find.byKey(ContentNavigationControls.homeKey));
+        await tester.pumpAndSettle();
+        final latest = shell.activeTabId!;
+        expect(latest, isNot(original));
+        expect(shell.currentContent?.id, 'latest');
+        shell.createTab();
+        await tester.pumpAndSettle();
+        final start = shell.activeTabId!;
+        shell.selectTab(original);
+        await tester.pumpAndSettle();
+        final count = shell.tabsForCurrentForum.length;
+        await tester.tap(find.byKey(ContentNavigationControls.homeKey));
+        await tester.pumpAndSettle();
+        expect(shell.activeTabId, latest);
+        expect(shell.tabsForCurrentForum.length, count);
+        expect(
+          shell.tabsForCurrentForum
+              .firstWhere((tab) => tab.id == start)
+              .currentContent
+              .isNewTab,
+          isTrue,
+        );
+        expect(
+          shell.tabsForCurrentForum
+              .firstWhere((tab) => tab.id == original)
+              .currentContent
+              .id,
+          'away-from-latest',
+        );
+      },
+    );
+
+    _testOnPlatform(
+      platform,
       '${platform.name} buttons share mouse and keyboard history',
       (tester) async {
         await pumpShell(tester, desktop);

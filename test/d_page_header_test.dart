@@ -5,6 +5,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'moving a page title into the phone bar remeasures its spacer in the same frame',
+    (tester) async {
+      late StateSetter change;
+      late DPageHeaderGeometry geometry;
+      var inBar = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (_, setState) {
+              change = setState;
+              return DPageHeaderHost(
+                identity: 'page',
+                titlesInBar: inBar,
+                builder: (_, _, child) => child,
+                child: DPageSurface.headed(
+                  title: const Text('Latest topics'),
+                  controls: const SizedBox(height: 40),
+                  bodyBuilder: (_, header) {
+                    geometry = header;
+                    return CustomScrollView(
+                      slivers: [
+                        SliverToBoxAdapter(child: header.spacer),
+                        const SliverToBoxAdapter(child: Text('First topic')),
+                      ],
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      final before = tester.getTopLeft(find.text('First topic')).dy;
+      change(() => inBar = true);
+      await tester.pump();
+      final after = tester.getTopLeft(find.text('First topic')).dy;
+      expect(after, lessThan(before));
+      expect(after, geometry.naturalExtent);
+      await tester.pump();
+      expect(tester.getTopLeft(find.text('First topic')).dy, after);
+      change(() => inBar = false);
+      await tester.pump();
+      expect(tester.getTopLeft(find.text('First topic')).dy, before);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final reverse in [false, true]) {
     testWidgets(
       'header contract reaches controls, body and chrome (reverse: $reverse)',
