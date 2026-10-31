@@ -65,6 +65,7 @@ class SiteConfig {
     this.readTimeWordCount = defaultReadTimeWordCount,
     this.minPersonalMessagePostLength = defaultMinPersonalMessagePostLength,
     this.allowAllUsersToFlagIllegalContent = false,
+    this.dsaReportingEnabled = false,
     this.contactEmail,
     this.illegalContentReportEmail,
     this.suggestWeekendsInDatePickers = true,
@@ -255,6 +256,7 @@ class SiteConfig {
       ),
       allowAllUsersToFlagIllegalContent:
           json['allow_all_users_to_flag_illegal_content'] == true,
+      dsaReportingEnabled: json['dsa_reporting_enabled'] == true,
       contactEmail: _nonemptyText(json['contact_email']),
       illegalContentReportEmail: _nonemptyText(
         json['email_address_to_report_illegal_content'],
@@ -377,6 +379,7 @@ class SiteConfig {
         json['allowAllUsersToFlagIllegalContent'] == true,
     contactEmail: _nonemptyText(json['contactEmail']),
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
+    dsaReportingEnabled: json['dsaReportingEnabled'] == true,
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     fastEditEnabled: json['fastEditEnabled'] != false,
     displayNameOnPosts: json['displayNameOnPosts'] == true,
@@ -451,6 +454,7 @@ class SiteConfig {
       'allowAllUsersToFlagIllegalContent': allowAllUsersToFlagIllegalContent,
       'contactEmail': contactEmail,
       'illegalContentReportEmail': illegalContentReportEmail,
+      'dsaReportingEnabled': dsaReportingEnabled,
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
       'fastEditEnabled': fastEditEnabled,
       'displayNameOnPosts': displayNameOnPosts,
@@ -570,6 +574,7 @@ class SiteConfig {
   final bool allowAllUsersToFlagIllegalContent;
   final String? contactEmail;
   final String? illegalContentReportEmail;
+  final bool dsaReportingEnabled;
 
   String? get anonymousFlagReportEmail =>
       illegalContentReportEmail ?? contactEmail;
@@ -740,6 +745,7 @@ class SiteConfig {
         allowAllUsersToFlagIllegalContent: allowAllUsersToFlagIllegalContent,
         contactEmail: contactEmail,
         illegalContentReportEmail: illegalContentReportEmail,
+        dsaReportingEnabled: dsaReportingEnabled,
         suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
         fastEditEnabled: fastEditEnabled,
         displayNameOnPosts: displayNameOnPosts,
@@ -820,6 +826,7 @@ class SiteConfig {
           allowAllUsersToFlagIllegalContent &&
       other.contactEmail == contactEmail &&
       other.illegalContentReportEmail == illegalContentReportEmail &&
+      other.dsaReportingEnabled == dsaReportingEnabled &&
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.fastEditEnabled == fastEditEnabled &&
       other.displayNameOnPosts == displayNameOnPosts &&
@@ -887,6 +894,7 @@ class SiteConfig {
     allowAllUsersToFlagIllegalContent,
     contactEmail,
     illegalContentReportEmail,
+    dsaReportingEnabled,
     suggestWeekendsInDatePickers,
     fastEditEnabled,
     displayNameOnPosts,

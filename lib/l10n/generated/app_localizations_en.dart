@@ -9,6 +9,61 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get dsaVerifyEmailRequired =>
+      'Verify your contact email before submitting this report.';
+
+  @override
+  String get dsaReportReceived => 'Your report was received.';
+
+  @override
+  String dsaReportReference(String reference) {
+    return 'Report reference: $reference';
+  }
+
+  @override
+  String get dsaReportDescription =>
+      'Report content you believe is illegal. Your report is handled separately from community guideline flags.';
+
+  @override
+  String get dsaContentUrl => 'Content URL';
+
+  @override
+  String get dsaExplanationHelp =>
+      'Explain precisely why this content is illegal. Use at least 50 characters.';
+
+  @override
+  String get dsaYourName => 'Your name';
+
+  @override
+  String get dsaAccountEmail =>
+      'Your confirmed account email will be used for this report.';
+
+  @override
+  String get dsaContactEmail => 'Contact email';
+
+  @override
+  String get dsaResendCode => 'Send another code';
+
+  @override
+  String get dsaSendCode => 'Send verification code';
+
+  @override
+  String get dsaVerificationCode => 'Six-digit verification code';
+
+  @override
+  String get dsaVerifyEmail => 'Verify email';
+
+  @override
+  String get dsaEmailVerified => 'Email verified';
+
+  @override
+  String get dsaSubmitReport => 'Submit report';
+
+  @override
+  String get dsaUseNoticeForm =>
+      'Use the illegal content reporting form for this site.';
+
+  @override
   String chatViewMore(int count) {
     return 'View $count more';
   }

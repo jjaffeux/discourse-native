@@ -8,6 +8,7 @@ import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../theme/d_icons.dart';
 import 'cooked_html.dart';
+import 'dsa_notice_form.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
@@ -15,40 +16,82 @@ import 'shell_sheet.dart';
 typedef PostFlagSaver =
     Future<String?> Function(PostFlagType type, {String? message});
 
-Future<void> showPostFlagEditor({
+Future<void> showFlagEditor({
   required BuildContext context,
   required String siteUrl,
-  required Post post,
+  required String targetUsername,
   required List<PostFlagType> flagTypes,
+  required int minimumMessageLength,
+  required PostFlagSaver save,
+  String? submitLabel,
+  String targetNoun = 'post',
+  Future<void> Function()? reportIllegalContent,
 }) async {
-  final controller = ShellScope.read(context);
-  final lease = controller.lifecycle.capture(siteUrl);
-  final minimum = controller
-      .siteConfigFor(siteUrl)
-      .minPersonalMessagePostLength;
-
+  var requestedDsa = false;
   await showShellSheet<void>(
     context: context,
     title: appL10n.thanksForKeepingOurCommunityCivil,
     dialogOnDesktop: true,
     surfaceBuilder: (sheetContext, sheet) => PostFlagEditor(
       siteUrl: siteUrl,
-      post: post,
+      targetUsername: targetUsername,
       flagTypes: flagTypes,
+      minimumMessageLength: minimumMessageLength,
+      save: save,
+      submitLabel: submitLabel,
+      targetNoun: targetNoun,
       sheet: sheet,
-      minimumMessageLength: minimum,
-      save: (type, {message}) async {
-        if (!lease.isCurrent) {
-          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-        }
-        return controller.createPostFlag(siteUrl, post, type, message: message);
-      },
       onComplete: () => DDialogClose.close<void>(sheetContext),
+      reportIllegalContent: reportIllegalContent == null
+          ? null
+          : () {
+              requestedDsa = true;
+              DDialogClose.close<void>(sheetContext);
+            },
     ),
     builder: (context) =>
         ShellSheetForm.of<_PostFlagEditorState>(context)._body(context),
     footerBuilder: (context) =>
         ShellSheetForm.of<_PostFlagEditorState>(context)._submitButton(context),
+  );
+  if (requestedDsa && context.mounted) await reportIllegalContent!();
+}
+
+Future<void> showPostFlagEditor({
+  required BuildContext context,
+  required String siteUrl,
+  required Post post,
+  required List<PostFlagType> flagTypes,
+  String? illegalContentUrl,
+  String? topicTitle,
+}) async {
+  final controller = ShellScope.read(context);
+  final lease = controller.lifecycle.capture(siteUrl);
+  final config = controller.siteConfigFor(siteUrl);
+  await showFlagEditor(
+    context: context,
+    siteUrl: siteUrl,
+    targetUsername: post.username,
+    flagTypes: flagTypes,
+    minimumMessageLength: config.minPersonalMessagePostLength,
+    save: (type, {message}) async {
+      if (!lease.isCurrent) {
+        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
+      }
+      return controller.createPostFlag(siteUrl, post, type, message: message);
+    },
+    reportIllegalContent:
+        config.dsaReportingEnabled && illegalContentUrl != null
+        ? () async {
+            if (!lease.isCurrent || !context.mounted) return;
+            await showIllegalContentReport(
+              context: context,
+              siteUrl: siteUrl,
+              contentUrl: illegalContentUrl,
+              title: topicTitle ?? appL10n.reportIllegalContent,
+            );
+          }
+        : null,
   );
 }
 
@@ -63,39 +106,32 @@ Future<void> showTopicFlagEditor({
   final firstPost = topic.stream.isEmpty
       ? null
       : controller.store.read<Post>(siteUrl, topic.stream.first);
-  final minimum = controller
-      .siteConfigFor(siteUrl)
-      .minPersonalMessagePostLength;
-
-  await showShellSheet<void>(
+  final config = controller.siteConfigFor(siteUrl);
+  await showFlagEditor(
     context: context,
-    title: appL10n.thanksForKeepingOurCommunityCivil,
-    dialogOnDesktop: true,
-    surfaceBuilder: (sheetContext, sheet) => PostFlagEditor(
-      siteUrl: siteUrl,
-      targetUsername: firstPost?.username ?? '',
-      targetNoun: 'topic',
-      flagTypes: flagTypes,
-      sheet: sheet,
-      minimumMessageLength: minimum,
-      save: (type, {message}) async {
-        if (!lease.isCurrent) {
-          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-        }
-        return controller.createTopicFlag(
-          siteUrl,
-          topic,
-          type,
-          message: message,
-        );
-      },
-      onComplete: () => DDialogClose.close<void>(sheetContext),
-      submitLabel: appL10n.flagTopic,
-    ),
-    builder: (context) =>
-        ShellSheetForm.of<_PostFlagEditorState>(context)._body(context),
-    footerBuilder: (context) =>
-        ShellSheetForm.of<_PostFlagEditorState>(context)._submitButton(context),
+    siteUrl: siteUrl,
+    targetUsername: firstPost?.username ?? '',
+    flagTypes: flagTypes,
+    minimumMessageLength: config.minPersonalMessagePostLength,
+    submitLabel: appL10n.flagTopic,
+    targetNoun: 'topic',
+    save: (type, {message}) async {
+      if (!lease.isCurrent) {
+        return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
+      }
+      return controller.createTopicFlag(siteUrl, topic, type, message: message);
+    },
+    reportIllegalContent: config.dsaReportingEnabled
+        ? () async {
+            if (!lease.isCurrent || !context.mounted) return;
+            await showIllegalContentReport(
+              context: context,
+              siteUrl: siteUrl,
+              contentUrl: '$siteUrl/t/-/${topic.id}',
+              title: topic.title,
+            );
+          }
+        : null,
   );
 }
 
@@ -111,6 +147,7 @@ class PostFlagEditor extends StatefulWidget {
     required this.onComplete,
     this._submitLabel,
     this.targetNoun = 'post',
+    this.reportIllegalContent,
     this.sheet,
   }) : assert(post != null || targetUsername != null);
 
@@ -124,6 +161,7 @@ class PostFlagEditor extends StatefulWidget {
   final String? _submitLabel;
   String get submitLabel => _submitLabel ?? appL10n.flagPost;
   final String targetNoun;
+  final VoidCallback? reportIllegalContent;
   final Widget? sheet;
 
   @override
@@ -356,6 +394,17 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
               child: Text(
                 context.l10n.whatIVeWrittenAboveIsAccurateAndComplete,
               ),
+            ),
+          ),
+        ],
+        if (widget.reportIllegalContent case final report?) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DButton(
+              key: const ValueKey('post-flag-report-illegal'),
+              label: Text(appL10n.reportIllegalContent),
+              onPressed: _saving ? null : report,
             ),
           ),
         ],

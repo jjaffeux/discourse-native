@@ -313,7 +313,9 @@ final class _AccountMessageWrites {
     if (held == null || !chat.canFlagMessage(siteUrl, held)) {
       return appL10n.thisMessageCanNoLongerBeFlagged;
     }
-    if (!flagType.enabled ||
+    if ((flagType.isIllegal &&
+            chat._siteConfigFor(siteUrl).dsaReportingEnabled) ||
+        !flagType.enabled ||
         !flagType.appliesToTarget(chatMessageWireType) ||
         !held.availableFlags.contains(flagType.nameKey)) {
       return appL10n.thisFlagReasonIsNoLongerAvailable;

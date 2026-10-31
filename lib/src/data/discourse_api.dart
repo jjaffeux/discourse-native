@@ -46,6 +46,7 @@ import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
+import 'dsa_notices_api.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
@@ -94,6 +95,18 @@ class DiscourseApi
              timeout: timeout,
              maxResponseBytes: maxResponseBytes,
            );
+
+  @override
+  DsaNoticeConnection dsaNoticeConnection({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+  }) => DsaNoticeHttpConnection(
+    _transport,
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   static const int minimumApiVersion = DiscourseSiteApi.minimumApiVersion;
   static const int maximumSearchTermLength = maximumDiscourseSearchTermLength;

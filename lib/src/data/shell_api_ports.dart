@@ -1,10 +1,12 @@
 import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
+import 'dsa_notices_api.dart';
 import 'plugin_transport.dart';
 
 final class ShellApiPorts {
   const ShellApiPorts({
     required this.lifecycle,
+    required this.dsaNotices,
     required this.models,
     required this.pluginTransport,
     required this.siteLookup,
@@ -32,6 +34,7 @@ final class ShellApiPorts {
   factory ShellApiPorts.fromCapabilities(ShellApiCapabilities capabilities) {
     return ShellApiPorts(
       lifecycle: capabilities,
+      dsaNotices: capabilities,
       models: capabilities.models,
       pluginTransport: capabilities,
       siteLookup: capabilities,
@@ -58,6 +61,7 @@ final class ShellApiPorts {
   }
 
   final DiscourseApiLifecycle lifecycle;
+  final DsaNoticesApi dsaNotices;
   final DiscourseModelCodec models;
   final PluginApiTransport pluginTransport;
   final SiteLookupApi siteLookup;

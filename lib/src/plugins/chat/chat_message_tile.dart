@@ -227,7 +227,7 @@ class ChatMessageTile extends StatelessWidget {
             canPin ||
             canRebake ||
             canAddReaction ||
-            flagTypes.isNotEmpty ||
+            chat.canReportMessage(siteUrl, message) ||
             canCopyLink ||
             onSelect != null
         ? _ChatMessageActions(
@@ -611,25 +611,36 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final messageId = widget.message.id;
     final username = widget.message.author.username;
     final lease = chat.captureSession(siteUrl);
-    await showShellSheet<void>(
+    final dsa = chat.siteConfigFor(siteUrl).dsaReportingEnabled;
+    Future<void> report() => showIllegalContentReport(
       context: context,
-      title: appL10n.thanksForKeepingOurCommunityCivil,
-      dialogOnDesktop: true,
-      builder: (sheetContext) => PostFlagEditor(
-        siteUrl: siteUrl,
-        targetUsername: username,
-        flagTypes: flagTypes,
-        minimumMessageLength: chat.flagMessageMinimumLength(siteUrl),
-        save: (type, {message}) async {
-          if (!lease.isCurrent) {
-            return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-          }
-          return chat.flagMessage(siteUrl, messageId, type, message: message);
-        },
-        onComplete: () => DDialogClose.close<void>(sheetContext),
-        submitLabel: appL10n.flagMessage,
-        targetNoun: 'message',
-      ),
+      siteUrl: siteUrl,
+      contentUrl: _messageUrl,
+      title: appL10n.flagMessage,
+    );
+    if (flagTypes.isEmpty || chat.currentUserFor(siteUrl) == null) {
+      if (lease.isCurrent) await report();
+      return;
+    }
+    await showFlagEditor(
+      context: context,
+      siteUrl: siteUrl,
+      targetUsername: username,
+      flagTypes: flagTypes,
+      minimumMessageLength: chat.flagMessageMinimumLength(siteUrl),
+      save: (type, {message}) async {
+        if (!lease.isCurrent) {
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
+        }
+        return chat.flagMessage(siteUrl, messageId, type, message: message);
+      },
+      submitLabel: appL10n.flagMessage,
+      targetNoun: 'message',
+      reportIllegalContent: dsa
+          ? () async {
+              if (mounted && lease.isCurrent) await report();
+            }
+          : null,
     );
   }
 
@@ -841,7 +852,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         ),
       if (canEdit && widget.onEdit != null)
         item('edit', appL10n.edit, DIcons.pencil, _edit),
-      if (flagTypes.isNotEmpty)
+      if (chat.canReportMessage(widget.siteUrl, widget.message))
         item(
           'flag',
           appL10n.flag,
@@ -1050,7 +1061,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           label: widget.message.pinned ? context.l10n.unpin : context.l10n.pin,
         ): () =>
             unawaited(_togglePin()),
-      if (flagTypes.isNotEmpty)
+      if (chat.canReportMessage(widget.siteUrl, widget.message))
         CustomSemanticsAction(label: context.l10n.flag): () =>
             unawaited(_flag(flagTypes)),
       if (chat.canBookmarkMessage(widget.siteUrl, widget.message) &&

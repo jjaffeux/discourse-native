@@ -1651,6 +1651,22 @@ class ChatController extends FrameSafeNotifier {
         heldChannel.canModifyMessages(isStaff: true);
   }
 
+  bool canReportMessage(String siteUrl, ChatMessage message) {
+    if (isDisposed ||
+        message.id <= 0 ||
+        message.isOptimistic ||
+        message.isDeleted ||
+        message.isWebhook) {
+      return false;
+    }
+    final config = _siteConfigFor(siteUrl);
+    return canFlagMessage(siteUrl, message) ||
+        config.dsaReportingEnabled ||
+        (_currentUserFor(siteUrl) == null &&
+            config.allowAllUsersToFlagIllegalContent &&
+            config.anonymousFlagReportEmail != null);
+  }
+
   bool canFlagMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     return !isDisposed &&
@@ -1676,6 +1692,7 @@ class ChatController extends FrameSafeNotifier {
     return List.unmodifiable([
       for (final type in catalog)
         if (type.enabled &&
+            !(type.isIllegal && _siteConfigFor(siteUrl).dsaReportingEnabled) &&
             type.appliesToTarget(chatMessageWireType) &&
             available.contains(type.nameKey))
           type,

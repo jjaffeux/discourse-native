@@ -190,6 +190,7 @@ export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
 
+export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
@@ -221,7 +222,7 @@ export 'src/shell/open_link.dart' show LinkTarget, openLink;
 export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
-export 'src/shell/post_flag_editor.dart' show PostFlagEditor;
+export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'

@@ -25,6 +25,7 @@ class DiscourseUser {
     this.canSendPrivateMessages = false,
     this.canInviteToForum = false,
     this.canReview = false,
+    this.canUseDsaAccountEmail = false,
     this.groups = const [],
     this.messageGroupNames = const [],
     this.sidebarCategoryIds = const [],
@@ -69,6 +70,7 @@ class DiscourseUser {
     canSendPrivateMessages: json['canSendPrivateMessages'] == true,
     canInviteToForum: json['canInviteToForum'] == true,
     canReview: json['canReview'] == true,
+    canUseDsaAccountEmail: json['canUseDsaAccountEmail'] == true,
     groups: List.unmodifiable(
       jsonArray(json['groups']).map(jsonText).whereType<String>(),
     ),
@@ -142,6 +144,8 @@ class DiscourseUser {
 
   final bool canReview;
 
+  final bool canUseDsaAccountEmail;
+
   final List<String> groups;
 
   final List<String> messageGroupNames;
@@ -213,6 +217,7 @@ class DiscourseUser {
       'canSendPrivateMessages': canSendPrivateMessages,
       'canInviteToForum': canInviteToForum,
       'canReview': canReview,
+      'canUseDsaAccountEmail': canUseDsaAccountEmail,
       'groups': groups,
       'messageGroupNames': messageGroupNames,
       'sidebarCategoryIds': sidebarCategoryIds,
@@ -264,6 +269,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -303,6 +309,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -342,6 +349,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -381,6 +389,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -421,6 +430,7 @@ class DiscourseUser {
         canSendPrivateMessages: canSendPrivateMessages,
         canInviteToForum: canInviteToForum,
         canReview: canReview,
+        canUseDsaAccountEmail: canUseDsaAccountEmail,
         groups: groups,
         messageGroupNames: messageGroupNames,
         sidebarCategoryIds: sidebarCategoryIds,
@@ -466,6 +476,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds ?? this.sidebarCategoryIds,
@@ -507,6 +518,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -546,6 +558,7 @@ class DiscourseUser {
     canSendPrivateMessages: canSendPrivateMessages,
     canInviteToForum: canInviteToForum,
     canReview: canReview,
+    canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
     sidebarCategoryIds: sidebarCategoryIds,
@@ -587,6 +600,7 @@ class DiscourseUser {
       other.canSendPrivateMessages == canSendPrivateMessages &&
       other.canInviteToForum == canInviteToForum &&
       other.canReview == canReview &&
+      other.canUseDsaAccountEmail == canUseDsaAccountEmail &&
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
@@ -632,6 +646,7 @@ class DiscourseUser {
     canSendPrivateMessages,
     canInviteToForum,
     canReview,
+    canUseDsaAccountEmail,
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
     Object.hashAll(sidebarCategoryIds),

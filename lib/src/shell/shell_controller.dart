@@ -2944,7 +2944,10 @@ class ShellController extends FrameSafeNotifier
     }
     final available = [
       for (final type in postFlagTypesFor(siteUrl))
-        if (type.enabled && type.appliesToPost && post.canFlagWith(type.id))
+        if (type.enabled &&
+            !(type.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled) &&
+            type.appliesToPost &&
+            post.canFlagWith(type.id))
           type,
     ];
     final notifyUser = available.indexWhere(
@@ -2957,6 +2960,12 @@ class ShellController extends FrameSafeNotifier
     return List.unmodifiable(available);
   }
 
+  bool canReportTopic(String siteUrl, TopicDetail topic) =>
+      topic.deletedAt == null &&
+      (siteConfigFor(siteUrl).dsaReportingEnabled ||
+          (_instanceAt(siteUrl)?.isConnected == true &&
+              availableTopicFlagTypes(siteUrl, topic).isNotEmpty));
+
   List<PostFlagType> availableTopicFlagTypes(
     String siteUrl,
     TopicDetail topic,
@@ -2965,7 +2974,10 @@ class ShellController extends FrameSafeNotifier
         _postActionCatalogs[siteUrl]?.topicFlags ?? const <PostFlagType>[];
     return List.unmodifiable([
       for (final type in catalog)
-        if (type.enabled && type.appliesToTopic && topic.canFlagWith(type.id))
+        if (type.enabled &&
+            !(type.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled) &&
+            type.appliesToTopic &&
+            topic.canFlagWith(type.id))
           type,
     ]);
   }
@@ -7475,7 +7487,9 @@ class ShellController extends FrameSafeNotifier
     Post post,
     PostFlagType flagType, {
     String? message,
-  }) => _flags.createPost(siteUrl, post, flagType, message: message);
+  }) => flagType.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled
+      ? Future.value(appL10n.dsaUseNoticeForm)
+      : _flags.createPost(siteUrl, post, flagType, message: message);
 
   bool topicFlagWriteInFlight(String siteUrl, int topicId) =>
       _flags.topicWriting(siteUrl, topicId);
@@ -7485,7 +7499,9 @@ class ShellController extends FrameSafeNotifier
     TopicDetail topic,
     PostFlagType flagType, {
     String? message,
-  }) => _flags.createTopic(siteUrl, topic, flagType, message: message);
+  }) => flagType.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled
+      ? Future.value(appL10n.dsaUseNoticeForm)
+      : _flags.createTopic(siteUrl, topic, flagType, message: message);
 
   Future<String?> togglePostChecklist({
     required String siteUrl,

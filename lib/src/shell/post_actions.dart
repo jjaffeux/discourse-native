@@ -16,6 +16,7 @@ import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'anonymous_flag_dialog.dart';
 import 'bookmark_ui.dart';
+import 'dsa_notice_form.dart';
 import 'hover_action_toolbar.dart';
 import 'platform.dart';
 import 'post_action.dart';
@@ -512,6 +513,24 @@ class _PostActionsState extends State<PostActions> {
               siteUrl: widget.siteUrl,
               post: post,
               flagTypes: availableFlags,
+              illegalContentUrl: postUrl,
+              topicTitle: topicTitle,
+            ),
+          )
+        else if (config.dsaReportingEnabled &&
+            !post.isDeleted &&
+            postUrl != null)
+          PostAction(
+            icon: DIcons.flag,
+            placement: PostActionPlacement.overflow,
+            group: PostActionGroup.report,
+            label: appL10n.reportIllegalContent,
+            tooltip: appL10n.reportIllegalContent,
+            onInvoke: () => showIllegalContentReport(
+              context: context,
+              siteUrl: widget.siteUrl,
+              contentUrl: postUrl,
+              title: topicTitle ?? appL10n.reportIllegalContent,
             ),
           )
         else if (anonymousReportEmail != null &&
