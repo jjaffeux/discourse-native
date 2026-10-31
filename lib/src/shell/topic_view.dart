@@ -2128,12 +2128,13 @@ class _TopicViewState extends State<TopicView>
                                     registry: widget.registry,
                                     keepTopicListOpen: widget.keepTopicListOpen,
                                   ),
-                                TopicProgressPopover(
-                                  controller: controller,
-                                  position: position,
-                                  total: snapshot.progressTotal,
-                                  floating: true,
-                                ),
+                                if (snapshot.progressTotal > 1)
+                                  TopicProgressPopover(
+                                    controller: controller,
+                                    position: position,
+                                    total: snapshot.progressTotal,
+                                    floating: true,
+                                  ),
                               ],
                             ),
                           ),

@@ -15,6 +15,7 @@ import 'support/phone_sheet.dart';
 import 'support/shell_test_harness.dart';
 
 TopicPayload mobileTopicPayload({
+  int postsCount = 4,
   bool canReply = true,
   bool canEditTags = true,
   bool privateMessage = false,
@@ -24,9 +25,9 @@ TopicPayload mobileTopicPayload({
   detail: TopicDetail(
     id: 7,
     title: 'Show & tell: houseplant shelfie thread',
-    stream: const [71, 72, 73, 74],
-    postsCount: 4,
-    replyCount: 3,
+    stream: [for (var i = 1; i <= postsCount; i++) 70 + i],
+    postsCount: postsCount,
+    replyCount: postsCount - 1,
     views: 400,
     canCreatePost: canReply,
     canEditTags: canEditTags,
@@ -43,7 +44,7 @@ TopicPayload mobileTopicPayload({
     ],
   ),
   posts: [
-    for (var i = 1; i <= 4; i++)
+    for (var i = 1; i <= postsCount; i++)
       Post(
         id: 70 + i,
         postNumber: i,
@@ -78,6 +79,33 @@ void main() {
     TargetPlatform.iOS,
     TargetPlatform.android,
   });
+  for (final postsCount in [1, 2]) {
+    testWidgets(
+      'mobile topic with $postsCount posts shows progress only for replies',
+      (tester) async {
+        await pumpMobileShellFixture(
+          tester,
+          topic: mobileTopicPayload(postsCount: postsCount),
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('topic-progress-button')),
+          postsCount == 1 ? findsNothing : findsOneWidget,
+        );
+        for (final key in [
+          'topic-header-bookmark-button',
+          'topic-header-notification-button',
+          'mobile-topic-reply',
+        ]) {
+          expect(find.byKey(ValueKey(key)).hitTestable(), findsOneWidget);
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: platforms,
+    );
+  }
   testWidgets('mobile tag overflow and wrapped rows have 8px painted gaps', (
     tester,
   ) async {
