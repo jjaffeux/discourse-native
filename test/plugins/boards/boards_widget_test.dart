@@ -14,6 +14,44 @@ import '../../support/native_ui_evidence.dart';
 
 typedef BoardCapture = Future<void> Function(WidgetTester tester, String name);
 
+class _BoardPresentationHost extends ChangeNotifier
+    implements PluginRouteNavigationHost, PluginRoutePresentationHost {
+  _BoardPresentationHost(this.host, {required this.mobile});
+  final BoardsFixtureNavigation host;
+  final bool mobile;
+  @override
+  bool get currentContentVisible => true;
+  @override
+  bool get mobileNavigationEnabled => mobile;
+  @override
+  List<PluginRouteSite> get sites => host.sites;
+  @override
+  PluginRouteSite get currentSite => host.currentSite;
+  @override
+  String? get activeTabId => host.activeTabId;
+  @override
+  ContentRoute? get currentContent => host.currentContent;
+  @override
+  void selectInstance(int index) => host.selectInstance(index);
+  @override
+  void pushContent(ContentRoute route) => host.pushContent(route);
+  @override
+  void replaceCurrentContent(ContentRoute route) =>
+      host.replaceCurrentContent(route);
+  @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    bool highlight = false,
+  }) => host.openTopicPost(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postNumber: postNumber,
+    highlight: highlight,
+  );
+}
+
 void main() => boardsWidgetTests();
 
 void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
@@ -151,6 +189,98 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final (width, mobile, direction) in [
+    (320.0, true, TextDirection.ltr),
+    (390.0, true, TextDirection.ltr),
+    (599.0, true, TextDirection.ltr),
+    (600.0, true, TextDirection.ltr),
+    (900.0, true, TextDirection.ltr),
+    (390.0, false, TextDirection.ltr),
+    (390.0, true, TextDirection.rtl),
+  ]) {
+    testWidgets(
+      'pending board preserves column width at $width mobile=$mobile $direction',
+      (tester) async {
+        if (nativeView) return;
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final fixture = BoardsFixture();
+        addTearDown(fixture.dispose);
+        final host = _BoardPresentationHost(fixture.host, mobile: mobile);
+        addTearDown(host.dispose);
+        fixture.navigation = BoardsNavigation(
+          host: host,
+          topicLists: fixture.host,
+          controller: fixture.controller,
+        );
+        final pending = Completer<Map<String, dynamic>>();
+        fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+            pending.future;
+        await prepareNativeUiEvidence(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            builder: (context, child) => nativeUiEvidenceBuilder(
+              context,
+              MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: Directionality(textDirection: direction, child: child!),
+              ),
+            ),
+            home: Scaffold(
+              body: BoardsPage(
+                site: boardsSite,
+                route: const BoardsRoute(boardId: 1),
+                controller: fixture.controller,
+                navigation: fixture.navigation,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final loading = tester.getRect(
+          find
+              .descendant(
+                of: find.byType(DSkeletonRegion),
+                matching: find.byType(DCard),
+              )
+              .first,
+        );
+        final loadingCard = tester.getRect(
+          find
+              .descendant(
+                of: find.byType(DSkeletonRegion),
+                matching: find.byType(DItem),
+              )
+              .first,
+        );
+        final name = 'board-${width.toInt()}-$mobile-${direction.name}';
+        await captureNativeUi(tester, '$name-loading');
+        pending.complete(fixture.data);
+        await tester.pumpAndSettle();
+        final loaded = tester.getRect(
+          find.byKey(const ValueKey('board-column-10')),
+        );
+        final loadedCard = tester.getRect(
+          find.byKey(const ValueKey('board-card-101')),
+        );
+        await captureNativeUi(tester, '$name-loaded');
+        expect(
+          loading.width,
+          loaded.width,
+          reason: 'Loading $loading should match loaded $loaded',
+        );
+        expect(loading.left, loaded.left);
+        expect(loading.right, loaded.right);
+        expect(loadingCard.left, loadedCard.left);
+        expect(loadingCard.right, loadedCard.right);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets('pending board retry uses Retry without a Refresh control', (
     tester,
