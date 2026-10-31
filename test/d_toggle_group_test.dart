@@ -50,19 +50,20 @@ void main() {
               ),
             ),
           );
+          await tester.pumpAndSettle();
           final group = find.byType(DToggleGroup<String>);
           final toggles = find.descendant(
             of: group,
             matching: find.byType(DToggle),
           );
           final touch = platform != TargetPlatform.macOS;
-          expect(tester.getSize(group).height, touch ? 36 : 30);
-          expect(tester.getSize(toggles.first).height, touch ? 32 : 26);
+          expect(tester.getSize(group).height, touch ? 44 : 30);
+          expect(tester.getSize(toggles.first).height, touch ? 40 : 26);
           expect(
             DefaultTextStyle.of(
               tester.element(find.text('Suggested')),
             ).style.fontSize,
-            touch ? 14 : 12.5,
+            touch ? 16 : 12.5,
           );
           final selectedSurface = find
               .descendant(
@@ -74,10 +75,7 @@ void main() {
               tester.widget<AnimatedContainer>(selectedSurface).decoration!
                   as BoxDecoration;
           expect(decoration.borderRadius, BorderRadius.circular(999));
-          expect(
-            decoration.color,
-            DTokens.of(tester.element(group)).raisedBackground,
-          );
+          expect(decoration.color, Colors.transparent);
           await tester.tap(find.text('Related'));
           await tester.pumpAndSettle();
           expect(controller.values, ['related']);
@@ -88,6 +86,115 @@ void main() {
         },
       );
     }
+  }
+
+  testWidgets('selection indicator follows layout-only resizing', (
+    tester,
+  ) async {
+    late StateSetter resize;
+    var width = 300.0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: StatefulBuilder(
+              builder: (context, update) {
+                resize = update;
+                return SizedBox(
+                  width: width,
+                  child: const DToggleGroup<String>(
+                    values: ['a'],
+                    expanded: true,
+                    inset: true,
+                    size: DControlSize.segment,
+                    items: [
+                      DToggleGroupItem(value: 'a', child: Text('Alpha')),
+                      DToggleGroupItem(value: 'b', child: Text('Beta')),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final indicator = find.byKey(
+      const ValueKey('toggle-group-sliding-indicator'),
+    );
+    final before = tester.getSize(indicator).width;
+    resize(() => width = 200);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator).width, lessThan(before));
+    expect(
+      tester.getRect(indicator),
+      tester.getRect(find.byKey(const ValueKey(('toggle-group-item', 'a')))),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final reduced in [false, true]) {
+    testWidgets(
+      'text selection thumb moves across equal halves, reduced=$reduced',
+      (tester) async {
+        final controller = DToggleGroupController<String>(values: ['recent']);
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: MediaQuery(
+              data: MediaQueryData(disableAnimations: reduced),
+              child: Scaffold(
+                body: Center(
+                  child: DToggleGroup<String>(
+                    controller: controller,
+                    size: DControlSize.segment,
+                    inset: true,
+                    allowEmptySelection: false,
+                    items: const [
+                      DToggleGroupItem(value: 'recent', child: Text('Recent')),
+                      DToggleGroupItem(
+                        value: 'unread',
+                        child: Text('Unread conversations'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final first = find.byKey(
+          const ValueKey(('toggle-group-item', 'recent')),
+        );
+        final last = find.byKey(
+          const ValueKey(('toggle-group-item', 'unread')),
+        );
+        expect(tester.getSize(first).width, tester.getSize(last).width);
+        final indicator = find.byKey(
+          const ValueKey('toggle-group-sliding-indicator'),
+        );
+        expect(tester.getRect(indicator), tester.getRect(first));
+        final start = tester.getRect(indicator).left;
+        await tester.tap(find.text('Unread conversations'));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
+        final middle = tester.getRect(indicator).left;
+        if (reduced) {
+          expect(middle, tester.getRect(last).left);
+        } else {
+          expect(middle, greaterThan(start));
+          expect(middle, lessThan(tester.getRect(last).left));
+        }
+        await tester.pumpAndSettle();
+        expect(tester.getRect(indicator), tester.getRect(last));
+        expect(controller.values, ['unread']);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final direction in TextDirection.values) {

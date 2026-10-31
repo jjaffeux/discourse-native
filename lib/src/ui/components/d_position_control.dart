@@ -119,7 +119,7 @@ class _DPositionControlState<T extends Object>
                 if (value != widget.value) widget.onChanged(value);
                 _fold?.cancel();
                 _fold = Timer(
-                  reduced ? Duration.zero : const Duration(milliseconds: 260),
+                  reduced ? Duration.zero : const Duration(milliseconds: 240),
                   () {
                     if (mounted) {
                       if (reduced) {
