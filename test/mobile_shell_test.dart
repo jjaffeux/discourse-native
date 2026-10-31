@@ -1552,16 +1552,21 @@ void main() {
     expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
   });
 
-  for (final bottom in [0.0, 34.0]) {
+  for (final bottom in [0.0, 24.0, 34.0, 48.0]) {
     _mobileTest(
-      'all mobile roots run their body to the screen edge ($bottom)',
+      'all mobile roots keep their body above the platform bottom edge ($bottom)',
       (tester) async {
         tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
         tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
         final shell = await pumpMobileShellFixture(tester);
+        final android =
+            Theme.of(tester.element(_header)).platform ==
+            TargetPlatform.android;
+        final usableBottom = phone.height - (android ? bottom : 0);
+        final foot = android ? 0.0 : bottom;
         void expectBody() {
           final body = find.byKey(const ValueKey('mobile-content-panel'));
-          expect(tester.getRect(body).bottom, phone.height);
+          expect(tester.getRect(body).bottom, usableBottom);
           expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
           final surface = find
               .descendant(of: body, matching: find.byType(DPageSurface))
@@ -1571,7 +1576,7 @@ void main() {
             tester.widget<DPageSurface>(surface).borderRadius,
           );
           final page = tester.element(body);
-          expect(MediaQuery.paddingOf(page).bottom, bottom);
+          expect(MediaQuery.paddingOf(page).bottom, foot);
           final dock = tester.getRect(
             find.byKey(const ValueKey('mobile-dock-surface')),
           );
@@ -1582,7 +1587,7 @@ void main() {
           );
           expect(row.height, closeTo(50 + growth, .01));
           expect(row.top, closeTo(dock.top + 6, .01));
-          if (bottom > 0) {
+          if (foot > 0) {
             // The bar runs the screen's width down to its foot, its row held
             // 30 above the bottom edge by its own padding.
             expect(dock.left, 0);
@@ -1597,7 +1602,7 @@ void main() {
           } else {
             expect(dock.left, 6);
             expect(dock.right, phone.width - 6);
-            expect(dock.bottom, closeTo(phone.height - 6, .01));
+            expect(dock.bottom, closeTo(usableBottom - 6, .01));
             expect(dock.height, closeTo(62 + growth, .01));
             expect(
               DScrollChrome.bottomInsetOf(page),
@@ -1751,7 +1756,9 @@ void main() {
       await tester.pumpAndSettle();
       await _captureChrome(tester, 'topics-${mode.name}-flat');
       final body = find.byKey(const ValueKey('mobile-content-panel'));
-      expect(tester.getRect(body).bottom, 844);
+      final android =
+          Theme.of(tester.element(body)).platform == TargetPlatform.android;
+      expect(tester.getRect(body).bottom, android ? 810 : 844);
       expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
       final surface = find
           .descendant(of: body, matching: find.byType(DPageSurface))
@@ -2754,7 +2761,9 @@ void main() {
             .first;
         // Both drawer columns end above the account card, which clears the
         // home indicator by the same lift as a sheet at its end.
-        final lift = 6 + bottom / 2;
+        final android =
+            Theme.of(tester.element(frame)).platform == TargetPlatform.android;
+        final lift = android ? 6.0 : 6 + bottom / 2;
         expect(
           tester.widget<DPageSurface>(frame).borderRadius,
           const BorderRadius.vertical(
@@ -2768,7 +2777,13 @@ void main() {
         );
         expect(page.bottom - account.bottom, lift);
         expect(account.top - panel.bottom, 6);
-        expect(page.bottom, phone.height - keyboard - (keyboard > 0 ? 1 : 0));
+        expect(
+          page.bottom,
+          phone.height -
+              keyboard -
+              (keyboard > 0 ? 1 : 0) -
+              (android ? bottom : 0),
+        );
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
         expect(rail.bottom, panel.bottom);
@@ -2969,9 +2984,11 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
     await tester.pumpAndSettle();
     final listElement = tester.element(find.byType(TopicListView));
+    final android = Theme.of(listElement).platform == TargetPlatform.android;
+    final usableBottom = phone.height - (android ? 34 : 0);
     expect(
       tester.getRect(find.byType(TopicListView)).bottom,
-      closeTo(phone.height, .01),
+      closeTo(usableBottom, .01),
     );
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
@@ -2989,11 +3006,9 @@ void main() {
     final dock = tester.getRect(
       find.byKey(const ValueKey('mobile-dock-surface')),
     );
-    // The bar stays at the screen's foot, and the parked draft waits 8 over
-    // it, 6 in from the screen's sides, a pill of the bar's own stock.
-    expect(dock.bottom, closeTo(phone.height, .01));
-    expect(dock.left, 0);
-    expect(dock.right, phone.width);
+    expect(dock.bottom, closeTo(usableBottom - (android ? 6 : 0), .01));
+    expect(dock.left, android ? 6 : 0);
+    expect(dock.right, phone.width - (android ? 6 : 0));
     expect(tester.getRect(restore).bottom, closeTo(dock.top - 8, .01));
     expect(tester.getRect(restore).left, closeTo(6, .01));
     expect(tester.getRect(restore).right, closeTo(phone.width - 6, .01));
@@ -3005,7 +3020,7 @@ void main() {
     );
     expect(
       tester.getRect(find.byType(TopicListView)).bottom,
-      closeTo(phone.height, .01),
+      closeTo(usableBottom, .01),
     );
     expect(tester.element(find.byType(TopicListView)), same(listElement));
     final list = find
@@ -3014,7 +3029,7 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect(tester.getRect(list).bottom, closeTo(phone.height, .01));
+    expect(tester.getRect(list).bottom, closeTo(usableBottom, .01));
     await tester.drag(list, const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(
@@ -3614,8 +3629,11 @@ void main() {
     final more = find.byKey(DMobileDock.moreKey);
     final content = shell.currentContent;
     final tab = shell.mobileNavigation.tab;
+    final android =
+        Theme.of(tester.element(_bar)).platform == TargetPlatform.android;
+    final usableBottom = phone.height - (android ? 34 : 0);
     final rest = tester.getRect(_bar);
-    expect(rest.bottom, phone.height);
+    expect(rest.bottom, usableBottom - (android ? 6 : 0));
     expect(_panel, findsNothing);
     await tester.tap(more);
     await tester.pumpAndSettle();
@@ -3626,12 +3644,12 @@ void main() {
     final geometry = DMobileDockGeometry.of(
       tester.element(_bar),
     ).panel(tiles: tiles);
-    expect(geometry.bar.foot, 34);
+    expect(geometry.bar.foot, android ? 0 : 34);
     expect(geometry.rows, 3);
     final panel = tester.getRect(_panel);
     expect(panel.left, 0);
     expect(panel.right, phone.width);
-    expect(panel.bottom, phone.height);
+    expect(panel.bottom, usableBottom);
     expect(panel.height, geometry.height);
     expect(
       tester.getRect(find.byKey(const ValueKey('mobile-dock-surface'))).top,

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/tokens.dart';
@@ -141,7 +142,14 @@ class _DPullToRefreshState extends State<DPullToRefresh>
       changed = changed || delta != 0;
     }
     if (changed && mounted) {
-      setState(() {});
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      } else {
+        setState(() {});
+      }
     }
     return widget.onRefresh != null || _busy || _pulling;
   }

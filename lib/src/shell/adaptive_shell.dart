@@ -611,7 +611,7 @@ class _ForumBoundaryShell extends StatelessWidget {
       return ForumWindowBackground(
         mobile: true,
         child: SafeArea(
-          bottom: false,
+          bottom: defaultTargetPlatform == TargetPlatform.android,
           child: MobileForumRoot(content: child, boundary: true),
         ),
       );
@@ -877,7 +877,7 @@ class _MobileShellState extends State<_MobileShell> {
       child: ForumWindowBackground(
         mobile: true,
         child: SafeArea(
-          bottom: false,
+          bottom: defaultTargetPlatform == TargetPlatform.android,
           child:
               ShellSelector<
                 ({InstanceLoadStatus loadStatus, bool hasInstances})
