@@ -616,8 +616,6 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   bool _isPageScroll(int depth, BuildContext? context) {
     if (depth == 0) return true;
-    // A bounded adaptive body has one structural outer viewport. Horizontal
-    // viewports also leave ownership with the page's vertical list.
     final structuralScrollables = _builtAdaptiveBody?.bounded == true ? 1 : 0;
     var verticalScrollables = 0;
     final origin = context == null
