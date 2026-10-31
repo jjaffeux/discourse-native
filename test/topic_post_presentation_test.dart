@@ -29,6 +29,64 @@ const _post = Post(
 );
 
 void main() {
+  for (final layout in [TopicPostLayout.headerOnly, TopicPostLayout.compact]) {
+    testWidgets('$layout paints one navigation outline and clears it', (
+      tester,
+    ) async {
+      final controller = await _controller();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _host(
+          controller,
+          TopicPostPresentation(
+            siteUrl: _site,
+            topicId: 7,
+            postId: 1,
+            layout: layout,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final post = find.byKey(const ValueKey('topic-post-highlight-1'));
+      final outlineColor = DTokens.of(tester.element(post)).primary;
+      final outline = find.descendant(
+        of: post,
+        matching: find.byWidgetPredicate((widget) {
+          if (widget is! DecoratedBox) return false;
+          final decoration = widget.decoration;
+          if (decoration is! BoxDecoration) return false;
+          final border = decoration.border;
+          return border is Border &&
+              border.top.color.a > 0 &&
+              border.top.color.withValues(alpha: 1) == outlineColor;
+        }),
+      );
+      expect(outline, findsNothing);
+      if (layout == TopicPostLayout.headerOnly) {
+        expect(tester.getSize(post).height, 48);
+      }
+
+      controller.openTopicPost(
+        siteUrl: _site,
+        topicId: 7,
+        postNumber: 1,
+        highlight: true,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(outline, findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 2200));
+      await tester.pumpAndSettle();
+      expect(outline, findsNothing);
+      if (layout == TopicPostLayout.headerOnly) {
+        expect(tester.getSize(post).height, 48);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'compact and header-only reuse the author and update cached slots',
     (tester) async {
@@ -136,7 +194,10 @@ void main() {
     final avatar = find.byType(DAvatar);
     expect(tester.getCenter(avatar).dy - tester.getTopLeft(frame).dy, 24);
     expect(find.text('A canonical notice.'), findsOneWidget);
-    expect(find.text('You bookmarked this post · Read this again'), findsOneWidget);
+    expect(
+      find.text('You bookmarked this post · Read this again'),
+      findsOneWidget,
+    );
     expect(find.text('You flagged this post'), findsOneWidget);
     expect(find.byType(CookedHtml), findsOneWidget);
     expect(
