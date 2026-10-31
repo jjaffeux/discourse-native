@@ -312,6 +312,7 @@ class ChatPlugin
     final chat = PluginUiScope.require(context, chatControllerService);
 
     final chatAvailable = shell.chatAvailable(siteUrl);
+    if (!chatAvailable) return const [];
     final authenticatedChatAvailable =
         chatAvailable && shell.currentUser != null;
     final publicChannelsEnabled =
@@ -339,7 +340,7 @@ class ChatPlugin
                 icon: DIcons.comment,
                 onTap: () => shell.openChats(newTab: true),
               ),
-            if (publicChannelsEnabled)
+            if (authenticatedChatAvailable && publicChannelsEnabled)
               SidebarDestination(
                 id: browseRouteId,
                 label: appL10n.channels,
@@ -521,7 +522,7 @@ class ChatPlugin
     final chat = PluginUiScope.require(context, chatControllerService);
     final settings = chat.siteConfigFor(site).chatSettings;
     return [
-      if (settings.publicChannelsEnabled)
+      if (shell.isConnected(site) && settings.publicChannelsEnabled)
         StartPageSection(
           destination: SidebarDestination(
             id: browseRouteId,

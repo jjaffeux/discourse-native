@@ -36,8 +36,11 @@ class ChatInboxNavigation extends StatelessWidget {
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
     return ListenableBuilder(
-      listenable: chat,
+      listenable: Listenable.merge([chat, shell]),
       builder: (context, _) {
+        if (!shell.isConnected(siteUrl) || !shell.chatAvailable(siteUrl)) {
+          return const SizedBox.shrink();
+        }
         final settings = chat.siteConfigFor(siteUrl).chatSettings;
         return DReferenceTextScale(
           child: Padding(

@@ -186,9 +186,14 @@ void main() {
     });
 
     test(
-      'keeps legacy settings enabled unless chat is explicitly disabled',
+      'requires Chat to be enabled in site settings and preserves stored settings',
       () {
-        expect(ChatSettings.fromSettings(const {}).chatEnabled, isTrue);
+        expect(ChatSettings.fromSettings(const {}).chatEnabled, isFalse);
+        expect(const SiteConfig.unknown().chatSettings.chatEnabled, isFalse);
+        expect(
+          ChatSettings.fromSettings(const {'chat_enabled': true}).chatEnabled,
+          isTrue,
+        );
         expect(ChatSettings.fromStored(const {}).chatEnabled, isTrue);
         expect(
           ChatSettings.fromStored(const {'chatEnabled': false}).chatEnabled,
@@ -202,6 +207,36 @@ void main() {
         );
       },
     );
+
+    test('anonymous Chat requires the anonymous group in site permissions', () {
+      for (final (groups, allowed) in <(Object?, bool)>[
+        (null, false),
+        ('', false),
+        ('1|2|10', false),
+        ('14|40', false),
+        ('1|2|4|10', true),
+        ('4', true),
+        (4, true),
+        ('1| 4 |10', true),
+        ('1|invalid|10', false),
+        (true, false),
+        (<int>[4], false),
+      ]) {
+        final settings = ChatSettings.fromSettings({
+          'chat_enabled': true,
+          'chat_allowed_groups': groups,
+        });
+        expect(settings.anonymousChatAllowed, allowed, reason: '$groups');
+        expect(
+          ChatSettings.fromStored(
+            Map<String, dynamic>.from(settings.toStored()),
+          ),
+          settings,
+        );
+      }
+      expect(const ChatSettings().anonymousChatAllowed, isFalse);
+      expect(ChatSettings.fromStored(const {}).anonymousChatAllowed, isFalse);
+    });
 
     test('decodes every supported separate-sidebar wire value', () {
       const siteModes = {

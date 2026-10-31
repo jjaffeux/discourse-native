@@ -79,6 +79,7 @@ final class ChatSettings {
     this.uploadsEnabled = true,
     this.searchEnabled = false,
     this.publicChannelsEnabled = true,
+    this.anonymousChatAllowed = false,
     this.threadsEnabled = true,
     this.preferredIndex = ChatPreferredIndex.channels,
     this.channelRetentionDays = 0,
@@ -95,10 +96,11 @@ final class ChatSettings {
     quickReaction: json['discourse_reactions_enabled'] == true
         ? jsonText(json['discourse_reactions_reaction_for_like']) ?? 'heart'
         : 'heart',
-    chatEnabled: json['chat_enabled'] != false,
+    chatEnabled: json['chat_enabled'] == true,
     uploadsEnabled: json['chat_allow_uploads'] != false,
     searchEnabled: json['chat_search_enabled'] == true,
     publicChannelsEnabled: json['enable_public_channels'] != false,
+    anonymousChatAllowed: _anonymousChatAllowed(json['chat_allowed_groups']),
     threadsEnabled: json['chat_threads_enabled'] != false,
     preferredIndex: ChatPreferredIndex.read(json['chat_preferred_index']),
     channelRetentionDays: _retentionDays(json['chat_channel_retention_days']),
@@ -117,6 +119,7 @@ final class ChatSettings {
     uploadsEnabled: json['uploadsEnabled'] != false,
     searchEnabled: json['searchEnabled'] == true,
     publicChannelsEnabled: json['publicChannelsEnabled'] != false,
+    anonymousChatAllowed: json['anonymousChatAllowed'] == true,
     threadsEnabled: json['threadsEnabled'] != false,
     preferredIndex: ChatPreferredIndex.read(json['preferredIndex']),
     channelRetentionDays: _retentionDays(json['channelRetentionDays']),
@@ -138,6 +141,7 @@ final class ChatSettings {
   final bool uploadsEnabled;
   final bool searchEnabled;
   final bool publicChannelsEnabled;
+  final bool anonymousChatAllowed;
   final bool threadsEnabled;
   final ChatPreferredIndex preferredIndex;
   final int channelRetentionDays;
@@ -151,6 +155,7 @@ final class ChatSettings {
     'uploadsEnabled': uploadsEnabled,
     'searchEnabled': searchEnabled,
     if (!publicChannelsEnabled) 'publicChannelsEnabled': false,
+    if (anonymousChatAllowed) 'anonymousChatAllowed': true,
     if (!threadsEnabled) 'threadsEnabled': false,
     'preferredIndex': preferredIndex.wireName,
     'channelRetentionDays': channelRetentionDays,
@@ -167,6 +172,7 @@ final class ChatSettings {
       other.uploadsEnabled == uploadsEnabled &&
       other.searchEnabled == searchEnabled &&
       other.publicChannelsEnabled == publicChannelsEnabled &&
+      other.anonymousChatAllowed == anonymousChatAllowed &&
       other.threadsEnabled == threadsEnabled &&
       other.preferredIndex == preferredIndex &&
       other.channelRetentionDays == channelRetentionDays &&
@@ -181,6 +187,7 @@ final class ChatSettings {
     uploadsEnabled,
     searchEnabled,
     publicChannelsEnabled,
+    anonymousChatAllowed,
     threadsEnabled,
     preferredIndex,
     channelRetentionDays,
@@ -466,7 +473,7 @@ final class ChatCurrentUserPersistenceCodec
 
 extension ChatPluginDataRead on PluginData {
   ChatSettings get chatSettings =>
-      get(chatSettingsDataKey) ?? const ChatSettings();
+      get(chatSettingsDataKey) ?? const ChatSettings(chatEnabled: false);
 
   ChatCurrentUser? get chatCurrentUser => get(chatCurrentUserDataKey);
 }
@@ -532,6 +539,12 @@ const Set<String> _legacyChatCurrentUserKeys = {
 int _retentionDays(Object? raw) => switch (jsonIntOrNull(raw)) {
   final value? when value >= 0 => value,
   _ => 0,
+};
+
+bool _anonymousChatAllowed(Object? raw) => switch (raw) {
+  String groups => groups.split('|').any((id) => int.tryParse(id.trim()) == 4),
+  int group => group == 4,
+  _ => false,
 };
 
 int _maximumDirectMessageUsers(Object? raw) =>
