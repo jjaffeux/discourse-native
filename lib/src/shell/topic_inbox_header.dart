@@ -18,7 +18,6 @@ import 'content_reading_lane.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
-import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -291,11 +290,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final shell = ShellScope.read(context);
-      final tab = ForumTabScope.tabOf(context);
-      final route = header.route ?? tab.currentContent;
-      final siteUrl = header.siteUrl;
-      final words = SearchWords.of(context);
       final lane = ContentReadingLane.geometryFor(
         context,
         availableWidth: constraints.maxWidth,
@@ -311,34 +305,6 @@ class _TopicHeaderToolbar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (shell.mobileNavigationEnabled &&
-                  words.isNotEmpty &&
-                  siteUrl != null &&
-                  route != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: DButton(
-                    key: const ValueKey('topic-search-words'),
-                    label: Text(
-                      words,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    icon: const DIcon(DIcons.xmark),
-                    iconPosition: DButtonIconPosition.end,
-                    shape: DButtonShape.pill,
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
-                    tooltip: context.l10n.clearSearch,
-                    semanticLabel: '${context.l10n.clearSearch}: $words',
-                    onPressed: () => shell.search.setPageWords(
-                      siteUrl,
-                      ForumTabScope.idOf(context) ?? shell.activeTabId,
-                      route.id,
-                      '',
-                    ),
-                  ),
-                ),
               if (!ShellScope.read(context).mobileNavigationEnabled)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),

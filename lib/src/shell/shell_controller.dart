@@ -8783,6 +8783,9 @@ class ShellController extends FrameSafeNotifier
     _rootMode = ShellRootMode.forum;
     if (mobileNavigationEnabled) mobileNavigation.reset();
     final switched = index != _instanceIndex;
+    if (currentWorkspace case final previous? when switched) {
+      _workspace.clearDepartedTopicSearchWords(previous);
+    }
     _instanceIndex = index;
     // Every mobile selection lands on the forum's default route. Restoring the
     // persisted workspace first would activate the site a second time and
@@ -9397,6 +9400,9 @@ class ShellController extends FrameSafeNotifier
 
   void selectMobilePanel(String? owner) {
     if (!mobileNavigationEnabled) return;
+    if (currentWorkspace case final previous? when owner != null) {
+      _workspace.clearDepartedTopicSearchWords(previous);
+    }
     mobileNavigation.selectPanel(owner);
     _rootMode = ShellRootMode.forum;
     _mobilePane = MobilePane.sidebar;
@@ -9455,6 +9461,9 @@ class ShellController extends FrameSafeNotifier
     final location = mobileNavigation.location;
     final tab = activeTab;
     if (mobileNavigation.atRoot) {
+      if (currentWorkspace case final previous?) {
+        _workspace.clearDepartedTopicSearchWords(previous);
+      }
       _mobilePane = MobilePane.sidebar;
     } else if (tab != null && location != null) {
       _workspace.replaceActiveTab(

@@ -164,6 +164,10 @@ final class _WorkspaceController {
 
   void put(ForumWorkspace workspace, {bool persist = true}) {
     final normalized = _normalize(workspace);
+    final previous = _forumWorkspaces[normalized.siteUrl];
+    if (previous != null) {
+      clearDepartedTopicSearchWords(previous, replacement: normalized);
+    }
     _forumWorkspaces[normalized.siteUrl] = normalized;
     _retainTabState();
     final liveTabIds = {for (final tab in normalized.tabs) tab.id};
@@ -184,6 +188,33 @@ final class _WorkspaceController {
           key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
     );
     if (persist) this.persist();
+  }
+
+  void clearDepartedTopicSearchWords(
+    ForumWorkspace previous, {
+    ForumWorkspace? replacement,
+  }) {
+    bool selected(ForumWorkspace workspace, ForumTab tab) =>
+        _shell.desktopPanelsEnabled
+        ? workspace.selectedTabIn(tab.panel)?.id == tab.id
+        : workspace.activeTabId == tab.id;
+
+    for (final tab in previous.tabs) {
+      final route = tab.currentContent;
+      if (!route.isTopic) continue;
+      final next = replacement?.tabById(tab.id);
+      final changedTopic =
+          replacement != null && next?.currentContent.topicId != route.topicId;
+      final departed =
+          selected(previous, tab) &&
+          (replacement == null || next == null || !selected(replacement, next));
+      if ((changedTopic || departed) &&
+          _shell.search
+              .wordsFor(previous.siteUrl, tab.id, route.id)
+              .isNotEmpty) {
+        _shell.search.setPageWords(previous.siteUrl, tab.id, route.id, '');
+      }
+    }
   }
 
   void _retainTabState() {

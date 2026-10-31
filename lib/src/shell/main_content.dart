@@ -238,8 +238,6 @@ class _MainContentState extends State<MainContent> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (words.isNotEmpty &&
-                      !(shell.mobileNavigationEnabled &&
-                          route?.isTopic == true) &&
                       (route == null ||
                           ContentPageContract.resolve(route).showSearchWords))
                     Align(

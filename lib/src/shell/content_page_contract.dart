@@ -101,6 +101,7 @@ final class ContentPageContract {
           refreshLoad: PageLoad.topic,
           searchScope: GlobalSearchScope.forum,
           header: _ShellHeader.none,
+          showSearchWords: false,
           allowsTopicCreation: false,
         ),
         FeedDestination(:final mode) => ContentPageContract._(
