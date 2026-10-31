@@ -1000,9 +1000,10 @@ class _ComposerBottom extends StatelessWidget {
         : 0.0;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final foot = MediaQuery.paddingOf(context).bottom;
-    // As far off the screen's foot as the bar of places stands, or off the
-    // keyboard by the bar's inset.
-    final lift = DMobileDockGeometry(foot: keyboard > 0 ? 0 : foot).endLift;
+    final lift =
+        defaultTargetPlatform == TargetPlatform.android && keyboard == 0
+        ? foot + DMobileDockGeometry.inset
+        : DMobileDockGeometry(foot: keyboard > 0 ? 0 : foot).endLift;
     return Stack(
       children: [
         Positioned.fill(

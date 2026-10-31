@@ -282,6 +282,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Android composer tools clear navigation and keyboard insets', (
+    tester,
+  ) async {
+    await _Harness.create(
+      tester,
+      mobile: true,
+      platform: TargetPlatform.android,
+      size: const Size(390, 800),
+    );
+    addTearDown(tester.view.reset);
+    final ratio = tester.view.devicePixelRatio;
+    tester.view.viewPadding = FakeViewPadding(bottom: 48 * ratio);
+    for (final keyboard in [0.0, 330.0, 0.0]) {
+      tester.view.padding = FakeViewPadding(
+        bottom: keyboard == 0 ? 48 * ratio : 0,
+      );
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboard * ratio);
+      await tester.pumpAndSettle();
+      final toolbar = find.byKey(const ValueKey('composer-toolbar-bar'));
+      expect(
+        tester.getRect(toolbar).bottom,
+        lessThanOrEqualTo(800 - (keyboard > 0 ? keyboard : 48) - 6),
+      );
+    }
+    expect(tester.takeException(), isNull);
+  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+
   testWidgets('mobile keyboard motion retains composer controls', (
     tester,
   ) async {
