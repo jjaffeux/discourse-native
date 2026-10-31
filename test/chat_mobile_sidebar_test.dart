@@ -27,10 +27,11 @@ final _user = DiscourseUser(
 );
 
 final _inbox = find.byType(ChatMobileSidebar);
-final _title = find.descendant(
+final _pageTitle = find.descendant(
   of: _inbox,
   matching: find.byKey(const ValueKey('chat-inbox-title')),
 );
+final _title = find.byKey(const ValueKey('mobile-page-title'));
 final _navigation = find.byKey(const ValueKey('chat-inbox-activity-filter'));
 
 void _mobileTest(String name, WidgetTesterCallback callback) => testWidgets(
@@ -81,6 +82,8 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
                 kind: ChatChannelKind.category,
                 membership: const ChatMembership(following: true),
                 tracking: const ChatTracking(),
+                lastMessageId: id * 100,
+                lastMessageAt: DateTime.utc(2026, 10, 1, 0, 21 - id),
               ),
           ],
           direct: const [],
@@ -112,6 +115,10 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
   }
   await tester.pumpAndSettle();
   expect(_inbox, findsOneWidget);
+  expect(
+    tester.widget<DButton>(_title).semanticLabel,
+    'Back to the top of Chats',
+  );
 }
 
 Future<void> _scrollInboxTo(
@@ -150,17 +157,21 @@ void main() {
       'Open Sans',
     )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
   });
-  _mobileTest('scrolling hides the chat title and keeps the activity filter', (
+  _mobileTest('scrolling keeps the Chat bar title and activity filter fixed', (
     tester,
   ) async {
     await _pumpChatInbox(tester, phone);
+    expect(_pageTitle, findsNothing);
+    expect(_title.hitTestable(), findsOneWidget);
+    final title = tester.getRect(_title);
     final navigation = tester.getRect(_navigation);
     final list = find.descendant(of: _inbox, matching: find.byType(ListView));
     await tester.drag(list, const Offset(0, -160));
     await tester.pumpAndSettle();
-    expect(_title.hitTestable(), findsNothing);
+    expect(_title.hitTestable(), findsOneWidget);
     expect(_navigation.hitTestable(), findsOneWidget);
-    expect(tester.getRect(_navigation).top, lessThan(navigation.top));
+    expect(tester.getRect(_title), title);
+    expect(tester.getRect(_navigation), navigation);
     expect(tester.takeException(), isNull);
   });
 
@@ -188,15 +199,25 @@ void main() {
           find.byKey(const ValueKey('chat-inbox-channel-1')),
           100,
         );
-        await _scrollInboxTo(tester, _title, 150);
         expect(_title.hitTestable(), findsOneWidget);
+        await tester.tap(_title);
+        await tester.pumpAndSettle();
+        expect(_navigation.hitTestable(), findsOneWidget);
+        final positions = tester
+            .stateList<ScrollableState>(
+              find.descendant(of: _inbox, matching: find.byType(Scrollable)),
+            )
+            .map((scrollable) => scrollable.position)
+            .where((position) => position.axis == Axis.vertical);
+        expect(positions, isNotEmpty);
+        expect(positions.map((position) => position.pixels), everyElement(0));
       }
       expect(tester.takeException(), isNull);
     },
   );
 
   _mobileTest(
-    'dismissing the keyboard restores the title and filters after scrolling',
+    'the Chat bar title returns to the top after dismissing the keyboard',
     (tester) async {
       tester.platformDispatcher.textScaleFactorTestValue = 2;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -215,20 +236,24 @@ void main() {
       );
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();
-      await _scrollInboxTo(
-        tester,
-        find.byKey(const ValueKey('chat-inbox-channel-1')),
-        150,
-      );
-      await _scrollInboxTo(tester, _title, 150);
       expect(_title.hitTestable(), findsOneWidget);
+      await tester.tap(_title);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-inbox-channel-1')).hitTestable(),
+        findsOneWidget,
+      );
       expect(_navigation.hitTestable(), findsOneWidget);
+      final title = tester.getRect(_title);
+      final navigation = tester.getRect(_navigation);
       final list = find.descendant(of: _inbox, matching: find.byType(ListView));
       await tester.pump(const Duration(milliseconds: 500));
       await tester.drag(list, const Offset(0, -160));
       await tester.pumpAndSettle();
-      expect(_title.hitTestable(), findsNothing);
+      expect(_title.hitTestable(), findsOneWidget);
       expect(_navigation.hitTestable(), findsOneWidget);
+      expect(tester.getRect(_title), title);
+      expect(tester.getRect(_navigation), navigation);
       expect(tester.takeException(), isNull);
     },
   );

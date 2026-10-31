@@ -14,7 +14,6 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'global_search_models.dart';
 import 'relative_time.dart';

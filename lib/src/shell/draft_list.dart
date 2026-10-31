@@ -14,7 +14,6 @@ import '../models/user_draft.dart';
 import '../theme/d_icons.dart';
 import 'account_feed_viewport.dart';
 import 'adaptive_dialog_action.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'external_link.dart';
 import 'relative_time.dart';

@@ -22,7 +22,6 @@ import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';

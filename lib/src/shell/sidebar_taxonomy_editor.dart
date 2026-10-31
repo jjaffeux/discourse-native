@@ -10,7 +10,6 @@ import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../models/user_preferences.dart';
 import '../theme/d_icons.dart';
-import 'category_icon.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 

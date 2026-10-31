@@ -107,16 +107,20 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
   ColorTween? _outline;
   @override
   void forEachTween(TweenVisitor<dynamic> visitor) {
-    _fill = visitor(
-      _fill,
-      widget.backgroundColor,
-      (value) => ColorTween(begin: value as Color),
-    ) as ColorTween?;
-    _outline = visitor(
-      _outline,
-      widget.borderColor,
-      (value) => ColorTween(begin: value as Color),
-    ) as ColorTween?;
+    _fill =
+        visitor(
+              _fill,
+              widget.backgroundColor,
+              (value) => ColorTween(begin: value as Color),
+            )
+            as ColorTween?;
+    _outline =
+        visitor(
+              _outline,
+              widget.borderColor,
+              (value) => ColorTween(begin: value as Color),
+            )
+            as ColorTween?;
   }
 
   @override
@@ -492,8 +496,9 @@ class DCardFooter extends StatelessWidget {
           child: Padding(
             padding:
                 padding ??
-                EdgeInsets.all(_spacing(context))
-                    .add(const EdgeInsets.only(top: 1)),
+                EdgeInsets.all(
+                  _spacing(context),
+                ).add(const EdgeInsets.only(top: 1)),
             child: child,
           ),
         ),

@@ -236,10 +236,7 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            expect(
-              tester.getRect(_surface).bottom,
-              844 - const DMobileDockGeometry(foot: _foot).endLift,
-            );
+            _expectPhoneCardAtViewportFoot(tester, safeBottom: _foot);
             expect(find.text('Silas Vance'), findsOneWidget);
             expect(find.text('Message'), findsOneWidget);
             expect(find.text('Chat'), findsOneWidget);
@@ -353,7 +350,7 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      '${platform.name} card is an inset sheet with swipe dismissal',
+      '${platform.name} card fills the viewport foot with swipe dismissal',
       (tester) async {
         final api = await _pumpTarget(
           tester,
@@ -372,9 +369,7 @@ void main() {
         expect(tester.widget(_surface), isA<DSheetContent>());
         expect(find.byType(DPopoverContent), findsNothing);
         final bounds = tester.getRect(_surface);
-        expect(bounds.left, 0);
-        expect(bounds.right, 390);
-        expect(bounds.bottom, 838);
+        _expectPhoneCardAtViewportFoot(tester);
         final handle = find.byKey(const ValueKey('sheet-drag-handle'));
         await tester.drag(
           handle,
@@ -750,6 +745,35 @@ void main() {
     expect(find.text('Sam Example'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
   });
+}
+
+void _expectPhoneCardAtViewportFoot(
+  WidgetTester tester, {
+  double safeBottom = 0,
+}) {
+  final viewport = tester.getRect(
+    find.byKey(const ValueKey('user-card-capture')),
+  );
+  final bounds = tester.getRect(_surface);
+  expect(bounds.left, viewport.left);
+  expect(bounds.right, viewport.right);
+  expect(bounds.bottom, viewport.bottom);
+  final contentViewport = find
+      .descendant(
+        of: _surface,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
+      )
+      .first;
+  final contentBounds = tester.getRect(contentViewport);
+  expect(
+    contentBounds.bottom,
+    lessThanOrEqualTo(viewport.bottom - safeBottom + .01),
+    reason: 'the home-indicator area stays below the card contents',
+  );
 }
 
 Future<_CardApi> _pumpTarget(

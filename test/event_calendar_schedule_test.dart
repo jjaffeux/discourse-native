@@ -196,6 +196,7 @@ void main() {
       expect(call('after'), findsOneWidget);
       expect(tester.getCenter(call('after')).dy, greaterThan(700));
       final gesture = await tester.startGesture(tester.getCenter(body));
+      await gesture.moveBy(const Offset(0, -20));
       await gesture.moveBy(const Offset(0, -80));
       await tester.pumpAndSettle(const Duration(milliseconds: 16));
       expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Tue 1');
@@ -262,11 +263,13 @@ void main() {
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(kalender.ScheduleBody)),
       );
+      await gesture.moveBy(const Offset(0, -20));
       await gesture.moveBy(const Offset(0, -240));
       await tester.pump(const Duration(milliseconds: 16));
       await export(tester, 'large-delta-first-frame');
       expect(pinned(), findsOneWidget);
       expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Wed 2');
+      expect(find.bySemanticsLabel('Wed 2'), findsOneWidget);
       await gesture.up();
     },
   );
@@ -278,6 +281,7 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(kalender.ScheduleBody)),
     );
+    await gesture.moveBy(const Offset(0, -20));
     await gesture.moveBy(const Offset(0, -240));
     await tester.pump(const Duration(milliseconds: 16));
     expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Wed 2');

@@ -378,6 +378,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     BuildContext? origin,
     ScrollMetrics metrics,
   ) {
+    if (_builtAdaptiveBody?.bounded == true && depth == 0) return;
     if (metrics.axis != Axis.vertical ||
         !_isPageScroll(depth, origin) ||
         origin == null) {
@@ -615,26 +616,24 @@ class _DPageSurfaceState extends State<DPageSurface>
 
   bool _isPageScroll(int depth, BuildContext? context) {
     if (depth == 0) return true;
-    // A table may put its main vertical list inside a horizontal viewport.
-    // Ignore that horizontal boundary, but never react to an embedded vertical
-    // scroller (for example a code block inside a post).
-    var nestedVertical = false;
-    context?.visitAncestorElements((element) {
+    final structuralScrollables = _builtAdaptiveBody?.bounded == true ? 1 : 0;
+    var verticalScrollables = 0;
+    final origin = context == null
+        ? null
+        : Scrollable.maybeOf(context, axis: Axis.vertical);
+    origin?.context.visitAncestorElements((element) {
       if (identical(element.widget, widget)) return false;
       final axis = switch (element.widget) {
-        Viewport(:final axisDirection) => axisDirectionToAxis(axisDirection),
-        ShrinkWrappingViewport(:final axisDirection) => axisDirectionToAxis(
-          axisDirection,
-        ),
+        Scrollable(:final axisDirection) => axisDirectionToAxis(axisDirection),
         _ => null,
       };
       if (axis == Axis.vertical) {
-        nestedVertical = true;
-        return false;
+        verticalScrollables++;
+        if (verticalScrollables > structuralScrollables) return false;
       }
       return true;
     });
-    return !nestedVertical;
+    return verticalScrollables <= structuralScrollables;
   }
 
   void _updateBodyAtTop(

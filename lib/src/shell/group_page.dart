@@ -17,7 +17,6 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
-import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'group/group_manage_controller.dart';
 import 'group/group_members_controller.dart';
