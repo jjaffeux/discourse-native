@@ -9,6 +9,9 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get chatTranscript => 'Transcript';
+
+  @override
   String get dsaVerifyEmailRequired =>
       'Verify your contact email before submitting this report.';
 

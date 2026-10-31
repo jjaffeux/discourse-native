@@ -94,6 +94,12 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Label for a quoted Chat transcript.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript'**
+  String get chatTranscript;
+
   /// Illegal content reporting form.
   ///
   /// In en, this message translates to:

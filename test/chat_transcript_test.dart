@@ -11,17 +11,27 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 
+import 'support/native_ui_evidence.dart';
+
 Future<void> pumpTranscript(
   WidgetTester tester,
   String source, {
   double width = 430,
   double textScale = 1,
   bool dark = true,
+  PluginRegistry registry = const PluginRegistry([ChatPlugin()]),
 }) async {
+  await prepareNativeUiEvidence(tester);
+  await tester.binding.setSurfaceSize(Size(width, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  final theme = dark ? AppTheme.dark : AppTheme.light;
   await tester.pumpWidget(
     MaterialApp(
+      builder: nativeUiEvidenceBuilder,
       locale: const Locale('en'),
-      theme: dark ? AppTheme.dark : AppTheme.light,
+      theme: theme.copyWith(
+        textTheme: theme.textTheme.apply(fontFamily: 'TranscriptReview'),
+      ),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
@@ -34,7 +44,7 @@ Future<void> pumpTranscript(
                   child: CookedHtml(
                     html: source,
                     siteUrl: 'https://meta.discourse.org',
-                    registry: const PluginRegistry([ChatPlugin()]),
+                    registry: registry,
                     buildAsync: false,
                   ),
                 ),
@@ -71,109 +81,246 @@ const transcript = '''
 ''';
 
 void main() {
+  setUpAll(() async {
+    await (FontLoader(
+      'TranscriptReview',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+  });
   final threadTranscript = File(
     'test/fixtures/chat_thread_transcript.html',
   ).readAsStringSync();
-
   final title = find.textContaining('Better Discourse app', findRichText: true);
   final reply = find.textContaining('RFC: native app', findRichText: true);
 
+  String continuation({
+    String name = 'alice',
+    String message = 'Second message',
+    int id = 409,
+  }) => transcript
+      .replaceAll('mcwumbly', name)
+      .replaceAll('408', '$id')
+      .replaceFirst('data-channel-name="ai-tech"', '')
+      .replaceFirst('data-channel-id="47"', '')
+      .replaceFirst(
+        '<a class="chat-transcript-channel" href="/chat/c/-/47">ai-tech</a>',
+        '',
+      )
+      .replaceFirst('A couple questions about MCP work:', message);
+
   testWidgets(
-    'thread summary collapses replies and restores them on activation',
+    'threads are expanded with bodies, quotes and authors exactly once',
     (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await pumpTranscript(tester, threadTranscript);
-
-        expect(
-          tester.getSemantics(find.byType(DCollapsibleTrigger)).label,
-          'Better Discourse app scraping concerns and legal discussion',
-        );
-        expect(title, findsOneWidget);
-        expect(find.text('nat'), findsOneWidget);
-        expect(find.textContaining('Oct 2,'), findsOneWidget);
-        expect(
-          find.textContaining('Originally sent in', findRichText: true),
-          findsOneWidget,
-        );
-        expect(
-          find.text('https://betterdiscourse.app/', findRichText: true),
-          findsOneWidget,
-        );
-        expect(reply, findsNothing);
-        expect(find.byType(ChatTranscriptBlock), findsOneWidget);
-        expect(
-          find.bySemanticsLabel(RegExp('.*RFC: native app.*')),
-          findsNothing,
-        );
-
-        await tester.tap(title);
-        await tester.pumpAndSettle();
-        expect(reply, findsOneWidget);
-        expect(find.text('mark.reeves'), findsOneWidget);
-        expect(find.text('alice'), findsOneWidget);
-        expect(find.text('A second reply', findRichText: true), findsOneWidget);
-        expect(
-          find.textContaining('A quoted passage', findRichText: true),
-          findsOneWidget,
-        );
-        expect(find.byType(ChatTranscriptBlock), findsNWidgets(3));
-
-        await tester.sendKeyEvent(LogicalKeyboardKey.space);
-        await tester.pumpAndSettle();
-        expect(reply, findsNothing);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(reply, findsOneWidget);
-        await tester.tap(title);
-        await tester.pumpAndSettle();
-        expect(reply, findsNothing);
-        expect(tester.takeException(), isNull);
-      } finally {
-        semantics.dispose();
-      }
+      await pumpTranscript(tester, threadTranscript);
+      expect(title, findsOneWidget);
+      expect(reply, findsOneWidget);
+      expect(find.text('nat'), findsOneWidget);
+      expect(find.text('mark.reeves'), findsOneWidget);
+      expect(find.text('alice'), findsOneWidget);
+      expect(find.text('A second reply', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('A quoted passage', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.byType(ChatTranscriptBlock), findsOneWidget);
+      expect(find.byType(DCollapsibleTrigger), findsNothing);
+      expect(find.text('general'), findsOneWidget);
+      expect(find.text('Transcript'), findsOneWidget);
+      expect(
+        find.textContaining('Originally sent in', findRichText: true),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
-  testWidgets('summary and reply links retain destinations without toggling', (
+  testWidgets(
+    'adjacent continuations share a header while named sources and prose split groups',
+    (tester) async {
+      await pumpTranscript(
+        tester,
+        '$transcript${continuation()}<p>Between groups</p>${continuation(name: 'bob')}',
+      );
+      expect(find.byType(ChatTranscriptBlock), findsNWidgets(2));
+      expect(find.text('ai-tech'), findsOneWidget);
+      expect(find.text('mcwumbly'), findsOneWidget);
+      expect(find.text('alice'), findsOneWidget);
+      expect(find.text('bob'), findsOneWidget);
+      expect(find.text('Between groups', findRichText: true), findsOneWidget);
+      expect(find.text('Second message', findRichText: true), findsNWidgets(2));
+      await pumpTranscript(tester, '$transcript$transcript');
+      expect(find.byType(ChatTranscriptBlock), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'already grouped markup keeps one group without nested duplicates',
+    (tester) async {
+      await pumpTranscript(
+        tester,
+        '<div class="chat-transcript-group"><div class="chat-transcript-group__header">Old header</div><div class="chat-transcript-group__body">$transcript${continuation()}</div></div>',
+      );
+      expect(find.byType(ChatTranscriptBlock), findsOneWidget);
+      expect(find.text('Old header', findRichText: true), findsNothing);
+      expect(find.text('alice'), findsOneWidget);
+      expect(find.text('mcwumbly'), findsOneWidget);
+      expect(find.text('ai-tech'), findsOneWidget);
+    },
+  );
+
+  test(
+    'typed group preserves root chronology and expands nested thread structure',
+    () {
+      final group = ChatTranscriptGroupData.from(
+        html.parseFragment(threadTranscript).children,
+      );
+      expect(group.name, 'general');
+      expect(group.channelLink, '/chat/c/-/5');
+      final message = group.messages.single;
+      expect(message.username, 'nat');
+      expect(message.bodyHtml, contains('https://betterdiscourse.app/'));
+      expect(message.bodyHtml, isNot(contains('RFC: native app')));
+      expect(message.replies.map((reply) => reply.username), [
+        'mark.reeves',
+        'alice',
+      ]);
+      expect(message.replies.first.sourceLink, '/chat/c/-/5/t/140/102');
+      expect(message.replies.last.sourceLink, '/chat/c/-/5/t/140/103');
+      expect(message.threadLink, '/chat/c/-/5/t/140');
+    },
+  );
+
+  testWidgets('cooked fragments between replies keep their order and content', (
     tester,
   ) async {
-    const channel = MethodChannel('plugins.flutter.io/url_launcher');
-    final launched = <String>[];
-    final messenger = tester.binding.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'launch') {
-        launched.add((call.arguments as Map)['url'] as String);
-      }
-      return true;
-    });
-    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-    await pumpTranscript(tester, threadTranscript);
-
-    await tester.tapOnText(
-      find.textRange.ofSubstring('https://betterdiscourse.app/'),
+    final source = threadTranscript.replaceFirst(
+      '<div class="chat-transcript chat-transcript-chained" data-message-id="103"',
+      '<p>Transcript note</p><div class="chat-transcript chat-transcript-chained" data-message-id="103"',
     );
-    await tester.pumpAndSettle();
-    expect(launched, ['https://betterdiscourse.app/']);
-    expect(reply, findsNothing);
-    await tester.tap(find.textContaining('Oct 2,'));
-    await tester.pumpAndSettle();
-    expect(launched.last, 'https://meta.discourse.org/chat/c/-/5/101');
-    expect(reply, findsNothing);
-
-    await tester.tap(title);
-    await tester.pumpAndSettle();
-    // The rich paragraph also contains plain text; hit the link span itself.
-    await tester.tapOnText(find.textRange.ofSubstring('RFC: native app'));
-    await tester.pumpAndSettle();
-    expect(launched.last, 'https://meta.discourse.org/t/native-app/42');
+    final data = ChatTranscriptGroupData.from(
+      html.parseFragment(source).children,
+    );
+    final meaningful = data.messages.single.parts
+        .where(
+          (part) =>
+              part is ChatTranscriptReply ||
+              (part is ChatTranscriptFragment &&
+                  part.html.contains('Transcript note')),
+        )
+        .toList();
+    expect(meaningful, hasLength(3));
+    expect(
+      (meaningful[0] as ChatTranscriptReply).message.username,
+      'mark.reeves',
+    );
+    expect(
+      (meaningful[1] as ChatTranscriptFragment).html,
+      contains('Transcript note'),
+    );
+    expect((meaningful[2] as ChatTranscriptReply).message.username, 'alice');
+    await pumpTranscript(tester, source);
+    expect(find.text('Transcript note', findRichText: true), findsOneWidget);
     expect(reply, findsOneWidget);
   });
 
-  for (final dark in [true, false]) {
-    testWidgets('narrow scaled thread title and preview wrap ($dark)', (
+  test('unlinked archives never gain timestamp or thread links', () {
+    final unlinked = threadTranscript.replaceFirst(
+      '<a href="/chat/c/-/5/101" title="2026-10-02T04:18:00Z"></a>',
+      '<span title="2026-10-02T04:18:00Z"></span>',
+    );
+    final group = ChatTranscriptGroupData.from(
+      html.parseFragment(unlinked).children,
+    );
+    final message = group.messages.single;
+    expect(message.sourceLink, isNull);
+    expect(message.threadLink, isNull);
+    expect(message.replies.map((reply) => reply.sourceLink), [null, null]);
+  });
+
+  test('generated transcript links retain a forum subfolder', () {
+    final group = ChatTranscriptGroupData.from(
+      html.parseFragment(threadTranscript).children,
+      siteUrl: 'https://example.com/community',
+    );
+    expect(group.channelLink, 'https://example.com/community/chat/c/-/5');
+    expect(
+      group.messages.single.threadLink,
+      'https://example.com/community/chat/c/-/5/t/140',
+    );
+    expect(
+      group.messages.single.replies.first.sourceLink,
+      'https://example.com/community/chat/c/-/5/t/140/102',
+    );
+  });
+
+  testWidgets('promoted pre-grouped thread titles remain visible once', (
+    tester,
+  ) async {
+    final element = html.parseFragment(threadTranscript).children.single;
+    element.querySelector('.chat-transcript-thread-header')!.remove();
+    await pumpTranscript(
       tester,
-    ) async {
+      '<div class="chat-transcript-group">'
+      '<div class="chat-transcript-group__header">'
+      '<span class="chat-transcript-group__thread">Promoted title</span>'
+      '</div><div class="chat-transcript-group__body">'
+      '${element.outerHtml}</div></div>',
+    );
+    expect(title, findsOneWidget);
+    expect(reply, findsOneWidget);
+    expect(find.text('Promoted title', findRichText: true), findsNothing);
+    expect(find.byType(ChatTranscriptBlock), findsOneWidget);
+  });
+
+  testWidgets(
+    'timestamp and thread links retain destinations with replies visible',
+    (tester) async {
+      const channel = MethodChannel('plugins.flutter.io/url_launcher');
+      final launched = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        if (call.method == 'launch') {
+          launched.add((call.arguments as Map)['url'] as String);
+        }
+        return true;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await pumpTranscript(tester, threadTranscript);
+      await tester.tap(title);
+      await tester.pumpAndSettle();
+      expect(launched.last, 'https://meta.discourse.org/chat/c/-/5/t/140');
+      await tester.tapOnText(find.textRange.ofSubstring('RFC: native app'));
+      await tester.pumpAndSettle();
+      expect(launched.last, 'https://meta.discourse.org/t/native-app/42');
+      expect(reply, findsOneWidget);
+    },
+  );
+
+  testWidgets('message details stay independent inside expanded threads', (
+    tester,
+  ) async {
+    await pumpTranscript(
+      tester,
+      threadTranscript.replaceFirst(
+        '<p>A second reply</p>',
+        '<details><summary>Reply details</summary><p>Hidden detail</p></details>',
+      ),
+    );
+    expect(reply, findsOneWidget);
+    expect(find.text('Hidden detail', findRichText: true), findsNothing);
+    await tester.ensureVisible(find.text('Reply details'));
+    await tester.tap(find.text('Reply details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hidden detail', findRichText: true), findsOneWidget);
+  });
+
+  for (final dark in [true, false]) {
+    testWidgets('narrow scaled expanded thread wraps ($dark)', (tester) async {
       await pumpTranscript(
         tester,
         threadTranscript,
@@ -182,59 +329,62 @@ void main() {
         dark: dark,
       );
       expect(title, findsOneWidget);
-      expect(reply, findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.tap(title);
-      await tester.pumpAndSettle();
       expect(reply, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets(
-    'explicitly open threads and nested message details stay independent',
-    (tester) async {
-      await pumpTranscript(
-        tester,
-        threadTranscript
-            .replaceFirst('<details>', '<details open>')
-            .replaceFirst(
-              '<p>A second reply</p>',
-              '<details><summary>Reply details</summary><p>Hidden detail</p></details>',
-            ),
+  testWidgets('unknown source types have a readable unlinked header', (
+    tester,
+  ) async {
+    await pumpTranscript(
+      tester,
+      transcript
+          .replaceFirst(
+            'data-channel-name="ai-tech"',
+            'data-source="Community call" data-source-type="unregistered"',
+          )
+          .replaceFirst('data-channel-id="47"', '')
+          .replaceFirst(
+            '<a class="chat-transcript-channel" href="/chat/c/-/47">ai-tech</a>',
+            '',
+          ),
+    );
+    expect(find.text('Community call'), findsOneWidget);
+    expect(find.text('Transcript'), findsOneWidget);
+    expect(find.text('mcwumbly'), findsOneWidget);
+  });
+
+  test(
+    'rich thread titles and media fragments survive without mutating cooked input',
+    () {
+      final source = threadTranscript
+          .replaceFirst(
+            'Better Discourse app scraping concerns and legal discussion</span>',
+            'Thread <img class="emoji" src="/smile.png" alt=":smile:"></span>',
+          )
+          .replaceFirst(
+            '<p>A second reply</p>',
+            '<p>A second reply</p><details><summary>More</summary><p>Body detail</p></details>',
+          )
+          .replaceFirst(
+            '</summary>',
+            '<div class="chat-transcript-images"><a class="lightbox" href="/original.png"><img src="/thumbnail.png"></a></div></summary>',
+          );
+      final element = html.parseFragment(source).children.single;
+      final before = element.outerHtml;
+      final group = ChatTranscriptGroupData.from([element]);
+      expect(group.messages.single.threadTitleHtml, contains('class="emoji"'));
+      expect(group.messages.single.bodyHtml, contains('/original.png'));
+      expect(
+        group.messages.single.replies.last.bodyHtml,
+        contains('Body detail'),
       );
-      expect(reply, findsOneWidget);
-      expect(find.text('Hidden detail', findRichText: true), findsNothing);
-      await tester.ensureVisible(find.text('Reply details'));
-      await tester.tap(find.text('Reply details'));
-      await tester.pumpAndSettle();
-      expect(find.text('Hidden detail', findRichText: true), findsOneWidget);
-      expect(reply, findsOneWidget);
+      expect(element.outerHtml, before);
     },
   );
 
-  test('keeps core thread summary separate from collapsed replies', () {
-    final data = ChatTranscriptData.from(
-      html.parseFragment(threadTranscript).children.single,
-    );
-
-    expect(data.metaHtml, contains('Originally sent in'));
-    expect(data.username, 'nat');
-    expect(data.displayName, 'nat');
-    expect(data.sourceLink, '/chat/c/-/5/101');
-    expect(data.bodyHtml, contains('https://betterdiscourse.app/'));
-    expect(data.bodyHtml, isNot(contains('RFC: native app')));
-    expect(data.nestedTranscriptsHtml, isEmpty);
-    final disclosure = data.disclosure!;
-    expect(disclosure.open, isFalse);
-    expect(disclosure.titleHtml, contains('Better Discourse app'));
-    expect(disclosure.bodyHtml, contains('RFC: native app'));
-    expect(disclosure.bodyHtml, contains('A second reply'));
-    expect(disclosure.bodyHtml, isNot(contains('betterdiscourse.app/')));
-    expect(disclosure.bodyHtml, isNot(contains('<summary>')));
-  });
-
-  test('thread id without replies and message details stay ordinary quotes', () {
+  test('thread id without replies and message details remain body content', () {
     final data = ChatTranscriptData.from(
       html
           .parseFragment(
@@ -251,99 +401,44 @@ void main() {
           .children
           .single,
     );
-
-    expect(data.disclosure, isNull);
+    expect(data.threadTitleHtml, isNull);
+    expect(data.replies, isEmpty);
     expect(data.bodyHtml, contains('<details>'));
   });
 
-  test('honors explicit open and preserves rich thread titles', () {
-    final data = ChatTranscriptData.from(
-      html
-          .parseFragment(
-            threadTranscript
-                .replaceFirst('<details>', '<details open>')
-                .replaceFirst(
-                  'Better Discourse app scraping concerns and legal discussion</span>',
-                  'Thread <img class="emoji" src="/smile.png" alt=":smile:"></span>',
-                ),
-          )
-          .children
-          .single,
-    );
-
-    expect(data.disclosure!.open, isTrue);
-    expect(data.disclosure!.titleHtml, contains('class="emoji"'));
-  });
-
-  test('reads the chat quote structure emitted by core', () {
-    final element = html.parseFragment(transcript).children.single;
-    final data = ChatTranscriptData.from(element);
-
-    expect(data.username, 'mcwumbly');
-    expect(data.displayName, 'mcwumbly');
-    expect(data.avatarUrl, '/user_avatar/meta.discourse.org/mcwumbly/40/1.png');
-    expect(data.createdAt, DateTime.utc(2026, 8, 25, 3, 33, 54));
-    expect(data.sourceLink, '/chat/c/-/47/408');
-    expect(data.channelName, 'ai-tech');
-    expect(data.channelLink, '/chat/c/-/47');
-    expect(data.bodyHtml, contains('A couple questions about MCP work:'));
-  });
-
-  test('claims only core chat transcript wrappers', () {
-    element(String source) => html.parseFragment(source).children.single;
-
-    expect(
-      chatTranscriptWidgetBuilder(element(transcript)),
-      isA<ChatTranscriptBlock>(),
-    );
-    expect(
-      chatTranscriptWidgetBuilder(element('<div class="chat-message"></div>')),
-      isNull,
-    );
-    expect(
-      chatTranscriptWidgetBuilder(
-        element('<aside class="chat-transcript"></aside>'),
-      ),
-      isNull,
-    );
-  });
-
-  testWidgets('renders a chat quote as one attributed aside', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('en'),
-        theme: AppTheme.dark,
-        home: const Scaffold(
-          body: SingleChildScrollView(
-            child: CookedHtml(
-              html: transcript,
-              siteUrl: 'https://meta.discourse.org',
-              registry: PluginRegistry([ChatPlugin()]),
-            ),
-          ),
+  test(
+    'claims only transcript roots and preserves a detached continuation',
+    () {
+      element(String source) => html.parseFragment(source).children.single;
+      expect(
+        chatTranscriptWidgetBuilder(element(transcript)),
+        isA<ChatTranscriptBlock>(),
+      );
+      expect(
+        chatTranscriptWidgetBuilder(element(continuation())),
+        isA<ChatTranscriptBlock>(),
+      );
+      expect(
+        chatTranscriptWidgetBuilder(
+          element('<div class="chat-message"></div>'),
         ),
-      ),
-    );
-    await tester.pump();
+        isNull,
+      );
+      expect(
+        chatTranscriptWidgetBuilder(
+          element('<aside class="chat-transcript"></aside>'),
+        ),
+        isNull,
+      );
+    },
+  );
 
-    expect(find.byType(ChatTranscriptBlock), findsOneWidget);
-    expect(find.text('mcwumbly'), findsOneWidget);
-    expect(find.textContaining('Aug 25,'), findsOneWidget);
-    expect(find.text('ai-tech'), findsOneWidget);
-    expect(find.text('2026-08-25 03:33:54 UTC'), findsNothing);
-    expect(
-      find.textContaining(
-        'A couple questions about MCP work:',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining(
-        'Could one Discourse explore another?',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-  });
+  for (final width in [390.0, 1440.0]) {
+    testWidgets('readable transcript evidence $width', (tester) async {
+      await pumpTranscript(tester, threadTranscript, width: width);
+      await captureNativeUi(tester, 'chat-transcript-${width.toInt()}');
+      expect(reply, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
