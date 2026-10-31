@@ -123,7 +123,7 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
             ),
           if (createRoom != null)
             DButton(
-              variant: DButtonVariant.ghost,
+              variant: DButtonVariant.outline,
               icon: const DIcon(DIcons.plus),
               label: Text(context.l10n.newVoiceRoom),
               onPressed: () => unawaited(createRoom(context)),

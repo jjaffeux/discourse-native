@@ -23,37 +23,46 @@ Future<void> showVoiceRoomEditor(
   final shell = room == null
       ? null
       : PluginUiScope.maybe(context, voiceShellService);
-  final result = await showDDialog<VoiceRoomDraft>(
-    context: context,
-    builder: (context, dialog) => _VoiceRoomEditorDialog(
-      room: room,
-      dialog: dialog,
-      nameTaken: (name) =>
-          originController
-              .directory(siteUrl)
-              ?.rooms
-              .any(
-                (existing) =>
-                    existing.id != room?.id && existing.name.trim() == name,
-              ) ??
-          false,
-      onDelete: room == null || !room.canDelete || room.ephemeral
-          ? null
-          : () async {
-              if (!ownsAccount()) return false;
-              final current =
-                  controllerResolver?.call() ?? controller ?? originController;
-              final deleted = await current.deleteRoom(
-                siteUrl: siteUrl,
-                roomId: room.id,
-              );
-              if (deleted && ownsAccount()) {
-                shell?.roomDeleted(siteUrl, room.id);
-              }
-              return deleted && ownsAccount();
-            },
-    ),
+  Widget content(
+    BuildContext context,
+    DDialogController<VoiceRoomDraft> dialog,
+  ) => _VoiceRoomEditorDialog(
+    room: room,
+    dialog: dialog,
+    nameTaken: (name) =>
+        originController
+            .directory(siteUrl)
+            ?.rooms
+            .any(
+              (existing) =>
+                  existing.id != room?.id && existing.name.trim() == name,
+            ) ??
+        false,
+    onDelete: room == null || !room.canDelete || room.ephemeral
+        ? null
+        : () async {
+            if (!ownsAccount()) return false;
+            final current =
+                controllerResolver?.call() ?? controller ?? originController;
+            final deleted = await current.deleteRoom(
+              siteUrl: siteUrl,
+              roomId: room.id,
+            );
+            if (deleted && ownsAccount()) {
+              shell?.roomDeleted(siteUrl, room.id);
+            }
+            return deleted && ownsAccount();
+          },
   );
+  final result = context.isTouch
+      ? await showDSheet<VoiceRoomDraft>(
+          context: context,
+          side: DSheetSide.bottom,
+          inset: true,
+          fillAvailableHeight: true,
+          builder: content,
+        )
+      : await showDDialog<VoiceRoomDraft>(context: context, builder: content);
   if (result == null || !context.mounted || !ownsAccount()) return;
   final current = controllerResolver?.call() ?? controller ?? originController;
   if (room == null && current.directory(siteUrl)?.canCreateRoom != true) return;
@@ -127,263 +136,268 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => DDialogContent(
-    showCloseButton: false,
-    maxWidth: 520,
-    semanticLabel: _room == null
+  Widget build(BuildContext context) {
+    final title = _room == null
         ? context.l10n.createVoiceRoom
-        : context.l10n.editVoiceRoom,
-    children: [
-      DDialogHeader(
+        : context.l10n.editVoiceRoom;
+    final description =
+        context.l10n.chooseHowPeopleJoinAndParticipateInYourRoom;
+    final form = _buildForm(context);
+    final actions = _actions(context);
+    if (context.isTouch) {
+      return DSheetContent(
+        side: DSheetSide.bottom,
+        semanticLabel: title,
+        showCloseButton: false,
+        topBottomMaxHeightFactor: 1,
+        scrollWholeSheet: false,
         children: [
-          DDialogTitle(
-            child: Text(
-              _room == null
-                  ? context.l10n.createVoiceRoom
-                  : context.l10n.editVoiceRoom,
+          DSheetDragRegion(
+            child: DSheetHeader(
+              children: [
+                DSheetTitle(child: Text(title)),
+                DSheetDescription(child: Text(description)),
+              ],
             ),
           ),
-          DDialogDescription(
-            child: Text(
-              context.l10n.chooseHowPeopleJoinAndParticipateInYourRoom,
-            ),
-          ),
+          Expanded(child: DSheetBody(child: form)),
+          if (_deleteFailed)
+            DFieldError(child: Text(context.l10n.voiceRoomDeleteFailed)),
+          DSheetFooter(children: actions),
         ],
-      ),
-      DDialogScrollArea(
-        maxHeightFactor: .65,
-        child: Form(
-          key: _form,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: DFieldGroup(
-            spacing: DSpacing.lg,
-            children: [
-              DFieldSet(
-                semanticLabel: context.l10n.roomDetails,
-                children: [
-                  DInput(
-                    isRequired: true,
-                    controller: _name,
-                    autofocus: true,
-                    onChanged: (_) => setState(() {}),
-                    labelText: context.l10n.name,
-                    hintText: context.l10n.voiceRoomNameExample,
-                    validator: (value) {
-                      final name = value?.trim() ?? '';
-                      if (name.isEmpty) return context.l10n.enterARoomName;
-                      if (widget.nameTaken(name)) {
-                        return context.l10n.voiceRoomNameAlreadyExists;
-                      }
-                      if (name.runes.length > 80) {
-                        return context.l10n.use80CharactersOrFewer;
-                      }
-                      return null;
-                    },
+      );
+    }
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: 520,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(
+          children: [
+            DDialogTitle(child: Text(title)),
+            DDialogDescription(child: Text(description)),
+          ],
+        ),
+        DDialogScrollArea(maxHeightFactor: .65, child: form),
+        if (_deleteFailed)
+          DFieldError(child: Text(context.l10n.voiceRoomDeleteFailed)),
+        DDialogFooter(children: actions),
+      ],
+    );
+  }
+
+  Widget _buildForm(BuildContext context) => Form(
+    key: _form,
+    autovalidateMode: AutovalidateMode.onUserInteraction,
+    child: DFieldGroup(
+      spacing: DSpacing.lg,
+      children: [
+        DFieldSet(
+          semanticLabel: context.l10n.roomDetails,
+          children: [
+            DInput(
+              isRequired: true,
+              controller: _name,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              labelText: context.l10n.name,
+              hintText: context.l10n.voiceRoomNameExample,
+              validator: (value) {
+                final name = value?.trim() ?? '';
+                if (name.isEmpty) return context.l10n.enterARoomName;
+                if (widget.nameTaken(name)) {
+                  return context.l10n.voiceRoomNameAlreadyExists;
+                }
+                if (name.runes.length > 80) {
+                  return context.l10n.use80CharactersOrFewer;
+                }
+                return null;
+              },
+            ),
+            DTextarea(
+              controller: _description,
+              labelText: context.l10n.description,
+              hintText: context.l10n.whatWillPeopleTalkAboutOptional,
+              minLines: 2,
+              maxLines: 5,
+            ),
+          ],
+        ),
+        const DFieldSeparator(),
+        DFieldSet(
+          children: [
+            DFieldLegend(child: Text(context.l10n.roomSettings)),
+            DFieldGroup(
+              variant: DFieldGroupVariant.choice,
+              children: [
+                DSwitchTile(
+                  value: _isPublic,
+                  onChanged: (value) => setState(() => _isPublic = value),
+                  title: DFieldLabel(child: Text(context.l10n.publicRoom)),
+                  subtitle: DFieldDescription(
+                    child: Text(context.l10n.visibleToEveryoneOnTheForum),
                   ),
-                  DTextarea(
-                    controller: _description,
-                    labelText: context.l10n.description,
-                    hintText: context.l10n.whatWillPeopleTalkAboutOptional,
-                    minLines: 2,
-                    maxLines: 5,
+                ),
+                DSwitchTile(
+                  value: _stage,
+                  onChanged: (value) => setState(() => _stage = value),
+                  title: DFieldLabel(child: Text(context.l10n.stageRoom)),
+                  subtitle: DFieldDescription(
+                    child: Text(
+                      context.l10n.peopleJoinAsListenersUntilInvitedToSpeak,
+                    ),
                   ),
-                ],
-              ),
-              const DFieldSeparator(),
-              DFieldSet(
-                children: [
-                  DFieldLegend(child: Text(context.l10n.roomSettings)),
-                  DFieldGroup(
-                    variant: DFieldGroupVariant.choice,
-                    children: [
-                      DSwitchTile(
-                        value: _isPublic,
-                        onChanged: (value) => setState(() => _isPublic = value),
-                        title: DFieldLabel(
-                          child: Text(context.l10n.publicRoom),
-                        ),
-                        subtitle: DFieldDescription(
-                          child: Text(context.l10n.visibleToEveryoneOnTheForum),
+                ),
+                DSwitchTile(
+                  value: _video,
+                  onChanged: (value) => setState(() => _video = value),
+                  title: DFieldLabel(child: Text(context.l10n.allowVideo)),
+                  subtitle: DFieldDescription(
+                    child: Text(
+                      context.l10n.letParticipantsShareTheirCameraAndScreen,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final horizontal =
+                    constraints.maxWidth >= 440 &&
+                    MediaQuery.textScalerOf(context).scale(14) <= 21;
+                return Flex(
+                  direction: horizontal ? Axis.horizontal : Axis.vertical,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: DSpacing.lg,
+                  children: [
+                    Flexible(
+                      flex: horizontal ? 1 : 0,
+                      child: DInput(
+                        controller: _maximum,
+                        keyboardType: TextInputType.number,
+                        labelText: context.l10n.maximumParticipants,
+                        hintText: context.l10n.forumDefault,
+                        helperText: _stage
+                            ? context.l10n.optional2200People
+                            : context.l10n.optional250People,
+                        validator: (value) => _validateNumber(
+                          value,
+                          min: 2,
+                          max: _stage ? 200 : 50,
                         ),
                       ),
-                      DSwitchTile(
-                        value: _stage,
-                        onChanged: (value) => setState(() => _stage = value),
-                        title: DFieldLabel(child: Text(context.l10n.stageRoom)),
-                        subtitle: DFieldDescription(
-                          child: Text(
-                            context
-                                .l10n
-                                .peopleJoinAsListenersUntilInvitedToSpeak,
-                          ),
-                        ),
-                      ),
-                      DSwitchTile(
-                        value: _video,
-                        onChanged: (value) => setState(() => _video = value),
-                        title: DFieldLabel(
-                          child: Text(context.l10n.allowVideo),
-                        ),
-                        subtitle: DFieldDescription(
-                          child: Text(
-                            context
-                                .l10n
-                                .letParticipantsShareTheirCameraAndScreen,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final horizontal =
-                          constraints.maxWidth >= 440 &&
-                          MediaQuery.textScalerOf(context).scale(14) <= 21;
-                      return Flex(
-                        direction: horizontal ? Axis.horizontal : Axis.vertical,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: DSpacing.lg,
-                        children: [
-                          Flexible(
-                            flex: horizontal ? 1 : 0,
-                            child: DInput(
-                              controller: _maximum,
-                              keyboardType: TextInputType.number,
-                              labelText: context.l10n.maximumParticipants,
-                              hintText: context.l10n.forumDefault,
-                              helperText: _stage
-                                  ? context.l10n.optional2200People
-                                  : context.l10n.optional250People,
-                              validator: (value) => _validateNumber(
-                                value,
-                                min: 2,
-                                max: _stage ? 200 : 50,
-                              ),
+                    ),
+                    Flexible(
+                      flex: horizontal ? 1 : 0,
+                      child: DSelect<VoiceQualityProfile>.controlled(
+                        isExpanded: true,
+                        value: _quality,
+                        label: Text(context.l10n.maximumMediaQuality),
+                        onChanged: (value) =>
+                            setState(() => _quality = value ?? _quality),
+                        entries: [
+                          for (final value in VoiceQualityProfile.values)
+                            DSelectOption(
+                              value: value,
+                              label: _qualityLabel(value),
+                              child: Text(_qualityLabel(value)),
                             ),
-                          ),
-                          Flexible(
-                            flex: horizontal ? 1 : 0,
-                            child: DSelect<VoiceQualityProfile>.controlled(
-                              isExpanded: true,
-                              value: _quality,
-                              label: Text(context.l10n.maximumMediaQuality),
-                              onChanged: (value) =>
-                                  setState(() => _quality = value ?? _quality),
-                              entries: [
-                                for (final value in VoiceQualityProfile.values)
-                                  DSelectOption(
-                                    value: value,
-                                    label: _qualityLabel(value),
-                                    child: Text(_qualityLabel(value)),
-                                  ),
-                              ],
-                              initialValue: _quality,
-                            ),
-                          ),
                         ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-              DAccordion<String>(
-                controller: _advanced,
-                keepMounted: true,
+                        initialValue: _quality,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+        DAccordion<String>(
+          controller: _advanced,
+          keepMounted: true,
+          children: [
+            DAccordionItem<String>(
+              value: 'advanced',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DAccordionItem<String>(
-                    value: 'advanced',
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  DAccordionTrigger(child: Text(context.l10n.advancedSettings)),
+                  DAccordionContent(
+                    child: DFieldGroup(
                       children: [
-                        DAccordionTrigger(
-                          child: Text(context.l10n.advancedSettings),
+                        DInput(
+                          controller: _chatChannel,
+                          keyboardType: TextInputType.number,
+                          labelText: context.l10n.chatChannelIDOptional,
+                          hintText: 'e.g. 42',
+                          helperText: context
+                              .l10n
+                              .useAChannelWithThreadingEnabledForRoomConversations,
+                          validator: (value) => _validateNumber(value, min: 1),
                         ),
-                        DAccordionContent(
-                          child: DFieldGroup(
-                            children: [
-                              DInput(
-                                controller: _chatChannel,
-                                keyboardType: TextInputType.number,
-                                labelText: context.l10n.chatChannelIDOptional,
-                                hintText: 'e.g. 42',
-                                helperText: context
-                                    .l10n
-                                    .useAChannelWithThreadingEnabledForRoomConversations,
-                                validator: (value) =>
-                                    _validateNumber(value, min: 1),
-                              ),
-                              DInput(
-                                controller: _chatIdle,
-                                keyboardType: TextInputType.number,
-                                labelText:
-                                    context.l10n.newChatThreadAfterMinutes,
-                                hintText: '15',
-                                helperText: context
-                                    .l10n
-                                    .startAFreshThreadAfter21440MinutesOfInactivity,
-                                validator: (value) =>
-                                    _validateNumber(value, min: 2, max: 1440),
-                              ),
-                              if (_room?.livekitEnabled != null)
-                                DSwitchTile(
-                                  value: _livekit,
-                                  onChanged: (value) =>
-                                      setState(() => _livekit = value),
-                                  title: DFieldLabel(
-                                    child: Text(context.l10n.useLiveKit),
-                                  ),
-                                ),
-                            ],
+                        DInput(
+                          controller: _chatIdle,
+                          keyboardType: TextInputType.number,
+                          labelText: context.l10n.newChatThreadAfterMinutes,
+                          hintText: '15',
+                          helperText: context
+                              .l10n
+                              .startAFreshThreadAfter21440MinutesOfInactivity,
+                          validator: (value) =>
+                              _validateNumber(value, min: 2, max: 1440),
+                        ),
+                        if (_room?.livekitEnabled != null)
+                          DSwitchTile(
+                            value: _livekit,
+                            onChanged: (value) =>
+                                setState(() => _livekit = value),
+                            title: DFieldLabel(
+                              child: Text(context.l10n.useLiveKit),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-      if (_deleteFailed)
-        DFieldError(child: Text(context.l10n.voiceRoomDeleteFailed)),
-      DDialogFooter(
-        children: [
-          if (widget.onDelete != null)
-            DButton(
-              onPressed: _deleting ? null : _delete,
-              loading: _deleting,
-              label: Text(context.l10n.voiceRoomDelete),
-              variant: DButtonVariant.destructive,
-            ),
-          DDialogClose<VoiceRoomDraft>(
-            builder: (context, close) => DButton(
-              onPressed: close,
-              label: Text(context.l10n.cancel),
-              variant: DButtonVariant.outline,
-            ),
-          ),
-          DButton(
-            onPressed:
-                _deleting ||
-                    _name.text.trim().isEmpty ||
-                    widget.nameTaken(_name.text.trim()) ||
-                    _name.text.trim().runes.length > 80
-                ? null
-                : _save,
-            label: Text(
-              _room == null
-                  ? context.l10n.createRoom
-                  : context.l10n.saveChanges,
-            ),
-            variant: DButtonVariant.primary,
-          ),
-        ],
-      ),
-    ],
+      ],
+    ),
   );
+
+  List<Widget> _actions(BuildContext context) => [
+    if (widget.onDelete != null)
+      DButton(
+        onPressed: _deleting ? null : _delete,
+        loading: _deleting,
+        label: Text(context.l10n.voiceRoomDelete),
+        variant: DButtonVariant.destructive,
+      ),
+    DDialogClose<VoiceRoomDraft>(
+      builder: (context, close) => DButton(
+        onPressed: close,
+        label: Text(context.l10n.cancel),
+        variant: DButtonVariant.outline,
+      ),
+    ),
+    DButton(
+      onPressed:
+          _deleting ||
+              _name.text.trim().isEmpty ||
+              widget.nameTaken(_name.text.trim()) ||
+              _name.text.trim().runes.length > 80
+          ? null
+          : _save,
+      label: Text(
+        _room == null ? context.l10n.createRoom : context.l10n.saveChanges,
+      ),
+      variant: DButtonVariant.primary,
+    ),
+  ];
 
   Future<void> _delete() async {
     final confirmed = await showDAlertDialog<bool>(

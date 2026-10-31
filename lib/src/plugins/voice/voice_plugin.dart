@@ -399,7 +399,7 @@ class _VoiceSidebarRoomsState extends State<_VoiceSidebarRooms> {
           ),
         if (createRoom != null)
           DButton(
-            variant: DButtonVariant.ghost,
+            variant: DButtonVariant.outline,
             size: DControlStyle.isTouch(context)
                 ? DButtonSize.small
                 : DButtonSize.regular,

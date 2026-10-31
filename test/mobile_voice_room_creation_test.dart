@@ -39,9 +39,12 @@ void main() {
         await Scrollable.ensureVisible(tester.element(newRoom), alignment: .5);
         await tester.pumpAndSettle();
         expect(newRoom.hitTestable(), findsOneWidget);
+        expect(tester.widget<DButton>(newRoom).variant, DButtonVariant.outline);
         await tester.tap(newRoom);
         await tester.pumpAndSettle();
         expect(find.text('Create voice room'), findsOneWidget);
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(find.byType(DDialogContent), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.enterText(
           find.descendant(
@@ -70,7 +73,7 @@ void main() {
               ?.name,
           'Planning',
         );
-        expect(find.byType(DDialogContent), findsNothing);
+        expect(find.byType(DSheetContent), findsNothing);
         expect(find.text('Planning'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
