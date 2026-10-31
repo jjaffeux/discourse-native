@@ -15,6 +15,7 @@ import 'chat_inbox_section.dart';
 import 'chat_search_entry.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_time.dart';
 import 'chat_user_avatar.dart';
 
 export 'chat_controller.dart' show chatInboxActivityAt;
@@ -256,7 +257,9 @@ class ChatInboxRow extends StatelessWidget {
         ? context.l10n.messageNewChatinbox(channel.tracking.mentionCount)
         : (messagePreview == null ? null : '$sender$messagePreview') ??
               (channel.lastMessageId == null ? context.l10n.noMessagesYet : '');
-    final at = chatInboxActivityAt(channel)?.toLocal();
+    final time = chatTimeFor(context, siteUrl);
+    final activity = chatInboxActivityAt(channel);
+    final at = activity == null ? null : time.local(activity);
     final directUser = channel.isDirectMessage && channel.users.length == 1
         ? channel.users.first
         : null;
@@ -334,7 +337,11 @@ class ChatInboxRow extends StatelessWidget {
                               maxWidth: constraints.maxWidth * .45,
                             ),
                             child: Text(
-                              _activityLabel(context, at),
+                              _activityLabel(
+                                context,
+                                at,
+                                time.local(DateTime.now()),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -441,8 +448,7 @@ class ChatConversationAvatar extends StatelessWidget {
   }
 }
 
-String _activityLabel(BuildContext context, DateTime at) {
-  final now = DateTime.now();
+String _activityLabel(BuildContext context, DateTime at, DateTime now) {
   if (at.year == now.year && at.month == now.month && at.day == now.day) {
     return clockTimeLabel(context, at);
   }

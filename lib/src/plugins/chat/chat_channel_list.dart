@@ -59,6 +59,9 @@ List<ChatChannel> projectChatChannelList(
     if (sort == ChatChannelListSort.priority) {
       final compared = priority(a).compareTo(priority(b));
       if (compared != 0) return compared;
+      if (section != ChatChannelListSection.directMessages) {
+        return _alphabetical(a, b);
+      }
     }
     final recent = _recency(a, b);
     return recent != 0 ? recent : _alphabetical(a, b);

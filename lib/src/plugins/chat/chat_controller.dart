@@ -32,6 +32,7 @@ import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 import 'chat_thread_list_refresh.dart';
 import 'chat_thread_metadata_owner.dart';
+import 'chat_time.dart';
 import 'chat_wire.dart';
 
 part 'chat_conversation_stream.dart';
@@ -382,7 +383,7 @@ class ChatController extends FrameSafeNotifier {
     ChatPreviewEngine? previewEngine,
     PluginCookingHost? cookingHost,
     ChatCookingCoordinator? cookingScheduler,
-    String Function(String siteUrl)? cookingTimezoneFor,
+    PluginTimezoneHost? timezoneHost,
 
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
@@ -404,7 +405,7 @@ class ChatController extends FrameSafeNotifier {
        _currentUserFor = currentUserFor ?? _noCurrentUser,
        _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
        _previewEngine = previewEngine ?? ChatPreviewEngine(),
-       _cookingTimezoneFor = cookingTimezoneFor,
+       _timezoneHost = timezoneHost,
        _clock = clock ?? DateTime.now {
     if (cookingHost != null) {
       _preparedCooking = ChatPreparedCooking(
@@ -563,7 +564,7 @@ class ChatController extends FrameSafeNotifier {
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
-  final String Function(String siteUrl)? _cookingTimezoneFor;
+  final PluginTimezoneHost? _timezoneHost;
   ChatPreparedCooking? _preparedCooking;
   final Map<String, String> _cookingLocales = {};
   final Map<String, int> _cookingLocaleRevisions = {};
@@ -582,6 +583,14 @@ class ChatController extends FrameSafeNotifier {
 
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
+
+  Listenable get timeChanges =>
+      _timezoneHost?.changes ?? TimezoneEnvironment.instance;
+
+  ChatTime timeFor(String siteUrl) => ChatTime.forReader(
+    zones: _timezoneHost,
+    accountTimezone: _currentUserFor(siteUrl)?.timezone,
+  );
 
   /// Shared by Chat composers; unchanged locales do no work.
   void setCookingLocale(String siteUrl, String locale) {
@@ -602,8 +611,7 @@ class ChatController extends FrameSafeNotifier {
       authorUsername: author?.author.username ?? user?.username ?? '',
       editorId: user?.id,
       locale: _cookingLocales[siteUrl] ?? 'en',
-      timezone:
-          _cookingTimezoneFor?.call(siteUrl) ?? user?.timezone ?? 'Etc/UTC',
+      timezone: timeFor(siteUrl).location?.name ?? 'Etc/UTC',
       asOfEpochMilliseconds: _clock().millisecondsSinceEpoch,
       sourcePolicy: CookingSourcePolicy.submission,
     );
@@ -1976,6 +1984,7 @@ class ChatController extends FrameSafeNotifier {
 
   /// Adding requires both message interaction permission and channel membership.
   bool canAddReactionToMessage(String siteUrl, ChatMessage message) =>
+      _siteConfigFor(siteUrl).emojiEnabled &&
       _canInteractWithMessage(siteUrl, message, requireFollowing: true);
 
   bool canReplyToMessage(String siteUrl, ChatMessage message) =>
@@ -1983,6 +1992,7 @@ class ChatController extends FrameSafeNotifier {
 
   /// Discourse permits removing a reaction after leaving the channel.
   bool canRemoveReactionFromMessage(String siteUrl, ChatMessage message) =>
+      _siteConfigFor(siteUrl).emojiEnabled &&
       _canInteractWithMessage(siteUrl, message, requireFollowing: false);
 
   bool _canInteractWithMessage(

@@ -64,7 +64,10 @@ extension on _ChatChannelDirectory {
         filter == ChatChannelListFilter.unread ||
         sort == ChatChannelListSort.priority;
     final needsUrgent = needsUnread || filter == ChatChannelListFilter.mentions;
-    final needsActivity = sort != ChatChannelListSort.alphabetical;
+    final needsActivity =
+        sort == ChatChannelListSort.recentActivity ||
+        (sort == ChatChannelListSort.priority &&
+            section == ChatChannelListSection.directMessages);
     bool recentlyActive(ChatChannel channel) =>
         channel.lastMessageId != null &&
         channel.lastMessageId != 0 &&

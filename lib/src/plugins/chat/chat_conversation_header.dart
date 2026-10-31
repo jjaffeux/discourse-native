@@ -4,6 +4,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'chat_time.dart';
+
 /// The shared reading header for channels, direct messages and threads.
 /// Both layouts use the page's reading lane and leave the panel visible.
 class ChatConversationHeader extends StatelessWidget {
@@ -20,6 +22,7 @@ class ChatConversationHeader extends StatelessWidget {
     this.compact = false,
     this.titleBuilder,
     this.now,
+    this.siteUrl,
   });
 
   final String title;
@@ -35,9 +38,11 @@ class ChatConversationHeader extends StatelessWidget {
   final bool compact;
   final Widget Function(Widget title)? titleBuilder;
   final DateTime? now;
+  final String? siteUrl;
 
   @override
   Widget build(BuildContext context) {
+    final time = chatTimeFor(context, siteUrl);
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final suffix = partial ? '+' : '';
@@ -73,10 +78,12 @@ class ChatConversationHeader extends StatelessWidget {
         TextSpan(
           children: [
             TextSpan(
-              text: context.l10n.lastAt(_dayLabel(date, now ?? DateTime.now())),
+              text: context.l10n.lastAt(
+                _dayLabel(time.local(date), time.local(now ?? DateTime.now())),
+              ),
             ),
             TextSpan(
-              text: clockTimeLabel(context, date.toLocal()).toLowerCase(),
+              text: clockTimeLabel(context, time.local(date)).toLowerCase(),
               style: emphasis,
             ),
           ],
@@ -190,8 +197,8 @@ class ChatConversationHeader extends StatelessWidget {
   }
 
   String _dayLabel(DateTime date, DateTime now) {
-    final local = date.toLocal();
-    final today = now.toLocal();
+    final local = date;
+    final today = now;
     final day = DateTime(local.year, local.month, local.day);
     if (day == DateTime(today.year, today.month, today.day)) return 'today';
     if (day == DateTime(today.year, today.month, today.day - 1)) {

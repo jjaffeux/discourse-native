@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
@@ -235,6 +236,7 @@ ChatChannel channel(
   Store? store,
   int? maxRetainedCanonicalMessageIdsPerSite,
   DateTime Function()? clock,
+  SiteConfig Function(String)? siteConfigFor,
 }) {
   api ??= FakeDiscourseApi(
     chatChannelsBySite: channels,
@@ -296,6 +298,7 @@ ChatChannel channel(
       ),
       store: resolvedStore,
       currentUserFor: (_) => currentUser,
+      siteConfigFor: siteConfigFor,
       onChatNotificationsDelta: onChatNotificationsDelta,
       onSiteUnreachable: onSiteUnreachable,
       maxRetainedCanonicalMessageIdsPerSite:
@@ -9505,6 +9508,36 @@ void main() {
       expect(subject.api.chatReactionsSet, isEmpty);
       expect(subject.store.read<ChatMessage>(site, 1), same(held));
     });
+
+    test(
+      'disabling emoji hides reaction eligibility and prevents writes',
+      () async {
+        final subject = build(
+          siteConfigFor: (_) => const SiteConfig(emojiEnabled: false),
+          messages: {
+            key(9): page([
+              message(
+                1,
+                reactions: const [
+                  ChatReaction(emoji: 'heart', count: 1, reacted: true),
+                ],
+              ),
+            ]),
+          },
+        );
+        subject.store.put(site, channel(9));
+        await subject.chat.openChannel(site, 9);
+        final held = subject.chat.message(site, 1)!;
+
+        expect(subject.chat.canAddReactionToMessage(site, held), isFalse);
+        expect(subject.chat.canRemoveReactionFromMessage(site, held), isFalse);
+        expect(subject.chat.canReplyToMessage(site, held), isTrue);
+        await subject.chat.addMessageReaction(site, 1, 'clap');
+        await subject.chat.toggleMessageReaction(site, 1, 'heart');
+        expect(subject.api.chatReactionsSet, isEmpty);
+        expect(subject.chat.message(site, 1), same(held));
+      },
+    );
 
     test('reaction writes require a followed writable channel', () async {
       final subject = build(

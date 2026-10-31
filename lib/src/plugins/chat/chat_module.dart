@@ -81,9 +81,7 @@ final class ChatModule implements PluginModule {
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
           cookingHost: bindings.require(corePluginCookingPort),
-          cookingTimezoneFor: (siteUrl) => timezone.readerTimezone(
-            siteState.currentUserFor(siteUrl)?.timezone,
-          ),
+          timezoneHost: timezone,
 
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateNotificationCounter(

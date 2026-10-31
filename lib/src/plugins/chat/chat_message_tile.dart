@@ -21,6 +21,7 @@ import 'chat_preview_body.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream_target.dart';
+import 'chat_time.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
@@ -779,14 +780,14 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
             child: Text(
-              _messageDate(context, at),
+              _messageDate(context, widget.siteUrl, at),
               key: ChatMessageTile.timestampKey(widget.message.id),
             ),
           )
         else
           DDropdownMenuLabel(
             child: Text(
-              _messageDate(context, at),
+              _messageDate(context, widget.siteUrl, at),
               key: ChatMessageTile.timestampKey(widget.message.id),
             ),
           ),
@@ -1279,11 +1280,18 @@ class _Tile extends StatelessWidget {
     final hideAuthor = chained || message.isAction;
     final author = message.author.displayName;
     final time = switch (message.createdAt) {
-      final at? => clockTimeLabel(context, at.toLocal()),
+      final at? => clockTimeLabel(
+        context,
+        chatTimeFor(context, siteUrl).local(at),
+      ),
       null => null,
     };
     final footer = <Widget>[
-      if (message.reactions.isNotEmpty)
+      if (message.reactions.isNotEmpty &&
+          PluginUiScope.require(
+            context,
+            chatControllerService,
+          ).siteConfigFor(siteUrl).emojiEnabled)
         _Reactions(siteUrl: siteUrl, message: message),
       if (message.thread case final thread?
           when showThreadSummary && thread.replyCount > 0)
@@ -2043,8 +2051,8 @@ class _Tag extends StatelessWidget {
   }
 }
 
-String _messageDate(BuildContext context, DateTime value) {
-  final local = value.toLocal();
+String _messageDate(BuildContext context, String siteUrl, DateTime value) {
+  final local = chatTimeFor(context, siteUrl).local(value);
   final material = MaterialLocalizations.of(context);
   return "${material.formatFullDate(local)} · ${clockTimeLabel(context, local)}";
 }

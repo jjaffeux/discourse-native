@@ -40,6 +40,32 @@ ChatChannel _channel(
 );
 
 void main() {
+  test('priority keeps non-DM groups alphabetical and DMs recent', () {
+    final channels = [
+      _channel(1, 'Zulu mention', mentions: 1, days: 0),
+      _channel(2, 'Alpha mention', mentions: 1, days: 4),
+      _channel(3, 'Zulu unread', unread: 1, days: 0),
+      _channel(4, 'Alpha unread', unread: 1, days: 4),
+      _channel(5, 'Zulu read', days: 0),
+      _channel(6, 'Alpha read', days: 4),
+    ];
+    for (final section in ChatChannelListSection.values) {
+      expect(
+        projectChatChannelList(
+          channels,
+          filter: ChatChannelListFilter.all,
+          sort: ChatChannelListSort.priority,
+          section: section,
+          now: _now,
+        ).map((channel) => channel.id),
+        section == ChatChannelListSection.directMessages
+            ? [1, 2, 3, 4, 5, 6]
+            : [2, 1, 4, 3, 6, 5],
+        reason: section.name,
+      );
+    }
+  });
+
   test('priority projection visits each thread at most once per call', () {
     final overview = CountingThreadOverview({
       for (var i = 0; i < 32; i++) i: _now,
@@ -85,22 +111,22 @@ void main() {
     ChatChannelListFilter.all: [
       [1, 2, 4, 5, 7, 3, 8, 6],
       [5, 6, 3, 2, 4, 7, 1, 8],
-      [3, 4, 6, 2, 7, 5, 1, 8],
+      [4, 3, 2, 7, 6, 1, 5, 8],
     ],
     ChatChannelListFilter.active: [
       [2, 4, 5, 7, 3, 6],
       [5, 6, 3, 2, 4, 7],
-      [3, 4, 6, 2, 7, 5],
+      [4, 3, 2, 7, 6, 5],
     ],
     ChatChannelListFilter.unread: [
       [2, 4, 7, 3, 6],
       [6, 3, 2, 4, 7],
-      [3, 4, 6, 2, 7],
+      [4, 3, 2, 7, 6],
     ],
     ChatChannelListFilter.mentions: [
       [4, 3],
       [3, 4],
-      [3, 4],
+      [4, 3],
     ],
   };
   for (final filter in ChatChannelListFilter.values) {
@@ -211,7 +237,7 @@ void main() {
           section: ChatChannelListSection.channels,
           now: _now,
         ).map((channel) => channel.id),
-        [2, 3],
+        [3, 2],
       );
       expect(
         projectChatChannelList(
@@ -221,7 +247,7 @@ void main() {
           section: ChatChannelListSection.channels,
           now: _now,
         ).map((channel) => channel.id),
-        [2, 3, 1],
+        [3, 2, 1],
       );
     },
   );

@@ -4,6 +4,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import 'chat_time.dart';
+
 // Core's summary marker, drawn as a vector so it never depends on font coverage.
 const _disclosureIcon = DIconData(
   'chat-transcript-disclosure',
@@ -404,7 +406,7 @@ class _TranscriptHeader extends StatelessWidget {
   }
 
   String _formatDate(BuildContext context, DateTime value) {
-    final local = value.toLocal();
+    final local = chatTimeFor(context, siteUrl).local(value);
     final material = MaterialLocalizations.of(context);
     final date = material.formatShortMonthDay(local);
     return '$date, ${clockTimeLabel(context, local)}';
