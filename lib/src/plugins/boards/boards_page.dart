@@ -35,6 +35,10 @@ double _singleColumnStride(double viewport) => viewport - 12 - 2 * _columnPeek;
 double _singleColumnOffset(int index, double stride) =>
     index * stride - _columnPeek;
 
+double _boardColumnWidth(double viewport, {required bool single}) => single
+    ? (_singleColumnStride(viewport) - 12).clamp(0.0, double.infinity)
+    : (viewport - 24).clamp(240.0, 300.0);
+
 /// Room for a column's heading, a card and its footer at unscaled text.
 const _minimumColumnHeight = 200.0;
 
@@ -274,7 +278,9 @@ class _BoardsPageState extends State<BoardsPage> {
       return page(
         l10n.boardsTitle,
         body: handle.reading
-            ? const _BoardLoadingSkeleton()
+            ? _BoardLoadingSkeleton(
+                mobileNavigation: widget.navigation.mobileNavigationEnabled,
+              )
             : Center(
                 child: DEmpty(
                   children: [
@@ -418,12 +424,7 @@ class _BoardsPageState extends State<BoardsPage> {
     builder: (context, constraints) {
       final single = _singleColumn(constraints.maxWidth);
       final dots = _columnDots(constraints.maxWidth, board.columns.length);
-      final width = single
-          ? (_singleColumnStride(constraints.maxWidth) - 12).clamp(
-              0.0,
-              double.infinity,
-            )
-          : (constraints.maxWidth - 24).clamp(240.0, 300.0);
+      final width = _boardColumnWidth(constraints.maxWidth, single: single);
       final stride = width + 12;
       if (linkedCard != null) {
         final target = (
@@ -1038,12 +1039,16 @@ class _BoardsPageState extends State<BoardsPage> {
 }
 
 class _BoardLoadingSkeleton extends StatelessWidget {
-  const _BoardLoadingSkeleton();
+  const _BoardLoadingSkeleton({required this.mobileNavigation});
+  final bool mobileNavigation;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final width = (constraints.maxWidth - 24).clamp(240.0, 300.0);
+      final width = _boardColumnWidth(
+        constraints.maxWidth,
+        single: mobileNavigation && constraints.maxWidth < _singleColumnWidth,
+      );
       final scaler = MediaQuery.textScalerOf(context);
       return DSkeletonRegion(
         semanticsLabel: context.l10n.loading,
@@ -1070,39 +1075,64 @@ class _BoardLoadingSkeleton extends StatelessWidget {
                         spacing: 8,
                         children: [
                           DCardContent(
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: DSkeleton(
-                                width: 112,
-                                height: scaler.scale(16),
-                              ),
+                            child: Row(
+                              spacing: 8,
+                              children: [
+                                DSkeleton(width: 88, height: scaler.scale(22)),
+                                DSkeleton(width: 12, height: scaler.scale(14)),
+                              ],
                             ),
                           ),
                           DCardContent(
-                            child: Column(
-                              spacing: 8,
-                              children: [
-                                for (var card = 0; card < 3 - column; card++)
-                                  DItem(
-                                    shape: DItemShape.card,
-                                    variant: DItemVariant.outline,
-                                    children: [
-                                      DItemContent(
-                                        children: [
-                                          DSkeleton(height: scaler.scale(14)),
-                                          FractionallySizedBox(
-                                            widthFactor: .65,
-                                            alignment: AlignmentDirectional
-                                                .centerStart,
-                                            child: DSkeleton(
-                                              height: scaler.scale(12),
+                            child: Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                end:
+                                    DScrollThumb.defaultThickness +
+                                    2 * DScrollThumb.containerInset,
+                              ),
+                              child: Column(
+                                spacing: 8,
+                                children: [
+                                  for (var card = 0; card < 3 - column; card++)
+                                    DItem(
+                                      shape: DItemShape.card,
+                                      variant: DItemVariant.outline,
+                                      children: [
+                                        DItemContent(
+                                          spacing: 8,
+                                          children: [
+                                            FractionallySizedBox(
+                                              widthFactor: .85,
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: DSkeleton(
+                                                height: scaler.scale(14),
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                              ],
+                                            FractionallySizedBox(
+                                              widthFactor: card.isEven
+                                                  ? .65
+                                                  : .45,
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: DSkeleton(
+                                                height: scaler.scale(14),
+                                              ),
+                                            ),
+                                            FractionallySizedBox(
+                                              widthFactor: .3,
+                                              alignment: AlignmentDirectional
+                                                  .centerStart,
+                                              child: DSkeleton(
+                                                height: scaler.scale(10),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
