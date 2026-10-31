@@ -36,6 +36,18 @@ void main() {
           await tester.pumpAndSettle();
         }
         final newRoom = find.widgetWithText(DButton, 'New voice room');
+        if (drawer) {
+          await tester.scrollUntilVisible(
+            newRoom,
+            200,
+            scrollable: find
+                .descendant(
+                  of: find.byKey(const ValueKey('mobile-navigation-panel')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          );
+        }
         await Scrollable.ensureVisible(tester.element(newRoom), alignment: .5);
         await tester.pumpAndSettle();
         expect(newRoom.hitTestable(), findsOneWidget);
