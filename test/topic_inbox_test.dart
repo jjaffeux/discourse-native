@@ -71,6 +71,12 @@ const _postFrameInset = 2.0;
 
 void main() {
   setUpAll(() async {
+    await (FontLoader('TopicHeaderOverflow')
+          ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+        .load();
+  });
+  setUpAll(() async {
     if (Platform.environment['TOPIC_HEADER_CAPTURE_DIR'] == null) return;
     await (FontLoader('TopicHeaderReview')
           ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
@@ -2589,6 +2595,76 @@ void main() {
     expect(setup.api.topicTagsUpdated, isEmpty);
     expect(setup.controller.currentTopic!.tags, hasLength(27));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('private emoji category fits in a narrow desktop topic pane', (
+    tester,
+  ) async {
+    final theme = AppTheme.light.copyWith(
+      platform: TargetPlatform.macOS,
+      textTheme: AppTheme.light.textTheme.apply(
+        fontFamily: 'TopicHeaderOverflow',
+      ),
+    );
+    final setup = await _setup(
+      tester,
+      theme: theme,
+      tags: const [],
+      categoryList: const [
+        TopicCategory(
+          id: 22,
+          name: 'Bugs',
+          color: 'E45735',
+          styleType: 'emoji',
+          emoji: 'question',
+          readRestricted: true,
+        ),
+      ],
+    );
+    setup.controller.openTopicFromList(setup.rows.first);
+    await tester.pumpAndSettle();
+    for (final width in [290.0, 280.0, 320.0]) {
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: TopicInboxHeader(
+                    title: setup.controller.currentTopic!.title,
+                    siteUrl: setup.controller.currentInstance!.url,
+                    canReturnToSidebar: true,
+                    keepTopicListOpen: true,
+                    registry: PluginRegistry.empty,
+                    topic: setup.controller.currentTopic,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'topic pane width $width');
+      final category = find.byTooltip('Edit topic category');
+      expect(category.hitTestable(), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('topic-header-edit-tags')).hitTestable(),
+        findsOneWidget,
+      );
+      final mark = find.descendant(
+        of: category,
+        matching: find.byType(CategoryIcon),
+      );
+      final categoryRect = tester.getRect(category);
+      final markRect = tester.getRect(mark);
+      expect(markRect.left, greaterThanOrEqualTo(categoryRect.left));
+      expect(markRect.right, lessThanOrEqualTo(categoryRect.right));
+    }
   });
 
   testWidgets('private category chips fit across narrow header widths', (
