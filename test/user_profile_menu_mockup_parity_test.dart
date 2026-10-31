@@ -47,6 +47,22 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('profile actions fit on opening on ${platform.name}', (
+      tester,
+    ) async {
+      await _pump(tester, platform: platform, height: 700);
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+
+      final first = find.byKey(const ValueKey('user-menu-own-card'));
+      final last = find.byKey(const ValueKey('user-menu-row-disconnect'));
+      expect(first.hitTestable(), findsOneWidget);
+      expect(last.hitTestable(), findsOneWidget);
+      await _capture(tester, '${platform.name}-opening');
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,
@@ -490,6 +506,7 @@ Future<ShellController> _pump(
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   bool reducedMotion = false,
+  double height = 800,
 }) async {
   final size = Size(
     platform == TargetPlatform.macOS
@@ -497,7 +514,7 @@ Future<ShellController> _pump(
         : scale == 1
         ? 430
         : 320,
-    800,
+    height,
   );
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
