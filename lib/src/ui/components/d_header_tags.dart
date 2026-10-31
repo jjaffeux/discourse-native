@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_control_wrap.dart';
 import 'd_direction.dart';
 
 /// A category step displayed before a header's tags.
@@ -196,28 +197,31 @@ class _DHeaderTagsState extends State<DHeaderTags> {
       builder: (context, constraints) {
         final fitted = fit(constraints.maxWidth);
         _wholePath = fitted.wholePath;
-        return Row(
-          spacing: DSpacing.sm,
-          children: [
-            for (final (index, step) in steps.indexed)
-              if (fitted.wholePath || index == own) Flexible(child: step.child),
-            for (final tag in tags.take(fitted.tags)) tag.child,
-            // Only narrower than its label in a strip with no room for
-            // a tag, where it must still not run past the end.
-            if (fitted.tags < tags.length)
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: math.max(
-                    0,
-                    constraints.maxWidth - (steps.isEmpty ? 0 : DSpacing.sm),
-                  ),
+        final wrap =
+            tools != null && tags.isEmpty && widget.emptyAction != null;
+        final children = [
+          for (final (index, step) in steps.indexed)
+            if (fitted.wholePath || index == own)
+              wrap ? step.child : Flexible(child: step.child),
+          for (final tag in tags.take(fitted.tags)) tag.child,
+          // Only narrower than its label in a strip with no room for
+          // a tag, where it must still not run past the end.
+          if (fitted.tags < tags.length)
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: math.max(
+                  0,
+                  constraints.maxWidth - (steps.isEmpty ? 0 : DSpacing.sm),
                 ),
-                child: countChip(tags.length - fitted.tags),
               ),
-            if (tags.isEmpty && widget.emptyAction != null)
-              Flexible(child: widget.emptyAction!),
-          ],
-        );
+              child: countChip(tags.length - fitted.tags),
+            ),
+          if (tags.isEmpty && widget.emptyAction != null)
+            wrap ? widget.emptyAction! : Flexible(child: widget.emptyAction!),
+        ];
+        return wrap
+            ? DControlWrap(spacing: DSpacing.sm, children: children)
+            : Row(spacing: DSpacing.sm, children: children);
       },
     );
     return tools == null
@@ -303,11 +307,18 @@ class _RenderHeaderTagsLine extends RenderBox
     final tools = lastChild!;
     tools.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
     final room = width - tools.size.width - gap;
-    final shared = room >= _controlHeight * 3;
+    var shared = room >= _controlHeight * 3;
     identity.layout(
       BoxConstraints.tightFor(width: shared ? room : width),
       parentUsesSize: true,
     );
+    if (shared && identity.size.height > _controlHeight) {
+      shared = false;
+      identity.layout(
+        BoxConstraints.tightFor(width: width),
+        parentUsesSize: true,
+      );
+    }
     double x(RenderBox box, double start) => _textDirection == TextDirection.ltr
         ? start
         : width - start - box.size.width;
