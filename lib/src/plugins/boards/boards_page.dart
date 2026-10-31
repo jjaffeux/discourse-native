@@ -336,63 +336,40 @@ class _BoardsPageState extends State<BoardsPage> {
       columns: board.columns.length,
       controls: categories.isEmpty && board.tagNames.isEmpty && !board.archived
           ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: DSpacing.sm,
+          : DControlWrap(
               children: [
-                if (categories.isNotEmpty) DControlWrap(children: categories),
-                if (board.tagNames.isNotEmpty || board.archived)
-                  DHeaderTags(
-                    identity: (
-                      'board-header-tags',
-                      widget.controller,
-                      widget.site,
-                      board.id,
-                      widget.controller.accountRevision(widget.site),
-                    ),
-                    expandSemanticLabel: l10n.allTags,
-                    moreKey: const ValueKey('board-header-more-tags'),
-                    tools: board.archived
-                        ? DBadge(
-                            size: DBadgeSize.control,
-                            child: Text(l10n.boardsArchived),
-                          )
-                        : null,
-                    tags: [
-                      for (final tag in board.tagNames)
-                        DHeaderTag(
-                          name: tag,
-                          child: DButton(
-                            key: ValueKey(('board-header-tag', tag)),
-                            onPressed: () =>
-                                widget.navigation.openTag(widget.site, tag),
-                            variant: DButtonVariant.tool,
-                            size: DButtonSize.filter,
-                            isLink: true,
-                            semanticLabel: l10n.openTagTopicheadertags(tag),
-                            label: Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: '#',
-                                    style: TextStyle(
-                                      color: DTokens.of(
-                                        context,
-                                      ).mutedForeground,
-                                    ),
-                                  ),
-                                  const WidgetSpan(
-                                    child: SizedBox(width: DSpacing.controlGap),
-                                  ),
-                                  TextSpan(text: tag),
-                                ],
-                              ),
-                              maxLines: 1,
+                ...categories,
+                for (final tag in board.tagNames)
+                  DButton(
+                    key: ValueKey(('board-header-tag', tag)),
+                    onPressed: () =>
+                        widget.navigation.openTag(widget.site, tag),
+                    variant: DButtonVariant.tool,
+                    size: DButtonSize.filter,
+                    isLink: true,
+                    semanticLabel: l10n.openTagTopicheadertags(tag),
+                    label: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '#',
+                            style: TextStyle(
+                              color: DTokens.of(context).mutedForeground,
                             ),
                           ),
-                        ),
-                    ],
+                          const WidgetSpan(
+                            child: SizedBox(width: DSpacing.controlGap),
+                          ),
+                          TextSpan(text: tag),
+                        ],
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                if (board.archived)
+                  DBadge(
+                    size: DBadgeSize.control,
+                    child: Text(l10n.boardsArchived),
                   ),
               ],
             ),

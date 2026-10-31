@@ -614,6 +614,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       for (final control in [find.text('Support'), tag]) {
         expect(tester.getRect(control).top, greaterThanOrEqualTo(title.bottom));
       }
+      expect(tester.getRect(category).top, tester.getRect(tag).top);
       expect(tester.getSize(category).height, tester.getSize(tag).height);
       expect(
         find.descendant(of: category, matching: find.byType(CategoryIcon)),
@@ -672,11 +673,15 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
-  testWidgets('long board categories fit a narrow header', (tester) async {
+  testWidgets('board categories and tags wrap together in a narrow header', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(320, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final json = boardFixtureJson();
-    (json['board'] as Map)['category_ids'] = [5];
+    (json['board'] as Map)
+      ..['category_ids'] = [5, 6]
+      ..['tag_names'] = ['roadmap', 'native', 'accessibility'];
     final fixture = BoardsFixture(
       json: json,
       categories: {
@@ -685,6 +690,7 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
           name: 'Deals and proposals for international customer accounts',
           color: '12b5d8',
         ),
+        6: const TopicCategory(id: 6, name: 'Support', color: '12b5d8'),
       },
     );
     addTearDown(fixture.dispose);
@@ -699,8 +705,28 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     final category = find.byKey(const ValueKey(('board-header-category', 5)));
     expect(tester.getSize(category).width, lessThanOrEqualTo(180));
     expect(tester.getRect(category).right, lessThanOrEqualTo(320));
+    for (final control in [
+      category,
+      find.byKey(const ValueKey(('board-header-category', 6))),
+      for (final tag in ['roadmap', 'native', 'accessibility'])
+        find.byKey(ValueKey(('board-header-tag', tag))),
+    ]) {
+      expect(control, findsOneWidget);
+      final bounds = tester.getRect(control);
+      expect(bounds.left, greaterThanOrEqualTo(0));
+      expect(bounds.right, lessThanOrEqualTo(320));
+      expect(control.hitTestable(), findsOneWidget);
+    }
+    expect(
+      tester
+          .getRect(
+            find.byKey(const ValueKey(('board-header-tag', 'accessibility'))),
+          )
+          .top,
+      greaterThanOrEqualTo(tester.getRect(category).bottom),
+    );
     expect(tester.takeException(), isNull);
-    await captureNativeUi(tester, 'board-header-category-narrow');
+    await captureNativeUi(tester, 'board-header-categories-tags-narrow');
     await tester.pumpWidget(const SizedBox.shrink());
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {

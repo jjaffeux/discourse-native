@@ -719,9 +719,7 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 
-  testWidgets('board tags expand from one row and open the last tag', (
-    tester,
-  ) async {
+  testWidgets('board tags wrap together and open the last tag', (tester) async {
     const tags = [
       'cs-completed',
       'cs-handover',
@@ -747,39 +745,22 @@ void main() {
     }
     final shell = await _openBoard(tester, tags: tags);
     Finder tag(String name) => find.byKey(ValueKey(('board-header-tag', name)));
-    final more = find.byKey(const ValueKey('board-header-more-tags'));
-    expect(more, findsOneWidget);
-    final visible = tags
-        .where((name) => tag(name).evaluate().isNotEmpty)
-        .toList();
-    expect(visible, isNotEmpty);
-    expect(visible.length, lessThan(tags.length));
-    expect(
-      find.descendant(
-        of: more,
-        matching: find.text('+${tags.length - visible.length}'),
-      ),
-      findsOneWidget,
-    );
     final handle = tester.getRect(
       find.byKey(const ValueKey('sheet-drag-handle')),
     );
-    for (final name in visible) {
+    for (final name in tags) {
+      expect(tag(name), findsOneWidget);
       expect(
         tester.getRect(tag(name)).top - handle.bottom,
         greaterThanOrEqualTo(8),
       );
-      expect(tester.getCenter(tag(name)).dy, tester.getCenter(more).dy);
     }
-    final platform = Theme.of(tester.element(more)).platform.name;
-    await _captureBoard(tester, 'board-header-tags-$platform-collapsed');
-    await tester.tap(more);
-    await tester.pumpAndSettle();
-    expect(more, findsNothing);
-    for (final name in tags) {
-      expect(tag(name), findsOneWidget);
-    }
-    await _captureBoard(tester, 'board-header-tags-$platform-expanded');
+    expect(
+      tester.getRect(tag(tags.last)).top,
+      greaterThan(tester.getRect(tag(tags.first)).top),
+    );
+    final platform = Theme.of(tester.element(tag(tags.first))).platform.name;
+    await _captureBoard(tester, 'board-header-tags-$platform-wrapped');
     expect(tester.takeException(), isNull);
     await tester.tap(tag(tags.last));
     await tester.pumpAndSettle();
@@ -1184,11 +1165,6 @@ void main() {
         );
         expect(tester.takeException(), isNull);
         final sheet = tester.getRect(_sheet);
-        final moreTags = find.byKey(const ValueKey('board-header-more-tags'));
-        if (moreTags.evaluate().isNotEmpty) {
-          await tester.tap(moreTags);
-          await tester.pumpAndSettle();
-        }
         await tester.dragFrom(
           tester.getTopLeft(
                 find.byKey(const ValueKey(('board-header-tag', 'roadmap'))),
