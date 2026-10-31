@@ -6670,7 +6670,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         expect(subject.api.chatMessagesEdited, hasLength(1));
         lifecycle.invalidate(site);
-        expect(subject.chat.messageEditWriteInFlight(site, 12), isTrue);
+        expect(subject.chat.messageEditWriteInFlight(site, 12), isFalse);
         final fresh = message(12, raw: 'replacement', authorId: 7);
         subject.store.put(site, fresh);
         final started = credentials.blockApiKey();

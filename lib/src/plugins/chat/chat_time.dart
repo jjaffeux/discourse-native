@@ -27,16 +27,9 @@ final class ChatTime {
     PluginTimezoneHost? zones,
     String? accountTimezone,
   }) {
-    final environment = TimezoneEnvironment.instance;
-    if (zones == null &&
-        environment.deviceTimezone == null &&
-        environment.canonicalTimezone(accountTimezone) == null) {
-      return const ChatTime.device();
-    }
-    final name =
-        zones?.readerTimezone(accountTimezone) ??
-        environment.readerTimezone(accountTimezone);
-    return ChatTime(zones?.location(name) ?? environment.location(name)!);
+    if (zones == null) return const ChatTime.device();
+    final name = zones.readerTimezone(accountTimezone);
+    return ChatTime(zones.location(name));
   }
 }
 

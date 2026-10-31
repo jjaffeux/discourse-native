@@ -589,8 +589,9 @@ class ChatController extends FrameSafeNotifier {
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
 
-  Listenable get timeChanges =>
-      _timezoneHost?.changes ?? TimezoneEnvironment.instance;
+  static final Listenable _noTimeChanges = Listenable.merge(const []);
+
+  Listenable get timeChanges => _timezoneHost?.changes ?? _noTimeChanges;
 
   ChatTime timeFor(String siteUrl) => ChatTime.forReader(
     zones: _timezoneHost,

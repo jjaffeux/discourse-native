@@ -56,6 +56,13 @@ void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
 
+  setUp(() {
+    final environment = TimezoneEnvironment.instance;
+    final previousZone = environment.deviceTimezone;
+    environment.setDeviceTimezone('Etc/UTC');
+    addTearDown(() => environment.setDeviceTimezone(previousZone));
+  });
+
   testWidgets(
     'account timezone controls message clocks and midnight grouping',
     (tester) async {
@@ -1241,6 +1248,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1350,6 +1358,7 @@ void main() {
                 items,
                 buildChatStream(
                   controller.chat.messages(firstSite, 9),
+                  time: controller.chat.timeFor(firstSite),
                   lastReadMessageId: stream.lastReadOnOpen,
                 ),
               );
@@ -1453,6 +1462,7 @@ void main() {
                   .items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1537,6 +1547,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1617,6 +1628,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -3874,8 +3886,12 @@ void main() {
         for (var id = 1; id <= 48; id++)
           _message(
             id,
-            createdAt: (id <= 24 ? firstDay : secondDay).add(
-              Duration(minutes: id <= 24 ? id : id - 24),
+            createdAt: DateTime.utc(
+              2020,
+              1,
+              id <= 24 ? 2 : 3,
+              0,
+              id <= 24 ? id : id - 24,
             ),
           ),
       ];
@@ -4138,6 +4154,7 @@ final class _TestStreamView extends StatelessWidget {
             target: target,
             items: buildChatStream(
               messages,
+              time: controller.chat.timeFor('https://one.example'),
               lastReadMessageId: lastReadMessageId,
             ),
             stream: stream,

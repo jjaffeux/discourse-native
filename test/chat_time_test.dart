@@ -91,6 +91,14 @@ void main() {
     }
   });
 
+  test('without a timezone host the clock uses only the device wall time', () {
+    final instant = DateTime.utc(2026, 7, 1, 22, 30);
+    final time = ChatTime.forReader(accountTimezone: 'America/Los_Angeles');
+
+    expect(time.name, 'device');
+    expect(time.local(instant), instant.toLocal());
+  });
+
   testWidgets('day separator names today using the reader calendar', (
     tester,
   ) async {
