@@ -40,12 +40,17 @@ Finder _recent(String tabId) => find.descendant(
   matching: find.byKey(ValueKey('start-page-recent-closed-$tabId')),
 );
 
-SiteConfig _config({bool channels = true, bool threads = true}) => SiteConfig(
+SiteConfig _config({
+  bool channels = true,
+  bool threads = true,
+  bool anonymous = false,
+}) => SiteConfig(
   plugins: PluginData.none.withValue(
     chatSettingsDataKey,
     ChatSettings(
       chatEnabled: true,
       publicChannelsEnabled: channels,
+      anonymousChatAllowed: anonymous,
       threadsEnabled: threads,
     ),
   ),
@@ -69,7 +74,7 @@ void main() {
       instance(
         'channels.example',
       ).copyWith(user: _user, config: _config(threads: false)),
-      instance('guest.example').copyWith(config: _config()),
+      instance('guest.example').copyWith(config: _config(anonymous: true)),
       instance('disabled.example').copyWith(
         user: DiscourseUser(
           id: 8,
@@ -112,7 +117,7 @@ void main() {
       (0, true, true),
       (1, false, true),
       (2, true, false),
-      (3, true, false),
+      (3, false, false),
       (4, false, false),
       (0, true, true),
     ]) {

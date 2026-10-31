@@ -179,7 +179,9 @@ final class ChatShellService
     final settings = chat.siteConfigFor(siteUrl).chatSettings;
     if (!settings.chatEnabled) return false;
     final user = instance.user;
-    if (user == null) return settings.publicChannelsEnabled;
+    if (user == null) {
+      return settings.publicChannelsEnabled && settings.anonymousChatAllowed;
+    }
     return _host.currentTotals?.hasChatEnabled == true &&
         instance.isConnected &&
         user.hasChatEnabled != false;

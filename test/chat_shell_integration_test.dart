@@ -91,6 +91,7 @@ void _registerChatShellTests() {
     SiteConfig chatConfig({
       bool searchEnabled = false,
       bool publicChannelsEnabled = true,
+      bool anonymousChatAllowed = false,
       bool threadsEnabled = true,
       ChatPreferredIndex preferredIndex = ChatPreferredIndex.channels,
       int channelRetentionDays = 0,
@@ -102,6 +103,7 @@ void _registerChatShellTests() {
         ChatSettings(
           searchEnabled: searchEnabled,
           publicChannelsEnabled: publicChannelsEnabled,
+          anonymousChatAllowed: anonymousChatAllowed,
           threadsEnabled: threadsEnabled,
           preferredIndex: preferredIndex,
           channelRetentionDays: channelRetentionDays,
@@ -295,10 +297,11 @@ void _registerChatShellTests() {
       DiscourseUser? user = me,
       ChatPresence presence = const ChatPresence(),
       bool hasThreads = false,
-      SiteConfig config = const SiteConfig.unknown(),
+      SiteConfig? config,
       FakeForumTabStore? forumTabs,
       http.Client? mediaClient,
     }) async {
+      config ??= chatConfig();
       final authenticator = FakeAuthenticator();
       if (user != null) authenticator.keys[site] = 'meta-key';
       await pumpShell(
@@ -1530,7 +1533,10 @@ void _registerChatShellTests() {
                 public: [channel(9)],
                 messages: {key(9): page(const [])},
                 user: null,
-                config: chatConfig(separateSidebarMode: mode),
+                config: chatConfig(
+                  separateSidebarMode: mode,
+                  anonymousChatAllowed: true,
+                ),
               );
               final shell = ShellScope.read(tester.element(primaryMainContent));
               await shell.chat.loadChannels(site);

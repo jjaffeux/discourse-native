@@ -85,7 +85,7 @@ class NewTabPage extends StatelessWidget {
     final closed =
         shell?.recentlyClosedTabsForCurrentForum ?? const <ForumTab>[];
     final chatDestination = SidebarDestination(
-      id: 'chat-channels',
+      id: 'chat-inbox',
       label: context.l10n.chat,
       icon: DIcons.comments,
     );

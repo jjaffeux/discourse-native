@@ -11,12 +11,15 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/new_tab_page.dart';
@@ -93,10 +96,15 @@ Future<ShellController> _start(
     tester,
     size,
     instances: [
-      instance(
-        'meta.discourse.org',
-        title: 'Discourse Meta',
-      ).copyWith(user: user),
+      instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
+        user: user,
+        config: SiteConfig(
+          plugins: PluginData.none.withValue(
+            chatSettingsDataKey,
+            const ChatSettings(),
+          ),
+        ),
+      ),
     ],
     api: api ?? _api(),
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
