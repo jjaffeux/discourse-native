@@ -162,6 +162,77 @@ void main() {
     },
   );
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'mobile room sheet keeps actions reachable and dismisses at text scale $scale',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await prepareNativeUiEvidence(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+            builder: (context, child) => nativeUiEvidenceBuilder(
+              context,
+              MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => DButton(
+                  label: const Text('New voice room'),
+                  onPressed: () => showVoiceRoomEditor(
+                    context,
+                    siteUrl: _site,
+                    controller: controller,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('New voice room'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(find.byType(DDialogContent), findsNothing);
+        await tester.enterText(find.byType(DInput).first, 'Planning');
+        await tester.pumpAndSettle();
+        await captureNativeUi(tester, 'voice-room-mobile-scale-$scale');
+        if (scale == 1) {
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          await tester.pumpAndSettle();
+          await captureNativeUi(tester, 'voice-room-mobile-keyboard');
+        }
+        final create = find.widgetWithText(DButton, 'Create room');
+        final cancel = find.widgetWithText(DButton, 'Cancel');
+        expect(create.hitTestable(), findsOneWidget);
+        expect(cancel.hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(create).bottom,
+          lessThanOrEqualTo(844 - (scale == 1 ? 300 : 0)),
+        );
+        expect(tester.takeException(), isNull);
+        if (scale == 1) {
+          await tester.tap(cancel);
+        } else {
+          await tester.drag(find.byType(DSheetBody), const Offset(0, -400));
+          await tester.pumpAndSettle();
+          await tester.drag(find.byType(DSheetHeader), const Offset(0, 600));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(transport.writes, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'new room rejects blank and duplicate names and submits a trimmed name',
     (tester) async {
@@ -201,6 +272,8 @@ void main() {
       );
       await tester.tap(find.text('New voice room'));
       await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.byType(DSheetContent), findsNothing);
       final name = find.descendant(
         of: find.byType(DInput).first,
         matching: find.byType(EditableText),
