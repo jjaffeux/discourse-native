@@ -47,6 +47,23 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('profile actions fit on opening on ${platform.name}', (
+      tester,
+    ) async {
+      await _pump(tester, platform: platform, height: 700);
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+
+      final first = find.byKey(const ValueKey('user-menu-own-card'));
+      final last = find.byKey(const ValueKey('user-menu-row-disconnect'));
+      expect(first.hitTestable(), findsOneWidget);
+      expect(last.hitTestable(), findsOneWidget);
+      expect(tester.getRect(last).bottom, lessThanOrEqualTo(700 - _foot));
+      await _capture(tester, '${platform.name}-opening');
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final platform in [
     TargetPlatform.macOS,
     TargetPlatform.iOS,
@@ -76,7 +93,7 @@ void main() {
                 final menu = find.byType(DDropdownMenuContent);
                 expect(menu, findsOneWidget);
                 expect(find.byTooltip('Close'), findsNothing);
-                var bounds = tester.getRect(menu);
+                final bounds = tester.getRect(menu);
                 final screen = tester.view.physicalSize;
                 final mobile = platform != TargetPlatform.macOS;
                 final sheet = find.ancestor(
@@ -106,14 +123,6 @@ void main() {
                     find.byKey(const ValueKey('sheet-drag-handle')),
                     findsOneWidget,
                   );
-                  if (scale == 2) {
-                    await tester.drag(
-                      find.byKey(const ValueKey('sheet-drag-handle')),
-                      const Offset(0, -500),
-                    );
-                    await tester.pumpAndSettle();
-                    bounds = tester.getRect(menu);
-                  }
                 } else {
                   expect(sheet, findsNothing);
                   expect(bounds.width, 216);
@@ -490,6 +499,7 @@ Future<ShellController> _pump(
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   bool reducedMotion = false,
+  double height = 800,
 }) async {
   final size = Size(
     platform == TargetPlatform.macOS
@@ -497,7 +507,7 @@ Future<ShellController> _pump(
         : scale == 1
         ? 430
         : 320,
-    800,
+    height,
   );
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;

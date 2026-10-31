@@ -644,6 +644,7 @@ class _AccountMenuPopover extends StatelessWidget {
         controller: controller,
         sheetOnMobile: true,
         mobileSheetVariant: DSheetVariant.adaptiveMenu,
+        mobileSheetInitiallyExpanded: true,
         content: DDropdownMenuContent(
           semanticLabel: context.l10n.profile,
           side: presentation == UserMenuPresentation.combined
