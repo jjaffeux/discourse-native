@@ -1,24 +1,217 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/upload_attachment.dart';
+import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/blank_png.dart';
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 
 const _siteUrl = 'https://forum.example';
 
 void main() {
+  for (final width in [390.0, 1100.0]) {
+    testWidgets(
+      'local attachment gallery closes when its composer is disposed at $width',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 700));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await prepareNativeUiEvidence(tester);
+        final transfer = Completer<ComposerUploadResult>();
+        final composer = ComposerController(
+          const ReplyComposerTarget(
+            privateMessageTopic: false,
+            siteUrl: _siteUrl,
+            topicId: 1,
+            slug: 'test',
+            topicTitle: 'Test',
+          ),
+          imageUploader: (file, {required onProgress, required abortTrigger}) =>
+              transfer.future,
+        );
+        addTearDown(() {
+          if (!composer.isDisposed) composer.dispose();
+        });
+        await tester.runAsync(() async {
+          final bytes = await File('assets/app_icon.png').readAsBytes();
+          composer.addFiles([
+            ComposerUploadFile(
+              name: 'Sailing.png',
+              length: () async => bytes.length,
+              openRead: () => Stream.value(bytes),
+            ),
+          ], 0);
+          await composer.uploadPreview(composer.uploads.single.id)!.ready;
+        });
+        final file = composer.uploadPreview(composer.uploads.single.id)!.file!;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: nativeUiEvidenceBuilder,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(20),
+                child: ListenableBuilder(
+                  listenable: composer,
+                  builder: (_, _) => Column(
+                    children: [
+                      for (final item in composer.uploads)
+                        ComposerUploadAttachment(
+                          composer: composer,
+                          upload: item,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await _captureAttachment(
+          tester,
+          'composer-local-attachment-${width.toInt()}',
+        );
+        await tester.tap(find.byType(DAttachmentTrigger));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        final id = composer.uploads.single.id;
+        composer.cancelUpload(id);
+        await tester.pump();
+        for (var attempt = 0; attempt < 100; attempt++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+          if (tester
+              .widgetList<RawImage>(find.byType(RawImage))
+              .any((image) => image.image != null)) {
+            break;
+          }
+        }
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widgetList<RawImage>(find.byType(RawImage))
+              .where((image) => image.image != null),
+          isNotEmpty,
+        );
+        expect(find.byType(LightboxGallery), findsOneWidget);
+        await captureNativeUi(
+          tester,
+          'composer-local-gallery-${width.toInt()}',
+        );
+        composer.dispose();
+        await tester.pump();
+        await tester.pumpAndSettle();
+        expect(find.byType(LightboxGallery), findsNothing);
+        await tester.runAsync(() async {
+          for (var n = 0; n < 100 && await file.exists(); n++) {
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+          }
+          expect(await file.exists(), isFalse);
+        });
+        transfer.complete(
+          const ComposerUploadResult(
+            id: 1,
+            originalFilename: 'Sailing.png',
+            shortUrl: 'upload://pending',
+            url: 'https://forum.example/pending.png',
+          ),
+        );
+        await tester.pump();
+      },
+    );
+  }
+
+  testWidgets(
+    'pending local images open a gallery and survive upload cancellation',
+    (tester) async {
+      final transfer = Completer<ComposerUploadResult>();
+      final composer = ComposerController(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
+          siteUrl: _siteUrl,
+          topicId: 1,
+          slug: 'test',
+          topicTitle: 'Test',
+        ),
+        imageUploader: (file, {required onProgress, required abortTrigger}) =>
+            transfer.future,
+      );
+      addTearDown(composer.dispose);
+      final bytes = blankPng(width: 120, height: 80);
+      await tester.runAsync(() async {
+        composer.addFiles([
+          ComposerUploadFile(
+            name: 'pending.png',
+            length: () async => bytes.length,
+            openRead: () => Stream.value(bytes),
+          ),
+        ], 0);
+        await composer.uploadPreview(composer.uploads.single.id)!.ready;
+      });
+      final id = composer.uploads.single.id;
+      final file = composer.uploadPreview(id)!.file!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: composer,
+              builder: (_, _) => Column(
+                children: [
+                  for (final item in composer.uploads)
+                    ComposerUploadAttachment(composer: composer, upload: item),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(DAttachmentTrigger), findsOneWidget);
+      await tester.tap(find.byType(DAttachmentTrigger));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.byType(LightboxGallery), findsOneWidget);
+      final gallery = tester.widget<LightboxGallery>(
+        find.byType(LightboxGallery),
+      );
+      expect(gallery.images.single.source, isA<LocalLightboxImage>());
+      composer.cancelUpload(id);
+      await tester.pump();
+      expect(await tester.runAsync(file.exists), isTrue);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        for (var n = 0; n < 100 && await file.exists(); n++) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(await file.exists(), isFalse);
+      });
+      transfer.complete(
+        const ComposerUploadResult(
+          id: 1,
+          originalFilename: 'pending.png',
+          shortUrl: 'upload://pending',
+          url: 'https://forum.example/pending.png',
+        ),
+      );
+      await tester.pump();
+    },
+  );
+
   testWidgets(
     'video optimization is distinct from uploading and can be cancelled',
     (tester) async {
@@ -222,5 +415,42 @@ void main() {
     expect(tester.widget<RawImage>(find.byType(RawImage)).fit, BoxFit.cover);
     expect(decoded!.height, greaterThanOrEqualTo(artwork.height * 2));
     expect(decoded.width / decoded.height, closeTo(16 / 9, 0.01));
+  });
+}
+
+Future<void> _captureAttachment(WidgetTester tester, String name) async {
+  final directory = Platform.environment['NATIVE_UI_EVIDENCE_DIR'];
+  if (directory == null) return;
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    if (tester
+        .widgetList<RawImage>(find.byType(RawImage))
+        .any((image) => image.image != null)) {
+      break;
+    }
+  }
+  expect(
+    tester
+        .widgetList<RawImage>(find.byType(RawImage))
+        .where((image) => image.image != null),
+    isNotEmpty,
+  );
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byType(RepaintBoundary).first,
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      Directory(directory).createSync(recursive: true);
+      File(
+        '$directory/$name.png',
+      ).writeAsBytesSync(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
   });
 }

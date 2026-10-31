@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -15,6 +16,7 @@ import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'image_download.dart';
+import 'inline_video.dart';
 import 'media_download_result.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
@@ -63,9 +65,28 @@ Size? _parsePhotoViewInformationSize(String? text) {
   return _parsePhotoViewImageSize(parts[0], parts[1]);
 }
 
+sealed class LightboxSource {
+  const LightboxSource();
+}
+
+final class RemoteLightboxImage extends LightboxSource {
+  const RemoteLightboxImage(this.url);
+  final String url;
+}
+
+final class LocalLightboxImage extends LightboxSource {
+  const LocalLightboxImage(this.file);
+  final File file;
+}
+
+final class LightboxVideo extends LightboxSource {
+  const LightboxVideo(this.data);
+  final InlineVideoData data;
+}
+
 class LightboxImage {
   const LightboxImage({
-    required this.fullSrc,
+    required this.source,
     required this.thumbnailSrc,
     required this.title,
     required this.description,
@@ -79,7 +100,7 @@ class LightboxImage {
     this.fullHeight,
   });
 
-  final String fullSrc;
+  final LightboxSource source;
 
   final String? thumbnailSrc;
 
@@ -157,7 +178,7 @@ class LightboxImage {
     final layoutSize =
         thumbnailSize ?? safeImageLayoutSize(fullSize?.width, fullSize?.height);
     return LightboxImage(
-      fullSrc: fullSrc,
+      source: RemoteLightboxImage(fullSrc),
       thumbnailSrc: img?.attributes['src'].orNull,
       thumbnailSrcset: img?.attributes['srcset'].orNull,
       title: anchorTitle ?? alt ?? imageTitle,
@@ -327,26 +348,42 @@ class LightboxTile extends StatelessWidget {
           onPressed: activate,
           child: Hero(
             tag: image.heroTag,
-            child: SiteImage(
-              viewportAware: true,
-              url: thumbnail == null
-                  ? image.fullSrc
-                  : srcsetCandidate(
-                      src: thumbnail,
-                      srcset: image.thumbnailSrcset,
-                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                    ),
-              siteUrl: siteUrl,
-              fit: fit,
-              width: double.infinity,
-              height: fillsBox ? double.infinity : null,
-              cacheWidth: cacheWidth,
-              gifPlaybackControls: true,
-              gifPlaybackControlsAtTop: true,
-              errorBuilder: (context, error, stackTrace) {
-                return UnavailableImage(color: theme.shell.placeholder);
-              },
-            ),
+            child: switch (image.source) {
+              LocalLightboxImage(:final file) => Image(
+                image: ResizeImage(
+                  FileImage(file),
+                  width: cacheWidth,
+                  height: cacheWidth,
+                  policy: ResizeImagePolicy.fit,
+                ),
+                fit: fit,
+                errorBuilder: (_, _, _) =>
+                    UnavailableImage(color: theme.shell.placeholder),
+              ),
+              LightboxVideo() => const Center(child: DIcon(DIcons.play)),
+              RemoteLightboxImage(:final url) => SiteImage(
+                viewportAware: true,
+                url: thumbnail == null
+                    ? url
+                    : srcsetCandidate(
+                        src: thumbnail,
+                        srcset: image.thumbnailSrcset,
+                        devicePixelRatio: MediaQuery.devicePixelRatioOf(
+                          context,
+                        ),
+                      ),
+                siteUrl: siteUrl,
+                fit: fit,
+                width: double.infinity,
+                height: fillsBox ? double.infinity : null,
+                cacheWidth: cacheWidth,
+                gifPlaybackControls: true,
+                gifPlaybackControlsAtTop: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return UnavailableImage(color: theme.shell.placeholder);
+                },
+              ),
+            },
           ),
         );
       },
@@ -376,8 +413,10 @@ Future<void> showLightboxGallery(
   required List<LightboxImage> images,
   required int initialIndex,
   String? siteUrl,
-}) => Navigator.of(context, rootNavigator: true).push(
-  PageRouteBuilder<void>(
+  Future<void>? dismissWhen,
+}) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final route = PageRouteBuilder<void>(
     opaque: false,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
@@ -390,8 +429,20 @@ Future<void> showLightboxGallery(
     ),
     transitionsBuilder: (context, animation, secondary, child) =>
         FadeTransition(opacity: animation, child: child),
-  ),
-);
+  );
+  var finished = false;
+  unawaited(
+    dismissWhen?.then((_) {
+      if (finished || !navigator.mounted || !route.isActive) return;
+      navigator.removeRoute(route);
+    }),
+  );
+  try {
+    await navigator.push(route);
+  } finally {
+    finished = true;
+  }
+}
 
 class LightboxGallery extends StatefulWidget {
   const LightboxGallery({
@@ -593,6 +644,7 @@ class _LightboxGalleryState extends State<LightboxGallery>
   }
 
   void _zoomCurrent(double factor) {
+    if (_current.source is LightboxVideo) return;
     final viewport = _viewportSize;
     if (viewport == null) return;
     _zoom(_index, factor, viewport: viewport);
@@ -637,6 +689,7 @@ class _LightboxGalleryState extends State<LightboxGallery>
   }
 
   void _resetZoom([int? index]) {
+    if (index == null && _current.source is LightboxVideo) return;
     final target = index ?? _index;
     final viewport = _viewportSize;
     if (viewport == null) {
@@ -659,6 +712,7 @@ class _LightboxGalleryState extends State<LightboxGallery>
   }
 
   void _pointerSignal(PointerSignalEvent signal, Size viewport) {
+    if (_current.source is LightboxVideo) return;
     if (signal is! PointerScrollEvent ||
         signal.scrollDelta.dy == 0 ||
         signal.scrollDelta.dy.abs() <= signal.scrollDelta.dx.abs() ||
@@ -896,13 +950,41 @@ class _LightboxGalleryState extends State<LightboxGallery>
           image: _current,
           downloading: _downloading,
           onDownload: _download,
-          onZoomOut: canZoomOut ? () => _zoomCurrent(1 / _zoomStep) : null,
-          onResetZoom: canReset ? _resetZoom : null,
-          onZoomIn: canZoomIn ? () => _zoomCurrent(_zoomStep) : null,
+          onZoomOut: _current.source is! LightboxVideo && canZoomOut
+              ? () => _zoomCurrent(1 / _zoomStep)
+              : null,
+          onResetZoom: _current.source is! LightboxVideo && canReset
+              ? _resetZoom
+              : null,
+          onZoomIn: _current.source is! LightboxVideo && canZoomIn
+              ? () => _zoomCurrent(_zoomStep)
+              : null,
           onStep: _step,
           onClose: () => Navigator.of(context).maybePop(),
         );
       },
+    );
+  }
+
+  Widget _videoPage(int index) {
+    final video = widget.images[index].source as LightboxVideo;
+    if (index != _index) return const SizedBox.shrink();
+    final shell = ShellScope.maybeIdentityOf(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 100, 16, 60),
+        child: AspectRatio(
+          aspectRatio: video.data.aspectRatio,
+          child: InlineVideoPlaybackSurface(
+            data: video.data,
+            siteUrl: widget.siteUrl,
+            credentials: shell?.credentials,
+            lifecycle: shell?.lifecycle,
+            sessionFactory: createInlineVideoPlaybackSession,
+            allowFullscreen: false,
+          ),
+        ),
+      ),
     );
   }
 
@@ -919,54 +1001,85 @@ class _LightboxGalleryState extends State<LightboxGallery>
         itemBuilder: (context, index) => Listener(
           behavior: HitTestBehavior.opaque,
           onPointerSignal: (signal) => _pointerSignal(signal, viewport),
-          child: ClipRect(
-            child: PhotoView.customChild(
-              key: ObjectKey(index),
-              childSize: _fullImageSizes[index],
-              controller: _photoControllers[index],
-              scaleStateController: _scaleControllers[index],
-              backgroundDecoration: const BoxDecoration(
-                color: Colors.transparent,
-              ),
-              heroAttributes: PhotoViewHeroAttributes(
-                tag: widget.images[index].heroTag,
-              ),
-              initialScale: PhotoViewComputedScale.contained,
-              minScale: PhotoViewComputedScale.contained,
-              maxScale: PhotoViewComputedScale.covered * 3,
-              gestureDetectorBehavior: HitTestBehavior.opaque,
-              onTapUp: (context, details, value) =>
-                  setState(() => _chromeVisible = !_chromeVisible),
-              child: Semantics(
-                container: true,
-                explicitChildNodes: true,
-                image: true,
-                label:
-                    widget.images[index].description ??
-                    widget.images[index].title,
-                child: SiteImage(
-                  url: widget.images[index].fullSrc,
-                  siteUrl: widget.siteUrl,
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  height: double.infinity,
-                  excludeFromSemantics: true,
-                  gifPlaybackControls: true,
-                  onNaturalSize: (size) => _rememberFullImageSize(index, size),
-                  loadingBuilder: (context) => DSkeletonRegion(
-                    semanticsLabel: context.l10n.loading,
-                    color: skeletonFill(context),
-                    child: const DSkeleton(),
+          child: widget.images[index].source is LightboxVideo
+              ? _videoPage(index)
+              : ClipRect(
+                  child: PhotoView.customChild(
+                    key: ObjectKey(index),
+                    childSize: _fullImageSizes[index],
+                    controller: _photoControllers[index],
+                    scaleStateController: _scaleControllers[index],
+                    backgroundDecoration: const BoxDecoration(
+                      color: Colors.transparent,
+                    ),
+                    heroAttributes: PhotoViewHeroAttributes(
+                      tag: widget.images[index].heroTag,
+                    ),
+                    initialScale: PhotoViewComputedScale.contained,
+                    minScale: PhotoViewComputedScale.contained,
+                    maxScale: PhotoViewComputedScale.covered * 3,
+                    gestureDetectorBehavior: HitTestBehavior.opaque,
+                    onTapUp: (context, details, value) =>
+                        setState(() => _chromeVisible = !_chromeVisible),
+                    child: Semantics(
+                      container: true,
+                      explicitChildNodes: true,
+                      image: true,
+                      label:
+                          widget.images[index].description ??
+                          widget.images[index].title,
+                      child: widget.images[index].source is LocalLightboxImage
+                          ? Image(
+                              image: ResizeImage(
+                                FileImage(
+                                  (widget.images[index].source
+                                          as LocalLightboxImage)
+                                      .file,
+                                ),
+                                width: imagePhysicalPixels(
+                                  context,
+                                  viewport.width,
+                                ).clamp(1, 4096),
+                                height: imagePhysicalPixels(
+                                  context,
+                                  viewport.height,
+                                ).clamp(1, 4096),
+                                policy: ResizeImagePolicy.fit,
+                              ),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Center(
+                                child: UnavailableImage(color: Colors.white54),
+                              ),
+                            )
+                          : SiteImage(
+                              url:
+                                  (widget.images[index].source
+                                          as RemoteLightboxImage)
+                                      .url,
+                              siteUrl: widget.siteUrl,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: double.infinity,
+                              excludeFromSemantics: true,
+                              gifPlaybackControls: true,
+                              onNaturalSize: (size) =>
+                                  _rememberFullImageSize(index, size),
+                              loadingBuilder: (context) => DSkeletonRegion(
+                                semanticsLabel: context.l10n.loading,
+                                color: skeletonFill(context),
+                                child: const DSkeleton(),
+                              ),
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: UnavailableImage(
+                                    color: Colors.white54,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
                   ),
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: UnavailableImage(color: Colors.white54),
-                    );
-                  },
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -1075,7 +1188,9 @@ class _Chrome extends StatelessWidget {
   }
 
   Widget _bar(BuildContext context) {
-    final downloadHref = image.downloadHref;
+    final downloadHref = image.source is LightboxVideo
+        ? null
+        : image.downloadHref;
     final hasWindowChrome =
         !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
     final stackBelowWindowControls =

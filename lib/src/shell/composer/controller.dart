@@ -35,6 +35,7 @@ import 'marks.dart';
 import 'pills.dart';
 import 'target.dart';
 import 'triggers.dart';
+import 'upload_preview.dart';
 
 export 'target.dart';
 
@@ -872,6 +873,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       _uploadTransactions.uploadPlaceholders;
 
   List<ComposerUploadItem> get uploads => _uploadTransactions.uploads;
+  ComposerUploadPreview? uploadPreview(int id) =>
+      _uploadTransactions.previewFor(id);
   List<ComposerUploadResult> get completedUploads =>
       _uploadTransactions.completedUploads;
   bool get hasActiveUploads => _uploadTransactions.hasActiveUploads;
@@ -1675,6 +1678,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     });
   }
 
+  final _disposal = Completer<void>();
+  Future<void> get disposed => _disposal.future;
+
   bool get isDisposed => _disposed;
 
   void closeEmojiAutocomplete() {
@@ -2351,6 +2357,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   @override
   void dispose() {
+    if (!_disposal.isCompleted) _disposal.complete();
     _retireSubmission();
     _disposed = true;
     _clearTagRemovalNotice();

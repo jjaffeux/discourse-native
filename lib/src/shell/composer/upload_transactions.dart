@@ -23,6 +23,11 @@ final class _ComposerUploadTransactions {
 
   final List<ComposerUploadItem> _uploads = [];
   final Map<int, _PendingComposerUpload> _pendingUploads = {};
+  final Map<int, ComposerUploadPreview> _previews = {};
+  ComposerUploadPreview? previewFor(int id) => _previews[id];
+
+  void _removePreview(int id) => _previews.remove(id)?.release();
+
   int _nextUploadId = 0;
   int _nextUploadBatch = 0;
   late final _uploadPlaceholders = ComposerUploadPlaceholders(this);
@@ -224,6 +229,8 @@ final class _ComposerUploadTransactions {
           status: ComposerUploadStatus.uploading,
         ),
       );
+      final preview = ComposerUploadPreview.forFile(file);
+      if (preview != null) _previews[id] = preview;
       added.add(id);
       if (_editor.usesInlineSlots) _uploadPlaceholders.add(id);
     }
@@ -292,6 +299,7 @@ final class _ComposerUploadTransactions {
         pending.releasePreparation();
       }
       _uploads.removeWhere((upload) => upload.id == id);
+      _removePreview(id);
     }
     for (final id in cancelled) {
       _replaceUploadPlaceholder(id, '', removeLine: true);
@@ -432,6 +440,7 @@ final class _ComposerUploadTransactions {
           // the finished image, even when completion races with typing.
           _pendingUploads.remove(first.key);
           _uploads.removeWhere((upload) => upload.id == first.key);
+          _removePreview(first.key);
           _replaceUploadPlaceholder(first.key, markdown);
           continue;
         }
@@ -512,6 +521,7 @@ final class _ComposerUploadTransactions {
           .toList();
       _pendingUploads.remove(first.key);
       _uploads.removeWhere((upload) => upload.id == first.key);
+      _removePreview(first.key);
       _insertAt(insertionOffset, insertion);
       if (markerStart >= 0 &&
           markerStart == insertionOffset &&
@@ -931,6 +941,10 @@ final class _ComposerUploadTransactions {
     }
     _pendingUploads.clear();
     _uploads.clear();
+    for (final preview in _previews.values) {
+      preview.release();
+    }
+    _previews.clear();
   }
 
   void dispose() {

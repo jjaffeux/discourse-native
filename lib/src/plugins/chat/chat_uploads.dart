@@ -160,7 +160,7 @@ class _Image extends StatelessWidget {
 
   void _open(BuildContext context, String Function(String) absolute) {
     LightboxImage imageOf(ChatUpload upload) => LightboxImage(
-      fullSrc: absolute(upload.url),
+      source: RemoteLightboxImage(absolute(upload.url)),
       thumbnailSrc: upload.thumbnailUrl == null
           ? null
           : absolute(upload.thumbnailUrl!),
