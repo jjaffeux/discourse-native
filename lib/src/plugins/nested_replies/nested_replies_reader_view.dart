@@ -48,16 +48,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
       ],
       onChanged: (sort) {
         if (sort == null) return;
-        _remember();
-        final query = {
-          ...nestedRepliesQuery(reader.route.topicQuery),
-          'sort': sort.wireValue,
-        };
-        reader.navigate(
-          postNumber: reader.route.postNumber,
-          query: Uri(queryParameters: query).query,
-          replace: true,
-        );
+        unawaited(_changeSort(sort));
       },
     );
   }
@@ -108,7 +99,10 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
           ),
           onPressed: _controller.showPendingRoots,
         ),
-      if (_controller.loading) const Center(child: DSpinner()),
+      if (_controller.loading &&
+          _controller.op == null &&
+          _controller.roots.isEmpty)
+        const Center(child: DSpinner()),
       if (_controller.error != null)
         _error(
           appL10n.nestedRepliesCouldNotLoad,
@@ -148,9 +142,9 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         child: PluginTopicPost(reader: reader, postId: node.postId),
       );
     }
-    final phone = MediaQuery.sizeOf(context).width < 600;
+    final phone = _usesMobileLayout;
     final displayLevel = displayDepth ?? depth;
-    final step = phone ? 20.0 : 32.0;
+    final step = phone ? 16.0 : 32.0;
     final visualLimit = phone ? _phoneDepthLimit : widget.settings.maxDepth;
     final visualDepth = math.min(displayLevel, visualLimit);
     final collapsed = _controller.isCollapsed(node.postNumber);
@@ -179,31 +173,36 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         node.data.placeholder == NestedPostPlaceholder.none ||
         (!node.data.redacted && reader.currentUserStaff);
     void collapse() => _collapsePost(node.postNumber, true);
+    void toggle() => _collapsePost(node.postNumber, !collapsed);
     Widget rail({bool interactive = false}) => DThreadRail(
       onPressed: interactive ? collapse : null,
       semanticLabel: interactive ? appL10n.nestedRepliesCollapsePost : null,
     );
     Widget footerRail() => Stack(children: [Positioned.fill(child: rail())]);
-    final control = _collapseControl(node, collapsed: collapsed);
-    final footer = Column(
-      children: [
-        SizedBox(height: 10, child: footerRail()),
-        Expanded(
-          child: Column(
+    final control = phone ? null : _collapseControl(node, collapsed: collapsed);
+    final footer = phone
+        ? null
+        : Column(
             children: [
-              Expanded(child: footerRail()),
-              const SizedBox(height: 4),
-              control,
-              const SizedBox(height: 4),
+              SizedBox(height: 10, child: footerRail()),
               Expanded(
-                child: hasChildren ? footerRail() : const SizedBox.shrink(),
+                child: Column(
+                  children: [
+                    Expanded(child: footerRail()),
+                    const SizedBox(height: 4),
+                    control!,
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: hasChildren
+                          ? footerRail()
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ),
-        ),
-      ],
-    );
-    final post = ordinary
+          );
+    Widget post = ordinary
         ? PluginTopicPost(
             key: collapsed
                 ? null
@@ -212,15 +211,40 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
             postId: node.postId,
             layout: collapsed
                 ? TopicPostLayout.headerOnly
+                : phone
+                ? TopicPostLayout.stacked
                 : TopicPostLayout.compact,
             leading: collapsed ? control : null,
-            bodyLeading: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: rail(interactive: true),
-            ),
+            bodyLeading: phone
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: rail(interactive: true),
+                  ),
             footerLeading: footer,
+            onBodyPressed: phone ? toggle : null,
+            bodyActionLabel: phone ? appL10n.nestedRepliesCollapsePost : null,
           )
-        : _placeholder(node, collapsed: collapsed, control: control);
+        : _placeholder(
+            node,
+            collapsed: collapsed,
+            control: control,
+            phone: phone,
+          );
+    if (phone) {
+      post = DItem(
+        key: ValueKey('nested-collapse-${node.postId}'),
+        size: DItemSize.artwork,
+        shape: DItemShape.fullWidth,
+        highlightOnInteraction: false,
+        focusNode: _collapseFocus.putIfAbsent(node.postNumber, FocusNode.new),
+        onPressed: toggle,
+        semanticLabel: collapsed
+            ? appL10n.nestedRepliesExpandPost
+            : appL10n.nestedRepliesCollapsePost,
+        children: [post],
+      );
+    }
     final extras = <Widget>[
       if (_controller.pinnedPostIds.contains(node.postId))
         DBadge(child: Text(appL10n.pinned)),
@@ -281,7 +305,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         Stack(
           children: [
             post,
-            if (hasChildren && ordinary)
+            if (!phone && hasChildren && ordinary)
               PositionedDirectional(
                 start: 16,
                 width: 32,
@@ -295,7 +319,10 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
           Stack(
             children: [
               Padding(
-                padding: const EdgeInsetsDirectional.only(start: 56, end: 16),
+                padding: EdgeInsetsDirectional.only(
+                  start: phone ? 16 : 56,
+                  end: 16,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -316,7 +343,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
                   ],
                 ),
               ),
-              if (hasChildren)
+              if (!phone && hasChildren)
                 PositionedDirectional(
                   start: 16,
                   width: 32,
@@ -328,6 +355,28 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
           ),
       ],
     );
+    if (phone) {
+      return Stack(
+        key: ValueKey('nested-row-${node.postId}'),
+        children: [
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: visualDepth * step,
+              bottom: endOfThread ? 16 : 0,
+            ),
+            child: content,
+          ),
+          for (var level = 0; level < visualDepth; level++)
+            PositionedDirectional(
+              start: 15 + level * step,
+              width: 2,
+              top: 0,
+              bottom: endOfThread ? 16 : 0,
+              child: const DThreadRail(),
+            ),
+        ],
+      );
+    }
     return Stack(
       key: ValueKey('nested-row-${node.postId}'),
       children: [
@@ -355,9 +404,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
                       width: step - 15,
                       junction: 24,
                       continuesBelow: continuations[level],
-                      onPressed: phone
-                          ? null
-                          : () => _collapsePost(ancestors[level], true),
+                      onPressed: () => _collapsePost(ancestors[level], true),
                       semanticLabel: appL10n.nestedRepliesCollapsePost,
                     )
                   : DThreadRail(
@@ -372,7 +419,8 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
   Widget _placeholder(
     NestedReplyNode node, {
     required bool collapsed,
-    required Widget control,
+    required Widget? control,
+    required bool phone,
   }) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     child: Column(
@@ -380,8 +428,10 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
       children: [
         Row(
           children: [
-            SizedBox(width: 32, height: 32, child: Center(child: control)),
-            const SizedBox(width: 8),
+            if (!phone) ...[
+              SizedBox(width: 32, height: 32, child: Center(child: control)),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Text(
                 node.data.placeholder == NestedPostPlaceholder.deleted
@@ -393,7 +443,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         ),
         if (!collapsed)
           Padding(
-            padding: const EdgeInsetsDirectional.only(start: 40),
+            padding: EdgeInsetsDirectional.only(start: phone ? 0 : 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

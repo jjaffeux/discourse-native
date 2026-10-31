@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show setEquals;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_hit_test.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/sidebar_row_surface.dart';
@@ -349,7 +351,31 @@ class _DItemState extends State<DItem> {
   bool _focusVisible = false;
   bool _focused = false;
   bool _focusWithin = false;
+  bool _pointerOnChildControl = false;
   bool get _active => widget.enabled && widget.onPressed != null;
+
+  bool _childControlAt(Offset position, VoidCallback activate) {
+    final root = context.findRenderObject();
+    final hits = HitTestResult();
+    GestureBinding.instance.hitTestInView(
+      hits,
+      position,
+      View.of(context).viewId,
+    );
+    for (final entry in hits.path) {
+      final hit = entry.target;
+      if (hit is! RenderObject || !isControlRenderObject(hit)) continue;
+      if (hit is RenderSemanticsGestureHandler && hit.onTap == null) continue;
+      if (hit is RenderSemanticsAnnotations &&
+          identical(hit.properties.onTap, activate)) {
+        continue;
+      }
+      for (RenderObject? node = hit; node != null; node = node.parent) {
+        if (identical(node, root)) return true;
+      }
+    }
+    return false;
+  }
 
   @override
   void didUpdateWidget(DItem oldWidget) {
@@ -653,13 +679,22 @@ class _DItemState extends State<DItem> {
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
               onTapDown: _active
-                  ? (_) => setState(() => _pressed = true)
+                  ? (details) {
+                      _pointerOnChildControl = _childControlAt(
+                        details.globalPosition,
+                        linkActivation.onPressed!,
+                      );
+                      if (!_pointerOnChildControl) {
+                        setState(() => _pressed = true);
+                      }
+                    }
                   : null,
               onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
               // Always set, so the tap recognizer outlives a mid-press disable.
               onTapCancel: () => setState(() => _pressed = false),
               onTap: _active
                   ? () {
+                      if (_pointerOnChildControl) return;
                       _focus.requestFocus();
                       linkActivation.onPressed!();
                     }

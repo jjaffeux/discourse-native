@@ -17,6 +17,58 @@ const _site = 'https://forum.example';
 const _rootPath = 'GET /n/conversation/7.json?sort=top&page=0';
 
 void main() {
+  testWidgets('pending sort keeps the displayed rows in place', (tester) async {
+    final pending = Completer<Object?>();
+    final transport = RecordingPluginTransport(
+      responses: {'$_rootPath&track_visit=true': _roots(ignored: true)},
+      responders: {
+        'GET /n/conversation/7.json?sort=new&page=0&track_visit=true': (_) =>
+            pending.future,
+      },
+    );
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      sites: [const PluginHostSite(url: _site)],
+    );
+    addTearDown(host.close);
+    final reader = _Reader();
+    addTearDown(reader.dispose);
+    await tester.pumpWidget(
+      host.scope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: NestedRepliesReader(
+              reader: reader,
+              api: NestedRepliesApi(transport, reader.models),
+              settings: const NestedRepliesSettings(enabled: true),
+            ),
+          ),
+        ),
+      ),
+    );
+    await _frames(tester);
+    final row = find.byKey(const ValueKey(102));
+    final position = tester.getTopLeft(row);
+    final element = tester.element(row);
+    await tester.tap(find.byKey(const ValueKey('nested-sort-button')));
+    await _frames(tester);
+    await tester.tap(find.text('Newest').hitTestable().last);
+    await _frames(tester);
+    expect(tester.element(row), same(element));
+    expect(tester.getTopLeft(row), position);
+    expect(find.byType(DSpinner), findsNothing);
+    pending.complete({
+      ..._roots(ignored: true),
+      'sort': 'new',
+      'effective_sort': 'new',
+    });
+    await _frames(tester);
+    expect(find.text('Newest'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('review phone context child toggle reflects hidden descendants', (
     tester,
   ) async {
@@ -270,11 +322,11 @@ void main() {
         ),
       );
       await _frames(tester);
-      await tester.tap(find.byKey(const ValueKey('nested-collapse-102')));
+      await tester.tap(find.text('Ignored post'));
       await tester.pump();
       memory.invalidateTopic(_site, 7);
       await _frames(tester);
-      expect(find.bySemanticsLabel('Expand post'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('^Expand post')), findsOneWidget);
       expect(find.text('Deleted post'), findsNothing);
       final reads = transport.requests
           .where((request) => request.path.startsWith('/n/'))
@@ -321,7 +373,7 @@ void main() {
       addTearDown(retired.dispose);
       await tester.pumpWidget(view(retired));
       await _frames(tester);
-      await tester.tap(find.byKey(const ValueKey('nested-collapse-102')));
+      await tester.tap(find.text('Ignored post'));
       await tester.pump();
       expect(find.text('Deleted post'), findsNothing);
       retired.close();
@@ -436,9 +488,9 @@ void main() {
     await tester.pump();
     expect(find.text('Ignored post'), findsOneWidget);
     expect(find.text('Deleted post'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('nested-collapse-102')));
+    await tester.tap(find.text('Ignored post'));
     await tester.pump();
-    await tester.tap(find.bySemanticsLabel('Expand post'));
+    await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
     await tester.pump();
     expect(find.text('Ignored post'), findsOneWidget);
     expect(find.text('Deleted post'), findsNothing);
@@ -701,10 +753,10 @@ void main() {
       expect(find.text('Deleted post'), findsOneWidget);
       await _export(tester, 'desktop-branches.png');
       expect(find.text('Continue this thread'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('nested-collapse-102')));
+      await tester.tap(find.text('Ignored post'));
       await tester.pump();
       expect(find.text('Deleted post'), findsNothing);
-      await tester.tap(find.bySemanticsLabel('Expand post'));
+      await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
       await tester.pump();
       expect(find.text('Deleted post'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -776,7 +828,7 @@ final class _Reader extends ChangeNotifier implements PluginTopicReader {
   @override
   final int topicId = 7;
   @override
-  final ContentRoute route;
+  ContentRoute route;
   @override
   bool isCurrent = true;
   @override
@@ -824,6 +876,20 @@ final class _Reader extends ChangeNotifier implements PluginTopicReader {
   void edit(int postId) {}
   @override
   void navigate({int? postNumber, String? query, bool replace = false}) {}
+  @override
+  bool updateQuery(String? query) {
+    if (!foreground || !isCurrent) return false;
+    route = ContentRoute.topic(
+      topicId: topicId,
+      slug: route.slug ?? 'conversation',
+      title: route.title,
+      postNumber: route.postNumber,
+      query: query,
+    );
+    notifyListeners();
+    return true;
+  }
+
   @override
   Future<void> observeVisible(Iterable<int> postNumbers) async {
     timings.add(postNumbers.toList());

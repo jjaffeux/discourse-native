@@ -88,6 +88,43 @@ void main() {
   }
 
   testWidgets(
+    'stacked layout keeps body and footer beneath the avatar and updates its body action',
+    (tester) async {
+      final controller = await _controller();
+      addTearDown(controller.dispose);
+      var first = 0;
+      var replacement = 0;
+      Widget presentation(VoidCallback activate) => TopicPostPresentation(
+        siteUrl: _site,
+        topicId: 7,
+        postId: 1,
+        layout: TopicPostLayout.stacked,
+        onBodyPressed: activate,
+        bodyActionLabel: 'Activate the post body',
+      );
+      await tester.pumpWidget(_host(controller, presentation(() => first++)));
+      await tester.pumpAndSettle();
+      final avatar = tester.getRect(find.byType(DAvatar));
+      final body = tester.getRect(find.byType(CookedHtml));
+      expect(body.left, avatar.left);
+      expect(body.top, greaterThanOrEqualTo(avatar.bottom));
+      expect(tester.getRect(find.byType(PostFooter)).left, avatar.left);
+      await tester.tap(find.byType(CookedHtml));
+      await tester.pumpAndSettle();
+      expect(first, 1);
+      await tester.pumpWidget(
+        _host(controller, presentation(() => replacement++)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CookedHtml));
+      await tester.pumpAndSettle();
+      expect(first, 1);
+      expect(replacement, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'compact and header-only reuse the author and update cached slots',
     (tester) async {
       final controller = await _controller();

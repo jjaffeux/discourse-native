@@ -7,6 +7,62 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'narrow connectors keep their paint inside the slot in both directions',
+    (tester) async {
+      final key = GlobalKey();
+      for (final direction in TextDirection.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: RepaintBoundary(
+                key: key,
+                child: Directionality(
+                  textDirection: direction,
+                  child: const SizedBox(
+                    width: 16,
+                    height: 40,
+                    child: Row(
+                      children: [
+                        DThreadConnector(width: 5, junction: 24),
+                        SizedBox(width: 11),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final pixels = (await tester.runAsync(() async {
+          final boundary =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 1);
+          final data = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          image.dispose();
+          return data!.buffer.asUint8List();
+        }))!;
+        final overflow = <Offset>[];
+        for (var y = 0; y < 40; y++) {
+          for (var x = 0; x < 16; x++) {
+            final outside = direction == TextDirection.ltr ? x >= 5 : x < 11;
+            if (outside && pixels[(y * 16 + x) * 4 + 3] != 0) {
+              overflow.add(Offset(x.toDouble(), y.toDouble()));
+            }
+          }
+        }
+        expect(
+          overflow,
+          isEmpty,
+          reason:
+              'A connector must not paint over its neighbour in $direction.',
+        );
+      }
+    },
+  );
+
   testWidgets('connector gap passes clicks through to underlay', (
     tester,
   ) async {

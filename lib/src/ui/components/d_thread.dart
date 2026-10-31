@@ -164,7 +164,7 @@ class _ConnectorPainter extends CustomPainter {
         : position;
     final y = junction.isFinite ? junction.clamp(0.0, size.height) : 0.0;
     final r = radius.isFinite
-        ? math.max(0.0, math.min(radius, math.min(y, size.width)))
+        ? math.max(0.0, math.min(radius, math.min(y, size.width - 1)))
         : 0.0;
     bool near(Offset a, Offset b) {
       final delta = b - a;
@@ -201,7 +201,7 @@ class _ConnectorPainter extends CustomPainter {
     }
     final y = junction.isFinite ? junction.clamp(0.0, size.height) : 0.0;
     final r = radius.isFinite
-        ? math.max(0.0, math.min(radius, math.min(y, size.width)))
+        ? math.max(0.0, math.min(radius, math.min(y, size.width - 1)))
         : 0.0;
     final paint = Paint()
       ..color = color

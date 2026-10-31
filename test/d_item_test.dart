@@ -64,6 +64,192 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final kind in ['button', 'checkbox', 'toggle', 'item']) {
+      testWidgets('disabled $kind owns its tap inside an Item on $platform', (
+        tester,
+      ) async {
+        var opened = 0;
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        final child = switch (kind) {
+          'button' => const DButton(
+            key: ValueKey('child-control'),
+            onPressed: null,
+            label: Text('Unavailable'),
+          ),
+          'checkbox' => const DCheckbox(
+            key: ValueKey('child-control'),
+            enabled: false,
+            value: false,
+            onChanged: null,
+            semanticLabel: 'Unavailable',
+          ),
+          'toggle' => const DToggle.iconOnly(
+            key: ValueKey('child-control'),
+            enabled: false,
+            icon: Icon(Icons.add),
+            semanticLabel: 'Unavailable',
+          ),
+          _ => DItem(
+            key: const ValueKey('child-control'),
+            enabled: false,
+            fitContent: true,
+            onPressed: () {},
+            children: const [Text('Unavailable')],
+          ),
+        };
+        await tester.pumpWidget(
+          host(
+            DTouchTargets(
+              child: DItem(
+                focusNode: focus,
+                onPressed: () => opened++,
+                children: [
+                  const DItemContent(children: [Text('Message body')]),
+                  child,
+                ],
+              ),
+            ),
+            theme: ThemeData(platform: platform),
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('child-control')));
+        await tester.pump();
+        expect(opened, 0);
+        expect(focus.hasFocus, isFalse);
+        await tester.tap(find.text('Message body'));
+        await tester.pump();
+        expect(opened, 1);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(opened, 2);
+      });
+    }
+  }
+
+  testWidgets('phone child control owns its kit touch area inside an Item', (
+    tester,
+  ) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      host(
+        DTouchTargets(
+          child: DItem(
+            onPressed: () => opened++,
+            children: const [
+              DItemContent(children: [Text('Message body')]),
+              DButton(
+                key: ValueKey('child-control'),
+                onPressed: null,
+                label: Text('Unavailable'),
+              ),
+            ],
+          ),
+        ),
+        theme: ThemeData(platform: TargetPlatform.iOS),
+      ),
+    );
+    final control = tester.getRect(find.byKey(const ValueKey('child-control')));
+    await tester.tapAt(Offset(control.center.dx, control.top - 3));
+    await tester.pump();
+    expect(opened, 0);
+  });
+
+  testWidgets(
+    'a child long press owner leaves the Item primary tap available',
+    (tester) async {
+      var opened = 0;
+      var inspected = 0;
+      await tester.pumpWidget(
+        host(
+          DItem(
+            onPressed: () => opened++,
+            children: [
+              GestureDetector(
+                onLongPress: () => inspected++,
+                child: const Text('Message body'),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.text('Message body'));
+      await tester.pump();
+      expect((opened, inspected), (1, 0));
+      await tester.longPress(find.text('Message body'));
+      await tester.pump();
+      expect((opened, inspected), (1, 1));
+    },
+  );
+
+  testWidgets('a child double tap owner leaves the Item single tap available', (
+    tester,
+  ) async {
+    var opened = 0;
+    var reacted = 0;
+    await tester.pumpWidget(
+      host(
+        DItem(
+          onPressed: () => opened++,
+          children: [
+            GestureDetector(
+              onDoubleTap: () => reacted++,
+              child: const Text('Message body'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.tap(find.text('Message body'));
+    await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 20));
+    expect((opened, reacted), (1, 0));
+    await tester.tap(find.text('Message body'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Message body'));
+    await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 20));
+    expect((opened, reacted), (1, 1));
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'selected text body keeps single and double tap ownership on $platform',
+      (tester) async {
+        var opened = 0;
+        var reacted = 0;
+        await tester.pumpWidget(
+          host(
+            DItem(
+              onPressed: () => opened++,
+              children: [
+                SelectionArea(
+                  child: DItem(
+                    onPressed: () => opened++,
+                    children: [
+                      GestureDetector(
+                        onDoubleTap: () => reacted++,
+                        child: const Text('Message body'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            theme: ThemeData(platform: platform),
+          ),
+        );
+        await tester.tap(find.text('Message body'));
+        await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 20));
+        expect((opened, reacted), (1, 0));
+        await tester.tap(find.text('Message body'));
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(find.text('Message body'));
+        await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 20));
+        expect((opened, reacted), (1, 1));
+      },
+    );
+  }
+
   testWidgets('unchanged item updates retain cached text artwork', (
     tester,
   ) async {

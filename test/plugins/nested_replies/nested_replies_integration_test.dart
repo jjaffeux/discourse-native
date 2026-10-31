@@ -76,6 +76,195 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  for (final width in [390.0, 430.0]) {
+    testWidgets(
+      'mobile replies use the full body width and message tap at $width',
+      (tester) async {
+        final fixture = await _pump(tester, Size(width, 844));
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        final root = find.byKey(const ValueKey('nested-row-103'));
+        final child = find.byKey(const ValueKey('nested-row-104'));
+        final body = find
+            .descendant(of: root, matching: find.byType(CookedHtml))
+            .first;
+        final avatar = find
+            .descendant(of: root, matching: find.byType(AvatarImage))
+            .first;
+        final childBody = find
+            .descendant(of: child, matching: find.byType(CookedHtml))
+            .first;
+        await tester.scrollUntilVisible(
+          renderedText(_bodies[4]!).first,
+          120,
+          scrollable: find
+              .descendant(
+                of: find.byType(NestedRepliesReader),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await _frames(tester);
+        expect(tester.getTopLeft(body).dx, tester.getTopLeft(avatar).dx);
+        expect(tester.getTopLeft(body).dx, 16);
+        expect(tester.getSize(body).width, width - 32);
+        expect(
+          tester.getTopLeft(childBody).dx - tester.getTopLeft(body).dx,
+          16,
+        );
+        expect(find.byType(DThreadConnector), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DToggle &&
+                widget.density == DToggleDensity.disclosure,
+          ),
+          findsNothing,
+        );
+        expect(find.byType(DThreadRail), findsWidgets);
+        await _export(tester, 'mobile-full-width-${width.toInt()}');
+        await tester.tap(renderedText(_bodies[3]!).first);
+        await _frames(tester);
+        expect(renderedText(_bodies[3]!), findsNothing);
+        expect(child, findsNothing);
+        expect(
+          find.descendant(of: root, matching: find.byType(AvatarImage)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: root, matching: find.text('sailor')),
+          findsOneWidget,
+        );
+        final collapsed = tester.getRect(root);
+        await _export(tester, 'mobile-collapsed-${width.toInt()}');
+        await tester.tapAt(
+          collapsed.topLeft + Offset(collapsed.width * .7, 24),
+        );
+        await _frames(tester);
+        expect(renderedText(_bodies[3]!), findsWidgets);
+        expect(child, findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
+  for (final (platform, size) in [
+    (TargetPlatform.android, phone),
+    (TargetPlatform.iOS, const Size(820, 1100)),
+  ]) {
+    testWidgets(
+      'mobile presentation keeps straight rails on $platform at ${size.width}',
+      (tester) async {
+        final fixture = await _pump(tester, size);
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        final root = find.byKey(const ValueKey('nested-row-103'));
+        final avatar = find
+            .descendant(of: root, matching: find.byType(AvatarImage))
+            .first;
+        final body = find
+            .descendant(of: root, matching: find.byType(CookedHtml))
+            .first;
+        expect(tester.getTopLeft(body).dx, tester.getTopLeft(avatar).dx);
+        expect(find.byType(DThreadConnector), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DToggle &&
+                widget.density == DToggleDensity.disclosure,
+          ),
+          findsNothing,
+        );
+        await tester.ensureVisible(renderedText(_bodies[3]!).first);
+        await tester.tap(renderedText(_bodies[3]!).first);
+        await _frames(tester);
+        expect(renderedText(_bodies[3]!), findsNothing);
+        expect(find.byKey(const ValueKey('nested-row-104')), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
+  testWidgets(
+    'mobile avatar, link, disabled footer and Reply keep their own interactions',
+    (tester) async {
+      final fixture = await _pump(tester, phone, postExtension: true);
+      final launched = watchBrowser(tester);
+      final roots = _roots();
+      final posts = roots['roots'] as List;
+      final first = posts.first as Map<String, dynamic>;
+      first['cooked'] =
+          '<p>${_bodies[3]}</p><p><a href="https://example.com/chart">Read the chart</a></p>';
+      fixture
+              .api
+              .pluginResponses['GET /n/harbour/7.json?sort=top&page=0&track_visit=true'] =
+          roots;
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      final root = find.byKey(const ValueKey('nested-row-103'));
+      final child = find.byKey(const ValueKey('nested-row-104'));
+      final scrollable = find
+          .descendant(
+            of: find.byType(NestedRepliesReader),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        renderedText('Read the chart').first,
+        140,
+        scrollable: scrollable,
+      );
+      await _frames(tester);
+      final paragraph = tester.renderObject<RenderParagraph>(
+        renderedText('Read the chart').first,
+      );
+      final start = paragraph.text.toPlainText().indexOf('Read the chart');
+      final linkBox = paragraph
+          .getBoxesForSelection(
+            TextSelection(
+              baseOffset: start,
+              extentOffset: start + 'Read the chart'.length,
+            ),
+          )
+          .first;
+      await tester.tapAt(paragraph.localToGlobal(linkBox.toRect().center));
+      await _frames(tester);
+      expect(launched, ['https://example.com/chart']);
+      expect(child, findsOneWidget);
+      final disabled = find.byKey(const ValueKey('integration-disabled-3'));
+      await tester.ensureVisible(disabled);
+      await tester.tap(disabled);
+      await _frames(tester);
+      expect(child, findsOneWidget);
+      final avatar = find
+          .descendant(of: root, matching: find.byType(AvatarImage))
+          .first;
+      await tester.ensureVisible(avatar);
+      await tester.tap(avatar);
+      await _frames(tester);
+      expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
+      expect(child, findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await _frames(tester);
+      final reply = find.descendant(
+        of: root,
+        matching: find.byTooltip('Reply to this post'),
+      );
+      await tester.ensureVisible(reply);
+      await tester.tap(reply);
+      await _frames(tester);
+      expect(fixture.shell.visibleComposer!.target.replyToPostNumber, 3);
+      expect(child, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   for (final size in [phone, desktop]) {
     testWidgets(
       'nested sort stays in the bottom corner at ${size.width}',
@@ -88,9 +277,19 @@ void main() {
           'sort': 'new',
           'effective_sort': 'new',
         };
+        fixture
+            .api
+            .pluginResponses['GET /n/harbour/7.json?sort=old&page=0&track_visit=true'] = {
+          ..._roots(),
+          'sort': 'old',
+          'effective_sort': 'old',
+        };
         fixture.shell.openTopic(fixture.row);
         await _frames(tester);
         final reader = find.byType(NestedRepliesReader);
+        final readerState = tester.state(reader);
+        final historyEntry = fixture.shell.mobileNavigation.entryId;
+        final ordinaryReads = fixture.api.topicPostNumbersOpened.length;
         final viewport = tester.getRect(reader);
         final sort = find.text('Top').hitTestable();
         final labelRect = tester.getRect(sort);
@@ -139,12 +338,25 @@ void main() {
         await _frames(tester);
         await tester.tap(find.text('Newest').hitTestable().last);
         await _frames(tester);
+        expect(tester.state(reader), same(readerState));
+        expect(fixture.shell.mobileNavigation.entryId, historyEntry);
+        expect(fixture.api.topicPostNumbersOpened.length, ordinaryReads);
         expect(fixture.shell.currentContent!.topicQuery, 'sort=new');
         expect(find.text('Newest').hitTestable(), findsOneWidget);
         expect(
           fixture.api.pluginReadPaths,
           contains('/n/harbour/7.json?sort=new&page=0&track_visit=true'),
         );
+        for (final (label, wire) in [('Oldest', 'old'), ('Top', 'top')]) {
+          await tester.tap(find.byKey(const ValueKey('nested-sort-button')));
+          await _frames(tester);
+          await tester.tap(find.text(label).hitTestable().last);
+          await _frames(tester);
+          expect(tester.state(reader), same(readerState));
+          expect(fixture.shell.mobileNavigation.entryId, historyEntry);
+          expect(fixture.shell.currentContent!.topicQuery, 'sort=$wire');
+          expect(fixture.api.topicPostNumbersOpened.length, ordinaryReads);
+        }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -153,6 +365,57 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'changing reader query rejects an in-flight response from its previous query',
+    (tester) async {
+      final fixture = await _pump(tester, phone);
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      final widget = tester.widget<NestedRepliesReader>(
+        find.byType(NestedRepliesReader),
+      );
+      final reader = widget.reader;
+      final result = Completer<TopicContentResult<String>>();
+      var started = false;
+      final pending = reader.ingest<String>((_) {
+        started = true;
+        return result.future;
+      });
+      await tester.pump();
+      expect(started, isTrue);
+      expect(reader.updateQuery('sort=old'), isTrue);
+      result.complete(
+        TopicContentResult(
+          value: 'retired query',
+          posts: const [
+            TopicContentPost(
+              Post(
+                id: 999,
+                postNumber: 99,
+                username: 'retired',
+                cooked: '<p>Content from the previous query</p>',
+              ),
+            ),
+          ],
+          metadata: reader.topic!.copyWith(title: 'Retired query title'),
+        ),
+      );
+      await tester.pump();
+      expect(await pending, isNull);
+      expect(reader.isCurrent, isTrue);
+      expect(fixture.shell.store.read<Post>(_site, 999), isNull);
+      expect(reader.topic!.title, _title);
+      fixture.shell.openTopic(
+        const Topic(id: 8, title: 'Another topic', slug: 'other'),
+      );
+      expect(reader.updateQuery('sort=new'), isFalse);
+      await _frames(tester);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 
   for (final size in [phone, desktop]) {
     testWidgets(
@@ -227,6 +490,20 @@ void main() {
           size.width == phone.width ? 'phone-thread' : 'desktop-thread',
         );
         final root = find.byKey(const ValueKey('nested-row-103'));
+        if (size == phone) {
+          expect(find.byType(DThreadConnector), findsNothing);
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is DToggle &&
+                  widget.density == DToggleDensity.disclosure,
+            ),
+            findsNothing,
+          );
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          return;
+        }
         final collapse = find.byKey(const ValueKey('nested-collapse-103'));
         final disclosureArtwork = find.descendant(
           of: collapse,
@@ -273,7 +550,7 @@ void main() {
         final childX = tester
             .getTopLeft(find.byKey(const ValueKey('topic-post-highlight-104')))
             .dx;
-        expect(childX - rootX, size == phone ? 20 : 32);
+        expect(childX - rootX, 32);
         await tester.ensureVisible(collapse);
         await tester.tap(collapse);
         await _frames(tester);
@@ -870,6 +1147,15 @@ final class _FooterPlugin implements SitePlugin, PostFooterPlugin {
   String get name => 'integration-footer';
 
   @override
-  Widget postFooter(String siteUrl, Post post) =>
-      Text('Plugin footer on post ${post.postNumber}');
+  Widget postFooter(String siteUrl, Post post) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Plugin footer on post ${post.postNumber}'),
+      DButton(
+        key: ValueKey('integration-disabled-${post.postNumber}'),
+        onPressed: null,
+        label: const Text('Unavailable action'),
+      ),
+    ],
+  );
 }

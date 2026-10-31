@@ -472,6 +472,8 @@ final class _Reader extends ChangeNotifier implements PluginTopicReader {
   @override
   void navigate({int? postNumber, String? query, bool replace = false}) {}
   @override
+  bool updateQuery(String? query) => false;
+  @override
   Future<void> observeVisible(Iterable<int> postNumbers) async {}
   @override
   Future<void> reconcileVisit() async {}

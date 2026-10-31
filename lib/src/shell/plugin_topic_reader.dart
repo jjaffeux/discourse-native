@@ -52,9 +52,11 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
       tab.tabId,
       widget.route.topicId,
       widget.route.postNumber,
-      widget.route.topicQuery,
     );
-    if (_identity == key) return;
+    if (_identity == key &&
+        _reader?.route.topicQuery == widget.route.topicQuery) {
+      return;
+    }
     _reader?.removeListener(_changed);
     _reader?.close();
     _identity = key;
@@ -124,6 +126,8 @@ class PluginTopicPost extends StatelessWidget {
     this.leading,
     this.bodyLeading,
     this.footerLeading,
+    this.onBodyPressed,
+    this.bodyActionLabel,
   });
 
   final PluginTopicReader reader;
@@ -132,6 +136,8 @@ class PluginTopicPost extends StatelessWidget {
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
+  final VoidCallback? onBodyPressed;
+  final String? bodyActionLabel;
 
   @override
   Widget build(BuildContext context) =>
@@ -145,6 +151,8 @@ class PluginTopicPost extends StatelessWidget {
           leading: leading,
           bodyLeading: bodyLeading,
           footerLeading: footerLeading,
+          onBodyPressed: onBodyPressed,
+          bodyActionLabel: bodyActionLabel,
         );
 }
 

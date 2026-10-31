@@ -45,6 +45,15 @@ void main() {
     shell.selectTab(second.id);
     expect(reader.isCurrent, isTrue);
     expect(reader.foreground, isTrue);
+    final history = shell.selectedTabIn(ForumPanel.main)!.backHistory.length;
+    expect(reader.updateQuery('sort=old'), isTrue);
+    expect(reader.isCurrent, isTrue);
+    expect(shell.activeTabId, second.id);
+    expect(
+      shell.selectedTabIn(ForumPanel.main)!.currentContent.topicQuery,
+      'sort=old',
+    );
+    expect(shell.selectedTabIn(ForumPanel.main)!.backHistory.length, history);
     reader.navigate(postNumber: 33, query: 'sort=new', replace: true);
     expect(
       shell.selectedTabIn(ForumPanel.secondary)!.currentContent.topicId,

@@ -126,6 +126,8 @@ class TopicPostPresentation extends StatelessWidget {
     this.leading,
     this.bodyLeading,
     this.footerLeading,
+    this.onBodyPressed,
+    this.bodyActionLabel,
   });
 
   final String siteUrl;
@@ -135,6 +137,8 @@ class TopicPostPresentation extends StatelessWidget {
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
+  final VoidCallback? onBodyPressed;
+  final String? bodyActionLabel;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -154,6 +158,8 @@ class TopicPostPresentation extends StatelessWidget {
                   leading: leading,
                   bodyLeading: bodyLeading,
                   footerLeading: footerLeading,
+                  onBodyPressed: onBodyPressed,
+                  bodyActionLabel: bodyActionLabel,
                   summary: false,
                   summaryLoading: false,
                   readTimeWordCount: readTimeWordCount,
@@ -4056,6 +4062,8 @@ class _StoredPost extends StatefulWidget {
     this.leading,
     this.bodyLeading,
     this.footerLeading,
+    this.onBodyPressed,
+    this.bodyActionLabel,
   });
 
   final String siteUrl;
@@ -4065,6 +4073,8 @@ class _StoredPost extends StatefulWidget {
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
+  final VoidCallback? onBodyPressed;
+  final String? bodyActionLabel;
   final bool summary;
   final bool summaryLoading;
   final int readTimeWordCount;
@@ -4085,6 +4095,8 @@ class _StoredPost extends StatefulWidget {
     leading,
     bodyLeading,
     footerLeading,
+    onBodyPressed,
+    bodyActionLabel,
   );
 }
 
@@ -4146,6 +4158,8 @@ class _StoredPostState extends State<_StoredPost> {
                     leading: widget.leading,
                     bodyLeading: widget.bodyLeading,
                     footerLeading: widget.footerLeading,
+                    onBodyPressed: widget.onBodyPressed,
+                    bodyActionLabel: widget.bodyActionLabel,
                   ),
                   if (post.postNumber == 1 &&
                       widget.layout == TopicPostLayout.standard)
@@ -4203,6 +4217,8 @@ class _PostTile extends StatefulWidget {
     this.leading,
     this.bodyLeading,
     this.footerLeading,
+    this.onBodyPressed,
+    this.bodyActionLabel,
   });
 
   final String siteUrl;
@@ -4212,6 +4228,8 @@ class _PostTile extends StatefulWidget {
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
+  final VoidCallback? onBodyPressed;
+  final String? bodyActionLabel;
 
   @override
   State<_PostTile> createState() => _PostTileState();
@@ -4255,6 +4273,18 @@ class _PostTileState extends State<_PostTile> {
         },
         builder: (context, selection, _) => _build(context, selection),
       );
+
+  Widget _bodyAction(Widget child) {
+    if (widget.onBodyPressed == null) return child;
+    return DItem(
+      size: DItemSize.artwork,
+      shape: DItemShape.fullWidth,
+      highlightOnInteraction: false,
+      onPressed: widget.onBodyPressed,
+      semanticLabel: widget.bodyActionLabel,
+      children: [child],
+    );
+  }
 
   Widget _build(
     BuildContext context,
@@ -4453,32 +4483,34 @@ class _PostTileState extends State<_PostTile> {
                     post: post,
                     topicId: widget.topic.id,
                     displayedCooked: displayedCooked,
-                    child: PostActions.reactOnDoubleTap(
-                      context,
-                      AnimatedOpacity(
-                        opacity: post.hidden || post.isDeleted ? .5 : 1,
-                        duration: DMotion.duration(context, DMotion.change),
-                        child: CookedHtml(
-                          html: displayedCooked,
-                          renderMode: const ProgressiveHtmlMode(),
-                          buildAsync:
-                              _bodyFollowsFrame ||
-                              CookedHtml.buildsAsynchronously(post.cooked),
-                          textStyle: theme.textTheme.bodyLarge?.copyWith(
-                            height: DiscourseTypography.lineHeightCooked,
+                    child: _bodyAction(
+                      PostActions.reactOnDoubleTap(
+                        context,
+                        AnimatedOpacity(
+                          opacity: post.hidden || post.isDeleted ? .5 : 1,
+                          duration: DMotion.duration(context, DMotion.change),
+                          child: CookedHtml(
+                            html: displayedCooked,
+                            renderMode: const ProgressiveHtmlMode(),
+                            buildAsync:
+                                _bodyFollowsFrame ||
+                                CookedHtml.buildsAsynchronously(post.cooked),
+                            textStyle: theme.textTheme.bodyLarge?.copyWith(
+                              height: DiscourseTypography.lineHeightCooked,
+                            ),
+                            siteUrl: widget.siteUrl,
+                            post: post,
+                            containingTopic: PluginContainingTopic(
+                              id: widget.topic.id,
+                              slug:
+                                  ForumTabScope.tabOf(
+                                    context,
+                                  ).currentContent?.slug ??
+                                  'topic',
+                              archived: widget.topic.archived,
+                            ),
+                            mentionedUserStatuses: post.mentionedUserStatuses,
                           ),
-                          siteUrl: widget.siteUrl,
-                          post: post,
-                          containingTopic: PluginContainingTopic(
-                            id: widget.topic.id,
-                            slug:
-                                ForumTabScope.tabOf(
-                                  context,
-                                ).currentContent?.slug ??
-                                'topic',
-                            archived: widget.topic.archived,
-                          ),
-                          mentionedUserStatuses: post.mentionedUserStatuses,
                         ),
                       ),
                     ),
@@ -4489,6 +4521,7 @@ class _PostTileState extends State<_PostTile> {
           .postDecorations(context, widget.siteUrl, widget.topic, post),
     ];
     final compact = widget.layout != TopicPostLayout.standard;
+    final bodyIndent = widget.layout == TopicPostLayout.stacked ? 0.0 : 40.0;
     if (widget.layout == TopicPostLayout.headerOnly) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -4527,7 +4560,7 @@ class _PostTileState extends State<_PostTile> {
               Stack(
                 children: [
                   Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 40),
+                    padding: EdgeInsetsDirectional.only(start: bodyIndent),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [const SizedBox(height: 8), ...body],
@@ -4547,11 +4580,11 @@ class _PostTileState extends State<_PostTile> {
                 siteUrl: widget.siteUrl,
                 post: post,
                 leading: widget.footerLeading,
-                contentIndent: 40,
+                contentIndent: bodyIndent,
               ),
               if (post.inboundLinks.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 40),
+                  padding: EdgeInsetsDirectional.only(start: bodyIndent),
                   child: _PostInboundLinks(
                     siteUrl: widget.siteUrl,
                     links: post.inboundLinks,
