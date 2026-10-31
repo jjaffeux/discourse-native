@@ -4167,7 +4167,9 @@ class _StoredPostState extends State<_StoredPost> {
           ),
           child: KeyedSubtree(
             key: ValueKey('topic-post-highlight-${post.id}'),
-            child: standaloneSmallAction
+            child:
+                standaloneSmallAction ||
+                    widget.layout == TopicPostLayout.headerOnly
                 ? ShellSelector<bool>(
                     select: (controller) => controller.isTopicPostHighlighted(
                       siteUrl,
