@@ -53,3 +53,31 @@ All 12 progressive HTML tests and 30 related churn, geometry, and scroll-control
 The rejected cold-row fallback reserved the list's initial 199-point estimate. A real mouse test passed on the baseline because its pending rows were already 202 points tall. That fallback and its ineffective test were removed.
 
 The retained fix uses the existing measured-height staging record and completion path. It adds no UI-kit API, cache budget, delay, or production test hook. It does not change pagination or map the scrollbar to the entire topic. The user reports the slowdown across all topics. Investigation of per-input handling and shared scrolling behavior continues.
+
+## Header retraction moved the drag track
+
+The follow-up found a pointer-tracking defect in the shared Native scrollbar. A fixed 40,000-point scroll surface reproduces it without HTML, paging, or estimated row heights. With an 80-point retracting header, the grabbed thumb point ends 78 points above the mouse. A 160-point header produces a 157-point error. The zero-height-header control passes.
+
+Flutter records the initial pointer and track-relative thumb offset. The Native page changes the scrollbar's top padding while its header retracts. Flutter converts subsequent pointer displacement using the current track length, while painting adds the current top padding. The changing origin therefore separates the grabbed point from the pointer. Dragging to the viewport's bottom can stop short of the content's end.
+
+The Native scrollbar now adapts the coordinates passed to Flutter by the change in top padding. It waits for painted track geometry when necessary and reconciles a stationary pointer while the header settles. Flutter retains ownership of gesture recognition, scrolling, clamping, and release. A private drag record binds deferred updates to the accepted pointer and scroll position. Release, cancellation, controller replacement, and disposal invalidate pending work.
+
+The correction applies to ordinary downward-axis vertical page scrollbars, including upward mouse movement within those pages. Reversed-axis and horizontal scrollbars retain their existing behavior. No public component option or hit area changes.
+
+The new behavioral cases pass in the Flutter test runner and natively on macOS in profile mode. They assert a maximum 2-point grip error, reaching the content end while the pointer stays inside the viewport, stationary-pointer settling, header expansion during reversal, non-minimum thumb lengths, RTL, final release input, cancellation, controller replacement, disposal, and rejected-pointer ownership. The rejected-pointer case also reproduced a 148.5-point error before its ownership repair.
+
+Run the focused scrollbar cases:
+
+```sh
+flutter test --no-pub test/scrollbar_header_drag_test.dart test/d_scroll_area_test.dart
+```
+
+Run the same grip cases on the native macOS engine:
+
+```sh
+flutter drive --profile --no-pub --no-start-paused --no-dds -d macos \
+  --driver integration_test/performance_driver.dart \
+  --target integration_test/scrollbar_header_drag_test.dart
+```
+
+Local native verification is saved in `/private/tmp/discourse-topic-scrollbar/native-grip-final.log`. Source hashes recorded before that run match the files after the run. This is a verified tracking correction, not a frame-rate speedup claim; the earlier timing comparison remains inconclusive.

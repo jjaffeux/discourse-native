@@ -475,7 +475,9 @@ class _NaturalScrollbar extends RawScrollbar {
 }
 
 class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
-  late final ScrollbarPainter _naturalPainter;
+  late final _NaturalScrollbarPainter _naturalPainter;
+  _HeaderThumbGrip? _headerGrip;
+  int? _eventPointer;
 
   @override
   ScrollbarPainter get scrollbarPainter => _naturalPainter;
@@ -493,10 +495,140 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
   }
 
   void _updateHeaderInset() {
-    scrollbarPainter.padding = (widget.padding ?? EdgeInsets.zero).add(
+    final padding = (widget.padding ?? EdgeInsets.zero).add(
       EdgeInsets.only(top: widget.pageHeader?.visibleExtent ?? 0),
     );
+    if (scrollbarPainter.padding == padding) return;
+    scrollbarPainter.padding = padding;
+    final grip = _currentHeaderGrip;
+    if (grip != null) {
+      grip.pendingUpdate = true;
+      _scheduleGripReplay(grip);
+    }
   }
+
+  ScrollController? get _controller =>
+      widget.controller ?? PrimaryScrollController.maybeOf(context);
+
+  _HeaderThumbGrip? get _currentHeaderGrip {
+    final grip = _headerGrip;
+    if (grip == null) return null;
+    final controller = _controller;
+    if (!enableGestures ||
+        widget.pageHeader != grip.header ||
+        controller != grip.controller ||
+        controller == null ||
+        controller.positions.length != 1 ||
+        controller.position != grip.position ||
+        grip.position.axisDirection != AxisDirection.down ||
+        !grip.position.isScrollingNotifier.value) {
+      _headerGrip = null;
+      return null;
+    }
+    return grip;
+  }
+
+  Offset _adaptGrip(_HeaderThumbGrip grip) =>
+      grip.latestRealPointer + Offset(0, grip.initialTopPadding - _topPadding);
+
+  double get _topPadding =>
+      scrollbarPainter.padding.resolve(Directionality.of(context)).top;
+
+  void _scheduleGripReplay(_HeaderThumbGrip grip) {
+    if (grip.replayScheduled) return;
+    grip.replayScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      grip.replayScheduled = false;
+      if (!mounted || !identical(_currentHeaderGrip, grip)) return;
+      // Padding changes track length immediately; Flutter updates thumb extent
+      // in paint. Never combine the new origin with the preceding thumb extent.
+      if (_naturalPainter._paintedPadding != scrollbarPainter.padding) return;
+      if (grip.pendingUpdate) {
+        grip.pendingUpdate = false;
+        super.handleThumbPressUpdate(_adaptGrip(grip));
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  @override
+  void handleThumbPressStart(Offset localPosition) {
+    final pointer = _eventPointer;
+    super.handleThumbPressStart(localPosition);
+    _headerGrip = null;
+    final controller = _controller;
+    final header = widget.pageHeader;
+    if (pointer == null ||
+        header == null ||
+        controller == null ||
+        controller.positions.length != 1 ||
+        controller.position.axisDirection != AxisDirection.down) {
+      return;
+    }
+    _headerGrip = _HeaderThumbGrip(
+      pointer: pointer,
+      controller: controller,
+      position: controller.position,
+      header: header,
+      initialTopPadding: _topPadding,
+      latestRealPointer: localPosition,
+    );
+  }
+
+  @override
+  void handleThumbPressUpdate(Offset localPosition) {
+    final grip = _currentHeaderGrip;
+    if (grip == null) {
+      super.handleThumbPressUpdate(localPosition);
+      return;
+    }
+    grip.latestRealPointer = localPosition;
+    if (_naturalPainter._paintedPadding != scrollbarPainter.padding) {
+      grip.pendingUpdate = true;
+      _scheduleGripReplay(grip);
+      return;
+    }
+    grip.pendingUpdate = false;
+    super.handleThumbPressUpdate(_adaptGrip(grip));
+  }
+
+  void _finishHeaderGrip() {
+    final grip = _currentHeaderGrip;
+    if (grip != null && grip.pendingUpdate) {
+      grip.pendingUpdate = false;
+      super.handleThumbPressUpdate(_adaptGrip(grip));
+    }
+    _headerGrip = null;
+    _eventPointer = null;
+  }
+
+  @override
+  void handleThumbPressEnd(Offset localPosition, Velocity velocity) {
+    _finishHeaderGrip();
+    super.handleThumbPressEnd(localPosition, velocity);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _currentHeaderGrip;
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.deferToChild,
+    onPointerDown: (event) => _eventPointer = event.pointer,
+    onPointerMove: (event) => _eventPointer = event.pointer,
+    onPointerUp: (event) {
+      if (event.pointer == _headerGrip?.pointer) _finishHeaderGrip();
+    },
+    onPointerCancel: (event) {
+      if (event.pointer == _headerGrip?.pointer) {
+        _headerGrip = null;
+      }
+    },
+    child: super.build(context),
+  );
 
   @override
   void updateScrollbarPainter() {
@@ -506,6 +638,13 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
 
   @override
   void didUpdateWidget(_NaturalScrollbar oldWidget) {
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.pageHeader != widget.pageHeader ||
+        oldWidget.interactive != widget.interactive ||
+        oldWidget.scrollbarOrientation != widget.scrollbarOrientation) {
+      _headerGrip = null;
+      _eventPointer = null;
+    }
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pageHeader != widget.pageHeader) {
       oldWidget.pageHeader?.removeListener(_updateHeaderInset);
@@ -515,9 +654,31 @@ class _NaturalScrollbarState extends RawScrollbarState<_NaturalScrollbar> {
 
   @override
   void dispose() {
+    _headerGrip = null;
+    _eventPointer = null;
     widget.pageHeader?.removeListener(_updateHeaderInset);
     super.dispose();
   }
+}
+
+class _HeaderThumbGrip {
+  _HeaderThumbGrip({
+    required this.pointer,
+    required this.controller,
+    required this.position,
+    required this.header,
+    required this.initialTopPadding,
+    required this.latestRealPointer,
+  });
+
+  final int pointer;
+  final ScrollController controller;
+  final ScrollPosition position;
+  final DPageHeaderGeometry header;
+  final double initialTopPadding;
+  Offset latestRealPointer;
+  bool pendingUpdate = false;
+  bool replayScheduled = false;
 }
 
 class _NaturalScrollbarPainter extends ScrollbarPainter {
@@ -527,11 +688,13 @@ class _NaturalScrollbarPainter extends ScrollbarPainter {
   });
 
   Size? _size;
+  EdgeInsetsGeometry? _paintedPadding;
 
   @override
   void paint(Canvas canvas, Size size) {
     _size = size;
     super.paint(canvas, size);
+    _paintedPadding = padding;
   }
 
   // The column the thumb travels in. Flutter's track also includes the
