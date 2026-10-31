@@ -96,6 +96,7 @@ void main() {
                 final bounds = tester.getRect(menu);
                 final screen = tester.view.physicalSize;
                 final mobile = platform != TargetPlatform.macOS;
+                final menuScale = mobile ? 17 / 13 : 1.0;
                 final sheet = find.ancestor(
                   of: menu,
                   matching: find.byType(DSheetContent),
@@ -109,15 +110,27 @@ void main() {
                   expect(content.showCloseButton, isFalse);
                   expect(find.byType(DSheetHeader), findsNothing);
                   final sheetBounds = tester.getRect(sheet);
-                  if (scale == 1) {
-                    expect(sheetBounds.left, 0);
-                    expect(sheetBounds.right, screen.width);
-                    expect(
-                      sheetBounds.bottom,
-                      screen.height -
-                          const DMobileDockGeometry(foot: _foot).endLift,
-                    );
-                  }
+                  expect(sheetBounds.left, 0);
+                  expect(sheetBounds.right, screen.width);
+                  expect(sheetBounds.bottom, screen.height);
+                  final contentViewports = find.descendant(
+                    of: sheet,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is Scrollable &&
+                          axisDirectionToAxis(widget.axisDirection) ==
+                              Axis.vertical,
+                    ),
+                  );
+                  final contentBounds = contentViewports.evaluate().isEmpty
+                      ? bounds
+                      : tester.getRect(contentViewports.first);
+                  expect(
+                    contentBounds.bottom,
+                    lessThanOrEqualTo(screen.height - _foot + .01),
+                    reason:
+                        'the home-indicator area stays below the menu viewport',
+                  );
                   expect(bounds.width, greaterThan(216));
                   expect(
                     find.byKey(const ValueKey('sheet-drag-handle')),
@@ -184,6 +197,10 @@ void main() {
                   matching: find.byType(DAvatar),
                 );
                 expect(tester.getSize(accountAvatar), Size.square(32 * scale));
+                expect(
+                  tester.getRect(accountAvatar).width,
+                  closeTo(32 * scale * menuScale, .01),
+                );
                 final name = tester.widget<Text>(find.text('Ty'));
                 final handle = tester.widget<Text>(find.text('@tynaut'));
                 expect(name.style!.fontSize, 13.5);
@@ -200,9 +217,15 @@ void main() {
                     matching: find.byType(ColoredBox),
                   );
                   final lineRect = tester.getRect(line);
-                  expect(lineRect.left - bounds.left, 15);
-                  expect(bounds.right - lineRect.right, 15);
-                  expect(lineRect.height, 1);
+                  expect(
+                    lineRect.left - bounds.left,
+                    closeTo(15 * menuScale, .01),
+                  );
+                  expect(
+                    bounds.right - lineRect.right,
+                    closeTo(15 * menuScale, .01),
+                  );
+                  expect(lineRect.height, closeTo(menuScale, .01));
                 }
                 if (scale == 1) {
                   final positions = [
@@ -212,24 +235,32 @@ void main() {
                           tester.getRect(find.byWidget(element.widget)),
                     ),
                   ];
-                  expect(positions[1].top, positions[0].bottom);
+                  expect(positions[1].top, closeTo(positions[0].bottom, .01));
                   expect(
                     positions[2].top,
-                    tester
-                        .getRect(
-                          find.byKey(const ValueKey('pause-notifications-row')),
-                        )
-                        .bottom,
+                    closeTo(
+                      tester
+                          .getRect(
+                            find.byKey(
+                              const ValueKey('pause-notifications-row'),
+                            ),
+                          )
+                          .bottom,
+                      .01,
+                    ),
                   );
                   expect(
                     positions[3].top,
-                    tester
-                        .getRect(
-                          find.byKey(
-                            const ValueKey('user-menu-row-preferences'),
-                          ),
-                        )
-                        .bottom,
+                    closeTo(
+                      tester
+                          .getRect(
+                            find.byKey(
+                              const ValueKey('user-menu-row-preferences'),
+                            ),
+                          )
+                          .bottom,
+                      .01,
+                    ),
                   );
                 }
 
@@ -243,9 +274,16 @@ void main() {
                   expect(row.hitTestable(), findsOneWidget);
                   final textRect = tester.getRect(find.text(label));
                   labelStart ??= start(textRect);
-                  expect(start(textRect), labelStart, reason: label);
+                  expect(
+                    start(textRect),
+                    closeTo(labelStart, .01),
+                    reason: label,
+                  );
                   if (scale == 1) {
-                    expect(tester.getRect(row).height, closeTo(33.5, .01));
+                    expect(
+                      tester.getRect(row).height,
+                      closeTo(33.5 * menuScale, .01),
+                    );
                   }
                   if (label == 'Drafts') {
                     final count = tester.getRect(find.text('2'));
