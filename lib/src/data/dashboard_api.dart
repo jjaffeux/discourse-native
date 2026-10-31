@@ -101,7 +101,6 @@ final class DiscourseDashboardApi implements DashboardApi {
               : entry.value.withPrevious(previous[entry.key]!),
       });
     } catch (_) {
-      // A comparison failure must not discard the current period's report.
       return current;
     }
   }
