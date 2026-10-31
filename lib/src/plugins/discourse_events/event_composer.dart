@@ -248,6 +248,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
     'max-attendees': appL10n.maximumAttendeesOptional,
     'reminders': appL10n.remindersForExampleNotification15Minutes,
     'image': appL10n.eventImageURL,
+    'recording': appL10n.eventRecordingUrl,
   };
   static Map<String, String> get _booleanFields => {
     'all-day': appL10n.allDay,
@@ -363,6 +364,10 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
         );
       }
       final values = <String, String?>{};
+      final recording = _fields['recording']!.text.trim();
+      if (recording.isNotEmpty && eventRecordingUrl(recording) == null) {
+        throw FormatException(appL10n.eventRecordingUrlInvalid);
+      }
       for (final entry in _fields.entries) {
         if (widget.block == null || entry.value.text != _initial[entry.key]) {
           values[entry.key] = entry.value.text;
@@ -562,6 +567,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
         ),
         if (_status == 'private') _field('allowed-groups'),
         _field('url'),
+        _field('recording'),
         _field('location'),
         DTextarea(
           controller: _description,

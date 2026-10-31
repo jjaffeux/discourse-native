@@ -31,6 +31,39 @@ final class EventApi {
     return event;
   }
 
+  Future<PostEvent?> byTopic(
+    String site,
+    int topicId,
+    PluginRequestCredentials credentials,
+  ) async {
+    if (topicId <= 0) throw ArgumentError.value(topicId, 'topicId');
+    final path = Uri(
+      path: '/discourse-post-event/events.json',
+      queryParameters: {
+        'topic_id': '$topicId',
+        'include_details': 'true',
+        'include_closed': 'true',
+        'limit': '1',
+      },
+    ).toString();
+    final json = await transport.pluginGetJson(
+      siteUrl: site,
+      path: path,
+      apiKey: credentials.apiKey,
+      clientId: credentials.clientId,
+    );
+    if (json['events'] is! List) {
+      throw FormatException(appL10n.invalidEventList);
+    }
+    final rows = json['events'] as List;
+    if (rows.isEmpty) return null;
+    final event = PostEvent.decode(rows.first);
+    if (event == null || event.topicId != topicId) {
+      throw FormatException(appL10n.invalidEventResponse);
+    }
+    return event;
+  }
+
   /// Upcoming bounds use ISO timestamps, as Discourse's web calendar does.
   /// Older event controllers cannot expand occurrences with `after=now`.
   Future<List<PostEvent>> list(

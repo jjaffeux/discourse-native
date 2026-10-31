@@ -19385,5 +19385,25 @@
   "chatBotAccount": "Bot account",
   "@chatBotAccount": {
     "description": "Accessible label for a Chat bot avatar marker."
+  },
+  "eventRecordingUrl": "Recording URL",
+  "@eventRecordingUrl": {
+    "description": "Event recording control."
+  },
+  "eventRecordingUrlInvalid": "Enter a valid HTTP or HTTPS recording URL.",
+  "@eventRecordingUrlInvalid": {
+    "description": "Event recording control."
+  },
+  "eventAddRecording": "Add recording",
+  "@eventAddRecording": {
+    "description": "Event recording control."
+  },
+  "eventEditRecording": "Edit recording",
+  "@eventEditRecording": {
+    "description": "Event recording control."
+  },
+  "eventWatchRecording": "Watch recording",
+  "@eventWatchRecording": {
+    "description": "Event recording control."
   }
 }

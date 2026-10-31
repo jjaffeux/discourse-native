@@ -14748,4 +14748,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatBotAccount => 'Bot account';
+
+  @override
+  String get eventRecordingUrl => 'Recording URL';
+
+  @override
+  String get eventRecordingUrlInvalid =>
+      'Enter a valid HTTP or HTTPS recording URL.';
+
+  @override
+  String get eventAddRecording => 'Add recording';
+
+  @override
+  String get eventEditRecording => 'Edit recording';
+
+  @override
+  String get eventWatchRecording => 'Watch recording';
 }

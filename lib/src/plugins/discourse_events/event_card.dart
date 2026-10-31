@@ -372,6 +372,18 @@ class _EventCardState extends State<EventCard> {
                                         onPressed: onEdit,
                                         child: Text(context.l10n.editEvent),
                                       ),
+                                    if (onEdit != null &&
+                                        event.flag('livestream') &&
+                                        (event.flag('is_expired') ||
+                                            event.recordingUrl != null))
+                                      DDropdownMenuItem(
+                                        onPressed: onEdit,
+                                        child: Text(
+                                          event.recordingUrl == null
+                                              ? context.l10n.eventAddRecording
+                                              : context.l10n.eventEditRecording,
+                                        ),
+                                      ),
                                     if (onInvite != null)
                                       DDropdownMenuItem(
                                         onPressed: onInvite,
@@ -535,6 +547,23 @@ class _EventCardState extends State<EventCard> {
                         variant: DButtonVariant.inline,
                         icon: const Icon(Icons.videocam_outlined),
                         label: Text(context.l10n.openLivestream),
+                      ),
+                    ),
+                  if (event.recordingOnebox case final onebox?)
+                    CookedHtml(html: onebox, siteUrl: siteUrl)
+                  else if (event.recordingUrl case final recording?)
+                    LinkTarget(
+                      url: recording,
+                      siteUrl: siteUrl,
+                      child: DButton(
+                        size: DButtonSize.post,
+                        variant: DButtonVariant.outline,
+                        isLink: true,
+                        icon: const DIcon(DIcons.play),
+                        label: Text(context.l10n.eventWatchRecording),
+                        onPressed: () => unawaited(
+                          openLink(context, recording, siteUrl: siteUrl),
+                        ),
                       ),
                     ),
                   if (event.flag('is_closed') ||

@@ -39,6 +39,40 @@ final class EventController extends FrameSafeNotifier
   final PluginTimezoneHost zones;
   final _entries = <(String, int), _EventEntry>{};
   final _upcoming = <String, List<PostEvent>>{};
+  final _topicEvents = <(String, int), Future<PostEvent?>>{};
+
+  Future<PostEvent?> eventForTopic(String site, int topicId) {
+    if (isDisposed || topicId <= 0 || !settings(site).enabled) {
+      return Future.value();
+    }
+    final key = (site, topicId);
+    if (_topicEvents[key] case final held?) return held;
+    if (_topicEvents.length >= 64) {
+      final oldest = _topicEvents.keys.first;
+      _topicEvents.removeWhere((key, _) => key == oldest);
+    }
+    final lease = requests.capture(site);
+    final revision = accountRevision(site);
+    bool current() => lease.isCurrent && isAccountCurrent(site, revision);
+    late final Future<PostEvent?> future;
+    future = () async {
+      try {
+        final credentials = await requests.credentialsFor(site);
+        if (!current()) return null;
+        final event = await credentials.run(
+          () => api.byTopic(site, topicId, credentials),
+        );
+        return current() ? event : null;
+      } catch (_) {
+        _topicEvents.removeWhere(
+          (heldKey, held) => heldKey == key && identical(held, future),
+        );
+        return null;
+      }
+    }();
+    _topicEvents[key] = future;
+    return future;
+  }
 
   List<PostEvent> cachedUpcoming(String site) => _upcoming[site] ?? const [];
   final _trackers = <String, PluginLiveChannelHandle>{};
@@ -382,6 +416,7 @@ final class EventController extends FrameSafeNotifier
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) {
+    _topicEvents.removeWhere((key, _) => key.$1 == siteUrl);
     _upcoming.remove(siteUrl);
     _accountRevisions[siteUrl] = accountRevision(siteUrl) + 1;
     final entries = _entries.values.where((e) => e.site == siteUrl).toList();
@@ -423,6 +458,7 @@ final class EventController extends FrameSafeNotifier
   }
 
   void forget(String site) {
+    _topicEvents.removeWhere((key, _) => key.$1 == site);
     _upcoming.remove(site);
     _accountRevisions[site] = accountRevision(site) + 1;
     _trackers.remove(site);
@@ -448,6 +484,7 @@ final class EventController extends FrameSafeNotifier
       entry.subscription?.cancel();
     }
     _entries.clear();
+    _topicEvents.clear();
     _trackers.clear();
     _readerChanges.dispose();
     super.dispose();

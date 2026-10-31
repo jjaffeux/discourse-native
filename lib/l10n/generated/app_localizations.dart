@@ -23234,6 +23234,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bot account'**
   String get chatBotAccount;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording URL'**
+  String get eventRecordingUrl;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid HTTP or HTTPS recording URL.'**
+  String get eventRecordingUrlInvalid;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Add recording'**
+  String get eventAddRecording;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit recording'**
+  String get eventEditRecording;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch recording'**
+  String get eventWatchRecording;
 }
 
 class _AppLocalizationsDelegate
