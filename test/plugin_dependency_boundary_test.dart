@@ -17,6 +17,7 @@ const _pluginIdsByDirectory = <String, String>{
   'discourse_placeholder': 'discourse-placeholder',
   'gifs': 'gifs',
   'local_dates': 'discourse-local-dates',
+  'nested_replies': 'nested-replies',
   'poll': 'poll',
   'prometheus_alert_receiver': 'discourse-prometheus-alert-receiver',
   'reactions': 'discourse-reactions',
@@ -88,6 +89,7 @@ const _featureModuleEntrypoints = <String>{
   'discourse_placeholder/discourse_placeholder_module.dart',
   'gifs/gifs_module.dart',
   'local_dates/local_dates_module.dart',
+  'nested_replies/nested_replies_module.dart',
   'poll/poll_module.dart',
   'prometheus_alert_receiver/prometheus_alert_receiver_module.dart',
   'reactions/reactions_module.dart',
@@ -568,6 +570,12 @@ void main() {
       'shared layers do not name optional feature schemas or identities',
       () {
         const tokens = {
+          'is_nested_view',
+          'has_new_replies',
+          'isNestedView',
+          'hasNewReplies',
+          'nested_replies_',
+          '/n/',
           'chat_channel_list_',
           'chat_separate_sidebar_mode',
           'newDirectMessageShortcutForPlatform',

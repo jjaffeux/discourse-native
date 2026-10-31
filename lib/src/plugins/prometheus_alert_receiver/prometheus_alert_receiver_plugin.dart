@@ -42,8 +42,11 @@ final class PrometheusAlertReceiverPlugin
   PluginDataKey<AlertData> get record => alertDataKey;
 
   @override
-  AlertData? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      AlertData.decode(json);
+  AlertData? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => AlertData.decode(json);
 
   @override
   PluginDataPersistenceCodec<AlertLinkSettings> get siteSettingsCodec =>

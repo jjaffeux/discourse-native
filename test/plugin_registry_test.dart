@@ -887,7 +887,11 @@ final class _RecordPlugin extends _NamedPlugin
   }
 
   @override
-  _Record? readTopic(Map<String, dynamic> json, String siteUrl) {
+  _Record? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) {
     final value = json['topic_value'];
     return value is String ? _Record(value) : null;
   }

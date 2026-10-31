@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/topic_read_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/topic_reading_policy_fixture.dart';
 
 final class _PendingRead {
   _PendingRead({
@@ -125,6 +126,78 @@ void main() {
       for (final request in api.requests.skip(first)) request.postNumbers,
     ];
   }
+
+  test(
+    'activity catch-up position does not suppress actual visible timings',
+    () async {
+      const site = 'https://one.example';
+      credentials.keys[site] = 'key';
+      store.put(
+        site,
+        _topic(
+          lastRead: 100,
+          highest: 100,
+        ).copyWith(plugins: activityTopicData()),
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            site,
+            1,
+            9,
+            caughtUp: false,
+            readPostNumbers: [4, 9],
+          ),
+        ),
+        [
+          [4, 9],
+        ],
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            site,
+            1,
+            9,
+            caughtUp: false,
+            readPostNumbers: [4, 9],
+          ),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'switching readers removes the old position floor but keeps admitted timings',
+    () async {
+      const site = 'https://one.example';
+      credentials.keys[site] = 'key';
+      store.put(site, _topic(lastRead: 100, highest: 101));
+      expect(await sent(() => controller.mark(site, 1, 101, caughtUp: false)), [
+        [101],
+      ]);
+      store.update<Topic>(
+        site,
+        1,
+        (topic) => topic.copyWith(plugins: activityTopicData()),
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            site,
+            1,
+            101,
+            caughtUp: false,
+            readPostNumbers: [4, 9, 101],
+          ),
+        ),
+        [
+          [4, 9],
+        ],
+      );
+    },
+  );
 
   group('local read projection', () {
     test(

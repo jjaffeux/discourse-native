@@ -86,6 +86,28 @@ typedef NotificationTypeDecoder =
       DiscourseNotification notification,
     );
 
+@immutable
+final class PluginNotificationPresentationContext {
+  const PluginNotificationPresentationContext({
+    required this.siteUrl,
+    required this.notification,
+    required this.fallback,
+  });
+
+  final String siteUrl;
+  final DiscourseNotification notification;
+  final ResolvedNotification fallback;
+}
+
+/// A session-owned presentation for a type whose wire ownership stays intact.
+/// Return null when this site/account cannot currently use the contribution.
+abstract interface class PluginNotificationPresentationStrategy
+    implements PluginSessionCapability {
+  ResolvedNotification? resolveNotification(
+    PluginNotificationPresentationContext context,
+  );
+}
+
 enum CoreNotificationMenuSection { likes }
 
 @immutable

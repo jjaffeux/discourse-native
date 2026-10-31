@@ -16,10 +16,11 @@ sealed class ContentDestination {
   };
 
   Object get identity => switch (this) {
-    TopicDestination(:final topicId) => (
+    TopicDestination(:final topicId, :final query) => (
       TopicDestination,
       key,
       topicId,
+      query,
       feedPath,
     ),
     FeedDestination(:final mode) => (FeedDestination, key, mode, feedPath),
@@ -54,11 +55,17 @@ sealed class ContentDestination {
       legacyKey: key ?? this.key,
     ),
     GroupDestination(:final route) => GroupDestination(route, sourcePath: path),
-    TopicDestination(:final topicId, :final slug, :final postNumber) =>
+    TopicDestination(
+      :final topicId,
+      :final slug,
+      :final postNumber,
+      :final query,
+    ) =>
       TopicDestination(
         topicId: topicId,
         slug: slug,
         postNumber: postNumber,
+        query: query,
         retainedFeedPath: path,
         legacyKey: key ?? this.key,
       ),
@@ -75,6 +82,7 @@ final class TopicDestination extends ContentDestination {
     required this.topicId,
     this.slug,
     this.postNumber,
+    this.query,
     this.retainedFeedPath,
     this.legacyKey,
   }) : assert(topicId > 0),
@@ -82,6 +90,9 @@ final class TopicDestination extends ContentDestination {
   final int topicId;
   final String? slug;
   final int? postNumber;
+
+  /// Opaque canonical topic query, interpreted by the selected reader.
+  final String? query;
 
   /// Old saved topics can contain an unused feed path. Retain it losslessly.
   final String? retainedFeedPath;

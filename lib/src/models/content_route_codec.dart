@@ -8,6 +8,7 @@ final class ContentRouteCodec {
     int? topicId,
     String? slug,
     int? postNumber,
+    String? topicQuery,
     String? feedPath,
     String? messageGroupName,
     GroupRoute? groupRoute,
@@ -29,6 +30,7 @@ final class ContentRouteCodec {
           topicId: topicId,
           slug: slug,
           postNumber: postNumber,
+          query: topicQuery,
           retainedFeedPath: feedPath,
           legacyKey: id,
         );
@@ -111,6 +113,7 @@ final class ContentRouteCodec {
     int? topicId,
     String? slug,
     int? postNumber,
+    String? topicQuery,
     String? feedPath,
     String? messageGroupName,
     GroupRoute? groupRoute,
@@ -121,6 +124,7 @@ final class ContentRouteCodec {
         topicId: topicId,
         slug: slug,
         postNumber: postNumber,
+        query: topicQuery,
         retainedFeedPath: feedPath,
         legacyKey: id,
       );
@@ -197,6 +201,7 @@ final class ContentRouteCodec {
     if (route.topicId != null) 'topic_id': route.topicId,
     if (route.slug != null) 'slug': route.slug,
     if (route.postNumber != null) 'post_number': route.postNumber,
+    if (route.topicQuery != null) 'topic_query': route.topicQuery,
     if (route.feedPath != null) 'feed_path': route.feedPath,
     if (route.messageGroupName != null)
       'message_group_name': route.messageGroupName,
@@ -219,6 +224,7 @@ final class ContentRouteCodec {
     final colorValue = json['color'];
     final topicId = json['topic_id'];
     final postNumber = json['post_number'];
+    final topicQuery = json['topic_query'];
     final feedPath = json['feed_path'];
     final messageGroupName = json['message_group_name'];
     final rawGroupRoute = json['group_route'];
@@ -227,6 +233,14 @@ final class ContentRouteCodec {
     }
     if (postNumber != null && (postNumber is! int || postNumber <= 0)) {
       throw FormatException(appL10n.invalidContentRoutePostNumber);
+    }
+    if (topicQuery != null &&
+        (topicId == null ||
+            topicQuery is! String ||
+            topicQuery.isEmpty ||
+            topicQuery.length > TopicLink.maximumUrlLength ||
+            topicQuery.contains(RegExp(r'[\x00-\x1f\x7f#]')))) {
+      throw FormatException(appL10n.invalidContentRoute);
     }
     if (feedPath != null && !_isSafeFeedPath(feedPath)) {
       throw FormatException(appL10n.invalidContentRouteFeedPath);
@@ -289,6 +303,7 @@ final class ContentRouteCodec {
             topicId: topicId as int?,
             slug: json['slug'] is String ? json['slug'] as String : null,
             postNumber: postNumber as int?,
+            topicQuery: topicQuery as String?,
             feedPath: feedPath as String?,
             messageGroupName: messageGroupName as String?,
             groupRoute: groupRoute,
@@ -301,6 +316,7 @@ final class ContentRouteCodec {
             topicId: topicId as int?,
             slug: json['slug'] is String ? json['slug'] as String : null,
             postNumber: postNumber as int?,
+            topicQuery: topicQuery as String?,
             feedPath: feedPath as String?,
             messageGroupName: messageGroupName as String?,
             groupRoute: groupRoute,
@@ -382,6 +398,9 @@ final class ContentRouteCodec {
         slug: topic.slug,
         title: title ?? topic.placeholderTitle,
         postNumber: topic.postNumber,
+        query: topic.uri.hasQuery && topic.uri.query.isNotEmpty
+            ? topic.uri.query
+            : null,
       );
     }
     if (ListLink.parse(url, siteUrl: instance.url) case final list?) {

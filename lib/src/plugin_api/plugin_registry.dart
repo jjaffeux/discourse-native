@@ -24,6 +24,7 @@ import 'global_search.dart';
 import 'plugin_manifest.dart';
 import 'plugin_scope.dart';
 import 'site_plugin_api.dart';
+import 'topic_reader.dart';
 
 final RegExp _notificationWireNamePattern = RegExp(
   r'^[a-z0-9]+(?:_[a-z0-9]+)*$',
@@ -79,9 +80,16 @@ final class _TopicRecordDecoderPlugin
       : null;
 
   @override
-  Object? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      _source is TopicRecordPlugin<Object>
-      ? (_source as TopicRecordPlugin<Object>).readTopic(json, siteUrl)
+  Object? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => _source is TopicRecordPlugin<Object>
+      ? (_source as TopicRecordPlugin<Object>).readTopic(
+          json,
+          siteUrl,
+          context: context,
+        )
       : null;
 
   @override
@@ -1316,10 +1324,14 @@ final class PluginRegistry
   }
 
   @override
-  PluginData readTopic(Map<String, dynamic> json, String siteUrl) {
+  PluginData readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) {
     var values = PluginData.none;
     for (final plugin in plugins.whereType<TopicRecordPlugin<Object>>()) {
-      final value = plugin.readTopic(json, siteUrl);
+      final value = plugin.readTopic(json, siteUrl, context: context);
       if (value != null) {
         values = values.withValueFor(_recordKeyFor(plugin), value);
       }
@@ -2294,6 +2306,44 @@ final class PluginRegistry
     return null;
   }
 
+  bool get hasTopicReaders =>
+      plugins.any((plugin) => plugin is TopicReaderPlugin);
+
+  SitePlugin? _topicReader(TopicReaderProbe probe) {
+    final matches = plugins
+        .where(
+          (plugin) =>
+              plugin is TopicReaderPlugin &&
+              (plugin as TopicReaderPlugin).readsTopic(probe),
+        )
+        .toList(growable: false);
+    if (matches.length > 1) {
+      throw StateError(
+        'Multiple plugins claim topic reader ${probe.topic.id}.',
+      );
+    }
+    return matches.singleOrNull;
+  }
+
+  bool hasReaderFor(TopicReaderProbe probe) => _topicReader(probe) != null;
+
+  Widget? buildTopicReader(
+    BuildContext context,
+    TopicReaderProbe probe,
+    PluginTopicReader reader,
+  ) {
+    final plugin = _topicReader(probe);
+    return plugin == null
+        ? null
+        : _owned(
+            plugin,
+            (plugin as TopicReaderPlugin).buildTopicReader(
+              _uiContext(context, plugin),
+              reader,
+            ),
+          );
+  }
+
   GlobalSearchContext? contentSearchContext(BuildContext context) {
     for (final plugin in plugins.whereType<ContentSearchPlugin>()) {
       final pluginContext = _uiContext(context, plugin);
@@ -2346,6 +2396,22 @@ final class PluginRegistry
               plugin.contentHeaderActions(_uiContext(context, plugin), route),
             ),
       ];
+
+  List<Widget> topicListHeaderActions(
+    BuildContext context,
+    String siteUrl,
+    ContentRoute route,
+  ) => [
+    for (final plugin in plugins.whereType<TopicListHeaderPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.topicListHeaderActions(
+          _uiContext(context, plugin),
+          siteUrl,
+          route,
+        ),
+      ),
+  ];
 
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
     if (route.destination is! ExtensionDestination) return null;

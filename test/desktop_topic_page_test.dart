@@ -40,6 +40,25 @@ final _allLists = find.byType(TopicListView, skipOffstage: false);
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('minimized reader panel is not foreground', (tester) async {
+    final h = await _setup(tester, size: const Size(1800, 1000));
+    _openTopicTab(h.shell, h.topics.first);
+    await tester.pumpAndSettle();
+    final tab = h.shell.selectedTabIn(ForumPanel.secondary)!;
+    final reader = h.shell.createTopicReader(
+      h.shell.tabContext(tab.id),
+      tab.currentContent,
+    );
+    addTearDown(reader.close);
+    expect(reader.foreground, isTrue);
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicView), findsNothing);
+    expect(find.byType(TopicView, skipOffstage: false), findsOneWidget);
+    expect(reader.isCurrent, isTrue);
+    expect(reader.foreground, isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'panel tabs and layout actions sit above a continuous page header',
     (tester) async {

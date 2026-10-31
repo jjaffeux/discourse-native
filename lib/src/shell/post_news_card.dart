@@ -22,8 +22,10 @@ class PostNewsCard extends StatelessWidget {
     required this.post,
     required this.child,
     this.topicBookmark,
+    this.heading,
     this.headers = const [],
     this.decorationTone,
+    this.margin = const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
   });
 
   final String siteUrl;
@@ -31,8 +33,10 @@ class PostNewsCard extends StatelessWidget {
   final Post post;
   final Widget child;
   final Bookmark? topicBookmark;
+  final Widget? heading;
   final List<Widget> headers;
   final Color? decorationTone;
+  final EdgeInsetsGeometry margin;
 
   static bool containsNews(Post post, {Bookmark? topicBookmark}) =>
       post.isWhisper ||
@@ -70,9 +74,14 @@ class PostNewsCard extends StatelessWidget {
       builder: (context, highlighted, _) => Padding(
         // The enclosing post highlight reserves its 1px outline. Leave one
         // more pixel clear between this card and the topic's outer outline.
-        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
+        padding: margin,
         child: !hasNews && !highlighted
-            ? child
+            ? heading == null
+                  ? child
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [heading!, child],
+                    )
             : DCard(
                 key: ValueKey('post-news-card-${post.id}'),
                 duration: DMotion.duration(context, DMotion.change),
@@ -89,6 +98,7 @@ class PostNewsCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    ?heading,
                     DReveal(
                       visible:
                           post.isDeleted ||

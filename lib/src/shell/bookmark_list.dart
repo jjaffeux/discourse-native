@@ -371,7 +371,8 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         for (final reminder in feed.reminders)
           Builder(
             builder: (context) {
-              final resolved = controller.plugins.registry.resolveNotification(
+              final resolved = controller.pluginSession.resolveNotification(
+                controller.plugins.registry,
                 widget.siteUrl,
                 reminder,
               );

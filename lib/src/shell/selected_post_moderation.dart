@@ -93,6 +93,7 @@ final class _SelectedPostModeration {
     required this.topicData,
     required this.policy,
     required this.changed,
+    required this.postOrder,
   });
 
   final Store store;
@@ -102,6 +103,7 @@ final class _SelectedPostModeration {
   final TopicDataOwner topicData;
   final _PostMutationPolicy policy;
   final void Function() changed;
+  final List<int> Function(String siteUrl, int topicId) postOrder;
   final Map<_SelectedPostsKey, _SelectedPostsSelection> _selectedPosts = {};
   bool _disposed = false;
 
@@ -133,7 +135,7 @@ final class _SelectedPostModeration {
     final selected = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids;
     if (detail == null || selected == null || selected.isEmpty) return const [];
     return List.unmodifiable([
-      for (final id in detail.stream)
+      for (final id in {...postOrder(siteUrl, topicId), ...selected})
         if (selected.contains(id)) ?store.read<Post>(siteUrl, id),
     ]);
   }
@@ -164,7 +166,7 @@ final class _SelectedPostModeration {
         topic == null ||
         !topic.canSelectPosts ||
         selection.active != null ||
-        !topic.stream.contains(postId) ||
+        !topicData.forSite(siteUrl).containsPost(topicId, postId) ||
         store.read<Post>(siteUrl, postId) == null) {
       return;
     }
@@ -184,7 +186,10 @@ final class _SelectedPostModeration {
     selection.ids
       ..clear()
       ..addAll(
-        topic.stream.where((id) => store.read<Post>(siteUrl, id) != null),
+        postOrder(
+          siteUrl,
+          topicId,
+        ).where((id) => store.read<Post>(siteUrl, id) != null),
       );
     changed();
   }

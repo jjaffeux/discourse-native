@@ -21,6 +21,43 @@ final toggleExamples = ComponentExamples(
       'Lucide example artwork, live palette/font/radius, RTL composition and reduced motion.',
   examples: [
     StyleguideExample(
+      title: 'Disclosure',
+      description:
+          'A compact circular foreground outline for expanding and collapsing a branch.',
+      states: const ['Collapsed', 'Expanded', 'Focus', 'Disabled'],
+      code: '''DToggle.iconOnly(
+  density: DToggleDensity.disclosure,
+  semanticLabel: 'Expand replies',
+  icon: const Icon(Icons.remove),
+  selectedIcon: const Icon(Icons.add),
+)''',
+      builder: (_) => const Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 16,
+        children: [
+          DToggle.iconOnly(
+            density: DToggleDensity.disclosure,
+            semanticLabel: 'Collapse replies',
+            icon: Icon(Icons.remove),
+            selectedIcon: Icon(Icons.add),
+          ),
+          DToggle.iconOnly(
+            density: DToggleDensity.disclosure,
+            pressed: true,
+            semanticLabel: 'Expand replies',
+            icon: Icon(Icons.remove),
+            selectedIcon: Icon(Icons.add),
+          ),
+          DToggle.iconOnly(
+            density: DToggleDensity.disclosure,
+            enabled: false,
+            semanticLabel: 'Replies unavailable',
+            icon: Icon(Icons.remove),
+          ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Post reactions',
       description:
           'Flat 30px pills with accent selection and a circular add action.',

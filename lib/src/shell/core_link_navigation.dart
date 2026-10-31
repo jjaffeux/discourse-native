@@ -69,9 +69,17 @@ extension _CoreLinkNavigation on ShellController {
         if (route.feedPath != null) unawaited(loadFeed(route.id));
       case TopicDestination(:final topicId, :final slug, :final postNumber):
         if (currentContent?.topicId == topicId) {
-          final targetPost = refresh ? postNumber ?? 1 : postNumber;
+          final queryChanged = route.topicQuery != currentContent?.topicQuery;
+          final targetPost = refresh || queryChanged
+              ? postNumber ?? 1
+              : postNumber;
           if (targetPost != null) {
-            openCurrentTopicPost(targetPost, loadAroundPost: refresh);
+            openCurrentTopicPost(
+              targetPost,
+              loadAroundPost: refresh,
+              query: route.topicQuery,
+              replaceQuery: true,
+            );
           } else if (rootChanged) {
             _notify();
           }
@@ -82,6 +90,7 @@ extension _CoreLinkNavigation on ShellController {
           slug ?? '',
           route.title,
           postNumber: postNumber,
+          query: route.topicQuery,
           force: refresh,
           resetScrollPosition: postNumber != null,
         );

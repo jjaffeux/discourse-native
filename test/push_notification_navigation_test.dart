@@ -27,6 +27,63 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'topic notification queries survive opening and retargeting a tab',
+    () async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        topics: {42: topicPayload(id: 42, title: 'Opaque intent')},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: _readerKeys(api),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(
+        await controller.openNotificationUrl(
+          'https://one.example/t/opaque/42/3?view=first&token=a&token=b',
+        ),
+        isTrue,
+      );
+      await _waitForTopic(controller);
+      expect(
+        controller.currentContent?.topicQuery,
+        'view=first&token=a&token=b',
+      );
+      controller.openCurrentTopicPost(4);
+      await _waitForTopic(controller);
+      expect(
+        controller.currentContent?.topicQuery,
+        'view=first&token=a&token=b',
+      );
+
+      expect(
+        await controller.openNotificationUrl(
+          'https://one.example/t/opaque/42?view=second',
+        ),
+        isTrue,
+      );
+      await _waitForTopic(controller);
+      expect(controller.currentContent?.topicQuery, 'view=second');
+      expect(controller.currentContent?.postNumber, 1);
+
+      expect(
+        await controller.openNotificationUrl(
+          'https://one.example/t/opaque/42/7',
+        ),
+        isTrue,
+      );
+      await _waitForTopic(controller);
+      expect(controller.currentContent?.topicQuery, isNull);
+      expect(controller.currentContent?.postNumber, 7);
+    },
+  );
+
+  test(
     'Android notification taps reach the existing navigation stream',
     () async {
       const channel = EventChannel('test.discourse.native/notification_opens');

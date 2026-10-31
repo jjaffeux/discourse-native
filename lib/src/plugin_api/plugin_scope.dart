@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../models/notification.dart';
 import '../theme/d_icon.dart';
+import 'notification_types.dart';
 import 'plugin_registry.dart';
 import 'plugin_runtime.dart';
 
@@ -42,6 +44,11 @@ class PluginScope extends InheritedWidget {
 
   final PluginSession _session;
   final PluginRegistry registry;
+
+  ResolvedNotification resolveNotification(
+    String siteUrl,
+    DiscourseNotification notification,
+  ) => _session.resolveNotification(registry, siteUrl, notification);
 
   PluginOwnedServices _servicesFor(PluginId owner) =>
       _session.servicesFor(owner);

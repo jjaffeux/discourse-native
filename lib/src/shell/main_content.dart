@@ -43,6 +43,7 @@ import 'message_inbox_title.dart';
 import 'new_tab_page.dart';
 import 'open_link.dart';
 import 'platform.dart';
+import 'plugin_topic_reader.dart';
 import 'preferences_page.dart';
 import 'resizable_pane.dart';
 import 'search_words.dart';
@@ -412,6 +413,12 @@ class _MainContentBody extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               ...registry.contentHeaderActions(context, route),
+              if (state.siteUrl != null)
+                ...registry.topicListHeaderActions(
+                  context,
+                  state.siteUrl!,
+                  route,
+                ),
               _TopicCreateAction(
                 controller: ShellScope.read(context),
                 compact: ShellTitleBar.isSupported,
@@ -688,6 +695,12 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         );
         final headingActionChildren = [
           ...registry.contentHeaderActions(context, sourceRoute),
+          if (state.siteUrl != null && !messages)
+            ...registry.topicListHeaderActions(
+              context,
+              state.siteUrl!,
+              sourceRoute,
+            ),
           if (state.siteUrl != null &&
               !messages &&
               !controller.mobileNavigationEnabled)
@@ -816,16 +829,20 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 tabs: const TopicPanelTabs(),
                 child: DesktopTopicPage(
                   sourceListVisible: split,
-                  child: TopicView(
-                    key: ValueKey(state.route!.topicId),
-                    inbox: true,
-                    keepTopicListOpen: split,
+                  child: TopicReaderOutlet(
                     route: state.route!,
-                    canReturnToSidebar: layout.isCompact,
-                    canReply: state.canReply,
-                    bookmarkBusy: state.bookmarkBusy,
-                    isConnected: state.isConnected,
                     registry: registry,
+                    ordinary: TopicView(
+                      key: ValueKey(state.route!.topicId),
+                      inbox: true,
+                      keepTopicListOpen: split,
+                      route: state.route!,
+                      canReturnToSidebar: layout.isCompact,
+                      canReply: state.canReply,
+                      bookmarkBusy: state.bookmarkBusy,
+                      isConnected: state.isConnected,
+                      registry: registry,
+                    ),
                   ),
                 ),
               )
@@ -1011,14 +1028,18 @@ class _ContentViewport extends StatelessWidget {
     final site = siteUrl;
     return switch (route.destination) {
       TopicDestination() => DesktopTopicPage(
-        child: TopicView(
-          inbox: true,
-          canReturnToSidebar: layout.isCompact,
+        child: TopicReaderOutlet(
           route: route,
-          canReply: canReply,
-          bookmarkBusy: bookmarkBusy,
-          isConnected: isConnected,
           registry: registry,
+          ordinary: TopicView(
+            inbox: true,
+            canReturnToSidebar: layout.isCompact,
+            route: route,
+            canReply: canReply,
+            bookmarkBusy: bookmarkBusy,
+            isConnected: isConnected,
+            registry: registry,
+          ),
         ),
       ),
       MessagesDestination() when !isConnected =>

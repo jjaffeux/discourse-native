@@ -5,6 +5,8 @@ import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/unread_topic_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/topic_reading_policy_fixture.dart';
+
 void main() {
   test('reconciled reads leave unread queues until a newer reply arrives', () {
     final tracking = TopicTrackingReconciler();
@@ -179,13 +181,12 @@ void main() {
     );
   });
 
-  test('nested conversations use their reply flag', () {
-    const row = Topic(
+  test('activity readers use their explicit activity state', () {
+    final row = Topic(
       id: 1,
-      title: 'Nested',
+      title: 'Activity',
       slug: 'nested',
-      isNestedView: true,
-      hasNewReplies: true,
+      plugins: activityTopicData(),
       lastReadPostNumber: 10,
       highestPostNumber: 10,
     );

@@ -530,6 +530,10 @@ class _DesktopPanelsState extends State<DesktopPanels>
             autoCollapsed != null && shell.selectedTabIn(remaining) != null
             ? remaining
             : shell.activeTab?.panel ?? ForumPanel.main;
+        shell.presentForumPanels({
+          for (final panel in ForumPanel.values)
+            if (horizontal ? panel != minimized : panel == active) panel,
+        });
         if (!horizontal &&
             autoCollapsed != null &&
             shell.activeTab?.panel != active) {

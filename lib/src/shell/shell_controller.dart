@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart'
         Listenable,
         ValueListenable,
         listEquals,
+        setEquals,
         FlutterError,
         FlutterErrorDetails,
         ErrorDescription;
@@ -117,6 +118,7 @@ import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../plugin_api/topic_reader.dart';
 import '../site_preference_inventory.g.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
@@ -525,6 +527,9 @@ class ShellController extends FrameSafeNotifier
         lifecycle: lifecycle,
       );
 
+  final Map<PluginId, _ShellTopicReaderHost> _pluginReaderHosts = {};
+  final Map<PluginId, _ShellPluginTopicRecordsHost> _pluginRecordHosts = {};
+
   late final PluginSession _pluginSession = plugins.openSession(
     PluginHostBindings(<PluginHostPort<Object>>[
       PluginHostPort<Object>(corePluginTransportPort, api.pluginTransport),
@@ -544,7 +549,8 @@ class ShellController extends FrameSafeNotifier
             final post = store.read<Post>(siteUrl, postId);
             if (currentInstance?.url != siteUrl ||
                 post == null ||
-                currentTopic?.stream.contains(postId) != true ||
+                currentTopic == null ||
+                !topicContainsPost(siteUrl, currentTopic!.id, postId) ||
                 !post.canEdit) {
               return false;
             }
@@ -567,7 +573,7 @@ class ShellController extends FrameSafeNotifier
                 currentInstance?.url != siteUrl ||
                 topic == null ||
                 post == null ||
-                !topic.stream.contains(postId)) {
+                !topicContainsPost(siteUrl, topic.id, postId)) {
               return;
             }
             await openQuote(
@@ -605,6 +611,26 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       _pluginPostHostPort(),
+      PluginHostPort<Object>(
+        corePluginTopicReaderPort,
+        _ShellTopicReaderHost(this),
+        scopeToConsumer: (consumer) => _pluginReaderHosts.putIfAbsent(
+          consumer,
+          () => _ShellTopicReaderHost(this),
+        ),
+        revokeConsumer: (consumer) =>
+            _pluginReaderHosts.remove(consumer)?.retire(),
+      ),
+      PluginHostPort<Object>(
+        corePluginTopicRecordsPort,
+        _ShellPluginTopicRecordsHost(this, const PluginId('core')),
+        scopeToConsumer: (consumer) => _pluginRecordHosts.putIfAbsent(
+          consumer,
+          () => _ShellPluginTopicRecordsHost(this, consumer),
+        ),
+        revokeConsumer: (consumer) =>
+            _pluginRecordHosts.remove(consumer)?.retire(),
+      ),
       PluginHostPort<Object>(
         corePluginAccountConnectionPort,
         _ShellPluginAccountConnectionHost(this),
@@ -1439,6 +1465,15 @@ class ShellController extends FrameSafeNotifier
   @override
   bool get desktopPanelsEnabled => desktopTopicTabs && forumTabsEnabled;
 
+  Set<ForumPanel> _visibleForumPanels = Set.of(ForumPanel.values);
+
+  void presentForumPanels(Set<ForumPanel> panels) {
+    if (setEquals(_visibleForumPanels, panels)) return;
+    _visibleForumPanels = Set.unmodifiable(panels);
+    _syncTopicChannels();
+    notifySafely();
+  }
+
   bool isTabVisible(String? id) {
     if (id == null) {
       return false;
@@ -1447,7 +1482,9 @@ class ShellController extends FrameSafeNotifier
     if (workspace == null) return false;
     if (!desktopTopicTabs) return workspace.activeTabId == id;
     return ForumPanel.values.any(
-      (panel) => workspace.selectedTabIn(panel)?.id == id,
+      (panel) =>
+          _visibleForumPanels.contains(panel) &&
+          workspace.selectedTabIn(panel)?.id == id,
     );
   }
 
@@ -3561,7 +3598,7 @@ class ShellController extends FrameSafeNotifier
     if (detail != null) return detail.resumePostNumberAfter(read) == null;
     final row = store.read<Topic>(siteUrl, topicId);
     if (row == null) return false;
-    if (row.isNestedView) return true;
+    if (!row.readingPolicy.allowsChronologicalResume) return true;
     return (read ?? 0) <= 1 && (row.lastReadPostNumber ?? 0) <= 1;
   }
 
@@ -3642,6 +3679,22 @@ class ShellController extends FrameSafeNotifier
   );
 
   bool _foreground = true;
+
+  final _readerEvents =
+      StreamController<
+        ({String siteUrl, Object account, int topicId, Object? data})
+      >.broadcast(sync: true);
+
+  PluginTopicReader createTopicReader(
+    ShellTabContext context,
+    ContentRoute route,
+  ) => _ShellTopicReader(this, context, route);
+
+  bool topicReaderResolved(String siteUrl, int topicId) =>
+      _topicData.forSite(siteUrl).readerResolved(topicId);
+
+  Object? topicReaderFailure(String siteUrl, int topicId) =>
+      _topicData.forSite(siteUrl).readerFailure(topicId);
 
   /// When the app left the foreground; null while it is in it.
   DateTime? _backgroundedAt;
@@ -3751,12 +3804,11 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _syncTopicWatch(String siteUrl, SiteTracker tracker) {
-    // Every panel's selected document is on screen, so each keeps its topic
-    // live. Without panels (touch layouts, phones) only the active tab is.
     final visible = desktopPanelsEnabled
         ? [
             for (final panel in ForumPanel.values)
-              selectedTabIn(panel)?.currentContent,
+              if (isTabVisible(selectedTabIn(panel)?.id))
+                selectedTabIn(panel)?.currentContent,
           ]
         : [currentContent];
     final routes = <int, ContentRoute>{
@@ -3793,6 +3845,12 @@ class ShellController extends FrameSafeNotifier
           final topicId = entry.key;
           final coreChannel = '/topic/$topicId';
           if (channel == coreChannel) {
+            _readerEvents.add((
+              siteUrl: siteUrl,
+              account: lease.session,
+              topicId: topicId,
+              data: data,
+            ));
             _notificationPreferences.observeTopicMessage(
               siteUrl,
               topicId,
@@ -3806,7 +3864,8 @@ class ShellController extends FrameSafeNotifier
           final core = channel == coreChannel
               ? _coreTopicMessageInvalidation(siteUrl, data)
               : _noCoreTopicInvalidation;
-          if (core.stream ||
+          if ((core.stream &&
+                  !_topicData.forSite(siteUrl).usesReader(topicId)) ||
               plugins.registry.staleTopic(topicId, channel, data)) {
             unawaited(
               _topicData
@@ -4354,6 +4413,24 @@ class ShellController extends FrameSafeNotifier
     content: api.topicContent,
     feeds: api.topicFeeds,
     models: api.models,
+    acceptedPost: (siteUrl, topicId, post) {
+      final lease = lifecycle.capture(siteUrl);
+      _readerEvents.add((
+        siteUrl: siteUrl,
+        account: lease.session,
+        topicId: topicId,
+        data: {'type': 'created', 'id': post.id},
+      ));
+    },
+    usesReader: plugins.registry.hasTopicReaders
+        ? (siteUrl, topic) => plugins.registry.hasReaderFor(
+            TopicReaderProbe(
+              siteUrl: siteUrl,
+              topic: topic,
+              config: siteConfigFor(siteUrl),
+            ),
+          )
+        : null,
     store: store,
     credentials: credentials,
     lifecycle: lifecycle,
@@ -4475,6 +4552,9 @@ class ShellController extends FrameSafeNotifier
       focusedTabContext.currentTopicStreamIds;
 
   List<int> get currentPostIds => focusedTabContext.currentPostIds;
+
+  bool topicContainsPost(String siteUrl, int topicId, int postId) =>
+      _topicData.forSite(siteUrl).containsPost(topicId, postId);
 
   late final _readerProjections = TopicReaderProjections(store);
 
@@ -4891,6 +4971,7 @@ class ShellController extends FrameSafeNotifier
     String slug,
     String title, {
     int? postNumber,
+    String? query,
     bool force = false,
     bool replace = false,
     bool resetScrollPosition = false,
@@ -4925,6 +5006,7 @@ class ShellController extends FrameSafeNotifier
       slug: slug,
       title: title,
       postNumber: postNumber,
+      query: query,
     );
     // An explicit post destination supersedes the last reading position from
     // an earlier visit to this topic in the same tab.
@@ -5129,8 +5211,17 @@ class ShellController extends FrameSafeNotifier
         _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
   }
 
-  void openCurrentTopicPost(int postNumber, {bool loadAroundPost = false}) {
-    final target = _targetCurrentTopicPost(postNumber);
+  void openCurrentTopicPost(
+    int postNumber, {
+    bool loadAroundPost = false,
+    String? query,
+    bool replaceQuery = false,
+  }) {
+    final target = _targetCurrentTopicPost(
+      postNumber,
+      query: query,
+      replaceQuery: replaceQuery,
+    );
     if (target == null) return;
     unawaited(
       loadTopic(
@@ -5146,6 +5237,8 @@ class ShellController extends FrameSafeNotifier
     int postNumber, {
     ShellTabContext? context,
     int? topicId,
+    String? query,
+    bool replaceQuery = false,
   }) {
     final document = context ?? focusedTabContext;
     if (!document.isCurrent) return null;
@@ -5160,6 +5253,7 @@ class ShellController extends FrameSafeNotifier
           topicId: topicId,
           slug: route.slug,
           postNumber: postNumber,
+          query: replaceQuery ? query : route.topicQuery,
           legacyKey: route.id,
           retainedFeedPath: route.feedPath,
         ),
@@ -5453,6 +5547,7 @@ class ShellController extends FrameSafeNotifier
                 topicId: topicId,
                 slug: route.slug,
                 postNumber: postNumber,
+                query: route.topicQuery,
                 legacyKey: route.id,
                 retainedFeedPath: route.feedPath,
               ),
@@ -5677,7 +5772,13 @@ class ShellController extends FrameSafeNotifier
     // Update counts and visible queues from that same optimistic position.
     final position = _topicReads.lastReadPostNumberFor(siteUrl, topicId);
     if (!isDisposed && lease.isCurrent && position != null) {
-      tracking?.markRead(topicId, position);
+      if (store
+              .read<Topic>(siteUrl, topicId)
+              ?.readingPolicy
+              .usesPositionForCatchUp !=
+          false) {
+        tracking?.markRead(topicId, position);
+      }
       if (tracking?.isCurrent == true && currentInstance?.url == siteUrl) {
         _notifyLiveChange();
       }
@@ -6749,7 +6850,7 @@ class ShellController extends FrameSafeNotifier
       !isDisposed &&
       currentInstance?.url == siteUrl &&
       currentContent?.topicId == topicId &&
-      currentTopic?.stream.contains(postId) == true;
+      topicContainsPost(siteUrl, topicId, postId);
 
   static ({int start, int end})? _uniqueTextMatch(
     String source,
@@ -6973,6 +7074,7 @@ class ShellController extends FrameSafeNotifier
     store: store,
     instanceFor: _instanceAt,
     selectedSite: () => currentInstance?.url,
+    containsPost: topicContainsPost,
     isDisposed: () => isDisposed,
   );
 
@@ -6985,6 +7087,14 @@ class ShellController extends FrameSafeNotifier
         topicData: _topicData,
         policy: _postMutationPolicy,
         changed: _notify,
+        postOrder: (siteUrl, topicId) {
+          final visible = visibleTopicContext;
+          return _topicData.forSite(siteUrl).usesReader(topicId) &&
+                  visible?.siteUrl == siteUrl &&
+                  visible?.topicId == topicId
+              ? visible!.postIds
+              : store.read<TopicDetail>(siteUrl, topicId)?.stream ?? const [];
+        },
       );
 
   bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
@@ -7179,8 +7289,8 @@ class ShellController extends FrameSafeNotifier
     return instance?.isConnected == true &&
         instance?.user?.canChangePostOwner == true &&
         topic != null &&
-        topic.stream.contains(post.id) &&
-        store.read<Post>(instance!.url, post.id) != null;
+        topicContainsPost(instance!.url, topic.id, post.id) &&
+        store.read<Post>(instance.url, post.id) != null;
   }
 
   TopicPostOwnerTarget captureTopicPostOwnerTarget({
@@ -7360,7 +7470,7 @@ class ShellController extends FrameSafeNotifier
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     return _instanceAt(siteUrl)?.isConnected == true &&
         topic?.canEditStaffNotes == true &&
-        topic!.stream.contains(postId) &&
+        topicContainsPost(siteUrl, topic!.id, postId) &&
         store.read<Post>(siteUrl, postId) != null;
   }
 
@@ -8215,7 +8325,7 @@ class ShellController extends FrameSafeNotifier
         return (valid: topic != null, data: topic?.plugins ?? PluginData.none);
       case 'post':
         final topic = store.read<TopicDetail>(siteUrl, target.topicId);
-        if (topic == null || !topic.stream.contains(target.id)) {
+        if (topic == null || !topicContainsPost(siteUrl, topic.id, target.id)) {
           return (valid: false, data: PluginData.none);
         }
         final post = store.read<Post>(siteUrl, target.id);
@@ -9364,6 +9474,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    unawaited(_readerEvents.close());
     _composerOpening.dispose();
     _existingTopicOpening.dispose();
     _instanceRail.retire();
@@ -10245,4 +10356,323 @@ final class _ShellExistingTopicOpeningEditors
   @override
   bool owns(ComposerController composer) =>
       _shell._composerRegistry.owns(composer);
+}
+
+final class _ShellTopicReader extends ChangeNotifier
+    implements PluginTopicReader {
+  _ShellTopicReader(this._shell, this._context, this.route, {this.onClose}) {
+    _shell.addListener(_changed);
+  }
+
+  final ShellController _shell;
+  final ShellTabContext _context;
+  final VoidCallback? onClose;
+  final Object _visibleOwner = Object();
+  bool _closed = false;
+
+  @override
+  final ContentRoute route;
+  @override
+  String get siteUrl => _context.siteUrl!;
+  @override
+  String get tabId => _context.tabId!;
+  @override
+  int get topicId => route.topicId!;
+  @override
+  bool get isCurrent =>
+      !_closed &&
+      _context.isCurrent &&
+      _context.currentContent?.topicId == topicId &&
+      _context.currentContent?.postNumber == route.postNumber &&
+      _context.currentContent?.topicQuery == route.topicQuery;
+  @override
+  bool get foreground =>
+      isCurrent &&
+      _shell._foreground &&
+      _shell.forumActive &&
+      _shell.isTabVisible(tabId);
+  @override
+  bool get isConnected =>
+      isCurrent && _shell._instanceAt(siteUrl)?.isConnected == true;
+  @override
+  TopicDetail? get topic =>
+      isCurrent ? _shell.store.read<TopicDetail>(siteUrl, topicId) : null;
+  @override
+  int? get currentUserId =>
+      isCurrent ? _shell.currentUserFor(siteUrl)?.id : null;
+  @override
+  bool get currentUserStaff =>
+      isCurrent && _shell.freshCurrentUserFor(siteUrl)?.staff == true;
+  @override
+  DiscourseModelCodec get models => _shell.api.models;
+  @override
+  Post? post(int postId) =>
+      isCurrent &&
+          _shell._topicData.forSite(siteUrl).containsPost(topicId, postId)
+      ? _shell.store.read<Post>(siteUrl, postId)
+      : null;
+
+  @override
+  Future<AcceptedTopicContent<T>?> ingest<T>(
+    Future<TopicContentResult<T>> Function(PluginRequestCredentials request)
+    read,
+  ) async {
+    if (!isCurrent) return null;
+    final data = _shell._topicData.forLease(siteUrl, _context.lease!);
+    if (data == null) return null;
+    final accepted = await data.ingestReaderContent(topicId, () async {
+      final credential = await AccountRequestSession(
+        siteUrl,
+        _context.lease!,
+      ).credentials(_shell.credentials);
+      if (!isCurrent) throw StateError('Reader was retired.');
+      return credential.run(
+        () => read(
+          PluginRequestCredentials(
+            apiKey: credential.apiKey,
+            clientId: credential.clientId,
+          ),
+        ),
+      );
+    }, sourceCurrent: () => isCurrent);
+    if (isCurrent && accepted != null) _shell._syncTopicChannels();
+    return isCurrent ? accepted : null;
+  }
+
+  @override
+  void reply({int? parentPostNumber, String? username}) {
+    if (!foreground) return;
+    _context.openReply(
+      replyToPostNumber: parentPostNumber,
+      replyToUsername: username,
+    );
+  }
+
+  @override
+  void edit(int postId) {
+    final selected = post(postId);
+    if (foreground && selected?.canEdit == true) {
+      _shell.openEdit(selected!, context: _context);
+    }
+  }
+
+  @override
+  void navigate({int? postNumber, String? query, bool replace = false}) {
+    if (!foreground) return;
+    final destination = ContentRoute.topic(
+      topicId: topicId,
+      slug: route.slug ?? '',
+      title: topic?.displayTitle ?? route.title,
+      postNumber: postNumber,
+      query: query,
+    );
+    if (_shell.activeTabId == tabId) {
+      if (replace) {
+        _shell.replaceCurrentContent(destination);
+      } else {
+        _shell.pushContent(destination);
+      }
+    } else {
+      final tab = _context.tab;
+      if (tab == null) return;
+      _shell._workspace.replaceTab(
+        siteUrl,
+        replace
+            ? tab.navigate(
+                contentStack: [
+                  ...tab.contentStack.take(tab.contentStack.length - 1),
+                  destination,
+                ],
+              )
+            : tab.push(destination),
+      );
+      _shell._syncTopicChannels();
+      _shell._notify();
+    }
+    if (!_context.lease!.isCurrent) return;
+    unawaited(
+      _shell
+          .tabContext(tabId)
+          .loadTopic(topicId, destination.slug ?? '', postNumber: postNumber),
+    );
+  }
+
+  @override
+  Future<void> observeVisible(Iterable<int> postNumbers) async {
+    if (!foreground || !isConnected) return;
+    final known = _shell._topicData.forSite(siteUrl).readerPostIds(topicId);
+    final allowed = {
+      for (final id in known)
+        if (_shell.store.read<Post>(siteUrl, id) case final post?
+            when !post.contentRedacted)
+          post.postNumber,
+    };
+    final visible = postNumbers.where(allowed.contains).toSet();
+    if (visible.isEmpty) return;
+    final highest = visible.reduce(math.max);
+    await _shell.markTopicRead(
+      siteUrl,
+      topicId,
+      highest,
+      caughtUp: false,
+      readPostNumbers: visible,
+    );
+  }
+
+  @override
+  Future<void> reconcileVisit() async {
+    for (final delay in const [
+      Duration.zero,
+      Duration(milliseconds: 150),
+      Duration(milliseconds: 500),
+    ]) {
+      if (delay != Duration.zero) await Future<void>.delayed(delay);
+      if (!foreground || !isConnected) return;
+      _shell._liveSessions.resyncTracking(siteUrl);
+      await _shell.loadNotifications(siteUrl);
+      if (!foreground) return;
+      final source = _context.topicListContent;
+      if (source != null && !source.isTopic) {
+        await _context.loadFeed(source.id, force: true);
+      }
+      if (!foreground) return;
+      if (_shell.store
+              .read<Topic>(siteUrl, topicId)
+              ?.readingPolicy
+              .explicitReadState ==
+          true) {
+        return;
+      }
+    }
+  }
+
+  @override
+  Future<void> refreshMetadata() async {
+    if (!isCurrent) return;
+    await _shell._topicData
+        .forLease(siteUrl, _context.lease!)
+        ?.refresh(topicId, slug: route.slug ?? '');
+  }
+
+  @override
+  void setVisiblePostIds(Iterable<int> postIds) {
+    if (foreground) {
+      _shell.updateVisibleTopicContext(
+        owner: _visibleOwner,
+        siteUrl: siteUrl,
+        topicId: topicId,
+        postIds: postIds.where((id) => post(id) != null),
+      );
+    }
+  }
+
+  @override
+  Stream<Object?> get topicEvents => _shell._readerEvents.stream
+      .where(
+        (event) =>
+            isCurrent &&
+            event.siteUrl == siteUrl &&
+            identical(event.account, _context.lease!.session) &&
+            event.topicId == topicId,
+      )
+      .map((event) => event.data);
+
+  void _changed() {
+    if (!_closed) notifyListeners();
+  }
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    _shell.removeListener(_changed);
+    _shell.clearVisibleTopicContext(_visibleOwner);
+    onClose?.call();
+    dispose();
+  }
+}
+
+final class _ShellPluginTopicRecordsHost implements PluginTopicRecordsHost {
+  _ShellPluginTopicRecordsHost(this._shell, this._owner);
+  final ShellController _shell;
+  final PluginId _owner;
+  bool _active = true;
+  void retire() => _active = false;
+  @override
+  late final Listenable changes = Listenable.merge([_shell]);
+
+  @override
+  void invalidate(String siteUrl, PluginSiteLease originalLease) {
+    if (!_active ||
+        originalLease is! _ShellPluginSiteLease ||
+        !originalLease.isCurrent) {
+      return;
+    }
+    final lease = originalLease.value;
+    final data = _shell._topicData.forLease(siteUrl, lease);
+    if (data == null) return;
+    var changed = false;
+    for (final row in _shell.store.readMatching<Topic>(siteUrl, (_) => true)) {
+      if (!_active || !lease.isCurrent) return;
+      final next = row.plugins.withoutOwner(_owner.value);
+      if (identical(next, row.plugins)) continue;
+      _shell.store.update<Topic>(
+        siteUrl,
+        row.id,
+        (held) => held.withPlugins(next),
+      );
+      changed = true;
+    }
+    for (final detail in _shell.store.readMatching<TopicDetail>(
+      siteUrl,
+      (_) => true,
+    )) {
+      if (!_active || !lease.isCurrent) return;
+      final next = detail.plugins.withoutOwner(_owner.value);
+      if (identical(next, detail.plugins)) continue;
+      _shell.store.update<TopicDetail>(
+        siteUrl,
+        detail.id,
+        (held) => held.withPlugins(next),
+      );
+      changed = true;
+    }
+    if (changed && lease.isCurrent) _shell._notify();
+  }
+}
+
+final class _ShellTopicReaderHost implements PluginTopicReaderHost {
+  _ShellTopicReaderHost(this._shell);
+  final ShellController _shell;
+  bool _active = true;
+  final Set<PluginTopicReader> _handles = {};
+  void retire() {
+    _active = false;
+    for (final handle in _handles.toList()) {
+      handle.close();
+    }
+    _handles.clear();
+  }
+
+  @override
+  PluginTopicReader? forVisibleTopic(String siteUrl, int topicId) {
+    final context = _shell.focusedTabContext;
+    final route = context.currentContent;
+    if (!_active ||
+        !context.isCurrent ||
+        context.siteUrl != siteUrl ||
+        route?.topicId != topicId ||
+        !_shell.forumActive) {
+      return null;
+    }
+    late final PluginTopicReader handle;
+    handle = _ShellTopicReader(
+      _shell,
+      context,
+      route!,
+      onClose: () => _handles.remove(handle),
+    );
+    _handles.add(handle);
+    return handle;
+  }
 }

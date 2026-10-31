@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/topic_reading_policy_fixture.dart';
 
 const siteUrl = 'https://meta.discourse.org';
 
@@ -420,7 +421,7 @@ void main() {
       expect(parsed(lastRead: null, highest: 10).lastUnreadPostNumber, 1);
     });
 
-    test('topic lists preserve core topic-row state semantics', () {
+    test('core-only topic rows ignore unregistered reader fields', () {
       final topics = TopicList.fromJson(const {
         'topic_list': {
           'topics': [
@@ -454,10 +455,10 @@ void main() {
 
       final nested = topics.last;
       expect(nested.visited, isTrue);
-      expect(nested.showUnreadCount, isFalse);
-      expect(nested.showNewTopicDot, isFalse);
-      expect(nested.showNewRepliesDot, isTrue);
-      expect(nested.lastUnreadPostNumber, isNull);
+      expect(nested.showUnreadCount, isTrue);
+      expect(nested.showNewTopicDot, isTrue);
+      expect(nested.showNewRepliesDot, isFalse);
+      expect(nested.lastUnreadPostNumber, 5);
     });
 
     test('topic parsers retain only the first five resolved posters', () {
@@ -747,19 +748,17 @@ void main() {
       expect(read.tags, topic.tags);
     });
 
-    test('marking a nested topic read clears its new-replies signal', () {
-      const topic = Topic(
+    test('marking an activity topic read clears its activity signal', () {
+      final topic = Topic(
         id: 7,
         title: 'A topic',
         slug: 'a-topic',
-        isNestedView: true,
-        hasNewReplies: true,
+        plugins: activityTopicData(),
         highestPostNumber: 2,
       );
 
       final read = topic.copyWith(markRead: true);
 
-      expect(read.hasNewReplies, isFalse);
       expect(read.showNewRepliesDot, isFalse);
       expect(read.visited, isTrue);
     });

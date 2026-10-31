@@ -84,6 +84,7 @@ import 'examples/tabs_examples.dart';
 import 'examples/taxonomy_selector_examples.dart';
 import 'examples/text_revision_preview_examples.dart';
 import 'examples/textarea_examples.dart';
+import 'examples/thread_examples.dart';
 import 'examples/thread_writing_examples.dart';
 import 'examples/toast_examples.dart';
 import 'examples/toggle_examples.dart';
@@ -122,6 +123,7 @@ final componentExamples = <String, ComponentExamples>{
   'tag-selector': tagSelectorExamples,
   'date-picker': datePickerExamples,
   'alphabet-index': alphabetIndexExamples,
+  'thread': threadExamples,
   'thread-writing': threadWritingExamples,
   'accordion': accordionExamples,
   'alert': alertExamples,

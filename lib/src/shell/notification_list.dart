@@ -513,6 +513,9 @@ class _PluginNotificationsSectionState
           PluginRegistryScope.maybeOf(context);
       Widget row(DiscourseNotification notification) {
         final resolved =
+            PluginScope.maybeOf(
+              context,
+            )?.resolveNotification(widget.siteUrl, notification) ??
             registry?.resolveNotification(widget.siteUrl, notification) ??
             resolveCoreNotification(widget.siteUrl, notification);
         return NotificationRow(
@@ -673,7 +676,8 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         }
 
         Widget row(DiscourseNotification notification) {
-          final resolved = controller.plugins.registry.resolveNotification(
+          final resolved = controller.pluginSession.resolveNotification(
+            controller.plugins.registry,
             widget.siteUrl,
             notification,
           );

@@ -21,11 +21,11 @@ import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../plugin_api/topic_reader.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
-import 'composer/presentation.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'forum_theme_surfaces.dart';
@@ -56,6 +56,7 @@ import 'title_bar.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
 import 'topic_change_owner.dart';
+import 'topic_corner_controls.dart';
 import 'topic_inbox_header.dart';
 import 'topic_list_view.dart';
 import 'topic_more_topics_panel.dart';
@@ -113,6 +114,53 @@ class TopicView extends StatefulWidget {
 
   @override
   State<TopicView> createState() => _TopicViewState();
+}
+
+class TopicPostPresentation extends StatelessWidget {
+  const TopicPostPresentation({
+    super.key,
+    required this.siteUrl,
+    required this.topicId,
+    required this.postId,
+    this.layout = TopicPostLayout.standard,
+    this.leading,
+    this.bodyLeading,
+    this.footerLeading,
+  });
+
+  final String siteUrl;
+  final int topicId;
+  final int postId;
+  final TopicPostLayout layout;
+  final Widget? leading;
+  final Widget? bodyLeading;
+  final Widget? footerLeading;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<int>(
+    select: (controller) => controller.siteConfigFor(siteUrl).readTimeWordCount,
+    builder: (context, readTimeWordCount, _) =>
+        ValueListenableBuilder<TopicDetail?>(
+          valueListenable: ShellScope.identityOf(
+            context,
+          ).store.ref<TopicDetail>(siteUrl, topicId),
+          builder: (context, topic, _) => topic == null
+              ? const SizedBox.shrink()
+              : _StoredPost(
+                  siteUrl: siteUrl,
+                  topic: topic,
+                  postId: postId,
+                  layout: layout,
+                  leading: leading,
+                  bodyLeading: bodyLeading,
+                  footerLeading: footerLeading,
+                  summary: false,
+                  summaryLoading: false,
+                  readTimeWordCount: readTimeWordCount,
+                  keyboardSelection: const AlwaysStoppedAnimation<int?>(null),
+                ),
+        ),
+  );
 }
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
@@ -1727,7 +1775,7 @@ class _TopicViewState extends State<TopicView>
     if (lastRead != null &&
         lastRead > 0 &&
         !snapshot.summary &&
-        !snapshot.topic!.isNestedView) {
+        snapshot.topic!.readingPolicy.showsUnreadBoundary) {
       final currentUser = controller.currentUserFor(siteUrl);
       var readThrough = lastRead;
       for (var index = 0; index < postIds.length; index++) {
@@ -2045,47 +2093,8 @@ class _TopicViewState extends State<TopicView>
         overlays: [
           _buildFloatingDayOverlay(readingLane.padding, header),
           if (controller.mobileNavigationEnabled || !context.isTouch)
-            ValueListenableBuilder<double>(
-              valueListenable: controller.mobileNavigationEnabled
-                  ? DScrollChrome.maybeOf(context) ??
-                        const AlwaysStoppedAnimation<double>(0)
-                  : const AlwaysStoppedAnimation<double>(0),
-              builder: (context, hiddenFraction, child) {
-                final geometry = DMobileDockGeometry.of(context);
-                // A returning reader builds before the dock is measured. Use
-                // its kit geometry so the first frame has the final clearance.
-                final dock = controller.mobileNavigationEnabled
-                    ? geometry.footerExtent +
-                          ComposerDock.parkedDraftRoomOf(context)
-                    : 0.0;
-                final folded = dock > 0 && hiddenFraction >= .5;
-                final height = TopicProgressButton.floatingHeightOf(context);
-                final corner = geometry.cornerAt(height);
-                final foldedBottom =
-                    geometry.cornerAt(geometry.circle) +
-                    (geometry.circle - height) / 2;
-                final duration = DMotion.duration(
-                  context,
-                  const Duration(milliseconds: 420),
-                );
-                const curve = Cubic(.32, .72, 0, 1);
-                // Content keeps the open bar's clearance. Folded, the control
-                // settles beside the bar's circle with their centres aligned,
-                // on the bar's curve and time. The band slides without
-                // changing width, so the control is not
-                // laid out again each frame and keeps its painted label.
-                return AnimatedPositionedDirectional(
-                  start: folded ? 2 * DSpacing.sm - corner : DSpacing.sm,
-                  end: folded ? corner : DSpacing.sm,
-                  bottom: folded ? foldedBottom : DSpacing.sm + dock,
-                  duration: duration,
-                  curve: curve,
-                  child: Align(
-                    alignment: AlignmentDirectional.bottomEnd,
-                    child: child,
-                  ),
-                );
-              },
+            TopicCornerControls(
+              height: TopicProgressButton.floatingHeightOf(context),
               child: TopicChromeVisibility(
                 covered: _topicControlsCovered,
                 child: RepaintBoundary(
@@ -4043,11 +4052,19 @@ class _StoredPost extends StatefulWidget {
     required this.summaryLoading,
     required this.readTimeWordCount,
     required this.keyboardSelection,
+    this.layout = TopicPostLayout.standard,
+    this.leading,
+    this.bodyLeading,
+    this.footerLeading,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final int postId;
+  final TopicPostLayout layout;
+  final Widget? leading;
+  final Widget? bodyLeading;
+  final Widget? footerLeading;
   final bool summary;
   final bool summaryLoading;
   final int readTimeWordCount;
@@ -4064,6 +4081,10 @@ class _StoredPost extends StatefulWidget {
     summaryLoading,
     readTimeWordCount,
     keyboardSelection,
+    layout,
+    leading,
+    bodyLeading,
+    footerLeading,
   );
 }
 
@@ -4106,7 +4127,8 @@ class _StoredPostState extends State<_StoredPost> {
             PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
         final isSmallAction =
             post.isSmallAction || registry.isSmallAction(post);
-        final content = isSmallAction
+        final content =
+            isSmallAction && widget.layout == TopicPostLayout.standard
             ? PostActions(
                 siteUrl: siteUrl,
                 post: post,
@@ -4115,8 +4137,17 @@ class _StoredPostState extends State<_StoredPost> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PostTile(siteUrl: siteUrl, topic: topic, post: post),
-                  if (post.postNumber == 1)
+                  _PostTile(
+                    siteUrl: siteUrl,
+                    topic: topic,
+                    post: post,
+                    layout: widget.layout,
+                    leading: widget.leading,
+                    bodyLeading: widget.bodyLeading,
+                    footerLeading: widget.footerLeading,
+                  ),
+                  if (post.postNumber == 1 &&
+                      widget.layout == TopicPostLayout.standard)
                     _TopicMap(
                       siteUrl: siteUrl,
                       topic: topic,
@@ -4148,17 +4179,32 @@ class _StoredPostState extends State<_StoredPost> {
                   const Duration(milliseconds: 180),
                 ),
                 curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  color: highlighted
-                      ? primary.withValues(alpha: 0.10)
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: highlighted
-                        ? primary.withValues(alpha: 0.28)
-                        : Colors.transparent,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: widget.layout == TopicPostLayout.standard
+                    ? BoxDecoration(
+                        color: highlighted
+                            ? primary.withValues(alpha: 0.10)
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: highlighted
+                              ? primary.withValues(alpha: 0.28)
+                              : Colors.transparent,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      )
+                    : null,
+                foregroundDecoration: widget.layout != TopicPostLayout.standard
+                    ? BoxDecoration(
+                        color: highlighted
+                            ? primary.withValues(alpha: 0.10)
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: highlighted
+                              ? primary.withValues(alpha: 0.28)
+                              : Colors.transparent,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      )
+                    : null,
                 child: content,
               );
             },
@@ -4174,11 +4220,19 @@ class _PostTile extends StatefulWidget {
     required this.siteUrl,
     required this.topic,
     required this.post,
+    this.layout = TopicPostLayout.standard,
+    this.leading,
+    this.bodyLeading,
+    this.footerLeading,
   });
 
   final String siteUrl;
   final TopicDetail topic;
   final Post post;
+  final TopicPostLayout layout;
+  final Widget? leading;
+  final Widget? bodyLeading;
+  final Widget? footerLeading;
 
   @override
   State<_PostTile> createState() => _PostTileState();
@@ -4257,158 +4311,186 @@ class _PostTileState extends State<_PostTile> {
       ),
     );
 
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final header = Row(
       children: [
-        Row(
-          children: [
-            if (!context.isTouch) ...[
-              // The avatar lives in the full-height gutter. Keep selection
-              // controls beside the author so they cannot occupy that gutter.
-              const SizedBox.square(dimension: 32),
-              const SizedBox(width: 10),
-            ],
-            if (selection.enabled) ...[
-              DCheckbox(
-                key: ValueKey('topic-post-select-${post.id}'),
-                semanticLabel: context.l10n.selectPostBy(
-                  (post.username).toString(),
-                ),
-                value: selection.selected,
-                onChanged: selection.busy
-                    ? null
-                    : (_) => ShellScope.read(context).toggleTopicPostSelected(
-                        widget.siteUrl,
-                        widget.topic.id,
-                        post.id,
-                      ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            if (context.isTouch) ...[avatar, const SizedBox(width: 10)],
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: UserCardTarget(
-                      username: post.username,
-                      siteUrl: widget.siteUrl,
-                      child: Text(
-                        post.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  UserStatusMessage(
-                    siteUrl: widget.siteUrl,
-                    userId: post.userId,
-                    status: post.userStatus,
-                    size: 15,
-                    leadingGap: 6,
-                  ),
-                  if (post.isStaff) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.staffChatmessagetile,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ] else if (post.userTitle case final title?) ...[
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (post.isDeleted) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.deletedTopicview,
-                      color: theme.colorScheme.error,
-                    ),
-                  ],
-                  if (post.wiki) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.wikiTopicview,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ],
-                  if (post.locked) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.locked,
-                      color: theme.colorScheme.secondary,
-                    ),
-                  ],
-                  if (post.hidden) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.hiddenTopicview,
-                      color: theme.colorScheme.error,
-                    ),
-                  ],
-                  if (post.isModeratorAction) ...[
-                    const SizedBox(width: 6),
-                    _Tag(
-                      label: context.l10n.moderatorTopicview,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ],
-                ],
-              ),
+        if (widget.layout == TopicPostLayout.standard && !context.isTouch) ...[
+          // The avatar lives in the full-height gutter. Keep selection
+          // controls beside the author so they cannot occupy that gutter.
+          const SizedBox.square(dimension: 32),
+          const SizedBox(width: 10),
+        ],
+        if (widget.layout != TopicPostLayout.standard) ...[
+          SizedBox.square(
+            dimension: 32,
+            child: Center(child: widget.leading ?? avatar),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (selection.enabled) ...[
+          DCheckbox(
+            key: ValueKey('topic-post-select-${post.id}'),
+            semanticLabel: context.l10n.selectPostBy(
+              (post.username).toString(),
             ),
-            if (post.isWhisper) ...[
-              const SizedBox(width: 8),
-              DTooltip(
-                message: context.l10n.thisPostIsAPrivateWhisper,
-                child: DIcon(
-                  DIcons.farEyeSlash,
-                  size: 14,
-                  color: theme.discourse.whisper,
-                ),
-              ),
-              if (post.createdAt != null) const SizedBox(width: 8),
-            ],
-            if (post.editCount > 0) ...[
-              PostRevisionIndicator(post: post),
-              if (post.createdAt != null) const SizedBox(width: 4),
-            ],
-            if (post.createdAt case final createdAt?)
-              RelativeTimeText(
-                createdAt,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
-        ),
-        Padding(
-          padding: EdgeInsetsDirectional.only(start: context.isTouch ? 0 : 39),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            value: selection.selected,
+            onChanged: selection.busy
+                ? null
+                : (_) => ShellScope.read(context).toggleTopicPostSelected(
+                    widget.siteUrl,
+                    widget.topic.id,
+                    post.id,
+                  ),
+          ),
+          const SizedBox(width: 4),
+        ],
+        if (widget.layout == TopicPostLayout.standard && context.isTouch) ...[
+          widget.leading ?? avatar,
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: Row(
             children: [
-              const SizedBox(height: 10),
-              ShellSelector<int?>(
-                select: (controller) =>
-                    controller.currentUserFor(widget.siteUrl)?.id,
-                builder: (context, _, _) =>
-                    (PluginScope.maybeOf(context)?.registry ??
-                            PluginRegistry.empty)
-                        .transformPostBody(
-                          context,
-                          widget.siteUrl,
-                          post,
-                          topic: PluginContainingTopic(
+              Flexible(
+                child: UserCardTarget(
+                  username: post.username,
+                  siteUrl: widget.siteUrl,
+                  child: Text(
+                    post.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              UserStatusMessage(
+                siteUrl: widget.siteUrl,
+                userId: post.userId,
+                status: post.userStatus,
+                size: 15,
+                leadingGap: 6,
+              ),
+              if (post.isStaff) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.staffChatmessagetile,
+                  color: theme.colorScheme.primary,
+                ),
+              ] else if (post.userTitle case final title?) ...[
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+              if (post.isDeleted) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.deletedTopicview,
+                  color: theme.colorScheme.error,
+                ),
+              ],
+              if (post.wiki) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.wikiTopicview,
+                  color: theme.colorScheme.primary,
+                ),
+              ],
+              if (post.locked) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.locked,
+                  color: theme.colorScheme.secondary,
+                ),
+              ],
+              if (post.hidden) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.hiddenTopicview,
+                  color: theme.colorScheme.error,
+                ),
+              ],
+              if (post.isModeratorAction) ...[
+                const SizedBox(width: 6),
+                _Tag(
+                  label: context.l10n.moderatorTopicview,
+                  color: theme.colorScheme.primary,
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (post.isWhisper) ...[
+          const SizedBox(width: 8),
+          DTooltip(
+            message: context.l10n.thisPostIsAPrivateWhisper,
+            child: DIcon(
+              DIcons.farEyeSlash,
+              size: 14,
+              color: theme.discourse.whisper,
+            ),
+          ),
+          if (post.createdAt != null) const SizedBox(width: 8),
+        ],
+        if (post.editCount > 0) ...[
+          PostRevisionIndicator(post: post),
+          if (post.createdAt != null) const SizedBox(width: 4),
+        ],
+        if (post.createdAt case final createdAt?)
+          RelativeTimeText(
+            createdAt,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
+    final body = <Widget>[
+      ShellSelector<int?>(
+        select: (controller) => controller.currentUserFor(widget.siteUrl)?.id,
+        builder: (context, _, _) =>
+            (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+                .transformPostBody(
+                  context,
+                  widget.siteUrl,
+                  post,
+                  topic: PluginContainingTopic(
+                    id: widget.topic.id,
+                    slug:
+                        ForumTabScope.tabOf(context).currentContent?.slug ??
+                        'topic',
+                    archived: widget.topic.archived,
+                  ),
+                  builder: (context, displayedCooked) => PostTextSelection(
+                    siteUrl: widget.siteUrl,
+                    post: post,
+                    topicId: widget.topic.id,
+                    displayedCooked: displayedCooked,
+                    child: PostActions.reactOnDoubleTap(
+                      context,
+                      AnimatedOpacity(
+                        opacity: post.hidden || post.isDeleted ? .5 : 1,
+                        duration: DMotion.duration(context, DMotion.change),
+                        child: CookedHtml(
+                          html: displayedCooked,
+                          renderMode: const ProgressiveHtmlMode(),
+                          buildAsync:
+                              _bodyFollowsFrame ||
+                              CookedHtml.buildsAsynchronously(post.cooked),
+                          textStyle: theme.textTheme.bodyLarge?.copyWith(
+                            height: DiscourseTypography.lineHeightCooked,
+                          ),
+                          siteUrl: widget.siteUrl,
+                          post: post,
+                          containingTopic: PluginContainingTopic(
                             id: widget.topic.id,
                             slug:
                                 ForumTabScope.tabOf(
@@ -4417,57 +4499,34 @@ class _PostTileState extends State<_PostTile> {
                                 'topic',
                             archived: widget.topic.archived,
                           ),
-                          builder: (context, displayedCooked) =>
-                              PostTextSelection(
-                                siteUrl: widget.siteUrl,
-                                post: post,
-                                topicId: widget.topic.id,
-                                displayedCooked: displayedCooked,
-                                child: PostActions.reactOnDoubleTap(
-                                  context,
-                                  AnimatedOpacity(
-                                    opacity: post.hidden || post.isDeleted
-                                        ? .5
-                                        : 1,
-                                    duration: DMotion.duration(
-                                      context,
-                                      DMotion.change,
-                                    ),
-                                    child: CookedHtml(
-                                      html: displayedCooked,
-                                      renderMode: const ProgressiveHtmlMode(),
-                                      buildAsync:
-                                          _bodyFollowsFrame ||
-                                          CookedHtml.buildsAsynchronously(
-                                            post.cooked,
-                                          ),
-                                      textStyle: theme.textTheme.bodyLarge
-                                          ?.copyWith(
-                                            height: DiscourseTypography
-                                                .lineHeightCooked,
-                                          ),
-                                      siteUrl: widget.siteUrl,
-                                      post: post,
-                                      containingTopic: PluginContainingTopic(
-                                        id: widget.topic.id,
-                                        slug:
-                                            ForumTabScope.tabOf(
-                                              context,
-                                            ).currentContent?.slug ??
-                                            'topic',
-                                        archived: widget.topic.archived,
-                                      ),
-                                      mentionedUserStatuses:
-                                          post.mentionedUserStatuses,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          mentionedUserStatuses: post.mentionedUserStatuses,
                         ),
-              ),
-              ...(PluginScope.maybeOf(context)?.registry ??
-                      PluginRegistry.empty)
-                  .postDecorations(context, widget.siteUrl, widget.topic, post),
+                      ),
+                    ),
+                  ),
+                ),
+      ),
+      ...(PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
+          .postDecorations(context, widget.siteUrl, widget.topic, post),
+    ];
+    final compact = widget.layout != TopicPostLayout.standard;
+    if (widget.layout == TopicPostLayout.headerOnly) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: header,
+      );
+    }
+    final standardContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        header,
+        Padding(
+          padding: EdgeInsetsDirectional.only(start: context.isTouch ? 0 : 39),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              ...body,
               PostFooter(siteUrl: widget.siteUrl, post: post),
               if (post.inboundLinks.isNotEmpty)
                 _PostInboundLinks(
@@ -4482,7 +4541,83 @@ class _PostTileState extends State<_PostTile> {
       ],
     );
 
+    final content = compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [const SizedBox(height: 8), ...body],
+                    ),
+                  ),
+                  if (widget.bodyLeading case final leading?)
+                    PositionedDirectional(
+                      start: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 32,
+                      child: leading,
+                    ),
+                ],
+              ),
+              PostFooter(
+                siteUrl: widget.siteUrl,
+                post: post,
+                leading: widget.footerLeading,
+                contentIndent: 40,
+              ),
+              if (post.inboundLinks.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 40),
+                  child: _PostInboundLinks(
+                    siteUrl: widget.siteUrl,
+                    links: post.inboundLinks,
+                    expanded: _linksExpanded,
+                    onExpand: () => setState(() => _linksExpanded = true),
+                  ),
+                ),
+            ],
+          )
+        : standardContent;
+
+    final postContent = Padding(
+      padding: compact
+          ? const EdgeInsets.fromLTRB(16, 0, 16, 8)
+          : const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: compact || context.isTouch
+          ? content
+          : Stack(
+              children: [
+                content,
+                PositionedDirectional(
+                  start: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 32,
+                  child: DSticky(
+                    key: ValueKey('topic-sticky-avatar-${post.id}'),
+                    topOffset: 14,
+                    child: widget.leading ?? avatar,
+                  ),
+                ),
+              ],
+            ),
+    );
+
     final tile = PostNewsCard(
+      margin: compact
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
+      heading: compact
+          ? Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: header,
+            )
+          : null,
       siteUrl: widget.siteUrl,
       topicId: widget.topic.id,
       post: post,
@@ -4501,38 +4636,29 @@ class _PostTileState extends State<_PostTile> {
             notice: notice,
           ),
       ],
-      child: PostActions(
-        siteUrl: widget.siteUrl,
-        post: post,
-        persistent: true,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          child: context.isTouch
-              ? content
-              : Stack(
-                  children: [
-                    content,
-                    PositionedDirectional(
-                      start: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 32,
-                      child: DSticky(
-                        key: ValueKey('topic-sticky-avatar-${post.id}'),
-                        topOffset: 14,
-                        child: avatar,
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ),
+      child: compact
+          ? postContent
+          : PostActions(
+              siteUrl: widget.siteUrl,
+              post: post,
+              persistent: true,
+              child: postContent,
+            ),
     );
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: TopicView.minimumPostHeight),
-      child: tile,
-    );
+    return compact
+        ? PostActions(
+            siteUrl: widget.siteUrl,
+            post: post,
+            persistent: true,
+            child: tile,
+          )
+        : ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: TopicView.minimumPostHeight,
+            ),
+            child: tile,
+          );
   }
 }
 

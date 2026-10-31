@@ -76,6 +76,75 @@ void main() {
   });
 
   for (final dark in [false, true]) {
+    testWidgets(
+      'disclosure stays compact and contrasts with thread rails ($dark)',
+      (tester) async {
+        var changes = 0;
+        await mount(
+          tester,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DToggle.iconOnly(
+                density: DToggleDensity.disclosure,
+                icon: const Icon(Icons.remove),
+                selectedIcon: const Icon(Icons.add),
+                semanticLabel: 'Collapse reply',
+                onPressedChanged: (_) => changes++,
+              ),
+              const SizedBox(width: 32, height: 40, child: DThreadRail()),
+            ],
+          ),
+          theme: dark ? AppTheme.dark : AppTheme.light,
+        );
+        final toggle = find.byType(DToggle);
+        final artwork = find.descendant(
+          of: toggle,
+          matching: find.byType(AnimatedContainer),
+        );
+        final tokens = DTokens.of(tester.element(toggle));
+        BoxDecoration decoration() =>
+            tester.widget<AnimatedContainer>(artwork).decoration!
+                as BoxDecoration;
+        final rail = tester.widget<ColoredBox>(
+          find.descendant(
+            of: find.byType(DThreadRail),
+            matching: find.byType(ColoredBox),
+          ),
+        );
+        expect(tester.getSize(artwork), const Size(14, 14));
+        expect(tester.getSize(find.byIcon(Icons.remove)), const Size(10, 10));
+        expect(decoration().color, Colors.transparent);
+        expect(decoration().borderRadius, BorderRadius.circular(999));
+        expect(decoration().border!.top.color, tokens.foreground);
+        expect(decoration().border!.top.width, 1.5);
+        expect(rail.color, isNot(tokens.foreground));
+        expect(
+          (tokens.foreground.computeLuminance() -
+                  tokens.background.computeLuminance())
+              .abs(),
+          greaterThan(
+            (rail.color.computeLuminance() -
+                    tokens.background.computeLuminance())
+                .abs(),
+          ),
+        );
+        await tester.tap(toggle);
+        await tester.pump();
+        expect(changes, 1);
+        expect(find.byIcon(Icons.add), findsOneWidget);
+        expect(tester.getSize(artwork), const Size(14, 14));
+        expect(decoration().border!.top.color, tokens.foreground);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(changes, 2);
+        expect(find.byIcon(Icons.remove), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final dark in [false, true]) {
     testWidgets('chat reactions stay flat through interaction ($dark, flat)', (
       tester,
     ) async {
@@ -773,6 +842,7 @@ void main() {
   test('Toggle registers every frozen documented example', () {
     expect(componentExamples['toggle'], same(toggleExamples));
     expect(toggleExamples.examples.map((example) => example.title), [
+      'Disclosure',
       'Post reactions',
       'Reaction',
       'Chat reaction',

@@ -147,6 +147,7 @@ final class SiteLiveSessions {
   }
 
   void retryTracking(String siteUrl) => _sessions[siteUrl]?.retryTracking();
+  void resyncTracking(String siteUrl) => _sessions[siteUrl]?.resyncTracking();
   void clearRetry(String siteUrl) => _sessions[siteUrl]?.clearRetry();
 
   void accountChanged(String siteUrl, SiteLease lease) {

@@ -67,6 +67,140 @@ class AppLocalizationsEn extends AppLocalizations {
       'Use the illegal content reporting form for this site.';
 
   @override
+  String get nestedRepliesSettings => 'Nested replies';
+
+  @override
+  String get nestedRepliesEnabled => 'Use nested replies for this topic';
+
+  @override
+  String get nestedRepliesCategoryDefault =>
+      'Use nested replies for new topics in this category';
+
+  @override
+  String get nestedRepliesCategoryDefaultDescription =>
+      'This changes new topics. Existing topics change only when you convert them.';
+
+  @override
+  String get nestedRepliesConvertExisting => 'Convert existing topics';
+
+  @override
+  String nestedRepliesConvertConfirm(String categoryName) {
+    return 'Convert nondeleted regular topics directly in $categoryName to nested replies? Subcategories and topics already converted are excluded.';
+  }
+
+  @override
+  String nestedRepliesConversionComplete(int count) {
+    return 'Converted $count topics.';
+  }
+
+  @override
+  String get nestedRepliesActivity => 'Topic activity';
+
+  @override
+  String get nestedRepliesTopicCreated => 'Topic created';
+
+  @override
+  String get nestedRepliesModeUnavailable =>
+      'Nested replies settings are unavailable.';
+
+  @override
+  String get nestedRepliesMutationUncertain =>
+      'The server may have applied this change. Refresh the state before trying again.';
+
+  @override
+  String get nestedRepliesNoActivity => 'No topic activity to show.';
+
+  @override
+  String get nestedRepliesCouldNotLoad => 'Could not load replies. Try again.';
+
+  @override
+  String get nestedRepliesChangesSaved => 'Changes saved.';
+
+  @override
+  String get nestedRepliesAllReplies => 'All replies';
+
+  @override
+  String get nestedRepliesParentContext => 'View parent context';
+
+  @override
+  String get nestedRepliesContinueThread => 'Continue this thread';
+
+  @override
+  String get nestedRepliesCollapsePost => 'Collapse post';
+
+  @override
+  String get nestedRepliesExpandPost => 'Expand post';
+
+  @override
+  String get nestedRepliesLoadMore => 'Load more replies';
+
+  @override
+  String get nestedRepliesNewReplies => 'New replies';
+
+  @override
+  String get nestedRepliesIgnoredPost => 'Ignored post';
+
+  @override
+  String get nestedRepliesRevealIgnored => 'Show ignored post';
+
+  @override
+  String get nestedRepliesDeletedPost => 'Deleted post';
+
+  @override
+  String get nestedRepliesSortTop => 'Top';
+
+  @override
+  String get nestedRepliesSortHot => 'Hot';
+
+  @override
+  String get nestedRepliesSortNew => 'Newest';
+
+  @override
+  String get nestedRepliesSortOld => 'Oldest';
+
+  @override
+  String get nestedRepliesFullTopic => 'View full topic';
+
+  @override
+  String get nestedRepliesNoReplies => 'No replies yet.';
+
+  @override
+  String get nestedRepliesEarlierUnavailable =>
+      'Earlier replies are unavailable.';
+
+  @override
+  String get nestedRepliesOriginalPoster => 'Original poster';
+
+  @override
+  String nestedRepliesNotificationTopic(int count) {
+    return '$count new replies in this topic';
+  }
+
+  @override
+  String nestedRepliesNotificationPost(int count) {
+    return '$count new replies to your post';
+  }
+
+  @override
+  String get nestedRepliesPin => 'Pin reply';
+
+  @override
+  String get nestedRepliesUnpin => 'Unpin reply';
+
+  @override
+  String get nestedRepliesBulkSelect => 'Select topics';
+
+  @override
+  String get nestedRepliesBulkEnable => 'Enable nested replies';
+
+  @override
+  String get nestedRepliesBulkDisable => 'Disable nested replies';
+
+  @override
+  String get nestedRepliesBulkPartial =>
+      'Some selected topics could not be changed.';
+
+  @override
   String chatViewMore(int count) {
     return 'View $count more';
   }

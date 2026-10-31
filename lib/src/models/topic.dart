@@ -200,9 +200,7 @@ class Topic with Storable<Topic> {
     this.unreadPosts = 0,
     this.newPosts = 0,
     this.seen = true,
-    this.isNestedView = false,
     this.privateMessage = false,
-    this.hasNewReplies = false,
     this.listReadStateKnown = true,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
@@ -223,6 +221,7 @@ class Topic with Storable<Topic> {
     Map<int, String> usernamesByUserId = const {},
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
     bool listReadStateKnown = true,
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.list(),
   }) {
     final posters = <TopicPoster>[];
     final seenIds = <int>{};
@@ -277,9 +276,7 @@ class Topic with Storable<Topic> {
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
       seen: json['unseen'] != true,
-      isNestedView: json['is_nested_view'] == true,
       privateMessage: json['archetype'] == 'private_message',
-      hasNewReplies: json['has_new_replies'] == true,
       listReadStateKnown: listReadStateKnown,
       lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
       highestPostNumber: jsonInt(json['highest_post_number']),
@@ -293,7 +290,7 @@ class Topic with Storable<Topic> {
       muted:
           json['muted'] == true ||
           jsonIntOrNull(json['notification_level']) == 0,
-      plugins: extensions.readTopic(json, siteUrl),
+      plugins: extensions.readTopic(json, siteUrl, context: context),
     );
   }
 
@@ -326,6 +323,7 @@ class Topic with Storable<Topic> {
       avatarsByUsername: avatarsByUsername,
       usernamesByUserId: usernamesByUserId,
       extensions: extensions,
+      context: const TopicRecordDecodeContext.recommendation(),
     );
   }
 
@@ -365,11 +363,8 @@ class Topic with Storable<Topic> {
 
   final bool seen;
 
-  final bool isNestedView;
-
   final bool privateMessage;
 
-  final bool hasNewReplies;
   final bool listReadStateKnown;
 
   final int? lastReadPostNumber;
@@ -388,20 +383,21 @@ class Topic with Storable<Topic> {
 
   bool get hasUnread => unreadCount > 0;
 
-  bool get visited =>
-      lastReadPostNumber != null && lastReadPostNumber! >= highestPostNumber;
+  bool get visited => readingPolicy.usesPositionForCatchUp
+      ? lastReadPostNumber != null && lastReadPostNumber! >= highestPostNumber
+      : listReadStateKnown && readingPolicy.explicitReadState == true;
 
-  bool get showUnreadCount => !isNestedView && unreadCount > 0;
-  bool get showNewTopicDot => !isNestedView && !seen;
-  bool get showNewRepliesDot => isNestedView && hasNewReplies;
+  TopicReadingPolicy get readingPolicy => plugins.topicReadingPolicy;
+
+  bool get showUnreadCount => readingPolicy.showUnreadCount(unreadCount);
+  bool get showNewTopicDot => readingPolicy.showNewTopicDot(seen);
+  bool get showNewRepliesDot => readingPolicy.showsActivityDot;
 
   bool get hasUnseenActivity =>
-      !seen || (isNestedView ? hasNewReplies : hasUnread);
+      readingPolicy.hasUnseenActivity(seen: seen, unreadCount: unreadCount);
 
   int? get lastUnreadPostNumber {
-    // Nested topics route to the conversation root. A numbered URL would open
-    // them through the flat post-stream semantics core explicitly avoids.
-    if (isNestedView) return null;
+    if (!readingPolicy.allowsChronologicalResume) return null;
     if (highestPostNumber <= 0) return null;
     final next = (lastReadPostNumber ?? 0) + 1;
     return next > highestPostNumber ? highestPostNumber : next;
@@ -415,6 +411,7 @@ class Topic with Storable<Topic> {
   @override
   Topic merge(Topic incoming) {
     final merged = incoming.copyWith(
+      plugins: incoming.plugins.mergeTopicRecordsFrom(plugins),
       posterAvatars: incoming.posterAvatars.isEmpty ? posterAvatars : null,
       posters: incoming.posters.isEmpty ? posters : null,
     );
@@ -465,9 +462,7 @@ class Topic with Storable<Topic> {
     unreadPosts: markRead ? 0 : unreadPosts ?? this.unreadPosts,
     newPosts: markRead ? 0 : newPosts ?? this.newPosts,
     seen: markRead ? true : seen ?? this.seen,
-    isNestedView: isNestedView,
     privateMessage: privateMessage ?? this.privateMessage,
-    hasNewReplies: markRead ? false : hasNewReplies,
     listReadStateKnown: markRead || listReadStateKnown,
     lastReadPostNumber: markRead && this.highestPostNumber > 0
         ? this.highestPostNumber
@@ -479,7 +474,9 @@ class Topic with Storable<Topic> {
         : List.unmodifiable(posterAvatars),
     posters: posters == null ? this.posters : List.unmodifiable(posters),
     muted: muted,
-    plugins: plugins ?? this.plugins,
+    plugins: markRead
+        ? (plugins ?? this.plugins).markTopicRead()
+        : plugins ?? this.plugins,
   );
 
   Topic withPlugins(PluginData next) => Topic(
@@ -502,9 +499,7 @@ class Topic with Storable<Topic> {
     unreadPosts: unreadPosts,
     newPosts: newPosts,
     seen: seen,
-    isNestedView: isNestedView,
     privateMessage: privateMessage,
-    hasNewReplies: hasNewReplies,
     listReadStateKnown: listReadStateKnown,
     lastReadPostNumber: lastReadPostNumber,
     highestPostNumber: highestPostNumber,
@@ -512,7 +507,7 @@ class Topic with Storable<Topic> {
     posterAvatars: posterAvatars,
     posters: posters,
     muted: muted,
-    plugins: next,
+    plugins: next.mergeTopicRecordsFrom(plugins),
   );
 
   @override
@@ -538,9 +533,7 @@ class Topic with Storable<Topic> {
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
           other.seen == seen &&
-          other.isNestedView == isNestedView &&
           other.privateMessage == privateMessage &&
-          other.hasNewReplies == hasNewReplies &&
           other.listReadStateKnown == listReadStateKnown &&
           other.lastReadPostNumber == lastReadPostNumber &&
           other.highestPostNumber == highestPostNumber &&
@@ -571,9 +564,7 @@ class Topic with Storable<Topic> {
     unreadPosts,
     newPosts,
     seen,
-    isNestedView,
     privateMessage,
-    hasNewReplies,
     listReadStateKnown,
     lastReadPostNumber,
     highestPostNumber,

@@ -207,7 +207,8 @@ final class TopicTrackingAccount implements TopicTrackingAdmission {
     if (tracked.isSeen && !row.seen) row = row.copyWith(seen: true);
     final position = tracked.lastReadPostNumber;
     final held = row.lastReadPostNumber;
-    if (position != null &&
+    if (row.readingPolicy.usesPositionForCatchUp &&
+        position != null &&
         held != null &&
         position > held &&
         row.highestPostNumber > 0 &&

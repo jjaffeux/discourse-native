@@ -13,6 +13,7 @@ import 'platform.dart';
 import 'post_plain_text.dart';
 import 'shell_controller.dart';
 import 'stream_day_separator.dart';
+import 'topic_corner_controls.dart';
 
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
@@ -34,13 +35,7 @@ class TopicProgressButton extends StatelessWidget {
 
   /// The floating control's height, for whoever settles it into a corner.
   static double floatingHeightOf(BuildContext context) =>
-      DControlStyle.scaledHeight(
-        context.isTouch ? DButtonSize.floating : DButtonSize.chip,
-        context.isTouch
-            ? DReferenceTextScale.scalerOf(context)
-            : MediaQuery.textScalerOf(context),
-        context: context,
-      );
+      TopicCornerControls.heightOf(context);
 
   @override
   Widget build(BuildContext context) {
